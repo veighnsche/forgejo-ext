@@ -16,16 +16,18 @@ import (
 	"time"
 
 	auth_model "forgejo.org/models/auth"
+	"forgejo.org/models/db"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/optional"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
+	wiki_service "forgejo.org/services/wiki"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -208,21 +210,72 @@ func doRepoWikiGitOperationInner(t *testing.T, gitURL *url.URL, dstPath string, 
 }
 
 func Test_RepoWikiPages(t *testing.T) {
-	defer tests.PrepareTestEnv(t)()
-
-	url := "/user2/repo1/wiki/?action=_pages"
-	req := NewRequest(t, "GET", url)
-	resp := MakeRequest(t, req, http.StatusOK)
-
-	doc := NewHTMLParser(t, resp.Body)
-	expectedPagePaths := []string{
-		"Home", "Long-Page", "Page-With-Image", "Page-With-Spaced-Name", "Page-With-Unescaped-Special-Chars%3A-%281%29", "Unescaped-File", "XSS",
+	userName := "user1"
+	repoName := "some-repo"
+	repoPath := userName + "/" + repoName
+	wikiPath := "/" + repoPath + "/wiki/"
+	wikiPages := []struct {
+		createPath string
+		expectPath string
+	}{
+		{"Home", "Home"},
+		{"_Sidebar", "_Sidebar"},
+		{"small", "small"},
+		{"snake_scary", "snake_scary"},
+		{"ke-bab", "ke-bab"},
+		{"Spaced Page", "Spaced Page"},
+		{"Page%AllPages", "Page%AllPages"},
+		{"Cake/Lie", "Cake/Lie"},
 	}
-	doc.Find("tr").Each(func(i int, s *goquery.Selection) {
-		firstAnchor := s.Find("a").First()
-		href, _ := firstAnchor.Attr("href")
-		pagePath := strings.TrimPrefix(href, "/user2/repo1/wiki/")
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		// Prep
+		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: userName})
 
-		assert.Equal(t, expectedPagePaths[i], pagePath)
+		repo, _, f := tests.CreateDeclarativeRepoWithOptions(t, user, tests.DeclarativeRepoOptions{
+			Name:       optional.Some(repoName),
+			WikiBranch: optional.Some("master"),
+		})
+		defer f()
+		err := wiki_service.DeleteWikiPage(db.DefaultContext, user, repo, "Home")
+		require.NoError(t, err, "unable to clean wiki to be empty")
+
+		for _, page := range wikiPages {
+			err := wiki_service.AddWikiPage(
+				db.DefaultContext,
+				user,
+				repo,
+				wiki_service.WebPath(page.createPath),
+				"",
+				"",
+			)
+			require.NoError(t, err, "could't create wiki page")
+
+			// Test
+			req := NewRequest(t, "GET", wikiPath+"?action=_pages")
+			resp := MakeRequest(t, req, http.StatusOK)
+
+			doc := NewHTMLParser(t, resp.Body)
+			s := doc.Find("table.wiki-pages-list>tbody>tr>td").First()
+			anchor := s.Find("a").First()
+
+			text := anchor.Text()
+			assert.EqualValues(t, page.expectPath, text)
+
+			href, exists := anchor.Attr("href")
+			assert.True(t, exists)
+			href = strings.TrimPrefix(href, wikiPath)
+			href, err = url.PathUnescape(href)
+			require.NoError(t, err)
+			assert.EqualValues(t, page.expectPath, href)
+
+			// Cleanup
+			err = wiki_service.DeleteWikiPage(
+				db.DefaultContext,
+				user,
+				repo,
+				wiki_service.WebPath(page.expectPath),
+			)
+			require.NoError(t, err, "unable to cleanup page for next case")
+		}
 	})
 }
