@@ -151,6 +151,12 @@ func recordMigrationComplete(x *xorm.Engine, migration *Migration) error {
 func Migrate(x *xorm.Engine, freshDB bool) error {
 	resolveMigrations()
 
+	// TODO: calling setting.LoadSettings() during migration is unusual and may be fragile.
+	// This is needed to read REPO_INDEXER_DEFAULT_ENABLED and apply it to all existing repos.
+	// The maintainers should weigh in on whether this approach is acceptable or if the migration
+	// should hardcode the default and only affect new repos.
+	setting.LoadSettings()
+
 	// Set a new clean the default mapper to GonicMapper as that is the default for .
 	x.SetMapper(names.GonicMapper{})
 	if _, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true}, new(ForgejoMigration)); err != nil {

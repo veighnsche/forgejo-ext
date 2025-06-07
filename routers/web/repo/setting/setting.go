@@ -778,6 +778,17 @@ func SettingsPost(ctx *context.Context) {
 			repo.IsFsckEnabled = form.EnableHealthCheck
 		}
 
+		if repo.IsCodeIndexerEnabled != form.EnableRepoCodeIndexer {
+			repo.IsCodeIndexerEnabled = form.EnableRepoCodeIndexer
+			// Queue a (re)index if this value has changed - either to get the
+			// repository removed from the index (if we disabled the indexing
+			// for the repo) or to get it indexed (if we just enabled the
+			// indexing)
+			if setting.Indexer.RepoIndexerEnabled {
+				code.UpdateRepoIndexer(ctx.Repo.Repository)
+			}
+		}
+
 		if err := repo_service.UpdateRepository(ctx, repo, false); err != nil {
 			ctx.ServerError("UpdateRepository", err)
 			return

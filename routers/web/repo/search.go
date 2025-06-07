@@ -74,15 +74,15 @@ func Search(ctx *context.Context) {
 	}
 
 	ctx.Data["PageIsViewCode"] = true
-	ctx.Data["CodeIndexerDisabled"] = !setting.Indexer.RepoIndexerEnabled
-	if setting.Indexer.RepoIndexerEnabled {
+	ctx.Data["CodeIndexerDisabled"] = !(ctx.Repo.Repository.IsCodeIndexerEnabled && setting.Indexer.RepoIndexerEnabled)
+	if ctx.Repo.Repository.IsCodeIndexerEnabled && setting.Indexer.RepoIndexerEnabled {
 		ctx.Data["CodeSearchOptions"] = code_indexer.CodeSearchOptions
 	} else {
 		ctx.Data["CodeSearchOptions"] = git.GrepSearchOptions
 	}
 
 	if opts.Keyword == "" {
-		if setting.Indexer.RepoIndexerEnabled {
+		if ctx.Repo.Repository.IsCodeIndexerEnabled && setting.Indexer.RepoIndexerEnabled {
 			ctx.Data["CodeSearchMode"] = mode.ToIndexer().String()
 		} else {
 			ctx.Data["CodeSearchMode"] = mode.ToGitGrep().String()
@@ -99,7 +99,7 @@ func Search(ctx *context.Context) {
 	var total int
 	var searchResults []*code_indexer.Result
 	var searchResultLanguages []*code_indexer.SearchResultLanguages
-	if setting.Indexer.RepoIndexerEnabled {
+	if ctx.Repo.Repository.IsCodeIndexerEnabled && setting.Indexer.RepoIndexerEnabled {
 		m := mode.ToIndexer()
 		ctx.Data["CodeSearchMode"] = m.String()
 
