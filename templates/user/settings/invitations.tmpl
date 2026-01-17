@@ -1,0 +1,37 @@
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings invitations")}}
+<div class="user-setting-content">
+	<h4 class="ui top attached header">
+		{{ctx.Locale.Tr "settings.invitations"}}
+	</h4>
+	<!-- XXX l10n -->
+{{if eq .RegLeft 0}}
+	<p>Your invitation allowance of {{.param.RegCount}} users over {{.param.RegIntervalDays}} days has been used up.</p>
+	<p>You can contact an admin if you need to invite more users.</p>
+{{else}}
+
+	<p>You can invite {{.param.RegCount}} users over a rolling period of {{.param.RegIntervalDays}} days.</p>
+	<p>In the past {{.param.RegIntervalDays}} days, {{if eq .regUsed 0}}no{{else}}{{.regUsed}}{{end}} user{{if gt .regUsed 1}}s{{end}} {{if eq .regUsed 1}}has{{else}}have{{end}} registered using your invitations.</p>
+	<p>Therefor, <i>currently</i>, {{.regLeft}} user{{if gt .regLeft 1}}s{{end}} could use your invitation links.</p>
+	<p>Your current invitation link is valid until {{.exp}}</p>
+	<p>Please be considerate where to share it.</p>
+	<p>Your invitation link is: <a href="{{.URL}}"><tt>{{.URL}}</tt></a></p>
+
+	<h5>What it is</h5>
+
+	<p>This link is personalized for you, it contains your user name and all registrations using it will be logged as coming through you.</p>
+
+	<h5>DOs</h5>
+
+	Share this link with individuals
+	<ul>
+	<li>who you think should have an account on this server and</li>
+	<li>who you know and have already worked with.</li>
+	</ul>
+
+	<h5>DONTs</h5>
+
+	Please <b>DO NOT</b> post this link on public servers, mailing lists etc.
+
+{{end}}
+</div>
+{{template "user/settings/layout_footer" .}}

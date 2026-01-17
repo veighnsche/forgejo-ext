@@ -864,6 +864,10 @@ func registerRoutes(m *web.Route) {
 			m.Get("", user_setting.BlockedUsers)
 			m.Post("/unblock", user_setting.UnblockUser)
 		})
+		if setting.Service.InvitationOnly {
+			// XXX is this the right way to make this conditional?
+			m.Get("/invitations", user_setting.Invitations)
+		}
 		m.Get("/storage_overview", user_setting.StorageOverview)
 	}, reqSignIn, ctxDataSet("PageIsUserSettings", true, "EnablePackages", setting.Packages.Enabled, "EnableQuota", setting.Quota.Enabled))
 

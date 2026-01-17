@@ -87,3 +87,19 @@ func TestSignUpWithoutUsernamePrefix(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.NotContains(t, resp.Body.String(), "ui labeled input")
 }
+
+func TestSignUpInvitationOnlyNoJWT(t *testing.T) {
+	ctx, resp := contexttest.MockContext(t, "/user/sign_up",
+		contexttest.MockContextOption{Render: templates.HTMLRenderer()})
+	defer test.MockVariableValue(&setting.Service.InvitationOnly, true)()
+	SignUp(ctx)
+	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Contains(t, resp.Body.String(), ctx.Locale.Tr("auth.invite_only_register_prompt"))
+}
+
+func TestSignUpPostInvitationOnlyNoJWT(t *testing.T) {
+	ctx, resp := contexttest.MockContext(t, "/user/sign_up")
+	defer test.MockVariableValue(&setting.Service.InvitationOnly, true)()
+	SignUpPost(ctx)
+	assert.Equal(t, http.StatusForbidden, resp.Code)
+}

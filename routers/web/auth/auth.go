@@ -14,6 +14,7 @@ import (
 
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	"forgejo.org/models/invited"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/auth/password"
 	"forgejo.org/modules/base"
@@ -28,6 +29,7 @@ import (
 	"forgejo.org/modules/validation"
 	"forgejo.org/modules/web"
 	"forgejo.org/modules/web/middleware"
+	web_user_setting "forgejo.org/routers/web/user/setting"
 	auth_service "forgejo.org/services/auth"
 	auth_method "forgejo.org/services/auth/method"
 	"forgejo.org/services/auth/source/oauth2"
@@ -436,11 +438,60 @@ func SignOut(ctx *context.Context) {
 	ctx.Redirect(setting.AppSubURL + "/")
 }
 
+type invitationLogData struct {
+	inviterID int64
+	token     string
+}
+
+func invitationCheck(ctx *context.Context, invitationLogData *invitationLogData) error {
+	token := ctx.Req.URL.Query().Get("jwt")
+	if token == "" {
+		return fmt.Errorf("No token")
+	}
+	// XXX better place to put the claim?
+	claims := web_user_setting.InvitationClaims{}
+	_, err := setting.Invitation.Verifier.ParseWithClaims(token, &claims)
+	if err != nil {
+		return err
+	}
+	if claims.Audience[0] != ctx.Data["SignUpLink"].(string) {
+		return fmt.Errorf("Wrong audience claim")
+	}
+	used, err := invited.Since(ctx, claims.InviterID, int64(claims.RegIntervalSeconds))
+	if err != nil {
+		return err
+	}
+	if int64(claims.RegCount) <= used {
+		return fmt.Errorf("The person inviting you has used up their invitation allowance")
+	}
+
+	ctx.Data["SignUpLink"] = ctx.Data["SignUpLink"].(string) + "?jwt=" + token
+	if invitationLogData != nil {
+		invitationLogData.inviterID = claims.InviterID
+		invitationLogData.token = token
+	}
+	return nil
+}
+
+func invitationInvalid(ctx *context.Context, invitationLogData *invitationLogData) bool {
+	err := invitationCheck(ctx, invitationLogData)
+	if err == nil {
+		return false
+	}
+	ctx.Data["DisableRegistration"] = true
+	ctx.Data["DisableRegistrationReason"] = fmt.Sprintf("%s: %s",
+		ctx.Locale.Tr("auth.invite_only_register_prompt"), err)
+	return true
+}
+
 // check if registration is allowed and set Data for template
-func registrationDisabled(ctx *context.Context) bool {
+func registrationDisabled(ctx *context.Context, invitationLogData *invitationLogData) bool {
 	if setting.Service.DisableRegistration || setting.Service.AllowOnlyExternalRegistration {
 		ctx.Data["DisableRegistration"] = true
 		ctx.Data["DisableRegistrationReason"] = ctx.Locale.Tr("auth.disable_register_prompt")
+		return true
+	}
+	if setting.Service.InvitationOnly && invitationInvalid(ctx, invitationLogData) {
 		return true
 	}
 	return false
@@ -464,7 +515,7 @@ func SignUp(ctx *context.Context) {
 	ctx.Data["PageIsSignUp"] = true
 	ctx.Data["UsernamePrefix"] = setting.Service.UsernamePrefix
 
-	registrationDisabled(ctx)
+	registrationDisabled(ctx, nil)
 
 	redirectTo := ctx.FormString("redirect_to")
 	if len(redirectTo) > 0 {
@@ -474,17 +525,20 @@ func SignUp(ctx *context.Context) {
 	ctx.HTML(http.StatusOK, tplSignUp)
 }
 
+type createdUserCallback func(ctx *context.Context, u *user_model.User)
+
 // SignUpPost response for sign up information submission
 func SignUpPost(ctx *context.Context) {
-	if registrationDisabled(ctx) {
+	ctx.Data["Title"] = ctx.Tr("sign_up")
+	ctx.Data["SignUpLink"] = setting.AppSubURL + "/user/sign_up"
+
+	invitationLogData := invitationLogData{}
+	if registrationDisabled(ctx, &invitationLogData) {
 		ctx.Error(http.StatusForbidden)
 		return
 	}
 
 	form := web.GetForm(ctx).(*forms.RegisterForm)
-	ctx.Data["Title"] = ctx.Tr("sign_up")
-
-	ctx.Data["SignUpLink"] = setting.AppSubURL + "/user/sign_up"
 
 	oauth2Providers, err := oauth2.GetOAuth2Providers(ctx, optional.Some(true))
 	if err != nil {
@@ -542,13 +596,27 @@ func SignUpPost(ctx *context.Context) {
 		return
 	}
 
+	cbs := []createdUserCallback{}
+
+	if setting.Service.InvitationOnly {
+		if invitationLogData.token == "" {
+			panic("BUG: invitationLogData")
+		}
+		cbs = append(cbs, func(ctx *context.Context, u *user_model.User) {
+			err := invited.Log(ctx, invitationLogData.inviterID, u.ID, invitationLogData.token)
+			if err != nil {
+				ctx.ServerError("UserSignUp InvitationLogging", err)
+			}
+		})
+	}
+
 	u := &user_model.User{
 		Name:   form.UserName,
 		Email:  form.Email,
 		Passwd: form.Password,
 	}
 
-	if !createAndHandleCreatedUser(ctx, tplSignUp, form, u, nil, nil, false) {
+	if !createAndHandleCreatedUser(ctx, tplSignUp, form, u, nil, nil, false, cbs) {
 		// error already handled
 		return
 	}
@@ -559,9 +627,12 @@ func SignUpPost(ctx *context.Context) {
 
 // createAndHandleCreatedUser calls createUserInContext and
 // then handleUserCreated.
-func createAndHandleCreatedUser(ctx *context.Context, tpl base.TplName, form any, u *user_model.User, overwrites *user_model.CreateUserOverwriteOptions, gothUser *goth.User, allowLink bool) bool {
+func createAndHandleCreatedUser(ctx *context.Context, tpl base.TplName, form any, u *user_model.User, overwrites *user_model.CreateUserOverwriteOptions, gothUser *goth.User, allowLink bool, cbs []createdUserCallback) bool {
 	if !createUserInContext(ctx, tpl, form, u, overwrites, gothUser, allowLink) {
 		return false
+	}
+	for _, cb := range cbs {
+		cb(ctx, u)
 	}
 	return handleUserCreated(ctx, u, gothUser)
 }

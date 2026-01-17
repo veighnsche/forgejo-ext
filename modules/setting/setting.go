@@ -266,6 +266,7 @@ func LoadSettings() {
 	loadDBSetting(CfgProvider)
 	loadFederationFrom(CfgProvider)
 	loadServiceFrom(CfgProvider)
+	loadInvitationsFrom(CfgProvider)
 	loadOAuth2ClientFrom(CfgProvider)
 	loadCacheFrom(CfgProvider)
 	loadSessionFrom(CfgProvider)

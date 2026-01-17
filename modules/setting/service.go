@@ -42,6 +42,7 @@ var Service = struct {
 	EmailDomainBlockList                    []glob.Glob
 	EmailDomainBlockDisposable              bool
 	DisableRegistration                     bool
+	InvitationOnly                          bool // only for !DisableRegistration
 	AllowOnlyInternalRegistration           bool
 	AllowOnlyExternalRegistration           bool
 	ShowRegistrationButton                  bool
@@ -169,6 +170,7 @@ func loadServiceFrom(rootCfg ConfigProvider) {
 	Service.ActiveCodeLives = sec.Key("ACTIVE_CODE_LIVE_MINUTES").MustInt(180)
 	Service.ResetPwdCodeLives = sec.Key("RESET_PASSWD_CODE_LIVE_MINUTES").MustInt(180)
 	Service.DisableRegistration = sec.Key("DISABLE_REGISTRATION").MustBool()
+	Service.InvitationOnly = sec.Key("INVITATION_ONLY").MustBool()
 	Service.AllowOnlyInternalRegistration = sec.Key("ALLOW_ONLY_INTERNAL_REGISTRATION").MustBool()
 	Service.AllowOnlyExternalRegistration = sec.Key("ALLOW_ONLY_EXTERNAL_REGISTRATION").MustBool()
 	if Service.AllowOnlyExternalRegistration && Service.AllowOnlyInternalRegistration {

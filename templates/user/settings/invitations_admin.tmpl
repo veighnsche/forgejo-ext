@@ -1,0 +1,68 @@
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings invitations")}}
+<div class="user-setting-content">
+	<h4 class="ui top attached header">
+		{{ctx.Locale.Tr "settings.invitations"}}
+	</h4>
+	<!-- XXX l10n -->
+<p>As an administrator, you can issue invitation links with arbitrary limits and, optionally, in the name of other users.</p>
+<p>This is intended to help onboard groups of users who are handled by a trusted contact.</p>
+<p>As an administrator you will know what you are doing, but you are still advised to be considerate where and how you share the invitation link.</p>
+
+	<p>{{.err}}</p>
+
+<h5>Invitation token parameters</h5>
+<form class="ui form" method="get">
+	<div class="field{{.wrong.InviterName}}">
+		<label for="InviterName">Inviter Username</label>
+		<input id="InviterName" name="InviterName" type="string"
+			value="{{.param.InviterName}}">
+	</div>
+	<div class="field{{.wrong.RegCount}}">
+		<label for="RegCount">Number of registrations</label>
+		<input id="RegCount" name="RegCount" type="number" min="1"
+			value="{{.param.RegCount}}">
+	</div>
+	<div class="field{{.wrong.RegIntervalDays}}">
+		<label for="RegIntervalDays">within days</label>
+		<input id="RegIntervalDays" name="RegIntervalDays" type="number"
+			min="1" value="{{.param.RegIntervalDays}}">
+	</div>
+	<div class="field">
+		<label for="ExpVal{{.wrong.ExpVal}}">Expiration Time</label>
+		<input id="ExpVal" name="ExpVal" type="number" min="1"
+			value="{{.param.ExpVal}}">
+		<div class="ui selection dropdown{{.wrong.ExpUnit}}">
+			<input name="ExpUnit" type="hidden" value="{{.param.ExpUnit}}">
+			<div class="text">{{.param.ExpUnit}}</div>
+			<div class="menu">
+	<div class="item" data-value="seconds">seconds</div>
+	<div class="item" data-value="minutes">minutes</div>
+	<div class="item" data-value="hours">hours</div>
+	<div class="item" data-value="days">days</div>
+	<div class="item" data-value="weeks">weeks</div>
+	<div class="item" data-value="months">months</div>
+			</div>
+		</div>
+	</div>
+	<div class="field">
+		<button class="ui primary button">Submit</button>
+	</div>
+</form>
+
+{{if .showToken}}
+<h5>Invitation Link</b5>
+
+<ul>
+	<li>Inviter {{.param.InviterName}}
+	<li>has used {{.regUsed}} invitations in the past
+	{{.param.RegIntervalDays}} days
+	<li>therefor <i>currently</i> has {{.regLeft}} invitations left
+{{if gt .regLeft 0}}
+	<li>This link expires {{.exp}}<br>
+		<a href="{{.URL}}"><tt>{{.URL}}</tt></a>
+{{end}}
+</ul>
+{{end}}
+
+</div>
+{{template "user/settings/layout_footer" .}}

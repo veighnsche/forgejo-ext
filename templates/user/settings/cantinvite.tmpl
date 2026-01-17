@@ -1,0 +1,17 @@
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings invitations")}}
+<div class="user-setting-content">
+	<h4 class="ui top attached header">
+		{{ctx.Locale.Tr "settings.invitations"}}
+	</h4>
+	<!-- XXX l10n -->
+
+	<h5>Not possible</h5>
+
+	<p>You can not (yet) invite users for the following reason(s):</p>
+	<ul>
+{{- range .reasons}}
+	<li>{{.}}</li>
+{{- end}}
+	</ul>
+</div>
+{{template "user/settings/layout_footer" .}}

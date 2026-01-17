@@ -132,7 +132,6 @@ forgejo.org/modules/json
 forgejo.org/modules/jwtx
 	savePublicKey
 	NewVerifier
-	Verifier.Parse
 
 forgejo.org/modules/log
 	eventWriterBuffer.Close

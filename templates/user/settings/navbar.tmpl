@@ -63,6 +63,9 @@
 		<a class="{{if .PageIsBlockedUsers}}active {{end}}item" href="{{AppSubUrl}}/user/settings/blocked_users">
 			{{ctx.Locale.Tr "settings.blocked_users"}}
 		</a>
+		<a class="{{if .PageIsInvitations}}active {{end}}item" href="{{AppSubUrl}}/user/settings/invitations">
+			{{ctx.Locale.Tr "settings.invitations"}}
+		</a>
 	</div>
 </div>
 {{end}}

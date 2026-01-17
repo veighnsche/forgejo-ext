@@ -268,7 +268,7 @@ func LinkAccountPostRegister(ctx *context.Context) {
 		LoginName:   gothUser.UserID,
 	}
 
-	if !createAndHandleCreatedUser(ctx, tplLinkAccount, form, u, nil, &gothUser, false) {
+	if !createAndHandleCreatedUser(ctx, tplLinkAccount, form, u, nil, &gothUser, false, nil) {
 		// error already handled
 		return
 	}
