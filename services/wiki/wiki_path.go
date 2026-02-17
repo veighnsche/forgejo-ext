@@ -39,6 +39,11 @@ import (
 
 type WebPath string
 
+func (w WebPath) HTMLUnescape() WebPath {
+	ret, _ := url.PathUnescape(string(w))
+	return WebPath(util.PathJoinRelX(ret))
+}
+
 var reservedWikiNames = []string{"_pages", "_new", "_edit", "raw"}
 
 func validateWebPath(name WebPath) error {
@@ -97,10 +102,7 @@ func WebPathSegments(s WebPath) []string {
 }
 
 func WebPathToGitPath(s WebPath) string {
-	if strings.HasSuffix(string(s), ".md") {
-		ret, _ := url.PathUnescape(string(s))
-		return util.PathJoinRelX(ret)
-	}
+	s = s.HTMLUnescape()
 
 	a := strings.Split(string(s), "/")
 	for i := range a {
