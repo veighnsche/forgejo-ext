@@ -93,6 +93,7 @@ textarea {
 }
 
 pre,
+pre[lang],
 code,
 kbd,
 samp {
