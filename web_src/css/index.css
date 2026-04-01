@@ -49,6 +49,7 @@
 @import "./features/tribute.css";
 @import "./features/tom-select.css";
 @import "./features/console.css";
+@import "./features/servicemessage.css";
 
 @import "./markup/attention.css";
 @import "./markup/content.css";
