@@ -24,7 +24,12 @@ func SetConfirm(ctx *context.Context) {
 		return
 	}
 
-	ctx.Doer.SetConfirm(sm.Type, confirmed)
+	err = ctx.Doer.SetConfirm(sm.Type, confirmed)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError)
+		return
+	}
+
 	err = user_model.UpdateUserCols(ctx, ctx.Doer, "confirms")
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError)
