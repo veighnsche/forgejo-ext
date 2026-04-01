@@ -47,6 +47,6 @@ func TestCreateUpdateGetDeleteServiceMessage(t *testing.T) {
 	assert.Equal(t, sm2.Type, get.Type)
 
 	// Delete
-	err = DeleteServiceMessage(t.Context(), sm2.Type)
+	err = DeleteServiceMessage(t.Context(), &sm2)
 	require.NoError(t, err)
 }
