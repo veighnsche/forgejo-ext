@@ -16,5 +16,5 @@ func TestMarshalOpenWithApps(t *testing.T) {
 	marshalled, err := MarshalOpenWithApps(testStr)
 	require.NoError(t, err)
 
-	assert.Equal(t, `[{"DisplayName":"VSCodium","OpenURL":"vscode://vscode.git/clone?url={url}"}]`, marshalled)
+	assert.JSONEq(t, `[{"DisplayName":"VSCodium","OpenURL":"vscode://vscode.git/clone?url={url}"}]`, marshalled)
 }
