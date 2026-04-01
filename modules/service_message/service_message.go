@@ -1,0 +1,42 @@
+// Copyright 2026 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package service_message
+
+import (
+	"fmt"
+
+	"forgejo.org/modules/timeutil"
+	"forgejo.org/modules/util"
+)
+
+var (
+	ErrServiceMessageNotExist    = util.NewNotExistErrorf("remote registry does not exist")
+	ErrInvalidServiceMessageType = util.NewInvalidArgumentErrorf("service message type was invalid")
+)
+
+type SMType string
+
+const (
+	SMModal SMType = "modal"
+)
+
+func (s SMType) Name() string {
+	if s == SMModal {
+		return "modal"
+	}
+	panic(fmt.Sprintf("unknown Service Message Type: %s", string(s)))
+}
+
+func (s SMType) Valid() bool {
+	return SMType(s.Name()) == SMModal
+}
+
+// Holds: ServiceMessageType:[service_message_confirmed]
+type ConfirmTimestamps map[SMType][1]timeutil.TimeStamp
+
+type ServiceMessageOptions struct {
+	Title string
+	Text  string
+	Type  string
+}
