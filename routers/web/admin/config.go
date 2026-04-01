@@ -8,7 +8,6 @@ package admin
 import (
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	system_model "forgejo.org/models/system"
@@ -20,6 +19,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/setting/config"
 	"forgejo.org/modules/util"
+	"forgejo.org/services/admin_setting"
 	"forgejo.org/services/context"
 	"forgejo.org/services/mailer"
 
@@ -201,40 +201,10 @@ func ChangeConfig(ctx *context.Context) {
 	value := ctx.FormString("value")
 	cfg := setting.Config()
 
-	marshalBool := func(v string) (string, error) { //nolint:unparam
-		if b, _ := strconv.ParseBool(v); b {
-			return "true", nil
-		}
-		return "false", nil
-	}
-	marshalOpenWithApps := func(value string) (string, error) {
-		lines := strings.Split(value, "\n")
-		var openWithEditorApps setting.OpenWithEditorAppsType
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			displayName, openURL, ok := strings.Cut(line, "=")
-			displayName, openURL = strings.TrimSpace(displayName), strings.TrimSpace(openURL)
-			if !ok || displayName == "" || openURL == "" {
-				continue
-			}
-			openWithEditorApps = append(openWithEditorApps, setting.OpenWithEditorApp{
-				DisplayName: strings.TrimSpace(displayName),
-				OpenURL:     strings.TrimSpace(openURL),
-			})
-		}
-		b, err := json.Marshal(openWithEditorApps)
-		if err != nil {
-			return "", err
-		}
-		return string(b), nil
-	}
 	marshallers := map[string]func(string) (string, error){
-		cfg.Picture.DisableGravatar.DynKey():       marshalBool,
-		cfg.Picture.EnableFederatedAvatar.DynKey(): marshalBool,
-		cfg.Repository.OpenWithEditorApps.DynKey(): marshalOpenWithApps,
+		cfg.Picture.DisableGravatar.DynKey():       admin_setting.MarshalBool,
+		cfg.Picture.EnableFederatedAvatar.DynKey(): admin_setting.MarshalBool,
+		cfg.Repository.OpenWithEditorApps.DynKey(): admin_setting.MarshalOpenWithApps,
 	}
 	marshaller, hasMarshaller := marshallers[key]
 	if !hasMarshaller {
