@@ -14,11 +14,13 @@ import (
 
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	service_message_model "forgejo.org/models/service_message"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/auth/password/hash"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/optional"
+	service_message_module "forgejo.org/modules/service_message"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
@@ -1170,4 +1172,21 @@ func TestGetUserByEmailSimple(t *testing.T) {
 		require.ErrorIs(t, err, user_model.ErrUserNotExist{Name: "user1@noreply.example.org"})
 		assert.Nil(t, u)
 	})
+}
+
+func TestMustShowServiceMessage(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	u := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	updated := timeutil.TimeStampNow()
+	confirmed := timeutil.TimeStampNow().Add(1)
+	sm := service_message_model.ServiceMessage{
+		Type:        service_message_module.SMType("modal"),
+		UpdatedUnix: updated,
+	}
+	assert.True(t, u.MustShowServiceMessage(sm.Type, sm.UpdatedUnix))
+	u.SetConfirm(sm.Type, confirmed)
+	assert.False(t, u.MustShowServiceMessage(sm.Type, sm.UpdatedUnix))
+	sm.UpdatedUnix = timeutil.TimeStampNow().Add(15)
+	u.SetConfirm(sm.Type, confirmed)
+	assert.True(t, u.MustShowServiceMessage(sm.Type, sm.UpdatedUnix))
 }

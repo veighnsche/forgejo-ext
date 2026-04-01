@@ -32,6 +32,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
+	service_message "forgejo.org/modules/service_message"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/timeutil"
@@ -113,6 +114,7 @@ type User struct {
 	CreatedUnix   timeutil.TimeStamp `xorm:"INDEX created"`
 	UpdatedUnix   timeutil.TimeStamp `xorm:"INDEX updated"`
 	LastLoginUnix timeutil.TimeStamp `xorm:"INDEX"`
+	Confirms      service_message.ConfirmTimestamps
 
 	// Remember visibility choice for convenience, true for private
 	LastRepoVisibility bool
@@ -372,6 +374,25 @@ func (u *User) GenerateEmailAuthorizationCode(ctx context.Context, purpose auth.
 		return "", err
 	}
 	return lookup + ":" + validator, nil
+}
+
+// SetConfirm sets the Confirms field in the user struct
+func (u *User) SetConfirm(smType service_message.SMType, userTimestamp timeutil.TimeStamp) error {
+	if u.Confirms == nil {
+		confirm := make(map[service_message.SMType][1]timeutil.TimeStamp)
+		u.Confirms = confirm
+	}
+	u.Confirms[smType] = [1]timeutil.TimeStamp{userTimestamp}
+	return nil
+}
+
+// MustShowServiceMessage compares the creation time stamps and the confirm time stamps, returns true if confirm is out of date
+func (u *User) MustShowServiceMessage(smType service_message.SMType, smTimestamp timeutil.TimeStamp) bool {
+	if u.Confirms == nil {
+		return true
+	}
+	userConfirmed := u.Confirms[smType][0]
+	return smTimestamp > userConfirmed // is service message newer than user confirmation
 }
 
 // GetUserFollowers returns range of user's followers.
