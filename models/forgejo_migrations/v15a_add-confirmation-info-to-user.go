@@ -20,5 +20,6 @@ func addConfirmInfoToUser(x *xorm.Engine) error {
 		ID       int64 `xorm:"pk autoincr"`
 		Confirms service_message.ConfirmTimestamps
 	}
-	return x.Sync(&User{})
+	_, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true}, &User{})
+	return err
 }
