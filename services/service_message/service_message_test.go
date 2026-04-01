@@ -1,0 +1,30 @@
+// Copyright 2026 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package service_message
+
+import (
+	"testing"
+
+	service_message_module "forgejo.org/modules/service_message"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestNewServiceMessage(t *testing.T) {
+	opts := service_message_module.ServiceMessageOptions{
+		Type: "modal",
+		Text: "Some Text.",
+	}
+	sm, err := NewServiceMessage(&opts)
+	require.NoError(t, err)
+	assert.Equal(t, sm.Type.Name(), opts.Type)
+	assert.NotEmpty(t, sm.CreatedUnix)
+
+	invalidOpts := service_message_module.ServiceMessageOptions{
+		Type: "",
+		Text: "",
+	}
+	_, err = NewServiceMessage(&invalidOpts)
+	assert.Error(t, err)
+}
