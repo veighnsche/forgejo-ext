@@ -619,6 +619,7 @@ func Routes() *web.Route {
 			m.Group("/{username}", func() {
 				m.Get("/keys", user.ListPublicKeys)
 				m.Get("/gpg_keys", user.ListGPGKeys)
+				m.Post("/key_verify", user.VerifyPublicKey)
 
 				m.Get("/followers", user.ListFollowers)
 				m.Group("/following", func() {

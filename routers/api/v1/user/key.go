@@ -316,3 +316,66 @@ func DeletePublicKey(ctx *context.APIContext) {
 
 	ctx.Status(http.StatusNoContent)
 }
+
+// VerifyPublicKey verifies the public key
+func VerifyPublicKey(ctx *context.APIContext) {
+	// swagger:operation POST /user/key_verify user userCurrentPostKeyVerify
+	// ---
+	// summary: Verify a public key
+	// consumes:
+	// - application/json
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: body
+	//   in: body
+	//   schema:
+	//     "$ref": "#/definitions/PublicKey"
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/PublicKey"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+	//   "422":
+	//     "$ref": "#/responses/validationError"
+
+	if user_model.IsFeatureDisabledWithLoginType(ctx.Doer, setting.UserFeatureManageSSHKeys) {
+		ctx.NotFound("Not Found", errors.New("ssh keys setting is not allowed to be visited"))
+		return
+	}
+
+	form := web.GetForm(ctx).(*api.PublicKey)
+
+	// First check if the key exists
+	_, err := asymkey_model.GetPublicKeyByID(ctx, form.ID)
+	if err != nil {
+		if asymkey_model.IsErrKeyNotExist(err) {
+			ctx.NotFound()
+		} else {
+			ctx.Error(http.StatusInternalServerError, "error while GetPublicKeyByID", err)
+		}
+		return
+	}
+
+	token := asymkey_model.VerificationToken(ctx.Doer, 1)
+	lastToken := asymkey_model.VerificationToken(ctx.Doer, 0)
+
+	_, err = asymkey_model.VerifySSHKey(ctx, ctx.Doer.ID, form.Fingerprint, token, form.Signature)
+	if err != nil && asymkey_model.IsErrSSHInvalidTokenSignature(err) {
+		_, err = asymkey_model.VerifySSHKey(ctx, ctx.Doer.ID, form.Fingerprint, lastToken, form.Signature)
+	}
+	if err != nil {
+		switch {
+		case asymkey_model.IsErrSSHInvalidTokenSignature(err):
+			ctx.Error(http.StatusUnprocessableEntity, "Invalid token Signature", err)
+		default:
+			ctx.Error(http.StatusInternalServerError, "VerVerifyPublicKey", err)
+		}
+	}
+
+	ctx.JSON(http.StatusOK, form)
+}

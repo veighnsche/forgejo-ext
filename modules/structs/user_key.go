@@ -14,6 +14,7 @@ type PublicKey struct {
 	URL         string `json:"url,omitempty"`
 	Title       string `json:"title,omitempty"`
 	Fingerprint string `json:"fingerprint,omitempty"`
+	Signature   string `json:"signature,omitempty"`
 	// swagger:strfmt date-time
 	Created  time.Time `json:"created_at"`
 	Owner    *User     `json:"user,omitempty"`
