@@ -750,20 +750,24 @@ func EditWikiPost(ctx *context.Context) {
 	}
 
 	oldWikiName := wiki_service.WebPathFromRequest(ctx.PathParamRaw("*"))
-	newWikiName := wiki_service.FilepathToWebPath("", form.Title)
+	newWikiName, err := wiki_service.SanitizeWikiPath(form.Title)
+	if err != nil {
+		ctx.Error(http.StatusBadRequest, "Invalid Wiki Path")
+		return
+	}
 
 	if len(form.Message) == 0 {
 		form.Message = ctx.Locale.TrString("repo.editor.update", form.Title)
 	}
 
-	if err := wiki_service.EditWikiPage(ctx, ctx.Doer, ctx.Repo.Repository, oldWikiName, newWikiName, form.Content, form.Message); err != nil {
+	if err := wiki_service.EditWikiPage(ctx, ctx.Doer, ctx.Repo.Repository, oldWikiName, wiki_service.WebPath(newWikiName), form.Content, form.Message); err != nil {
 		ctx.ServerError("EditWikiPage", err)
 		return
 	}
 
 	notify_service.EditWikiPage(ctx, ctx.Doer, ctx.Repo.Repository, string(newWikiName), form.Message)
 
-	ctx.Redirect(ctx.Repo.RepoLink + "/wiki/" + wiki_service.WebPathToURLPath(newWikiName))
+	ctx.Redirect(ctx.Repo.RepoLink + "/wiki/" + wiki_service.WebPathToURLPath(wiki_service.WebPath(newWikiName)))
 }
 
 // DeleteWikiPagePost delete wiki page

@@ -100,28 +100,24 @@ func NormalizeWikiBranch(ctx context.Context, repo *repo_model.Repository, to st
 // return: existence, prepared file path with name, error
 func prepareGitPath(gitRepo *git.Repository, branch string, wikiPath WebPath) (bool, string, error) {
 	unescaped := string(wikiPath) + ".md"
-	gitPath, err := SanitizeWikiPath(string(wikiPath))
-	if err != nil {
-		return false, string(gitPath), err
-	}
+	gitPath := WebPathToGitPath(wikiPath)
 
 	// Look for both files
-	filesInIndex, err := gitRepo.LsTree(branch, unescaped, string(gitPath))
+	filesInIndex, err := gitRepo.LsTree(branch, unescaped, gitPath)
 	if err != nil {
 		if strings.Contains(err.Error(), "Not a valid object name "+branch) {
-			return false, string(gitPath), nil
+			return false, gitPath, nil
 		}
 		log.Error("%v", err)
-		return false, string(gitPath), err
+		return false, gitPath, err
 	}
 
 	foundEscaped := false
 	for _, filename := range filesInIndex {
 		switch filename {
 		case unescaped:
-			// if we find the unescaped file return it
 			return true, unescaped, nil
-		case string(gitPath):
+		case gitPath:
 			foundEscaped = true
 		}
 	}
@@ -141,7 +137,6 @@ func updateWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 	if err != nil {
 		return err
 	}
-	sanitizedWikiPath += ".md"
 	if err = validateWebPath(WebPath(sanitizedWikiPath)); err != nil {
 		return err
 	}

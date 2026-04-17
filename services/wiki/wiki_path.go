@@ -30,7 +30,6 @@ import (
 //   - "/.wiki.git/Home-Page.md"
 //   - "/.wiki.git/100%25 Free.md"
 //   - "/.wiki.git/2000-01-02 meeting.-.md"
-// TODO: support subdirectory in the future
 //
 // Although this package now has the ability to support subdirectory, but the route package doesn't:
 // * Double-escaping problem: the URL "/wiki/abc%2Fdef" becomes "/wiki/abc/def" by ctx.Params, which is incorrect
@@ -41,7 +40,7 @@ type WebPath string
 
 func (w WebPath) HTMLUnescape() WebPath {
 	ret, _ := url.PathUnescape(string(w))
-	return WebPath(util.PathJoinRelX(ret))
+	return WebPath(ret)
 }
 
 var reservedWikiNames = []string{"_pages", "_new", "_edit", "raw"}
@@ -102,7 +101,10 @@ func WebPathSegments(s WebPath) []string {
 }
 
 func WebPathToGitPath(s WebPath) string {
-	s = s.HTMLUnescape()
+	if strings.HasSuffix(string(s), ".md") {
+		ret, _ := url.PathUnescape(string(s))
+		return util.PathJoinRelX(ret)
+	}
 
 	a := strings.Split(string(s), "/")
 	for i := range a {
@@ -148,17 +150,21 @@ func WebPathToURLPath(s WebPath) string {
 
 func WebPathFromRequest(s string) WebPath {
 	s = util.PathJoinRelX(s)
-	s = strings.ReplaceAll(s, "/", "%2F")
 	return WebPath(s)
 }
 
 func FilepathToWebPath(base, filepath string) WebPath {
 	filepath = strings.TrimSpace(filepath)
-	filepath = util.PathJoinRelX(base, escapeSegToWeb(filepath, false))
-	if filepath == "" || filepath == "." {
-		filepath = "unnamed"
+	segments := strings.Split(filepath, "/")
+	for i := range segments {
+		segments[i] = escapeSegToWeb(segments[i], false)
 	}
-	return WebPath(filepath)
+	escapedPath := strings.Join(segments, "/")
+	escapedPath = util.PathJoinRelX(base, escapedPath)
+	if escapedPath == "" || escapedPath == "." {
+		escapedPath = "unnamed"
+	}
+	return WebPath(escapedPath)
 }
 
 type WikiPath string
@@ -166,12 +172,12 @@ type WikiPath string
 func SanitizeWikiPath(path string) (WikiPath, error) {
 	path, _ = strings.CutPrefix(path, "/")
 	parts := strings.Split(path, "/")
-	cleanParts := make([]string, len(parts))
+	cleanParts := make([]string, 0, len(parts))
 
-	for i, part := range parts {
+	for _, part := range parts {
 		part := strings.Trim(part, " ")
 		if part == "" {
-			return "", repo_model.ErrWikiInvalidFileName{FileName: "empty segment"}
+			continue
 		}
 		if part == "." || part == ".." {
 			return "", repo_model.ErrWikiInvalidFileName{FileName: "path navigation"}
@@ -179,7 +185,11 @@ func SanitizeWikiPath(path string) (WikiPath, error) {
 		if strings.Contains(part, "?") {
 			return "", repo_model.ErrWikiInvalidFileName{FileName: "querry injection"}
 		}
-		cleanParts[i] = part
+		cleanParts = append(cleanParts, part)
+	}
+
+	if len(cleanParts) == 0 {
+		return "", repo_model.ErrWikiInvalidFileName{FileName: "empty segment"}
 	}
 
 	return WikiPath(strings.Join(cleanParts, "/")), nil

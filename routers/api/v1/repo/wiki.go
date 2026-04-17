@@ -67,7 +67,12 @@ func NewWikiPage(ctx *context.APIContext) {
 		return
 	}
 
-	wikiName := wiki_service.FilepathToWebPath("", form.Title)
+	wikiNameSanitized, err := wiki_service.SanitizeWikiPath(form.Title)
+	if err != nil {
+		ctx.Error(http.StatusBadRequest, "Invalid Wiki Path", err)
+		return
+	}
+	wikiName := wiki_service.WebPath(wikiNameSanitized)
 
 	if len(form.Message) == 0 {
 		form.Message = fmt.Sprintf("Add %q", form.Title)
@@ -143,7 +148,12 @@ func EditWikiPage(ctx *context.APIContext) {
 	form := web.GetForm(ctx).(*api.CreateWikiPageOptions)
 
 	oldWikiName := wiki_service.WebPathFromRequest(ctx.PathParamRaw(":pageName"))
-	newWikiName := wiki_service.FilepathToWebPath("", form.Title)
+	newWikiNameSanitized, err := wiki_service.SanitizeWikiPath(form.Title)
+	if err != nil {
+		ctx.Error(http.StatusBadRequest, "Invalid Wiki Path", err)
+		return
+	}
+	newWikiName := wiki_service.WebPath(newWikiNameSanitized)
 
 	if len(newWikiName) == 0 {
 		newWikiName = oldWikiName

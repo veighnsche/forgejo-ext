@@ -166,18 +166,15 @@ func TestEditWiki(t *testing.T) {
 func TestEditWikiPost(t *testing.T) {
 	for _, page := range []struct {
 		in           string
-		expectedDir  string
-		expectedFile string
+		expectedPath string
 	}{
 		{
 			in:           "Home",
-			expectedDir:  "",
-			expectedFile: "Home",
+			expectedPath: "Home",
 		},
 		{
 			in:           "New/<page>",
-			expectedDir:  "New",
-			expectedFile: "<page>",
+			expectedPath: "New/<page>",
 		},
 	} {
 		unittest.PrepareTestEnv(t)
@@ -192,9 +189,11 @@ func TestEditWikiPost(t *testing.T) {
 		})
 		EditWikiPost(ctx)
 		assert.EqualValues(t, http.StatusSeeOther, ctx.Resp.Status())
-		assertWikiExists(t, ctx.Repo.Repository, wiki_service.FilepathToWebPath("", page.in))
-		assert.Equal(t, content, wikiContent(t, ctx.Repo.Repository, wiki_service.FilepathToWebPath(page.expectedDir, page.expectedFile)))
-		if page.expectedFile != "Home" {
+		sanitized, err := wiki_service.SanitizeWikiPath(page.in)
+		require.NoError(t, err)
+		assertWikiExists(t, ctx.Repo.Repository, wiki_service.WebPath(sanitized))
+		assert.Equal(t, content, wikiContent(t, ctx.Repo.Repository, wiki_service.WebPath(sanitized)))
+		if page.expectedPath != "Home" {
 			assertWikiNotExists(t, ctx.Repo.Repository, "Home")
 		}
 	}
