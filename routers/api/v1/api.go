@@ -931,7 +931,7 @@ func Routes() *web.Route {
 					m.Combo("/{timetrackingusername}").Get(repo.ListTrackedTimesByUser)
 				}, mustEnableIssues(), reqToken())
 				m.Group("/wiki", func() {
-					m.Combo("/page/{pageName}").
+					m.Combo("/page/*").
 						Get(repo.GetWikiPage).
 						Patch(mustNotBeArchived(), reqToken(), reqRepoWriter(unit.TypeWiki), bind(api.CreateWikiPageOptions{}), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeWiki, context.QuotaTargetRepo), repo.EditWikiPage).
 						Delete(mustNotBeArchived(), reqToken(), reqRepoWriter(unit.TypeWiki), repo.DeleteWikiPage)
