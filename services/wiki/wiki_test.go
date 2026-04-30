@@ -281,7 +281,7 @@ func TestPrepareWikiFileName(t *testing.T) {
 		existence: true,
 		wikiPath:  "Home.md",
 		wantErr:   false,
-	}, 	{
+	}, {
 		name:      "test special chars",
 		arg:       "home of and & or wiki page!",
 		existence: false,
@@ -357,5 +357,112 @@ func TestSanitizedWikiPathInvalidFilenames(t *testing.T) {
 	for _, invalidPath := range invalidPaths {
 		_, err := SanitizeWikiPath(invalidPath)
 		assert.IsType(t, repo_model.ErrWikiInvalidFileName{}, err)
+	}
+}
+
+func TestSanitizeWikiPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		wantErr  bool
+	}{
+		{"simple", "Home", "Home", false},
+		{"with spaces", "My Page", "My Page", false},
+		{"subdirectory", "docs/guide", "docs/guide", false},
+		{"deep subdirectory", "docs/api/v2/endpoints", "docs/api/v2/endpoints", false},
+		{"leading slash", "/docs/guide", "docs/guide", false},
+		{"trailing slash", "docs/guide/", "docs/guide", false},
+		{"multiple slashes", "docs///guide", "docs/guide", false},
+		{"mixed slashes and spaces", "  docs  /  guide  ", "docs/guide", false},
+		{"dot navigation error", "docs/../guide", "", true},
+		{"query injection error", "docs?guide", "", true},
+		{"special chars", "docs/api-v1.0", "docs/api-v1.0", false},
+		{"percent encoding", "docs/api%20guide", "docs/api%20guide", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := SanitizeWikiPath(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.IsType(t, repo_model.ErrWikiInvalidFileName{}, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, WikiPath(tt.expected), result)
+			}
+		})
+	}
+}
+
+func TestListWikiPages(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
+	gitRepo, err := gitrepo.OpenWikiRepository(git.DefaultContext, repo)
+	require.NoError(t, err)
+	defer gitRepo.Close()
+
+	commit, err := gitRepo.GetBranchCommit("master")
+	require.NoError(t, err)
+
+	pages, err := ListWikiPages(git.DefaultContext, commit, func(s1, s2 string) bool {
+		return s1 < s2
+	})
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, pages)
+
+	pageNames := make([]string, len(pages))
+	for i, page := range pages {
+		pageNames[i] = page.DisplayName
+		assert.NotEmpty(t, page.DisplayName)
+		assert.NotEmpty(t, page.SubURL)
+		assert.NotEmpty(t, page.GitPath)
+		assert.NotEmpty(t, page.Commit)
+	}
+
+	assert.Contains(t, pageNames, "Home")
+}
+
+func TestFilepathToWebPathSubdirectories(t *testing.T) {
+	tests := []struct {
+		name     string
+		base     string
+		filepath string
+		expected string
+	}{
+		{"simple file", "", "docs", "docs"},
+		{"subdirectory", "", "docs/guide", "docs/guide"},
+		{"deep subdirectory", "", "docs/api/v2/endpoint", "docs/api/v2/endpoint"},
+		{"with base", "parent", "child", "parent/child"},
+		{"base with subdirectory", "docs", "api/v2", "docs/api/v2"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FilepathToWebPath(tt.base, tt.filepath)
+			assert.Equal(t, WebPath(tt.expected), result)
+		})
+	}
+}
+
+func TestWebPathGitPathRoundtripWithSubdirectories(t *testing.T) {
+	tests := []struct {
+		name    string
+		webPath string
+	}{
+		{"simple", "docs/guide"},
+		{"deep nesting", "docs/api/v2/endpoints"},
+		{"with special chars", "docs/api-v1.0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			webPath := WebPath(tt.webPath)
+			gitPath := WebPathToGitPath(webPath)
+			resultWebPath, err := GitPathToWebPath(gitPath)
+			require.NoError(t, err)
+			assert.Equal(t, webPath, resultWebPath)
+		})
 	}
 }

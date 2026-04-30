@@ -235,3 +235,113 @@ func TestWikiRaw(t *testing.T) {
 		}
 	}
 }
+
+func TestWikiPagesWithSubdirectories(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+
+	ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki/?action=_pages")
+	contexttest.LoadRepo(t, ctx, 1)
+	WikiPages(ctx)
+	assert.Equal(t, http.StatusOK, ctx.Resp.Status())
+
+	pages, ok := ctx.Data["Pages"].([]PageMeta)
+	require.True(t, ok)
+	assert.NotEmpty(t, pages)
+
+	pageNames := make([]string, len(pages))
+	for i, page := range pages {
+		pageNames[i] = page.Name
+	}
+
+	assert.Contains(t, pageNames, "Home")
+}
+
+func TestNewWikiPostWithSubdirectories(t *testing.T) {
+	testCases := []struct {
+		name         string
+		title        string
+		expectedPath string
+	}{
+		{"root level page", "NewPage", "NewPage"},
+		{"subdirectory page", "docs/Introduction", "docs/Introduction"},
+		{"deep subdirectory", "docs/api/v2/Endpoints", "docs/api/v2/Endpoints"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			unittest.PrepareTestEnv(t)
+
+			ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki/?action=_new")
+			contexttest.LoadUser(t, ctx, 2)
+			contexttest.LoadRepo(t, ctx, 1)
+			web.SetForm(ctx, &forms.NewWikiForm{
+				Title:   tc.title,
+				Content: content,
+				Message: message,
+			})
+			NewWikiPost(ctx)
+			assert.Equal(t, http.StatusSeeOther, ctx.Resp.Status())
+
+			sanitized, err := wiki_service.SanitizeWikiPath(tc.title)
+			require.NoError(t, err)
+			expectedPath := wiki_service.WebPath(sanitized)
+			assertWikiExists(t, ctx.Repo.Repository, expectedPath)
+			assert.Equal(t, content, wikiContent(t, ctx.Repo.Repository, expectedPath))
+
+			err = wiki_service.DeleteWikiPage(git.DefaultContext, ctx.Doer, ctx.Repo.Repository, expectedPath)
+			require.NoError(t, err, "cleanup failed")
+		})
+	}
+}
+
+func TestEditWikiPostWithSubdirectories(t *testing.T) {
+	testCases := []struct {
+		name         string
+		newTitle     string
+		expectedPath string
+	}{
+		{
+			name:         "rename within same dir",
+			newTitle:     "NewHome",
+			expectedPath: "NewHome",
+		},
+		{
+			name:         "move to subdirectory",
+			newTitle:     "docs/Home",
+			expectedPath: "docs/Home",
+		},
+		{
+			name:         "move between subdirectories",
+			newTitle:     "guides/tutorial",
+			expectedPath: "guides/tutorial",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			unittest.PrepareTestEnv(t)
+
+			ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki/Home?action=_edit")
+			ctx.SetParams("*", "Home")
+			contexttest.LoadUser(t, ctx, 2)
+			contexttest.LoadRepo(t, ctx, 1)
+
+			web.SetForm(ctx, &forms.NewWikiForm{
+				Title:   tc.newTitle,
+				Content: content,
+				Message: message,
+			})
+			EditWikiPost(ctx)
+
+			assert.Equal(t, http.StatusSeeOther, ctx.Resp.Status())
+
+			sanitized, err := wiki_service.SanitizeWikiPath(tc.newTitle)
+			require.NoError(t, err)
+			expectedPath := wiki_service.WebPath(sanitized)
+			assertWikiExists(t, ctx.Repo.Repository, expectedPath)
+
+			err = wiki_service.DeleteWikiPage(git.DefaultContext, ctx.Doer, ctx.Repo.Repository, expectedPath)
+			require.NoError(t, err, "cleanup failed")
+		})
+	}
+}

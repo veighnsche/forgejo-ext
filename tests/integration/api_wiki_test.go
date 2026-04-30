@@ -334,6 +334,105 @@ func TestAPIEditWikiPage(t *testing.T) {
 	MakeRequest(t, req, http.StatusOK)
 }
 
+func TestAPIWikiSubdirectorySupport(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	username := "user2"
+	session := loginUser(t, username)
+	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteRepository)
+
+	t.Run("create wiki pages in subdirectories via API", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		testPages := []struct {
+			title       string
+			expectedURL string
+		}{
+			{"docs/introduction", "docs/introduction"},
+			{"docs/api/v2/overview", "docs/api/v2/overview"},
+			{"guides/tutorial", "guides/tutorial"},
+			{"features/list", "features/list"},
+		}
+
+		for _, tc := range testPages {
+			urlStr := fmt.Sprintf("/api/v1/repos/%s/%s/wiki/new", username, "repo1")
+			req := NewRequestWithJSON(t, "POST", urlStr, &api.CreateWikiPageOptions{
+				Title:         tc.title,
+				ContentBase64: base64.StdEncoding.EncodeToString([]byte("Content for " + tc.title)),
+				Message:       "Create page in subdirectory",
+			}).AddTokenAuth(token)
+			resp := MakeRequest(t, req, http.StatusCreated)
+
+			var page *api.WikiPage
+			DecodeJSON(t, resp, &page)
+			assert.Equal(t, tc.expectedURL, page.SubURL)
+		}
+	})
+
+	t.Run("list pages includes subdirectories", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		urlStr := fmt.Sprintf("/api/v1/repos/%s/%s/wiki/pages", username, "repo1")
+		req := NewRequest(t, "GET", urlStr)
+		resp := MakeRequest(t, req, http.StatusOK)
+
+		var pages []*api.WikiPageMetaData
+		DecodeJSON(t, resp, &pages)
+
+		subDirPages := []string{"docs/introduction", "docs/api/v2/overview", "guides/tutorial", "features/list"}
+		for _, expectedPage := range subDirPages {
+			found := false
+			for _, page := range pages {
+				if page.SubURL == expectedPage {
+					found = true
+					break
+				}
+			}
+			assert.True(t, found, "Expected to find page %s in list", expectedPage)
+		}
+	})
+
+	t.Run("get page from subdirectory", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		urlStr := fmt.Sprintf("/api/v1/repos/%s/%s/wiki/page/docs/introduction", username, "repo1")
+		req := NewRequest(t, "GET", urlStr)
+		resp := MakeRequest(t, req, http.StatusOK)
+
+		var page *api.WikiPage
+		DecodeJSON(t, resp, &page)
+
+		assert.Equal(t, "docs/introduction", page.SubURL)
+		content, err := base64.StdEncoding.DecodeString(page.ContentBase64)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "Content for docs/introduction")
+	})
+
+	t.Run("edit page to move between subdirectories", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		urlStr := fmt.Sprintf("/api/v1/repos/%s/%s/wiki/page/guides/tutorial", username, "repo1")
+		req := NewRequestWithJSON(t, "PATCH", urlStr, &api.CreateWikiPageOptions{
+			Title:         "tutorials/quickstart",
+			ContentBase64: base64.StdEncoding.EncodeToString([]byte("Updated content")),
+			Message:       "Move to tutorials subdirectory",
+		}).AddTokenAuth(token)
+		resp := MakeRequest(t, req, http.StatusOK)
+
+		var page *api.WikiPage
+		DecodeJSON(t, resp, &page)
+		assert.Equal(t, "tutorials/quickstart", page.SubURL)
+
+		oldURL := fmt.Sprintf("/api/v1/repos/%s/%s/wiki/page/guides/tutorial", username, "repo1")
+		req = NewRequest(t, "GET", oldURL)
+		MakeRequest(t, req, http.StatusNotFound)
+
+		newURL := fmt.Sprintf("/api/v1/repos/%s/%s/wiki/page/tutorials/quickstart", username, "repo1")
+		req = NewRequest(t, "GET", newURL)
+		MakeRequest(t, req, http.StatusOK)
+	})
+}
+
 func TestAPIEditOtherWikiPage(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 

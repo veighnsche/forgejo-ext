@@ -21,6 +21,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/optional"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
@@ -278,5 +279,148 @@ func Test_RepoWikiPages(t *testing.T) {
 			)
 			require.NoError(t, err, "unable to cleanup page for next case")
 		}
+	})
+}
+
+func TestWikiSubdirectoryOperations(t *testing.T) {
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
+		repo, _, f := tests.CreateDeclarativeRepoWithOptions(t, user, tests.DeclarativeRepoOptions{
+			Name:       optional.Some("test-wiki-subdirs"),
+			WikiBranch: optional.Some("master"),
+		})
+		defer f()
+
+		err := wiki_service.DeleteWikiPage(db.DefaultContext, user, repo, "Home")
+		require.NoError(t, err, "unable to clean wiki to be empty")
+
+		testPages := []struct {
+			webPath     string
+			content     string
+			subDir      string
+			displayName string
+		}{
+			{"docs/introduction", "# Introduction\n\nWelcome to the docs.", "docs", "introduction"},
+			{"docs/api/v2/overview", "# API Overview\n\nThis is the API overview.", "docs/api/v2", "overview"},
+			{"guides/tutorial/quickstart", "# Quickstart\n\nQuick start guide.", "guides/tutorial", "quickstart"},
+			{"features/list", "# Features\n\nList of features.", "features", "list"},
+		}
+
+		for _, tc := range testPages {
+			t.Run("create_"+tc.webPath, func(t *testing.T) {
+				err := wiki_service.AddWikiPage(
+					db.DefaultContext,
+					user,
+					repo,
+					wiki_service.WebPath(tc.webPath),
+					tc.content,
+					"Create "+tc.webPath,
+				)
+				require.NoError(t, err, "failed to create wiki page in subdirectory")
+
+				gitRepo, err := gitrepo.OpenWikiRepository(git.DefaultContext, repo)
+				require.NoError(t, err)
+				defer gitRepo.Close()
+
+				masterTree, err := gitRepo.GetTree("master")
+				require.NoError(t, err)
+
+				gitPath := wiki_service.WebPathToGitPath(wiki_service.WebPath(tc.webPath))
+				entry, err := masterTree.GetTreeEntryByPath(gitPath)
+				require.NoError(t, err)
+				assert.NotNil(t, entry)
+
+				dir, displayName := wiki_service.WebPathToUserTitle(wiki_service.WebPath(tc.webPath))
+				assert.Equal(t, tc.subDir, dir)
+				assert.Equal(t, tc.displayName, displayName)
+			})
+		}
+
+		t.Run("list_pages_with_subdirectories", func(t *testing.T) {
+			gitRepo, err := gitrepo.OpenWikiRepository(git.DefaultContext, repo)
+			require.NoError(t, err)
+			defer gitRepo.Close()
+
+			commit, err := gitRepo.GetBranchCommit("master")
+			require.NoError(t, err)
+
+			pages, err := wiki_service.ListWikiPages(db.DefaultContext, commit, func(s1, s2 string) bool {
+				return s1 < s2
+			})
+			require.NoError(t, err)
+
+			pagePaths := make([]string, len(pages))
+			for i, page := range pages {
+				pagePaths[i] = page.SubURL
+			}
+
+			for _, tc := range testPages {
+				assert.Contains(t, pagePaths, tc.webPath, "Page %s should be in list", tc.webPath)
+			}
+		})
+
+		t.Run("edit_page_in_subdirectory", func(t *testing.T) {
+			oldPath := wiki_service.WebPath("docs/introduction")
+			newPath := wiki_service.WebPath("docs/getting-started")
+			newContent := "# Getting Started\n\nUpdated content."
+
+			err := wiki_service.EditWikiPage(
+				db.DefaultContext,
+				user,
+				repo,
+				oldPath,
+				newPath,
+				newContent,
+				"Rename introduction to getting-started",
+			)
+			require.NoError(t, err)
+
+			gitRepo, err := gitrepo.OpenWikiRepository(git.DefaultContext, repo)
+			require.NoError(t, err)
+			defer gitRepo.Close()
+
+			gitPath := wiki_service.WebPathToGitPath(newPath)
+			masterTree, err := gitRepo.GetTree("master")
+			require.NoError(t, err)
+
+			_, err = masterTree.GetTreeEntryByPath(gitPath)
+			require.NoError(t, err, "New page should exist")
+
+			gitPath = wiki_service.WebPathToGitPath(oldPath)
+			_, err = masterTree.GetTreeEntryByPath(gitPath)
+			require.Error(t, err, "Old page should not exist anymore")
+		})
+
+		t.Run("delete_page_in_subdirectory", func(t *testing.T) {
+			for _, tc := range testPages {
+				if tc.webPath == "docs/introduction" {
+					continue
+				}
+
+				err := wiki_service.DeleteWikiPage(
+					db.DefaultContext,
+					user,
+					repo,
+					wiki_service.WebPath(tc.webPath),
+				)
+				require.NoError(t, err, "failed to delete wiki page %s", tc.webPath)
+			}
+
+			gitRepo, err := gitrepo.OpenWikiRepository(git.DefaultContext, repo)
+			require.NoError(t, err)
+			defer gitRepo.Close()
+
+			commit, err := gitRepo.GetBranchCommit("master")
+			require.NoError(t, err)
+
+			remainingPages, err := wiki_service.ListWikiPages(db.DefaultContext, commit, func(s1, s2 string) bool {
+				return s1 < s2
+			})
+			require.NoError(t, err)
+
+			for _, page := range remainingPages {
+				assert.NotContains(t, []string{"docs/api/v2/overview", "guides/tutorial/quickstart", "features/list"}, page.SubURL)
+			}
+		})
 	})
 }
