@@ -217,15 +217,16 @@ func Test_RepoWikiPages(t *testing.T) {
 	wikiPages := []struct {
 		createPath string
 		expectPath string
+		expectHref string
 	}{
-		{"Home", "Home"},
-		{"_Sidebar", "_Sidebar"},
-		{"small", "small"},
-		{"snake_scary", "snake_scary"},
-		{"ke-bab", "ke-bab"},
-		{"Spaced Page", "Spaced Page"},
-		{"Page%AllPages", "Page%AllPages"},
-		{"Cake/Lie", "Cake/Lie"},
+		{"Home", "Home", "Home"},
+		{"_Sidebar", "_Sidebar", "_Sidebar"},
+		{"small", "small", "small"},
+		{"snake_scary", "snake_scary", "snake_scary"},
+		{"ke-bab", "ke bab", "ke-bab"},
+		{"Spaced Page", "Spaced Page", "Spaced-Page"},
+		{"Page%AllPages", "Page%AllPages", "Page%AllPages"},
+		{"Cake/Lie", "Cake/Lie", "Cake/Lie"},
 	}
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Prep
@@ -259,14 +260,14 @@ func Test_RepoWikiPages(t *testing.T) {
 			anchor := s.Find("a").First()
 
 			text := anchor.Text()
-			assert.EqualValues(t, page.expectPath, text)
+			assert.Equal(t, page.expectPath, text)
 
 			href, exists := anchor.Attr("href")
 			assert.True(t, exists)
 			href = strings.TrimPrefix(href, wikiPath)
 			href, err = url.PathUnescape(href)
 			require.NoError(t, err)
-			assert.EqualValues(t, page.expectPath, href)
+			assert.Equal(t, page.expectHref, href)
 
 			// Cleanup
 			err = wiki_service.DeleteWikiPage(
