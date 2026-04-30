@@ -526,7 +526,12 @@ func ListWikiPages(
 }
 
 func fullpathToDisplayName(fullpath string) (string, error) {
-	return fullpathToSubURL(fullpath)
+	webPath, err := GitPathToWebPath(fullpath)
+	if err != nil {
+		return fullpathToSubURL(fullpath)
+	}
+	segments := WebPathSegments(webPath)
+	return strings.Join(segments, "/"), nil
 }
 
 func fullpathToSubURL(fullpath string) (string, error) {
