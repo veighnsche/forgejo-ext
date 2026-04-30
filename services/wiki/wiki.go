@@ -123,7 +123,7 @@ func prepareGitPath(gitRepo *git.Repository, branch string, wikiPath WebPath) (b
 	}
 
 	// If not return whether the escaped file exists, and the escaped filename to keep backwards compatibility.
-	return foundEscaped, string(gitPath), nil
+	return foundEscaped, gitPath, nil
 }
 
 // updateWikiPage adds a new page or edits an existing page in repository wiki.

@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 
 func TestWebPathSegments(t *testing.T) {
 	a := WebPathSegments("a/a/b-c/d-e/f-g.-/h%2Bi")
-	assert.EqualValues(t, []string{"a", "a", "b c", "d e", "f-g", "h+i"}, a)
+	assert.Equal(t, []string{"a", "a", "b c", "d e", "f-g", "h+i"}, a)
 }
 
 func TestUserTitleToWebPath(t *testing.T) {
@@ -97,7 +97,7 @@ func TestGitPathToWebPath(t *testing.T) {
 	} {
 		name, err := GitPathToWebPath(test.Filename)
 		require.NoError(t, err)
-		assert.EqualValues(t, WebPath(test.Expected), name)
+		assert.Equal(t, WebPath(test.Expected), name)
 	}
 	for _, badFilename := range []string{
 		"nofileextension",
@@ -385,11 +385,11 @@ func TestSanitizeWikiPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := SanitizeWikiPath(tt.input)
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.IsType(t, repo_model.ErrWikiInvalidFileName{}, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, WikiPath(tt.expected), result)
+				assert.Equal(t, Path(tt.expected), result)
 			}
 		})
 	}

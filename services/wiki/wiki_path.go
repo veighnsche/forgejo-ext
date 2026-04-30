@@ -167,9 +167,9 @@ func FilepathToWebPath(base, filepath string) WebPath {
 	return WebPath(escapedPath)
 }
 
-type WikiPath string
+type Path string
 
-func SanitizeWikiPath(path string) (WikiPath, error) {
+func SanitizeWikiPath(path string) (Path, error) {
 	path, _ = strings.CutPrefix(path, "/")
 	parts := strings.Split(path, "/")
 	cleanParts := make([]string, 0, len(parts))
@@ -192,7 +192,7 @@ func SanitizeWikiPath(path string) (WikiPath, error) {
 		return "", repo_model.ErrWikiInvalidFileName{FileName: "empty segment"}
 	}
 
-	return WikiPath(strings.Join(cleanParts, "/")), nil
+	return Path(strings.Join(cleanParts, "/")), nil
 }
 
 // ToWikiPageMetaData converts meta information to a WikiPageMetaData
