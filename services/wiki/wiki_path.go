@@ -153,20 +153,6 @@ func WebPathFromRequest(s string) WebPath {
 	return WebPath(s)
 }
 
-func FilepathToWebPath(base, filepath string) WebPath {
-	filepath = strings.TrimSpace(filepath)
-	segments := strings.Split(filepath, "/")
-	for i := range segments {
-		segments[i] = escapeSegToWeb(segments[i], false)
-	}
-	escapedPath := strings.Join(segments, "/")
-	escapedPath = util.PathJoinRelX(base, escapedPath)
-	if escapedPath == "" || escapedPath == "." {
-		escapedPath = "unnamed"
-	}
-	return WebPath(escapedPath)
-}
-
 type Path string
 
 func SanitizeWikiPath(path string) (Path, error) {
@@ -183,7 +169,7 @@ func SanitizeWikiPath(path string) (Path, error) {
 			return "", repo_model.ErrWikiInvalidFileName{FileName: "path navigation"}
 		}
 		if strings.Contains(part, "?") {
-			return "", repo_model.ErrWikiInvalidFileName{FileName: "querry injection"}
+			return "", repo_model.ErrWikiInvalidFileName{FileName: "query injection"}
 		}
 		cleanParts = append(cleanParts, part)
 	}

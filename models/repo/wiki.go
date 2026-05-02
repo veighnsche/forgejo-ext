@@ -57,12 +57,6 @@ type ErrWikiInvalidFileName struct {
 	FileName string
 }
 
-// IsErrWikiInvalidFileName checks if an error is an ErrWikiInvalidFileName.
-func IsErrWikiInvalidFileName(err error) bool {
-	_, ok := err.(ErrWikiInvalidFileName)
-	return ok
-}
-
 func (err ErrWikiInvalidFileName) Error() string {
 	return fmt.Sprintf("Invalid wiki filename: %s", err.FileName)
 }
