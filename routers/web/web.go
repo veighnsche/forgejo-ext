@@ -1429,6 +1429,8 @@ func registerRoutes(m *web.Route) {
 			m.Group("/{index}", func() {
 				m.Get("/attachments", repo.GetIssueAttachments)
 				m.Get("/attachments/{uuid}", repo.GetAttachment)
+				m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
+				m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
 			})
 			m.Group("/{index}", func() {
 				m.Post("/content-history/soft-delete", repo.SoftDeleteContentHistory)

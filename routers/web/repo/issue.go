@@ -50,6 +50,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	"forgejo.org/routers/utils"
+	"forgejo.org/routers/web/feed"
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/context/upload"
@@ -2121,6 +2122,22 @@ func ViewIssue(ctx *context.Context) {
 	ctx.Data["Tags"] = tags
 
 	ctx.HTML(http.StatusOK, tplIssueView)
+}
+
+// IssueFeedRSS get feeds for issues in RSS format
+func IssueFeedRSS(ctx *context.Context) {
+	issueFeed(ctx, "rss")
+}
+
+// IssueFeedAtom get feeds for issues in Atom format
+func IssueFeedAtom(ctx *context.Context) {
+	issueFeed(ctx, "atom")
+}
+
+func issueFeed(ctx *context.Context, formatType string) {
+	issue := GetActionIssue(ctx)
+
+	feed.ShowIssueFeed(ctx, issue, formatType)
 }
 
 // checkBlockedByIssues return canRead and notPermitted
