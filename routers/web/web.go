@@ -1764,9 +1764,9 @@ func registerRoutes(m *web.Route) {
 			})
 		}, repo.MustAllowPulls)
 		m.Group("/pulls/{index}", func() {
-				m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
-				m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
-			}, ctxDataSet("EnableFeed", setting.Other.EnableFeed), repo.MustBeNotEmpty)
+			m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
+			m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
+		}, ctxDataSet("EnableFeed", setting.Other.EnableFeed), repo.MustBeNotEmpty)
 
 		m.Group("/media", func() {
 			m.Get("/branch/*", context.RepoRefByType(context.RepoRefBranch), repo.SingleDownloadOrLFS)
