@@ -2083,6 +2083,11 @@ func ViewIssue(ctx *context.Context) {
 		pinAllowed = true
 	}
 
+	if setting.Other.EnableFeed {
+		ctx.Data["EnableFeed"] = true
+		ctx.Data["FeedURL"] = fmt.Sprintf("%s/issues/%d", ctx.Repo.RepoLink, issue.Index)
+	}
+
 	ctx.Data["Participants"] = participants
 	ctx.Data["NumParticipants"] = len(participants)
 	ctx.Data["Issue"] = issue
