@@ -18,7 +18,7 @@
   --fonts-override: var(--fonts-default-override-ko);
 }
 
-[lang] {
+.language-menu a[lang] {
   font-family: var(--fonts-regular);
 }
 
