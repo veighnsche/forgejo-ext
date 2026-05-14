@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFeedIssue(t *testing.T) {
+func TestFeedPull(t *testing.T) {
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestFeed")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -22,7 +22,7 @@ func TestFeedIssue(t *testing.T) {
 		t.Run("Atom", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
-			req := NewRequest(t, "GET", "/user2/repo1/issues/1.atom")
+			req := NewRequest(t, "GET", "/user2/repo1/pulls/2.atom")
 			resp := MakeRequest(t, req, http.StatusOK)
 
 			data := resp.Body.String()
@@ -32,7 +32,7 @@ func TestFeedIssue(t *testing.T) {
 		t.Run("RSS", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
-			req := NewRequest(t, "GET", "/user2/repo1/issues/1.rss")
+			req := NewRequest(t, "GET", "/user2/repo1/pulls/2.rss")
 			resp := MakeRequest(t, req, http.StatusOK)
 
 			data := resp.Body.String()
@@ -43,7 +43,8 @@ func TestFeedIssue(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, rss.Channel.Link, "/user2")
 			assert.NotEmpty(t, rss.Channel.Items)
-			assert.Regexp(t, `http://localhost:\d+/user2/repo1/issues/1#issuecomment-\d+`, rss.Channel.Items[0].Link)
+			assert.Regexp(t, `http://localhost:\d+/user2/repo1/pulls/2#issuecomment-\d+`, rss.Channel.Items[0].Link)
+			assert.Regexp(t, `http://localhost:\d+/user2/repo1/pulls/2`, rss.Channel.Items[1].Link)
 			assert.NotEmpty(t, rss.Channel.PubDate)
 		})
 	})
