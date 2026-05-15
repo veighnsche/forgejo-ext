@@ -4,6 +4,7 @@
 package feed
 
 import (
+	"fmt"
 	"time"
 
 	activities_model "forgejo.org/models/activities"
@@ -26,8 +27,16 @@ func ShowIssueFeed(ctx *context.Context, issue *issues_model.Issue, formatType s
 		return
 	}
 
+	var kind string = "Issue"
+
+	if issue.IsPull {
+		kind = "Pull request"
+	}
+
+	title := fmt.Sprintf("%s/%s: %s #%d - %s", issue.Repo.OwnerName, issue.Repo.Name, kind, issue.Index, issue.Title)
+
 	feed := &feeds.Feed{
-		Title:       ctx.Locale.TrString("home.feed_of", issue.Title),
+		Title:       ctx.Locale.TrString("home.feed_of", title),
 		Link:        &feeds.Link{Href: issue.HTMLURL()},
 		Description: issue.Content,
 		Created:     time.Now(),
