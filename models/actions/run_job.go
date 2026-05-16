@@ -281,7 +281,7 @@ func UpdateRunJobWithoutNotification(ctx context.Context, job *ActionRunJob, con
 	return affected, nil
 }
 
-var AggregateJobStatus = func(jobs []*ActionRunJob) Status {
+func AggregateJobStatus(jobs []*ActionRunJob) Status {
 	allSuccessOrSkipped := len(jobs) != 0
 	allSkipped := len(jobs) != 0
 	var hasFailure, hasCancelled, hasWaiting, hasRunning, hasBlocked bool
