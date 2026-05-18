@@ -2085,7 +2085,7 @@ func ViewIssue(ctx *context.Context) {
 
 	if setting.Other.EnableFeed {
 		ctx.Data["EnableFeed"] = true
-		if issue.IsPull == true {
+		if issue.IsPull {
 			ctx.Data["FeedURL"] = fmt.Sprintf("%s/pulls/%d", ctx.Repo.RepoLink, issue.Index)
 		} else {
 			ctx.Data["FeedURL"] = fmt.Sprintf("%s/issues/%d", ctx.Repo.RepoLink, issue.Index)

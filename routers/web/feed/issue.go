@@ -27,7 +27,7 @@ func ShowIssueFeed(ctx *context.Context, issue *issues_model.Issue, formatType s
 		return
 	}
 
-	var kind string = "Issue"
+	kind := "Issue"
 
 	if issue.IsPull {
 		kind = "Pull request"
