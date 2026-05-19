@@ -22,7 +22,6 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
-	"forgejo.org/modules/optional"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
 	wiki_service "forgejo.org/services/wiki"
@@ -233,11 +232,10 @@ func Test_RepoWikiPages(t *testing.T) {
 		// Prep
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: userName})
 
-		repo, _, f := tests.CreateDeclarativeRepoWithOptions(t, user, tests.DeclarativeRepoOptions{
-			Name:       optional.Some(repoName),
-			WikiBranch: optional.Some("master"),
+		repo := forgery.CreateRepository(t, user, &forgery.CreateRepositoryOptions{
+			Name: repoName,
 		})
-		defer f()
+		forgery.InitWiki(t, repo, "master")
 		err := wiki_service.DeleteWikiPage(db.DefaultContext, user, repo, "Home")
 		require.NoError(t, err, "unable to clean wiki to be empty")
 
@@ -285,11 +283,10 @@ func Test_RepoWikiPages(t *testing.T) {
 func TestWikiSubdirectoryOperations(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
-		repo, _, f := tests.CreateDeclarativeRepoWithOptions(t, user, tests.DeclarativeRepoOptions{
-			Name:       optional.Some("test-wiki-subdirs"),
-			WikiBranch: optional.Some("master"),
+		repo := forgery.CreateRepository(t, user, &forgery.CreateRepositoryOptions{
+			Name: "test-wiki-subdirs",
 		})
-		defer f()
+		forgery.InitWiki(t, repo, "master")
 
 		err := wiki_service.DeleteWikiPage(db.DefaultContext, user, repo, "Home")
 		require.NoError(t, err, "unable to clean wiki to be empty")
