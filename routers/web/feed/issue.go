@@ -27,13 +27,13 @@ func ShowIssueFeed(ctx *context.Context, issue *issues_model.Issue, formatType s
 		return
 	}
 
-	kind := "Issue"
+	titleFormat := "Issue %s/%s#%d: %s"
 
 	if issue.IsPull {
-		kind = "Pull request"
+		titleFormat = "Pull request %s/%s!%d: %s"
 	}
 
-	title := fmt.Sprintf("%s/%s: %s #%d - %s", issue.Repo.OwnerName, issue.Repo.Name, kind, issue.Index, issue.Title)
+	title := fmt.Sprintf(titleFormat, issue.Repo.OwnerName, issue.Repo.Name, issue.Index, issue.Title)
 
 	feed := &feeds.Feed{
 		Title:       ctx.Locale.TrString("home.feed_of", title),
