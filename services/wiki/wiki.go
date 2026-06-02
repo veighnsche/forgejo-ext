@@ -11,7 +11,6 @@ import (
 	"os"
 	"slices"
 	"strings"
-	"unsafe"
 
 	repo_model "forgejo.org/models/repo"
 	system_model "forgejo.org/models/system"
@@ -432,13 +431,13 @@ func SearchWikiContents(ctx context.Context, repo *repo_model.Repository, keywor
 
 	res := make([]SearchContentsResult, 0, len(grepRes))
 	for _, entry := range grepRes {
-		dispplayName, err := fullpathToDisplayName(entry.Filename)
+		displayName, err := fullpathToDisplayName(entry.Filename)
 		if err != nil {
 			continue
 		}
 		res = append(res, SearchContentsResult{
 			GrepResult: entry,
-			Title:      dispplayName,
+			Title:      displayName,
 		})
 	}
 
@@ -513,13 +512,10 @@ func ListWikiPages(
 		if s1.DisplayName == s2.DisplayName {
 			return 0
 		}
-		res := sorter(s1.DisplayName, s2.DisplayName)
-		// This is about 2 times faster than a normal if statement
-		// On Wikis with a lot of Pages this will have a big impact
-		// The Only way to get even faster would be taking a sort-
-		// function compatible with slices.SortFuc
-		// Allternatively Pagination should be added to the Wiki view, or a Tree like structure should be shown, which does on demand loading
-		return int(*(*byte)(unsafe.Pointer(&res)))*-2 + 1
+		if sorter(s1.DisplayName, s2.DisplayName) {
+			return -1
+		}
+		return 1
 	})
 
 	return pages, nil
