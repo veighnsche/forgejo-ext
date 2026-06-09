@@ -1378,11 +1378,15 @@ func registerRoutes(m *web.Route) {
 				m.Get("/info", repo.GetIssueInfo)
 				m.Get("/summary-card", repo.DrawIssueSummaryCard)
 			})
-			m.Group("/{index}", func() {
-				m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
-				m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
-			}, ctxDataSet("EnableFeed", setting.Other.EnableFeed))
 		})
+		m.Group("/pulls/{index}", func() {
+			m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
+			m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
+		}, ctxDataSet("EnableFeed", setting.Other.EnableFeed))
+		m.Group("/issues/{index}", func() {
+			m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
+			m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
+		}, ctxDataSet("EnableFeed", setting.Other.EnableFeed))
 		m.Get("/-/summary-card", repo.DrawRepoSummaryCard)
 	}, ignSignIn, context.RepoAssignment, context.UnitTypes()) // for "/{username}/{reponame}" which doesn't require authentication
 
@@ -1763,10 +1767,6 @@ func registerRoutes(m *web.Route) {
 				}, context.RepoMustNotBeArchived())
 			})
 		}, repo.MustAllowPulls)
-		m.Group("/pulls/{index}", func() {
-			m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
-			m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
-		}, ctxDataSet("EnableFeed", setting.Other.EnableFeed))
 
 		m.Group("/media", func() {
 			m.Get("/branch/*", context.RepoRefByType(context.RepoRefBranch), repo.SingleDownloadOrLFS)
