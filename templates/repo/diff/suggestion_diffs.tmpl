@@ -1,6 +1,15 @@
 {{$comment := .comment}}
+{{$root := .root}}
 {{range $suggestion := SuggestionDiffs ctx $comment}}
-	<div class="suggestion-diff tw-hidden" data-comment-id="{{$comment.ID}}" data-suggestion-index="{{$suggestion.Index}}">
+	<div class="suggestion-diff tw-hidden" data-comment-id="{{$comment.ID}}">
 		{{template "repo/diff/suggestion_diff" dict "file" (index $suggestion.Diff.Files 0)}}
+		{{if and $root $root.HeadBranchIsEditable}}
+			<button type="button" class="ui tiny primary button show-modal tw-mt-2"
+				data-modal="#apply-suggestion-modal"
+				data-modal-form.action="{{$root.RepoLink}}/pulls/{{$root.Issue.Index}}/files/reviews/apply_suggestion"
+				data-modal-apply-suggestion-comment-id="{{$comment.ID}}"
+				data-modal-apply-suggestion-summary="{{ctx.Locale.Tr "repo.issues.review.suggested_change_commit"}}"
+				data-modal-apply-suggestion-message="">{{ctx.Locale.Tr "repo.issues.review.apply_suggestion"}}</button>
+		{{end}}
 	</div>
 {{end}}

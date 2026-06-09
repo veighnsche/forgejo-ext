@@ -19,8 +19,7 @@ import (
 // SuggestionDiff is the rendered before/after view of one ```suggestion block; Index is its 0-based
 // position among the comment's suggestion blocks, so the frontend can pair it with the right code block.
 type SuggestionDiff struct {
-	Index int
-	Diff  *Diff
+	Diff *Diff
 }
 
 // SuggestionDiffs renders the before/after diff of each ```suggestion block in a proposed-side code
@@ -96,6 +95,12 @@ func SuggestionDiffs(ctx context.Context, comment *issues_model.Comment) []*Sugg
 	if err != nil {
 		return nil
 	}
+
+	// Retrieve the blob to check its size before trying to read the content, to avoid OOM on huge files
+	blob, err := headCommit.GetBlobByPath(treePath)
+	if err != nil || blob.Size() >= setting.UI.MaxDisplayFileSize {
+		return nil
+	}
 	content, err := headCommit.GetFileContent(treePath, -1)
 	if err != nil {
 		return nil
@@ -118,7 +123,7 @@ func SuggestionDiffs(ctx context.Context, comment *issues_model.Comment) []*Sugg
 			log.Warn("SuggestionDiffs: ParsePatch for comment %d block %d: %v", comment.ID, i, err)
 			continue
 		}
-		result = append(result, &SuggestionDiff{Index: i, Diff: diff})
+		result = append(result, &SuggestionDiff{Diff: diff})
 	}
 	if len(result) == 0 {
 		return nil

@@ -1870,6 +1870,8 @@ func ViewIssue(ctx *context.Context) {
 					ctx.ServerError("GetUserRepoPermission", err)
 					return
 				}
+				// determine if the user viewing the pull request can edit the head branch (used to gate the "Apply suggestion" button)
+				ctx.Data["HeadBranchIsEditable"] = !pull.HasMerged && !issue.IsClosed && pull.HeadRepo.CanEnableEditor() && issues_model.CanMaintainerWriteToBranch(ctx, perm, pull.HeadBranch, ctx.Doer, access_model.GetUserRepoPermission) && pull.Flow != issues_model.PullRequestFlowAGit
 				if perm.CanWrite(unit.TypeCode) {
 					// Check if branch is not protected
 					if pull.HeadBranch != pull.HeadRepo.DefaultBranch {
@@ -3384,7 +3386,17 @@ func UpdateCommentContent(ctx *context.Context) {
 
 	var suggestions template.HTML
 	if comment.Type == issues_model.CommentTypeCode {
-		if suggestions, err = ctx.RenderToHTML("repo/diff/suggestion_diffs", map[string]any{"comment": comment}); err != nil {
+		editable, err := headBranchIsEditable(ctx, comment.Issue)
+		if err != nil {
+			ctx.ServerError("headBranchIsEditable", err)
+			return
+		}
+		root := map[string]any{
+			"HeadBranchIsEditable": editable,
+			"RepoLink":             ctx.Repo.RepoLink,
+			"Issue":                comment.Issue,
+		}
+		if suggestions, err = ctx.RenderToHTML("repo/diff/suggestion_diffs", map[string]any{"comment": comment, "root": root}); err != nil {
 			ctx.ServerError("RenderToHTML", err)
 			return
 		}

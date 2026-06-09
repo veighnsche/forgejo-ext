@@ -8,17 +8,22 @@ import (
 	"fmt"
 	"net/http"
 
+	"forgejo.org/models"
 	issues_model "forgejo.org/models/issues"
+	access_model "forgejo.org/models/perm/access"
 	pull_model "forgejo.org/models/pull"
+	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/base"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/context/upload"
 	"forgejo.org/services/forms"
 	pull_service "forgejo.org/services/pull"
+	files_service "forgejo.org/services/repository/files"
 )
 
 const (
@@ -229,6 +234,13 @@ func renderConversation(ctx *context.Context, comment *issues_model.Comment, ori
 		ctx.ServerError("comment.Issue.LoadPullRequest", err)
 		return
 	}
+
+	// gates the "Apply suggestion" button on AJAX re-renders
+	if ctx.Data["HeadBranchIsEditable"], err = headBranchIsEditable(ctx, comment.Issue); err != nil {
+		ctx.ServerError("headBranchIsEditable", err)
+		return
+	}
+
 	pullHeadCommitID, err := ctx.Repo.GitRepo.GetRefCommitID(comment.Issue.PullRequest.GetGitRefName())
 	if err != nil {
 		ctx.ServerError("GetRefCommitID", err)
@@ -241,6 +253,118 @@ func renderConversation(ctx *context.Context, comment *issues_model.Comment, ori
 	case "timeline":
 		ctx.HTML(http.StatusOK, tplTimelineConversation)
 	}
+}
+
+// headBranchIsEditable reports whether doer may edit the PR head branch; gates the
+// "Apply suggestion" button when code comments are re-rendered over AJAX.
+func headBranchIsEditable(ctx *context.Context, issue *issues_model.Issue) (bool, error) {
+	if ctx.Doer == nil {
+		return false, nil
+	}
+	if err := issue.LoadPullRequest(ctx); err != nil {
+		return false, err
+	}
+	pull := issue.PullRequest
+	if pull == nil || pull.HasMerged {
+		return false, nil
+	}
+	if err := pull.LoadHeadRepo(ctx); err != nil {
+		return false, err
+	}
+	if pull.HeadRepo == nil {
+		return false, nil
+	}
+	headRepoPerm, err := access_model.GetUserRepoPermission(ctx, pull.HeadRepo, ctx.Doer)
+	if err != nil {
+		return false, err
+	}
+	return !issue.IsClosed && pull.HeadRepo.CanEnableEditor() &&
+		issues_model.CanMaintainerWriteToBranch(ctx, headRepoPerm, pull.HeadBranch, ctx.Doer, access_model.GetUserRepoPermission) &&
+		pull.Flow != issues_model.PullRequestFlowAGit, nil
+}
+
+// ApplySuggestion applies a single ```suggestion block from a review comment onto the PR head branch.
+func ApplySuggestion(ctx *context.Context) {
+	commentID := ctx.FormInt64("comment_id")
+
+	comment, err := issues_model.GetCommentByID(ctx, commentID)
+	if err != nil {
+		if issues_model.IsErrCommentNotExist(err) {
+			ctx.NotFound("GetCommentByID", err)
+		} else {
+			ctx.ServerError("GetCommentByID", err)
+		}
+		return
+	}
+	if err = comment.LoadIssue(ctx); err != nil {
+		ctx.ServerError("comment.LoadIssue", err)
+		return
+	}
+	if comment.Issue.RepoID != ctx.Repo.Repository.ID {
+		ctx.NotFound("comment's repoID is incorrect", errors.New("comment's repoID is incorrect"))
+		return
+	}
+
+	// Check that comment issue index match the index path paramter
+	if comment.Issue.Index != ctx.ParamsInt64(":index") {
+		ctx.NotFound("comment does not belong to this pull request", errors.New("comment's pull request index does not match the URL"))
+		return
+	}
+	if !comment.Issue.IsPull {
+		ctx.Error(http.StatusBadRequest)
+		return
+	}
+	if err = comment.Issue.LoadPullRequest(ctx); err != nil {
+		ctx.ServerError("comment.Issue.LoadPullRequest", err)
+		return
+	}
+
+	_, err = files_service.ApplySuggestions(ctx, ctx.Doer, comment.Issue.PullRequest,
+		[]*files_service.SuggestionEdit{{Comment: comment}},
+		ctx.FormString("commit_summary"), ctx.FormString("commit_message"))
+	if err != nil {
+		var errArchived repo_model.ErrRepoIsArchived
+		switch {
+		case errors.Is(err, util.ErrPermissionDenied):
+			ctx.Error(http.StatusForbidden, err.Error())
+		case errors.Is(err, files_service.ErrSuggestionQuotaExceeded):
+			ctx.Error(http.StatusRequestEntityTooLarge, err.Error())
+		case errors.Is(err, util.ErrInvalidArgument),
+			models.IsErrSHADoesNotMatch(err),
+			models.IsErrCommitIDDoesNotMatch(err),
+			models.IsErrUserCannotCommit(err),
+			models.IsErrFilePathProtected(err),
+			errors.As(err, &errArchived):
+			// expected, user-facing failures (incl. an archived head/fork repo): surface as a toast
+			ctx.JSONError(err.Error())
+		default:
+			ctx.ServerError("ApplySuggestions", err)
+		}
+		return
+	}
+
+	// Applying a suggestion addresses the review comment, so resolve its conversation (best-effort:
+	// it requires resolve permission and must never undo or block the successful apply).
+	if err := resolveSuggestionConversation(ctx, comment); err != nil {
+		log.Error("ApplySuggestion: resolve conversation for comment %d: %v", comment.ID, err)
+	}
+
+	ctx.JSONOK()
+}
+
+// resolveSuggestionConversation marks the code conversation a just-applied suggestion belongs to as
+// resolved. It resolves the thread's first comment, which is what drives the conversation's resolved
+// state in the UI. It is a no-op when the doer lacks resolve permission.
+func resolveSuggestionConversation(ctx *context.Context, comment *issues_model.Comment) error {
+	ok, err := issues_model.CanMarkConversation(ctx, comment.Issue, ctx.Doer)
+	if err != nil || !ok {
+		return err
+	}
+	conversation, err := issues_model.FetchCodeConversation(ctx, comment, ctx.Doer)
+	if err != nil || len(conversation) == 0 {
+		return err
+	}
+	return issues_model.MarkConversation(ctx, conversation[0], ctx.Doer, true)
 }
 
 // SubmitReview creates a review out of the existing pending review or creates a new one if no pending review exist
