@@ -94,6 +94,11 @@ func CreateCodeComment(ctx *context.Context) {
 		return
 	}
 
+	if err := pull_service.ValidateCodeCommentSuggestions(form.Content); err != nil {
+		ctx.Error(http.StatusBadRequest, err.Error())
+		return
+	}
+
 	var attachments []string
 	if setting.Attachment.Enabled {
 		attachments = form.Files

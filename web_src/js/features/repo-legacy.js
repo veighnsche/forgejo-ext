@@ -352,6 +352,9 @@ async function onEditContent(event) {
         const refIssues = renderContent.querySelectorAll('p .ref-issue');
         attachRefIssueContextPopup(refIssues);
       }
+      // refresh the server-rendered suggestion diff(s) so an added/changed suggestion shows without a reload
+      for (const old of segment.querySelectorAll('.suggestion-diff')) old.remove();
+      if (data.suggestions) renderContent.insertAdjacentHTML('afterend', data.suggestions);
       const content = segment;
       if (!content.querySelector('.dropzone-attachments')) {
         if (data.attachments !== '') {
@@ -373,6 +376,10 @@ async function onEditContent(event) {
   comboMarkdownEditor = getComboMarkdownEditor(editContentZone.querySelector('.combo-markdown-editor'));
   if (!comboMarkdownEditor) {
     editContentZone.innerHTML = document.getElementById('issue-comment-editor-template').innerHTML;
+    // the suggestion toolbar button only makes sense for a proposed-side code comment; hide it otherwise
+    if (!editContentZone.hasAttribute('data-suggestion-line')) {
+      editContentZone.querySelector('button[data-md-action="suggestion"]')?.classList.add('tw-hidden');
+    }
     initDisabledInputs(editContentZone);
     const dropzone = editContentZone.querySelector('.dropzone');
     if (dropzone && !dropzone.dropzone) await initDropzone(dropzone, editContentZone);

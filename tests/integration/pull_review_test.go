@@ -2716,3 +2716,154 @@ func assertDiffTable(t *testing.T, doc *HTMLDoc, rowAssertions []diffTableRow, n
 		}
 	}
 }
+
+func (tester *PullRequestCommentPlacementTester) suggestionComment(filename, side string, line, extraLinesCount int, content string) *issues_model.Comment {
+	req := NewRequest(tester.t, "GET",
+		fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/new_comment", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index))
+	resp := tester.session.MakeRequest(tester.t, req, http.StatusOK)
+	doc := NewHTMLParser(tester.t, resp.Body)
+	req = NewRequestWithValues(tester.t, "POST",
+		fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/comments", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
+		map[string]string{
+			"origin":            doc.GetInputValueByName("origin"),
+			"before_commit_id":  doc.GetInputValueByName("before_commit_id"),
+			"latest_commit_id":  doc.GetInputValueByName("latest_commit_id"),
+			"side":              side,
+			"line":              strconv.Itoa(line),
+			"extra_lines_count": strconv.Itoa(extraLinesCount),
+			"path":              filename,
+			"diff_start_cid":    doc.GetInputValueByName("diff_start_cid"),
+			"diff_end_cid":      doc.GetInputValueByName("diff_end_cid"),
+			"diff_base_cid":     doc.GetInputValueByName("diff_base_cid"),
+			"content":           content,
+			"single_review":     "true",
+		})
+	tester.session.MakeRequest(tester.t, req, http.StatusOK)
+	return unittest.AssertExistsAndLoadBean(tester.t, &issues_model.Comment{Content: content})
+}
+
+// TestPullReviewSuggestionRender verifies that a ```suggestion block in a proposed-side
+// code review comment is rendered server-side as a before/after diff, on both the
+// Files-changed page and the Conversation tab, and that ineligible comments (previous
+// side) fall back to a plain code block.
+func TestPullReviewSuggestionRender(t *testing.T) {
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		suggestionContainer := func(comment *issues_model.Comment) string {
+			return fmt.Sprintf(`data-comment-id="%d" data-suggestion-index="0"`, comment.ID)
+		}
+
+		t.Run("single line", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
+			tester.createPR()
+
+			// The diff comment editor offers the "add suggestion" toolbar button.
+			formReq := NewRequest(t, "GET", fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/new_comment", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index))
+			formBody := tester.session.MakeRequest(t, formReq, http.StatusOK).Body.String()
+			assert.Contains(t, formBody, `data-md-action="suggestion"`)
+
+			content := "Please tweak this:\n\n```suggestion\nLine 50--suggested\n```"
+			comment := tester.suggestionComment("file1.md", "proposed", 50, 0, content)
+
+			// Files-changed page (repo/diff/comments.tmpl render path).
+			req := NewRequest(t, "GET", fmt.Sprintf("/%s/%s/pulls/%d/files", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index))
+			body := tester.session.MakeRequest(t, req, http.StatusOK).Body.String()
+			assert.Contains(t, body, `class="suggestion-diff`)
+			assert.Contains(t, body, suggestionContainer(comment))
+			// editing this proposed-side comment also offers the suggestion button: its edit zone carries the line context
+			assert.Contains(t, body, `data-suggestion-line="50"`)
+
+			// Conversation tab (ViewIssue render path; the helper resolves the head itself).
+			req = NewRequest(t, "GET", fmt.Sprintf("/%s/%s/pulls/%d", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index))
+			body = tester.session.MakeRequest(t, req, http.StatusOK).Body.String()
+			assert.Contains(t, body, suggestionContainer(comment))
+		})
+
+		t.Run("multi-line range", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			content := tester.fileContent
+			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
+			content = strings.Replace(content, "Line 51\n", "Line 51--modified\n", 1)
+			tester.changeFile("file1.md", content)
+			tester.createPR()
+
+			comment := tester.suggestionComment("file1.md", "proposed", 50, 1, "```suggestion\nMerged single line\n```") // spans lines 50-51
+
+			req := NewRequest(t, "GET", fmt.Sprintf("/%s/%s/pulls/%d/files", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index))
+			body := tester.session.MakeRequest(t, req, http.StatusOK).Body.String()
+			assert.Contains(t, body, `class="suggestion-diff`)
+			assert.Contains(t, body, suggestionContainer(comment))
+		})
+
+		t.Run("previous side renders as plain code", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
+			tester.createPR()
+
+			comment := tester.suggestionComment("file1.md", "previous", 50, 0, "```suggestion\nx\n```")
+
+			req := NewRequest(t, "GET", fmt.Sprintf("/%s/%s/pulls/%d/files", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index))
+			body := tester.session.MakeRequest(t, req, http.StatusOK).Body.String()
+			// the comment renders and its suggestion stays a plain code block...
+			assert.Contains(t, body, fmt.Sprintf("issuecomment-%d-content", comment.ID))
+			assert.Contains(t, body, "language-suggestion")
+			// ...but not as an applicable before/after diff (previous side is never applicable).
+			assert.NotContains(t, body, suggestionContainer(comment))
+			// and a previous-side comment's edit zone carries no suggestion context (no suggestion button on edit)
+			assert.NotContains(t, body, "data-suggestion-line")
+		})
+
+		t.Run("rejects a comment with more than one suggestion", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
+			tester.createPR()
+
+			formReq := NewRequest(t, "GET", fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/new_comment", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index))
+			doc := NewHTMLParser(t, tester.session.MakeRequest(t, formReq, http.StatusOK).Body)
+
+			content := "```suggestion\nLine 50--one\n```\n\n```suggestion\nLine 50--two\n```"
+			req := NewRequestWithValues(t, "POST",
+				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/comments", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
+				map[string]string{
+					"origin":            doc.GetInputValueByName("origin"),
+					"before_commit_id":  doc.GetInputValueByName("before_commit_id"),
+					"latest_commit_id":  doc.GetInputValueByName("latest_commit_id"),
+					"side":              "proposed",
+					"line":              "50",
+					"extra_lines_count": "0",
+					"path":              "file1.md",
+					"diff_start_cid":    doc.GetInputValueByName("diff_start_cid"),
+					"diff_end_cid":      doc.GetInputValueByName("diff_end_cid"),
+					"diff_base_cid":     doc.GetInputValueByName("diff_base_cid"),
+					"content":           content,
+					"single_review":     "true",
+				})
+			tester.session.MakeRequest(t, req, http.StatusBadRequest)
+			// the comment must not have been created
+			unittest.AssertNotExistsBean(t, &issues_model.Comment{Content: content})
+		})
+
+		t.Run("rejects editing a code comment to add a second suggestion (API)", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
+			tester.createPR()
+
+			single := "```suggestion\nLine 50--one\n```"
+			comment := tester.suggestionComment("file1.md", "proposed", 50, 0, single)
+
+			twoBlocks := single + "\n\n```suggestion\nLine 50--two\n```"
+			req := NewRequestWithJSON(t, "PATCH",
+				fmt.Sprintf("/api/v1/repos/%s/%s/issues/comments/%d", tester.repo.OwnerName, tester.repo.Name, comment.ID),
+				&api.EditIssueCommentOption{Body: twoBlocks}).AddTokenAuth(tester.apiToken)
+			MakeRequest(t, req, http.StatusUnprocessableEntity)
+
+			// the content must be unchanged (still a single suggestion)
+			unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: comment.ID, Content: single})
+		})
+	})
+}

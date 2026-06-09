@@ -1,0 +1,6 @@
+{{$comment := .comment}}
+{{range $suggestion := SuggestionDiffs ctx $comment}}
+	<div class="suggestion-diff tw-hidden" data-comment-id="{{$comment.ID}}" data-suggestion-index="{{$suggestion.Index}}">
+		{{template "repo/diff/suggestion_diff" dict "file" (index $suggestion.Diff.Files 0)}}
+	</div>
+{{end}}

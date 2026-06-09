@@ -1143,6 +1143,7 @@
 	"mde.buttons.quote.tooltip": "Quote text",
 	"mde.buttons.code.tooltip": "Add code",
 	"mde.buttons.link.tooltip": "Add a link (Ctrl+K / ⌘K)",
+	"mde.buttons.suggestion.tooltip": "Add a suggestion",
 	"mde.buttons.list.unordered.tooltip": "Add a bullet list",
 	"mde.buttons.list.ordered.tooltip": "Add a numbered list",
 	"mde.buttons.list.task.tooltip": "Add a list of tasks",
