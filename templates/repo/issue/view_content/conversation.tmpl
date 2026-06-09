@@ -95,9 +95,9 @@
 						{{end}}
 						</div>
 						{{$comment := .}}
-						{{template "repo/diff/suggestion_diffs" dict "comment" $comment "root" $}}
+						{{template "repo/diff/suggestion_diffs" dict "comment" $comment "root" $ "batchMode" "disabled"}}
 						<div id="issuecomment-{{.ID}}-raw" class="raw-content tw-hidden">{{.Content}}</div>
-						<div class="edit-content-zone tw-hidden" data-update-url="{{$.RepoLink}}/comments/{{.ID}}" data-content-version="{{.ContentVersion}}"  data-context="{{$.RepoLink}}" data-attachment-url="{{$.RepoLink}}/comments/{{.ID}}/attachments"{{if gt .Line 0}} data-suggestion-side="proposed" data-suggestion-line="{{.UnsignedLine}}" data-suggestion-extra-lines="{{.ExtraLinesCount}}" data-suggestion-path="{{.TreePath}}"{{end}}></div>
+						<div class="edit-content-zone tw-hidden" data-update-url="{{$.RepoLink}}/comments/{{.ID}}" data-content-version="{{.ContentVersion}}"  data-context="{{$.RepoLink}}" data-attachment-url="{{$.RepoLink}}/comments/{{.ID}}/attachments" data-batch-mode="disabled"{{if gt .Line 0}} data-suggestion-side="proposed" data-suggestion-line="{{.UnsignedLine}}" data-suggestion-extra-lines="{{.ExtraLinesCount}}" data-suggestion-path="{{.TreePath}}"{{end}}></div>
 						{{if .Attachments}}
 							{{template "repo/issue/view_content/attachments" dict "Attachments" .Attachments "RenderedContent" .RenderedContent}}
 						{{end}}

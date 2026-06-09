@@ -2952,11 +2952,9 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 			return string(decoded)
 		}
 		applyExpect := func(tester *PullRequestCommentPlacementTester, comment *issues_model.Comment, status int) {
-			req := NewRequestWithValues(t, "POST",
+			req := NewRequestWithJSON(t, "POST",
 				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
-				map[string]string{
-					"comment_id": strconv.FormatInt(comment.ID, 10),
-				})
+				map[string]any{"comment_ids": []int64{comment.ID}})
 			tester.session.MakeRequest(t, req, status)
 		}
 		apply := func(tester *PullRequestCommentPlacementTester, comment *issues_model.Comment) {
@@ -3085,11 +3083,9 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 			comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
 
 			otherSession := loginUser(t, "user4") // no write access to user2's repo
-			req := NewRequestWithValues(t, "POST",
+			req := NewRequestWithJSON(t, "POST",
 				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
-				map[string]string{
-					"comment_id": strconv.FormatInt(comment.ID, 10),
-				})
+				map[string]any{"comment_ids": []int64{comment.ID}})
 			otherSession.MakeRequest(t, req, http.StatusForbidden)
 		})
 
@@ -3127,10 +3123,11 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 			_, branch := tester.branch.Get()
 
 			comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
-			req := NewRequestWithValues(t, "POST",
+			req := NewRequestWithJSON(t, "POST",
 				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
-				map[string]string{
-					"comment_id": strconv.FormatInt(comment.ID, 10), "commit_summary": "My custom summary",
+				map[string]any{
+					"comment_ids":    []int64{comment.ID},
+					"commit_summary": "My custom summary",
 					"commit_message": "An extended description.",
 				})
 			tester.session.MakeRequest(t, req, http.StatusOK)
@@ -3154,11 +3151,9 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 			comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
 
 			// the comment belongs to tester.pr, but we POST under a different pull index of the same repo
-			req := NewRequestWithValues(t, "POST",
+			req := NewRequestWithJSON(t, "POST",
 				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index+1),
-				map[string]string{
-					"comment_id": strconv.FormatInt(comment.ID, 10),
-				})
+				map[string]any{"comment_ids": []int64{comment.ID}})
 			tester.session.MakeRequest(t, req, http.StatusNotFound)
 		})
 
@@ -3179,6 +3174,227 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 			// a closed (non-merged) PR is inert for suggestions
 			applyExpect(tester, comment, http.StatusBadRequest)
+		})
+	})
+}
+
+// TestPullReviewApplySuggestionBatch verifies applying several suggestions at once: they land in a single
+// commit (across files), bottom-up within a file, any overlap or ineligible edit rejects the whole batch,
+// and distinct authors are credited with Co-authored-by trailers.
+func TestPullReviewApplySuggestionBatch(t *testing.T) {
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		fileContentAtBranch := func(tester *PullRequestCommentPlacementTester, branch, filename string) string {
+			req := NewRequest(t, "GET",
+				fmt.Sprintf("/api/v1/repos/%s/%s/contents/%s?ref=%s", tester.repo.OwnerName, tester.repo.Name, filename, branch)).
+				AddTokenAuth(tester.apiToken)
+			var cr api.ContentsResponse
+			DecodeJSON(t, MakeRequest(t, req, http.StatusOK), &cr)
+			require.NotNil(t, cr.Content)
+			decoded, err := base64.StdEncoding.DecodeString(*cr.Content)
+			require.NoError(t, err)
+			return string(decoded)
+		}
+		branchCommits := func(tester *PullRequestCommentPlacementTester, branch string) []api.Commit {
+			req := NewRequest(t, "GET",
+				fmt.Sprintf("/api/v1/repos/%s/%s/commits?sha=%s&limit=100", tester.repo.OwnerName, tester.repo.Name, branch)).
+				AddTokenAuth(tester.apiToken)
+			var list []api.Commit
+			DecodeJSON(t, MakeRequest(t, req, http.StatusOK), &list)
+			return list
+		}
+		applyBatch := func(tester *PullRequestCommentPlacementTester, commentIDs []int64, status int) {
+			req := NewRequestWithJSON(t, "POST",
+				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
+				map[string]any{"comment_ids": commentIDs})
+			tester.session.MakeRequest(t, req, status)
+		}
+		// posts a suggestion as an arbitrary session (to exercise the multi-author path)
+		postSuggestionAs := func(tester *PullRequestCommentPlacementTester, session *TestSession, filename string, line int, content string) *issues_model.Comment {
+			req := NewRequest(t, "GET",
+				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/new_comment", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index))
+			doc := NewHTMLParser(t, session.MakeRequest(t, req, http.StatusOK).Body)
+			req = NewRequestWithValues(t, "POST",
+				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/comments", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
+				map[string]string{
+					"origin":            doc.GetInputValueByName("origin"),
+					"before_commit_id":  doc.GetInputValueByName("before_commit_id"),
+					"latest_commit_id":  doc.GetInputValueByName("latest_commit_id"),
+					"side":              "proposed",
+					"line":              strconv.Itoa(line),
+					"extra_lines_count": "0",
+					"path":              filename,
+					"diff_start_cid":    doc.GetInputValueByName("diff_start_cid"),
+					"diff_end_cid":      doc.GetInputValueByName("diff_end_cid"),
+					"diff_base_cid":     doc.GetInputValueByName("diff_base_cid"),
+					"content":           content,
+					"single_review":     "true",
+				})
+			session.MakeRequest(t, req, http.StatusOK)
+			return unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{Content: content})
+		}
+
+		t.Run("multiple files in one commit", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
+			tester.changeFile("file2.md", strings.Replace(tester.fileContent, "Line 60\n", "Line 60--modified\n", 1))
+			tester.createPR()
+			_, branch := tester.branch.Get()
+
+			c1 := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--from-file1\n```")
+			c2 := tester.suggestionComment("file2.md", "proposed", 60, 0, "```suggestion\nLine 60--from-file2\n```")
+
+			before := len(branchCommits(tester, branch))
+			applyBatch(tester, []int64{c1.ID, c2.ID}, http.StatusOK)
+
+			assert.Contains(t, fileContentAtBranch(tester, branch, "file1.md"), "Line 49\nLine 50--from-file1\nLine 51\n")
+			assert.Contains(t, fileContentAtBranch(tester, branch, "file2.md"), "Line 59\nLine 60--from-file2\nLine 61\n")
+			// both files are changed by a single commit
+			assert.Len(t, branchCommits(tester, branch), before+1)
+			// applying resolves both conversations
+			assert.True(t, unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: c1.ID}).IsResolved())
+			assert.True(t, unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: c2.ID}).IsResolved())
+		})
+
+		t.Run("multiple suggestions in one file applied bottom-up", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			content := tester.fileContent
+			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
+			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
+			tester.changeFile("file1.md", content)
+			tester.createPR()
+			_, branch := tester.branch.Get()
+
+			// Ids are passed low-first: a top-down (input-order)
+			// regression would delete line 20 first, shift line 50 up by one, and splice the wrong line.
+			lowDelete := tester.suggestionComment("file1.md", "proposed", 20, 0, "```suggestion\n```")
+			high := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--bottomup\n```")
+			applyBatch(tester, []int64{lowDelete.ID, high.ID}, http.StatusOK)
+
+			got := fileContentAtBranch(tester, branch, "file1.md")
+			assert.NotContains(t, got, "Line 20--modified")                  // lower edit deleted the line
+			assert.Contains(t, got, "Line 19\nLine 21\n")                    // its neighbours are now adjacent
+			assert.Contains(t, got, "Line 49\nLine 50--bottomup\nLine 51\n") // higher edit landed on the right line
+		})
+
+		t.Run("overlapping suggestions are rejected", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			content := tester.fileContent
+			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
+			content = strings.Replace(content, "Line 21\n", "Line 21--modified\n", 1)
+			content = strings.Replace(content, "Line 22\n", "Line 22--modified\n", 1)
+			tester.changeFile("file1.md", content)
+			tester.createPR()
+			_, branch := tester.branch.Get()
+
+			a := tester.suggestionComment("file1.md", "proposed", 20, 1, "```suggestion\nOverlap-A\n```") // lines 20-21
+			b := tester.suggestionComment("file1.md", "proposed", 21, 1, "```suggestion\nOverlap-B\n```") // lines 21-22, overlaps a
+
+			before := len(branchCommits(tester, branch))
+			req := NewRequestWithJSON(t, "POST",
+				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
+				map[string]any{"comment_ids": []int64{a.ID, b.ID}})
+			resp := tester.session.MakeRequest(t, req, http.StatusBadRequest)
+			assert.Contains(t, resp.Body.String(), "overlap")
+
+			// nothing is committed: content unchanged and no new commit on the branch
+			got := fileContentAtBranch(tester, branch, "file1.md")
+			assert.Contains(t, got, "Line 20--modified")
+			assert.NotContains(t, got, "Overlap-A")
+			assert.Len(t, branchCommits(tester, branch), before)
+		})
+
+		t.Run("one ineligible edit rejects the whole batch", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			content := tester.fileContent
+			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
+			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
+			tester.changeFile("file1.md", content)
+			tester.createPR()
+			_, branch := tester.branch.Get()
+
+			eligible := tester.suggestionComment("file1.md", "proposed", 20, 0, "```suggestion\nLine 20--suggested\n```")
+			stale := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
+			// a later commit changes line 50, so its suggestion no longer maps to the head
+			content = strings.Replace(content, "Line 50--modified\n", "Line 50--changed-again\n", 1)
+			tester.changeFile("file1.md", content)
+
+			before := len(branchCommits(tester, branch))
+			applyBatch(tester, []int64{eligible.ID, stale.ID}, http.StatusBadRequest)
+
+			// the whole batch is rejected: the eligible edit is not applied and no commit is created
+			got := fileContentAtBranch(tester, branch, "file1.md")
+			assert.Contains(t, got, "Line 20--modified")
+			assert.NotContains(t, got, "Line 20--suggested")
+			assert.Len(t, branchCommits(tester, branch), before)
+		})
+
+		t.Run("different authors get co-authored-by trailers", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			content := tester.fileContent
+			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
+			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
+			tester.changeFile("file1.md", content)
+			tester.createPR()
+			_, branch := tester.branch.Get()
+
+			mine := tester.suggestionComment("file1.md", "proposed", 20, 0, "```suggestion\nLine 20--by-applier\n```")
+			other := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+			theirs := postSuggestionAs(tester, loginUser(t, other.Name), "file1.md", 50, "```suggestion\nLine 50--by-other\n```")
+
+			// user2 (the applier) commits a batch mixing its own suggestion and user1's
+			applyBatch(tester, []int64{mine.ID, theirs.ID}, http.StatusOK)
+
+			list := branchCommits(tester, branch)
+			require.NotEmpty(t, list)
+			require.NotNil(t, list[0].RepoCommit)
+			msg := list[0].RepoCommit.Message
+			// the other author is credited; the applier (commit author) is not repeated as a co-author
+			assert.Contains(t, msg, fmt.Sprintf("Co-authored-by: %s <%s>", other.Name, other.Email))
+			assert.NotContains(t, msg, fmt.Sprintf("Co-authored-by: %s <%s>", tester.user.Name, tester.user.Email))
+		})
+
+		t.Run("batch larger than the configured limit is rejected", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			content := tester.fileContent
+			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
+			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
+			tester.changeFile("file1.md", content)
+			tester.createPR()
+			_, branch := tester.branch.Get()
+
+			c1 := tester.suggestionComment("file1.md", "proposed", 20, 0, "```suggestion\nLine 20--over-limit\n```")
+			c2 := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--over-limit\n```")
+
+			before := len(branchCommits(tester, branch))
+			defer test.MockVariableValue(&setting.Repository.PullRequest.MaxBatchApplySuggestions, 1)()
+			applyBatch(tester, []int64{c1.ID, c2.ID}, http.StatusBadRequest)
+
+			// nothing is committed: content unchanged and no new commit on the branch
+			got := fileContentAtBranch(tester, branch, "file1.md")
+			assert.Contains(t, got, "Line 20--modified")
+			assert.NotContains(t, got, "over-limit")
+			assert.Len(t, branchCommits(tester, branch), before)
+		})
+
+		t.Run("duplicate comment ids are applied once", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			tester := newPullRequestCommentPlacementTester(t)
+			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
+			tester.createPR()
+			_, branch := tester.branch.Get()
+
+			comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--deduped\n```")
+			// the same id repeated is de-duplicated, not rejected as an overlap
+			applyBatch(tester, []int64{comment.ID, comment.ID}, http.StatusOK)
+
+			got := fileContentAtBranch(tester, branch, "file1.md")
+			assert.Contains(t, got, "Line 49\nLine 50--deduped\nLine 51\n")
 		})
 	})
 }
@@ -3229,9 +3445,8 @@ func TestPullReviewApplySuggestionOnFork(t *testing.T) {
 		comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
 
 		// user4 (fork owner) applies it — the commit must land on the FORK's branch
-		req = NewRequestWithValues(t, "POST", fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", baseOwner, repoName, pr.Index), map[string]string{
-			"comment_id": strconv.FormatInt(comment.ID, 10),
-		})
+		req = NewRequestWithJSON(t, "POST", fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", baseOwner, repoName, pr.Index),
+			map[string]any{"comment_ids": []int64{comment.ID}})
 		forkSession.MakeRequest(t, req, http.StatusOK)
 
 		// the fork's branch now holds the suggested content
@@ -3276,11 +3491,9 @@ func TestPullReviewApplySuggestionQuota(t *testing.T) {
 		require.NoError(t, group.AddRuleByName(db.DefaultContext, rule.Name))
 		require.NoError(t, group.AddUserByID(db.DefaultContext, tester.user.ID))
 
-		req := NewRequestWithValues(t, "POST",
+		req := NewRequestWithJSON(t, "POST",
 			fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
-			map[string]string{
-				"comment_id": strconv.FormatInt(comment.ID, 10),
-			})
+			map[string]any{"comment_ids": []int64{comment.ID}})
 		tester.session.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 	})
 }
@@ -3342,9 +3555,8 @@ func TestPullReviewApplySuggestionQuotaOnFork(t *testing.T) {
 		require.NoError(t, group.AddUserByID(db.DefaultContext, forkUser.ID))
 
 		// user4 (fork owner) applies → rejected because the fork owner is over quota
-		req = NewRequestWithValues(t, "POST", fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", baseOwner, repoName, pr.Index), map[string]string{
-			"comment_id": strconv.FormatInt(comment.ID, 10),
-		})
+		req = NewRequestWithJSON(t, "POST", fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", baseOwner, repoName, pr.Index),
+			map[string]any{"comment_ids": []int64{comment.ID}})
 		forkSession.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
 	})
 }

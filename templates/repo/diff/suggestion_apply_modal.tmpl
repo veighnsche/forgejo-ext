@@ -1,9 +1,8 @@
 <dialog id="apply-suggestion-modal">
 	<article>
 		<header>{{ctx.Locale.Tr "repo.issues.review.apply_suggestion"}}</header>
-		<form class="ui form form-fetch-action" method="post" action="">
+		<form class="ui form" method="post" action="">
 			<fieldset class="content">
-				<input type="hidden" id="apply-suggestion-comment-id" name="comment_id">
 				<div class="field">
 					<label for="apply-suggestion-summary">{{ctx.Locale.Tr "form.CommitMessage"}}</label>
 					<input id="apply-suggestion-summary" name="commit_summary" maxlength="100" autofocus required>

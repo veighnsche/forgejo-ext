@@ -3396,7 +3396,12 @@ func UpdateCommentContent(ctx *context.Context) {
 			"RepoLink":             ctx.Repo.RepoLink,
 			"Issue":                comment.Issue,
 		}
-		if suggestions, err = ctx.RenderToHTML("repo/diff/suggestion_diffs", map[string]any{"comment": comment, "root": root}); err != nil {
+		// the editor declares its context (Files tab vs Conversation); anything else => no batch button
+		batchMode := ctx.FormString("batch_mode")
+		if batchMode != "active" && batchMode != "disabled" {
+			batchMode = ""
+		}
+		if suggestions, err = ctx.RenderToHTML("repo/diff/suggestion_diffs", map[string]any{"comment": comment, "root": root, "batchMode": batchMode}); err != nil {
 			ctx.ServerError("RenderToHTML", err)
 			return
 		}

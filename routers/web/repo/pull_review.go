@@ -285,43 +285,60 @@ func headBranchIsEditable(ctx *context.Context, issue *issues_model.Issue) (bool
 
 // ApplySuggestion applies a single ```suggestion block from a review comment onto the PR head branch.
 func ApplySuggestion(ctx *context.Context) {
-	commentID := ctx.FormInt64("comment_id")
-
-	comment, err := issues_model.GetCommentByID(ctx, commentID)
-	if err != nil {
-		if issues_model.IsErrCommentNotExist(err) {
-			ctx.NotFound("GetCommentByID", err)
-		} else {
-			ctx.ServerError("GetCommentByID", err)
-		}
-		return
+	var form struct {
+		CommentIDs    []int64 `json:"comment_ids"`
+		CommitSummary string  `json:"commit_summary"`
+		CommitMessage string  `json:"commit_message"`
 	}
-	if err = comment.LoadIssue(ctx); err != nil {
-		ctx.ServerError("comment.LoadIssue", err)
-		return
-	}
-	if comment.Issue.RepoID != ctx.Repo.Repository.ID {
-		ctx.NotFound("comment's repoID is incorrect", errors.New("comment's repoID is incorrect"))
-		return
-	}
-
-	// Check that comment issue index match the index path paramter
-	if comment.Issue.Index != ctx.ParamsInt64(":index") {
-		ctx.NotFound("comment does not belong to this pull request", errors.New("comment's pull request index does not match the URL"))
-		return
-	}
-	if !comment.Issue.IsPull {
+	if err := json.NewDecoder(ctx.Req.Body).Decode(&form); err != nil ||
+		len(form.CommentIDs) == 0 || len(form.CommentIDs) > setting.Repository.PullRequest.MaxBatchApplySuggestions {
 		ctx.Error(http.StatusBadRequest)
 		return
 	}
-	if err = comment.Issue.LoadPullRequest(ctx); err != nil {
-		ctx.ServerError("comment.Issue.LoadPullRequest", err)
+
+	// De-duplicate (preserving order) so a comment is never applied twice and a crafted body can't inflate the work.
+	commentIDs := make([]int64, 0, len(form.CommentIDs))
+	seen := make(map[int64]bool, len(form.CommentIDs))
+	for _, id := range form.CommentIDs {
+		if !seen[id] {
+			seen[id] = true
+			commentIDs = append(commentIDs, id)
+		}
+	}
+
+	pr, err := issues_model.GetPullRequestByIndex(ctx, ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
+	if err != nil {
+		if issues_model.IsErrPullRequestNotExist(err) {
+			ctx.NotFound("GetPullRequestByIndex", err)
+		} else {
+			ctx.ServerError("GetPullRequestByIndex", err)
+		}
 		return
 	}
 
-	_, err = files_service.ApplySuggestions(ctx, ctx.Doer, comment.Issue.PullRequest,
-		[]*files_service.SuggestionEdit{{Comment: comment}},
-		ctx.FormString("commit_summary"), ctx.FormString("commit_message"))
+	comments := make([]*issues_model.Comment, 0, len(commentIDs))
+	edits := make([]*files_service.SuggestionEdit, 0, len(commentIDs))
+	for _, commentID := range commentIDs {
+		comment, err := issues_model.GetCommentByID(ctx, commentID)
+		if err != nil {
+			if issues_model.IsErrCommentNotExist(err) {
+				ctx.NotFound("GetCommentByID", err)
+			} else {
+				ctx.ServerError("GetCommentByID", err)
+			}
+			return
+		}
+		// Every comment must belong to the pull request addressed by the URL.
+		if comment.IssueID != pr.IssueID {
+			ctx.NotFound("comment does not belong to this pull request", errors.New("comment's pull request does not match the URL"))
+			return
+		}
+		comment.Issue = pr.Issue // reuse the single loaded issue (resolveSuggestionConversation needs it)
+		comments = append(comments, comment)
+		edits = append(edits, &files_service.SuggestionEdit{Comment: comment})
+	}
+
+	_, err = files_service.ApplySuggestions(ctx, ctx.Doer, pr, edits, form.CommitSummary, form.CommitMessage)
 	if err != nil {
 		var errArchived repo_model.ErrRepoIsArchived
 		switch {
@@ -343,10 +360,12 @@ func ApplySuggestion(ctx *context.Context) {
 		return
 	}
 
-	// Applying a suggestion addresses the review comment, so resolve its conversation (best-effort:
+	// Applying a suggestion addresses its review comment, so resolve each conversation (best-effort:
 	// it requires resolve permission and must never undo or block the successful apply).
-	if err := resolveSuggestionConversation(ctx, comment); err != nil {
-		log.Error("ApplySuggestion: resolve conversation for comment %d: %v", comment.ID, err)
+	for _, comment := range comments {
+		if err := resolveSuggestionConversation(ctx, comment); err != nil {
+			log.Error("ApplySuggestion: resolve conversation for comment %d: %v", comment.ID, err)
+		}
 	}
 
 	ctx.JSONOK()

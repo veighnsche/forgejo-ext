@@ -15,6 +15,7 @@ import {
 } from './repo-common.js';
 import {initCompLabelEdit} from './comp/LabelEdit.js';
 import {initRepoDiffConversationNav} from './repo-diff.js';
+import {syncSuggestionBatchUI} from './repo-suggestion.js';
 import {showErrorToast} from '../modules/toast.js';
 import {initCommentContent, initMarkupContent} from '../markup/content.js';
 import {initCompReactionSelector} from './comp/ReactionSelector.js';
@@ -331,6 +332,9 @@ async function onEditContent(event) {
         context: editContentZone.getAttribute('data-context'),
         content_version: editContentZone.getAttribute('data-content-version'),
       });
+      // tells the server which batch button to render with the refreshed suggestion (Files tab vs Conversation)
+      const batchMode = editContentZone.getAttribute('data-batch-mode');
+      if (batchMode) params.append('batch_mode', batchMode);
       const files = dropzone?.element?.querySelectorAll('.files [name=files]') ?? [];
       for (const fileInput of files) {
         params.append('files[]', fileInput.value);
@@ -354,7 +358,10 @@ async function onEditContent(event) {
       }
       // refresh the server-rendered suggestion diff(s) so an added/changed suggestion shows without a reload
       for (const old of segment.querySelectorAll('.suggestion-diff')) old.remove();
-      if (data.suggestions) renderContent.insertAdjacentHTML('afterend', data.suggestions);
+      if (data.suggestions) {
+        renderContent.insertAdjacentHTML('afterend', data.suggestions);
+        syncSuggestionBatchUI(); // re-apply batch state to the freshly injected buttons
+      }
       const content = segment;
       if (!content.querySelector('.dropzone-attachments')) {
         if (data.attachments !== '') {

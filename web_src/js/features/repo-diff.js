@@ -12,6 +12,7 @@ import {submitEventSubmitter, queryElemSiblings, hideElem, showElem} from '../ut
 import {POST, GET} from '../modules/fetch.js';
 import {clearMultiLineSelection, refreshMultiLineCommentHighlights} from './repo-issue.js';
 import {renderSuggestions} from '../markup/suggestion.js';
+import {syncSuggestionBatchUI} from './repo-suggestion.js';
 
 const {pageData, i18n} = window.config;
 
@@ -129,6 +130,7 @@ function initRepoDiffConversationForm() {
       $newConversationHolder.find('.ui.dropdown').dropdown();
       initCompReactionSelector($newConversationHolder);
       renderSuggestions(holderEl); // render ```suggestion blocks in the freshly injected conversation
+      syncSuggestionBatchUI(); // re-apply batch state to the re-rendered buttons
     } catch { // here the caught error might be a jQuery AJAX error (thrown by await $.post), which is not good to use for error message handling
       console.error('error when submitting conversation', e);
       showErrorToast(i18n.network_error);
@@ -154,6 +156,7 @@ function initRepoDiffConversationForm() {
         $conversation.find('.ui.dropdown').dropdown();
         initCompReactionSelector($conversation);
         renderSuggestions($conversation[0]); // re-render ```suggestion blocks after resolve/unresolve swap
+        syncSuggestionBatchUI(); // re-apply batch state to the re-rendered buttons
       } else {
         window.location.reload();
       }
@@ -192,6 +195,7 @@ function onShowMoreFiles() {
   countAndUpdateViewedFiles();
   initImageDiff();
   renderSuggestions(); // render ```suggestion blocks in lazily-loaded diff files
+  syncSuggestionBatchUI(); // re-apply batch state to buttons in lazily-loaded files
   htmx.process(document.body);
 }
 
