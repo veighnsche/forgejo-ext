@@ -340,6 +340,9 @@ func ListWikiPages(ctx *context.APIContext) {
 		}
 		wikiName, err := wiki_service.GitPathToWebPath(page.GitPath)
 		if err != nil {
+			if errors.As(err, &repo_model.ErrWikiInvalidFileName{}) {
+				continue
+			}
 			ctx.Error(http.StatusInternalServerError, "WikiFilenameToName", err)
 			return
 		}
