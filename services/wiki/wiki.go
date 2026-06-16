@@ -453,8 +453,6 @@ type Page struct {
 
 // ListWikiPages returns a list of all pages in a wiki
 // This takes a sorter interface compatible to the old sorters
-// TODO: Display/return an error, if a reserved name is in the pages.
-// this can happen if a user pushes such a file directly per git
 func ListWikiPages(
 	ctx context.Context,
 	commit *git.Commit,

@@ -151,14 +151,6 @@ func renderViewPage(ctx *context.Context) (*git.Repository, *git.TreeEntry, stri
 		return nil, nil, ""
 	}
 
-	defer func() {
-		if ctx.Written() {
-			wikiRepo.Close()
-		}
-	}()
-
-	// TODO: Instead of loading the Whole wiki list into the select, they should be loaded on typing into the search.
-	// This is important, because in a repo with a lot of files this will create a big slowdown on ALL wikipages
 	pagesData, err := wiki_service.ListWikiPages(gocontext.Context(ctx), commit, base.NaturalSortLess)
 	if err != nil {
 		if wikiRepo != nil {
