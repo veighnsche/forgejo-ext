@@ -115,11 +115,11 @@ func TestGitPathToWebPath(t *testing.T) {
 	} {
 		_, err := GitPathToWebPath(badFilename)
 		require.Error(t, err)
-		assert.IsType(t, repo_model.ErrWikiInvalidFileName{}, err)
+		require.ErrorAs(t, err, &repo_model.ErrWikiInvalidFileName{})
 	}
 	_, err := GitPathToWebPath("badescaping%%.md")
 	require.Error(t, err)
-	assert.IsNotType(t, repo_model.ErrWikiInvalidFileName{}, err)
+	require.NotErrorAs(t, err, &repo_model.ErrWikiInvalidFileName{})
 }
 
 func TestUserWebGitPathConsistency(t *testing.T) {
@@ -352,22 +352,23 @@ func TestWebPathFromRequest(t *testing.T) {
 }
 
 func TestValidateWebPathQuerryInject(t *testing.T) {
-	assert.IsType(t, repo_model.ErrWikiInvalidFileName{}, validateWebPath("?"))
-	assert.IsType(t, repo_model.ErrWikiInvalidFileName{}, validateWebPath("a?b"))
+	require.ErrorAs(t, validateWebPath("?"), &repo_model.ErrWikiInvalidFileName{})
+	require.ErrorAs(t, validateWebPath("a?b"), &repo_model.ErrWikiInvalidFileName{})
 }
 
 func TestValidateWebPathReservedNames(t *testing.T) {
-	assert.IsType(t, repo_model.ErrWikiReservedName{}, validateWebPath("_pages"))
-	assert.IsType(t, repo_model.ErrWikiReservedName{}, validateWebPath("_new"))
-	assert.IsType(t, repo_model.ErrWikiReservedName{}, validateWebPath("_edit"))
-	assert.IsType(t, repo_model.ErrWikiReservedName{}, validateWebPath("raw"))
+	require.ErrorAs(t, validateWebPath("_pages"), &repo_model.ErrWikiReservedName{})
+	require.ErrorAs(t, validateWebPath("_new"), &repo_model.ErrWikiReservedName{})
+	require.ErrorAs(t, validateWebPath("_edit"), &repo_model.ErrWikiReservedName{})
+	require.ErrorAs(t, validateWebPath("raw"), &repo_model.ErrWikiReservedName{})
 }
 
 func TestSanitizedWikiPathInvalidFilenames(t *testing.T) {
 	invalidPaths := []string{"", ".", "..", "./../.", "./A?A/.", "?"}
 	for _, invalidPath := range invalidPaths {
 		_, err := SanitizeWikiPath(invalidPath)
-		assert.IsType(t, repo_model.ErrWikiInvalidFileName{}, err)
+		require.Error(t, err)
+		require.ErrorAs(t, err, &repo_model.ErrWikiInvalidFileName{})
 	}
 }
 
@@ -397,7 +398,7 @@ func TestSanitizeWikiPath(t *testing.T) {
 			result, err := SanitizeWikiPath(tt.input)
 			if tt.wantErr {
 				require.Error(t, err)
-				assert.IsType(t, repo_model.ErrWikiInvalidFileName{}, err)
+				require.ErrorAs(t, err, &repo_model.ErrWikiInvalidFileName{})
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, Path(tt.expected), result)
