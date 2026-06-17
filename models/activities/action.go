@@ -661,23 +661,6 @@ func activityQueryCondition(ctx context.Context, opts GetFeedsOptions) (builder.
 
 		cond = cond.And(
 			builder.Eq{"repo_id": opts.RequestedIssue.RepoID},
-			builder.In(
-				"op_type",
-				ActionCreateIssue,
-				ActionCreatePullRequest,
-				ActionCommentIssue,
-				ActionReopenPullRequest,
-				ActionMergePullRequest,
-				ActionCloseIssue,
-				ActionReopenIssue,
-				ActionClosePullRequest,
-				ActionApprovePullRequest,
-				ActionRejectPullRequest,
-				ActionCommentPull,
-				ActionPullReviewDismissed,
-				ActionPullRequestReadyForReview,
-				ActionAutoMergePullRequest,
-			),
 			builder.Like{"content", "[\"" + strconv.FormatInt(opts.RequestedIssue.Index, 10) + "\"%"}, // JSON, ["IssueIndex"...
 		)
 	}
