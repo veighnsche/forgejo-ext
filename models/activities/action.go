@@ -655,11 +655,12 @@ func activityQueryCondition(ctx context.Context, opts GetFeedsOptions) (builder.
 	}
 
 	if opts.RequestedIssue != nil {
-		if opts.RequestedRepo == nil {
-			cond = cond.And(builder.Eq{"repo_id": opts.RequestedIssue.RepoID})
+		if opts.RequestedRepo != nil && opts.RequestedRepo.ID != opts.RequestedIssue.RepoID {
+			return nil, errors.New("requested repository id does not match requested issue repository id")
 		}
 
 		cond = cond.And(
+			builder.Eq{"repo_id": opts.RequestedIssue.RepoID},
 			builder.In(
 				"op_type",
 				ActionCreateIssue,
