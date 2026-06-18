@@ -38,7 +38,7 @@ func ShowIssueFeed(ctx *context.Context, issue *issues_model.Issue, formatType s
 	title := fmt.Sprintf(titleFormat, issue.Repo.OwnerName, issue.Repo.Name, issue.Index, issue.Title)
 
 	feed := &feeds.Feed{
-		Title:       ctx.Locale.TrString("home.feed_of", title),
+		Title:       title,
 		Link:        &feeds.Link{Href: issue.HTMLURL()},
 		Description: fmt.Sprintf(descriptionFormat, issue.Repo.OwnerName, issue.Repo.Name, issue.Index, issue.Poster.DisplayName()),
 		Created:     time.Now(),
