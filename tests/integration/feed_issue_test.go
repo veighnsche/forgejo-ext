@@ -44,6 +44,8 @@ func TestFeedIssue(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, rss.Channel.Link, "/user2")
 			assert.NotEmpty(t, rss.Channel.Items)
+			assert.Equal(t, "Issue user2/repo1#1: issue1", rss.Channel.Title)
+			assert.Equal(t, "Updates on issue user2/repo1#1 by User One", rss.Channel.Description)
 			assert.Regexp(t, `http://localhost:\d+/user2/repo1/issues/1#issuecomment-\d+`, rss.Channel.Items[0].Link)
 			assert.NotEmpty(t, rss.Channel.PubDate)
 		})

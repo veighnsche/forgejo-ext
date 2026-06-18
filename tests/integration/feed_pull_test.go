@@ -44,6 +44,8 @@ func TestFeedPull(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, rss.Channel.Link, "/user2")
 			assert.NotEmpty(t, rss.Channel.Items)
+			assert.Equal(t, "Pull request user2/repo1!2: issue2", rss.Channel.Title)
+			assert.Equal(t, "Updates on pull request user2/repo1!2 by User One", rss.Channel.Description)
 			assert.Regexp(t, `http://localhost:\d+/user2/repo1/pulls/2#issuecomment-\d+`, rss.Channel.Items[0].Link)
 			assert.Regexp(t, `http://localhost:\d+/user2/repo1/pulls/2`, rss.Channel.Items[1].Link)
 			assert.NotEmpty(t, rss.Channel.PubDate)
