@@ -358,6 +358,15 @@ func getPullInfo(ctx *context.Context) (issue *issues_model.Issue, ok bool) {
 	ctx.Data["Title"] = fmt.Sprintf("#%d - %s", issue.Index, emoji.ReplaceAliases(issue.Title))
 	ctx.Data["Issue"] = issue
 
+	if setting.Other.EnableFeed {
+		ctx.Data["EnableFeed"] = true
+		if issue.IsPull {
+			ctx.Data["FeedURL"] = fmt.Sprintf("%s/pulls/%d", ctx.Repo.RepoLink, issue.Index)
+		} else {
+			ctx.Data["FeedURL"] = fmt.Sprintf("%s/issues/%d", ctx.Repo.RepoLink, issue.Index)
+		}
+	}
+
 	if !issue.IsPull {
 		ctx.Redirect(issue.Link())
 		return nil, false
