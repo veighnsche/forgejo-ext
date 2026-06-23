@@ -160,6 +160,7 @@
 	"migrate.cancel.title": "Cancel migration",
 	"migrate.cancel.confirmation": "Do you want to cancel this migration?",
 	"repo.issue_indexer.title": "Issue Indexer",
+	"search.verb": "Search",
 	"search.milestone_kind": "Search milestones…",
 	"search.syntax": "Search syntax",
 	"search.fuzzy": "Fuzzy",
