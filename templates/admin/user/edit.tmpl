@@ -41,11 +41,11 @@
 						<div class="menu">
 							{{range $mode := .AllowedUserVisibilityModes}}
 								{{if $mode.IsPublic}}
-									<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.public_tooltip"}}" data-value="0">{{ctx.Locale.Tr "settings.visibility.public"}}</div>
+									<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.public.tooltip"}}" data-value="0">{{ctx.Locale.Tr "settings.visibility.public"}}</div>
 								{{else if $mode.IsLimited}}
-									<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.limited_tooltip"}}" data-value="1">{{ctx.Locale.Tr "settings.visibility.limited"}}</div>
+									<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.limited.tooltip"}}" data-value="1">{{ctx.Locale.Tr "settings.visibility.limited"}}</div>
 								{{else if $mode.IsPrivate}}
-									<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.private_tooltip"}}" data-value="2">{{ctx.Locale.Tr "settings.visibility.private"}}</div>
+									<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.private.tooltip"}}" data-value="2">{{ctx.Locale.Tr "settings.visibility.private"}}</div>
 								{{end}}
 							{{end}}
 						</div>
