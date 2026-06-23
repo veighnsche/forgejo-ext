@@ -61,7 +61,7 @@
 					<legend id="privacy-user-settings">{{ctx.Locale.Tr "settings.privacy"}}</legend>
 
 					<label id="visibility-setting" {{if .Err_Visibility}}class="field error"{{end}}>
-						{{ctx.Locale.Tr "settings.visibility"}}
+						{{ctx.Locale.Tr "user.visibility.label"}}
 						<div class="ui selection type dropdown" aria-labelledby="visibility-setting">
 							{{if .SignedUser.Visibility.IsPublic}}<input type="hidden" id="visibility" name="visibility" value="0">{{end}}
 							{{if .SignedUser.Visibility.IsLimited}}<input type="hidden" id="visibility" name="visibility" value="1">{{end}}

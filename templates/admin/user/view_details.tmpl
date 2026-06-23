@@ -43,7 +43,7 @@
 				{{end}}
 			</div>
 			<div class="flex-item-body">
-				<b>{{ctx.Locale.Tr "settings.visibility"}}:</b>
+				<b>{{ctx.Locale.Tr "user.visibility.label"}}:</b>
 				{{if .User.Visibility.IsPublic}}{{ctx.Locale.Tr "settings.visibility.public"}}{{end}}
 				{{if .User.Visibility.IsLimited}}{{ctx.Locale.Tr "settings.visibility.limited"}}{{end}}
 				{{if .User.Visibility.IsPrivate}}{{ctx.Locale.Tr "settings.visibility.private"}}{{end}}

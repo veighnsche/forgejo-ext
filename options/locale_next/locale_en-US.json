@@ -539,6 +539,7 @@
 	"settings.authorized_integration.forgejo_actions_local.git_ref.error": "Error parsing git reference: %s",
 	"settings.authorized_integration.forgejo_actions_local.event.label": "Event:",
 	"settings.authorized_integration.forgejo_actions_local.event.help": "If no events are selected, any event will be permitted.",
+	"user.visibility.label": "Profile visibility",
 	"webauthn.insert_key": "Insert your security key",
 	"webauthn.sign_in": "Press the button on your security key. If your security key has no button, re-insert it.",
 	"webauthn.press_button": "Please press the button on your security key…",
