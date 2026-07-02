@@ -5,15 +5,16 @@ package migrations
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
 	base "forgejo.org/modules/migration"
 	"forgejo.org/modules/structs"
@@ -493,8 +494,7 @@ func (d *BitbucketDataCenterDownloader) fetchPullRequestActivities(prID int64) (
 
 	// Activities are returned newest first; process oldest first so a thread is grouped on
 	// its opening activity and comments stay chronological.
-	for i := len(activities) - 1; i >= 0; i-- {
-		act := activities[i]
+	for _, act := range slices.Backward(activities) {
 		switch act.Action {
 		case "APPROVED":
 			prCtx.reviews = append(prCtx.reviews, &base.Review{
@@ -515,10 +515,9 @@ func (d *BitbucketDataCenterDownloader) fetchPullRequestActivities(prID int64) (
 				CreatedAt:    time.UnixMilli(act.CreatedDate),
 			})
 		case "UNAPPROVED": // the reviewer withdrew an earlier approval or "needs work": drop it
-			for i := len(prCtx.reviews) - 1; i >= 0; i-- {
-				r := prCtx.reviews[i]
+			for i, r := range slices.Backward(prCtx.reviews) {
 				if r.ReviewerID == act.User.ID && (r.State == base.ReviewStateApproved || r.State == base.ReviewStateChangesRequested) {
-					prCtx.reviews = append(prCtx.reviews[:i], prCtx.reviews[i+1:]...)
+					prCtx.reviews = slices.Delete(prCtx.reviews, i, i+1)
 					break
 				}
 			}
