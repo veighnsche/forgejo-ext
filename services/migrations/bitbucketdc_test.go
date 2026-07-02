@@ -215,6 +215,10 @@ func TestBitbucketDataCenterGetPullRequests(t *testing.T) {
 			t.Errorf("unexpected start parameter: %s", r.URL.Query().Get("start"))
 		}
 	})
+	// Subtree route: per-PR activity streams, empty here.
+	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo/pull-requests/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"isLastPage": true, "values": []}`)
+	})
 	server := httptest.NewServer(mux)
 	defer server.Close()
 	serverURL = server.URL
@@ -278,6 +282,230 @@ func TestBitbucketDataCenterGetPullRequests(t *testing.T) {
 	require.NotNil(t, declined.Closed)
 	// No closedDate on old Bitbucket versions: the last update is used instead.
 	assert.Equal(t, int64(1704153600000), declined.Closed.UnixMilli())
+}
+
+func TestBitbucketDataCenterGetCommentsAndReviews(t *testing.T) {
+	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo/pull-requests", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{
+			"isLastPage": true,
+			"values": [
+				{
+					"id": 5,
+					"title": "A reviewed pull request",
+					"state": "OPEN",
+					"createdDate": 1704067200000,
+					"updatedDate": 1704153600000,
+					"fromRef": {
+						"displayId": "feature",
+						"latestCommit": "0123456789012345678901234567890123456789",
+						"repository": {"slug": "myrepo", "project": {"key": "PROJ"}}
+					},
+					"toRef": {
+						"displayId": "main",
+						"latestCommit": "aaaa456789012345678901234567890123456789",
+						"repository": {"slug": "myrepo", "project": {"key": "PROJ"}}
+					},
+					"author": {"user": {"id": 9, "name": "alice", "emailAddress": "alice@example.com"}}
+				}
+			]
+		}`)
+	})
+	// Activities are served newest first, like the real API.
+	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo/pull-requests/5/activities", func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Query().Get("start") {
+		case "0":
+			_, _ = io.WriteString(w, `{
+				"isLastPage": false,
+				"nextPageStart": 42,
+				"values": [
+					{
+						"id": 106,
+						"action": "UNAPPROVED",
+						"createdDate": 1704270000000,
+						"user": {"id": 10, "name": "dave", "emailAddress": "dave@example.com"}
+					},
+					{
+						"id": 105,
+						"action": "COMMENTED",
+						"commentAction": "ADDED",
+						"createdDate": 1704260000000,
+						"user": {"id": 7, "name": "bob"},
+						"comment": {
+							"id": 21,
+							"text": "Answered offline",
+							"author": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"},
+							"createdDate": 1704260000000,
+							"updatedDate": 1704260000000
+						}
+					},
+					{
+						"id": 104,
+						"action": "COMMENTED",
+						"commentAction": "ADDED",
+						"createdDate": 1704250000000,
+						"user": {"id": 9, "name": "alice"},
+						"comment": {
+							"id": 20,
+							"text": "General question about the approach",
+							"author": {"id": 9, "name": "alice", "emailAddress": "alice@example.com"},
+							"createdDate": 1704250000000,
+							"updatedDate": 1704250000000,
+							"comments": [
+								{
+									"id": 21,
+									"text": "Answered offline",
+									"author": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"},
+									"createdDate": 1704260000000,
+									"updatedDate": 1704260000000
+								}
+							]
+						}
+					},
+					{
+						"id": 103,
+						"action": "REVIEWED",
+						"createdDate": 1704240000000,
+						"user": {"id": 8, "name": "carol", "emailAddress": "carol@example.com"}
+					}
+				]
+			}`)
+		case "42":
+			_, _ = io.WriteString(w, `{
+				"isLastPage": true,
+				"values": [
+					{
+						"id": 102,
+						"action": "COMMENTED",
+						"commentAction": "ADDED",
+						"createdDate": 1704230000000,
+						"user": {"id": 7, "name": "bob"},
+						"comment": {
+							"id": 32,
+							"text": "This used to work before",
+							"author": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"},
+							"createdDate": 1704230000000,
+							"updatedDate": 1704230000000
+						},
+						"commentAnchor": {"path": "old.go", "line": 3, "fileType": "FROM", "toHash": "0123456789012345678901234567890123456789"}
+					},
+					{
+						"id": 101,
+						"action": "COMMENTED",
+						"commentAction": "ADDED",
+						"createdDate": 1704210000000,
+						"user": {"id": 8, "name": "carol"},
+						"comment": {
+							"id": 30,
+							"text": "This range looks wrong",
+							"author": {"id": 8, "name": "carol", "emailAddress": "carol@example.com"},
+							"createdDate": 1704210000000,
+							"updatedDate": 1704210000000,
+							"comments": [
+								{
+									"id": 31,
+									"text": "Fixed in the next commit",
+									"author": {"id": 9, "name": "alice", "emailAddress": "alice@example.com"},
+									"createdDate": 1704220000000,
+									"updatedDate": 1704220000000
+								}
+							]
+						},
+						"commentAnchor": {"path": "src/main.go", "line": 12, "fileType": "TO", "toHash": "0123456789012345678901234567890123456789", "multilineMarker": {"startLine": 10}}
+					},
+					{
+						"id": 100,
+						"action": "APPROVED",
+						"createdDate": 1704200000000,
+						"user": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"}
+					},
+					{
+						"id": 99,
+						"action": "APPROVED",
+						"createdDate": 1704195000000,
+						"user": {"id": 10, "name": "dave", "emailAddress": "dave@example.com"}
+					}
+				]
+			}`)
+		default:
+			t.Errorf("unexpected start parameter: %s", r.URL.Query().Get("start"))
+		}
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	factory := &BitbucketDataCenterDownloaderFactory{}
+	downloader, err := factory.New(t.Context(), base.MigrateOptions{
+		CloneAddr: server.URL + "/scm/PROJ/myrepo.git",
+		AuthToken: "sometoken",
+	})
+	require.NoError(t, err)
+
+	prs, isEnd, err := downloader.GetPullRequests(1, 10)
+	require.NoError(t, err)
+	assert.True(t, isEnd)
+	require.Len(t, prs, 1)
+
+	// The comment with id 21 appears both nested in its thread and as its own activity: kept
+	// once, and comments come out chronologically despite the newest-first activity stream.
+	comments, _, err := downloader.GetComments(prs[0])
+	require.NoError(t, err)
+	require.Len(t, comments, 2)
+	assert.Equal(t, int64(5), comments[0].IssueIndex)
+	assert.Equal(t, "General question about the approach", comments[0].Content)
+	assert.Equal(t, int64(9), comments[0].PosterID)
+	assert.Equal(t, "alice", comments[0].PosterName)
+	assert.Equal(t, int64(1704250000000), comments[0].Created.UnixMilli())
+	assert.Equal(t, "Answered offline", comments[1].Content)
+	assert.Equal(t, "bob", comments[1].PosterName)
+
+	reviews, err := downloader.GetReviews(prs[0])
+	require.NoError(t, err)
+	require.Len(t, reviews, 4)
+
+	// dave approved then withdrew his approval: no review of his remains.
+	for _, r := range reviews {
+		assert.NotEqual(t, "dave", r.ReviewerName)
+	}
+
+	approved := reviews[0]
+	assert.Equal(t, base.ReviewStateApproved, approved.State)
+	assert.Equal(t, int64(7), approved.ReviewerID)
+	assert.Equal(t, "bob", approved.ReviewerName)
+	assert.Equal(t, int64(1704200000000), approved.CreatedAt.UnixMilli())
+
+	// A whole inline thread becomes a single review; each comment keeps its own author.
+	inline := reviews[1]
+	assert.Equal(t, base.ReviewStateCommented, inline.State)
+	assert.Equal(t, "carol", inline.ReviewerName)
+	require.Len(t, inline.Comments, 2)
+	assert.Equal(t, "This range looks wrong", inline.Comments[0].Content)
+	assert.Equal(t, "carol", inline.Comments[0].PosterName)
+	assert.Equal(t, int64(8), inline.Comments[0].PosterID)
+	assert.Equal(t, "src/main.go", inline.Comments[0].TreePath)
+	assert.Equal(t, "0123456789012345678901234567890123456789", inline.Comments[0].CommitID)
+	// The Bitbucket range 10-12 is anchored on its first line with 2 extra lines.
+	assert.Equal(t, 10, inline.Comments[0].Line)
+	assert.Equal(t, int64(2), inline.Comments[0].ExtraLinesCount)
+	assert.Equal(t, "@@ -10 +10 @@", inline.Comments[0].DiffHunk)
+	assert.Equal(t, "Fixed in the next commit", inline.Comments[1].Content)
+	assert.Equal(t, "alice", inline.Comments[1].PosterName)
+	assert.Equal(t, int64(9), inline.Comments[1].PosterID)
+
+	// A comment on the old side of the diff maps to a negative line.
+	oldSide := reviews[2]
+	require.Len(t, oldSide.Comments, 1)
+	assert.Equal(t, "bob", oldSide.ReviewerName)
+	assert.Equal(t, "old.go", oldSide.Comments[0].TreePath)
+	assert.Equal(t, -3, oldSide.Comments[0].Line)
+	assert.Equal(t, int64(0), oldSide.Comments[0].ExtraLinesCount)
+	assert.Equal(t, "@@ -3 +3 @@", oldSide.Comments[0].DiffHunk)
+
+	needsWork := reviews[3]
+	assert.Equal(t, base.ReviewStateChangesRequested, needsWork.State)
+	assert.Equal(t, "carol", needsWork.ReviewerName)
 }
 
 func TestBitbucketDataCenterGetRepoInfoWithoutHTTPCloneLink(t *testing.T) {

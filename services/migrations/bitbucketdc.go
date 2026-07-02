@@ -347,8 +347,226 @@ func (d *BitbucketDataCenterDownloader) GetPullRequests(page, perPage int) ([]*b
 		// SECURITY: Ensure that the PR is safe
 		_ = CheckAndEnsureSafePR(result, d.baseURL.String(), d)
 
+		prCtx, err := d.fetchPullRequestActivities(pr.ID)
+		if err != nil {
+			return nil, false, err
+		}
+		result.Context = prCtx
+
 		prs = append(prs, result)
 	}
 
 	return prs, resp.IsLastPage, nil
+}
+
+// bitbucketPRContext carries the comments and reviews of a pull request, collected once
+// from its activity stream and served by GetComments/GetReviews.
+type bitbucketPRContext struct {
+	comments []*base.Comment
+	reviews  []*base.Review
+}
+
+type bitbucketComment struct {
+	ID          int64              `json:"id"`
+	Text        string             `json:"text"`
+	Author      bitbucketUser      `json:"author"`
+	CreatedDate int64              `json:"createdDate"`
+	UpdatedDate int64              `json:"updatedDate"`
+	Comments    []bitbucketComment `json:"comments"`
+}
+
+// addCommentThread flattens a comment and its replies into plain comments.
+func (p *bitbucketPRContext) addCommentThread(prID int64, c bitbucketComment, seen map[int64]bool) {
+	if !seen[c.ID] {
+		seen[c.ID] = true
+		p.comments = append(p.comments, &base.Comment{
+			IssueIndex:  prID,
+			Index:       c.ID,
+			PosterID:    c.Author.ID,
+			PosterName:  c.Author.Name,
+			PosterEmail: c.Author.EmailAddress,
+			Created:     time.UnixMilli(c.CreatedDate),
+			Updated:     time.UnixMilli(c.UpdatedDate),
+			Content:     c.Text,
+		})
+	}
+	for _, child := range c.Comments {
+		p.addCommentThread(prID, child, seen)
+	}
+}
+
+// addInlineThread converts an inline (diff-anchored) comment thread into a single review;
+// every comment carries its own author so replies keep their attribution.
+func (p *bitbucketPRContext) addInlineThread(prID int64, c bitbucketComment, treePath string, line, extraLines int64, commitID string, seen map[int64]bool) {
+	// The uploader drops code comments without a diff hunk and rebuilds the displayed patch
+	// from git; Bitbucket anchors carry no hunk text, so provide a minimal valid header.
+	hunkLine := max(line, -line, 1)
+	diffHunk := fmt.Sprintf("@@ -%d +%d @@", hunkLine, hunkLine)
+
+	review := &base.Review{
+		ID:           c.ID,
+		IssueIndex:   prID,
+		ReviewerID:   c.Author.ID,
+		ReviewerName: c.Author.Name,
+		State:        base.ReviewStateCommented,
+		CreatedAt:    time.UnixMilli(c.CreatedDate),
+	}
+
+	var collect func(bitbucketComment)
+	collect = func(cc bitbucketComment) {
+		if !seen[cc.ID] {
+			seen[cc.ID] = true
+			review.Comments = append(review.Comments, &base.ReviewComment{
+				ID:              cc.ID,
+				Content:         cc.Text,
+				TreePath:        treePath,
+				Line:            int(line),
+				ExtraLinesCount: extraLines,
+				CommitID:        commitID,
+				DiffHunk:        diffHunk,
+				PosterID:        cc.Author.ID,
+				PosterName:      cc.Author.Name,
+				CreatedAt:       time.UnixMilli(cc.CreatedDate),
+				UpdatedAt:       time.UnixMilli(cc.UpdatedDate),
+			})
+		}
+		for _, child := range cc.Comments {
+			collect(child)
+		}
+	}
+	collect(c)
+
+	if len(review.Comments) > 0 {
+		p.reviews = append(p.reviews, review)
+	}
+}
+
+type bitbucketActivity struct {
+	ID            int64             `json:"id"`
+	Action        string            `json:"action"`
+	CommentAction string            `json:"commentAction"`
+	CreatedDate   int64             `json:"createdDate"`
+	User          bitbucketUser     `json:"user"`
+	Comment       *bitbucketComment `json:"comment"`
+	CommentAnchor *struct {
+		Path     string `json:"path"`
+		Line     int64  `json:"line"`
+		FileType string `json:"fileType"` // FROM (old file) or TO (new file)
+		ToHash   string `json:"toHash"`
+		// Present when the comment spans a line range (Bitbucket 9.2+); Line is then the last line.
+		MultilineMarker *struct {
+			StartLine int64 `json:"startLine"`
+		} `json:"multilineMarker"`
+	} `json:"commentAnchor"`
+}
+
+// fetchPullRequestActivities collects comments, inline comments and reviews from the
+// activity stream of a pull request.
+// https://docs.atlassian.com/bitbucket-server/rest/latest/bitbucket-rest.html
+func (d *BitbucketDataCenterDownloader) fetchPullRequestActivities(prID int64) (*bitbucketPRContext, error) {
+	var activities []bitbucketActivity
+	start := 0
+	for {
+		var resp struct {
+			IsLastPage    bool                `json:"isLastPage"`
+			NextPageStart int                 `json:"nextPageStart"`
+			Values        []bitbucketActivity `json:"values"`
+		}
+		query := url.Values{
+			"start": {strconv.Itoa(start)},
+			"limit": {"100"},
+		}
+		if err := d.callAPI(fmt.Sprintf("projects/%s/repos/%s/pull-requests/%d/activities", d.project, d.repoSlug, prID), query, &resp); err != nil {
+			return nil, err
+		}
+		activities = append(activities, resp.Values...)
+		if resp.IsLastPage {
+			break
+		}
+		start = resp.NextPageStart
+	}
+
+	prCtx := &bitbucketPRContext{}
+	// A comment can surface both as its own activity and nested in the snapshot of its
+	// thread's activity: keep each comment once.
+	seen := make(map[int64]bool)
+
+	// Activities are returned newest first; process oldest first so a thread is grouped on
+	// its opening activity and comments stay chronological.
+	for i := len(activities) - 1; i >= 0; i-- {
+		act := activities[i]
+		switch act.Action {
+		case "APPROVED":
+			prCtx.reviews = append(prCtx.reviews, &base.Review{
+				ID:           act.ID,
+				IssueIndex:   prID,
+				ReviewerID:   act.User.ID,
+				ReviewerName: act.User.Name,
+				State:        base.ReviewStateApproved,
+				CreatedAt:    time.UnixMilli(act.CreatedDate),
+			})
+		case "REVIEWED": // the reviewer marked the pull request as "needs work"
+			prCtx.reviews = append(prCtx.reviews, &base.Review{
+				ID:           act.ID,
+				IssueIndex:   prID,
+				ReviewerID:   act.User.ID,
+				ReviewerName: act.User.Name,
+				State:        base.ReviewStateChangesRequested,
+				CreatedAt:    time.UnixMilli(act.CreatedDate),
+			})
+		case "UNAPPROVED": // the reviewer withdrew an earlier approval or "needs work": drop it
+			for i := len(prCtx.reviews) - 1; i >= 0; i-- {
+				r := prCtx.reviews[i]
+				if r.ReviewerID == act.User.ID && (r.State == base.ReviewStateApproved || r.State == base.ReviewStateChangesRequested) {
+					prCtx.reviews = append(prCtx.reviews[:i], prCtx.reviews[i+1:]...)
+					break
+				}
+			}
+		case "COMMENTED":
+			if act.Comment == nil || act.CommentAction != "ADDED" {
+				continue
+			}
+			if act.CommentAnchor != nil {
+				line := act.CommentAnchor.Line
+				extraLines := int64(0)
+				// Bitbucket anchors a range on its last line, Forgejo on its first.
+				if m := act.CommentAnchor.MultilineMarker; m != nil && m.StartLine > 0 && m.StartLine <= line {
+					extraLines = line - m.StartLine
+					line = m.StartLine
+				}
+				// Negative line means the old (left) side of the diff.
+				if act.CommentAnchor.FileType == "FROM" {
+					line = -line
+				}
+				prCtx.addInlineThread(prID, *act.Comment, act.CommentAnchor.Path, line, extraLines, act.CommentAnchor.ToHash, seen)
+			} else {
+				prCtx.addCommentThread(prID, *act.Comment, seen)
+			}
+		}
+	}
+
+	return prCtx, nil
+}
+
+// GetComments returns the comments of a pull request, collected with its activities.
+func (d *BitbucketDataCenterDownloader) GetComments(commentable base.Commentable) ([]*base.Comment, bool, error) {
+	prCtx, ok := commentable.GetContext().(*bitbucketPRContext)
+	if !ok {
+		return nil, false, fmt.Errorf("unexpected context: %+v", commentable.GetContext())
+	}
+	return prCtx.comments, true, nil
+}
+
+// GetReviews returns the reviews (approvals, change requests and inline comments) of a
+// pull request, collected with its activities.
+func (d *BitbucketDataCenterDownloader) GetReviews(reviewable base.Reviewable) ([]*base.Review, error) {
+	commentable, ok := reviewable.(base.Commentable)
+	if !ok {
+		return nil, fmt.Errorf("unexpected reviewable: %+v", reviewable)
+	}
+	prCtx, ok := commentable.GetContext().(*bitbucketPRContext)
+	if !ok {
+		return nil, fmt.Errorf("unexpected context: %+v", commentable.GetContext())
+	}
+	return prCtx.reviews, nil
 }

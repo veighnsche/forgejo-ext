@@ -890,7 +890,9 @@ func (g *GiteaLocalUploader) CreateReviews(reviews ...*base.Review) error {
 				_ = writer.Close()
 			}(comment)
 
-			patch, _ = git.CutDiffAroundLine(reader, int64((&issues_model.Comment{Line: int64(line + comment.Position - 1)}).UnsignedLine()), line < 0, setting.UI.CodeCommentLines)
+			// For multi-line comments, center the patch on the last line and expand context to include the full range
+			cutLine := int64((&issues_model.Comment{Line: int64(line + comment.Position - 1), ExtraLinesCount: comment.ExtraLinesCount}).UnsignedDisplayLine())
+			patch, _ = git.CutDiffAroundLine(reader, cutLine, line < 0, setting.UI.CodeCommentLines+int(comment.ExtraLinesCount))
 
 			if comment.CreatedAt.IsZero() {
 				comment.CreatedAt = review.CreatedAt
@@ -906,18 +908,24 @@ func (g *GiteaLocalUploader) CreateReviews(reviews ...*base.Review) error {
 			}
 
 			c := issues_model.Comment{
-				Type:        issues_model.CommentTypeCode,
-				IssueID:     issue.ID,
-				Content:     comment.Content,
-				Line:        int64(line + comment.Position - 1),
-				TreePath:    comment.TreePath,
-				CommitSHA:   comment.CommitID,
-				Patch:       patch,
-				CreatedUnix: timeutil.TimeStamp(comment.CreatedAt.Unix()),
-				UpdatedUnix: timeutil.TimeStamp(comment.UpdatedAt.Unix()),
+				Type:            issues_model.CommentTypeCode,
+				IssueID:         issue.ID,
+				Content:         comment.Content,
+				Line:            int64(line + comment.Position - 1),
+				ExtraLinesCount: comment.ExtraLinesCount,
+				TreePath:        comment.TreePath,
+				CommitSHA:       comment.CommitID,
+				Patch:           patch,
+				CreatedUnix:     timeutil.TimeStamp(comment.CreatedAt.Unix()),
+				UpdatedUnix:     timeutil.TimeStamp(comment.UpdatedAt.Unix()),
 			}
 
-			if err := g.remapUser(review, &c); err != nil {
+			// A comment without its own author (e.g. a reply in a thread) inherits the review author.
+			if comment.PosterName == "" {
+				comment.PosterName = review.ReviewerName
+				comment.PosterID = review.ReviewerID
+			}
+			if err := g.remapUser(comment, &c); err != nil {
 				return err
 			}
 
