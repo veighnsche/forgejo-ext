@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"forgejo.org/modules/log"
 	base "forgejo.org/modules/migration"
@@ -72,6 +74,44 @@ type BitbucketDataCenterDownloader struct {
 	project  string
 	repoSlug string
 	token    string
+	// Bitbucket pages with an opaque cursor: GetPullRequests is called with sequential pages,
+	// so the nextPageStart of the previous response is the start of the next one.
+	prNextPageStart int
+}
+
+type bitbucketUser struct {
+	ID           int64  `json:"id"`
+	Name         string `json:"name"`
+	EmailAddress string `json:"emailAddress"`
+}
+
+type bitbucketCloneLinks struct {
+	Clone []struct {
+		Href string `json:"href"`
+		Name string `json:"name"`
+	} `json:"clone"`
+}
+
+// httpURL returns the http(s) clone link; empty when HTTP(S) SCM hosting is disabled.
+func (l bitbucketCloneLinks) httpURL() string {
+	for _, c := range l.Clone {
+		if c.Name == "http" || c.Name == "https" {
+			return c.Href
+		}
+	}
+	return ""
+}
+
+type bitbucketRef struct {
+	DisplayID    string `json:"displayId"`
+	LatestCommit string `json:"latestCommit"`
+	Repository   struct {
+		Slug    string `json:"slug"`
+		Project struct {
+			Key string `json:"key"`
+		} `json:"project"`
+		Links bitbucketCloneLinks `json:"links"`
+	} `json:"repository"`
 }
 
 // NewBitbucketDataCenterDownloader creates a Bitbucket Data Center downloader.
@@ -123,8 +163,11 @@ func (d *BitbucketDataCenterDownloader) FormatCloneURL(opts base.MigrateOptions,
 }
 
 // callAPI performs a GET against the Bitbucket Data Center REST API v1 and decodes the JSON result.
-func (d *BitbucketDataCenterDownloader) callAPI(endpoint string, result any) error {
+func (d *BitbucketDataCenterDownloader) callAPI(endpoint string, query url.Values, result any) error {
 	u := d.baseURL.JoinPath("rest/api/1.0", endpoint)
+	if len(query) > 0 {
+		u.RawQuery = query.Encode()
+	}
 
 	req, err := http.NewRequestWithContext(d.ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -159,26 +202,17 @@ func (d *BitbucketDataCenterDownloader) GetRepoInfo() (*base.Repository, error) 
 		Description string `json:"description"`
 		Public      bool   `json:"public"`
 		Links       struct {
-			Clone []struct {
-				Href string `json:"href"`
-				Name string `json:"name"`
-			} `json:"clone"`
+			bitbucketCloneLinks
 			Self []struct {
 				Href string `json:"href"`
 			} `json:"self"`
 		} `json:"links"`
 	}
-	if err := d.callAPI(fmt.Sprintf("projects/%s/repos/%s", d.project, d.repoSlug), &repo); err != nil {
+	if err := d.callAPI(fmt.Sprintf("projects/%s/repos/%s", d.project, d.repoSlug), nil, &repo); err != nil {
 		return nil, err
 	}
 
-	var cloneURL string
-	for _, c := range repo.Links.Clone {
-		if c.Name == "http" || c.Name == "https" {
-			cloneURL = c.Href
-			break
-		}
-	}
+	cloneURL := repo.Links.httpURL()
 	if cloneURL == "" {
 		return nil, fmt.Errorf("no HTTP clone link for %s/%s: HTTP(S) SCM hosting is probably disabled on the Bitbucket instance", d.project, d.repoSlug)
 	}
@@ -192,7 +226,7 @@ func (d *BitbucketDataCenterDownloader) GetRepoInfo() (*base.Repository, error) 
 	var defaultBranch struct {
 		DisplayID string `json:"displayId"`
 	}
-	if err := d.callAPI(fmt.Sprintf("projects/%s/repos/%s/branches/default", d.project, d.repoSlug), &defaultBranch); err != nil && !errors.Is(err, errBitbucketNotFound) {
+	if err := d.callAPI(fmt.Sprintf("projects/%s/repos/%s/branches/default", d.project, d.repoSlug), nil, &defaultBranch); err != nil && !errors.Is(err, errBitbucketNotFound) {
 		log.Warn("Unable to get the default branch of %s/%s: %v", d.project, d.repoSlug, err)
 	}
 
@@ -210,4 +244,111 @@ func (d *BitbucketDataCenterDownloader) GetRepoInfo() (*base.Repository, error) 
 		OriginalURL:   originalURL,
 		DefaultBranch: defaultBranch.DisplayID,
 	}, nil
+}
+
+// GetPullRequests returns pull requests of the repository, all states included.
+// https://docs.atlassian.com/bitbucket-server/rest/latest/bitbucket-rest.html#idp304
+func (d *BitbucketDataCenterDownloader) GetPullRequests(page, perPage int) ([]*base.PullRequest, bool, error) {
+	var resp struct {
+		IsLastPage    bool `json:"isLastPage"`
+		NextPageStart int  `json:"nextPageStart"`
+		Values        []struct {
+			ID          int64        `json:"id"`
+			Title       string       `json:"title"`
+			Description string       `json:"description"`
+			State       string       `json:"state"` // OPEN, MERGED, DECLINED
+			Draft       bool         `json:"draft"`
+			Locked      bool         `json:"locked"`
+			CreatedDate int64        `json:"createdDate"`
+			UpdatedDate int64        `json:"updatedDate"`
+			ClosedDate  int64        `json:"closedDate"`
+			FromRef     bitbucketRef `json:"fromRef"`
+			ToRef       bitbucketRef `json:"toRef"`
+			Author      struct {
+				User bitbucketUser `json:"user"`
+			} `json:"author"`
+			Properties struct {
+				MergeCommit struct {
+					ID string `json:"id"`
+				} `json:"mergeCommit"`
+			} `json:"properties"`
+		} `json:"values"`
+	}
+
+	start := 0
+	if page > 1 {
+		start = d.prNextPageStart
+	}
+	query := url.Values{
+		"state": {"ALL"},
+		"start": {strconv.Itoa(start)},
+		"limit": {strconv.Itoa(perPage)},
+	}
+	if err := d.callAPI(fmt.Sprintf("projects/%s/repos/%s/pull-requests", d.project, d.repoSlug), query, &resp); err != nil {
+		return nil, false, err
+	}
+	d.prNextPageStart = resp.NextPageStart
+
+	prs := make([]*base.PullRequest, 0, len(resp.Values))
+	for _, pr := range resp.Values {
+		state := "open"
+		merged := pr.State == "MERGED"
+		var closed, mergedTime *time.Time
+		if pr.State != "OPEN" {
+			state = "closed"
+			// fall back to the last update.
+			closedAt := time.UnixMilli(pr.UpdatedDate)
+			if pr.ClosedDate > 0 {
+				closedAt = time.UnixMilli(pr.ClosedDate)
+			}
+			closed = &closedAt
+			if merged {
+				mergedTime = &closedAt
+			}
+		}
+
+		head := base.PullRequestBranch{
+			Ref:       pr.FromRef.DisplayID,
+			SHA:       pr.FromRef.LatestCommit,
+			RepoName:  pr.FromRef.Repository.Slug,
+			OwnerName: pr.FromRef.Repository.Project.Key,
+		}
+		if head.RepoFullName() != fmt.Sprintf("%s/%s", pr.ToRef.Repository.Project.Key, pr.ToRef.Repository.Slug) {
+			// Fork pull request: the head branch must be fetched from the source repository.
+			head.CloneURL = pr.FromRef.Repository.Links.httpURL()
+		}
+
+		result := &base.PullRequest{
+			Number:         pr.ID,
+			Title:          pr.Title,
+			Content:        pr.Description,
+			State:          state,
+			IsDraft:        pr.Draft,
+			IsLocked:       pr.Locked,
+			PosterID:       pr.Author.User.ID,
+			PosterName:     pr.Author.User.Name,
+			PosterEmail:    pr.Author.User.EmailAddress,
+			Created:        time.UnixMilli(pr.CreatedDate),
+			Updated:        time.UnixMilli(pr.UpdatedDate),
+			Closed:         closed,
+			Merged:         merged,
+			MergedTime:     mergedTime,
+			MergeCommitSHA: pr.Properties.MergeCommit.ID,
+			Head:           head,
+			Base: base.PullRequestBranch{
+				Ref:       pr.ToRef.DisplayID,
+				SHA:       pr.ToRef.LatestCommit,
+				RepoName:  pr.ToRef.Repository.Slug,
+				OwnerName: pr.ToRef.Repository.Project.Key,
+			},
+			ForeignIndex: pr.ID,
+		}
+
+		// SECURITY: Ensure that the PR is safe
+		_ = CheckAndEnsureSafePR(result, d.baseURL.String(), d)
+
+		prs = append(prs, result)
+	}
+
+	return prs, resp.IsLastPage, nil
 }
