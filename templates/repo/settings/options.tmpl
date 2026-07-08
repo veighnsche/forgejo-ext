@@ -98,7 +98,7 @@
 
 		{{if $showMirrorSettings}}
 			<h4 class="ui top attached header">
-				{{ctx.Locale.Tr "repo.settings.mirror_settings"}}
+				{{ctx.Locale.Tr "repo.settings.mirror_settings.header"}}
 			</h4>
 			<div class="ui attached segment">
 				{{if .Repository.IsArchived}}
@@ -107,7 +107,7 @@
 					</div>
 				{{else}}
 					{{if $newMirrorsEntirelyEnabled}}
-						{{ctx.Locale.Tr "repo.settings.mirror_settings.docs"}}
+						{{ctx.Locale.Tr "repo.settings.mirror_settings.docs.summary"}}
 						<a target="_blank" rel="noopener noreferrer" href="https://forgejo.org/docs/latest/user/repo-mirror#pushing-to-a-remote-repository">{{ctx.Locale.Tr "repo.settings.mirror_settings.docs.doc_link_title"}}</a><br><br>
 						{{ctx.Locale.Tr "repo.settings.mirror_settings.docs.pull_mirror_instructions"}}
 						<a target="_blank" rel="noopener noreferrer" href="https://forgejo.org/docs/latest/user/repo-mirror#pulling-from-a-remote-repository">{{ctx.Locale.Tr "repo.settings.mirror_settings.docs.doc_link_pull_section"}}</a><br>
@@ -133,7 +133,7 @@
 						<thead>
 							<tr>
 								<th class="tw-w-2/5">{{ctx.Locale.Tr "repo.settings.mirror_settings.mirrored_repository"}}</th>
-								<th>{{ctx.Locale.Tr "repo.settings.mirror_settings.direction"}}</th>
+								<th>{{ctx.Locale.Tr "repo.settings.mirror_settings.direction.header"}}</th>
 								<th>{{ctx.Locale.Tr "repo.settings.mirror_settings.last_update"}}</th>
 								<th>{{ctx.Locale.Tr "repo.mirror_public_key"}}</th>
 								<th></th>
@@ -229,7 +229,7 @@
 						<thead>
 							<tr>
 								<th class="tw-w-2/5">{{ctx.Locale.Tr "repo.settings.mirror_settings.pushed_repository"}}</th>
-								<th>{{ctx.Locale.Tr "repo.settings.mirror_settings.direction"}}</th>
+								<th>{{ctx.Locale.Tr "repo.settings.mirror_settings.direction.header"}}</th>
 								<th>{{ctx.Locale.Tr "repo.settings.mirror_settings.last_update"}}</th>
 								<th>{{ctx.Locale.Tr "repo.mirror_public_key"}}</th>
 								<th></th>
