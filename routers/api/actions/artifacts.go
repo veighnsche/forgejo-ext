@@ -120,6 +120,8 @@ func ArtifactsRoutes(prefix string) *web.Route {
 		m.Get("/{artifact_id}/download", r.downloadArtifact)
 	})
 
+	m.Put(jobSummaryRouteBase, uploadJobSummary)
+
 	return m
 }
 

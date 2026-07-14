@@ -200,6 +200,7 @@ func DeleteRepositoryDirectly(ctx context.Context, repoID int64, opts DeleteRepo
 			&secret_model.Secret{RepoID: repoID},
 			&actions_model.ActionTaskStep{RepoID: repoID},
 			&actions_model.ActionTask{RepoID: repoID},
+			&actions_model.ActionRunJobSummary{RepoID: repoID},
 			&actions_model.ActionRunJob{RepoID: repoID},
 			&actions_model.ActionRun{RepoID: repoID},
 			&actions_model.ActionRunner{RepoID: repoID},

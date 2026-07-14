@@ -36,6 +36,11 @@ func deleteJobsOfRun(ctx context.Context, runID int64) error {
 				}
 			}
 
+			// todo: figure out whether we need that cascading behaviour or whether its fine to delete the Job even if the summary could not be deleted for whatever reason
+			if err = actions.DeleteJobSummaries(ctx, job.ID); err != nil {
+				return fmt.Errorf("unable to delete summaries of job %d: %w", job.ID, err)
+			}
+
 			err = actions.DeleteJob(ctx, job.ID)
 			if err != nil {
 				return fmt.Errorf("unable to delete job %d of run %d: %w", job.ID, job.RunID, err)

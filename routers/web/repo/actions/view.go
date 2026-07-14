@@ -25,6 +25,8 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/markup"
+	"forgejo.org/modules/markup/markdown"
 	"forgejo.org/modules/templates"
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
@@ -186,9 +188,10 @@ type ViewRunInfo struct {
 }
 
 type ViewCurrentJob struct {
-	Title       string         `json:"title"`
-	Steps       []*ViewJobStep `json:"steps"`
-	AllAttempts []*TaskAttempt `json:"allAttempts"`
+	Title       string          `json:"title"`
+	Steps       []*ViewJobStep  `json:"steps"`
+	AllAttempts []*TaskAttempt  `json:"allAttempts"`
+	Summary     template.HTML   `json:"summary"`
 }
 
 type ViewLogs struct {
@@ -391,6 +394,8 @@ func getViewResponse(ctx *app_context.Context, req *ViewRequest, runIndex, jobIn
 	resp.State.CurrentJob.Steps = make([]*ViewJobStep, 0) // marshal to '[]' instead of 'null' in json
 	resp.State.CurrentJob.AllAttempts = allAttempts
 
+	resp.State.CurrentJob.Summary = renderedJobSummary(ctx, current, attemptNumber, metas)
+
 	var task *actions_model.ActionTask
 	// TaskID will be set only when the ActionRunJob has been picked by a runner, resulting in an ActionTask being
 	// created representing the specific task.  If current.TaskID is not set, then the user is attempting to view a job
@@ -491,6 +496,34 @@ func getViewResponse(ctx *app_context.Context, req *ViewRequest, runIndex, jobIn
 	}
 
 	return resp
+}
+
+// renderedJobSummary loads the GITHUB_STEP_SUMMARY of the selected job's attempt and tries to render it into sanitized html.
+// It returns an empty value when no summary exists or rendering fails.
+func renderedJobSummary(ctx *app_context.Context, job *actions_model.ActionRunJob, attemptNumber int64, metas map[string]string) template.HTML {
+	attempt := attemptNumber
+	if attempt == 0 {
+		attempt = job.Attempt
+	}
+	summary, err := actions_model.GetJobSummary(ctx, job.ID, attempt)
+	if err != nil {
+		if err != util.ErrNotExist {
+			log.Error("Error loading job summary: %v", err)
+		}
+		return ""
+	}
+	rendered, err := markdown.RenderString(&markup.RenderContext{
+		Links:   markup.Links{Base: ctx.Repo.RepoLink},
+		Metas:   metas,
+		GitRepo: ctx.Repo.GitRepo,
+		Ctx:     ctx,
+	}, summary.Content)
+	if err != nil {
+		// todo: Figure whether we need to display a human friendly error for that
+		log.Error("Error rendering job summary: %v", err)
+		return ""
+	}
+	return rendered
 }
 
 // When used with the JS `linkAction` handler (typically a <button> with class="link-action" and a data-url), will cause
