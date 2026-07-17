@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	service_message_module "forgejo.org/modules/service_message"
+	"forgejo.org/modules/timeutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ func TestNewServiceMessage(t *testing.T) {
 	sm, err := NewServiceMessage(&opts)
 	require.NoError(t, err)
 	assert.Equal(t, sm.Type.Name(), opts.Type)
-	assert.NotEmpty(t, sm.CreatedUnix)
+	assert.Equal(t, timeutil.TimeStamp(0), sm.CreatedUnix)
 
 	invalidOpts := service_message_module.ServiceMessageOptions{
 		Type: "",
