@@ -34,6 +34,7 @@ func GetServiceMessage(ctx *context.Context) {
 			sm = &service_message_model.ServiceMessage{}
 		} else {
 			ctx.HTML(http.StatusInternalServerError, tplServiceMessage)
+			return
 		}
 	}
 	ctx.Data["ServiceMessageTitle"] = sm.Title
