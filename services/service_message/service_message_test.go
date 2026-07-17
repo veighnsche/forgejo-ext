@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	service_message_module "forgejo.org/modules/service_message"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

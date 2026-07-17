@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"forgejo.org/modules/json"
-
 	"forgejo.org/modules/setting"
 )
 

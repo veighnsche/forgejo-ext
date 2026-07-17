@@ -6,9 +6,10 @@ package forms
 import (
 	"net/http"
 
-	"code.forgejo.org/go-chi/binding"
 	"forgejo.org/modules/web/middleware"
 	"forgejo.org/services/context"
+
+	"code.forgejo.org/go-chi/binding"
 )
 
 type ServiceMessageForm struct {

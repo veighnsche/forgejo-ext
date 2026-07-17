@@ -4,8 +4,9 @@
 package forgejo_migrations
 
 import (
-	"code.forgejo.org/xorm/xorm"
 	service_message "forgejo.org/modules/service_message"
+
+	"code.forgejo.org/xorm/xorm"
 )
 
 func init() {

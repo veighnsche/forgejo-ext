@@ -11,6 +11,7 @@ import (
 	user_model "forgejo.org/models/user"
 	service_message_module "forgejo.org/modules/service_message"
 	"forgejo.org/tests"
+
 	"github.com/stretchr/testify/assert"
 )
 
