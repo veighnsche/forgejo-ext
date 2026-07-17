@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -178,6 +179,130 @@ func TestUpload(t *testing.T) {
 		require.NoError(t, issues[1].LoadDiscussComments(db.DefaultContext))
 		assert.Len(t, issues[0].Comments, 1)
 		assert.Len(t, issues[1].Comments, 1)
+	})
+
+	// The mock server does not serve a clonable repository, so the migrated repository is
+	// empty: craft the commit the pull request and its review will anchor to.
+	var commit string
+	t.Run("PullRequests", func(t *testing.T) {
+		repoPath := repo.RepoPath()
+		gitEnv := append(os.Environ(),
+			"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com")
+		blob, _, gitErr := git.NewCommand(t.Context(), "hash-object", "-w", "--stdin").RunStdString(&git.RunOpts{Dir: repoPath, Stdin: strings.NewReader("line 1\n")})
+		require.NoError(t, gitErr)
+		tree, _, gitErr := git.NewCommand(t.Context(), "mktree").RunStdString(&git.RunOpts{Dir: repoPath, Stdin: strings.NewReader("100644 blob " + strings.TrimSpace(blob) + "\treadme.md\n")})
+		require.NoError(t, gitErr)
+		commitOut, _, gitErr := git.NewCommand(t.Context(), "commit-tree", "-m", "Initial content").AddDynamicArguments(strings.TrimSpace(tree)).RunStdString(&git.RunOpts{Dir: repoPath, Env: gitEnv})
+		require.NoError(t, gitErr)
+		commit = strings.TrimSpace(commitOut)
+		_, _, gitErr = git.NewCommand(t.Context(), "update-ref", "refs/heads/main").AddDynamicArguments(commit).RunStdString(&git.RunOpts{Dir: repoPath})
+		require.NoError(t, gitErr)
+
+		created := time.Date(2025, 8, 8, 10, 0, 0, 0, time.UTC)
+		closed := time.Date(2025, 8, 8, 11, 0, 0, 0, time.UTC)
+		pr := &base.PullRequest{
+			Number:     3,
+			Title:      "Mock PR",
+			Content:    "Mock Content",
+			PosterID:   37243484,
+			PosterName: "PatDyn",
+			State:      "closed",
+			Created:    created,
+			Updated:    closed,
+			Closed:     &closed,
+			Head: base.PullRequestBranch{
+				Ref:       "pr-branch",
+				SHA:       commit,
+				RepoName:  repoName,
+				OwnerName: user.Name,
+			},
+			Base: base.PullRequestBranch{
+				Ref:       "main",
+				RepoName:  repoName,
+				OwnerName: user.Name,
+			},
+			EnsuredSafe: true,
+		}
+		// CreatePullRequests ends by enqueueing a patch-checking task, but the queue does not
+		// exist in unit tests: go through its internals and skip the queue notification.
+		gpr, err := uploader.newPullRequest(pr)
+		require.NoError(t, err)
+		require.NoError(t, uploader.remapUser(pr, gpr.Issue))
+		require.NoError(t, issues_model.InsertPullRequests(db.DefaultContext, gpr))
+		uploader.issues[gpr.Issue.Index] = gpr.Issue
+
+		issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{RepoID: repo.ID, Index: 3})
+		assert.True(t, issue.IsPull)
+		dbPR := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{IssueID: issue.ID})
+		// The merge base and the pull reference are the prerequisites of code review comments.
+		assert.Equal(t, commit, dbPR.MergeBase)
+		headCommitID, err := uploader.gitRepo.GetRefCommitID("refs/pull/3/head")
+		require.NoError(t, err)
+		assert.Equal(t, commit, headCommitID)
+	})
+
+	t.Run("Reviews", func(t *testing.T) {
+		review := &base.Review{
+			IssueIndex:   3,
+			ReviewerID:   37243484,
+			ReviewerName: "PatDyn",
+			State:        base.ReviewStateCommented,
+			CreatedAt:    time.Date(2025, 8, 8, 12, 0, 0, 0, time.UTC),
+			Comments: []*base.ReviewComment{
+				{
+					// Shaped like the comments of the pre-existing downloaders: no PosterName
+					// and no ExtraLinesCount.
+					Content:   "Single line comment",
+					TreePath:  "readme.md",
+					Line:      1,
+					DiffHunk:  "@@ -1 +1 @@",
+					PosterID:  37243484,
+					CreatedAt: time.Date(2025, 8, 8, 12, 0, 0, 0, time.UTC),
+					UpdatedAt: time.Date(2025, 8, 8, 12, 0, 0, 0, time.UTC),
+				},
+				{
+					// A comment spanning lines 1-3, written by someone else than the review author.
+					Content:         "Range comment",
+					TreePath:        "readme.md",
+					Line:            1,
+					ExtraLinesCount: 2,
+					DiffHunk:        "@@ -1 +1 @@",
+					PosterID:        1234,
+					PosterName:      "OtherContributor",
+					CreatedAt:       time.Date(2025, 8, 8, 12, 5, 0, 0, time.UTC),
+					UpdatedAt:       time.Date(2025, 8, 8, 12, 5, 0, 0, time.UTC),
+				},
+			},
+		}
+		require.NoError(t, uploader.CreateReviews(review))
+
+		issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{RepoID: repo.ID, Index: 3})
+		comments, err := issues_model.FindComments(db.DefaultContext, &issues_model.FindCommentsOptions{
+			IssueID: issue.ID,
+			Type:    issues_model.CommentTypeCode,
+		})
+		require.NoError(t, err)
+		require.Len(t, comments, 2)
+		byContent := map[string]*issues_model.Comment{}
+		for _, comment := range comments {
+			byContent[comment.Content] = comment
+		}
+
+		// A comment without a poster of its own keeps the review author and a single line,
+		// like before ReviewComment carried PosterName and ExtraLinesCount.
+		single := byContent["Single line comment"]
+		require.NotNil(t, single)
+		assert.Equal(t, "PatDyn", single.OriginalAuthor)
+		assert.EqualValues(t, 1, single.Line)
+		assert.EqualValues(t, 0, single.ExtraLinesCount)
+
+		// A comment carrying its own poster and a range keeps both.
+		ranged := byContent["Range comment"]
+		require.NotNil(t, ranged)
+		assert.Equal(t, "OtherContributor", ranged.OriginalAuthor)
+		assert.EqualValues(t, 1, ranged.Line)
+		assert.EqualValues(t, 2, ranged.ExtraLinesCount)
 	})
 }
 
