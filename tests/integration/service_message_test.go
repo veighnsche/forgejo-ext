@@ -46,7 +46,7 @@ func TestServiceMessage(t *testing.T) {
 		assert.False(t, user.MustShowServiceMessage(sm.Type, sm.UpdatedUnix))
 
 		// Admin updates Service Message, so it needs to be shown again
-		time.Sleep(1 * time.Second) // In reality there will be some time between update and
+		time.Sleep(1 * time.Second) // In reality there will be some time between updates
 		smOpts = service_message_module.ServiceMessageOptions{
 			Type: "modal",
 			Text: "TestText2",
@@ -59,7 +59,7 @@ func TestServiceMessage(t *testing.T) {
 
 	t.Run("Delete", func(t *testing.T) {
 		req = NewRequest(t, "POST", fmt.Sprintf("/admin/service_message/delete?sm_type=%s", sm.Type))
-		session.MakeRequest(t, req, http.StatusSeeOther)
+		session.MakeRequest(t, req, http.StatusOK)
 		unittest.AssertNotExistsBean(t, &service_message_model.ServiceMessage{Type: "modal"})
 	})
 }
