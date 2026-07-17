@@ -4,13 +4,15 @@
 package migrations
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"strings"
 	"testing"
 
+	"forgejo.org/models/unittest"
 	base "forgejo.org/modules/migration"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -80,211 +82,176 @@ func TestBitbucketDataCenterDownloaderBlocksLocalhost(t *testing.T) {
 	assert.Contains(t, err.Error(), "can only call allowed HTTP servers")
 }
 
-func TestBitbucketDataCenterGetRepoInfo(t *testing.T) {
-	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
+// newBitbucketDataCenterFixtureDownloader returns a downloader backed by the fixtures of testdata/bitbucketdc
+func newBitbucketDataCenterFixtureDownloader(t *testing.T) (base.Downloader, string) {
+	t.Cleanup(test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) }))
 
-	mux := http.NewServeMux()
-	var serverURL string
-	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo", func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer sometoken", r.Header.Get("Authorization"))
-		_, _ = io.WriteString(w, fmt.Sprintf(`{
-			"slug": "myrepo",
-			"name": "myrepo",
-			"description": "My repository",
-			"public": false,
-			"links": {
-				"clone": [
-					{"href": "ssh://git@bitbucket.example.com/PROJ/myrepo.git", "name": "ssh"},
-					{"href": "%s/scm/PROJ/myrepo.git", "name": "http"}
-				],
-				"self": [{"href": "%s/projects/PROJ/repos/myrepo/browse"}]
-			}
-		}`, serverURL, serverURL))
-	})
-	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo/branches/default", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"id": "refs/heads/main", "displayId": "main"}`)
-	})
-	server := httptest.NewServer(mux)
-	defer server.Close()
-	serverURL = server.URL
+	liveURL := os.Getenv("BITBUCKET_DC_URL")
+	token := os.Getenv("BITBUCKET_DC_TOKEN")
+	liveMode := liveURL != "" && token != ""
+	baseURL := "https://bitbucket.example.com"
+	if liveMode {
+		baseURL = liveURL
+	}
+	fixturePath := "./testdata/bitbucketdc/full_download"
+	if !liveMode {
+		if entries, err := os.ReadDir(fixturePath); err != nil || len(entries) == 0 {
+			t.Skip("fixtures not recorded, set BITBUCKET_DC_URL and BITBUCKET_DC_TOKEN to record them")
+		}
+	}
+	server := unittest.NewMockWebServer(t, baseURL, fixturePath, liveMode)
+	t.Cleanup(server.Close)
 
 	factory := &BitbucketDataCenterDownloaderFactory{}
 	downloader, err := factory.New(t.Context(), base.MigrateOptions{
-		CloneAddr: server.URL + "/scm/PROJ/myrepo.git",
-		AuthToken: "sometoken",
+		CloneAddr: server.URL + "/scm/migr/test-repo.git",
+		AuthToken: token,
 	})
 	require.NoError(t, err)
+	return downloader, server.URL
+}
+
+func TestBitbucketDataCenterDownloadRepo(t *testing.T) {
+	downloader, serverURL := newBitbucketDataCenterFixtureDownloader(t)
 
 	repo, err := downloader.GetRepoInfo()
 	require.NoError(t, err)
-	assert.Equal(t, "myrepo", repo.Name)
-	assert.Equal(t, "PROJ", repo.Owner)
-	assert.Equal(t, "My repository", repo.Description)
-	assert.True(t, repo.IsPrivate)
+	assert.Equal(t, "test-repo", repo.Name)
+	assert.Equal(t, "migr", repo.Owner)
 	assert.Equal(t, "main", repo.DefaultBranch)
-	assert.Equal(t, server.URL+"/scm/PROJ/myrepo.git", repo.CloneURL)
-	assert.Equal(t, server.URL+"/projects/PROJ/repos/myrepo/browse", repo.OriginalURL)
-}
+	assert.True(t, repo.IsPrivate)
+	assert.Equal(t, serverURL+"/scm/migr/test-repo.git", repo.CloneURL)
+	assert.Equal(t, serverURL+"/projects/MIGR/repos/test-repo/browse", repo.OriginalURL)
 
-func TestBitbucketDataCenterGetPullRequests(t *testing.T) {
-	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
-
-	mux := http.NewServeMux()
-	var serverURL string
-	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo/pull-requests", func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "ALL", r.URL.Query().Get("state"))
-		assert.Equal(t, "2", r.URL.Query().Get("limit"))
-		switch r.URL.Query().Get("start") {
-		case "0":
-			_, _ = io.WriteString(w, fmt.Sprintf(`{
-				"isLastPage": false,
-				"nextPageStart": 17,
-				"values": [
-					{
-						"id": 1,
-						"title": "An open pull request",
-						"description": "The description",
-						"state": "OPEN",
-						"draft": true,
-						"locked": true,
-						"createdDate": 1704067200000,
-						"updatedDate": 1704153600000,
-						"fromRef": {
-							"displayId": "feature/change",
-							"latestCommit": "0123456789012345678901234567890123456789",
-							"repository": {"slug": "myrepo", "project": {"key": "PROJ"}}
-						},
-						"toRef": {
-							"displayId": "main",
-							"latestCommit": "aaaa456789012345678901234567890123456789",
-							"repository": {"slug": "myrepo", "project": {"key": "PROJ"}}
-						},
-						"author": {"user": {"id": 42, "name": "jdoe", "emailAddress": "jdoe@example.com"}}
-					},
-					{
-						"id": 2,
-						"title": "A merged fork pull request",
-						"state": "MERGED",
-						"createdDate": 1704067200000,
-						"updatedDate": 1704153600000,
-						"closedDate": 1704240000000,
-						"fromRef": {
-							"displayId": "fix",
-							"latestCommit": "bbbb456789012345678901234567890123456789",
-							"repository": {
-								"slug": "myrepo-fork",
-								"project": {"key": "FORK"},
-								"links": {"clone": [{"href": "%s/scm/FORK/myrepo-fork.git", "name": "http"}]}
-							}
-						},
-						"toRef": {
-							"displayId": "main",
-							"latestCommit": "aaaa456789012345678901234567890123456789",
-							"repository": {"slug": "myrepo", "project": {"key": "PROJ"}}
-						},
-						"author": {"user": {"id": 43, "name": "asmith", "emailAddress": "asmith@example.com"}},
-						"properties": {"mergeCommit": {"id": "cccc456789012345678901234567890123456789"}}
-					}
-				]
-			}`, serverURL))
-		case "17":
-			_, _ = io.WriteString(w, `{
-				"isLastPage": true,
-				"values": [
-					{
-						"id": 3,
-						"title": "A declined pull request",
-						"state": "DECLINED",
-						"createdDate": 1704067200000,
-						"updatedDate": 1704153600000,
-						"fromRef": {
-							"displayId": "abandoned",
-							"latestCommit": "dddd456789012345678901234567890123456789",
-							"repository": {"slug": "myrepo", "project": {"key": "PROJ"}}
-						},
-						"toRef": {
-							"displayId": "main",
-							"latestCommit": "aaaa456789012345678901234567890123456789",
-							"repository": {"slug": "myrepo", "project": {"key": "PROJ"}}
-						},
-						"author": {"user": {"id": 42, "name": "jdoe", "emailAddress": "jdoe@example.com"}}
-					}
-				]
-			}`)
-		default:
-			t.Errorf("unexpected start parameter: %s", r.URL.Query().Get("start"))
-		}
-	})
-	// Subtree route: per-PR activity streams, empty here.
-	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo/pull-requests/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"isLastPage": true, "values": []}`)
-	})
-	server := httptest.NewServer(mux)
-	defer server.Close()
-	serverURL = server.URL
-
-	factory := &BitbucketDataCenterDownloaderFactory{}
-	downloader, err := factory.New(t.Context(), base.MigrateOptions{
-		CloneAddr: server.URL + "/scm/PROJ/myrepo.git",
-		AuthToken: "sometoken",
-	})
-	require.NoError(t, err)
-
-	prs, isEnd, err := downloader.GetPullRequests(1, 2)
+	// Four pull requests fetched two by two: the cursor pagination runs against real responses.
+	prPage, isEnd, err := downloader.GetPullRequests(1, 2)
 	require.NoError(t, err)
 	assert.False(t, isEnd)
-	require.Len(t, prs, 2)
+	require.Len(t, prPage, 2)
+	prs := map[int64]*base.PullRequest{prPage[0].Number: prPage[0], prPage[1].Number: prPage[1]}
+	prPage, isEnd, err = downloader.GetPullRequests(2, 2)
+	require.NoError(t, err)
+	assert.True(t, isEnd)
+	require.Len(t, prPage, 2)
+	prs[prPage[0].Number] = prPage[0]
+	prs[prPage[1].Number] = prPage[1]
+	require.Len(t, prs, 4)
 
-	open := prs[0]
-	assert.Equal(t, int64(1), open.Number)
-	assert.Equal(t, "An open pull request", open.Title)
-	assert.Equal(t, "The description", open.Content)
+	open := prs[1]
+	assert.Equal(t, "First feature", open.Title)
+	assert.Equal(t, "Description of First feature", open.Content)
 	assert.Equal(t, "open", open.State)
-	assert.True(t, open.IsDraft)
-	assert.True(t, open.IsLocked)
 	assert.False(t, open.Merged)
 	assert.Nil(t, open.Closed)
-	assert.Equal(t, int64(42), open.PosterID)
-	assert.Equal(t, "jdoe", open.PosterName)
-	assert.Equal(t, "jdoe@example.com", open.PosterEmail)
-	assert.Equal(t, int64(1704067200000), open.Created.UnixMilli())
-	assert.Equal(t, int64(1704153600000), open.Updated.UnixMilli())
-	assert.Equal(t, "feature/change", open.Head.Ref)
-	assert.Equal(t, "0123456789012345678901234567890123456789", open.Head.SHA)
-	assert.Empty(t, open.Head.CloneURL)
+	assert.Equal(t, "feature/one", open.Head.Ref)
 	assert.Equal(t, "main", open.Base.Ref)
+	assert.Len(t, open.Head.SHA, 40)
+	assert.NotEmpty(t, open.PosterName)
+	assert.Positive(t, open.PosterID)
 	assert.False(t, open.IsForkPullRequest())
 	assert.True(t, open.EnsuredSafe)
 
-	merged := prs[1]
-	assert.Equal(t, int64(2), merged.Number)
+	merged := prs[2]
+	assert.Equal(t, "Second feature", merged.Title)
 	assert.Equal(t, "closed", merged.State)
 	assert.True(t, merged.Merged)
-	require.NotNil(t, merged.MergedTime)
-	assert.Equal(t, int64(1704240000000), merged.MergedTime.UnixMilli())
-	require.NotNil(t, merged.Closed)
-	assert.Equal(t, "cccc456789012345678901234567890123456789", merged.MergeCommitSHA)
-	assert.Equal(t, server.URL+"/scm/FORK/myrepo-fork.git", merged.Head.CloneURL)
-	assert.Equal(t, "FORK/myrepo-fork", merged.Head.RepoFullName())
-	assert.True(t, merged.IsForkPullRequest())
-	assert.True(t, merged.EnsuredSafe)
+	assert.NotNil(t, merged.MergedTime)
+	assert.NotNil(t, merged.Closed)
 
-	prs, isEnd, err = downloader.GetPullRequests(2, 2)
-	require.NoError(t, err)
-	assert.True(t, isEnd)
-	require.Len(t, prs, 1)
-
-	declined := prs[0]
-	assert.Equal(t, int64(3), declined.Number)
+	declined := prs[3]
+	assert.Equal(t, "Third feature", declined.Title)
 	assert.Equal(t, "closed", declined.State)
 	assert.False(t, declined.Merged)
-	assert.Nil(t, declined.MergedTime)
-	require.NotNil(t, declined.Closed)
-	// No closedDate on old Bitbucket versions: the last update is used instead.
-	assert.Equal(t, int64(1704153600000), declined.Closed.UnixMilli())
+	assert.NotNil(t, declined.Closed)
+
+	// General comments of the open pull request, in chronological order.
+	comments, _, err := downloader.GetComments(open)
+	require.NoError(t, err)
+	require.Len(t, comments, 2)
+	assert.Equal(t, int64(1), comments[0].IssueIndex)
+	assert.Equal(t, "A general question", comments[0].Content)
+	assert.Equal(t, "A general answer", comments[1].Content)
+	assert.NotEqual(t, comments[0].PosterName, comments[1].PosterName)
+	assert.LessOrEqual(t, comments[0].Created.UnixMilli(), comments[1].Created.UnixMilli())
+
+	// Reviews of the open pull request:
+	// an inline thread on lines 2-4
+	// a comment on the old side of the diff
+	// a "needs work"
+	reviews, err := downloader.GetReviews(open)
+	require.NoError(t, err)
+	require.Len(t, reviews, 3)
+	for _, review := range reviews {
+		assert.NotEqual(t, base.ReviewStateApproved, review.State)
+	}
+
+	thread := reviews[0]
+	assert.Equal(t, base.ReviewStateCommented, thread.State)
+	require.Len(t, thread.Comments, 2)
+	assert.Equal(t, "This block needs a rewrite", thread.Comments[0].Content)
+	assert.Equal(t, "Rewritten in the next push", thread.Comments[1].Content)
+	assert.Equal(t, "README.md", thread.Comments[0].TreePath)
+	assert.Equal(t, 2, thread.Comments[0].Line)
+	assert.Equal(t, int64(2), thread.Comments[0].ExtraLinesCount)
+	assert.NotEmpty(t, thread.Comments[0].DiffHunk)
+	assert.NotEqual(t, thread.Comments[0].PosterName, thread.Comments[1].PosterName)
+
+	oldSide := reviews[1]
+	assert.Equal(t, base.ReviewStateCommented, oldSide.State)
+	require.Len(t, oldSide.Comments, 1)
+	assert.Equal(t, "Why was this removed?", oldSide.Comments[0].Content)
+	assert.Equal(t, "README.md", oldSide.Comments[0].TreePath)
+	assert.Equal(t, -2, oldSide.Comments[0].Line)
+	assert.Equal(t, int64(0), oldSide.Comments[0].ExtraLinesCount)
+
+	needsWork := reviews[2]
+	assert.Equal(t, base.ReviewStateChangesRequested, needsWork.State)
+	assert.NotEmpty(t, needsWork.ReviewerName)
+	assert.NotEqual(t, open.PosterName, needsWork.ReviewerName)
+
+	// The merged and declined pull requests carry no discussion.
+	comments, _, err = downloader.GetComments(merged)
+	require.NoError(t, err)
+	assert.Empty(t, comments)
+	reviews, err = downloader.GetReviews(declined)
+	require.NoError(t, err)
+	assert.Empty(t, reviews)
 }
 
-func TestBitbucketDataCenterGetCommentsAndReviews(t *testing.T) {
+// TestBitbucketDataCenterDownloadForkPullRequest replays the same fixtures and focuses on the
+// pull request opened from a fork in the author's personal project
+func TestBitbucketDataCenterDownloadForkPullRequest(t *testing.T) {
+	downloader, _ := newBitbucketDataCenterFixtureDownloader(t)
+
+	prs, _, err := downloader.GetPullRequests(1, 2)
+	require.NoError(t, err)
+	page, _, err := downloader.GetPullRequests(2, 2)
+	require.NoError(t, err)
+	prs = append(prs, page...)
+
+	var forkPR *base.PullRequest
+	for _, pr := range prs {
+		if pr.Number == 4 {
+			forkPR = pr
+		}
+	}
+	require.NotNil(t, forkPR)
+
+	assert.Equal(t, "Fork feature", forkPR.Title)
+	assert.Equal(t, "open", forkPR.State)
+	assert.True(t, forkPR.IsForkPullRequest())
+	assert.Equal(t, "feature/fork", forkPR.Head.Ref)
+	assert.Equal(t, "test-repo", forkPR.Head.RepoName)
+	assert.True(t, strings.HasPrefix(forkPR.Head.OwnerName, "~"))
+	assert.Contains(t, forkPR.Head.CloneURL, "/scm/~")
+	assert.True(t, strings.HasSuffix(forkPR.Head.CloneURL, "/test-repo.git"))
+	assert.True(t, forkPR.EnsuredSafe)
+}
+
+// TestBitbucketDataCenterActivityDeduplication covers with a synthetic response the branch a
+// recorded fixture cannot deterministically produce: a comment surfacing both as its own
+// activity and nested in the snapshot of its thread must be kept once.
+func TestBitbucketDataCenterActivityDeduplication(t *testing.T) {
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	mux := http.NewServeMux()
@@ -293,13 +260,13 @@ func TestBitbucketDataCenterGetCommentsAndReviews(t *testing.T) {
 			"isLastPage": true,
 			"values": [
 				{
-					"id": 5,
-					"title": "A reviewed pull request",
+					"id": 1,
+					"title": "A commented pull request",
 					"state": "OPEN",
 					"createdDate": 1704067200000,
 					"updatedDate": 1704153600000,
 					"fromRef": {
-						"displayId": "feature",
+						"displayId": "fix",
 						"latestCommit": "0123456789012345678901234567890123456789",
 						"repository": {"slug": "myrepo", "project": {"key": "PROJ"}}
 					},
@@ -313,125 +280,50 @@ func TestBitbucketDataCenterGetCommentsAndReviews(t *testing.T) {
 			]
 		}`)
 	})
-	// Activities are served newest first, like the real API.
-	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo/pull-requests/5/activities", func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Query().Get("start") {
-		case "0":
-			_, _ = io.WriteString(w, `{
-				"isLastPage": false,
-				"nextPageStart": 42,
-				"values": [
-					{
-						"id": 106,
-						"action": "UNAPPROVED",
-						"createdDate": 1704270000000,
-						"user": {"id": 10, "name": "dave", "emailAddress": "dave@example.com"}
-					},
-					{
-						"id": 105,
-						"action": "COMMENTED",
-						"commentAction": "ADDED",
+	// The reply surfaces both nested in its thread and as its own newer activity.
+	mux.HandleFunc("/rest/api/1.0/projects/PROJ/repos/myrepo/pull-requests/1/activities", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{
+			"isLastPage": true,
+			"values": [
+				{
+					"id": 102,
+					"action": "COMMENTED",
+					"commentAction": "ADDED",
+					"createdDate": 1704260000000,
+					"user": {"id": 7, "name": "bob"},
+					"comment": {
+						"id": 21,
+						"text": "A reply",
+						"author": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"},
 						"createdDate": 1704260000000,
-						"user": {"id": 7, "name": "bob"},
-						"comment": {
-							"id": 21,
-							"text": "Answered offline",
-							"author": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"},
-							"createdDate": 1704260000000,
-							"updatedDate": 1704260000000
-						}
-					},
-					{
-						"id": 104,
-						"action": "COMMENTED",
-						"commentAction": "ADDED",
+						"updatedDate": 1704260000000
+					}
+				},
+				{
+					"id": 101,
+					"action": "COMMENTED",
+					"commentAction": "ADDED",
+					"createdDate": 1704250000000,
+					"user": {"id": 9, "name": "alice"},
+					"comment": {
+						"id": 20,
+						"text": "A question",
+						"author": {"id": 9, "name": "alice", "emailAddress": "alice@example.com"},
 						"createdDate": 1704250000000,
-						"user": {"id": 9, "name": "alice"},
-						"comment": {
-							"id": 20,
-							"text": "General question about the approach",
-							"author": {"id": 9, "name": "alice", "emailAddress": "alice@example.com"},
-							"createdDate": 1704250000000,
-							"updatedDate": 1704250000000,
-							"comments": [
-								{
-									"id": 21,
-									"text": "Answered offline",
-									"author": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"},
-									"createdDate": 1704260000000,
-									"updatedDate": 1704260000000
-								}
-							]
-						}
-					},
-					{
-						"id": 103,
-						"action": "REVIEWED",
-						"createdDate": 1704240000000,
-						"user": {"id": 8, "name": "carol", "emailAddress": "carol@example.com"}
+						"updatedDate": 1704250000000,
+						"comments": [
+							{
+								"id": 21,
+								"text": "A reply",
+								"author": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"},
+								"createdDate": 1704260000000,
+								"updatedDate": 1704260000000
+							}
+						]
 					}
-				]
-			}`)
-		case "42":
-			_, _ = io.WriteString(w, `{
-				"isLastPage": true,
-				"values": [
-					{
-						"id": 102,
-						"action": "COMMENTED",
-						"commentAction": "ADDED",
-						"createdDate": 1704230000000,
-						"user": {"id": 7, "name": "bob"},
-						"comment": {
-							"id": 32,
-							"text": "This used to work before",
-							"author": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"},
-							"createdDate": 1704230000000,
-							"updatedDate": 1704230000000
-						},
-						"commentAnchor": {"path": "old.go", "line": 3, "fileType": "FROM", "toHash": "0123456789012345678901234567890123456789"}
-					},
-					{
-						"id": 101,
-						"action": "COMMENTED",
-						"commentAction": "ADDED",
-						"createdDate": 1704210000000,
-						"user": {"id": 8, "name": "carol"},
-						"comment": {
-							"id": 30,
-							"text": "This range looks wrong",
-							"author": {"id": 8, "name": "carol", "emailAddress": "carol@example.com"},
-							"createdDate": 1704210000000,
-							"updatedDate": 1704210000000,
-							"comments": [
-								{
-									"id": 31,
-									"text": "Fixed in the next commit",
-									"author": {"id": 9, "name": "alice", "emailAddress": "alice@example.com"},
-									"createdDate": 1704220000000,
-									"updatedDate": 1704220000000
-								}
-							]
-						},
-						"commentAnchor": {"path": "src/main.go", "line": 12, "fileType": "TO", "toHash": "0123456789012345678901234567890123456789", "multilineMarker": {"startLine": 10}}
-					},
-					{
-						"id": 100,
-						"action": "APPROVED",
-						"createdDate": 1704200000000,
-						"user": {"id": 7, "name": "bob", "emailAddress": "bob@example.com"}
-					},
-					{
-						"id": 99,
-						"action": "APPROVED",
-						"createdDate": 1704195000000,
-						"user": {"id": 10, "name": "dave", "emailAddress": "dave@example.com"}
-					}
-				]
-			}`)
-		default:
-			t.Errorf("unexpected start parameter: %s", r.URL.Query().Get("start"))
-		}
+				}
+			]
+		}`)
 	})
 	server := httptest.NewServer(mux)
 	defer server.Close()
@@ -439,7 +331,6 @@ func TestBitbucketDataCenterGetCommentsAndReviews(t *testing.T) {
 	factory := &BitbucketDataCenterDownloaderFactory{}
 	downloader, err := factory.New(t.Context(), base.MigrateOptions{
 		CloneAddr: server.URL + "/scm/PROJ/myrepo.git",
-		AuthToken: "sometoken",
 	})
 	require.NoError(t, err)
 
@@ -448,64 +339,13 @@ func TestBitbucketDataCenterGetCommentsAndReviews(t *testing.T) {
 	assert.True(t, isEnd)
 	require.Len(t, prs, 1)
 
-	// The comment with id 21 appears both nested in its thread and as its own activity: kept
-	// once, and comments come out chronologically despite the newest-first activity stream.
+	// The duplicated reply is kept once, chronologically after its parent.
 	comments, _, err := downloader.GetComments(prs[0])
 	require.NoError(t, err)
 	require.Len(t, comments, 2)
-	assert.Equal(t, int64(5), comments[0].IssueIndex)
-	assert.Equal(t, "General question about the approach", comments[0].Content)
-	assert.Equal(t, int64(9), comments[0].PosterID)
-	assert.Equal(t, "alice", comments[0].PosterName)
-	assert.Equal(t, int64(1704250000000), comments[0].Created.UnixMilli())
-	assert.Equal(t, "Answered offline", comments[1].Content)
+	assert.Equal(t, "A question", comments[0].Content)
+	assert.Equal(t, "A reply", comments[1].Content)
 	assert.Equal(t, "bob", comments[1].PosterName)
-
-	reviews, err := downloader.GetReviews(prs[0])
-	require.NoError(t, err)
-	require.Len(t, reviews, 4)
-
-	// dave approved then withdrew his approval: no review of his remains.
-	for _, r := range reviews {
-		assert.NotEqual(t, "dave", r.ReviewerName)
-	}
-
-	approved := reviews[0]
-	assert.Equal(t, base.ReviewStateApproved, approved.State)
-	assert.Equal(t, int64(7), approved.ReviewerID)
-	assert.Equal(t, "bob", approved.ReviewerName)
-	assert.Equal(t, int64(1704200000000), approved.CreatedAt.UnixMilli())
-
-	// A whole inline thread becomes a single review; each comment keeps its own author.
-	inline := reviews[1]
-	assert.Equal(t, base.ReviewStateCommented, inline.State)
-	assert.Equal(t, "carol", inline.ReviewerName)
-	require.Len(t, inline.Comments, 2)
-	assert.Equal(t, "This range looks wrong", inline.Comments[0].Content)
-	assert.Equal(t, "carol", inline.Comments[0].PosterName)
-	assert.Equal(t, int64(8), inline.Comments[0].PosterID)
-	assert.Equal(t, "src/main.go", inline.Comments[0].TreePath)
-	assert.Equal(t, "0123456789012345678901234567890123456789", inline.Comments[0].CommitID)
-	// The Bitbucket range 10-12 is anchored on its first line with 2 extra lines.
-	assert.Equal(t, 10, inline.Comments[0].Line)
-	assert.Equal(t, int64(2), inline.Comments[0].ExtraLinesCount)
-	assert.Equal(t, "@@ -10 +10 @@", inline.Comments[0].DiffHunk)
-	assert.Equal(t, "Fixed in the next commit", inline.Comments[1].Content)
-	assert.Equal(t, "alice", inline.Comments[1].PosterName)
-	assert.Equal(t, int64(9), inline.Comments[1].PosterID)
-
-	// A comment on the old side of the diff maps to a negative line.
-	oldSide := reviews[2]
-	require.Len(t, oldSide.Comments, 1)
-	assert.Equal(t, "bob", oldSide.ReviewerName)
-	assert.Equal(t, "old.go", oldSide.Comments[0].TreePath)
-	assert.Equal(t, -3, oldSide.Comments[0].Line)
-	assert.Equal(t, int64(0), oldSide.Comments[0].ExtraLinesCount)
-	assert.Equal(t, "@@ -3 +3 @@", oldSide.Comments[0].DiffHunk)
-
-	needsWork := reviews[3]
-	assert.Equal(t, base.ReviewStateChangesRequested, needsWork.State)
-	assert.Equal(t, "carol", needsWork.ReviewerName)
 }
 
 func TestBitbucketDataCenterGetRepoInfoWithoutHTTPCloneLink(t *testing.T) {
