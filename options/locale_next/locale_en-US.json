@@ -377,7 +377,6 @@
 	"admin.service_message.text":"Text",
 	"admin.service_message.delete":"Delete Service Message",
 	"admin.service_message.type_modal":"Modal Service Message",
-	"admin.service_message.confirm":"Confirm",
 	"admin.users.list_status_filter.menu_text": "Filter",
 	"admin.users.list_status_filter.reset": "Reset",
 	"admin.users.list_status_filter.is_active": "Active",
