@@ -188,6 +188,12 @@ func SignIn(ctx *context.Context) {
 		ctx.ServerError("UserSignIn", err)
 		return
 	}
+
+	if !setting.Service.EnableInternalSignIn && len(oauth2Providers) == 1 {
+		ctx.Redirect(setting.AppSubURL + "/user/oauth2/" + url.PathEscape(oauth2Providers[0].DisplayName()))
+		return
+	}
+
 	ctx.Data["OAuth2Providers"] = oauth2Providers
 	ctx.Data["Title"] = ctx.Tr("sign_in")
 	ctx.Data["SignInLink"] = setting.AppSubURL + "/user/login"

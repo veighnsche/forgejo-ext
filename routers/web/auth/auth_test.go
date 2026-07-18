@@ -8,12 +8,17 @@ import (
 	"net/url"
 	"testing"
 
+	auth_model "forgejo.org/models/auth"
+	"forgejo.org/models/db"
+	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/templates"
 	"forgejo.org/modules/test"
+	"forgejo.org/services/auth/source/oauth2"
 	"forgejo.org/services/contexttest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUserLogin(t *testing.T) {
@@ -86,4 +91,54 @@ func TestSignUpWithoutUsernamePrefix(t *testing.T) {
 	SignUp(ctx)
 	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.NotContains(t, resp.Body.String(), "ui labeled input")
+}
+
+func TestSignInOAuth2AutoRedirect(t *testing.T) {
+	// zero providers, internal sign-in disabled: no redirect
+	require.NoError(t, unittest.PrepareTestDatabase())
+	ctx, resp := contexttest.MockContext(t, "/user/login")
+	SignIn(ctx)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	// one provider, internal sign-in enabled: no redirect
+	require.NoError(t, auth_model.CreateSource(db.DefaultContext, &auth_model.Source{
+		Type:     auth_model.OAuth2,
+		Name:     "test-provider",
+		IsActive: true,
+		Cfg: &oauth2.Source{
+			Provider:     "github",
+			ClientID:     "test-client-id",
+			ClientSecret: "test-client-secret",
+		},
+	}))
+	t.Cleanup(func() { oauth2.RemoveProviderFromGothic("test-provider") })
+
+	restoreInternal := test.MockVariableValue(&setting.Service.EnableInternalSignIn, true)
+	ctx, resp = contexttest.MockContext(t, "/user/login")
+	SignIn(ctx)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	// one provider, internal sign-in disabled: redirect
+	restoreInternal()
+	ctx, resp = contexttest.MockContext(t, "/user/login")
+	SignIn(ctx)
+	assert.Equal(t, http.StatusSeeOther, resp.Code)
+	assert.Equal(t, "/user/oauth2/test-provider", test.RedirectURL(resp))
+
+	// two providers, internal sign-in disabled: no redirect
+	require.NoError(t, auth_model.CreateSource(db.DefaultContext, &auth_model.Source{
+		Type:     auth_model.OAuth2,
+		Name:     "test-provider-2",
+		IsActive: true,
+		Cfg: &oauth2.Source{
+			Provider:     "gitlab",
+			ClientID:     "test-client-id-2",
+			ClientSecret: "test-client-secret-2",
+		},
+	}))
+	t.Cleanup(func() { oauth2.RemoveProviderFromGothic("test-provider-2") })
+
+	ctx, resp = contexttest.MockContext(t, "/user/login")
+	SignIn(ctx)
+	assert.Equal(t, http.StatusOK, resp.Code)
 }
