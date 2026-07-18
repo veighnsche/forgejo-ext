@@ -5,7 +5,6 @@ package routing
 
 import (
 	"context"
-	"net/http"
 )
 
 type contextKeyType struct{}
@@ -21,18 +20,6 @@ func UpdateFuncInfo(ctx context.Context, funcInfo *FuncInfo) {
 
 	record.lock.Lock()
 	record.funcInfo = funcInfo
-	record.lock.Unlock()
-}
-
-// MarkLongPolling marks the request is a long-polling request, and the logger may output different message for it
-func MarkLongPolling(resp http.ResponseWriter, req *http.Request) {
-	record, ok := req.Context().Value(contextKey).(*requestRecord)
-	if !ok {
-		return
-	}
-
-	record.lock.Lock()
-	record.isLongPolling = true
 	record.lock.Unlock()
 }
 

@@ -7,9 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
-	"forgejo.org/modules/eventsource"
 	"forgejo.org/services/context"
 )
 
@@ -58,18 +56,6 @@ func CancelStopwatch(c *context.Context) {
 	if err := issues_model.CancelStopwatch(c, c.Doer, issue); err != nil {
 		c.ServerError("CancelStopwatch", err)
 		return
-	}
-
-	stopwatches, err := issues_model.GetUserStopwatches(c, c.Doer.ID, db.ListOptions{})
-	if err != nil {
-		c.ServerError("GetUserStopwatches", err)
-		return
-	}
-	if len(stopwatches) == 0 {
-		eventsource.GetManager().SendMessage(c.Doer.ID, &eventsource.Event{
-			Name: "stopwatches",
-			Data: "{}",
-		})
 	}
 
 	url := issue.Link()

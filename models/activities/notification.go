@@ -274,16 +274,6 @@ type UserIDCount struct {
 	Count  int64
 }
 
-// GetUIDsAndNotificationCounts returns the unread counts for every user between the two provided times.
-// It must return all user IDs which appear during the period, including count=0 for users who have read all.
-func GetUIDsAndNotificationCounts(ctx context.Context, since, until timeutil.TimeStamp) ([]UserIDCount, error) {
-	sql := `SELECT user_id, sum(case when status= ? then 1 else 0 end) AS count FROM notification ` +
-		`WHERE user_id IN (SELECT user_id FROM notification WHERE updated_unix >= ? AND ` +
-		`updated_unix < ?) GROUP BY user_id`
-	var res []UserIDCount
-	return res, db.GetEngine(ctx).SQL(sql, NotificationStatusUnread, since, until).Find(&res)
-}
-
 // SetIssueReadBy sets issue to be read by given user.
 func SetIssueReadBy(ctx context.Context, issueID, userID int64) error {
 	if err := issues_model.UpdateIssueUserByRead(ctx, userID, issueID); err != nil {

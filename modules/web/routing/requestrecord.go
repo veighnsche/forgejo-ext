@@ -22,7 +22,6 @@ type requestRecord struct {
 	lock sync.RWMutex
 
 	// mutable fields
-	isLongPolling bool
-	funcInfo      *FuncInfo
-	panicError    any
+	funcInfo   *FuncInfo
+	panicError any
 }

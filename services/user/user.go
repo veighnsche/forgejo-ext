@@ -20,7 +20,6 @@ import (
 	repo_model "forgejo.org/models/repo"
 	system_model "forgejo.org/models/system"
 	user_model "forgejo.org/models/user"
-	"forgejo.org/modules/eventsource"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/storage"
@@ -215,12 +214,6 @@ func DeleteUser(ctx context.Context, u *user_model.User, purge bool) error {
 		}, "is_active", "is_restricted", "is_admin", "prohibit_login", "max_repo_creation", "passwd", "salt", "passwd_hash_algo"); err != nil {
 			return fmt.Errorf("unable to disable user: %s[%d] prior to purge. UpdateUserCols: %w", u.Name, u.ID, err)
 		}
-
-		// Force any logged in sessions to log out
-		// FIXME: We also need to tell the session manager to log them out too.
-		eventsource.GetManager().SendMessage(u.ID, &eventsource.Event{
-			Name: "logout",
-		})
 
 		// Delete all repos belonging to this user
 		// Now this is not within a transaction because there are internal transactions within the DeleteRepository

@@ -30,7 +30,6 @@ func NewLoggerHandler() func(next http.Handler) http.Handler {
 var (
 	startMessage          = log.NewColoredValue("started  ", log.DEBUG.ColorAttributes()...)
 	slowMessage           = log.NewColoredValue("slow     ", log.WARN.ColorAttributes()...)
-	pollingMessage        = log.NewColoredValue("polling  ", log.INFO.ColorAttributes()...)
 	failedMessage         = log.NewColoredValue("failed   ", log.WARN.ColorAttributes()...)
 	completedMessage      = log.NewColoredValue("completed", log.INFO.ColorAttributes()...)
 	unknownHandlerMessage = log.NewColoredValue("completed", log.ERROR.ColorAttributes()...)
@@ -60,7 +59,6 @@ func logPrinter(logger log.Logger) func(trigger Event, record *requestRecord) {
 		// Get data from the record
 		record.lock.Lock()
 		handlerFuncInfo := record.funcInfo.String()
-		isLongPolling := record.isLongPolling
 		isUnknownHandler := record.funcInfo == nil
 		panicErr := record.panicError
 		record.lock.Unlock()
@@ -68,10 +66,6 @@ func logPrinter(logger log.Logger) func(trigger Event, record *requestRecord) {
 		if trigger == StillExecutingEvent {
 			message := slowMessage
 			logf := logger.Warn
-			if isLongPolling {
-				logf = logger.Info
-				message = pollingMessage
-			}
 			logf("router: %s %v %s for %s, elapsed %v @ %s",
 				message,
 				log.ColoredMethod(req.Method), req.RequestURI, remoteAddr,

@@ -4,8 +4,6 @@
 package setting
 
 import (
-	"time"
-
 	"forgejo.org/modules/container"
 )
 
@@ -39,13 +37,6 @@ var UI = struct {
 
 	AmbiguousUnicodeDetection bool
 	SkipEscapeContexts        []string
-
-	Notification struct {
-		MinTimeout            time.Duration
-		TimeoutStep           time.Duration
-		MaxTimeout            time.Duration
-		EventSourceUpdateTime time.Duration
-	} `ini:"ui.notification"`
 
 	SVG struct {
 		Enabled bool `ini:"ENABLE_RENDER"`
@@ -96,17 +87,6 @@ var UI = struct {
 	AmbiguousUnicodeDetection: true,
 	SkipEscapeContexts:        []string{},
 
-	Notification: struct {
-		MinTimeout            time.Duration
-		TimeoutStep           time.Duration
-		MaxTimeout            time.Duration
-		EventSourceUpdateTime time.Duration
-	}{
-		MinTimeout:            10 * time.Second,
-		TimeoutStep:           10 * time.Second,
-		MaxTimeout:            60 * time.Second,
-		EventSourceUpdateTime: 10 * time.Second,
-	},
 	SVG: struct {
 		Enabled bool `ini:"ENABLE_RENDER"`
 	}{

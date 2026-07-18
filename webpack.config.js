@@ -128,9 +128,6 @@ export default {
       fileURLToPath(new URL('web_src/js/standalone/swagger.js', import.meta.url)),
       fileURLToPath(new URL('web_src/css/standalone/swagger.css', import.meta.url)),
     ],
-    'eventsource.sharedworker': [
-      fileURLToPath(new URL('web_src/js/features/eventsource.sharedworker.js', import.meta.url)),
-    ],
     ...(!isProduction && {
       demo: [
         fileURLToPath(new URL('web_src/js/standalone/demo.js', import.meta.url)),

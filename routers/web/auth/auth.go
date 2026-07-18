@@ -17,7 +17,6 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/auth/password"
 	"forgejo.org/modules/base"
-	"forgejo.org/modules/eventsource"
 	"forgejo.org/modules/httplib"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
@@ -426,12 +425,6 @@ func HandleSignOut(ctx *context.Context) {
 
 // SignOut sign out from login status
 func SignOut(ctx *context.Context) {
-	if ctx.Doer != nil {
-		eventsource.GetManager().SendMessage(ctx.Doer.ID, &eventsource.Event{
-			Name: "logout",
-			Data: ctx.Session.ID(),
-		})
-	}
 	HandleSignOut(ctx)
 	ctx.JSONRedirect(setting.AppSubURL + "/")
 }

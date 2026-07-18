@@ -27,12 +27,10 @@ import (
 	"forgejo.org/modules/validation"
 	"forgejo.org/modules/web"
 	"forgejo.org/modules/web/middleware"
-	"forgejo.org/modules/web/routing"
 	"forgejo.org/routers/common"
 	"forgejo.org/routers/web/admin"
 	"forgejo.org/routers/web/auth"
 	"forgejo.org/routers/web/demo"
-	"forgejo.org/routers/web/events"
 	"forgejo.org/routers/web/explore"
 	"forgejo.org/routers/web/feed"
 	"forgejo.org/routers/web/healthcheck"
@@ -271,9 +269,7 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.Cont
 					}
 					ctx.Data["Title"] = ctx.Tr("auth.must_change_password")
 					ctx.Data["ChangePasscodeLink"] = setting.AppSubURL + "/user/change_password"
-					if ctx.Req.URL.Path != "/user/events" {
-						middleware.SetRedirectToCookie(ctx.Resp, setting.AppSubURL+ctx.Req.URL.RequestURI())
-					}
+					middleware.SetRedirectToCookie(ctx.Resp, setting.AppSubURL+ctx.Req.URL.RequestURI())
 					ctx.Redirect(setting.AppSubURL + "/user/settings/change_password")
 					return
 				}
@@ -314,9 +310,7 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.Cont
 
 		if options.SignInRequired != nil && options.SignInRequired() {
 			if !ctx.IsSigned {
-				if ctx.Req.URL.Path != "/user/events" {
-					middleware.SetRedirectToCookie(ctx.Resp, setting.AppSubURL+ctx.Req.URL.RequestURI())
-				}
+				middleware.SetRedirectToCookie(ctx.Resp, setting.AppSubURL+ctx.Req.URL.RequestURI())
 				ctx.Redirect(setting.AppSubURL + "/user/login")
 				return
 			} else if !ctx.Doer.IsActive && setting.Service.RegisterEmailConfirm {
@@ -329,9 +323,7 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.Cont
 		// Redirect to log in page if auto-signin info is provided and has not signed in.
 		if !options.SignOutRequired && !ctx.IsSigned && ctx.InteractiveReauthenticationPossible &&
 			ctx.GetSiteCookie(setting.CookieRememberName) != "" {
-			if ctx.Req.URL.Path != "/user/events" {
-				middleware.SetRedirectToCookie(ctx.Resp, setting.AppSubURL+ctx.Req.URL.RequestURI())
-			}
+			middleware.SetRedirectToCookie(ctx.Resp, setting.AppSubURL+ctx.Req.URL.RequestURI())
 			ctx.Redirect(setting.AppSubURL + "/user/login")
 			return
 		}
@@ -717,8 +709,6 @@ func registerRoutes(m *web.Route) {
 			m.Post("/assertion", auth.WebAuthnLoginAssertionPost)
 		})
 	}, reqSignOut)
-
-	m.Any("/user/events", routing.MarkLongPolling, events.Events)
 
 	m.Group("/login/oauth", func() {
 		m.Group("", func() {

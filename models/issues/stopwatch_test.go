@@ -77,35 +77,3 @@ func TestCreateOrStopIssueStopwatch(t *testing.T) {
 	unittest.AssertNotExistsBean(t, &issues_model.Stopwatch{UserID: 2, IssueID: 2})
 	unittest.AssertExistsAndLoadBean(t, &issues_model.TrackedTime{UserID: 2, IssueID: 2})
 }
-
-func TestGetUIDsAndStopwatch(t *testing.T) {
-	defer unittest.OverrideFixtures("models/issues/TestGetUIDsAndStopwatch")()
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	uidStopwatches, err := issues_model.GetUIDsAndStopwatch(db.DefaultContext)
-	require.NoError(t, err)
-	assert.Equal(t, map[int64][]*issues_model.Stopwatch{
-		1: {
-			{
-				ID:          1,
-				UserID:      1,
-				IssueID:     1,
-				CreatedUnix: timeutil.TimeStamp(1500988001),
-			},
-			{
-				ID:          3,
-				UserID:      1,
-				IssueID:     2,
-				CreatedUnix: timeutil.TimeStamp(1500988004),
-			},
-		},
-		2: {
-			{
-				ID:          2,
-				UserID:      2,
-				IssueID:     2,
-				CreatedUnix: timeutil.TimeStamp(1500988002),
-			},
-		},
-	}, uidStopwatches)
-}

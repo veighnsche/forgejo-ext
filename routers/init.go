@@ -11,7 +11,6 @@ import (
 	"forgejo.org/models"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/cache"
-	"forgejo.org/modules/eventsource"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/highlight"
 	"forgejo.org/modules/log"
@@ -151,7 +150,6 @@ func InitWebInstalled(ctx context.Context) {
 	mustInit(automerge.Init)
 	mustInit(task.Init)
 	mustInit(migrations_allowlist.Init)
-	eventsource.GetManager().Init()
 	mustInitCtx(ctx, mailer_incoming.Init)
 
 	mustInitCtx(ctx, syncAppConfForGit)

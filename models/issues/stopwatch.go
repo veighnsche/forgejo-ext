@@ -60,23 +60,6 @@ func getStopwatch(ctx context.Context, userID, issueID int64) (sw *Stopwatch, ex
 	return sw, exists, err
 }
 
-// GetUIDsAndNotificationCounts between the two provided times
-func GetUIDsAndStopwatch(ctx context.Context) (map[int64][]*Stopwatch, error) {
-	sws := []*Stopwatch{}
-	if err := db.GetEngine(ctx).Find(&sws); err != nil {
-		return nil, err
-	}
-	res := map[int64][]*Stopwatch{}
-	if len(sws) == 0 {
-		return res, nil
-	}
-
-	for _, sw := range sws {
-		res[sw.UserID] = append(res[sw.UserID], sw)
-	}
-	return res, nil
-}
-
 // GetUserStopwatches return list of all stopwatches of a user
 func GetUserStopwatches(ctx context.Context, userID int64, listOptions db.ListOptions) ([]*Stopwatch, error) {
 	sws := make([]*Stopwatch, 0, 8)
