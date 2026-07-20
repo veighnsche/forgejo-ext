@@ -15,7 +15,9 @@ func AddIsCodeIndexerEnabledToRepository(x *xorm.Engine) error {
 		IsCodeIndexerEnabled bool  `xorm:"NOT NULL DEFAULT true"`
 	}
 
-	if err := x.Sync(&Repository{}); err != nil {
+	if err := x.SyncWithOptions(xorm.SyncOptions{
+		IgnoreDropIndices: true,
+	}, &Repository{}); err != nil {
 		return err
 	}
 
