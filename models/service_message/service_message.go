@@ -5,7 +5,7 @@ package service_message
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"forgejo.org/models/db"
 	"forgejo.org/modules/log"
@@ -40,41 +40,28 @@ func (sm ServiceMessage) Validate() []string {
 	return result
 }
 
-func ServiceMessageExists(ctx context.Context, smType service_message_types.SMType, id ...int64) (bool, error) {
-	if len(id) > 0 {
-		return db.GetEngine(ctx).Where("type = ? OR id = ?", smType.Name(), id[0]).Get(&ServiceMessage{})
-	}
-	return db.GetEngine(ctx).Where("type = ?", smType.Name()).Get(&ServiceMessage{})
-}
-
 // CreateOrUpdateServiceMessage creates record of a ServiceMessage, expects a valid ServiceMessage
 func CreateOrUpdateServiceMessage(ctx context.Context, sm *ServiceMessage) error {
-	// Update if exists
-	exists, err := ServiceMessageExists(ctx, sm.Type, sm.ID)
+	// Create if not exists
+	existing, err := GetServiceMessageByType(ctx, sm.Type)
 	if err != nil {
-		return err
-	} else if exists {
-		e := db.GetEngine(ctx)
-		oldSM, err := GetServiceMessageByType(ctx, sm.Type)
-		if err != nil {
+		if errors.Is(err, service_message_types.ErrServiceMessageNotExist) {
+			err = db.Insert(ctx, sm)
+			log.Debug("Created service message of type %q", sm.Type.Name())
+			return err
+		} else {
 			return err
 		}
-		_, err = e.ID(oldSM.ID).AllCols().Update(sm)
-		log.Debug("Existing Service Message %s was updated.", sm.Type.Name())
-		return err
-	}
 
-	ctx, committer, err := db.TxContext(ctx)
-	if err != nil {
-		return err
 	}
-	defer committer.Close()
-
-	if err = db.Insert(ctx, sm); err != nil {
-		return fmt.Errorf("insert service message: %w", err)
-	}
-	log.Debug("Created service message of type %q", sm.Type.Name())
-	return committer.Commit()
+	// Update if exists
+	e := db.GetEngine(ctx)
+	_, err = e.ID(existing.ID).Cols(
+		"title",
+		"text",
+	).Update(sm)
+	log.Debug("Existing Service Message %s was updated.", sm.Type.Name())
+	return err
 }
 
 func GetServiceMessageByType(ctx context.Context, smType service_message_types.SMType) (*ServiceMessage, error) {
@@ -91,7 +78,7 @@ func GetServiceMessageByType(ctx context.Context, smType service_message_types.S
 
 // Delete a remote registry in the DB, expects a valid rr
 func DeleteServiceMessage(ctx context.Context, sm *ServiceMessage) error {
-	_, err := db.GetEngine(ctx).ID(sm.ID).Delete(sm)
+	_, err := db.GetEngine(ctx).Where("type = ? or id = ?", sm.Type.Name(), sm.ID).Delete(sm)
 	if err != nil {
 		return err
 	}
