@@ -4,7 +4,7 @@
 package forgejo_migrations
 
 import (
-	service_message "forgejo.org/modules/service_message"
+	"forgejo.org/modules/timeutil"
 
 	"code.forgejo.org/xorm/xorm"
 )
@@ -17,9 +17,11 @@ func init() {
 }
 
 func addConfirmInfoToUser(x *xorm.Engine) error {
+	type SMType string
+	type ConfirmTimestamps map[SMType]timeutil.TimeStamp
 	type User struct {
 		ID       int64 `xorm:"pk autoincr"`
-		Confirms service_message.ConfirmTimestamps
+		Confirms ConfirmTimestamps
 	}
 	_, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true}, &User{})
 	return err

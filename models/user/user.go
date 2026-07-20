@@ -379,10 +379,10 @@ func (u *User) GenerateEmailAuthorizationCode(ctx context.Context, purpose auth.
 // SetConfirm sets the Confirms field in the user struct
 func (u *User) SetConfirm(smType service_message.SMType, userTimestamp timeutil.TimeStamp) error {
 	if u.Confirms == nil {
-		confirm := make(map[service_message.SMType][1]timeutil.TimeStamp)
+		confirm := make(map[service_message.SMType]timeutil.TimeStamp)
 		u.Confirms = confirm
 	}
-	u.Confirms[smType] = [1]timeutil.TimeStamp{userTimestamp}
+	u.Confirms[smType] = userTimestamp
 	return nil
 }
 
@@ -391,7 +391,7 @@ func (u *User) MustShowServiceMessage(smType service_message.SMType, smTimestamp
 	if u.Confirms == nil {
 		return true
 	}
-	userConfirmed := u.Confirms[smType][0]
+	userConfirmed := u.Confirms[smType]
 	return smTimestamp > userConfirmed // is service message newer than user confirmation
 }
 

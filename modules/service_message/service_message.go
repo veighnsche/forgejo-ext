@@ -33,7 +33,7 @@ func (s SMType) Valid() bool {
 }
 
 // Holds: ServiceMessageType:[service_message_confirmed]
-type ConfirmTimestamps map[SMType][1]timeutil.TimeStamp
+type ConfirmTimestamps map[SMType]timeutil.TimeStamp
 
 type ServiceMessageOptions struct {
 	Title string
