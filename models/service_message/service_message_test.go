@@ -28,6 +28,8 @@ func TestCreateUpdateGetDeleteServiceMessage(t *testing.T) {
 	require.NoError(t, err)
 	retrieved := unittest.AssertExistsAndLoadBean(t, &ServiceMessage{Type: serviceMessage.Type})
 	assert.Equal(t, serviceMessage.Type, retrieved.Type)
+	assert.Equal(t, serviceMessage.Text, retrieved.Text)
+	assert.NotEqual(t, int64(0), serviceMessage.ID)
 
 	sm2 := ServiceMessage{
 		Type:        service_message.SMType("modal"),
@@ -50,4 +52,5 @@ func TestCreateUpdateGetDeleteServiceMessage(t *testing.T) {
 	// Delete
 	err = DeleteServiceMessage(t.Context(), &sm2)
 	require.NoError(t, err)
+	unittest.AssertNotExistsBean(t, &ServiceMessage{Type: sm2.Type})
 }
