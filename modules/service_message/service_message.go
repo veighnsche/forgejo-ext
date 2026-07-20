@@ -4,14 +4,12 @@
 package service_message
 
 import (
-	"fmt"
-
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 )
 
 var (
-	ErrServiceMessageNotExist    = util.NewNotExistErrorf("remote registry does not exist")
+	ErrServiceMessageNotExist    = util.NewNotExistErrorf("service message does not exist")
 	ErrInvalidServiceMessageType = util.NewInvalidArgumentErrorf("service message type was invalid")
 )
 
@@ -22,10 +20,12 @@ const (
 )
 
 func (s SMType) Name() string {
-	if s == SMModal {
-		return "modal"
+	res := ""
+	switch s {
+	case SMModal:
+		res = "modal"
 	}
-	panic(fmt.Sprintf("unknown Service Message Type: %s", string(s)))
+	return res
 }
 
 func (s SMType) Valid() bool {
