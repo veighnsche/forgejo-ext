@@ -4,7 +4,6 @@
 package user
 
 import (
-	"net/http"
 	"strings"
 
 	user_model "forgejo.org/models/user"
@@ -20,19 +19,19 @@ func SetConfirm(ctx *context.Context) {
 
 	sm, err := service_message_service.GetServiceMessage(ctx, smTypeQuery)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError)
+		ctx.ServerError("SetConfirm", err)
 		return
 	}
 
 	err = ctx.Doer.SetConfirm(sm.Type, confirmed)
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError)
+		ctx.ServerError("SetConfirm", err)
 		return
 	}
 
 	err = user_model.UpdateUserCols(ctx, ctx.Doer, "confirms")
 	if err != nil {
-		ctx.Error(http.StatusInternalServerError)
+		ctx.ServerError("SetConfirm", err)
 		return
 	}
 	ctx.Data["ModalServiceMessageTitle"] = nil
