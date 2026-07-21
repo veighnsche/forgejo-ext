@@ -11,6 +11,7 @@ import (
 	"forgejo.org/modules/log"
 	service_message_types "forgejo.org/modules/service_message"
 	"forgejo.org/modules/timeutil"
+	"forgejo.org/modules/util"
 	"forgejo.org/modules/validation"
 )
 
@@ -42,7 +43,8 @@ func (sm ServiceMessage) Validate() []string {
 
 // CreateOrUpdateServiceMessage creates record of a ServiceMessage, expects a valid ServiceMessage
 func CreateOrUpdateServiceMessage(ctx context.Context, sm *ServiceMessage) error {
-	// Create if not exists
+	// Create if not exists, trim title to fit DB size requirements
+	sm.Title, _ = util.SplitStringAtByteN(sm.Title, 255)
 	existing, err := GetServiceMessageByType(ctx, sm.Type)
 	if err != nil {
 		if errors.Is(err, service_message_types.ErrServiceMessageNotExist) {
@@ -82,7 +84,6 @@ func DeleteServiceMessage(ctx context.Context, sm *ServiceMessage) error {
 	if err != nil {
 		return err
 	}
-
 	log.Debug("Deleted service message %q", sm.Type.Name())
 	return nil
 }
