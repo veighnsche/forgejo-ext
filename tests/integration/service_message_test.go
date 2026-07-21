@@ -1,15 +1,18 @@
+// Copyright 2026 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package integration
 
 import (
 	"fmt"
 	"net/http"
 	"testing"
-	"time"
 
 	service_message_model "forgejo.org/models/service_message"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	service_message_module "forgejo.org/modules/service_message"
+	"forgejo.org/modules/test"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -46,7 +49,7 @@ func TestServiceMessage(t *testing.T) {
 		assert.False(t, user.MustShowServiceMessage(sm.Type, sm.UpdatedUnix))
 
 		// Admin updates Service Message, so it needs to be shown again
-		time.Sleep(1 * time.Second) // In reality there will be some time between updates
+		test.SleepTillNextSecond()
 		smOpts = service_message_module.ServiceMessageOptions{
 			Type: "modal",
 			Text: "TestText2",
