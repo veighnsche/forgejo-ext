@@ -5,7 +5,6 @@ package admin
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -33,7 +32,7 @@ func GetServiceMessage(ctx *context.Context) {
 		if errors.Is(err, service_message_module.ErrServiceMessageNotExist) {
 			sm = &service_message_model.ServiceMessage{}
 		} else {
-			ctx.HTML(http.StatusInternalServerError, tplServiceMessage)
+			ctx.ServerError("GetServiceMessage", err)
 			return
 		}
 	}
@@ -44,9 +43,6 @@ func GetServiceMessage(ctx *context.Context) {
 }
 
 func CreateOrUpdateServiceMessage(ctx *context.Context) {
-	if ctx.Written() {
-		return
-	}
 	form := web.GetForm(ctx).(*forms.ServiceMessageForm)
 	smType := strings.TrimSpace(ctx.FormString("sm_type"))
 	smOpts := service_message_module.ServiceMessageOptions{
@@ -56,12 +52,12 @@ func CreateOrUpdateServiceMessage(ctx *context.Context) {
 	}
 	serviceMessage, err := service_message_service.NewServiceMessage(&smOpts)
 	if err != nil {
-		ctx.Flash.Error(fmt.Errorf("Could not create service message: %s", err.Error()))
+		ctx.RenderWithErr(ctx.Tr("admin.service_message.invalid_input"), tplServiceMessage, form)
 		return
 	}
 	err = service_message_service.CreateOrUpdateServiceMessage(ctx, serviceMessage)
 	if err != nil {
-		ctx.Flash.Error(fmt.Errorf("Could not create service message: %s", err.Error()))
+		ctx.ServerError("Could not create service message", err)
 		return
 	}
 	log.Debug("Done creating Service Message.")
@@ -69,20 +65,20 @@ func CreateOrUpdateServiceMessage(ctx *context.Context) {
 }
 
 func DeleteServiceMessage(ctx *context.Context) {
-	if ctx.Written() {
-		return
-	}
 	smType := strings.TrimSpace(ctx.FormString("sm_type"))
 	sm, err := service_message_service.GetServiceMessage(ctx, smType)
 	if err != nil {
-		log.Error(err.Error())
-		ctx.Flash.Error(fmt.Sprintf("Error deleting service message: %s", err.Error()))
-		return
+		if errors.Is(err, service_message_module.ErrServiceMessageNotExist) {
+			form := forms.ServiceMessageForm{}
+			ctx.RenderWithErr(ctx.Tr("admin.service_message.is_already_deleted"), tplServiceMessage, form)
+		} else {
+			ctx.ServerError("DeleteServiceMessage", err)
+			return
+		}
 	}
 	err = service_message_service.DeleteServiceMessage(ctx, sm)
 	if err != nil {
-		log.Error(err.Error())
-		ctx.Flash.Error(fmt.Sprintf("Error deleting service message: %s", err.Error()))
+		ctx.ServerError("DeleteServiceMessage", err)
 		return
 	}
 	log.Debug("Deleted Service Message %s", smType)

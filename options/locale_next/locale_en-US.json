@@ -377,6 +377,8 @@
 	"admin.service_message.text":"Text",
 	"admin.service_message.delete":"Delete Service Message",
 	"admin.service_message.type_modal":"Modal Service Message",
+	"admin.service_message.invalid_input":"The input seems to be invalid, check if the body was empty.",
+	"admin.service_message.is_already_deleted":"The Service Message seems to be deleted already.",
 	"admin.users.list_status_filter.menu_text": "Filter",
 	"admin.users.list_status_filter.reset": "Reset",
 	"admin.users.list_status_filter.is_active": "Active",
