@@ -50,11 +50,8 @@ func CreateOrUpdateServiceMessage(ctx context.Context, sm *ServiceMessage) error
 		if errors.Is(err, service_message_types.ErrServiceMessageNotExist) {
 			err = db.Insert(ctx, sm)
 			log.Debug("Created service message of type %q", sm.Type.Name())
-			return err
-		} else {
-			return err
 		}
-
+		return err
 	}
 	// Update if exists
 	e := db.GetEngine(ctx)

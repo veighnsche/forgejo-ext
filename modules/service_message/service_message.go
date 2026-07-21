@@ -21,8 +21,7 @@ const (
 
 func (s SMType) Name() string {
 	res := ""
-	switch s {
-	case SMModal:
+	if s == SMModal {
 		res = "modal"
 	}
 	return res

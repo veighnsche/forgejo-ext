@@ -73,8 +73,8 @@ func DeleteServiceMessage(ctx *context.Context) {
 			ctx.RenderWithErr(ctx.Tr("admin.service_message.is_already_deleted"), tplServiceMessage, form)
 		} else {
 			ctx.ServerError("DeleteServiceMessage", err)
-			return
 		}
+		return
 	}
 	err = service_message_service.DeleteServiceMessage(ctx, sm)
 	if err != nil {
