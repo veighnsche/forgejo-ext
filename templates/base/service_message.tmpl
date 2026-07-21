@@ -3,20 +3,16 @@ Show the existing ServiceMessages (either Modal, Banner or both)
 */}}
 
 {{if .ModalServiceMessageTitle}}
-	<div class="ui dimmer transition active">
-		<div class="ui g-modal-confirm modal transition active front">
-			<div class="header">
-				<p>{{(.ModalServiceMessageTitle)}}</p>
-			</div>
-			<div class="service-message-content">
-				{{(.RenderedContent)}}
-			</div>
-			<div class="actions button-sequence">
-				<form class="ui form" method="post" action="{{AppSubUrl}}/user/confirm?sm_type=modal&redirect_to={{.CurrentURL}}">
-					<button class="ui primary ok button">{{svg "octicon-check"}} {{ctx.Locale.Tr "modal.confirm"}}</button>
-				</form>
-				<button class="ui ok button link-action" data-url="{{AppSubUrl}}/user/logout">{{svg "octicon-x"}} {{ctx.Locale.Tr "modal.cancel"}}</button>
-			</div>
-		</div>
-	</div>
+	<dialog>
+	  <article>
+	    <header>{{.ModalServiceMessageTitle}}</header>
+	    <form class="ui form" action="{{AppSubUrl}}/user/confirm?sm_type=modal&redirect_to={{.CurrentURL}}" method="post">
+	      <div class="content">{{.RenderedContent}}</div>
+	      <div class="actions">
+			    <button class="ui primary ok button">{{svg "octicon-check"}} {{ctx.Locale.Tr "modal.confirm"}}</button>
+			  	<button  type="button" class="ui ok button link-action" data-url="{{AppSubUrl}}/user/logout">{{svg "octicon-x"}} {{ctx.Locale.Tr "modal.cancel"}}</button>
+	      </div>
+	    </div>
+	  </article>
+	</dialog>
 {{end}}
