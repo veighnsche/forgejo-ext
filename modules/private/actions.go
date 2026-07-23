@@ -5,8 +5,6 @@ package private
 
 import (
 	"context"
-
-	"forgejo.org/modules/setting"
 )
 
 type GenerateTokenRequest struct {
@@ -15,9 +13,7 @@ type GenerateTokenRequest struct {
 
 // GenerateActionsRunnerToken calls the internal GenerateActionsRunnerToken function
 func GenerateActionsRunnerToken(ctx context.Context, scope string) (*ResponseText, ResponseExtra) {
-	reqURL := setting.LocalURL + "api/internal/actions/generate_actions_runner_token"
-
-	req := newInternalRequest(ctx, reqURL, "POST", GenerateTokenRequest{
+	req := newInternalRequest(ctx, "/api/internal/actions/generate_actions_runner_token", "POST", GenerateTokenRequest{
 		Scope: scope,
 	})
 

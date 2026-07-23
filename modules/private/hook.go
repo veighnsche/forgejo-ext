@@ -13,7 +13,6 @@ import (
 	"forgejo.org/modules/git/pushoptions"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/repository"
-	"forgejo.org/modules/setting"
 )
 
 // Git environment variables
@@ -86,7 +85,7 @@ type HookProcReceiveRefResult struct {
 
 // HookPreReceive check whether the provided commits are allowed
 func HookPreReceive(ctx context.Context, ownerName, repoName string, opts HookOptions) ResponseExtra {
-	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/hook/pre-receive/%s/%s", url.PathEscape(ownerName), url.PathEscape(repoName))
+	reqURL := fmt.Sprintf("/api/internal/hook/pre-receive/%s/%s", url.PathEscape(ownerName), url.PathEscape(repoName))
 	req := newInternalRequest(ctx, reqURL, "POST", opts)
 	req.SetReadWriteTimeout(time.Duration(60+len(opts.OldCommitIDs)) * time.Second)
 	_, extra := requestJSONResp(req, &ResponseText{})
@@ -95,7 +94,7 @@ func HookPreReceive(ctx context.Context, ownerName, repoName string, opts HookOp
 
 // HookPostReceive updates services and users
 func HookPostReceive(ctx context.Context, ownerName, repoName string, opts HookOptions) (*HookPostReceiveResult, ResponseExtra) {
-	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/hook/post-receive/%s/%s", url.PathEscape(ownerName), url.PathEscape(repoName))
+	reqURL := fmt.Sprintf("/api/internal/hook/post-receive/%s/%s", url.PathEscape(ownerName), url.PathEscape(repoName))
 	req := newInternalRequest(ctx, reqURL, "POST", opts)
 	req.SetReadWriteTimeout(time.Duration(60+len(opts.OldCommitIDs)) * time.Second)
 	return requestJSONResp(req, &HookPostReceiveResult{})
@@ -103,7 +102,7 @@ func HookPostReceive(ctx context.Context, ownerName, repoName string, opts HookO
 
 // HookProcReceive proc-receive hook
 func HookProcReceive(ctx context.Context, ownerName, repoName string, opts HookOptions) (*HookProcReceiveResult, ResponseExtra) {
-	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/hook/proc-receive/%s/%s", url.PathEscape(ownerName), url.PathEscape(repoName))
+	reqURL := fmt.Sprintf("/api/internal/hook/proc-receive/%s/%s", url.PathEscape(ownerName), url.PathEscape(repoName))
 
 	req := newInternalRequest(ctx, reqURL, "POST", opts)
 	req.SetReadWriteTimeout(time.Duration(60+len(opts.OldCommitIDs)) * time.Second)
@@ -112,7 +111,7 @@ func HookProcReceive(ctx context.Context, ownerName, repoName string, opts HookO
 
 // SetDefaultBranch will set the default branch to the provided branch for the provided repository
 func SetDefaultBranch(ctx context.Context, ownerName, repoName, branch string) ResponseExtra {
-	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/hook/set-default-branch/%s/%s/%s",
+	reqURL := fmt.Sprintf("/api/internal/hook/set-default-branch/%s/%s/%s",
 		url.PathEscape(ownerName),
 		url.PathEscape(repoName),
 		url.PathEscape(branch),
@@ -124,8 +123,7 @@ func SetDefaultBranch(ctx context.Context, ownerName, repoName, branch string) R
 
 // SSHLog sends ssh error log response
 func SSHLog(ctx context.Context, level log.Level, msg string) error {
-	reqURL := setting.LocalURL + "api/internal/ssh/log"
-	req := newInternalRequest(ctx, reqURL, "POST", &SSHLogOption{Level: level, Message: msg})
+	req := newInternalRequest(ctx, "/api/internal/ssh/log", "POST", &SSHLogOption{Level: level, Message: msg})
 	_, extra := requestJSONResp(req, &ResponseText{})
 	return extra.Error
 }

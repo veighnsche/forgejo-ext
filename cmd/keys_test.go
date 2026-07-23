@@ -7,11 +7,12 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
+	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/tests/internaltest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,15 +21,14 @@ import (
 
 func TestKeys(t *testing.T) {
 	// Setup the server that processes the request.
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	defer test.MockVariableValue(&setting.InternalListenerPath, "random")()
+	internaltest.NewInternalTestServer(t, optional.Some(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/internal/ssh/authorized_keys", r.URL.Path)
 		require.NoError(t, r.ParseForm())
 		if fp := r.FormValue("content"); fp == "SHA256:cribavuRiVCKotErwXB99ChAJNVt9TqFfeTcldrxQ3I" {
 			io.WriteString(w, "# Some authorized key command will be returned here")
 		}
-	}))
-	defer ts.Close()
-	defer test.MockVariableValue(&setting.LocalURL, ts.URL+"/")()
+	})))
 
 	stdout := &bytes.Buffer{}
 

@@ -21,7 +21,6 @@ var (
 	// Security settings
 	InstallLock                        bool
 	SecretKey                          string
-	InternalToken                      string // internal access token
 	LogInRememberDays                  int
 	GlobalTwoFactorRequirement         TwoFactorRequirementType
 	CookieRememberName                 string
@@ -404,25 +403,6 @@ func loadKeyCfg(rootCfg ConfigProvider, cfgSection, pfx, defaultAlg, defaultPriv
 	return nil, err
 }
 
-// generateSaveInternalToken generates and saves the internal token to app.ini
-func generateSaveInternalToken(rootCfg ConfigProvider) {
-	token, err := generate.NewInternalToken()
-	if err != nil {
-		log.Fatal("Error generate internal token: %v", err)
-	}
-
-	InternalToken = token
-	saveCfg, err := rootCfg.PrepareSaving()
-	if err != nil {
-		log.Fatal("Error saving internal token: %v", err)
-	}
-	rootCfg.Section("security").Key("INTERNAL_TOKEN").SetValue(token)
-	saveCfg.Section("security").Key("INTERNAL_TOKEN").SetValue(token)
-	if err = saveCfg.Save(); err != nil {
-		log.Fatal("Error saving internal token: %v", err)
-	}
-}
-
 func loadSecurityFrom(rootCfg ConfigProvider) {
 	sec := rootCfg.Section("security")
 	InstallLock = HasInstallLock(rootCfg)
@@ -465,13 +445,6 @@ func loadSecurityFrom(rootCfg ConfigProvider) {
 	PasswordCheckPwn = sec.Key("PASSWORD_CHECK_PWN").MustBool(false)
 	SuccessfulTokensCacheSize = sec.Key("SUCCESSFUL_TOKENS_CACHE_SIZE").MustInt(20)
 
-	InternalToken = loadSecret(sec, "INTERNAL_TOKEN_URI", "INTERNAL_TOKEN")
-	if InstallLock && InternalToken == "" {
-		// if Gitea has been installed but the InternalToken hasn't been generated (upgrade from an old release), we should generate
-		// some users do cluster deployment, they still depend on this auto-generating behavior.
-		generateSaveInternalToken(rootCfg)
-	}
-
 	cfgdata := sec.Key("PASSWORD_COMPLEXITY").Strings(",")
 	if len(cfgdata) == 0 {
 		cfgdata = []string{"off"}
@@ -492,6 +465,10 @@ func loadSecurityFrom(rootCfg ConfigProvider) {
 	// warn if the setting is set to false explicitly
 	if sectionHasDisableQueryAuthToken && !DisableQueryAuthToken {
 		log.Warn("Enabling Query API Auth tokens is not recommended. DISABLE_QUERY_AUTH_TOKEN will be removed in Forgejo v13.0.0.")
+	}
+
+	if sec.HasKey("INTERNAL_TOKEN") || sec.HasKey("INTERNAL_TOKEN_URI") {
+		log.Error("INTERNAL_TOKEN and INTERNAL_TOKEN_URI have been deprecated. Internal communication now happens over a UNIX socket, see the [server].INTERNAL_LISTENER_PATH setting.")
 	}
 }
 

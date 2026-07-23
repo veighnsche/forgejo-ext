@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"forgejo.org/modules/setting"
 )
 
 // RestoreParams structure holds a data for restore repository
@@ -22,9 +20,7 @@ type RestoreParams struct {
 
 // RestoreRepo calls the internal RestoreRepo function
 func RestoreRepo(ctx context.Context, repoDir, ownerName, repoName string, units []string, validation bool) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/restore_repo"
-
-	req := newInternalRequest(ctx, reqURL, "POST", RestoreParams{
+	req := newInternalRequest(ctx, "/api/internal/restore_repo", "POST", RestoreParams{
 		RepoDir:    repoDir,
 		OwnerName:  ownerName,
 		RepoName:   repoName,

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/felixge/fgprof"
 	"github.com/urfave/cli/v3"
+	"golang.org/x/sync/errgroup"
 )
 
 // PIDFile could be set from build tag
@@ -317,52 +319,81 @@ func listen(m http.Handler, handleRedirector bool) error {
 	// A user may fix the configuration mistake when he sees this log.
 	// And this is also very helpful to maintainers to provide help to users to resolve their configuration problems.
 	log.Info("AppURL(ROOT_URL): %s", setting.AppURL)
+	log.Info("Internal UNIX listener: unix://%s", setting.InternalListenerPath)
 
 	if setting.LFS.StartServer {
 		log.Info("LFS server enabled")
 	}
 
-	var err error
-	switch setting.Protocol {
-	case setting.HTTP:
-		if handleRedirector {
-			NoHTTPRedirector()
+	internalListenerFolder := path.Dir(setting.InternalListenerPath)
+	err := os.MkdirAll(internalListenerFolder, 0o700)
+	if err != nil {
+		return err
+	}
+
+	err = os.Chmod(internalListenerFolder, 0o700)
+	if err != nil {
+		return err
+	}
+
+	var serverGroup errgroup.Group
+	serverGroup.Go(func() error {
+		internalRoutes := routers.InternalRoutes()
+		err := runHTTP("unix", setting.InternalListenerPath, "Internal Web", internalRoutes, false)
+		if err != nil {
+			log.Critical("Failed to start internal server: %e", err)
 		}
-		err = runHTTP("tcp", listenAddr, "Web", m, setting.UseProxyProtocol)
-	case setting.HTTPS:
-		if setting.EnableAcme {
-			err = runACME(listenAddr, m)
-			break
-		}
-		if handleRedirector {
-			if setting.RedirectOtherPort {
-				go runHTTPRedirector()
-			} else {
+
+		return err
+	})
+
+	serverGroup.Go(func() error {
+		var err error
+		switch setting.Protocol {
+		case setting.HTTP:
+			if handleRedirector {
 				NoHTTPRedirector()
 			}
+			err = runHTTP("tcp", listenAddr, "Web", m, setting.UseProxyProtocol)
+		case setting.HTTPS:
+			if setting.EnableAcme {
+				err = runACME(listenAddr, m)
+				break
+			}
+			if handleRedirector {
+				if setting.RedirectOtherPort {
+					go runHTTPRedirector()
+				} else {
+					NoHTTPRedirector()
+				}
+			}
+			err = runHTTPS("tcp", listenAddr, "Web", setting.CertFile, setting.KeyFile, m, setting.UseProxyProtocol, setting.ProxyProtocolTLSBridging)
+		case setting.FCGI:
+			if handleRedirector {
+				NoHTTPRedirector()
+			}
+			err = runFCGI("tcp", listenAddr, "FCGI Web", m, setting.UseProxyProtocol)
+		case setting.HTTPUnix:
+			if handleRedirector {
+				NoHTTPRedirector()
+			}
+			err = runHTTP("unix", listenAddr, "Web", m, setting.UseProxyProtocol)
+		case setting.FCGIUnix:
+			if handleRedirector {
+				NoHTTPRedirector()
+			}
+			err = runFCGI("unix", listenAddr, "Web", m, setting.UseProxyProtocol)
+		default:
+			log.Fatal("Invalid protocol: %s", setting.Protocol)
 		}
-		err = runHTTPS("tcp", listenAddr, "Web", setting.CertFile, setting.KeyFile, m, setting.UseProxyProtocol, setting.ProxyProtocolTLSBridging)
-	case setting.FCGI:
-		if handleRedirector {
-			NoHTTPRedirector()
+		if err != nil {
+			log.Critical("Failed to start server: %v", err)
 		}
-		err = runFCGI("tcp", listenAddr, "FCGI Web", m, setting.UseProxyProtocol)
-	case setting.HTTPUnix:
-		if handleRedirector {
-			NoHTTPRedirector()
-		}
-		err = runHTTP("unix", listenAddr, "Web", m, setting.UseProxyProtocol)
-	case setting.FCGIUnix:
-		if handleRedirector {
-			NoHTTPRedirector()
-		}
-		err = runFCGI("unix", listenAddr, "Web", m, setting.UseProxyProtocol)
-	default:
-		log.Fatal("Invalid protocol: %s", setting.Protocol)
-	}
-	if err != nil {
-		log.Critical("Failed to start server: %v", err)
-	}
+
+		return err
+	})
+
+	err = serverGroup.Wait()
 	log.Info("HTTP Listener: %s Closed", listenAddr)
 	return err
 }

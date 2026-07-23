@@ -483,17 +483,6 @@ func SubmitInstall(ctx *context.Context) {
 
 	cfg.Section("security").Key("INSTALL_LOCK").SetValue("true")
 
-	// the internal token could be read from INTERNAL_TOKEN or INTERNAL_TOKEN_URI (the file is guaranteed to be non-empty)
-	// if there is no InternalToken, generate one and save to security.INTERNAL_TOKEN
-	if setting.InternalToken == "" {
-		var internalToken string
-		if internalToken, err = generate.NewInternalToken(); err != nil {
-			ctx.RenderWithErr(ctx.Tr("install.internal_token_failed", err), tplInstall, &form)
-			return
-		}
-		cfg.Section("security").Key("INTERNAL_TOKEN").SetValue(internalToken)
-	}
-
 	// FIXME: at the moment, no matter oauth2 is enabled or not, it must generate a "oauth2 JWT_SECRET"
 	// see the "loadOAuth2From" in "setting/oauth2.go"
 	if !cfg.Section("oauth2").HasKey("JWT_SECRET") && !cfg.Section("oauth2").HasKey("JWT_SECRET_URI") {

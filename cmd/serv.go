@@ -90,7 +90,7 @@ var (
 )
 
 func sshLog(ctx context.Context, level log.Level, message string) error {
-	if testing.Testing() || setting.InternalToken == "" {
+	if testing.Testing() {
 		return nil
 	}
 

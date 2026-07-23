@@ -140,7 +140,6 @@ type namedCfg struct {
 
 var iniCommon = `[security]
 INSTALL_LOCK = true
-INTERNAL_TOKEN = ForgejoForgejoForgejoForgejoForgejoForgejo_	# don't use in prod
 [oauth2]
 JWT_SECRET = ForgejoForgejoForgejoForgejoForgejoForgejo_	# don't use in prod
 [server]

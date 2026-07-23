@@ -90,8 +90,11 @@ RUN addgroup \
     -G git \
     git
 
-RUN mkdir -p /var/lib/gitea
-RUN chown git:git /var/lib/gitea
+RUN mkdir -p /var/lib/gitea && \
+  chown git:git /var/lib/gitea
+
+RUN mkdir -p /run/forgejo && \
+  chown git:git /run/forgejo
 
 COPY --from=build-env /tmp/local /
 RUN cd /usr/local/bin ; ln -s gitea forgejo

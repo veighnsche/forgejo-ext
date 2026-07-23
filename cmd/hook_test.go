@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -16,9 +15,11 @@ import (
 
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/optional"
 	"forgejo.org/modules/private"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/tests/internaltest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -116,7 +117,6 @@ func TestPktLine(t *testing.T) {
 
 func TestDelayWriter(t *testing.T) {
 	// Setup the environment.
-	defer test.MockVariableValue(&setting.InternalToken, "Random")()
 	defer test.MockVariableValue(&setting.InstallLock, true)()
 	defer test.MockVariableValue(&setting.Git.VerbosePush, true)()
 	t.Setenv("SSH_ORIGINAL_COMMAND", "true")
@@ -131,11 +131,10 @@ func TestDelayWriter(t *testing.T) {
 	defer test.MockVariableValue(os.Stdin, *f)()
 
 	// Setup the server that processes the hooks.
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	defer test.MockVariableValue(&setting.InternalListenerPath, "random")()
+	internaltest.NewInternalTestServer(t, optional.Some(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Millisecond * 600)
-	}))
-	defer ts.Close()
-	defer test.MockVariableValue(&setting.LocalURL, ts.URL+"/")()
+	})))
 
 	app := cli.Command{}
 	app.Commands = []*cli.Command{subcmdHookPreReceive()}
@@ -167,9 +166,9 @@ func TestDelayWriter(t *testing.T) {
 
 func TestRunHookPrePostReceive(t *testing.T) {
 	// Setup the environment.
-	defer test.MockVariableValue(&setting.InternalToken, "Random")()
 	defer test.MockVariableValue(&setting.InstallLock, true)()
 	defer test.MockVariableValue(&setting.Git.VerbosePush, true)()
+	defer test.MockVariableValue(&setting.InternalListenerPath, "random")()
 	t.Setenv("SSH_ORIGINAL_COMMAND", "true")
 
 	tests := []struct {
@@ -210,38 +209,38 @@ func TestRunHookPrePostReceive(t *testing.T) {
 			var serverError error
 			var hookOpts *private.HookOptions
 
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				body, err := io.ReadAll(r.Body)
-				if err != nil {
-					serverError = err
-					w.WriteHeader(500)
-					return
-				}
+			internaltest.NewInternalTestServer(t, optional.Some(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					body, err := io.ReadAll(r.Body)
+					if err != nil {
+						serverError = err
+						w.WriteHeader(500)
+						return
+					}
 
-				err = json.Unmarshal(body, &hookOpts)
-				if err != nil {
-					serverError = err
-					w.WriteHeader(500)
-					return
-				}
+					err = json.Unmarshal(body, &hookOpts)
+					if err != nil {
+						serverError = err
+						w.WriteHeader(500)
+						return
+					}
 
-				w.WriteHeader(200)
+					w.WriteHeader(200)
 
-				resp := &private.HookPostReceiveResult{}
-				bytes, err := json.Marshal(resp)
-				if err != nil {
-					serverError = err
-					return
-				}
+					resp := &private.HookPostReceiveResult{}
+					bytes, err := json.Marshal(resp)
+					if err != nil {
+						serverError = err
+						return
+					}
 
-				_, err = w.Write(bytes)
-				if err != nil {
-					serverError = err
-					return
-				}
-			}))
-			defer ts.Close()
-			defer test.MockVariableValue(&setting.LocalURL, ts.URL+"/")()
+					_, err = w.Write(bytes)
+					if err != nil {
+						serverError = err
+						return
+					}
+				}),
+			))
 
 			t.Run("pre-receive", func(t *testing.T) {
 				app := cli.Command{}

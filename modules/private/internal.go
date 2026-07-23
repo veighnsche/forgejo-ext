@@ -5,7 +5,6 @@ package private
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 	"forgejo.org/modules/httplib"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
-	"forgejo.org/modules/proxyprotocol"
 	"forgejo.org/modules/setting"
 )
 
@@ -35,53 +33,17 @@ func getClientIP() string {
 }
 
 func newInternalRequest(ctx context.Context, url, method string, body ...any) *httplib.Request {
-	if setting.InternalToken == "" {
-		log.Fatal(`The INTERNAL_TOKEN setting is missing from the configuration file: %q.
-Ensure you are running in the correct environment or set the correct configuration file with -c.`, setting.CustomConf)
-	}
-
+	url = fmt.Sprintf("http://forgejo-internal/%s", strings.TrimPrefix(url, "/"))
 	req := httplib.NewRequest(url, method).
 		SetContext(ctx).
-		Header("X-Real-IP", getClientIP()).
-		Header("Authorization", fmt.Sprintf("Bearer %s", setting.InternalToken)).
-		SetTLSClientConfig(&tls.Config{
-			InsecureSkipVerify: true,
-			ServerName:         setting.Domain,
-		})
+		Header("X-Real-IP", getClientIP())
 
-	if setting.Protocol == setting.HTTPUnix {
-		req.SetTransport(&http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				var d net.Dialer
-				conn, err := d.DialContext(ctx, "unix", setting.HTTPAddr)
-				if err != nil {
-					return conn, err
-				}
-				if setting.LocalUseProxyProtocol {
-					if err = proxyprotocol.WriteLocalHeader(conn); err != nil {
-						_ = conn.Close()
-						return nil, err
-					}
-				}
-				return conn, err
-			},
-		})
-	} else if setting.LocalUseProxyProtocol {
-		req.SetTransport(&http.Transport{
-			DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-				var d net.Dialer
-				conn, err := d.DialContext(ctx, network, address)
-				if err != nil {
-					return conn, err
-				}
-				if err = proxyprotocol.WriteLocalHeader(conn); err != nil {
-					_ = conn.Close()
-					return nil, err
-				}
-				return conn, err
-			},
-		})
-	}
+	req.SetTransport(&http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", setting.InternalListenerPath)
+		},
+	})
 
 	if len(body) == 1 {
 		req.Header("Content-Type", "application/json")

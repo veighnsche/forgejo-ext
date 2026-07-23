@@ -179,7 +179,6 @@ func NormalRoutes() *web.Route {
 	r.Mount("/", web_routers.Routes())
 	r.Mount("/api/v1", apiv1.Routes())
 	r.Mount("/api/forgejo/v1", forgejo.Routes())
-	r.Mount("/api/internal", private.Routes())
 
 	r.Post("/-/fetch-redirect", common.FetchRedirectDelegate)
 
@@ -203,5 +202,12 @@ func NormalRoutes() *web.Route {
 		r.Mount(prefix, actions_router.ArtifactsV4Routes(prefix))
 	}
 
+	return r
+}
+
+func InternalRoutes() *web.Route {
+	r := web.NewRoute()
+	r.Use(common.ProtocolMiddlewares()...)
+	r.Mount("/api/internal/", private.Routes())
 	return r
 }

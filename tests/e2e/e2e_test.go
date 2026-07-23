@@ -26,6 +26,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/routers"
 	"forgejo.org/tests"
+	"forgejo.org/tests/internaltest"
 )
 
 var testE2eWebRoutes *web.Route
@@ -74,6 +75,8 @@ func TestMain(m *testing.M) {
 
 // TestE2e should be the only test e2e necessary. It will collect all "*.test.e2e.ts" files in this directory and build a test for each.
 func TestE2e(t *testing.T) {
+	internaltest.NewInternalTestServer(t, nil)
+
 	// Find the paths of all e2e test files in test directory.
 	searchGlob := filepath.Join(setting.AppWorkPath, "tests", "e2e", "*.test.e2e.ts")
 	paths, err := filepath.Glob(searchGlob)

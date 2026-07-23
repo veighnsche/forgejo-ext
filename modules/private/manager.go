@@ -11,28 +11,23 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
-	"forgejo.org/modules/setting"
 )
 
 // Shutdown calls the internal shutdown function
 func Shutdown(ctx context.Context) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/shutdown"
-	req := newInternalRequest(ctx, reqURL, "POST")
+	req := newInternalRequest(ctx, "/api/internal/manager/shutdown", "POST")
 	return requestJSONClientMsg(req, "Shutting down")
 }
 
 // Restart calls the internal restart function
 func Restart(ctx context.Context) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/restart"
-	req := newInternalRequest(ctx, reqURL, "POST")
+	req := newInternalRequest(ctx, "/api/internal/manager/restart", "POST")
 	return requestJSONClientMsg(req, "Restarting")
 }
 
 // ReloadTemplates calls the internal reload-templates function
 func ReloadTemplates(ctx context.Context) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/reload-templates"
-	req := newInternalRequest(ctx, reqURL, "POST")
+	req := newInternalRequest(ctx, "/api/internal/manager/reload-templates", "POST")
 	return requestJSONClientMsg(req, "Reloaded")
 }
 
@@ -44,8 +39,7 @@ type FlushOptions struct {
 
 // FlushQueues calls the internal flush-queues function
 func FlushQueues(ctx context.Context, timeout time.Duration, nonBlocking bool) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/flush-queues"
-	req := newInternalRequest(ctx, reqURL, "POST", FlushOptions{Timeout: timeout, NonBlocking: nonBlocking})
+	req := newInternalRequest(ctx, "/api/internal/manager/flush-queues", "POST", FlushOptions{Timeout: timeout, NonBlocking: nonBlocking})
 	if timeout > 0 {
 		req.SetReadWriteTimeout(timeout + 10*time.Second)
 	}
@@ -54,28 +48,25 @@ func FlushQueues(ctx context.Context, timeout time.Duration, nonBlocking bool) R
 
 // PauseLogging pauses logging
 func PauseLogging(ctx context.Context) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/pause-logging"
-	req := newInternalRequest(ctx, reqURL, "POST")
+	req := newInternalRequest(ctx, "/api/internal/manager/pause-logging", "POST")
 	return requestJSONClientMsg(req, "Logging Paused")
 }
 
 // ResumeLogging resumes logging
 func ResumeLogging(ctx context.Context) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/resume-logging"
-	req := newInternalRequest(ctx, reqURL, "POST")
+	req := newInternalRequest(ctx, "/api/internal/manager/resume-logging", "POST")
 	return requestJSONClientMsg(req, "Logging Restarted")
 }
 
 // ReleaseReopenLogging releases and reopens logging files
 func ReleaseReopenLogging(ctx context.Context) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/release-and-reopen-logging"
-	req := newInternalRequest(ctx, reqURL, "POST")
+	req := newInternalRequest(ctx, "/api/internal/manager/release-and-reopen-logging", "POST")
 	return requestJSONClientMsg(req, "Logging Restarted")
 }
 
 // SetLogSQL sets database logging
 func SetLogSQL(ctx context.Context, on bool) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/set-log-sql?on=" + strconv.FormatBool(on)
+	reqURL := "/api/internal/manager/set-log-sql?on=" + strconv.FormatBool(on)
 	req := newInternalRequest(ctx, reqURL, "POST")
 	return requestJSONClientMsg(req, "Log SQL setting set")
 }
@@ -90,8 +81,7 @@ type LoggerOptions struct {
 
 // AddLogger adds a logger
 func AddLogger(ctx context.Context, logger, writer, mode string, config map[string]any) ResponseExtra {
-	reqURL := setting.LocalURL + "api/internal/manager/add-logger"
-	req := newInternalRequest(ctx, reqURL, "POST", LoggerOptions{
+	req := newInternalRequest(ctx, "/api/internal/manager/add-logger", "POST", LoggerOptions{
 		Logger: logger,
 		Writer: writer,
 		Mode:   mode,
@@ -102,14 +92,14 @@ func AddLogger(ctx context.Context, logger, writer, mode string, config map[stri
 
 // RemoveLogger removes a logger
 func RemoveLogger(ctx context.Context, logger, writer string) ResponseExtra {
-	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/manager/remove-logger/%s/%s", url.PathEscape(logger), url.PathEscape(writer))
+	reqURL := fmt.Sprintf("api/internal/manager/remove-logger/%s/%s", url.PathEscape(logger), url.PathEscape(writer))
 	req := newInternalRequest(ctx, reqURL, "POST")
 	return requestJSONClientMsg(req, "Removed")
 }
 
 // Processes return the current processes from this gitea instance
 func Processes(ctx context.Context, out io.Writer, flat, noSystem, stacktraces, json bool, cancel string) ResponseExtra {
-	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/manager/processes?flat=%t&no-system=%t&stacktraces=%t&json=%t&cancel-pid=%s", flat, noSystem, stacktraces, json, url.QueryEscape(cancel))
+	reqURL := fmt.Sprintf("api/internal/manager/processes?flat=%t&no-system=%t&stacktraces=%t&json=%t&cancel-pid=%s", flat, noSystem, stacktraces, json, url.QueryEscape(cancel))
 
 	req := newInternalRequest(ctx, reqURL, "GET")
 	callback := func(resp *http.Response, extra *ResponseExtra) {

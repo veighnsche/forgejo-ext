@@ -74,12 +74,6 @@ func (r *Request) SetReadWriteTimeout(readWriteTimeout time.Duration) *Request {
 	return r
 }
 
-// SetTLSClientConfig sets tls connection configurations if visiting https url.
-func (r *Request) SetTLSClientConfig(config *tls.Config) *Request {
-	r.setting.TLSClientConfig = config
-	return r
-}
-
 // Header add header item string in request.
 func (r *Request) Header(key, value string) *Request {
 	r.req.Header.Set(key, value)

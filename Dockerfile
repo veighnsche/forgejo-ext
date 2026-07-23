@@ -96,6 +96,10 @@ RUN addgroup \
     git && \
   echo "git:*" | chpasswd -e
 
+RUN mkdir \
+  -p /run/forgejo && \
+  chown git:git /run/forgejo
+
 ENV USER=git
 ENV GITEA_CUSTOM=/data/gitea
 

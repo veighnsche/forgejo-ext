@@ -5,38 +5,13 @@
 package private
 
 import (
-	"crypto/subtle"
-	"net/http"
-	"strings"
-
-	"forgejo.org/modules/log"
 	"forgejo.org/modules/private"
-	"forgejo.org/modules/setting"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 
 	"code.forgejo.org/go-chi/binding"
 	chi_middleware "github.com/go-chi/chi/v5/middleware"
 )
-
-// CheckInternalToken check internal token is set
-func CheckInternalToken(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		tokens := req.Header.Get("Authorization")
-		fields := strings.SplitN(tokens, " ", 2)
-		if setting.InternalToken == "" {
-			log.Warn(`The INTERNAL_TOKEN setting is missing from the configuration file: %q, internal API can't work.`, setting.CustomConf)
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-			return
-		}
-		if len(fields) != 2 || fields[0] != "Bearer" || subtle.ConstantTimeCompare([]byte(fields[1]), []byte(setting.InternalToken)) == 0 {
-			log.Debug("Forbidden attempt to access internal url: Authorization header: %s", tokens)
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		} else {
-			next.ServeHTTP(w, req)
-		}
-	})
-}
 
 // bind binding an obj to a handler
 func bind[T any](_ T) any {
@@ -52,7 +27,6 @@ func bind[T any](_ T) any {
 func Routes() *web.Route {
 	r := web.NewRoute()
 	r.Use(context.PrivateContexter())
-	r.Use(CheckInternalToken)
 	// Log the real ip address of the request from SSH is really helpful for diagnosing sometimes.
 	// Since internal API will be sent only from Forgejo sub commands and it's under control (checked by InternalToken), we can trust the headers.
 	r.Use(chi_middleware.ClientIPFromHeader("X-Real-IP"))

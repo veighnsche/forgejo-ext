@@ -5,8 +5,10 @@
 package setting
 
 import (
+	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -72,6 +74,7 @@ var (
 
 	// Server settings
 
+	InternalListenerPath       string
 	Protocol                   Scheme
 	UseProxyProtocol           bool // `ini:"USE_PROXY_PROTOCOL"`
 	ProxyProtocolTLSBridging   bool //`ini:"PROXY_PROTOCOL_TLS_BRIDGING"`
@@ -150,6 +153,16 @@ func loadServerFrom(rootCfg ConfigProvider) {
 	Domain = sec.Key("DOMAIN").MustString("localhost")
 	HTTPAddr = sec.Key("HTTP_ADDR").MustString("0.0.0.0")
 	HTTPPort = sec.Key("HTTP_PORT").MustString("3000")
+
+	defaultListenerPath := "/run/forgejo/internal.sock"
+	if runtimePath := os.Getenv("XDG_RUNTIME_DIR"); len(runtimePath) != 0 {
+		defaultListenerPath = fmt.Sprintf("%s/forgejo/internal.sock", runtimePath)
+	}
+
+	InternalListenerPath = sec.Key("INTERNAL_LISTENER_PATH").MustString(defaultListenerPath)
+	if !filepath.IsAbs(InternalListenerPath) {
+		InternalListenerPath = filepath.Join(AppWorkPath, InternalListenerPath)
+	}
 
 	Protocol = HTTP
 	protocolCfg := sec.Key("PROTOCOL").String()
@@ -231,6 +244,7 @@ func loadServerFrom(rootCfg ConfigProvider) {
 	}
 	UseProxyProtocol = sec.Key("USE_PROXY_PROTOCOL").MustBool(false)
 	ProxyProtocolTLSBridging = sec.Key("PROXY_PROTOCOL_TLS_BRIDGING").MustBool(false)
+
 	var err error
 	ProxyProtocolHeaderTimeout, err = sec.Key("PROXY_PROTOCOL_HEADER_TIMEOUT").MustDuration(5 * time.Second)
 	if err != nil {

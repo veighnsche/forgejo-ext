@@ -7,28 +7,9 @@ package generate
 import (
 	"encoding/base64"
 	"fmt"
-	"time"
 
 	"forgejo.org/modules/util"
-
-	"github.com/golang-jwt/jwt/v5"
 )
-
-// NewInternalToken generate a new value intended to be used by INTERNAL_TOKEN.
-func NewInternalToken() (string, error) {
-	secretKey := base64.RawURLEncoding.EncodeToString(util.CryptoRandomBytes(32))
-
-	now := time.Now()
-
-	internalToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"nbf": now.Unix(),
-	}).SignedString([]byte(secretKey))
-	if err != nil {
-		return "", err
-	}
-
-	return internalToken, nil
-}
 
 const defaultJwtSecretLen = 32
 

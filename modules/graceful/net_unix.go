@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -236,11 +235,22 @@ func GetListenerUnix(network string, address *net.UnixAddr) (*net.UnixListener, 
 		return nil, err
 	}
 
-	if filepath.IsAbs(address.Name) {
-		fileMode := os.FileMode(setting.UnixSocketPermission)
-		if err = os.Chmod(address.Name, fileMode); err != nil {
-			return nil, fmt.Errorf("Failed to set permission of unix socket to %s: %w", fileMode.String(), err)
-		}
+	f, err := l.File()
+	if err != nil {
+		l.Close()
+		return nil, err
+	}
+
+	fileMode := os.FileMode(setting.UnixSocketPermission)
+	if address.Name == setting.InternalListenerPath {
+		fileMode = os.FileMode(0o600)
+	}
+
+	err = f.Chmod(fileMode)
+	f.Close()
+	if err != nil {
+		l.Close()
+		return nil, fmt.Errorf("Failed to set permission of unix socket to %s: %w", fileMode.String(), err)
 	}
 
 	activeListeners = append(activeListeners, l)

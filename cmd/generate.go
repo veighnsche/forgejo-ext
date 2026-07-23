@@ -31,19 +31,9 @@ func subcmdSecret() *cli.Command {
 		Name:  "secret",
 		Usage: "Generate a secret token",
 		Commands: []*cli.Command{
-			microcmdGenerateInternalToken(),
 			microcmdGenerateLfsJwtSecret(),
 			microcmdGenerateSecretKey(),
 		},
-	}
-}
-
-func microcmdGenerateInternalToken() *cli.Command {
-	return &cli.Command{
-		Name:   "INTERNAL_TOKEN",
-		Usage:  "Generate a new INTERNAL_TOKEN",
-		Before: noDanglingArgs,
-		Action: runGenerateInternalToken,
 	}
 }
 
@@ -64,21 +54,6 @@ func microcmdGenerateSecretKey() *cli.Command {
 		Before: noDanglingArgs,
 		Action: runGenerateSecretKey,
 	}
-}
-
-func runGenerateInternalToken(ctx context.Context, c *cli.Command) error {
-	internalToken, err := generate.NewInternalToken()
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("%s", internalToken)
-
-	if isatty.IsTerminal(os.Stdout.Fd()) {
-		fmt.Println()
-	}
-
-	return nil
 }
 
 func runGenerateLfsJwtSecret(ctx context.Context, c *cli.Command) error {

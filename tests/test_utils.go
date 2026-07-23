@@ -44,6 +44,7 @@ import (
 	"forgejo.org/services/notify"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/tests/forgery"
+	"forgejo.org/tests/internaltest"
 
 	"code.forgejo.org/xorm/xorm/convert"
 	"github.com/stretchr/testify/require"
@@ -378,6 +379,7 @@ var inTestEnv atomic.Bool
 func PrepareTestEnv(t testing.TB, skip ...int) func() {
 	deferFn := PrepareTestEnvWithPackageData(t, skip...)
 	PrepareCleanPackageData(t)
+	internaltest.NewInternalTestServer(t, nil)
 
 	projectRoot := base.SetupProjectRoot()
 	setting.AppWorkPath = projectRoot
