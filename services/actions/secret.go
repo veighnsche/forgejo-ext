@@ -11,7 +11,6 @@ import (
 	actions_model "forgejo.org/models/actions"
 	secret_model "forgejo.org/models/secret"
 	actions_module "forgejo.org/modules/actions"
-	"forgejo.org/modules/util"
 
 	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
 )
@@ -100,13 +99,14 @@ func getSecretsOfInnerWorkflowCall(ctx context.Context, job *actions_model.Actio
 	if err != nil {
 		return nil, fmt.Errorf("failure evaluating 'needs' for job: %w", err)
 	}
-	needs := make([]actions_model.JobIdentifier, 0, len(taskNeeds))
+	needs := make([]string, 0, len(taskNeeds))
 	jobResults := make(map[string]string, len(taskNeeds))
 	jobOutputs := make(map[string]map[string]string, len(taskNeeds))
 	for jobID, n := range taskNeeds {
-		needs = append(needs, jobID)
-		jobResults[string(jobID)] = n.Result.String()
-		jobOutputs[string(jobID)] = n.Outputs
+		qualified := string(jobID.ToLocal(job.JobNamespace))
+		needs = append(needs, qualified)
+		jobResults[qualified] = n.Result.String()
+		jobOutputs[qualified] = n.Outputs
 	}
 	vars, err := actions_model.GetVariablesOfRun(ctx, job.Run)
 	if err != nil {
@@ -124,7 +124,7 @@ func getSecretsOfInnerWorkflowCall(ctx context.Context, job *actions_model.Actio
 
 		GitCtx:     githubContext,
 		Vars:       vars,
-		Needs:      util.ConvertSlice[actions_model.JobIdentifier, string](needs),
+		Needs:      needs,
 		JobResults: jobResults,
 		JobOutputs: jobOutputs,
 		JobInputs:  inputs,

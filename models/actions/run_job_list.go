@@ -22,10 +22,10 @@ func (jobs ActionJobList) GetRunIDs() []int64 {
 	})
 }
 
-func (jobs ActionJobList) GetJobIDs() container.Set[JobIdentifier] {
-	jobIDs := container.SetOf[JobIdentifier]()
+func (jobs ActionJobList) GetJobIDs() container.Set[NamespacedJobIdentifier] {
+	jobIDs := container.SetOf[NamespacedJobIdentifier]()
 	for _, job := range jobs {
-		jobIDs.Add(job.JobID)
+		jobIDs.Add(job.NamespacedJobID())
 	}
 	return jobIDs
 }

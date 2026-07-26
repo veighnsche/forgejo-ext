@@ -8,11 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
+	"forgejo.org/modules/container"
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
@@ -163,10 +163,10 @@ type jobStatusResolver struct {
 var unknownJobID int64 = -1
 
 func newJobStatusResolver(jobs actions_model.ActionJobList) *jobStatusResolver {
-	idToJobs := make(map[actions_model.JobIdentifier][]*actions_model.ActionRunJob, len(jobs))
+	idToJobs := make(map[actions_model.NamespacedJobIdentifier][]*actions_model.ActionRunJob, len(jobs))
 	jobMap := make(map[int64]*actions_model.ActionRunJob)
 	for _, job := range jobs {
-		idToJobs[job.JobID] = append(idToJobs[job.JobID], job)
+		idToJobs[job.NamespacedJobID()] = append(idToJobs[job.NamespacedJobID()], job)
 		jobMap[job.ID] = job
 	}
 
@@ -174,7 +174,7 @@ func newJobStatusResolver(jobs actions_model.ActionJobList) *jobStatusResolver {
 	needs := make(map[int64][]int64, len(jobs))
 	for _, job := range jobs {
 		statuses[job.ID] = job.Status
-		for _, need := range job.Needs {
+		for _, need := range job.NamespacedNeeds() {
 			neededJobs, ok := idToJobs[need]
 			if ok {
 				for _, v := range neededJobs {
@@ -296,11 +296,15 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 	}
 
 	// Compute jobOutputs for all the other jobs required as needed by this job:
+	jobNeeds := []string{}
 	jobOutputs := make(map[string]map[string]string, len(jobsInRun))
 	jobResults := make(map[string]string, len(jobsInRun))
+	blockedNamespacedNeeds := container.SetOf(blockedJob.NamespacedNeeds()...)
 	for _, job := range jobsInRun {
-		if !slices.Contains(blockedJob.Needs, job.JobID) {
-			// Only include jobs that are in the `needs` of the blocked job.
+		namespacedJobID := job.NamespacedJobID()
+		if !blockedNamespacedNeeds.Contains(namespacedJobID) {
+			// Only include jobs that are in the `needs` of the blocked job.  This filtering includes the namespace so
+			// that we never look at the outputs or results of a similarly named job in a different namespace.
 			continue
 		} else if !job.Status.IsDone() {
 			// Unexpected: `job` is needed by `blockedJob` but it isn't done; `jobStatusResolver` shouldn't be calling
@@ -310,17 +314,23 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 			)
 		}
 
+		// Jobs in a different namespace may be part of `needs` because of runtime order dependencies; for example, if a
+		// pre-req job runs before a reusable workflow, the reusable workflow's jobs will require the pre-req.  These
+		// job identifiers need to be converted to the local namespace of this job for needed jobs prerequisites to be
+		// considered complete, and for their statuses and outputs to be accessible.
+		localJobID := string(namespacedJobID.ToLocal(blockedJob.JobNamespace))
+
 		outputs, err := actions_model.FindTaskOutputByTaskID(ctx, job.TaskID)
 		if err != nil {
 			return behaviourError, fmt.Errorf("failed loading task outputs: %w", err)
 		}
-
 		outputsMap := make(map[string]string, len(outputs))
 		for _, v := range outputs {
 			outputsMap[v.OutputKey] = v.OutputValue
 		}
-		jobOutputs[string(job.JobID)] = outputsMap
-		jobResults[string(job.JobID)] = job.Status.String()
+		jobOutputs[localJobID] = outputsMap
+		jobResults[localJobID] = job.Status.String()
+		jobNeeds = append(jobNeeds, localJobID)
 	}
 
 	vars, err := actions_model.GetVariablesOfRun(ctx, blockedJob.Run)
@@ -335,13 +345,14 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 	newJobWorkflows, err := jobparser.Parse(blockedJob.WorkflowPayload, false,
 		jobparser.WithJobOutputs(jobOutputs),
 		jobparser.WithJobResults(jobResults),
-		jobparser.WithWorkflowNeeds(util.ConvertSlice[actions_model.JobIdentifier, string](blockedJob.Needs)),
+		jobparser.WithWorkflowNeeds(jobNeeds),
 		jobparser.SupportIncompleteRunsOn(),
 		jobparser.ExpandLocalReusableWorkflows(expandLocalReusableWorkflow),
 		jobparser.ExpandInstanceReusableWorkflows(expandInstanceReusableWorkflows(ctx)),
 		jobparser.WithVars(vars),
 		jobparser.WithInputs(getRunInputs(blockedJob.Run)),
 		jobparser.WithGitContext(generateGiteaContextForRun(blockedJob.Run)),
+		jobparser.EnableNamespaces(),
 	)
 	if err != nil {
 		// Reparsing errors are quite rare here since we were already able to parse this workflow in the past to
@@ -441,7 +452,13 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 		// evaluate any ${{ needs.... }} reference that is required for expansion, this job could still have other
 		// reasons to require acccess to those needs variables.  We need to reinsert those `needs` into the new job so
 		// that those job's outputs and results are made available to this new job.
-		newNeeds := append(job.Needs(), util.ConvertSlice[actions_model.JobIdentifier, string](blockedJob.Needs)...)
+		newNeeds := job.Needs()
+		for _, n := range blockedJob.NamespacedNeeds() {
+			// Needs from the blocked job should be expanded to their namespace qualified names, if they're in a
+			// different namespace than this job.
+			newNeeds = append(newNeeds, string(n.ToLocal(actions_model.JobNamespace(swf.Metadata.Namespace))))
+		}
+
 		err := job.RawNeeds.Encode(newNeeds)
 		if err != nil {
 			return behaviourError, fmt.Errorf("failure to encode newNeeds: %w", err)
@@ -532,7 +549,7 @@ func persistentIncompleteMatrixError(job *actions_model.ActionRunJob, incomplete
 			errorDetails = []any{
 				job.JobID,
 				jobRef,
-				strings.Join(util.ConvertSlice[actions_model.JobIdentifier, string](job.Needs), ", "),
+				strings.Join(util.ConvertSlice[actions_model.LocalJobIdentifier, string](job.Needs), ", "),
 			}
 		}
 		return errorCode, errorDetails
@@ -576,7 +593,7 @@ func persistentIncompleteRunsOnError(job *actions_model.ActionRunJob, incomplete
 			errorDetails = []any{
 				job.JobID,
 				jobRef,
-				strings.Join(util.ConvertSlice[actions_model.JobIdentifier, string](job.Needs), ", "),
+				strings.Join(util.ConvertSlice[actions_model.LocalJobIdentifier, string](job.Needs), ", "),
 			}
 		}
 		return errorCode, errorDetails
@@ -620,7 +637,7 @@ func persistentIncompleteWithError(job *actions_model.ActionRunJob, incompleteNe
 			errorDetails = []any{
 				job.JobID,
 				jobRef,
-				strings.Join(util.ConvertSlice[actions_model.JobIdentifier, string](job.Needs), ", "),
+				strings.Join(util.ConvertSlice[actions_model.LocalJobIdentifier, string](job.Needs), ", "),
 			}
 		}
 		return errorCode, errorDetails
@@ -666,13 +683,14 @@ func tryHandleWorkflowCallOuterJob(ctx context.Context, job *actions_model.Actio
 	if err != nil {
 		return nil, fmt.Errorf("failure to 'needs' for job: %w", err)
 	}
-	needs := make([]actions_model.JobIdentifier, 0, len(taskNeeds))
+	needs := make([]string, 0, len(taskNeeds))
 	jobResults := make(map[string]string, len(taskNeeds))
 	jobOutputs := make(map[string]map[string]string, len(taskNeeds))
 	for jobID, n := range taskNeeds {
-		needs = append(needs, jobID)
-		jobResults[string(jobID)] = n.Result.String()
-		jobOutputs[string(jobID)] = n.Outputs
+		qualified := string(jobID.ToLocal(job.JobNamespace))
+		needs = append(needs, qualified)
+		jobResults[qualified] = n.Result.String()
+		jobOutputs[qualified] = n.Outputs
 	}
 	vars, err := actions_model.GetVariablesOfRun(ctx, job.Run)
 	if err != nil {
@@ -684,7 +702,7 @@ func tryHandleWorkflowCallOuterJob(ctx context.Context, job *actions_model.Actio
 		singleWorkflow,
 		githubContext,
 		vars,
-		util.ConvertSlice[actions_model.JobIdentifier, string](needs),
+		needs,
 		jobResults,
 		jobOutputs,
 	)

@@ -83,7 +83,7 @@ func ToActionRunJob(job *actions_model.ActionRunJob, steps []*actions_model.Acti
 		RepoID:  job.RepoID,
 		OwnerID: job.OwnerID,
 		Name:    job.Name,
-		Needs:   util.ConvertSlice[actions_model.JobIdentifier, string](job.Needs),
+		Needs:   util.ConvertSlice[actions_model.LocalJobIdentifier, string](job.Needs),
 		RunsOn:  job.RunsOn,
 		TaskID:  job.TaskID,
 		Status:  job.Status.String(),

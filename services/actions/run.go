@@ -207,9 +207,9 @@ func checkJobWillRevisit(ctx context.Context, job *actions_model.ActionRunJob) (
 		return false, nil
 	}
 
-	requiredJob := matrixNeeds.Job
+	requiredJob := actions_model.LocalJobIdentifier(matrixNeeds.Job)
 	needs := job.Needs
-	if slices.Contains(needs, actions_model.JobIdentifier(requiredJob)) {
+	if slices.Contains(needs, requiredJob) {
 		// Looks good, the needed job is listed in `needs`.  It's possible that the matrix may be incomplete by
 		// referencing multiple different outputs, and not *all* outputs are in the job's `needs`... `requiredJob` will
 		// only be the first one that was found while evaluating the matrix.  But as long as at least one job is listed
@@ -224,7 +224,7 @@ func checkJobWillRevisit(ctx context.Context, job *actions_model.ActionRunJob) (
 	if err := FailRunPreExecutionError(ctx, job.Run, actions_model.ErrorCodeIncompleteMatrixMissingJob, []any{
 		job.JobID,
 		requiredJob,
-		strings.Join(util.ConvertSlice[actions_model.JobIdentifier, string](needs), ", "),
+		strings.Join(util.ConvertSlice[actions_model.LocalJobIdentifier, string](needs), ", "),
 	}); err != nil {
 		return false, err
 	}
