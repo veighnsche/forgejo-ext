@@ -147,3 +147,17 @@ func TestMoveIssuesToAnotherColumnErrorPaths(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestGetProjectIssues(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	project := unittest.AssertExistsAndLoadBean(t, &Project{ID: 1})
+	issues, total, err := GetProjectIssues(t.Context(), project.ID, db.ListOptionsAll)
+	require.NoError(t, err)
+	assert.Len(t, issues, 4)
+	assert.Equal(t, int64(1), issues[0].ProjectID)
+	assert.Equal(t, int64(4), total)
+
+	issue, err := GetProjectIssue(t.Context(), issues[0].IssueID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), issue.ProjectID)
+}

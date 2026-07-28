@@ -63,6 +63,33 @@ func (p *Project) NumOpenIssues(ctx context.Context) int {
 	return int(c)
 }
 
+// GetProjectIssues fetches all ProjectIssues related to a project
+func GetProjectIssues(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*ProjectIssue, int64, error) {
+	projectIssues := make([]*ProjectIssue, 0)
+	sess := db.GetEngine(ctx).Where("project_id=?", projectID).OrderBy("sorting, id")
+	page, pageSize := listOptions.GetPage(), listOptions.GetPageSize()
+	if !listOptions.IsListAll() && pageSize > 0 && page >= 1 {
+		sess.Limit(pageSize, (page-1)*pageSize)
+	}
+	total, err := sess.FindAndCount(&projectIssues)
+	if err != nil {
+		return nil, 0, err
+	}
+	return projectIssues, total, nil
+}
+
+// GetProjectIssue fetches a ProjectIssue
+func GetProjectIssue(ctx context.Context, issueID int64) (*ProjectIssue, error) {
+	issue := new(ProjectIssue)
+	has, err := db.GetEngine(ctx).ID(issueID).Get(issue)
+	if err != nil {
+		return nil, err
+	} else if !has {
+		return nil, ErrProjectIssueNotExist{IssueID: issueID}
+	}
+	return issue, nil
+}
+
 // MoveIssuesOnProjectColumn moves or keeps issues in a column and sorts them inside that column.
 // The sortedIssueIDs map keys are sorting positions and values are issue IDs.
 // Cards not in the map that already exist in the target column are shifted to
@@ -168,7 +195,7 @@ func (c *Column) moveIssuesToAnotherColumn(ctx context.Context, newColumn *Colum
 		return err
 	}
 
-	issues, err := c.GetIssues(ctx)
+	issues, _, err := c.GetIssues(ctx, db.ListOptionsAll)
 	if err != nil {
 		return err
 	}

@@ -50,69 +50,76 @@ func Test_moveIssuesToAnotherColumn(t *testing.T) {
 
 	column1 := unittest.AssertExistsAndLoadBean(t, &Column{ID: 1, ProjectID: 1})
 
-	issues, err := column1.GetIssues(db.DefaultContext)
+	issues, total, err := column1.GetIssues(db.DefaultContext, db.ListOptionsAll)
 	require.NoError(t, err)
 	assert.Len(t, issues, 1)
 	assert.EqualValues(t, 1, issues[0].ID)
+	assert.Equal(t, int64(1), total)
 
 	column2 := unittest.AssertExistsAndLoadBean(t, &Column{ID: 2, ProjectID: 1})
-	issues, err = column2.GetIssues(db.DefaultContext)
+	issues, total, err = column2.GetIssues(db.DefaultContext, db.ListOptionsAll)
 	require.NoError(t, err)
 	assert.Len(t, issues, 1)
 	assert.EqualValues(t, 3, issues[0].ID)
+	assert.Equal(t, int64(1), total)
 
 	err = column1.moveIssuesToAnotherColumn(db.DefaultContext, column2)
 	require.NoError(t, err)
 
-	issues, err = column1.GetIssues(db.DefaultContext)
+	issues, total, err = column1.GetIssues(db.DefaultContext, db.ListOptionsAll)
 	require.NoError(t, err)
 	assert.Empty(t, issues)
+	assert.Equal(t, int64(0), total)
 
-	issues, err = column2.GetIssues(db.DefaultContext)
+	issues, total, err = column2.GetIssues(db.DefaultContext, db.ListOptionsAll)
 	require.NoError(t, err)
 	assert.Len(t, issues, 2)
 	assert.EqualValues(t, 3, issues[0].ID)
 	assert.EqualValues(t, 0, issues[0].Sorting)
 	assert.EqualValues(t, 1, issues[1].ID)
 	assert.EqualValues(t, 1, issues[1].Sorting)
+	assert.Equal(t, int64(2), total)
 }
 
 func Test_MoveColumnsOnProject(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	project1 := unittest.AssertExistsAndLoadBean(t, &Project{ID: 1})
-	columns, err := project1.GetColumns(db.DefaultContext)
+	columns, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
 	assert.EqualValues(t, 0, columns[0].Sorting)
 	assert.EqualValues(t, 1, columns[1].Sorting)
 	assert.EqualValues(t, 2, columns[2].Sorting)
+	assert.Equal(t, int64(3), total)
 
-	err = MoveColumnsOnProject(db.DefaultContext, project1, map[int64]int64{
+	err = MoveColumnsOnProject(db.DefaultContext, project1.ID, map[int64]int64{
 		0: columns[1].ID,
 		1: columns[2].ID,
 		2: columns[0].ID,
 	})
 	require.NoError(t, err)
 
-	columnsAfter, err := project1.GetColumns(db.DefaultContext)
+	columnsAfter, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
 	require.NoError(t, err)
 	assert.Len(t, columnsAfter, 3)
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)
 	assert.Equal(t, columns[2].ID, columnsAfter[1].ID)
 	assert.Equal(t, columns[0].ID, columnsAfter[2].ID)
+	assert.Equal(t, int64(3), total)
 }
 
 func TestMoveColumnsOnProjectSwap(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	project1 := unittest.AssertExistsAndLoadBean(t, &Project{ID: 1})
-	columns, err := project1.GetColumns(db.DefaultContext)
+	columns, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
 	require.NoError(t, err)
 	require.Len(t, columns, 3)
+	require.Equal(t, int64(3), total)
 
 	// First give them distinct positions
-	err = MoveColumnsOnProject(db.DefaultContext, project1, map[int64]int64{
+	err = MoveColumnsOnProject(db.DefaultContext, project1.ID, map[int64]int64{
 		0: columns[0].ID,
 		1: columns[1].ID,
 		2: columns[2].ID,
@@ -120,19 +127,20 @@ func TestMoveColumnsOnProjectSwap(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now swap columns 0 and 1 (would collide under single-phase update)
-	err = MoveColumnsOnProject(db.DefaultContext, project1, map[int64]int64{
+	err = MoveColumnsOnProject(db.DefaultContext, project1.ID, map[int64]int64{
 		0: columns[1].ID,
 		1: columns[0].ID,
 		2: columns[2].ID,
 	})
 	require.NoError(t, err)
 
-	columnsAfter, err := project1.GetColumns(db.DefaultContext)
+	columnsAfter, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
 	require.NoError(t, err)
 	assert.Len(t, columnsAfter, 3)
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)
 	assert.Equal(t, columns[0].ID, columnsAfter[1].ID)
 	assert.Equal(t, columns[2].ID, columnsAfter[2].ID)
+	assert.Equal(t, int64(3), total)
 }
 
 func TestUpdateColumnSortingZero(t *testing.T) {
@@ -160,18 +168,19 @@ func Test_NewColumn(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	project1 := unittest.AssertExistsAndLoadBean(t, &Project{ID: 1})
-	columns, err := project1.GetColumns(db.DefaultContext)
+	columns, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
+	require.Equal(t, int64(3), total)
 
 	for i := range maxProjectColumns - 3 {
-		err := NewColumn(db.DefaultContext, &Column{
+		err := CreateColumn(db.DefaultContext, &Column{
 			Title:     fmt.Sprintf("column-%d", i+4),
 			ProjectID: project1.ID,
 		})
 		require.NoError(t, err)
 	}
-	err = NewColumn(db.DefaultContext, &Column{
+	err = CreateColumn(db.DefaultContext, &Column{
 		Title:     "column-21",
 		ProjectID: project1.ID,
 	})

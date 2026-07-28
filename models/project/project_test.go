@@ -10,28 +10,12 @@ import (
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
+	user_model "forgejo.org/models/user"
+	project_module "forgejo.org/modules/project"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestIsProjectTypeValid(t *testing.T) {
-	const UnknownType Type = 15
-
-	cases := []struct {
-		typ   Type
-		valid bool
-	}{
-		{TypeIndividual, true},
-		{TypeRepository, true},
-		{TypeOrganization, true},
-		{UnknownType, false},
-	}
-
-	for _, v := range cases {
-		assert.Equal(t, v.valid, IsTypeValid(v.typ))
-	}
-}
 
 func TestGetProjects(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
@@ -47,6 +31,33 @@ func TestGetProjects(t *testing.T) {
 
 	// 1 value for this repo exists in the fixtures
 	assert.Len(t, projects, 1)
+}
+
+func TestCreateProject(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+
+	project := &Project{
+		Title:        "Testproject",
+		Description:  "Test",
+		OwnerID:      user1.ID,
+		Owner:        user1,
+		RepoID:       0,
+		Repo:         &repo_model.Repository{},
+		CreatorID:    user1.ID,
+		IsClosed:     false,
+		TemplateType: project_module.TemplateTypeNone,
+		CardType:     project_module.CardTypeTextOnly,
+		Type:         project_module.TypeIndividual,
+	}
+
+	err := CreateProject(t.Context(), project)
+	require.NoError(t, err)
+
+	// try and create duplicate project
+	err = CreateProject(t.Context(), project)
+	assert.Error(t, err)
 }
 
 func TestProjectsSort(t *testing.T) {
@@ -76,7 +87,7 @@ func TestProjectsSort(t *testing.T) {
 
 	for _, tt := range tests {
 		projects, count, err := db.FindAndCount[Project](db.DefaultContext, SearchOptions{
-			OrderBy: GetSearchOrderByBySortType(tt.sortType),
+			OrderBy: GetSearchOrderBySortType(tt.sortType),
 		})
 		require.NoError(t, err)
 		assert.Equal(t, int64(7), count)

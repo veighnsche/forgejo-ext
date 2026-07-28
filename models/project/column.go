@@ -11,6 +11,7 @@ import (
 
 	"forgejo.org/models/db"
 	"forgejo.org/modules/container"
+	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -19,20 +20,8 @@ import (
 )
 
 type (
-
-	// CardType is used to represent a project column card type
-	CardType uint8
-
 	// ColumnList is a list of all project columns in a repository
 	ColumnList []*Column
-)
-
-const (
-	// CardTypeTextOnly is a project column card type that is text only
-	CardTypeTextOnly CardType = iota
-
-	// CardTypeImagesAndText is a project column card type that has images and text
-	CardTypeImagesAndText
 )
 
 // ColumnColorPattern is a regexp witch can validate ColumnColor
@@ -58,40 +47,35 @@ func (Column) TableName() string {
 	return "project_board" // TODO: the legacy table name should be project_column
 }
 
-func (c *Column) GetIssues(ctx context.Context) ([]*ProjectIssue, error) {
+func (c *Column) GetIssues(ctx context.Context, listOptions db.ListOptions) ([]*ProjectIssue, int64, error) {
 	issues := make([]*ProjectIssue, 0, 5)
-	if err := db.GetEngine(ctx).Where("project_id=?", c.ProjectID).
+	sess := db.GetEngine(ctx).Where("project_id=?", c.ProjectID).
 		And("project_board_id=?", c.ID).
-		OrderBy("sorting, id").
-		Find(&issues); err != nil {
-		return nil, err
+		OrderBy("sorting, id")
+	page, pageSize := listOptions.GetPage(), listOptions.GetPageSize()
+	if !listOptions.IsListAll() && pageSize > 0 && page >= 1 {
+		sess.Limit(pageSize, (page-1)*pageSize)
 	}
-	return issues, nil
+	total, err := sess.FindAndCount(&issues)
+	if err != nil {
+		return nil, 0, err
+	}
+	return issues, total, nil
 }
 
 func init() {
 	db.RegisterModel(new(Column))
 }
 
-// IsCardTypeValid checks if the project column card type is valid
-func IsCardTypeValid(p CardType) bool {
-	switch p {
-	case CardTypeTextOnly, CardTypeImagesAndText:
-		return true
-	default:
-		return false
-	}
-}
-
 func createDefaultColumnsForProject(ctx context.Context, project *Project) error {
 	var items []string
 
 	switch project.TemplateType {
-	case TemplateTypeBugTriage:
+	case project_module.TemplateTypeBugTriage:
 		items = setting.Project.ProjectBoardBugTriageType
-	case TemplateTypeBasicKanban:
+	case project_module.TemplateTypeBasicKanban:
 		items = setting.Project.ProjectBoardBasicKanbanType
-	case TemplateTypeNone:
+	case project_module.TemplateTypeNone:
 		fallthrough
 	default:
 		return nil
@@ -133,12 +117,11 @@ func createDefaultColumnsForProject(ctx context.Context, project *Project) error
 // because sorting is int8 in database
 const maxProjectColumns = 20
 
-// NewColumn adds a new project column to a given project
-func NewColumn(ctx context.Context, column *Column) error {
+// CreateColumn adds a new project column to a given project
+func CreateColumn(ctx context.Context, column *Column) error {
 	if len(column.Color) != 0 && !ColumnColorPattern.MatchString(column.Color) {
 		return fmt.Errorf("bad color code: %s", column.Color)
 	}
-
 	res := struct {
 		MaxSorting  int64
 		ColumnCount int64
@@ -149,6 +132,10 @@ func NewColumn(ctx context.Context, column *Column) error {
 	}
 	if res.ColumnCount >= maxProjectColumns {
 		return errors.New("NewBoard: maximum number of columns reached")
+	}
+	// This is the first column in this project to be created, so we make it default
+	if res.ColumnCount == 0 {
+		column.Default = true
 	}
 	column.Sorting = int8(util.Iif(res.ColumnCount > 0, res.MaxSorting+1, 0))
 	_, err := db.GetEngine(ctx).Insert(column)
@@ -235,13 +222,19 @@ func UpdateColumn(ctx context.Context, column *Column) error {
 }
 
 // GetColumns fetches all columns related to a project
-func (p *Project) GetColumns(ctx context.Context) (ColumnList, error) {
+func GetColumns(ctx context.Context, projectID int64, listOptions db.ListOptions) (ColumnList, int64, error) {
 	columns := make([]*Column, 0, 5)
-	if err := db.GetEngine(ctx).Where("project_id=?", p.ID).OrderBy("sorting, id").Find(&columns); err != nil {
-		return nil, err
+	sess := db.GetEngine(ctx).Where("project_id=?", projectID).OrderBy("sorting, id")
+	page, pageSize := listOptions.GetPage(), listOptions.GetPageSize()
+	if !listOptions.IsListAll() && pageSize > 0 && page >= 1 {
+		sess.Limit(pageSize, (page-1)*pageSize)
+	}
+	total, err := sess.FindAndCount(&columns)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	return columns, nil
+	return columns, total, nil
 }
 
 // GetDefaultColumn return default column and ensure only one exists
@@ -319,7 +312,7 @@ func GetColumnsByIDs(ctx context.Context, projectID int64, columnsIDs []int64) (
 // MoveColumnsOnProject sorts columns in a project using a two-phase approach
 // to avoid unique constraint collisions during swap operations.
 // All columns in the project must be included in the sortedColumnIDs map.
-func MoveColumnsOnProject(ctx context.Context, project *Project, sortedColumnIDs map[int64]int64) error {
+func MoveColumnsOnProject(ctx context.Context, projectID int64, sortedColumnIDs map[int64]int64) error {
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		sess := db.GetEngine(ctx)
 
@@ -332,7 +325,7 @@ func MoveColumnsOnProject(ctx context.Context, project *Project, sortedColumnIDs
 		}
 
 		// Validate all columns exist and belong to this project
-		allColumns, err := project.GetColumns(ctx)
+		allColumns, _, err := GetColumns(ctx, projectID, db.ListOptionsAll)
 		if err != nil {
 			return err
 		}
@@ -341,7 +334,7 @@ func MoveColumnsOnProject(ctx context.Context, project *Project, sortedColumnIDs
 		}
 
 		columnIDs := util.ValuesOfMap(sortedColumnIDs)
-		movedColumns, err := GetColumnsByIDs(ctx, project.ID, columnIDs)
+		movedColumns, err := GetColumnsByIDs(ctx, projectID, columnIDs)
 		if err != nil {
 			return err
 		}
