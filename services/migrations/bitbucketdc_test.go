@@ -173,6 +173,9 @@ func TestBitbucketDataCenterDownloadRepo(t *testing.T) {
 	assert.Equal(t, "A general answer", comments[1].Content)
 	assert.NotEqual(t, comments[0].PosterName, comments[1].PosterName)
 	assert.LessOrEqual(t, comments[0].Created.UnixMilli(), comments[1].Created.UnixMilli())
+	// The answer is a reply: it references its parent so the uploader links them.
+	assert.Nil(t, comments[0].Meta)
+	assert.Equal(t, comments[0].Index, comments[1].Meta["ReplyTo"])
 
 	// Reviews of the open pull request:
 	// an inline thread on lines 2-4
@@ -346,6 +349,7 @@ func TestBitbucketDataCenterActivityDeduplication(t *testing.T) {
 	assert.Equal(t, "A question", comments[0].Content)
 	assert.Equal(t, "A reply", comments[1].Content)
 	assert.Equal(t, "bob", comments[1].PosterName)
+	assert.Equal(t, comments[0].Index, comments[1].Meta["ReplyTo"])
 }
 
 func TestBitbucketDataCenterGetRepoInfoWithoutHTTPCloneLink(t *testing.T) {

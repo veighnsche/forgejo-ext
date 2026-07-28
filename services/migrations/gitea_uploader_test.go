@@ -181,6 +181,71 @@ func TestUpload(t *testing.T) {
 		assert.Len(t, issues[1].Comments, 1)
 	})
 
+	t.Run("CommentReplies", func(t *testing.T) {
+		// A reply carries its parent's foreign index in Meta["ReplyTo"]: a quote-reply
+		// header linking to the parent gets prepended, whether the parent belongs to the
+		// same batch or was inserted by an earlier one.
+		parent := &base.Comment{
+			IssueIndex:  0,
+			Index:       10,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 14, 0, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 0, 0, 0, time.UTC),
+			Content:     "Same batch parent",
+		}
+		sameBatchReply := &base.Comment{
+			IssueIndex:  0,
+			Index:       11,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 14, 1, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 1, 0, 0, time.UTC),
+			Content:     "Same batch reply",
+			Meta:        map[string]any{"ReplyTo": int64(10)},
+		}
+		crossBatchReply := &base.Comment{
+			IssueIndex:  1,
+			Index:       12,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 14, 2, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 2, 0, 0, time.UTC),
+			Content:     "Cross batch reply",
+			Meta:        map[string]any{"ReplyTo": int64(1)}, // "Second Mock Comment" of the previous batch
+		}
+		require.NoError(t, uploader.CreateComments(parent, sameBatchReply, crossBatchReply))
+
+		find := func(issueIndex int64, suffix string) *issues_model.Comment {
+			comments, err := issues_model.FindComments(db.DefaultContext, &issues_model.FindCommentsOptions{
+				IssueID: uploader.issues[issueIndex].ID,
+				Type:    issues_model.CommentTypeComment,
+			})
+			require.NoError(t, err)
+			for _, comment := range comments {
+				if strings.HasSuffix(comment.Content, suffix) {
+					return comment
+				}
+			}
+			require.FailNowf(t, "comment not found", "no comment of issue %d ends with %q", issueIndex, suffix)
+			return nil
+		}
+
+		parentComment := find(0, "Same batch parent")
+		assert.Equal(t, "Same batch parent", parentComment.Content)
+		assert.Equal(t,
+			fmt.Sprintf("@PatDyn wrote in %s/issues/%d#issuecomment-%d:\n> Same batch parent\n\nSame batch reply", repo.HTMLURL(), uploader.issues[0].Index, parentComment.ID),
+			find(0, "Same batch reply").Content)
+
+		crossBatchParent := find(1, "Second Mock Comment")
+		assert.Equal(t,
+			fmt.Sprintf("@PatDyn wrote in %s/issues/%d#issuecomment-%d:\n> Second Mock Comment\n\nCross batch reply", repo.HTMLURL(), uploader.issues[1].Index, crossBatchParent.ID),
+			find(1, "Cross batch reply").Content)
+	})
+
 	// The mock server does not serve a clonable repository, so the migrated repository is
 	// empty: craft the commit the pull request and its review will anchor to.
 	var commit string

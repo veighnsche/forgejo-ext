@@ -55,6 +55,7 @@ type GiteaLocalUploader struct {
 	sameApp        bool
 	userMap        map[int64]int64 // external user id mapping to user id
 	prCache        map[int64]*issues_model.PullRequest
+	commentMap     map[commentKey]migratedComment // foreign comment index to inserted comment, to resolve reply links
 	gitServiceType structs.GitServiceType
 }
 
@@ -71,7 +72,23 @@ func NewGiteaLocalUploader(ctx context.Context, doer *user_model.User, repoOwner
 		prHeadCache: make(map[string]string),
 		userMap:     make(map[int64]int64),
 		prCache:     make(map[int64]*issues_model.PullRequest),
+		commentMap:  make(map[commentKey]migratedComment),
 	}
+}
+
+// commentKey identifies a migrated comment by the issue it belongs to and its index on the
+// source forge.
+type commentKey struct {
+	issueID      int64
+	foreignIndex int64
+}
+
+// migratedComment retains what a reply needs to quote its parent comment.
+type migratedComment struct {
+	id             int64
+	posterID       int64
+	originalAuthor string
+	firstLine      string
 }
 
 // MaxBatchInsertSize returns the table's max batch insert size
@@ -541,7 +558,79 @@ func (g *GiteaLocalUploader) CreateComments(comments ...*base.Comment) error {
 	if len(cms) == 0 {
 		return nil
 	}
-	return issues_model.InsertIssueComments(g.ctx, cms)
+	if err := issues_model.InsertIssueComments(g.ctx, cms); err != nil {
+		return err
+	}
+	return g.resolveReplyLinks(comments, cms)
+}
+
+// resolveReplyLinks prepends to each reply (Meta["ReplyTo"] = parent comment Index) the
+// header the quote-reply button produces. Parent ids only exist once inserted, hence the
+// content update after the fact; commentMap spans batches to find earlier-inserted parents.
+func (g *GiteaLocalUploader) resolveReplyLinks(comments []*base.Comment, cms []*issues_model.Comment) error {
+	for i, cm := range cms {
+		g.commentMap[commentKey{cm.IssueID, comments[i].Index}] = migratedComment{
+			id:             cm.ID,
+			posterID:       cm.PosterID,
+			originalAuthor: cm.OriginalAuthor,
+			firstLine:      strings.TrimSuffix(strings.SplitN(cm.Content, "\n", 2)[0], "\r"),
+		}
+	}
+	for i, cm := range cms {
+		// Check ReplyTo
+		replyTo, ok := replyToIndex(comments[i].Meta)
+		if !ok {
+			continue
+		}
+
+		// Check parent
+		parent, ok := g.commentMap[commentKey{cm.IssueID, replyTo}]
+		if !ok {
+			continue
+		}
+
+		// Resolve author
+		author := parent.originalAuthor
+		if author == "" {
+			switch poster, err := user_model.GetUserByID(g.ctx, parent.posterID); {
+			case err == nil:
+				author = poster.Name
+			case user_model.IsErrUserNotExist(err):
+				author = user_model.GhostUserName
+			default:
+				return err
+			}
+		}
+
+		// Build comment reply header
+		issue := g.issues[comments[i].IssueIndex]
+		path := "issues"
+		if issue.IsPull {
+			path = "pulls"
+		}
+		cm.Content = fmt.Sprintf("@%s wrote in %s/%s/%d#issuecomment-%d:\n> %s\n\n%s",
+			author, g.repo.HTMLURL(), path, issue.Index, parent.id, parent.firstLine, cm.Content)
+		if _, err := db.GetEngine(g.ctx).ID(cm.ID).Cols("content").Update(cm); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// replyToIndex extracts Meta["ReplyTo"], tolerating the integer types a yaml or json
+// round-trip may produce.
+func replyToIndex(meta map[string]any) (int64, bool) {
+	switch v := meta["ReplyTo"].(type) {
+	case int64:
+		return v, true
+	case int:
+		return int64(v), true
+	case uint64:
+		return int64(v), true
+	case float64:
+		return int64(v), true
+	}
+	return 0, false
 }
 
 // CreatePullRequests creates pull requests

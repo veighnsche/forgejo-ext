@@ -376,11 +376,12 @@ type bitbucketComment struct {
 	Comments    []bitbucketComment `json:"comments"`
 }
 
-// addCommentThread flattens a comment and its replies into plain comments.
-func (p *bitbucketPRContext) addCommentThread(prID int64, c bitbucketComment, seen map[int64]bool) {
+// addCommentThread flattens a comment and its replies into plain comments; replies carry
+// their parent id in Meta["ReplyTo"] so the uploader links them to the parent.
+func (p *bitbucketPRContext) addCommentThread(prID int64, c bitbucketComment, replyTo int64, seen map[int64]bool) {
 	if !seen[c.ID] {
 		seen[c.ID] = true
-		p.comments = append(p.comments, &base.Comment{
+		comment := &base.Comment{
 			IssueIndex:  prID,
 			Index:       c.ID,
 			PosterID:    c.Author.ID,
@@ -389,10 +390,14 @@ func (p *bitbucketPRContext) addCommentThread(prID int64, c bitbucketComment, se
 			Created:     time.UnixMilli(c.CreatedDate),
 			Updated:     time.UnixMilli(c.UpdatedDate),
 			Content:     c.Text,
-		})
+		}
+		if replyTo != 0 {
+			comment.Meta = map[string]any{"ReplyTo": replyTo}
+		}
+		p.comments = append(p.comments, comment)
 	}
 	for _, child := range c.Comments {
-		p.addCommentThread(prID, child, seen)
+		p.addCommentThread(prID, child, c.ID, seen)
 	}
 }
 
@@ -539,7 +544,7 @@ func (d *BitbucketDataCenterDownloader) fetchPullRequestActivities(prID int64) (
 				}
 				prCtx.addInlineThread(prID, *act.Comment, act.CommentAnchor.Path, line, extraLines, act.CommentAnchor.ToHash, seen)
 			} else {
-				prCtx.addCommentThread(prID, *act.Comment, seen)
+				prCtx.addCommentThread(prID, *act.Comment, 0, seen)
 			}
 		}
 	}
