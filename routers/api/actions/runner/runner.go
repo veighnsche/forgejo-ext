@@ -410,6 +410,39 @@ func (*Service) UpdateLog(
 	return res, nil
 }
 
+// UpdateJobSummary stores the job summary (GITHUB_STEP_SUMMARY markdown) of the task.
+// The $GITHUB_STEP_SUMMARY contains the aggreation of all step summaries of one job
+func (*Service) UpdateJobSummary(
+	ctx context.Context,
+	req *connect.Request[runnerv1.UpdateJobSummaryRequest],
+) (*connect.Response[runnerv1.UpdateJobSummaryResponse], error) {
+	runner := GetRunner(ctx)
+
+	task, err := actions_model.GetTaskByID(ctx, req.Msg.TaskId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get task: %w", err))
+	} else if runner.ID != task.RunnerID {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("invalid runner for task"))
+	}
+
+	if err := task.LoadJob(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load job: %w", err))
+	}
+
+	summary := &actions_model.ActionRunJobSummary{
+		JobID:   task.Job.ID,
+		Attempt: task.Job.Attempt,
+		RunID:   task.Job.RunID,
+		RepoID:  task.RepoID,
+		Content: req.Msg.Summary,
+	}
+	if err := actions_model.SetJobSummary(ctx, summary); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("save job summary: %w", err))
+	}
+
+	return connect.NewResponse(&runnerv1.UpdateJobSummaryResponse{}), nil
+}
+
 func recoverTasks(ctx context.Context, runner *actions_model.ActionRunner, requestKey string) ([]*runnerv1.Task, error) {
 	// Search for previous tasks is based upon both the runner and the request key in order to reduce the security
 	// risk. If a request key is leaked (eg. it appears in a log file, log file gets published in a bug report) it
