@@ -48,10 +48,10 @@ func TestIsCardTypeValid(t *testing.T) {
 }
 
 func TestIsProjectTypeValid(t *testing.T) {
-	const UnknownType ProjectType = 15
+	const UnknownType OwnerType = 15
 
 	cases := []struct {
-		typ   ProjectType
+		typ   OwnerType
 		valid bool
 	}{
 		{TypeIndividual, true},
@@ -67,15 +67,15 @@ func TestIsProjectTypeValid(t *testing.T) {
 }
 
 func TestIsProjectAPITypeValid(t *testing.T) {
-	const UnknownType ProjectAPIType = ""
+	const UnknownType APIOwnerType = ""
 
 	cases := []struct {
-		typ   ProjectAPIType
+		typ   APIOwnerType
 		valid bool
 	}{
-		{ProjectAPITypeIndividual, true},
-		{ProjectAPITypeRepository, true},
-		{ProjectAPITypeOrganization, true},
+		{APIOwnerTypeIndividual, true},
+		{APIOwnerTypeRepository, true},
+		{APIOwnerTypeOrganization, true},
 		{UnknownType, false},
 	}
 
@@ -86,15 +86,15 @@ func TestIsProjectAPITypeValid(t *testing.T) {
 }
 
 func TestIsProjectTemplateTypeValid(t *testing.T) {
-	const UnknownType ProjectTemplateType = ""
+	const UnknownType APITemplateType = ""
 
 	cases := []struct {
-		typ   ProjectTemplateType
+		typ   APITemplateType
 		valid bool
 	}{
-		{ProjectTemplateTypeNone, true},
-		{ProjectTemplateTypeBasicKanban, true},
-		{ProjectTemplateTypeBugTriage, true},
+		{APITemplateTypeNone, true},
+		{APITemplateTypeBasicKanban, true},
+		{APITemplateTypeBugTriage, true},
 		{UnknownType, false},
 	}
 
@@ -105,14 +105,14 @@ func TestIsProjectTemplateTypeValid(t *testing.T) {
 }
 
 func TestIsProjectCardTypeValid(t *testing.T) {
-	const UnknownType ProjectCardType = ""
+	const UnknownType APICardType = ""
 
 	cases := []struct {
-		typ   ProjectCardType
+		typ   APICardType
 		valid bool
 	}{
-		{ProjectCardTypeTextOnly, true},
-		{ProjectCardTypeImagesAndText, true},
+		{APICardTypeTextOnly, true},
+		{APICardTypeImagesAndText, true},
 		{UnknownType, false},
 	}
 
@@ -123,14 +123,14 @@ func TestIsProjectCardTypeValid(t *testing.T) {
 }
 
 func TestIsProjectStatusValid(t *testing.T) {
-	const UnknownType ProjectStatus = ""
+	const UnknownType APIStatus = ""
 
 	cases := []struct {
-		typ   ProjectStatus
+		typ   APIStatus
 		valid bool
 	}{
-		{StatusOpen, true},
-		{StatusClosed, true},
+		{APIStatusOpen, true},
+		{APIStatusClosed, true},
 		{UnknownType, false},
 	}
 

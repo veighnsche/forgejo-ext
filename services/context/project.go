@@ -62,7 +62,7 @@ func reqValidAndConsistentProject(ctx *Context, project *project_model.Project) 
 	}
 }
 
-func reqPermissionToAssignProjectToIssue(ctx *Context, projectType project_module.ProjectType) {
+func reqPermissionToAssignProjectToIssue(ctx *Context, projectType project_module.OwnerType) {
 	switch projectType {
 	case project_module.TypeRepository:
 		if !ctx.Repo.Repository.UnitEnabled(ctx, unit.TypeProjects) {

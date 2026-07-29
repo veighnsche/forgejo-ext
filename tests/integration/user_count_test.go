@@ -51,7 +51,7 @@ func (countTest *userCountTest) Init(t *testing.T, doerID, userID int64) {
 	})
 	require.NoError(t, err)
 
-	var projectType project_module.ProjectType
+	var projectType project_module.OwnerType
 	if countTest.user.IsOrganization() {
 		projectType = project_module.TypeOrganization
 	} else {

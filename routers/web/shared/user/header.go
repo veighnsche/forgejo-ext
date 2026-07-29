@@ -168,7 +168,7 @@ func LoadHeaderCount(ctx *context.Context) error {
 		return err
 	}
 
-	var projectType project_module.ProjectType
+	var projectType project_module.OwnerType
 	if ctx.ContextUser.IsOrganization() {
 		projectType = project_module.TypeOrganization
 	} else {

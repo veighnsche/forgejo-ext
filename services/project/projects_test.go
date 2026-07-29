@@ -29,9 +29,9 @@ var (
 	keyword            = "Title"
 	projectTitle       = "Project"
 	projectDescription = "Description"
-	projectType1       = project_module.ProjectAPITypeOrganization
+	projectType1       = project_module.APIOwnerTypeOrganization
 	projectType2       = project_module.TypeIndividual
-	projectType3       = project_module.ProjectAPITypeRepository
+	projectType3       = project_module.APIOwnerTypeRepository
 	columnTitle1       = "Title 1"
 	columnTitle2       = "Title 2"
 	columnColor        = "#23adff"
@@ -47,16 +47,16 @@ func TestMain(m *testing.M) {
 
 func TestGetProjectType(t *testing.T) {
 	pT := GetAPIProjectType(false, false)
-	assert.Equal(t, project_module.ProjectAPITypeIndividual, pT)
+	assert.Equal(t, project_module.APIOwnerTypeIndividual, pT)
 
 	pT = GetAPIProjectType(true, false)
-	assert.Equal(t, project_module.ProjectAPITypeOrganization, pT)
+	assert.Equal(t, project_module.APIOwnerTypeOrganization, pT)
 
 	pT = GetAPIProjectType(false, true)
-	assert.Equal(t, project_module.ProjectAPITypeRepository, pT)
+	assert.Equal(t, project_module.APIOwnerTypeRepository, pT)
 
 	pT = GetAPIProjectType(true, true)
-	assert.Equal(t, project_module.ProjectAPITypeOrganization, pT)
+	assert.Equal(t, project_module.APIOwnerTypeOrganization, pT)
 }
 
 func TestGetSearchOpts(t *testing.T) {
@@ -160,13 +160,13 @@ func TestNewProject(t *testing.T) {
 	opts := project_structs.CreateProjectOptions{
 		Title:        "Test",
 		Description:  "Test",
-		TemplateType: project_module.ProjectTemplateTypeNone.String(),
-		CardType:     project_module.ProjectCardTypeTextOnly.String(),
+		TemplateType: project_module.APITemplateTypeNone.String(),
+		CardType:     project_module.APICardTypeTextOnly.String(),
 	}
 
 	var nilRepo *repo_model.Repository
 
-	proj, err := NewProject(&opts, user2, nilRepo, project_module.ProjectAPITypeIndividual)
+	proj, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeIndividual)
 	require.NoError(t, err)
 	assert.Equal(t, opts.Title, proj.Title)
 	assert.Equal(t, opts.Description, proj.Description)
@@ -175,11 +175,11 @@ func TestNewProject(t *testing.T) {
 	opts = project_structs.CreateProjectOptions{
 		Title:        "Test",
 		Description:  "Test",
-		TemplateType: project_module.ProjectTemplateTypeNone.String(),
-		CardType:     project_module.ProjectCardTypeTextOnly.String(),
+		TemplateType: project_module.APITemplateTypeNone.String(),
+		CardType:     project_module.APICardTypeTextOnly.String(),
 	}
 
-	proj, err = NewProject(&opts, org3, nilRepo, project_module.ProjectAPITypeOrganization)
+	proj, err = NewProject(&opts, org3, nilRepo, project_module.APIOwnerTypeOrganization)
 	require.NoError(t, err)
 	assert.Equal(t, opts.Title, proj.Title)
 	assert.Equal(t, opts.Description, proj.Description)
@@ -188,11 +188,11 @@ func TestNewProject(t *testing.T) {
 	opts = project_structs.CreateProjectOptions{
 		Title:        "Test",
 		Description:  "Test",
-		TemplateType: project_module.ProjectTemplateTypeNone.String(),
-		CardType:     project_module.ProjectCardTypeTextOnly.String(),
+		TemplateType: project_module.APITemplateTypeNone.String(),
+		CardType:     project_module.APICardTypeTextOnly.String(),
 	}
 
-	proj, err = NewProject(&opts, user2, repo2, project_module.ProjectAPITypeRepository)
+	proj, err = NewProject(&opts, user2, repo2, project_module.APIOwnerTypeRepository)
 	require.NoError(t, err)
 	assert.Equal(t, opts.Title, proj.Title)
 	assert.Equal(t, opts.Description, proj.Description)
@@ -201,26 +201,26 @@ func TestNewProject(t *testing.T) {
 	opts = project_structs.CreateProjectOptions{
 		Title:        "Test",
 		Description:  "Test",
-		TemplateType: project_module.ProjectTemplateTypeNone.String(),
-		CardType:     project_module.ProjectCardTypeTextOnly.String(),
+		TemplateType: project_module.APITemplateTypeNone.String(),
+		CardType:     project_module.APICardTypeTextOnly.String(),
 	}
 
-	_, err = NewProject(&opts, user2, nilRepo, project_module.ProjectAPITypeRepository)
+	_, err = NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Repo type given, but repo struct was empty")
 
-	invalidCardType := project_module.ProjectCardType("invalid")
-	invalidTemplateType := project_module.ProjectTemplateType("invalid")
-	invalidProjectType := project_module.ProjectAPIType("99")
+	invalidCardType := project_module.APICardType("invalid")
+	invalidTemplateType := project_module.APITemplateType("invalid")
+	invalidProjectType := project_module.APIOwnerType("99")
 
 	opts = project_structs.CreateProjectOptions{
 		Title:        "Test",
 		Description:  "Test",
-		TemplateType: project_module.ProjectTemplateTypeNone.String(),
+		TemplateType: project_module.APITemplateTypeNone.String(),
 		CardType:     invalidCardType.String(),
 	}
 
-	_, err = NewProject(&opts, user2, nilRepo, project_module.ProjectAPITypeRepository)
+	_, err = NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Field ProjectCardType")
 
@@ -228,18 +228,18 @@ func TestNewProject(t *testing.T) {
 		Title:        "Test",
 		Description:  "Test",
 		TemplateType: invalidTemplateType.String(),
-		CardType:     project_module.ProjectCardTypeTextOnly.String(),
+		CardType:     project_module.APICardTypeTextOnly.String(),
 	}
 
-	_, err = NewProject(&opts, user2, nilRepo, project_module.ProjectAPITypeRepository)
+	_, err = NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Field ProjectTemplateType")
 
 	opts = project_structs.CreateProjectOptions{
 		Title:        "Test",
 		Description:  "Test",
-		TemplateType: project_module.ProjectTemplateTypeNone.String(),
-		CardType:     project_module.ProjectCardTypeTextOnly.String(),
+		TemplateType: project_module.APITemplateTypeNone.String(),
+		CardType:     project_module.APICardTypeTextOnly.String(),
 	}
 
 	_, err = NewProject(&opts, user2, nilRepo, invalidProjectType)

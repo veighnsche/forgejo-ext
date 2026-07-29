@@ -16,7 +16,7 @@ import (
 	validation "forgejo.org/modules/validation"
 )
 
-func getBasicSearchOpts(isShowClosed bool, sortType, keyword string, projectType project_module.ProjectAPIType, pageOpts ...int) *project_model.SearchOptions {
+func getBasicSearchOpts(isShowClosed bool, sortType, keyword string, projectType project_module.APIOwnerType, pageOpts ...int) *project_model.SearchOptions {
 	opts := &project_model.SearchOptions{
 		IsClosed: optional.Some(isShowClosed),
 		Type:     projectType.Convert(),
@@ -34,14 +34,14 @@ func getBasicSearchOpts(isShowClosed bool, sortType, keyword string, projectType
 	return opts
 }
 
-func GetAPIProjectType(isOrg, isRepo bool) project_module.ProjectAPIType {
-	var t project_module.ProjectAPIType
+func GetAPIProjectType(isOrg, isRepo bool) project_module.APIOwnerType {
+	var t project_module.APIOwnerType
 	if isOrg {
-		t = project_module.ProjectAPITypeOrganization
+		t = project_module.APIOwnerTypeOrganization
 	} else if isRepo {
-		t = project_module.ProjectAPITypeRepository
+		t = project_module.APIOwnerTypeRepository
 	} else {
-		t = project_module.ProjectAPITypeIndividual
+		t = project_module.APIOwnerTypeIndividual
 	}
 	return t
 }
@@ -51,17 +51,17 @@ func NewProject(
 	form *project_structs.CreateProjectOptions,
 	owner *user_model.User,
 	repo *repo_model.Repository,
-	projectType project_module.ProjectAPIType,
+	projectType project_module.APIOwnerType,
 ) (*project_model.Project, error) {
 	var err error
 
-	projectTemplateType := project_module.ProjectTemplateType(form.TemplateType)
+	projectTemplateType := project_module.APITemplateType(form.TemplateType)
 	valid, err := validation.IsValid(projectTemplateType)
 	if !valid {
 		return nil, err
 	}
 
-	projectCardType := project_module.ProjectCardType(form.CardType)
+	projectCardType := project_module.APICardType(form.CardType)
 	valid, err = validation.IsValid(projectCardType)
 	if !valid {
 		return nil, err
@@ -84,19 +84,19 @@ func NewProject(
 
 	errNotValid := validation.ErrNotValid{}
 	switch projectType {
-	case project_module.ProjectAPITypeIndividual:
+	case project_module.APIOwnerTypeIndividual:
 		if owner.IsOrganization() {
 			errNotValid.Message = "Type was TypeIndividual, but owner was org"
 		} else if repo != nil {
 			errNotValid.Message = "Type was TypeIndividual, repo was given"
 		}
-	case project_module.ProjectAPITypeOrganization:
+	case project_module.APIOwnerTypeOrganization:
 		if owner.IsIndividual() {
 			errNotValid.Message = "Type was TypeOrganization, but owner was individual"
 		} else if repo != nil {
 			errNotValid.Message = "Type was TypeOrganization, repo was given"
 		}
-	case project_module.ProjectAPITypeRepository:
+	case project_module.APIOwnerTypeRepository:
 		if repo != nil {
 			res.Repo = repo
 			res.RepoID = repo.ID
@@ -113,9 +113,9 @@ func NewProject(
 }
 
 // GetSearchOpts returns search options for user, org or repo depending on the projectType
-func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projectType project_module.ProjectAPIType, pageOpts ...int) *project_model.SearchOptions {
+func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projectType project_module.APIOwnerType, pageOpts ...int) *project_model.SearchOptions {
 	opts := getBasicSearchOpts(isShowClosed, sortType, keyword, projectType, pageOpts...)
-	if projectType == project_module.ProjectAPITypeRepository {
+	if projectType == project_module.APIOwnerTypeRepository {
 		opts.RepoID = id
 	} else {
 		opts.OwnerID = id
@@ -163,7 +163,7 @@ func UpdateProject(ctx context.Context, project *project_model.Project, updated 
 	}
 
 	if updated.CardType != "" {
-		projectCardType := project_module.ProjectCardType(updated.CardType)
+		projectCardType := project_module.APICardType(updated.CardType)
 		valid, err := validation.IsValid(projectCardType)
 		if !valid {
 			return err
@@ -176,7 +176,7 @@ func UpdateProject(ctx context.Context, project *project_model.Project, updated 
 	}
 
 	if updated.Status != "" {
-		projectStatus := project_module.ProjectStatus(updated.Status)
+		projectStatus := project_module.APIStatus(updated.Status)
 		valid, err := validation.IsValid(projectStatus)
 		if !valid {
 			return err

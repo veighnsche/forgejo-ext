@@ -4,6 +4,8 @@
 package project
 
 import (
+	"fmt"
+
 	"forgejo.org/modules/validation"
 )
 
@@ -26,14 +28,14 @@ const (
 	TemplateTypeBugTriage
 )
 
-func (tt TemplateType) Convert() ProjectTemplateType {
+func (tt TemplateType) Convert() APITemplateType {
 	switch tt {
 	case TemplateTypeBasicKanban:
-		return ProjectTemplateTypeBasicKanban
+		return APITemplateTypeBasicKanban
 	case TemplateTypeBugTriage:
-		return ProjectTemplateTypeBugTriage
+		return APITemplateTypeBugTriage
 	default:
-		return ProjectTemplateTypeNone
+		return APITemplateTypeNone
 	}
 }
 
@@ -72,14 +74,14 @@ const (
 	CardTypeImagesAndText
 )
 
-func (ct CardType) Convert() ProjectCardType {
+func (ct CardType) Convert() APICardType {
 	switch ct {
 	case CardTypeTextOnly:
-		return ProjectCardTypeTextOnly
+		return APICardTypeTextOnly
 	case CardTypeImagesAndText:
-		return ProjectCardTypeImagesAndText
+		return APICardTypeImagesAndText
 	default:
-		return ProjectCardTypeTextOnly
+		return APICardTypeTextOnly
 	}
 }
 
@@ -103,29 +105,29 @@ func GetCardConfig() []CardConfig {
 	}
 }
 
-type ProjectType uint8
+type OwnerType uint8
 
 const (
 	// TypeIndividual is a type of project that is owned by an individual
-	TypeIndividual ProjectType = iota + 1
+	TypeIndividual OwnerType = iota + 1
 	// TypeRepository is a project that is tied to a repository
 	TypeRepository
 	// TypeOrganization is a project that is tied to an organisation
 	TypeOrganization
 )
 
-func (pt ProjectType) Convert() ProjectAPIType {
+func (pt OwnerType) Convert() APIOwnerType {
 	switch pt {
 	case TypeIndividual:
-		return ProjectAPITypeIndividual
+		return APIOwnerTypeIndividual
 	case TypeRepository:
-		return ProjectAPITypeRepository
+		return APIOwnerTypeRepository
 	default:
-		return ProjectAPITypeOrganization
+		return APIOwnerTypeOrganization
 	}
 }
 
-func (pt ProjectType) Validate() []string {
+func (pt OwnerType) Validate() []string {
 	var result []string
 	types := []any{
 		TypeIndividual,
@@ -137,132 +139,140 @@ func (pt ProjectType) Validate() []string {
 }
 
 // API Types
-type ProjectAPIType string
+type APIOwnerType string
 
 const (
-	ProjectAPITypeIndividual   ProjectAPIType = "individual"
-	ProjectAPITypeRepository   ProjectAPIType = "repository"
-	ProjectAPITypeOrganization ProjectAPIType = "organization"
+	APIOwnerTypeIndividual   APIOwnerType = "individual"
+	APIOwnerTypeRepository   APIOwnerType = "repository"
+	APIOwnerTypeOrganization APIOwnerType = "organization"
 )
 
-func (pt ProjectAPIType) Convert() ProjectType {
+func (pt APIOwnerType) Convert() OwnerType {
 	switch pt {
-	case ProjectAPITypeIndividual:
+	case APIOwnerTypeIndividual:
 		return TypeIndividual
-	case ProjectAPITypeRepository:
+	case APIOwnerTypeRepository:
 		return TypeRepository
 	default:
 		return TypeOrganization
 	}
 }
 
-func (pt ProjectAPIType) Validate() []string {
+func (pt APIOwnerType) Validate() []string {
 	var result []string
 	types := []any{
-		ProjectAPITypeIndividual,
-		ProjectAPITypeRepository,
-		ProjectAPITypeOrganization,
+		APIOwnerTypeIndividual,
+		APIOwnerTypeRepository,
+		APIOwnerTypeOrganization,
 	}
 	result = validation.ValidateOneOf(pt, types, "ProjectAPIType")
 	return result
 }
 
-func (pt ProjectAPIType) String() string {
+func (pt APIOwnerType) String() string {
 	return string(pt)
 }
 
-type ProjectTemplateType string
+type APITemplateType string
 
 const (
-	ProjectTemplateTypeNone        ProjectTemplateType = "none"
-	ProjectTemplateTypeBasicKanban ProjectTemplateType = "basic_kanban"
-	ProjectTemplateTypeBugTriage   ProjectTemplateType = "bug_triage"
+	APITemplateTypeNone        APITemplateType = "none"
+	APITemplateTypeBasicKanban APITemplateType = "basic_kanban"
+	APITemplateTypeBugTriage   APITemplateType = "bug_triage"
 )
 
-func (p ProjectTemplateType) Convert() TemplateType {
+func (p APITemplateType) Convert() TemplateType {
 	switch p {
-	case ProjectTemplateTypeBasicKanban:
+	case APITemplateTypeBasicKanban:
 		return TemplateTypeBasicKanban
-	case ProjectTemplateTypeBugTriage:
+	case APITemplateTypeBugTriage:
 		return TemplateTypeBugTriage
 	default:
 		return TemplateTypeNone
 	}
 }
 
-func (p ProjectTemplateType) Validate() []string {
+func (p APITemplateType) Validate() []string {
 	var result []string
 	types := []any{
-		ProjectTemplateTypeNone,
-		ProjectTemplateTypeBasicKanban,
-		ProjectTemplateTypeBugTriage,
+		APITemplateTypeNone,
+		APITemplateTypeBasicKanban,
+		APITemplateTypeBugTriage,
 	}
 	result = validation.ValidateOneOf(p, types, "ProjectTemplateType")
 	return result
 }
 
-func (p ProjectTemplateType) String() string {
+func (p APITemplateType) String() string {
 	return string(p)
 }
 
-type ProjectCardType string
+type APICardType string
 
 const (
-	ProjectCardTypeTextOnly      ProjectCardType = "text_only"
-	ProjectCardTypeImagesAndText ProjectCardType = "images_and_text"
+	APICardTypeTextOnly      APICardType = "text_only"
+	APICardTypeImagesAndText APICardType = "images_and_text"
 )
 
-func (p ProjectCardType) Convert() CardType {
+func (p APICardType) Convert() CardType {
 	switch p {
-	case ProjectCardTypeTextOnly:
+	case APICardTypeTextOnly:
 		return CardTypeTextOnly
-	case ProjectCardTypeImagesAndText:
+	case APICardTypeImagesAndText:
 		return CardTypeImagesAndText
 	default:
 		return CardTypeTextOnly
 	}
 }
 
-func (p ProjectCardType) Validate() []string {
+func (p APICardType) Validate() []string {
 	var result []string
 	types := []any{
-		ProjectCardTypeTextOnly,
-		ProjectCardTypeImagesAndText,
+		APICardTypeTextOnly,
+		APICardTypeImagesAndText,
 	}
 	result = validation.ValidateOneOf(p, types, "ProjectCardType")
 	return result
 }
 
-func (p ProjectCardType) String() string {
+func (p APICardType) String() string {
 	return string(p)
 }
 
-// ProjectStatus is the project status.
-type ProjectStatus string
+// APIStatus is the project status.
+type APIStatus string
 
 const (
-	// StatusOpen is the project status of an open project.
-	StatusOpen ProjectStatus = "open"
-	// StatusClosed is the project status of a closed project.
-	StatusClosed ProjectStatus = "closed"
+	// APIStatusOpen is the project status of an open project.
+	APIStatusOpen APIStatus = "open"
+	// APIStatusClosed is the project status of a closed project.
+	APIStatusClosed APIStatus = "closed"
 )
 
 // Validate checks if project status is valid.
-func (p ProjectStatus) Validate() []string {
+func (p APIStatus) Validate() []string {
 	var result []string
 	types := []any{
-		StatusOpen,
-		StatusClosed,
+		APIStatusOpen,
+		APIStatusClosed,
 	}
 	result = validation.ValidateOneOf(p, types, "ProjectStatus")
 	return result
 }
 
-func (p ProjectStatus) String() string {
+func (p APIStatus) String() string {
 	return string(p)
 }
 
 // IsClosed returns whether project status is closed.
-func (p ProjectStatus) IsClosed() bool {
-	return p == StatusClosed
+func (p APIStatus) IsClosed() bool {
+	return p == APIStatusClosed
+}
+
+func ProjectLinkForOrg(org string, projectID int64) string { //nolint
+	return fmt.Sprintf("%s/-/projects/%d", org, projectID)
+}
+
+func ProjectLinkForRepo(repo string, projectID int64) string { //nolint
+	return fmt.Sprintf("%s/projects/%d", repo, projectID)
 }

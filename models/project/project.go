@@ -92,7 +92,7 @@ type Project struct {
 	IsClosed     bool                        `xorm:"INDEX"`
 	TemplateType project_module.TemplateType `xorm:"'board_type'"` // TODO: rename the column to template_type
 	CardType     project_module.CardType
-	Type         project_module.ProjectType
+	Type         project_module.OwnerType
 
 	RenderedContent template.HTML `xorm:"-"`
 
@@ -187,7 +187,7 @@ type SearchOptions struct {
 	RepoID   int64
 	IsClosed optional.Option[bool]
 	OrderBy  db.SearchOrderBy
-	Type     project_module.ProjectType
+	Type     project_module.OwnerType
 	Title    string
 }
 
