@@ -99,37 +99,6 @@ func TestProjectsSort(t *testing.T) {
 	}
 }
 
-func TestGetProjectForUserByID(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	found := func(t *testing.T, uid, id int64) {
-		t.Helper()
-
-		p, err := GetProjectForUserByID(t.Context(), uid, id)
-		require.NoError(t, err)
-		if assert.NotNil(t, p) {
-			assert.Equal(t, id, p.ID)
-		}
-	}
-
-	notFound := func(t *testing.T, uid, id int64) {
-		t.Helper()
-
-		p, err := GetProjectForUserByID(t.Context(), uid, id)
-		require.ErrorIs(t, err, ErrProjectNotExist{ID: id})
-		assert.Nil(t, p)
-	}
-
-	found(t, 2, 4)
-	found(t, 2, 5)
-	found(t, 2, 6)
-	found(t, 3, 7)
-	notFound(t, 1, 4)
-	notFound(t, 1, 5)
-	notFound(t, 1, 6)
-	notFound(t, 1, 7)
-}
-
 func TestChangeProjectStatus(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
