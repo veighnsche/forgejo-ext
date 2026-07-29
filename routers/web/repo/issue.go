@@ -1297,9 +1297,9 @@ func NewIssuePost(ctx *context.Context) {
 		project, err := project_model.GetProjectByID(ctx, projectID)
 		if err == nil {
 			if project.Type == project_module.TypeOrganization {
-				ctx.JSONRedirect(project_model.ProjectLinkForOrg(ctx.Repo.Owner, project.ID))
+				ctx.JSONRedirect(project_module.ProjectLinkForOrg(ctx.Repo.Owner.HomeLink(), project.ID))
 			} else {
-				ctx.JSONRedirect(project_model.ProjectLinkForRepo(repo, project.ID))
+				ctx.JSONRedirect(project_module.ProjectLinkForRepo(repo.Link(), project.ID))
 			}
 			return
 		}

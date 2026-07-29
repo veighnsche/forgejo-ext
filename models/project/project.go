@@ -124,14 +124,6 @@ func (p *Project) LoadRepo(ctx context.Context) (err error) {
 	return err
 }
 
-func ProjectLinkForOrg(org *user_model.User, projectID int64) string { //nolint
-	return fmt.Sprintf("%s/-/projects/%d", org.HomeLink(), projectID)
-}
-
-func ProjectLinkForRepo(repo *repo_model.Repository, projectID int64) string { //nolint
-	return fmt.Sprintf("%s/projects/%d", repo.Link(), projectID)
-}
-
 // Link returns the project's relative URL.
 func (p *Project) Link(ctx context.Context) string {
 	// nosemgrep: forgejo-logic-suspicious-OwnerID-check (system users are not stored in the database)
@@ -141,7 +133,7 @@ func (p *Project) Link(ctx context.Context) string {
 			log.Error("LoadOwner: %v", err)
 			return ""
 		}
-		return ProjectLinkForOrg(p.Owner, p.ID)
+		return project_module.ProjectLinkForOrg(p.Owner.HomeLink(), p.ID)
 	}
 	if p.RepoID > 0 {
 		err := p.LoadRepo(ctx)
@@ -149,7 +141,7 @@ func (p *Project) Link(ctx context.Context) string {
 			log.Error("LoadRepo: %v", err)
 			return ""
 		}
-		return ProjectLinkForRepo(p.Repo, p.ID)
+		return project_module.ProjectLinkForRepo(p.Repo.Link(), p.ID)
 	}
 	return ""
 }
