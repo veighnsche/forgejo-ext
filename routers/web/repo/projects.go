@@ -17,14 +17,18 @@ import (
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/base"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/log"
 	"forgejo.org/modules/markup"
 	"forgejo.org/modules/markup/markdown"
 	"forgejo.org/modules/optional"
+	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/setting"
+	project_structs "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	project_service "forgejo.org/services/project"
 )
 
 const (
@@ -48,13 +52,26 @@ func MustEnableProjects(ctx *context.Context) {
 	}
 }
 
+func getAndCheckProjectByID(ctx *context.Context, projectID int64) *project_model.Project {
+	project, err := project_service.GetProjectByID(ctx, projectID)
+	if err != nil {
+		ctx.NotFoundOrServerError("GetProjectByID", project_model.IsErrProjectNotExist, err)
+		return nil
+	}
+	if project.RepoID != ctx.Repo.Repository.ID {
+		ctx.NotFound("getAndCheckProjectByID", fmt.Errorf("Project with ID %d does not belong to Repo with ID %d", project.ID, project.RepoID))
+		return nil
+	}
+	return project
+}
+
 // Projects renders the home page of projects
 func Projects(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.projects")
 
 	sortType := ctx.FormTrim("sort")
 
-	isShowClosed := strings.ToLower(ctx.FormTrim("state")) == "closed"
+	showClosed := strings.ToLower(ctx.FormTrim("state")) == "closed"
 	keyword := ctx.FormTrim("q")
 	repo := ctx.Repo.Repository
 	page := max(ctx.FormInt("page"), 1)
@@ -63,28 +80,27 @@ func Projects(ctx *context.Context) {
 	ctx.Data["ClosedCount"] = repo.NumClosedProjects
 
 	var total int
-	if !isShowClosed {
+	if !showClosed {
 		total = repo.NumOpenProjects
 	} else {
 		total = repo.NumClosedProjects
 	}
 
-	projects, count, err := db.FindAndCount[project_model.Project](ctx, project_model.SearchOptions{
-		ListOptions: db.ListOptions{
-			PageSize: setting.UI.IssuePagingNum,
-			Page:     page,
-		},
-		RepoID:   repo.ID,
-		IsClosed: optional.Some(isShowClosed),
-		OrderBy:  project_model.GetSearchOrderByBySortType(sortType),
-		Type:     project_model.TypeRepository,
-		Title:    keyword,
-	})
+	opts := project_service.GetSearchOpts(
+		repo.ID,
+		showClosed,
+		sortType,
+		keyword,
+		project_module.APIOwnerTypeRepository,
+		page,
+		setting.UI.IssuePagingNum)
+	log.Debug("Got RepoSearchOpts for repo %v and project type %v", repo.Name, project_module.APIOwnerTypeRepository)
+	projects, err := project_service.ListProjectsByOptions(ctx, opts)
 	if err != nil {
 		ctx.ServerError("GetProjects", err)
 		return
 	}
-
+	log.Debug("Found %v projects", len(projects))
 	for i := range projects {
 		projects[i].RenderedContent, err = markdown.RenderString(&markup.RenderContext{
 			Links: markup.Links{
@@ -99,18 +115,18 @@ func Projects(ctx *context.Context) {
 			return
 		}
 	}
-
+	log.Debug("Counted %v projects", total)
 	ctx.Data["Projects"] = projects
 
-	if isShowClosed {
+	if showClosed {
 		ctx.Data["State"] = "closed"
 	} else {
 		ctx.Data["State"] = "open"
 	}
 
 	numPages := 0
-	if count > 0 {
-		numPages = (int(count) - 1/setting.UI.IssuePagingNum)
+	if total > 0 {
+		numPages = (total - 1/setting.UI.IssuePagingNum)
 	}
 
 	pager := context.NewPagination(total, setting.UI.IssuePagingNum, page, numPages)
@@ -118,7 +134,7 @@ func Projects(ctx *context.Context) {
 	ctx.Data["Page"] = pager
 
 	ctx.Data["CanWriteProjects"] = ctx.Repo.CanWrite(unit.TypeProjects)
-	ctx.Data["IsShowClosed"] = isShowClosed
+	ctx.Data["IsShowClosed"] = showClosed
 	ctx.Data["IsProjectsPage"] = true
 	ctx.Data["SortType"] = sortType
 
@@ -141,15 +157,15 @@ func Projects(ctx *context.Context) {
 // RenderNewProject render creating a project page
 func RenderNewProject(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.projects.new")
-	ctx.Data["TemplateConfigs"] = project_model.GetTemplateConfigs()
-	ctx.Data["CardTypes"] = project_model.GetCardConfig()
+	ctx.Data["TemplateConfigs"] = project_module.GetTemplateConfigs()
+	ctx.Data["CardTypes"] = project_module.GetCardConfig()
 	ctx.Data["CanWriteProjects"] = ctx.Repo.CanWrite(unit.TypeProjects)
 	ctx.Data["CancelLink"] = ctx.Repo.Repository.Link() + "/projects"
 	ctx.HTML(http.StatusOK, tplProjectsNew)
 }
 
-// NewProjectPost creates a new project
-func NewProjectPost(ctx *context.Context) {
+// CreateProject creates a new project
+func CreateProject(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.CreateProjectForm)
 	ctx.Data["Title"] = ctx.Tr("repo.projects.new")
 
@@ -158,18 +174,26 @@ func NewProjectPost(ctx *context.Context) {
 		return
 	}
 
-	if err := project_model.NewProject(ctx, &project_model.Project{
-		RepoID:       ctx.Repo.Repository.ID,
+	opt := &project_structs.CreateProjectOptions{
 		Title:        form.Title,
 		Description:  form.Content,
-		CreatorID:    ctx.Doer.ID,
 		TemplateType: form.TemplateType,
 		CardType:     form.CardType,
-		Type:         project_model.TypeRepository,
-	}); err != nil {
+		Status:       "open",
+	}
+	project, err := project_service.NewProject(opt, ctx.ContextUser, ctx.Repo.Repository, project_module.APIOwnerTypeRepository)
+	if err != nil {
+		log.Error("Failed to create project.")
 		ctx.ServerError("NewProject", err)
 		return
 	}
+
+	if err := project_service.CreateProject(ctx, project); err != nil {
+		log.Error("Failed to create project.")
+		ctx.ServerError("NewProject", err)
+		return
+	}
+	log.Debug("Created project %v for repo %v", form.Title, ctx.Repo.Repository.Name)
 
 	ctx.Flash.Success(ctx.Tr("repo.projects.create_success", form.Title))
 	ctx.Redirect(ctx.Repo.RepoLink + "/projects")
@@ -187,37 +211,26 @@ func ChangeProjectStatus(ctx *context.Context) {
 		ctx.JSONRedirect(ctx.Repo.RepoLink + "/projects")
 		return
 	}
-	id := ctx.ParamsInt64(":id")
-
-	project, err := project_model.GetProjectForRepoByID(ctx, ctx.Repo.Repository.ID, id)
-	if err != nil {
-		ctx.NotFoundOrServerError("GetProjectForRepoByID", project_model.IsErrProjectNotExist, err)
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return
 	}
-	if err := project_model.ChangeProjectStatus(ctx, project, toClose); err != nil {
+
+	if err := project_service.ChangeProjectStatus(ctx, project, toClose); err != nil {
 		ctx.ServerError("ChangeProjectStatus", err)
 		return
 	}
-	ctx.JSONRedirect(project_model.ProjectLinkForRepo(ctx.Repo.Repository, id))
+	ctx.JSONRedirect(project_module.ProjectLinkForRepo(ctx.Repo.Repository.Link(), ctx.ParamsInt64(":id")))
 }
 
 // DeleteProject delete a project
 func DeleteProject(ctx *context.Context) {
-	p, err := project_model.GetProjectByID(ctx, ctx.ParamsInt64(":id"))
-	if err != nil {
-		if project_model.IsErrProjectNotExist(err) {
-			ctx.NotFound("", nil)
-		} else {
-			ctx.ServerError("GetProjectByID", err)
-		}
-		return
-	}
-	if p.RepoID != ctx.Repo.Repository.ID {
-		ctx.NotFound("", nil)
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return
 	}
 
-	if err := project_model.DeleteProjectByID(ctx, p.ID); err != nil {
+	if err := project_service.DeleteProjectByID(ctx, project.ID); err != nil {
 		ctx.Flash.Error("DeleteProjectByID: " + err.Error())
 	} else {
 		ctx.Flash.Success(ctx.Tr("repo.projects.deletion_success"))
@@ -231,28 +244,19 @@ func RenderEditProject(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.projects.edit")
 	ctx.Data["PageIsEditProjects"] = true
 	ctx.Data["CanWriteProjects"] = ctx.Repo.CanWrite(unit.TypeProjects)
-	ctx.Data["CardTypes"] = project_model.GetCardConfig()
+	ctx.Data["CardTypes"] = project_module.GetCardConfig()
 
-	p, err := project_model.GetProjectByID(ctx, ctx.ParamsInt64(":id"))
-	if err != nil {
-		if project_model.IsErrProjectNotExist(err) {
-			ctx.NotFound("", nil)
-		} else {
-			ctx.ServerError("GetProjectByID", err)
-		}
-		return
-	}
-	if p.RepoID != ctx.Repo.Repository.ID {
-		ctx.NotFound("", nil)
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return
 	}
 
-	ctx.Data["projectID"] = p.ID
-	ctx.Data["title"] = p.Title
-	ctx.Data["content"] = p.Description
-	ctx.Data["card_type"] = p.CardType
+	ctx.Data["projectID"] = project.ID
+	ctx.Data["title"] = project.Title
+	ctx.Data["content"] = project.Description
+	ctx.Data["card_type"] = project.CardType
 	ctx.Data["redirect"] = ctx.FormString("redirect")
-	ctx.Data["CancelLink"] = project_model.ProjectLinkForRepo(ctx.Repo.Repository, p.ID)
+	ctx.Data["CancelLink"] = project_module.ProjectLinkForRepo(ctx.Repo.Repository.Link(), project.ID)
 
 	ctx.HTML(http.StatusOK, tplProjectsNew)
 }
@@ -265,39 +269,33 @@ func EditProjectPost(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.projects.edit")
 	ctx.Data["PageIsEditProjects"] = true
 	ctx.Data["CanWriteProjects"] = ctx.Repo.CanWrite(unit.TypeProjects)
-	ctx.Data["CardTypes"] = project_model.GetCardConfig()
-	ctx.Data["CancelLink"] = project_model.ProjectLinkForRepo(ctx.Repo.Repository, projectID)
+	ctx.Data["CardTypes"] = project_module.GetCardConfig()
+	ctx.Data["CancelLink"] = project_module.ProjectLinkForRepo(ctx.Repo.Repository.Link(), projectID)
 
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tplProjectsNew)
 		return
 	}
 
-	p, err := project_model.GetProjectByID(ctx, projectID)
-	if err != nil {
-		if project_model.IsErrProjectNotExist(err) {
-			ctx.NotFound("", nil)
-		} else {
-			ctx.ServerError("GetProjectByID", err)
-		}
-		return
-	}
-	if p.RepoID != ctx.Repo.Repository.ID {
-		ctx.NotFound("", nil)
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return
 	}
 
-	p.Title = form.Title
-	p.Description = form.Content
-	p.CardType = form.CardType
-	if err = project_model.UpdateProject(ctx, p); err != nil {
+	opt := &project_structs.CreateProjectOptions{
+		Title:       form.Title,
+		Description: form.Content,
+		CardType:    form.CardType,
+	}
+
+	if err := project_service.UpdateProject(ctx, project, opt); err != nil {
 		ctx.ServerError("UpdateProjects", err)
 		return
 	}
 
-	ctx.Flash.Success(ctx.Tr("repo.projects.edit_success", p.Title))
+	ctx.Flash.Success(ctx.Tr("repo.projects.edit_success", project.Title))
 	if ctx.FormString("redirect") == "project" {
-		ctx.Redirect(p.Link(ctx))
+		ctx.Redirect(project.Link(ctx))
 	} else {
 		ctx.Redirect(ctx.Repo.RepoLink + "/projects")
 	}
@@ -305,21 +303,12 @@ func EditProjectPost(ctx *context.Context) {
 
 // ViewProject renders the project with board view
 func ViewProject(ctx *context.Context) {
-	project, err := project_model.GetProjectByID(ctx, ctx.ParamsInt64(":id"))
-	if err != nil {
-		if project_model.IsErrProjectNotExist(err) {
-			ctx.NotFound("", nil)
-		} else {
-			ctx.ServerError("GetProjectByID", err)
-		}
-		return
-	}
-	if project.RepoID != ctx.Repo.Repository.ID {
-		ctx.NotFound("", nil)
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return
 	}
 
-	columns, err := project.GetColumns(ctx)
+	columns, _, err := project_service.ListProjectColumns(ctx, project.ID, db.ListOptionsAll)
 	if err != nil {
 		ctx.ServerError("GetProjectColumns", err)
 		return
@@ -331,7 +320,7 @@ func ViewProject(ctx *context.Context) {
 		return
 	}
 
-	if project.CardType != project_model.CardTypeTextOnly {
+	if project.CardType != project_module.CardTypeTextOnly {
 		issuesAttachmentMap := make(map[int64][]*repo_model.Attachment)
 		for _, issuesList := range issuesMap {
 			for _, issue := range issuesList {
@@ -439,17 +428,12 @@ func DeleteProjectColumn(ctx *context.Context) {
 		return
 	}
 
-	project, err := project_model.GetProjectByID(ctx, ctx.ParamsInt64(":id"))
-	if err != nil {
-		if project_model.IsErrProjectNotExist(err) {
-			ctx.NotFound("", nil)
-		} else {
-			ctx.ServerError("GetProjectByID", err)
-		}
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return
 	}
 
-	pb, err := project_model.GetColumn(ctx, ctx.ParamsInt64(":columnID"))
+	pb, err := project_service.GetColumnByID(ctx, ctx.ParamsInt64(":columnID"))
 	if err != nil {
 		ctx.ServerError("GetProjectColumn", err)
 		return
@@ -468,7 +452,7 @@ func DeleteProjectColumn(ctx *context.Context) {
 		return
 	}
 
-	if err := project_model.DeleteColumnByID(ctx, ctx.ParamsInt64(":columnID")); err != nil {
+	if err := project_service.DeleteColumnInProject(ctx, ctx.ParamsInt64(":columnID")); err != nil {
 		ctx.ServerError("DeleteProjectColumnByID", err)
 		return
 	}
@@ -476,8 +460,8 @@ func DeleteProjectColumn(ctx *context.Context) {
 	ctx.JSONOK()
 }
 
-// AddColumnToProjectPost allows a new column to be added to a project.
-func AddColumnToProjectPost(ctx *context.Context) {
+// CreateColumnInProject allows a new column to be added to a project.
+func CreateColumnInProject(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.EditProjectColumnForm)
 	if !ctx.Repo.IsOwner() && !ctx.Repo.IsAdmin() && !ctx.Repo.CanAccess(perm.AccessModeWrite, unit.TypeProjects) {
 		ctx.JSON(http.StatusForbidden, map[string]string{
@@ -486,17 +470,12 @@ func AddColumnToProjectPost(ctx *context.Context) {
 		return
 	}
 
-	project, err := project_model.GetProjectForRepoByID(ctx, ctx.Repo.Repository.ID, ctx.ParamsInt64(":id"))
-	if err != nil {
-		if project_model.IsErrProjectNotExist(err) {
-			ctx.NotFound("", nil)
-		} else {
-			ctx.ServerError("GetProjectByID", err)
-		}
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return
 	}
 
-	if err := project_model.NewColumn(ctx, &project_model.Column{
+	if err := project_service.CreateColumnInProject(ctx, &project_model.Column{
 		ProjectID: project.ID,
 		Title:     form.Title,
 		Color:     form.Color,
@@ -524,17 +503,12 @@ func checkProjectColumnChangePermissions(ctx *context.Context) (*project_model.P
 		return nil, nil
 	}
 
-	project, err := project_model.GetProjectByID(ctx, ctx.ParamsInt64(":id"))
-	if err != nil {
-		if project_model.IsErrProjectNotExist(err) {
-			ctx.NotFound("", nil)
-		} else {
-			ctx.ServerError("GetProjectByID", err)
-		}
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return nil, nil
 	}
 
-	column, err := project_model.GetColumn(ctx, ctx.ParamsInt64(":columnID"))
+	column, err := project_service.GetColumnByID(ctx, ctx.ParamsInt64(":columnID"))
 	if err != nil {
 		ctx.ServerError("GetProjectColumn", err)
 		return nil, nil
@@ -542,13 +516,6 @@ func checkProjectColumnChangePermissions(ctx *context.Context) (*project_model.P
 	if column.ProjectID != ctx.ParamsInt64(":id") {
 		ctx.JSON(http.StatusUnprocessableEntity, map[string]string{
 			"message": fmt.Sprintf("ProjectColumn[%d] is not in Project[%d] as expected", column.ID, project.ID),
-		})
-		return nil, nil
-	}
-
-	if project.RepoID != ctx.Repo.Repository.ID {
-		ctx.JSON(http.StatusUnprocessableEntity, map[string]string{
-			"message": fmt.Sprintf("ProjectColumn[%d] is not in Repository[%d] as expected", column.ID, ctx.Repo.Repository.ID),
 		})
 		return nil, nil
 	}
@@ -571,7 +538,7 @@ func EditProjectColumn(ctx *context.Context) {
 		column.Sorting = form.Sorting
 	}
 
-	if err := project_model.UpdateColumn(ctx, column); err != nil {
+	if err := project_service.EditColumnInProject(ctx, column); err != nil {
 		ctx.ServerError("UpdateProjectColumn", err)
 		return
 	}
@@ -586,7 +553,7 @@ func SetDefaultProjectColumn(ctx *context.Context) {
 		return
 	}
 
-	if err := project_model.SetDefaultColumn(ctx, project.ID, column.ID); err != nil {
+	if err := project_service.SetDefaultColumn(ctx, project.ID, column.ID); err != nil {
 		ctx.ServerError("SetDefaultColumn", err)
 		return
 	}
@@ -610,27 +577,14 @@ func MoveIssues(ctx *context.Context) {
 		return
 	}
 
-	project, err := project_model.GetProjectByID(ctx, ctx.ParamsInt64(":id"))
-	if err != nil {
-		if project_model.IsErrProjectNotExist(err) {
-			ctx.NotFound("ProjectNotExist", nil)
-		} else {
-			ctx.ServerError("GetProjectByID", err)
-		}
-		return
-	}
-	if project.RepoID != ctx.Repo.Repository.ID {
-		ctx.NotFound("InvalidRepoID", nil)
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	if ctx.Written() {
 		return
 	}
 
-	column, err := project_model.GetColumn(ctx, ctx.ParamsInt64(":columnID"))
+	column, err := project_service.GetColumnByID(ctx, ctx.ParamsInt64(":columnID"))
 	if err != nil {
-		if project_model.IsErrProjectColumnNotExist(err) {
-			ctx.NotFound("ProjectColumnNotExist", nil)
-		} else {
-			ctx.ServerError("GetProjectColumn", err)
-		}
+		ctx.NotFoundOrServerError("GetProjectColumn", project_model.IsErrProjectColumnNotExist, err)
 		return
 	}
 
@@ -639,48 +593,30 @@ func MoveIssues(ctx *context.Context) {
 		return
 	}
 
-	type movedIssuesForm struct {
-		Issues []struct {
-			IssueID int64 `json:"issueID"`
-			Sorting int64 `json:"sorting"`
-		} `json:"issues"`
-	}
-
-	form := &movedIssuesForm{}
+	form := &project_structs.MovedIssuesOption{}
 	if err = json.NewDecoder(ctx.Req.Body).Decode(&form); err != nil {
 		ctx.ServerError("DecodeMovedIssuesForm", err)
 		return
 	}
 
-	issueIDs := make([]int64, 0, len(form.Issues))
-	sortedIssueIDs := make(map[int64]int64)
-	for _, issue := range form.Issues {
-		issueIDs = append(issueIDs, issue.IssueID)
-		sortedIssueIDs[issue.Sorting] = issue.IssueID
-	}
-	movedIssues, err := issues_model.GetIssuesByIDs(ctx, issueIDs)
+	existingIssues, complete, err := project_service.GetIssues(ctx, form.GetIssueIDs())
 	if err != nil {
-		if issues_model.IsErrIssueNotExist(err) {
-			ctx.NotFound("IssueNotExisting", nil)
-		} else {
-			ctx.ServerError("GetIssueByID", err)
-		}
+		ctx.NotFoundOrServerError("GetIssueByID", issues_model.IsErrIssueNotExist, err)
 		return
 	}
 
-	if len(movedIssues) != len(form.Issues) {
-		ctx.ServerError("some issues do not exist", errors.New("some issues do not exist"))
-		return
+	if !complete {
+		ctx.Flash.Warning("One or more issues did not point to existing issues. Check if they were deleted.")
 	}
 
-	for _, issue := range movedIssues {
+	for _, issue := range existingIssues {
 		if issue.RepoID != project.RepoID {
 			ctx.ServerError("Some issue's repoID is not equal to project's repoID", errors.New("Some issue's repoID is not equal to project's repoID"))
 			return
 		}
 	}
 
-	if err = project_model.MoveIssuesOnProjectColumn(ctx, column, sortedIssueIDs); err != nil {
+	if err = project_service.MoveIssuesOnProjectColumn(ctx, column, form); err != nil {
 		ctx.ServerError("MoveIssuesOnProjectColumn", err)
 		return
 	}
