@@ -315,16 +315,8 @@ func ChangeProjectStatus(ctx context.Context, p *Project, isClosed bool) error {
 
 // DeleteProjectByID deletes a project from a repository. if it's not in a database
 // transaction, it will start a new database transaction
-func DeleteProjectByID(ctx context.Context, id int64) error {
+func DeleteProjectByID(ctx context.Context, id int64, repoID ...int64) error {
 	return db.WithTx(ctx, func(ctx context.Context) error {
-		p, err := GetProjectByID(ctx, id)
-		if err != nil {
-			if IsErrProjectNotExist(err) {
-				return nil
-			}
-			return err
-		}
-
 		if err := deleteProjectIssuesByProjectID(ctx, id); err != nil {
 			return err
 		}
@@ -333,11 +325,14 @@ func DeleteProjectByID(ctx context.Context, id int64) error {
 			return err
 		}
 
-		if _, err = db.GetEngine(ctx).ID(p.ID).Delete(new(Project)); err != nil {
+		if _, err := db.GetEngine(ctx).ID(id).Delete(new(Project)); err != nil {
 			return err
 		}
 
-		return updateRepositoryProjectCount(ctx, p.RepoID)
+		if len(repoID) > 0 {
+			return updateRepositoryProjectCount(ctx, repoID[0])
+		}
+		return nil
 	})
 }
 

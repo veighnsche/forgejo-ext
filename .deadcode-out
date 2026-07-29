@@ -43,10 +43,21 @@ forgejo.org/models/git
 forgejo.org/models/issues
 	IsErrUnknownDependencyType
 	IsErrIssueWasClosed
+	CreateProjectIssue
 
 forgejo.org/models/perm/access
 	AccessLevel
 	GetRepoWriters
+
+forgejo.org/models/project
+	GetProjectIssues
+	GetProjectIssue
+	IsErrProjectIssueNotExist
+	ErrProjectIssueNotExist.Error
+	ErrProjectIssueNotExist.Unwrap
+	GetProjectForUserByID
+	GetTemplateConfigs
+	IsTemplateTypeValid
 
 forgejo.org/models/user
 	IsErrUserWrongType
@@ -281,6 +292,16 @@ forgejo.org/services/context
 
 forgejo.org/services/notify
 	UnregisterNotifier
+
+forgejo.org/services/project
+	ListProjectColumns
+	GetValidProjectColumnByID
+	ListProjectIssuesByColumn
+	getProjectIssueByID
+	GetValidProjectIssueByID
+	ListProjectIssues
+	CreateIssueInProject
+	RemoveIssueFromProject
 
 forgejo.org/services/repository
 	IsErrForkAlreadyExist

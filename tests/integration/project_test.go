@@ -90,7 +90,7 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 	assert.Equal(t, columns[0].ID, columnsAfter[2].ID)
 	assert.Equal(t, int64(3), total)
 
-	require.NoError(t, project_model.DeleteProjectByID(db.DefaultContext, project1.ID))
+	require.NoError(t, project_model.DeleteProjectByID(db.DefaultContext, project1.ID, project1.RepoID))
 }
 
 func TestChangeStatusProject(t *testing.T) {

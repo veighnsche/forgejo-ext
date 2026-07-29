@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/optional"
 	project_module "forgejo.org/modules/project"
 	project_structs "forgejo.org/modules/structs"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

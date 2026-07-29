@@ -97,7 +97,7 @@ func (ct CardType) Validate() []string {
 
 // GetCardConfig retrieves the types of configurations project column cards could have
 //
-//llu:returnsTrKey
+//llu:returnsTrKeyWeak
 func GetCardConfig() []CardConfig {
 	return []CardConfig{
 		{CardTypeTextOnly, "repo.projects.card_type.text_only"},

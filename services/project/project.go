@@ -191,8 +191,8 @@ func UpdateProject(ctx context.Context, project *project_model.Project, updated 
 }
 
 // DeleteProjectByID Delete Project from DB
-func DeleteProjectByID(ctx context.Context, projectID int64) error {
-	err := project_model.DeleteProjectByID(ctx, projectID)
+func DeleteProjectByID(ctx context.Context, projectID int64, repoID ...int64) error {
+	err := project_model.DeleteProjectByID(ctx, projectID, repoID...)
 	if err != nil {
 		return err
 	}
