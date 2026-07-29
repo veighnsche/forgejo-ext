@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"forgejo.org/models/db"
@@ -190,7 +191,7 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 		}
 	}
 
-	results := make([]private.HookPostReceiveBranchResult, 0, len(opts.OldCommitIDs))
+	messages := make([]private.HookPostReceiveMessage, 0, len(opts.OldCommitIDs))
 
 	// We have to reload the repo in case its state is changed above
 	repo = nil
@@ -228,13 +229,25 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 				continue
 			}
 
-			results = append(results, private.HookPostReceiveBranchResult{
-				Message:   setting.Git.PullRequestPushMessage && repo.AllowsPulls(ctx),
-				Create:    false,
-				Branch:    "",
-				CreateURL: "",
-				PullURLS:  []string{fmt.Sprintf("%s/pulls/%d", repo.HTMLURL(), pr.Index)},
-			})
+			if setting.Git.PullRequestPushMessage {
+				// only show the agit message (git config ...) upon creation
+				fullRef := ""
+				// hard to know if the PR was created in this push, as an approximation
+				// show the message with 60s of creation
+				if pr.Issue.CreatedUnix > timeutil.TimeStampNow().Add(-60) {
+					fullRef = refFullName.String()
+				}
+				_, branch, _ := strings.Cut(pr.HeadBranch, "/")
+				if branch == "" {
+					branch = "<branch>"
+				}
+				messages = append(messages, private.HookPostReceiveMessage{
+					PullURLS:  []string{fmt.Sprintf("%s/pulls/%d", repo.HTMLURL(), pr.Index)},
+					Branch:    branch,
+					CreateURL: "",
+					AgitRef:   fullRef,
+				})
+			}
 			continue
 		}
 
@@ -276,7 +289,6 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 
 			// If our branch is the default branch of an unforked repo - there's no PR to create or refer to
 			if !repo.IsFork && branch == baseRepo.DefaultBranch {
-				results = append(results, private.HookPostReceiveBranchResult{})
 				continue
 			}
 
@@ -325,17 +337,18 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 			if foundDefaultBranch {
 				createURL = ""
 			}
-			results = append(results, private.HookPostReceiveBranchResult{
-				Message:   setting.Git.PullRequestPushMessage && baseRepo.AllowsPulls(ctx),
-				Create:    !foundDefaultBranch,
-				Branch:    branch,
-				CreateURL: createURL,
-				PullURLS:  urls,
-			})
+			if setting.Git.PullRequestPushMessage && baseRepo.AllowsPulls(ctx) {
+				messages = append(messages, private.HookPostReceiveMessage{
+					PullURLS:  urls,
+					Branch:    branch,
+					CreateURL: createURL,
+					AgitRef:   "",
+				})
+			}
 		}
 	}
 	ctx.JSON(http.StatusOK, private.HookPostReceiveResult{
-		Results:      results,
+		Messages:     messages,
 		RepoWasEmpty: wasEmpty,
 	})
 }

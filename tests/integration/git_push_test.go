@@ -446,7 +446,12 @@ func TestGitPushAGit(t *testing.T) {
 				return "", err
 			}
 			require.NoError(t, err)
-			return prRegex.FindStringSubmatch(stdErr)[1], nil
+
+			matches := prRegex.FindStringSubmatch(stdErr)
+			require.Len(t, matches, 2, stdErr)
+
+			assert.Contains(t, stdErr, fmt.Sprintf("git config set branch.%s.merge %s", branchName, matches[0]))
+			return matches[1], nil
 		}
 		fetchAgitPR := func(repoPath, branchName, prIndex string) error {
 			return git.NewCommand(git.DefaultContext, "fetch", "origin").

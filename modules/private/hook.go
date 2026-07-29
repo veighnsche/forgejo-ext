@@ -53,18 +53,20 @@ type SSHLogOption struct {
 
 // HookPostReceiveResult represents an individual result from PostReceive
 type HookPostReceiveResult struct {
-	Results      []HookPostReceiveBranchResult
+	Messages     []HookPostReceiveMessage
 	RepoWasEmpty bool
 	Err          string
 }
 
-// HookPostReceiveBranchResult represents an individual branch result from PostReceive
-type HookPostReceiveBranchResult struct {
-	Message   bool
-	Create    bool
-	Branch    string
+// HookPostReceiveMessage represents an individual branch result from PostReceive.
+// Only for display purposes on 'git push'.
+type HookPostReceiveMessage struct {
+	PullURLS []string
+	Branch   string
+	// Set after a push to a PR-less branch on a fork repo
 	CreateURL string
-	PullURLS  []string
+	// Set after an agit PR creation
+	AgitRef string
 }
 
 // HookProcReceiveResult represents an individual result from ProcReceive
@@ -112,7 +114,8 @@ func HookProcReceive(ctx context.Context, ownerName, repoName string, opts HookO
 
 // SetDefaultBranch will set the default branch to the provided branch for the provided repository
 func SetDefaultBranch(ctx context.Context, ownerName, repoName, branch string) ResponseExtra {
-	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/hook/set-default-branch/%s/%s/%s",
+	reqURL := setting.LocalURL + fmt.Sprintf(
+		"api/internal/hook/set-default-branch/%s/%s/%s",
 		url.PathEscape(ownerName),
 		url.PathEscape(repoName),
 		url.PathEscape(branch),
