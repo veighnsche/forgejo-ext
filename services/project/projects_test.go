@@ -303,7 +303,7 @@ func TestCRUDProject(t *testing.T) {
 	err := CreateProject(t.Context(), project)
 	require.NoError(t, err)
 
-	wantProject, err := GetProjectByID(t.Context(), project.ID)
+	wantProject, err := GetValidProjectByID(t.Context(), project.ID, ownerID)
 	require.NoError(t, err)
 	assert.Equal(t, wantProject.Title, projectTitle)
 
@@ -343,12 +343,12 @@ func TestCRUDProject(t *testing.T) {
 		assert.Equal(t, wantCol2.Title, columnTitle2)
 		assert.False(t, wantCol2.Default)
 
-		err = DeleteColumnInProject(t.Context(), column2.ID)
+		err = DeleteColumnInProject(t.Context(), column1.ID)
 		require.Error(t, err) // Can not delete default col
 
-		err = DeleteColumnInProject(t.Context(), column1.ID)
+		err = DeleteColumnInProject(t.Context(), column2.ID)
 		require.NoError(t, err)
-		unittest.AssertNotExistsBean(t, &project_model.Column{ID: column1.ID})
+		unittest.AssertNotExistsBean(t, &project_model.Column{ID: column2.ID})
 	})
 
 	t.Run("TestCRUDProjectIssues", func(t *testing.T) {
