@@ -48,7 +48,7 @@ func (f *BitbucketDataCenterDownloaderFactory) New(ctx context.Context, opts bas
 	}
 
 	log.Trace("Create Bitbucket Data Center downloader. BaseURL: %s Project: %s Repo: %s", baseURL, project, repoSlug)
-	return NewBitbucketDataCenterDownloader(ctx, baseURL, project, repoSlug, opts.AuthToken), nil
+	return newBitbucketDataCenterDownloader(ctx, baseURL, project, repoSlug, opts.AuthToken), nil
 }
 
 // GitServiceType returns the type of git service.
@@ -115,8 +115,8 @@ type bitbucketRef struct {
 	} `json:"repository"`
 }
 
-// NewBitbucketDataCenterDownloader creates a Bitbucket Data Center downloader.
-func NewBitbucketDataCenterDownloader(ctx context.Context, baseURL *url.URL, project, repoSlug, token string) *BitbucketDataCenterDownloader {
+// newBitbucketDataCenterDownloader creates a Bitbucket Data Center downloader.
+func newBitbucketDataCenterDownloader(ctx context.Context, baseURL *url.URL, project, repoSlug, token string) *BitbucketDataCenterDownloader {
 	return &BitbucketDataCenterDownloader{
 		ctx:      ctx,
 		client:   allowlist.NewMigrationHTTPClient(),
