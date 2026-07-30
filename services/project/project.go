@@ -132,6 +132,29 @@ func GetProjectByID(ctx context.Context, projectID int64) (*project_model.Projec
 	return project, nil
 }
 
+func GetValidProjectByID(ctx context.Context, projectID, ownerID int64) (*project_model.Project, error) {
+	project, err := project_model.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	errNotValid := validation.ErrNotValid{Message: "Project did not belong to given owner"}
+	switch project.Type {
+	case project_module.TypeIndividual:
+		if project.OwnerID != ownerID {
+			return nil, errNotValid
+		}
+	case project_module.TypeOrganization:
+		if project.OwnerID != ownerID {
+			return nil, errNotValid
+		}
+	case project_module.TypeRepository:
+		if project.RepoID != ownerID {
+			return nil, errNotValid
+		}
+	}
+	return project, nil
+}
+
 func ListProjectsByOptions(ctx context.Context, opts *project_model.SearchOptions) ([]*project_model.Project, error) {
 	projects, err := db.Find[project_model.Project](ctx, opts)
 	return projects, err

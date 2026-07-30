@@ -21,6 +21,7 @@ import (
 	"forgejo.org/modules/setting"
 	project_structs "forgejo.org/modules/structs"
 	"forgejo.org/modules/templates"
+	"forgejo.org/modules/validation"
 	"forgejo.org/modules/web"
 	shared_user "forgejo.org/routers/web/shared/user"
 	"forgejo.org/services/context"
@@ -35,13 +36,13 @@ const (
 )
 
 func getAndCheckProjectByID(ctx *context.Context, projectID int64) *project_model.Project {
-	project, err := project_service.GetProjectByID(ctx, projectID)
+	project, err := project_service.GetValidProjectByID(ctx, projectID, ctx.ContextUser.ID)
 	if err != nil {
+		if validation.IsErrNotValid(err) {
+			ctx.NotFound("getAndCheckProjectByID", fmt.Errorf("Project with ID %d does not belong to Owner with ID %d", projectID, ctx.ContextUser.ID))
+			return nil
+		}
 		ctx.NotFoundOrServerError("GetProjectByID", project_model.IsErrProjectNotExist, err)
-		return nil
-	}
-	if project.OwnerID != ctx.ContextUser.ID {
-		ctx.NotFound("getAndCheckProjectByID", fmt.Errorf("Project with ID %d does not belong to User with ID %d", project.ID, project.RepoID))
 		return nil
 	}
 	return project
