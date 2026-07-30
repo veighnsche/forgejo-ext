@@ -123,15 +123,6 @@ func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projec
 	return opts
 }
 
-// GetProjectByID gets a specific project.
-func GetProjectByID(ctx context.Context, projectID int64) (*project_model.Project, error) {
-	project, err := project_model.GetProjectByID(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	return project, nil
-}
-
 func GetValidProjectByID(ctx context.Context, projectID, ownerID int64) (*project_model.Project, error) {
 	project, err := project_model.GetProjectByID(ctx, projectID)
 	if err != nil {
