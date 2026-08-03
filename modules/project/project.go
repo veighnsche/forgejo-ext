@@ -173,7 +173,13 @@ func (pt APIOwnerType) String() string {
 	return string(pt)
 }
 
-type APITemplateType string
+type (
+	APITemplateType   string
+	APITemplateConfig struct {
+		TemplateType APITemplateType
+		Translation  string
+	}
+)
 
 const (
 	APITemplateTypeNone        APITemplateType = "none"
@@ -207,7 +213,21 @@ func (p APITemplateType) String() string {
 	return string(p)
 }
 
-type APICardType string
+func GetAPITemplateConfigs() []APITemplateConfig {
+	return []APITemplateConfig{
+		{APITemplateTypeNone, "repo.projects.type.none"},
+		{APITemplateTypeBasicKanban, "repo.projects.type.basic_kanban"},
+		{APITemplateTypeBugTriage, "repo.projects.type.bug_triage"},
+	}
+}
+
+type (
+	APICardType   string
+	APICardConfig struct {
+		CardType    APICardType
+		Translation string
+	}
+)
 
 const (
 	APICardTypeTextOnly      APICardType = "text_only"
@@ -237,6 +257,14 @@ func (p APICardType) Validate() []string {
 
 func (p APICardType) String() string {
 	return string(p)
+}
+
+//llu:returnsTrKeyWeak
+func GetAPICardConfig() []APICardConfig {
+	return []APICardConfig{
+		{APICardTypeTextOnly, "repo.projects.card_type.text_only"},
+		{APICardTypeImagesAndText, "repo.projects.card_type.images_and_text"},
+	}
 }
 
 // APIStatus is the project status.

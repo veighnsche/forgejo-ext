@@ -159,8 +159,8 @@ func canWriteProjects(ctx *context.Context) bool {
 // RenderNewProject render creating a project page
 func RenderNewProject(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.projects.new")
-	ctx.Data["TemplateConfigs"] = project_module.GetTemplateConfigs()
-	ctx.Data["CardTypes"] = project_module.GetCardConfig()
+	ctx.Data["TemplateConfigs"] = project_module.GetAPITemplateConfigs()
+	ctx.Data["CardTypes"] = project_module.GetAPICardConfig()
 	ctx.Data["CanWriteProjects"] = canWriteProjects(ctx)
 	ctx.Data["PageIsViewProjects"] = true
 	ctx.Data["HomeLink"] = ctx.ContextUser.HomeLink()
@@ -197,7 +197,7 @@ func CreateProject(ctx *context.Context) {
 		CardType:     form.CardType,
 		Status:       "open",
 	}
-	project, err := project_service.NewProject(opt, ctx.ContextUser, &repo_model.Repository{}, projectType)
+	project, err := project_service.NewProject(opt, ctx.ContextUser, nil, projectType)
 	if err != nil {
 		log.Error("Could not create project %v", form.Title)
 		ctx.ServerError("NewProject", err)
@@ -260,7 +260,7 @@ func RenderEditProject(ctx *context.Context) {
 	ctx.Data["PageIsEditProjects"] = true
 	ctx.Data["PageIsViewProjects"] = true
 	ctx.Data["CanWriteProjects"] = canWriteProjects(ctx)
-	ctx.Data["CardTypes"] = project_module.GetCardConfig()
+	ctx.Data["CardTypes"] = project_module.GetAPICardConfig()
 
 	shared_user.RenderUserHeader(ctx)
 
@@ -288,7 +288,7 @@ func EditProjectPost(ctx *context.Context) {
 	ctx.Data["PageIsEditProjects"] = true
 	ctx.Data["PageIsViewProjects"] = true
 	ctx.Data["CanWriteProjects"] = canWriteProjects(ctx)
-	ctx.Data["CardTypes"] = project_module.GetCardConfig()
+	ctx.Data["CardTypes"] = project_module.GetAPICardConfig()
 	ctx.Data["CancelLink"] = project_module.ProjectLinkForOrg(ctx.ContextUser.HomeLink(), projectID)
 
 	shared_user.RenderUserHeader(ctx)

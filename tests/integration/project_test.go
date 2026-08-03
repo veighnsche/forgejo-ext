@@ -23,6 +23,7 @@ import (
 	user_model "forgejo.org/models/user"
 	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/test"
+	form "forgejo.org/services/forms"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 
@@ -597,4 +598,66 @@ func TestProjectPermissionsAndConsistency(t *testing.T) {
 			updateIssueProject(t, session, repo, project, issue, http.StatusNotFound)
 		})
 	})
+}
+
+// Test creation/getting/updating/deleting project for user
+func TestProjectAPICRUD(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	// User and auth
+	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	session := loginUser(t, user2.Name)
+
+	// UC07, UC03: Create, Get project for an owner
+	projectOpts := form.CreateProjectForm{
+		Title:        "Project 1",
+		Content:      "Test",
+		TemplateType: project_module.APITemplateTypeNone.String(),
+		CardType:     project_module.APICardTypeTextOnly.String(),
+	}
+
+	newProjectEndpoint := fmt.Sprintf("/%v/-/projects/new", user2.Name)
+	resp := sessionJSONPOST(t, session, newProjectEndpoint, projectOpts)
+	assert.Equal(t, http.StatusSeeOther, resp.Code)
+
+	project := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: 4})
+
+	getProjectEndpoint := fmt.Sprintf("/%v/-/projects/%d", user2.Name, project.ID)
+	resp = sessionGET(t, session, getProjectEndpoint)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	// UC09: Create columns in a project
+	createPCOpt1 := form.EditProjectColumnForm{
+		Title:   "Col1",
+		Sorting: 0,
+		Color:   "#ab1099",
+	}
+
+	newProjectColEndpoint := fmt.Sprintf("/%v/-/projects/%d", user2.Name, project.ID)
+	resp = sessionJSONPOST(t, session, newProjectColEndpoint, createPCOpt1)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	// UC17: Remove project
+	deleteProjectEndpoint := fmt.Sprintf("/%v/-/projects/%d/delete", user2.Name, project.ID)
+	resp = sessionPOST(t, session, deleteProjectEndpoint)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	unittest.AssertNotExistsBean(t, &project_model.Project{
+		ID: project.ID,
+	})
+}
+
+func sessionJSONPOST(t *testing.T, session *TestSession, endpoint string, opts any) *httptest.ResponseRecorder {
+	req := NewRequestWithJSON(t, "POST", endpoint, &opts)
+	return session.MakeRequest(t, req, -1)
+}
+
+func sessionPOST(t *testing.T, session *TestSession, endpoint string) *httptest.ResponseRecorder {
+	req := NewRequest(t, "POST", endpoint)
+	return session.MakeRequest(t, req, -1)
+}
+
+func sessionGET(t *testing.T, session *TestSession, endpoint string) *httptest.ResponseRecorder {
+	req := NewRequest(t, "GET", endpoint)
+	return session.MakeRequest(t, req, -1)
 }
