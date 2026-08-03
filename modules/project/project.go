@@ -10,14 +10,7 @@ import (
 )
 
 // Model Types
-type (
-	TemplateType uint8
-	// TemplateConfig is used to identify the template type of project that is being created
-	TemplateConfig struct {
-		TemplateType TemplateType
-		Translation  string
-	}
-)
+type TemplateType uint8
 
 const (
 	// TemplateTypeNone is a project template type that has no predefined columns
@@ -50,22 +43,7 @@ func (tt TemplateType) Validate() []string {
 	return result
 }
 
-func GetTemplateConfigs() []TemplateConfig {
-	return []TemplateConfig{
-		{TemplateTypeNone, "repo.projects.type.none"},
-		{TemplateTypeBasicKanban, "repo.projects.type.basic_kanban"},
-		{TemplateTypeBugTriage, "repo.projects.type.bug_triage"},
-	}
-}
-
-type (
-	CardType uint8
-	// CardConfig is used to identify the type of column card that is being used
-	CardConfig struct {
-		CardType    CardType
-		Translation string
-	}
-)
+type CardType uint8
 
 const (
 	// CardTypeTextOnly is a project column card type that is text only
@@ -93,16 +71,6 @@ func (ct CardType) Validate() []string {
 	}
 	result = validation.ValidateOneOf(ct, types, "CardType")
 	return result
-}
-
-// GetCardConfig retrieves the types of configurations project column cards could have
-//
-//llu:returnsTrKeyWeak
-func GetCardConfig() []CardConfig {
-	return []CardConfig{
-		{CardTypeTextOnly, "repo.projects.card_type.text_only"},
-		{CardTypeImagesAndText, "repo.projects.card_type.images_and_text"},
-	}
 }
 
 type OwnerType uint8
@@ -174,7 +142,8 @@ func (pt APIOwnerType) String() string {
 }
 
 type (
-	APITemplateType   string
+	APITemplateType string
+	// APITemplateConfig is used to identify the template type of project that is being created
 	APITemplateConfig struct {
 		TemplateType APITemplateType
 		Translation  string
@@ -222,7 +191,8 @@ func GetAPITemplateConfigs() []APITemplateConfig {
 }
 
 type (
-	APICardType   string
+	APICardType string
+	// CardConfig is used to identify the type of column card that is being used
 	APICardConfig struct {
 		CardType    APICardType
 		Translation string
@@ -259,6 +229,8 @@ func (p APICardType) String() string {
 	return string(p)
 }
 
+// APIGetCardConfig retrieves the types of configurations project column cards could have
+//
 //llu:returnsTrKeyWeak
 func GetAPICardConfig() []APICardConfig {
 	return []APICardConfig{

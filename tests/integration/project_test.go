@@ -23,7 +23,7 @@ import (
 	user_model "forgejo.org/models/user"
 	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/test"
-	form "forgejo.org/services/forms"
+	forms_service "forgejo.org/services/forms"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 
@@ -609,7 +609,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	session := loginUser(t, user2.Name)
 
 	// UC07, UC03: Create, Get project for an owner
-	projectOpts := form.CreateProjectForm{
+	projectOpts := forms_service.CreateProjectForm{
 		Title:        "Project 1",
 		Content:      "Test",
 		TemplateType: project_module.APITemplateTypeNone.String(),
@@ -627,7 +627,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	// UC09: Create columns in a project
-	createPCOpt1 := form.EditProjectColumnForm{
+	createPCOpt1 := forms_service.EditProjectColumnForm{
 		Title:   "Col1",
 		Sorting: 0,
 		Color:   "#ab1099",
