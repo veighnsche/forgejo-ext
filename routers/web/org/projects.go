@@ -274,7 +274,7 @@ func RenderEditProject(ctx *context.Context) {
 	ctx.Data["content"] = project.Description
 	ctx.Data["redirect"] = ctx.FormString("redirect")
 	ctx.Data["HomeLink"] = ctx.ContextUser.HomeLink()
-	ctx.Data["card_type"] = project.CardType
+	ctx.Data["card_type"] = project.CardType.Convert()
 	ctx.Data["CancelLink"] = project_module.ProjectLinkForOrg(ctx.ContextUser.HomeLink(), project.ID)
 
 	ctx.HTML(http.StatusOK, tplProjectsNew)

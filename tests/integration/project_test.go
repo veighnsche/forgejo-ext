@@ -637,6 +637,17 @@ func TestProjectAPICRUD(t *testing.T) {
 	resp = sessionJSONPOST(t, session, newProjectColEndpoint, createPCOpt1)
 	assert.Equal(t, http.StatusOK, resp.Code)
 
+	// UC07, UC03: Create, Get project for an owner
+	editProjectOpts := forms_service.CreateProjectForm{
+		Title:    "Project 1",
+		Content:  "Test",
+		CardType: project_module.APICardTypeTextOnly.String(),
+	}
+
+	editProjectEndpoint := fmt.Sprintf("/%v/-/projects/%d/edit", user2.Name, project.ID)
+	resp = sessionJSONPOST(t, session, editProjectEndpoint, editProjectOpts)
+	assert.Equal(t, http.StatusSeeOther, resp.Code)
+
 	// UC17: Remove project
 	deleteProjectEndpoint := fmt.Sprintf("/%v/-/projects/%d/delete", user2.Name, project.ID)
 	resp = sessionPOST(t, session, deleteProjectEndpoint)

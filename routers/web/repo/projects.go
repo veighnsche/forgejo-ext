@@ -255,7 +255,7 @@ func RenderEditProject(ctx *context.Context) {
 	ctx.Data["projectID"] = project.ID
 	ctx.Data["title"] = project.Title
 	ctx.Data["content"] = project.Description
-	ctx.Data["card_type"] = project.CardType
+	ctx.Data["card_type"] = project.CardType.Convert()
 	ctx.Data["redirect"] = ctx.FormString("redirect")
 	ctx.Data["CancelLink"] = project_module.ProjectLinkForRepo(ctx.Repo.Repository.Link(), project.ID)
 
