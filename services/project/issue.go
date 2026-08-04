@@ -23,7 +23,7 @@ func ValidIssueID(ctx context.Context, ownerID int64, issues issues_model.IssueL
 	}
 	for _, issue := range issues {
 		if issue.Repo.OwnerID != ownerID {
-			return errors.New("Some issue's ownerID is not equal to project's ownerID")
+			return errors.New("some issue's ownerID is not equal to project's ownerID")
 		}
 	}
 	return nil
