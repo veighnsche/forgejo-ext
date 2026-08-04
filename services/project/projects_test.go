@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/optional"
 	project_module "forgejo.org/modules/project"
 	project_structs "forgejo.org/modules/structs"
+	"forgejo.org/modules/validation"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,6 +23,7 @@ import (
 
 var (
 	ownerID            = int64(2)
+	orgOwnerID         = int64(3)
 	repoID             = int64(2)
 	isShowClosed       = false
 	sortType           = ""
@@ -306,6 +308,43 @@ func TestCRUDProject(t *testing.T) {
 	wantProject, err := GetValidProjectByID(t.Context(), project.ID, ownerID)
 	require.NoError(t, err)
 	assert.Equal(t, wantProject.Title, projectTitle)
+
+	t.Run("Wrong OwnerID", func(t *testing.T) {
+		repoProject := &project_model.Project{
+			RepoID:       repoID,
+			Title:        projectTitle,
+			Type:         projectType3.ToOwnerType(),
+			Description:  projectDescription,
+			CreatorID:    ownerID,
+			TemplateType: templateType,
+			CardType:     cardType,
+		}
+
+		orgProject := &project_model.Project{
+			OwnerID:      orgOwnerID,
+			Title:        projectTitle,
+			Type:         projectType1.ToOwnerType(),
+			Description:  projectDescription,
+			CreatorID:    ownerID,
+			TemplateType: templateType,
+			CardType:     cardType,
+		}
+
+		err := CreateProject(t.Context(), repoProject)
+		require.NoError(t, err)
+
+		err = CreateProject(t.Context(), orgProject)
+		require.NoError(t, err)
+
+		_, err = GetValidProjectByID(t.Context(), project.ID, 99)
+		assert.True(t, validation.IsErrNotValid(err))
+
+		_, err = GetValidProjectByID(t.Context(), repoProject.ID, 99)
+		assert.True(t, validation.IsErrNotValid(err))
+
+		_, err = GetValidProjectByID(t.Context(), orgProject.ID, 99)
+		assert.True(t, validation.IsErrNotValid(err))
+	})
 
 	updated := &project_structs.CreateProjectOptions{
 		Title:       newTitle,

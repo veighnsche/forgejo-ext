@@ -39,7 +39,7 @@ func getAndCheckProjectByID(ctx *context.Context, projectID int64) *project_mode
 	project, err := project_service.GetValidProjectByID(ctx, projectID, ctx.ContextUser.ID)
 	if err != nil {
 		if validation.IsErrNotValid(err) {
-			ctx.NotFound("getAndCheckProjectByID", fmt.Errorf("Project with ID %d does not belong to Owner with ID %d", projectID, ctx.ContextUser.ID))
+			ctx.NotFound("getAndCheckProjectByID", fmt.Errorf("Could not find project for Owner with ID %d", ctx.ContextUser.ID))
 			return nil
 		}
 		ctx.NotFoundOrServerError("GetProjectByID", project_model.IsErrProjectNotExist, err)
