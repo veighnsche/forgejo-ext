@@ -19,7 +19,7 @@ import (
 func getBasicSearchOpts(isShowClosed bool, sortType, keyword string, projectType project_module.APIOwnerType, pageOpts ...int) *project_model.SearchOptions {
 	opts := &project_model.SearchOptions{
 		IsClosed: optional.Some(isShowClosed),
-		Type:     projectType.Convert(),
+		Type:     projectType.ToOwnerType(),
 	}
 	opts.OrderBy = project_model.GetSearchOrderBySortType(sortType)
 	if keyword != "" {
@@ -77,9 +77,9 @@ func NewProject(
 		Description:  form.Description,
 		Owner:        owner,
 		OwnerID:      owner.ID,
-		TemplateType: projectTemplateType.Convert(),
-		CardType:     projectCardType.Convert(),
-		Type:         projectType.Convert(),
+		TemplateType: projectTemplateType.ToTemplateType(),
+		CardType:     projectCardType.ToCardType(),
+		Type:         projectType.ToOwnerType(),
 	}
 
 	errNotValid := validation.ErrNotValid{}
@@ -182,7 +182,7 @@ func UpdateProject(ctx context.Context, project *project_model.Project, updated 
 		if !valid {
 			return err
 		}
-		project.CardType = projectCardType.Convert()
+		project.CardType = projectCardType.ToCardType()
 	}
 
 	if err := project_model.UpdateProject(ctx, project); err != nil {

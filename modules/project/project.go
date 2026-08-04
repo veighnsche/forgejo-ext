@@ -15,13 +15,13 @@ type TemplateType uint8
 const (
 	// TemplateTypeNone is a project template type that has no predefined columns
 	TemplateTypeNone TemplateType = iota
-	// TemplateTypeBasicKanban is a project template type that has basic predefined columns
+	// TemplateTypeBasicKanban is a project template type that has basic predefined columns typically used in a kanban board
 	TemplateTypeBasicKanban
 	// TemplateTypeBugTriage is a project template type that has predefined columns suited to hunting down bugs
 	TemplateTypeBugTriage
 )
 
-func (tt TemplateType) Convert() APITemplateType {
+func (tt TemplateType) ToAPITemplateType() APITemplateType {
 	switch tt {
 	case TemplateTypeBasicKanban:
 		return APITemplateTypeBasicKanban
@@ -52,7 +52,7 @@ const (
 	CardTypeImagesAndText
 )
 
-func (ct CardType) Convert() APICardType {
+func (ct CardType) ToAPICardType() APICardType {
 	switch ct {
 	case CardTypeTextOnly:
 		return APICardTypeTextOnly
@@ -84,7 +84,7 @@ const (
 	TypeOrganization
 )
 
-func (pt OwnerType) Convert() APIOwnerType {
+func (pt OwnerType) ToAPIOwnerType() APIOwnerType {
 	switch pt {
 	case TypeIndividual:
 		return APIOwnerTypeIndividual
@@ -115,7 +115,7 @@ const (
 	APIOwnerTypeOrganization APIOwnerType = "organization"
 )
 
-func (pt APIOwnerType) Convert() OwnerType {
+func (pt APIOwnerType) ToOwnerType() OwnerType {
 	switch pt {
 	case APIOwnerTypeIndividual:
 		return TypeIndividual
@@ -156,7 +156,7 @@ const (
 	APITemplateTypeBugTriage   APITemplateType = "bug_triage"
 )
 
-func (p APITemplateType) Convert() TemplateType {
+func (p APITemplateType) ToTemplateType() TemplateType {
 	switch p {
 	case APITemplateTypeBasicKanban:
 		return TemplateTypeBasicKanban
@@ -204,7 +204,7 @@ const (
 	APICardTypeImagesAndText APICardType = "images_and_text"
 )
 
-func (p APICardType) Convert() CardType {
+func (p APICardType) ToCardType() CardType {
 	switch p {
 	case APICardTypeTextOnly:
 		return CardTypeTextOnly

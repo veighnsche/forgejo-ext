@@ -74,7 +74,7 @@ func TestGetSearchOpts(t *testing.T) {
 	assert.Equal(t, ownerID, opts.OwnerID)
 	assert.Equal(t, optional.Some(isShowClosed), opts.IsClosed)
 	assert.Equal(t, keyword, opts.Title)
-	assert.Equal(t, projectType1, opts.Type.Convert())
+	assert.Equal(t, projectType1, opts.Type.ToAPIOwnerType())
 	assert.NotNil(t, opts.ListOptions)
 
 	opts = GetSearchOpts(
@@ -90,7 +90,7 @@ func TestGetSearchOpts(t *testing.T) {
 	assert.Equal(t, repoID, opts.RepoID)
 	assert.Equal(t, optional.Some(isShowClosed), opts.IsClosed)
 	assert.Equal(t, keyword, opts.Title)
-	assert.Equal(t, projectType3, opts.Type.Convert())
+	assert.Equal(t, projectType3, opts.Type.ToAPIOwnerType())
 	assert.NotNil(t, opts.ListOptions)
 
 	opts = GetSearchOpts(
@@ -105,7 +105,7 @@ func TestGetSearchOpts(t *testing.T) {
 	assert.Equal(t, optional.Some(!isShowClosed), opts.IsClosed)
 	assert.Equal(t, db.SearchOrderByNewest, opts.OrderBy)
 	assert.Empty(t, opts.Title)
-	assert.Equal(t, projectType3, opts.Type.Convert())
+	assert.Equal(t, projectType3, opts.Type.ToAPIOwnerType())
 }
 
 func TestListProjectByOptions(t *testing.T) {
