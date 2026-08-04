@@ -13,14 +13,15 @@ import (
 	project_model "forgejo.org/models/project"
 	user_model "forgejo.org/models/user"
 	project_types "forgejo.org/modules/structs"
-	validation "forgejo.org/modules/validation"
+	"forgejo.org/modules/validation"
 )
 
+// ValidIssueID checks if the IDs of the given issue list are valid
 func ValidIssueID(ctx context.Context, ownerID int64, issues issues_model.IssueList) error {
 	if _, err := issues.LoadRepositories(ctx); err != nil {
 		return fmt.Errorf("Got database error %v", err.Error())
 	}
-	for _, issue := range issues { // TODO Is this a case we actually need to check?
+	for _, issue := range issues {
 		if issue.Repo.OwnerID != ownerID {
 			return errors.New("Some issue's ownerID is not equal to project's ownerID")
 		}
@@ -28,7 +29,7 @@ func ValidIssueID(ctx context.Context, ownerID int64, issues issues_model.IssueL
 	return nil
 }
 
-// ListProjectIssues Get list of ProjectIssues of project
+// ListProjectIssuesByColumn Gets a list of ProjectIssues for a ProjectColumn and returns their total count
 func ListProjectIssuesByColumn(ctx context.Context, columnID int64, listOptions db.ListOptions) ([]*project_model.ProjectIssue, int64, error) {
 	col, err := project_model.GetColumn(ctx, columnID)
 	if err != nil {
@@ -41,7 +42,7 @@ func ListProjectIssuesByColumn(ctx context.Context, columnID int64, listOptions 
 	return issues, total, nil
 }
 
-// getProjectIssueByID Get a single ProjectIssue of a project
+// getProjectIssueByID Gets a single ProjectIssue by its ID
 func getProjectIssueByID(ctx context.Context, issueID int64) (*project_model.ProjectIssue, error) {
 	issue, err := project_model.GetProjectIssue(ctx, issueID)
 	if err != nil {
@@ -50,6 +51,8 @@ func getProjectIssueByID(ctx context.Context, issueID int64) (*project_model.Pro
 	return issue, nil
 }
 
+// GetValidProjectIssueByID Gets a single ProjectIssue by its ID
+// And makes sure the ID is not zero and the ProjectID and ColumnID match for that issue
 func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID int64) (*project_model.ProjectIssue, error) {
 	if issueID == int64(0) {
 		return nil, validation.ErrNotValid{
@@ -69,7 +72,7 @@ func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID 
 	return i, nil
 }
 
-// ListProjectIssues Get list of ProjectIssues of project
+// ListProjectIssues Gets a list of ProjectIssues for a projectID, also returns the total count in that list
 func ListProjectIssues(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*project_model.ProjectIssue, int64, error) {
 	issues, total, err := project_model.GetProjectIssues(ctx, projectID, listOptions)
 	if err != nil {
@@ -78,7 +81,8 @@ func ListProjectIssues(ctx context.Context, projectID int64, listOptions db.List
 	return issues, total, nil
 }
 
-// CreateIssueInProject Create a ProjectIssue in a Project, adds to DefaultColumn if columnID is 0
+// CreateIssueInProject Create a ProjectIssue in a Project in the column with the given ID
+// If columnID is 0, adds to the DefaultColumn
 func CreateIssueInProject(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, projectID, colID int64) (*project_model.ProjectIssue, error) {
 	projIssue := &project_model.ProjectIssue{
 		ProjectID:       projectID,
@@ -91,7 +95,7 @@ func CreateIssueInProject(ctx context.Context, issue *issues_model.Issue, doer *
 	return projIssue, nil
 }
 
-// GetIssues Get an issue list by ID and check for completeness
+// GetIssues Gets an issue list by IssueIDs and checks for completeness, returns false if not complete
 func GetIssues(ctx context.Context, issueIDs []int64) (issues_model.IssueList, bool, error) {
 	issues, err := issues_model.GetIssuesByIDs(ctx, issueIDs, true)
 	if err != nil {
@@ -101,7 +105,7 @@ func GetIssues(ctx context.Context, issueIDs []int64) (issues_model.IssueList, b
 	return issues, complete, nil
 }
 
-// MoveIssuesOnProjectColumn Moving Issues between columns or sort within column
+// MoveIssuesOnProjectColumn Allows moving Issues between Columns or to change the sorting within Columns
 func MoveIssuesOnProjectColumn(ctx context.Context, column *project_model.Column, projectIssues *project_types.MovedIssuesOption) error {
 	sortedIssueIDs := projectIssues.GetSortingsMap()
 	err := project_model.MoveIssuesOnProjectColumn(ctx, column, sortedIssueIDs)
@@ -111,7 +115,7 @@ func MoveIssuesOnProjectColumn(ctx context.Context, column *project_model.Column
 	return nil
 }
 
-// RemoveIssueFromProject Delete a ProjectIssue from a Project
+// RemoveIssueFromProject Removes a ProjectIssue from a Project
 func RemoveIssueFromProject(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, columnID int64) error {
 	return issues_model.IssueAssignOrRemoveProject(ctx, issue, doer, 0, columnID)
 }
