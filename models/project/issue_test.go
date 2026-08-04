@@ -156,8 +156,10 @@ func TestGetProjectIssues(t *testing.T) {
 	assert.Len(t, issues, 4)
 	assert.Equal(t, int64(1), issues[0].ProjectID)
 	assert.Equal(t, int64(4), total)
+}
 
-	issue, err := GetProjectIssue(t.Context(), issues[0].IssueID)
+func TestGetProjectIssue(t *testing.T) {
+	issue, err := GetProjectIssue(t.Context(), int64(1))
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), issue.ProjectID)
 }
