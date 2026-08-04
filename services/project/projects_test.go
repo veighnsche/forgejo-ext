@@ -50,16 +50,16 @@ func TestMain(m *testing.M) {
 }
 
 func TestGetProjectType(t *testing.T) {
-	pT := GetAPIProjectType(false, false)
+	pT := GetAPIOwnerType(false, false)
 	assert.Equal(t, project_module.APIOwnerTypeIndividual, pT)
 
-	pT = GetAPIProjectType(true, false)
+	pT = GetAPIOwnerType(true, false)
 	assert.Equal(t, project_module.APIOwnerTypeOrganization, pT)
 
-	pT = GetAPIProjectType(false, true)
+	pT = GetAPIOwnerType(false, true)
 	assert.Equal(t, project_module.APIOwnerTypeRepository, pT)
 
-	pT = GetAPIProjectType(true, true)
+	pT = GetAPIOwnerType(true, true)
 	assert.Equal(t, project_module.APIOwnerTypeOrganization, pT)
 }
 

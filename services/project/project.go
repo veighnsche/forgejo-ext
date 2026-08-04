@@ -35,7 +35,8 @@ func getBasicSearchOpts(isShowClosed bool, sortType, keyword string, projectType
 	return opts
 }
 
-func GetAPIProjectType(isOrg, isRepo bool) project_module.APIOwnerType {
+// GetAPIOwnerType Returns the owner type of the project
+func GetAPIOwnerType(isOrg, isRepo bool) project_module.APIOwnerType {
 	var t project_module.APIOwnerType
 	if isOrg {
 		t = project_module.APIOwnerTypeOrganization
@@ -113,7 +114,7 @@ func NewProject(
 	return res, nil
 }
 
-// GetSearchOpts returns search options for user, org or repo depending on the projectType
+// GetSearchOpts Returns search options for user, org or repo depending on the projectType
 func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projectType project_module.APIOwnerType, pageOpts ...int) *project_model.SearchOptions {
 	opts := getBasicSearchOpts(isShowClosed, sortType, keyword, projectType, pageOpts...)
 	if projectType == project_module.APIOwnerTypeRepository {
@@ -124,6 +125,8 @@ func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projec
 	return opts
 }
 
+// GetProjectByIDForOwner Fetches a Project by its ID from the DB
+// and checks if it belongs to the given owner
 func GetProjectByIDForOwner(ctx context.Context, projectID, ownerID int64) (*project_model.Project, error) {
 	project, err := project_model.GetProjectByID(ctx, projectID)
 	if err != nil {
@@ -155,18 +158,21 @@ func isProjectOwnedBy(project *project_model.Project, ownerID int64) error {
 	return nil
 }
 
+// ListProjectsByOptions Lists Projects by search options
 func ListProjectsByOptions(ctx context.Context, opts *project_model.SearchOptions) ([]*project_model.Project, error) {
 	projects, err := db.Find[project_model.Project](ctx, opts)
 	return projects, err
 }
 
+// ListProjectsByOptions Counts Projects by search options
 func CountProjectsByOptions(ctx context.Context, opts *project_model.SearchOptions) (int64, error) {
 	count, err := db.Count[project_model.Project](ctx, opts)
 	return count, err
 }
 
 // Write
-// CreateProject Expects a valid project and creates it in DB
+
+// CreateProject Expects a valid project (as provided by NewProject for example) and creates it in DB
 func CreateProject(ctx context.Context, project *project_model.Project) error {
 	err := project_model.CreateProject(ctx, project)
 	if err != nil {
@@ -175,7 +181,7 @@ func CreateProject(ctx context.Context, project *project_model.Project) error {
 	return nil
 }
 
-// UpdateProject Update Project in DB
+// UpdateProject Updates a Project in DB
 func UpdateProject(ctx context.Context, project *project_model.Project, updated *project_structs.CreateProjectOptions) error {
 	if updated.Title != "" {
 		project.Title = updated.Title
@@ -213,7 +219,7 @@ func UpdateProject(ctx context.Context, project *project_model.Project, updated 
 	return nil
 }
 
-// DeleteProjectByID Delete Project from DB
+// DeleteProjectByID Deletes Project from DB
 func DeleteProjectByID(ctx context.Context, projectID int64, repoID optional.Option[int64]) error {
 	err := project_model.DeleteProjectByID(ctx, projectID, repoID)
 	if err != nil {
@@ -222,7 +228,7 @@ func DeleteProjectByID(ctx context.Context, projectID int64, repoID optional.Opt
 	return nil
 }
 
-// ChangeProjectStatus Change status to closed or open
+// ChangeProjectStatus Changes the status of a Project to closed or open
 func ChangeProjectStatus(ctx context.Context, project *project_model.Project, close bool) error {
 	return project_model.ChangeProjectStatus(ctx, project, close)
 }

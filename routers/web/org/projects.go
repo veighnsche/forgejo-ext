@@ -68,7 +68,7 @@ func Projects(ctx *context.Context) {
 	keyword := ctx.FormTrim("q")
 	page := max(ctx.FormInt("page"), 1)
 
-	projectType := project_service.GetAPIProjectType(ctx.ContextUser.IsOrganization(), false)
+	projectType := project_service.GetAPIOwnerType(ctx.ContextUser.IsOrganization(), false)
 	opts := project_service.GetSearchOpts(
 		ctx.ContextUser.ID,
 		showClosed,
@@ -188,7 +188,7 @@ func CreateProject(ctx *context.Context) {
 		return
 	}
 
-	projectType := project_service.GetAPIProjectType(ctx.ContextUser.IsOrganization(), false)
+	projectType := project_service.GetAPIOwnerType(ctx.ContextUser.IsOrganization(), false)
 	log.Debug("Got project type %v", projectType)
 
 	opt := &project_structs.CreateProjectOptions{
