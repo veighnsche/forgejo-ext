@@ -72,7 +72,7 @@ func Projects(ctx *context.Context) {
 
 	sortType := ctx.FormTrim("sort")
 
-	showClosed := strings.ToLower(ctx.FormTrim("state")) == "closed"
+	showClosed := strings.EqualFold(ctx.FormTrim("state"), "closed")
 	keyword := ctx.FormTrim("q")
 	repo := ctx.Repo.Repository
 	page := max(ctx.FormInt("page"), 1)
