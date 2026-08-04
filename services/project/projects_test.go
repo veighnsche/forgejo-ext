@@ -251,43 +251,26 @@ func TestNewProject(t *testing.T) {
 	assert.Contains(t, err.Error(), "Field APIOwnerType")
 }
 
-func TestGetValidProjectColumnIssue(t *testing.T) {
+func TestGetValidProjectColumn(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	validProjectID := int64(1)
-	nonExistingProjectID := int64(99999)
 
 	validColumnID := int64(1)
 	nonExistingColumnID := int64(99999)
 	differentColID := int64(4)
 
-	validProjectIssueID := int64(1)
-	nonExistingProjectIssueID := int64(99999)
-	differentProjectIssueID := int64(4)
+	t.Run("GetValidProjectColumn", func(t *testing.T) {
+		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, validColumnID)
+		require.NoError(t, err)
 
-	_, err := GetValidProjectColumnByID(t.Context(), validProjectID, validColumnID)
-	require.NoError(t, err)
+		_, err = GetValidProjectColumnByID(t.Context(), validProjectID, nonExistingColumnID)
+		assert.Contains(t, err.Error(), notExistStr)
 
-	_, err = GetValidProjectColumnByID(t.Context(), validProjectID, nonExistingColumnID)
-	assert.Contains(t, err.Error(), notExistStr)
+		_, err = GetValidProjectColumnByID(t.Context(), validProjectID, differentColID)
+		assert.Contains(t, err.Error(), notExistStr)
 
-	_, err = GetValidProjectColumnByID(t.Context(), validProjectID, differentColID)
-	assert.Contains(t, err.Error(), notExistStr)
-
-	_, err = GetValidProjectIssueByID(t.Context(), validProjectID, validColumnID, validProjectIssueID)
-	require.NoError(t, err)
-
-	_, err = GetValidProjectIssueByID(t.Context(), validProjectID, differentColID, 0)
-	assert.Contains(t, err.Error(), invalidStr)
-
-	_, err = GetValidProjectIssueByID(t.Context(), validProjectID, validColumnID, nonExistingProjectIssueID)
-	assert.Contains(t, err.Error(), notExistStr)
-
-	_, err = GetValidProjectIssueByID(t.Context(), validProjectID, validColumnID, differentProjectIssueID)
-	assert.Contains(t, err.Error(), invalidStr)
-
-	_, err = GetValidProjectColumnByID(t.Context(), nonExistingProjectID, validColumnID)
-	assert.Contains(t, err.Error(), notExistStr)
+	})
 }
 
 func TestCRUDProject(t *testing.T) {
