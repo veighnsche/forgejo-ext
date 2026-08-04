@@ -222,7 +222,7 @@ func GetSearchOrderBySortType(sortType string) db.SearchOrderBy {
 	}
 }
 
-// CreateProject creates a new Project, expects a valid project
+// CreateProject creates a new Project, expects a valid project which is generated in the respective service function
 // The title will be cut off at 255 characters if it's longer than 255 characters.
 func CreateProject(ctx context.Context, p *Project) error {
 	p.Title, _ = util.SplitStringAtByteN(p.Title, 255)
@@ -256,7 +256,8 @@ func GetProjectByID(ctx context.Context, id int64) (*Project, error) {
 	return p, nil
 }
 
-// UpdateProject updates project properties, expects a valid project
+// UpdateProject updates project properties
+// Expects a valid project which is generated in the respective service function
 func UpdateProject(ctx context.Context, p *Project) error {
 	p.Title, _ = util.SplitStringAtByteN(p.Title, 255)
 	_, err := db.GetEngine(ctx).ID(p.ID).Cols(
@@ -291,7 +292,7 @@ func updateRepositoryProjectCount(ctx context.Context, repoID int64) error {
 	return nil
 }
 
-// ChangeProjectStatus changes the status of the specified project to the state, expects a valid project
+// ChangeProjectStatus changes the status of the specified project to the given state
 // specified via the `isClosed` argument.
 func ChangeProjectStatus(ctx context.Context, p *Project, isClosed bool) error {
 	if p.IsClosed == isClosed {
