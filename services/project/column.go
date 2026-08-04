@@ -20,7 +20,6 @@ func ListProjectColumns(ctx context.Context, projectID int64, listOptions db.Lis
 	return columns, total, nil
 }
 
-// getColumnByID Get a ProjectColumn by its ID
 func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, error) {
 	column, err := project_model.GetColumn(ctx, columnID)
 	if err != nil {
@@ -29,7 +28,7 @@ func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, 
 	return column, nil
 }
 
-// GetColumnByID Get a Column by its ID
+// GetValidProjectColumnByID Get a Column by its ID, validate ID != 0 and check if projectIDs match
 func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (*project_model.Column, error) {
 	if columnID == int64(0) {
 		return nil, validation.ErrNotValid{
@@ -46,7 +45,7 @@ func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (
 	return c, nil
 }
 
-// CreateColumnInProject Create a column in a project
+// CreateColumnInProject Create a ProjectColumn in a Project
 func CreateColumnInProject(ctx context.Context, col *project_model.Column) error {
 	err := project_model.CreateColumn(ctx, col)
 	if err != nil {
@@ -55,7 +54,7 @@ func CreateColumnInProject(ctx context.Context, col *project_model.Column) error
 	return nil
 }
 
-// EditColumnInProject Update title or color in a project
+// EditColumnInProject Update the title or color of a ProjectColumn
 func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
 	err := project_model.UpdateColumn(ctx, col)
 	if err != nil {
@@ -64,12 +63,12 @@ func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
 	return nil
 }
 
-// SetDefaultColumn Set the default column of a project, other columns will then be set non default
+// SetDefaultColumn Set the default Column of a Project, other Columns will then be set non default
 func SetDefaultColumn(ctx context.Context, projectID, columnID int64) error {
 	return project_model.SetDefaultColumn(ctx, projectID, columnID)
 }
 
-// DeleteColumnInProject Delete Column from a project
+// DeleteColumnInProject Delete a Column from a Project
 func DeleteColumnInProject(ctx context.Context, columnID int64) error {
 	err := project_model.DeleteColumnByID(ctx, columnID)
 	if err != nil {
