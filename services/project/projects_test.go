@@ -225,7 +225,7 @@ func TestNewProject(t *testing.T) {
 
 	_, err = NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Field ProjectCardType")
+	assert.Contains(t, err.Error(), "Field APICardType")
 
 	opts = project_structs.CreateProjectOptions{
 		Title:        "Test",
@@ -236,7 +236,7 @@ func TestNewProject(t *testing.T) {
 
 	_, err = NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Field ProjectTemplateType")
+	assert.Contains(t, err.Error(), "Field APITemplateType")
 
 	opts = project_structs.CreateProjectOptions{
 		Title:        "Test",
@@ -247,7 +247,7 @@ func TestNewProject(t *testing.T) {
 
 	_, err = NewProject(&opts, user2, nilRepo, invalidProjectType)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Field ProjectAPIType")
+	assert.Contains(t, err.Error(), "Field APIOwnerType")
 }
 
 func TestGetValidProjectColumnIssue(t *testing.T) {
