@@ -58,7 +58,7 @@ func TestCreateDeleteProject(t *testing.T) {
 
 	// try and create duplicate project
 	err = CreateProject(t.Context(), project)
-	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unique constraint violation")
 
 	err = DeleteProjectByID(t.Context(), project.ID, optional.None[int64]())
 	require.NoError(t, err)
