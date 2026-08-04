@@ -314,9 +314,9 @@ func ChangeProjectStatus(ctx context.Context, p *Project, isClosed bool) error {
 	})
 }
 
-// DeleteProjectByID deletes a project from a repository. if it's not in a database
-// transaction, it will start a new database transaction
-func DeleteProjectByID(ctx context.Context, id int64, repoID ...int64) error {
+// DeleteProjectByID deletes a project by ID. Needs repoID for updating repo project count.
+// If it's not in a database transaction, it will start a new database transaction.
+func DeleteProjectByID(ctx context.Context, id int64, repoID optional.Option[int64]) error {
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		if err := deleteProjectIssuesByProjectID(ctx, id); err != nil {
 			return err
@@ -330,8 +330,9 @@ func DeleteProjectByID(ctx context.Context, id int64, repoID ...int64) error {
 			return err
 		}
 
-		if len(repoID) > 0 {
-			return updateRepositoryProjectCount(ctx, repoID[0])
+		has, id := repoID.Get()
+		if has {
+			return updateRepositoryProjectCount(ctx, id)
 		}
 		return nil
 	})

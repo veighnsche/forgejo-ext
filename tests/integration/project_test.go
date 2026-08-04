@@ -21,6 +21,7 @@ import (
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/optional"
 	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/test"
 	forms_service "forgejo.org/services/forms"
@@ -91,7 +92,7 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 	assert.Equal(t, columns[0].ID, columnsAfter[2].ID)
 	assert.Equal(t, int64(3), total)
 
-	require.NoError(t, project_model.DeleteProjectByID(db.DefaultContext, project1.ID, project1.RepoID))
+	require.NoError(t, project_model.DeleteProjectByID(db.DefaultContext, project1.ID, optional.Some(project1.RepoID)))
 }
 
 func TestChangeStatusProject(t *testing.T) {

@@ -245,7 +245,7 @@ func DeleteProject(ctx *context.Context) {
 		return
 	}
 
-	if err := project_service.DeleteProjectByID(ctx, project.ID); err != nil {
+	if err := project_service.DeleteProjectByID(ctx, project.ID, optional.None[int64]()); err != nil {
 		ctx.Flash.Error("DeleteProjectByID: " + err.Error())
 	} else {
 		ctx.Flash.Success(ctx.Tr("repo.projects.deletion_success"))

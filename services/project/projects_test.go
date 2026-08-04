@@ -400,6 +400,6 @@ func TestCRUDProject(t *testing.T) {
 		assert.Equal(t, issue1.ID, defaultIssues[0].IssueID)
 	})
 
-	err = DeleteProjectByID(t.Context(), wantProject.ID)
+	err = DeleteProjectByID(t.Context(), wantProject.ID, optional.None[int64]())
 	require.NoError(t, err)
 }

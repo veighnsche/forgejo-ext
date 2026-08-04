@@ -11,6 +11,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/optional"
 	project_module "forgejo.org/modules/project"
 
 	"github.com/stretchr/testify/assert"
@@ -33,7 +34,7 @@ func TestGetProjects(t *testing.T) {
 	assert.Len(t, projects, 1)
 }
 
-func TestCreateProject(t *testing.T) {
+func TestCreateDeleteProject(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -58,6 +59,9 @@ func TestCreateProject(t *testing.T) {
 	// try and create duplicate project
 	err = CreateProject(t.Context(), project)
 	assert.Error(t, err)
+
+	err = DeleteProjectByID(t.Context(), project.ID, optional.None[int64]())
+	require.NoError(t, err)
 }
 
 func TestProjectsSort(t *testing.T) {

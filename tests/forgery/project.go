@@ -10,6 +10,7 @@ import (
 	project_model "forgejo.org/models/project"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/optional"
 	project_module "forgejo.org/modules/project"
 
 	"github.com/stretchr/testify/require"
@@ -52,7 +53,7 @@ func CreateProject[T org_model.Organization | user_model.User | repo_model.Repos
 	err := project_model.CreateProject(t.Context(), p)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		_ = project_model.DeleteProjectByID(t.Context(), p.ID)
+		_ = project_model.DeleteProjectByID(t.Context(), p.ID, optional.None[int64]())
 	})
 	return p
 }
