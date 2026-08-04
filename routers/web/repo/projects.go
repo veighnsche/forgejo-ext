@@ -231,10 +231,10 @@ func DeleteProject(ctx *context.Context) {
 
 	repoID := optional.Option[int64]{ctx.Repo.Repository.ID}
 	if err := project_service.DeleteProjectByID(ctx, project.ID, repoID); err != nil {
-		ctx.Flash.Error("DeleteProjectByID: " + err.Error())
-	} else {
-		ctx.Flash.Success(ctx.Tr("repo.projects.deletion_success"))
+		ctx.ServerError("DeleteProjectByID", err)
+		return
 	}
+	ctx.Flash.Success(ctx.Tr("repo.projects.deletion_success"))
 
 	ctx.JSONRedirect(ctx.Repo.RepoLink + "/projects")
 }
@@ -606,7 +606,7 @@ func MoveIssues(ctx *context.Context) {
 	}
 
 	if !complete {
-		ctx.Flash.Warning("One or more issues did not point to existing issues. Check if they were deleted.")
+		ctx.Flash.Warning(ctx.Tr("project.missing_issue_connection"), true)
 	}
 
 	for _, issue := range existingIssues {

@@ -246,10 +246,10 @@ func DeleteProject(ctx *context.Context) {
 	}
 
 	if err := project_service.DeleteProjectByID(ctx, project.ID, optional.None[int64]()); err != nil {
-		ctx.Flash.Error("DeleteProjectByID: " + err.Error())
-	} else {
-		ctx.Flash.Success(ctx.Tr("repo.projects.deletion_success"))
+		ctx.ServerError("DeleteProjectByID", err)
+		return
 	}
+	ctx.Flash.Success(ctx.Tr("repo.projects.deletion_success"))
 
 	ctx.JSONRedirect(ctx.ContextUser.HomeLink() + "/-/projects")
 }
@@ -570,7 +570,7 @@ func MoveIssues(ctx *context.Context) {
 	}
 
 	if !complete {
-		ctx.Flash.Warning("One or more issues did not point to existing issues. Check if they were deleted.")
+		ctx.Flash.Warning(ctx.Tr("project.missing_issue_connection"), true)
 	}
 
 	if err = project_service.ValidIssueID(ctx, project.OwnerID, existingIssues); err != nil {
