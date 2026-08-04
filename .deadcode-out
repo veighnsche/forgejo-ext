@@ -55,7 +55,6 @@ forgejo.org/models/project
 	IsErrProjectIssueNotExist
 	ErrProjectIssueNotExist.Error
 	ErrProjectIssueNotExist.Unwrap
-	GetProjectForUserByID
 	GetTemplateConfigs
 	IsTemplateTypeValid
 
@@ -294,8 +293,6 @@ forgejo.org/services/notify
 	UnregisterNotifier
 
 forgejo.org/services/project
-	ListProjectColumns
-	GetValidProjectColumnByID
 	ListProjectIssuesByColumn
 	getProjectIssueByID
 	GetValidProjectIssueByID
