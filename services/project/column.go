@@ -5,6 +5,7 @@ package project
 
 import (
 	"context"
+	"fmt"
 
 	"forgejo.org/models/db"
 	project_model "forgejo.org/models/project"
@@ -15,7 +16,7 @@ import (
 func ListProjectColumns(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*project_model.Column, int64, error) {
 	columns, total, err := project_model.GetColumns(ctx, projectID, listOptions)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("Got database error %v", err.Error())
 	}
 	return columns, total, nil
 }
@@ -23,7 +24,7 @@ func ListProjectColumns(ctx context.Context, projectID int64, listOptions db.Lis
 func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, error) {
 	column, err := project_model.GetColumn(ctx, columnID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Got database error %v", err.Error())
 	}
 	return column, nil
 }
@@ -37,7 +38,7 @@ func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (
 	}
 	c, err := getColumnByID(ctx, columnID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Got database error %v", err.Error())
 	}
 	if c.ProjectID != projectID {
 		return nil, project_model.ErrProjectColumnNotExist{ColumnID: c.ID}
@@ -49,7 +50,7 @@ func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (
 func CreateColumnInProject(ctx context.Context, col *project_model.Column) error {
 	err := project_model.CreateColumn(ctx, col)
 	if err != nil {
-		return err
+		return fmt.Errorf("Got database error %v", err.Error())
 	}
 	return nil
 }
@@ -58,7 +59,7 @@ func CreateColumnInProject(ctx context.Context, col *project_model.Column) error
 func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
 	err := project_model.UpdateColumn(ctx, col)
 	if err != nil {
-		return err
+		return fmt.Errorf("Got database error %v", err.Error())
 	}
 	return nil
 }
@@ -72,7 +73,7 @@ func SetDefaultColumn(ctx context.Context, projectID, columnID int64) error {
 func DeleteColumnInProject(ctx context.Context, columnID int64) error {
 	err := project_model.DeleteColumnByID(ctx, columnID)
 	if err != nil {
-		return err
+		return fmt.Errorf("Got database error %v", err.Error())
 	}
 	return nil
 }

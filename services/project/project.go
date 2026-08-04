@@ -5,6 +5,7 @@ package project
 
 import (
 	"context"
+	"fmt"
 
 	"forgejo.org/models/db"
 	project_model "forgejo.org/models/project"
@@ -126,7 +127,7 @@ func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projec
 func GetProjectByIDForOwner(ctx context.Context, projectID, ownerID int64) (*project_model.Project, error) {
 	project, err := project_model.GetProjectByID(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Got database error %v", err.Error())
 	}
 	err = isProjectOwnedBy(project, ownerID)
 	if err != nil {
@@ -169,7 +170,7 @@ func CountProjectsByOptions(ctx context.Context, opts *project_model.SearchOptio
 func CreateProject(ctx context.Context, project *project_model.Project) error {
 	err := project_model.CreateProject(ctx, project)
 	if err != nil {
-		return err
+		return fmt.Errorf("Got database error %v", err.Error())
 	}
 	return nil
 }
@@ -194,7 +195,7 @@ func UpdateProject(ctx context.Context, project *project_model.Project, updated 
 	}
 
 	if err := project_model.UpdateProject(ctx, project); err != nil {
-		return err
+		return fmt.Errorf("Got database error %v", err.Error())
 	}
 
 	if updated.Status != "" {
@@ -216,7 +217,7 @@ func UpdateProject(ctx context.Context, project *project_model.Project, updated 
 func DeleteProjectByID(ctx context.Context, projectID int64, repoID optional.Option[int64]) error {
 	err := project_model.DeleteProjectByID(ctx, projectID, repoID)
 	if err != nil {
-		return err
+		return fmt.Errorf("Got database error %v", err.Error())
 	}
 	return nil
 }
