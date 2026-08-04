@@ -421,15 +421,34 @@ func TestCRUDProject(t *testing.T) {
 
 		assert.Len(t, issuesAfter, len(issuesBefore))
 
-		// Add issue to default column
+		_, err = CreateIssueInProject(t.Context(), issue1, user, project.ID, 0)
+		require.NoError(t, err)
+
+		// Move Issues
+		pIs := &project_structs.MovedIssuesOption{
+			ProjectIssues: []struct {
+				IssueID int64 "json:\"issueID\""
+				Sorting int64 "json:\"sorting\""
+			}{
+				{
+					IssueID: issuesAfter[0].ID,
+					Sorting: int64(2),
+				},
+				{
+					IssueID: issuesAfter[1].ID,
+					Sorting: int64(1),
+				},
+			},
+		}
+		err = MoveIssuesOnProjectColumn(t.Context(), column1, pIs)
+		require.NoError(t, err)
+
+		// Remove issues
 		for _, projectIssue := range issuesAfter {
 			issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: projectIssue.ID})
 			err = RemoveIssueFromProject(t.Context(), issue, user, column1.ID)
 			require.NoError(t, err)
 		}
-
-		_, err = CreateIssueInProject(t.Context(), issue1, user, project.ID, 0)
-		require.NoError(t, err)
 
 		defaultCol, err := project.GetDefaultColumn(t.Context())
 		require.NoError(t, err)
