@@ -258,6 +258,8 @@ func GetProjectByID(ctx context.Context, id int64) (*Project, error) {
 
 // UpdateProject updates project properties
 // Expects a valid project which is generated in the respective service function
+// Don't add parameters to Cols() as the only things being updated in a project are
+// title, description and card_type
 func UpdateProject(ctx context.Context, p *Project) error {
 	p.Title, _ = util.SplitStringAtByteN(p.Title, 255)
 	_, err := db.GetEngine(ctx).ID(p.ID).Cols(

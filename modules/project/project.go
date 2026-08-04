@@ -10,6 +10,7 @@ import (
 )
 
 // Model Types
+
 type TemplateType uint8
 
 const (
@@ -101,6 +102,7 @@ func (pt OwnerType) Validate() []string {
 }
 
 // API Types
+
 type APIOwnerType string
 
 const (
