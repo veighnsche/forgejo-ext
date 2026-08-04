@@ -269,7 +269,6 @@ func TestGetValidProjectColumn(t *testing.T) {
 
 		_, err = GetValidProjectColumnByID(t.Context(), validProjectID, differentColID)
 		assert.Contains(t, err.Error(), notExistStr)
-
 	})
 }
 
