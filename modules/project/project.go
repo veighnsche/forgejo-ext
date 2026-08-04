@@ -6,8 +6,23 @@ package project
 import (
 	"fmt"
 
+	"forgejo.org/modules/util"
 	"forgejo.org/modules/validation"
 )
+
+// ErrMismatchedOwner represents an error that
+// occurs when ownerID and project.OwnerID mismatch
+type ErrMismatchedOwner struct {
+	Message string
+}
+
+func (err ErrMismatchedOwner) Error() string {
+	return fmt.Sprintf("Error: %v", err.Message)
+}
+
+func (err ErrMismatchedOwner) Unwrap() error {
+	return util.ErrInvalidArgument
+}
 
 // Model Types
 

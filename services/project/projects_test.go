@@ -4,6 +4,7 @@
 package project
 
 import (
+	"errors"
 	"testing"
 
 	"forgejo.org/models/db"
@@ -15,7 +16,7 @@ import (
 	"forgejo.org/modules/optional"
 	project_module "forgejo.org/modules/project"
 	project_structs "forgejo.org/modules/structs"
-	"forgejo.org/modules/validation"
+	"forgejo.org/modules/util"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -305,7 +306,7 @@ func TestCRUDProject(t *testing.T) {
 	err := CreateProject(t.Context(), project)
 	require.NoError(t, err)
 
-	wantProject, err := GetValidProjectByID(t.Context(), project.ID, ownerID)
+	wantProject, err := GetProjectByIDForOwner(t.Context(), project.ID, ownerID)
 	require.NoError(t, err)
 	assert.Equal(t, wantProject.Title, projectTitle)
 
@@ -336,14 +337,14 @@ func TestCRUDProject(t *testing.T) {
 		err = CreateProject(t.Context(), orgProject)
 		require.NoError(t, err)
 
-		_, err = GetValidProjectByID(t.Context(), project.ID, 99)
-		assert.True(t, validation.IsErrNotValid(err))
+		_, err = GetProjectByIDForOwner(t.Context(), project.ID, 99)
+		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
 
-		_, err = GetValidProjectByID(t.Context(), repoProject.ID, 99)
-		assert.True(t, validation.IsErrNotValid(err))
+		_, err = GetProjectByIDForOwner(t.Context(), repoProject.ID, 99)
+		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
 
-		_, err = GetValidProjectByID(t.Context(), orgProject.ID, 99)
-		assert.True(t, validation.IsErrNotValid(err))
+		_, err = GetProjectByIDForOwner(t.Context(), orgProject.ID, 99)
+		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
 	})
 
 	updated := &project_structs.CreateProjectOptions{

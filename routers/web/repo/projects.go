@@ -25,7 +25,6 @@ import (
 	"forgejo.org/modules/setting"
 	project_structs "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
-	"forgejo.org/modules/validation"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
@@ -54,9 +53,9 @@ func MustEnableProjects(ctx *context.Context) {
 }
 
 func getAndCheckProjectByID(ctx *context.Context, projectID int64) *project_model.Project {
-	project, err := project_service.GetValidProjectByID(ctx, projectID, ctx.Repo.Repository.ID)
+	project, err := project_service.GetProjectByIDForOwner(ctx, projectID, ctx.Repo.Repository.ID)
 	if err != nil {
-		if validation.IsErrNotValid(err) {
+		if errors.Is(err, util.ErrInvalidArgument) {
 			ctx.NotFound("getAndCheckProjectByID", fmt.Errorf("Project with ID %d does not belong to Repo with ID %d", projectID, ctx.Repo.Repository.ID))
 			return nil
 		}

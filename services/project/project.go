@@ -123,27 +123,35 @@ func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projec
 	return opts
 }
 
-func GetValidProjectByID(ctx context.Context, projectID, ownerID int64) (*project_model.Project, error) {
+func GetProjectByIDForOwner(ctx context.Context, projectID, ownerID int64) (*project_model.Project, error) {
 	project, err := project_model.GetProjectByID(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
-	errNotValid := validation.ErrNotValid{Message: "Project did not belong to given owner"}
+	err = isProjectOwnedBy(project, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	return project, nil
+}
+
+func isProjectOwnedBy(project *project_model.Project, ownerID int64) error {
+	errMismatchedOwner := project_module.ErrMismatchedOwner{Message: "Project did not belong to given owner"}
 	switch project.Type {
 	case project_module.TypeIndividual:
 		if project.OwnerID != ownerID {
-			return nil, errNotValid
+			return errMismatchedOwner
 		}
 	case project_module.TypeOrganization:
 		if project.OwnerID != ownerID {
-			return nil, errNotValid
+			return errMismatchedOwner
 		}
 	case project_module.TypeRepository:
 		if project.RepoID != ownerID {
-			return nil, errNotValid
+			return errMismatchedOwner
 		}
 	}
-	return project, nil
+	return nil
 }
 
 func ListProjectsByOptions(ctx context.Context, opts *project_model.SearchOptions) ([]*project_model.Project, error) {

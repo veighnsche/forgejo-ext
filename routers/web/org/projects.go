@@ -4,6 +4,7 @@
 package org
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,7 +22,7 @@ import (
 	"forgejo.org/modules/setting"
 	project_structs "forgejo.org/modules/structs"
 	"forgejo.org/modules/templates"
-	"forgejo.org/modules/validation"
+	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	shared_user "forgejo.org/routers/web/shared/user"
 	"forgejo.org/services/context"
@@ -36,9 +37,9 @@ const (
 )
 
 func getAndCheckProjectByID(ctx *context.Context, projectID int64) *project_model.Project {
-	project, err := project_service.GetValidProjectByID(ctx, projectID, ctx.ContextUser.ID)
+	project, err := project_service.GetProjectByIDForOwner(ctx, projectID, ctx.ContextUser.ID)
 	if err != nil {
-		if validation.IsErrNotValid(err) {
+		if errors.Is(err, util.ErrInvalidArgument) {
 			ctx.NotFound("getAndCheckProjectByID", fmt.Errorf("Could not find project for Owner with ID %d", ctx.ContextUser.ID))
 			return nil
 		}
