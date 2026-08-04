@@ -417,22 +417,9 @@ func DeleteProjectColumn(ctx *context.Context) {
 		return
 	}
 
-	pb, err := project_service.GetColumnByID(ctx, ctx.ParamsInt64(":columnID"))
+	_, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
 	if err != nil {
 		ctx.ServerError("GetProjectColumn", err)
-		return
-	}
-	if pb.ProjectID != ctx.ParamsInt64(":id") {
-		ctx.JSON(http.StatusUnprocessableEntity, map[string]string{
-			"message": fmt.Sprintf("ProjectColumn[%d] is not in Project[%d] as expected", pb.ID, project.ID),
-		})
-		return
-	}
-
-	if project.OwnerID != ctx.ContextUser.ID {
-		ctx.JSON(http.StatusUnprocessableEntity, map[string]string{
-			"message": fmt.Sprintf("ProjectColumn[%d] is not in Owner[%d] as expected", pb.ID, ctx.ContextUser.ID),
-		})
 		return
 	}
 
@@ -480,15 +467,9 @@ func CheckProjectColumnChangePermissions(ctx *context.Context) (*project_model.P
 		return nil, nil
 	}
 
-	column, err := project_service.GetColumnByID(ctx, ctx.ParamsInt64(":columnID"))
+	column, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
 	if err != nil {
 		ctx.ServerError("GetProjectColumn", err)
-		return nil, nil
-	}
-	if column.ProjectID != ctx.ParamsInt64(":id") {
-		ctx.JSON(http.StatusUnprocessableEntity, map[string]string{
-			"message": fmt.Sprintf("ProjectColumn[%d] is not in Project[%d] as expected", column.ID, project.ID),
-		})
 		return nil, nil
 	}
 	return project, column
@@ -547,14 +528,9 @@ func MoveIssues(ctx *context.Context) {
 		return
 	}
 
-	column, err := project_service.GetColumnByID(ctx, ctx.ParamsInt64(":columnID"))
+	column, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
 	if err != nil {
 		ctx.NotFoundOrServerError("GetProjectColumn", project_model.IsErrProjectColumnNotExist, err)
-		return
-	}
-
-	if column.ProjectID != project.ID {
-		ctx.NotFound("ColumnNotInProject", nil)
 		return
 	}
 

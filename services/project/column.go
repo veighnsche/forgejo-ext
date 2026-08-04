@@ -5,14 +5,13 @@ package project
 
 import (
 	"context"
-	"fmt"
 
 	"forgejo.org/models/db"
 	project_model "forgejo.org/models/project"
-	validation "forgejo.org/modules/validation"
+	"forgejo.org/modules/validation"
 )
 
-// ListProjectColumns Get list of Columns of project
+// ListProjectColumns Fetches a list of ProjectColumns and also returns their total count
 func ListProjectColumns(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*project_model.Column, int64, error) {
 	columns, total, err := project_model.GetColumns(ctx, projectID, listOptions)
 	if err != nil {
@@ -21,8 +20,8 @@ func ListProjectColumns(ctx context.Context, projectID int64, listOptions db.Lis
 	return columns, total, nil
 }
 
-// GetColumnByID Get Column of project
-func GetColumnByID(ctx context.Context, columnID int64) (*project_model.Column, error) {
+// getColumnByID Get a ProjectColumn by its ID
+func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, error) {
 	column, err := project_model.GetColumn(ctx, columnID)
 	if err != nil {
 		return nil, err
@@ -30,21 +29,19 @@ func GetColumnByID(ctx context.Context, columnID int64) (*project_model.Column, 
 	return column, nil
 }
 
+// GetColumnByID Get a Column by its ID
 func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (*project_model.Column, error) {
 	if columnID == int64(0) {
 		return nil, validation.ErrNotValid{
 			Message: "Column ID must not be empty",
 		}
 	}
-	c, err := GetColumnByID(ctx, columnID)
+	c, err := getColumnByID(ctx, columnID)
 	if err != nil {
 		return nil, err
 	}
 	if c.ProjectID != projectID {
-		return nil, validation.ErrNotValid{
-			Message: fmt.Sprintf("Column with ID %v did not belong to Project with ID %v",
-				columnID, projectID),
-		}
+		return nil, project_model.ErrProjectColumnNotExist{ColumnID: c.ID}
 	}
 	return c, nil
 }

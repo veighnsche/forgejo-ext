@@ -272,7 +272,7 @@ func TestGetValidProjectColumnIssue(t *testing.T) {
 	assert.Contains(t, err.Error(), notExistStr)
 
 	_, err = GetValidProjectColumnByID(t.Context(), validProjectID, differentColID)
-	assert.Contains(t, err.Error(), invalidStr)
+	assert.Contains(t, err.Error(), notExistStr)
 
 	_, err = GetValidProjectIssueByID(t.Context(), validProjectID, validColumnID, validProjectIssueID)
 	require.NoError(t, err)
@@ -287,7 +287,7 @@ func TestGetValidProjectColumnIssue(t *testing.T) {
 	assert.Contains(t, err.Error(), invalidStr)
 
 	_, err = GetValidProjectColumnByID(t.Context(), nonExistingProjectID, validColumnID)
-	assert.Contains(t, err.Error(), invalidStr)
+	assert.Contains(t, err.Error(), notExistStr)
 }
 
 func TestCRUDProject(t *testing.T) {
@@ -372,13 +372,13 @@ func TestCRUDProject(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, column1.Default)
 
-		wantCol1, _ := GetColumnByID(t.Context(), column1.ID)
+		wantCol1, _ := GetValidProjectColumnByID(t.Context(), project.ID, column1.ID)
 		assert.Equal(t, wantCol1.Title, columnTitle1)
 
 		err = CreateColumnInProject(t.Context(), column2)
 		require.NoError(t, err)
 
-		wantCol2, err := GetColumnByID(t.Context(), column2.ID)
+		wantCol2, err := GetValidProjectColumnByID(t.Context(), project.ID, column2.ID)
 		require.NoError(t, err)
 		assert.Equal(t, wantCol2.Title, columnTitle2)
 		assert.False(t, wantCol2.Default)
