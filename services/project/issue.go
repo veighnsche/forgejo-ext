@@ -19,7 +19,7 @@ import (
 // ValidIssueID checks if the IDs of the given issue list are valid
 func ValidIssueID(ctx context.Context, ownerID int64, issues issues_model.IssueList) error {
 	if _, err := issues.LoadRepositories(ctx); err != nil {
-		return fmt.Errorf("Got database error %v", err.Error())
+		return fmt.Errorf("Got database error: %v", err.Error())
 	}
 	for _, issue := range issues {
 		if issue.Repo.OwnerID != ownerID {
@@ -33,7 +33,7 @@ func ValidIssueID(ctx context.Context, ownerID int64, issues issues_model.IssueL
 func getProjectIssueByID(ctx context.Context, issueID int64) (*project_model.ProjectIssue, error) {
 	issue, err := project_model.GetProjectIssue(ctx, issueID)
 	if err != nil {
-		return nil, fmt.Errorf("Got database error %v", err.Error())
+		return nil, fmt.Errorf("Got database error: %v", err.Error())
 	}
 	return issue, nil
 }
@@ -63,7 +63,7 @@ func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID 
 func ListProjectIssues(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*project_model.ProjectIssue, int64, error) {
 	issues, total, err := project_model.GetProjectIssues(ctx, projectID, listOptions)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Got database error %v", err.Error())
+		return nil, 0, fmt.Errorf("Got database error: %v", err.Error())
 	}
 	return issues, total, nil
 }
@@ -77,7 +77,7 @@ func CreateIssueInProject(ctx context.Context, issue *issues_model.Issue, doer *
 	}
 	// CreateProjectIssue checks if the colID is 0 and then assigns to defaultCol
 	if err := issues_model.CreateProjectIssue(ctx, issue, doer, projIssue); err != nil {
-		return nil, fmt.Errorf("Got database error %v", err.Error())
+		return nil, fmt.Errorf("Got database error: %v", err.Error())
 	}
 	return projIssue, nil
 }
@@ -97,7 +97,7 @@ func MoveIssuesOnProjectColumn(ctx context.Context, column *project_model.Column
 	sortedIssueIDs := projectIssues.GetSortingsMap()
 	err := project_model.MoveIssuesOnProjectColumn(ctx, column, sortedIssueIDs)
 	if err != nil {
-		return fmt.Errorf("Got database error %v", err.Error())
+		return fmt.Errorf("Got database error: %v", err.Error())
 	}
 	return nil
 }
