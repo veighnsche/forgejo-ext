@@ -184,13 +184,11 @@ func CreateProject(ctx *context.Context) {
 	}
 	project, err := project_service.NewProject(opt, ctx.ContextUser, ctx.Repo.Repository, project_module.APIOwnerTypeRepository)
 	if err != nil {
-		log.Error("Failed to create project.")
 		ctx.ServerError("NewProject", err)
 		return
 	}
 
 	if err := project_service.CreateProject(ctx, project); err != nil {
-		log.Error("Failed to create project.")
 		ctx.ServerError("NewProject", err)
 		return
 	}
