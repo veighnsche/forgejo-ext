@@ -33,14 +33,12 @@ func (tt TemplateType) ToAPITemplateType() APITemplateType {
 }
 
 func (tt TemplateType) Validate() []string {
-	var result []string
 	types := []any{
 		TemplateTypeBasicKanban,
 		TemplateTypeBugTriage,
 		TemplateTypeNone,
 	}
-	result = validation.ValidateOneOf(tt, types, "TemplateType")
-	return result
+	return validation.ValidateOneOf(tt, types, "TemplateType")
 }
 
 type CardType uint8
@@ -64,13 +62,11 @@ func (ct CardType) ToAPICardType() APICardType {
 }
 
 func (ct CardType) Validate() []string {
-	var result []string
 	types := []any{
 		CardTypeTextOnly,
 		CardTypeImagesAndText,
 	}
-	result = validation.ValidateOneOf(ct, types, "CardType")
-	return result
+	return validation.ValidateOneOf(ct, types, "CardType")
 }
 
 type OwnerType uint8
@@ -96,14 +92,12 @@ func (pt OwnerType) ToAPIOwnerType() APIOwnerType {
 }
 
 func (pt OwnerType) Validate() []string {
-	var result []string
 	types := []any{
 		TypeIndividual,
 		TypeRepository,
 		TypeOrganization,
 	}
-	result = validation.ValidateOneOf(pt, types, "ProjectType")
-	return result
+	return validation.ValidateOneOf(pt, types, "OwnerType")
 }
 
 // API Types
@@ -127,14 +121,12 @@ func (pt APIOwnerType) ToOwnerType() OwnerType {
 }
 
 func (pt APIOwnerType) Validate() []string {
-	var result []string
 	types := []any{
 		APIOwnerTypeIndividual,
 		APIOwnerTypeRepository,
 		APIOwnerTypeOrganization,
 	}
-	result = validation.ValidateOneOf(pt, types, "ProjectAPIType")
-	return result
+	return validation.ValidateOneOf(pt, types, "APIOwnerType")
 }
 
 func (pt APIOwnerType) String() string {
@@ -168,14 +160,12 @@ func (p APITemplateType) ToTemplateType() TemplateType {
 }
 
 func (p APITemplateType) Validate() []string {
-	var result []string
 	types := []any{
 		APITemplateTypeNone,
 		APITemplateTypeBasicKanban,
 		APITemplateTypeBugTriage,
 	}
-	result = validation.ValidateOneOf(p, types, "ProjectTemplateType")
-	return result
+	return validation.ValidateOneOf(p, types, "APITemplateType")
 }
 
 func (p APITemplateType) String() string {
@@ -192,7 +182,7 @@ func GetAPITemplateConfigs() []APITemplateConfig {
 
 type (
 	APICardType string
-	// CardConfig is used to identify the type of column card that is being used
+	// APICardConfig is used to identify the type of column card that is being used
 	APICardConfig struct {
 		CardType    APICardType
 		Translation string
@@ -216,13 +206,11 @@ func (p APICardType) ToCardType() CardType {
 }
 
 func (p APICardType) Validate() []string {
-	var result []string
 	types := []any{
 		APICardTypeTextOnly,
 		APICardTypeImagesAndText,
 	}
-	result = validation.ValidateOneOf(p, types, "ProjectCardType")
-	return result
+	return validation.ValidateOneOf(p, types, "APICardType")
 }
 
 func (p APICardType) String() string {
@@ -251,13 +239,11 @@ const (
 
 // Validate checks if project status is valid.
 func (p APIStatus) Validate() []string {
-	var result []string
 	types := []any{
 		APIStatusOpen,
 		APIStatusClosed,
 	}
-	result = validation.ValidateOneOf(p, types, "ProjectStatus")
-	return result
+	return validation.ValidateOneOf(p, types, "APIStatus")
 }
 
 func (p APIStatus) String() string {
