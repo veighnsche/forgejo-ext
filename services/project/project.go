@@ -132,14 +132,13 @@ func GetProjectByIDForOwner(ctx context.Context, projectID, ownerID int64) (*pro
 	if err != nil {
 		return nil, fmt.Errorf("Got database error: %v", err.Error())
 	}
-	err = isProjectOwnedBy(project, ownerID)
-	if err != nil {
+	if err := ensureProjectOwnedBy(project, ownerID); err != nil {
 		return nil, err
 	}
 	return project, nil
 }
 
-func isProjectOwnedBy(project *project_model.Project, ownerID int64) error {
+func ensureProjectOwnedBy(project *project_model.Project, ownerID int64) error {
 	errMismatchedOwner := project_module.ErrMismatchedOwner{Message: "Project did not belong to given owner"}
 	switch project.Type {
 	case project_module.TypeIndividual:
