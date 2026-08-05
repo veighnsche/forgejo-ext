@@ -30,15 +30,15 @@ func TestGetValidProjectIssue(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = GetValidProjectIssueByID(t.Context(), validProjectID, differentColID, 0)
-		assert.ErrorContains(t, err, invalidStr)
+		assert.Contains(t, err.Error(), invalidStr)
 
 		_, err = GetValidProjectIssueByID(t.Context(), validProjectID, validColumnID, nonExistingProjectIssueID)
-		assert.ErrorContains(t, err, notExistStr)
+		assert.Contains(t, err.Error(), notExistStr)
 
 		_, err = GetValidProjectIssueByID(t.Context(), validProjectID, validColumnID, differentProjectIssueID)
-		assert.ErrorContains(t, err, invalidStr)
+		assert.Contains(t, err.Error(), invalidStr)
 
 		_, err = GetValidProjectColumnByID(t.Context(), nonExistingProjectID, validColumnID)
-		assert.ErrorContains(t, err, notExistStr)
+		assert.Contains(t, err.Error(), notExistStr)
 	})
 }
