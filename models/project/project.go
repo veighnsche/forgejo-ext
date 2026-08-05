@@ -222,7 +222,7 @@ func GetSearchOrderBySortType(sortType string) db.SearchOrderBy {
 	}
 }
 
-// CreateProject creates a new Project, expects a valid project which is generated in the respective service function
+// CreateProject Creates a new Project and expects a valid project which is generated in the respective service function.
 // The title will be cut off at 255 characters if it's longer than 255 characters.
 func CreateProject(ctx context.Context, p *Project) error {
 	p.Title, _ = util.SplitStringAtByteN(p.Title, 255)
@@ -242,7 +242,7 @@ func CreateProject(ctx context.Context, p *Project) error {
 	})
 }
 
-// GetProjectByID returns the projects in a repository
+// GetProjectByID Fetches a Project by it ID.
 func GetProjectByID(ctx context.Context, id int64) (*Project, error) {
 	p := new(Project)
 
@@ -256,10 +256,8 @@ func GetProjectByID(ctx context.Context, id int64) (*Project, error) {
 	return p, nil
 }
 
-// UpdateProject updates project properties
-// Expects a valid project which is generated in the respective service function
-// Don't add parameters to Cols() as the only things being updated in a project are
-// title, description and card_type
+// UpdateProject Updates only the following Project properties: Title, Description, CardType.
+// Expects a valid project which is generated in the respective service function.
 func UpdateProject(ctx context.Context, p *Project) error {
 	p.Title, _ = util.SplitStringAtByteN(p.Title, 255)
 	_, err := db.GetEngine(ctx).ID(p.ID).Cols(
@@ -294,8 +292,8 @@ func updateRepositoryProjectCount(ctx context.Context, repoID int64) error {
 	return nil
 }
 
-// ChangeProjectStatus changes the status of the specified project to the given state
-// specified via the `isClosed` argument.
+// ChangeProjectStatus Changes the status of the specified project to the given state.
+// Specified via the `isClosed` argument.
 func ChangeProjectStatus(ctx context.Context, p *Project, isClosed bool) error {
 	if p.IsClosed == isClosed {
 		return nil
@@ -316,10 +314,10 @@ func ChangeProjectStatus(ctx context.Context, p *Project, isClosed bool) error {
 	})
 }
 
-// DeleteProjectByID deletes a project by ID.
+// DeleteProjectByID Deletes a project by ID.
 // If it's not in a database transaction, it will start a new database transaction.
 // repoID is optional and only needed, when updating a Project that belongs to a repository.
-// Leave empty if the Project Type is not repository.
+// Leave empty if the ProjectType is not repository.
 func DeleteProjectByID(ctx context.Context, id int64, repoID optional.Option[int64]) error {
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		if err := deleteProjectIssuesByProjectID(ctx, id); err != nil {
