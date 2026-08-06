@@ -67,6 +67,25 @@ func init() {
 	db.RegisterModel(new(Column))
 }
 
+// ErrProjectColumnNotExist represents a "ErrProjectColumnNotExist" kind of error.
+type ErrProjectColumnNotExist struct {
+	ColumnID int64
+}
+
+// IsErrProjectColumnNotExist checks if an error is a ErrProjectColumnNotExist
+func IsErrProjectColumnNotExist(err error) bool {
+	_, ok := err.(ErrProjectColumnNotExist)
+	return ok
+}
+
+func (err ErrProjectColumnNotExist) Error() string {
+	return fmt.Sprintf("project column does not exist [id: %d]", err.ColumnID)
+}
+
+func (err ErrProjectColumnNotExist) Unwrap() error {
+	return util.ErrNotExist
+}
+
 func createDefaultColumnsForProject(ctx context.Context, project *Project) error {
 	var items []string
 

@@ -41,44 +41,6 @@ func (err ErrProjectNotExist) Unwrap() error {
 	return util.ErrNotExist
 }
 
-// ErrProjectColumnNotExist represents a "ErrProjectColumnNotExist" kind of error.
-type ErrProjectColumnNotExist struct {
-	ColumnID int64
-}
-
-// IsErrProjectColumnNotExist checks if an error is a ErrProjectColumnNotExist
-func IsErrProjectColumnNotExist(err error) bool {
-	_, ok := err.(ErrProjectColumnNotExist)
-	return ok
-}
-
-func (err ErrProjectColumnNotExist) Error() string {
-	return fmt.Sprintf("project column does not exist [id: %d]", err.ColumnID)
-}
-
-func (err ErrProjectColumnNotExist) Unwrap() error {
-	return util.ErrNotExist
-}
-
-// ErrProjectIssueNotExist represents a "ErrProjectIssueNotExist" kind of error.
-type ErrProjectIssueNotExist struct {
-	IssueID int64
-}
-
-// IsErrProjectIssueNotExist checks if an error is a ErrProjectIssueNotExist
-func IsErrProjectIssueNotExist(err error) bool {
-	_, ok := err.(ErrProjectIssueNotExist)
-	return ok
-}
-
-func (err ErrProjectIssueNotExist) Error() string {
-	return fmt.Sprintf("project issue does not exist [id: %d]", err.IssueID)
-}
-
-func (err ErrProjectIssueNotExist) Unwrap() error {
-	return util.ErrNotExist
-}
-
 // Project represents a project
 type Project struct {
 	ID           int64                       `xorm:"pk autoincr"`

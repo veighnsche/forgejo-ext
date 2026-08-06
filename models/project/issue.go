@@ -6,6 +6,7 @@ package project
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 
 	"forgejo.org/models/db"
@@ -28,6 +29,25 @@ type ProjectIssue struct { //revive:disable-line:exported
 
 func init() {
 	db.RegisterModel(new(ProjectIssue))
+}
+
+// ErrProjectIssueNotExist represents a "ErrProjectIssueNotExist" kind of error.
+type ErrProjectIssueNotExist struct {
+	IssueID int64
+}
+
+// IsErrProjectIssueNotExist checks if an error is a ErrProjectIssueNotExist
+func IsErrProjectIssueNotExist(err error) bool {
+	_, ok := err.(ErrProjectIssueNotExist)
+	return ok
+}
+
+func (err ErrProjectIssueNotExist) Error() string {
+	return fmt.Sprintf("project issue does not exist [id: %d]", err.IssueID)
+}
+
+func (err ErrProjectIssueNotExist) Unwrap() error {
+	return util.ErrNotExist
 }
 
 func deleteProjectIssuesByProjectID(ctx context.Context, projectID int64) error {
