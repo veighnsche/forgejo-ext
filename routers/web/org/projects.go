@@ -53,7 +53,7 @@ func getAndCheckProjectByID(ctx *context.Context, projectID int64) *project_mode
 // MustEnableProjects check if projects are enabled in settings
 func MustEnableProjects(ctx *context.Context) {
 	if unit.TypeProjects.UnitGlobalDisabled() {
-		ctx.NotFound("EnableProjects", nil)
+		ctx.NotFound("MustEnableProjects", nil)
 		return
 	}
 }
@@ -81,20 +81,20 @@ func Projects(ctx *context.Context) {
 	log.Debug("Got OwnerSearch Opts for user %v and project type %v", ctx.ContextUser.Name, projectType)
 	projects, err := project_service.ListProjectsByOptions(*ctx, opts)
 	if err != nil {
-		ctx.ServerError("FindProjects", err)
+		ctx.ServerError("ListProjectsByOptions", err)
 		return
 	}
 	log.Debug("Found %v projects", len(projects))
 	total, err := project_service.CountProjectsByOptions(*ctx, opts)
 	if err != nil {
-		ctx.ServerError("CountProjects", err)
+		ctx.ServerError("CountProjectsByOptions", err)
 		return
 	}
 	log.Debug("Counted %v projects", total)
 	countOpts := project_service.GetSearchOpts(ctx.ContextUser.ID, !showClosed, "", "", projectType)
 	opTotal, err := project_service.CountProjectsByOptions(*ctx, countOpts)
 	if err != nil {
-		ctx.ServerError("CountProjects", err)
+		ctx.ServerError("CountProjectsByOptions", err)
 		return
 	}
 
@@ -201,14 +201,12 @@ func CreateProject(ctx *context.Context) {
 	}
 	project, err := project_service.NewProject(opt, ctx.ContextUser, nil, projectType)
 	if err != nil {
-		log.Error("Could not create project %v", form.Title)
 		ctx.ServerError("NewProject", err)
 		return
 	}
 
 	if err := project_service.CreateProject(ctx, project); err != nil {
-		log.Error("Failed to create project.")
-		ctx.ServerError("NewProject", err)
+		ctx.ServerError("CreateProject", err)
 		return
 	}
 	log.Debug("Created project with name %v", form.Title)
@@ -340,13 +338,13 @@ func ViewProject(ctx *context.Context) {
 
 	columns, _, err := project_model.GetColumns(ctx, project.ID, db.ListOptionsAll)
 	if err != nil {
-		ctx.ServerError("GetProjectColumns", err)
+		ctx.ServerError("GetColumns", err)
 		return
 	}
 
 	issuesMap, err := issues_model.LoadIssuesFromColumnList(ctx, columns, ctx.Doer, ctx.Org.Organization, optional.None[bool]())
 	if err != nil {
-		ctx.ServerError("LoadIssuesOfColumns", err)
+		ctx.ServerError("LoadIssuesFromColumnList", err)
 		return
 	}
 
@@ -420,12 +418,12 @@ func DeleteProjectColumn(ctx *context.Context) {
 
 	_, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
 	if err != nil {
-		ctx.ServerError("GetProjectColumn", err)
+		ctx.NotFoundOrServerError("GetValidProjectColumnByID", project_model.IsErrProjectColumnNotExist, err)
 		return
 	}
 
 	if err := project_service.DeleteColumnInProject(ctx, ctx.ParamsInt64(":columnID")); err != nil {
-		ctx.ServerError("DeleteProjectColumnByID", err)
+		ctx.ServerError("DeleteColumnInProject", err)
 		return
 	}
 
@@ -470,7 +468,7 @@ func CheckProjectColumnChangePermissions(ctx *context.Context) (*project_model.P
 
 	column, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
 	if err != nil {
-		ctx.ServerError("GetProjectColumn", err)
+		ctx.NotFoundOrServerError("GetValidProjectColumnByID", project_model.IsErrProjectColumnNotExist, err)
 		return nil, nil
 	}
 	return project, column
@@ -493,7 +491,7 @@ func EditProjectColumn(ctx *context.Context) {
 	}
 
 	if err := project_service.EditColumnInProject(ctx, column); err != nil {
-		ctx.ServerError("UpdateProjectColumn", err)
+		ctx.ServerError("EditColumnInProject", err)
 		return
 	}
 
@@ -531,7 +529,7 @@ func MoveIssues(ctx *context.Context) {
 
 	column, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
 	if err != nil {
-		ctx.NotFoundOrServerError("GetProjectColumn", project_model.IsErrProjectColumnNotExist, err)
+		ctx.NotFoundOrServerError("GetValidProjectColumnByID", project_model.IsErrProjectColumnNotExist, err)
 		return
 	}
 
@@ -543,7 +541,7 @@ func MoveIssues(ctx *context.Context) {
 
 	existingIssues, complete, err := project_service.GetIssues(ctx, form.GetIssueIDs())
 	if err != nil {
-		ctx.NotFoundOrServerError("GetIssueByID", issues_model.IsErrIssueNotExist, err)
+		ctx.NotFoundOrServerError("GetIssues", issues_model.IsErrIssueNotExist, err)
 		return
 	}
 
@@ -552,7 +550,7 @@ func MoveIssues(ctx *context.Context) {
 	}
 
 	if err = project_service.ValidIssueID(ctx, project.OwnerID, existingIssues); err != nil {
-		ctx.ServerError("LoadRepositories", err)
+		ctx.ServerError("ValidIssueID", err)
 		return
 	}
 
