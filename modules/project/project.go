@@ -17,7 +17,7 @@ type ErrMismatchedOwner struct {
 }
 
 func (err ErrMismatchedOwner) Error() string {
-	return fmt.Sprintf("Error: %v", err.Message)
+	return err.Message
 }
 
 func (err ErrMismatchedOwner) Unwrap() error {
@@ -31,7 +31,7 @@ type ErrMismatchedID struct {
 }
 
 func (err ErrMismatchedID) Error() string {
-	return fmt.Sprintf("Error: %v", err.Message)
+	return err.Message
 }
 
 func (err ErrMismatchedID) Unwrap() error {
