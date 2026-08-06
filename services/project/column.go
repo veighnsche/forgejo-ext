@@ -9,6 +9,7 @@ import (
 
 	"forgejo.org/models/db"
 	project_model "forgejo.org/models/project"
+	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/validation"
 )
 
@@ -41,7 +42,9 @@ func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (
 		return nil, fmt.Errorf("Could not get column for project %d: %w", projectID, err)
 	}
 	if c.ProjectID != projectID {
-		return nil, project_model.ErrProjectColumnNotExist{ColumnID: c.ID}
+		return nil, project_module.ErrMismatchedID{
+			Message: fmt.Sprintf("Column %d did not belong to project %d", columnID, projectID),
+		}
 	}
 	return c, nil
 }

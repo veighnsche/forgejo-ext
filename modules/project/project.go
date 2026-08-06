@@ -24,6 +24,20 @@ func (err ErrMismatchedOwner) Unwrap() error {
 	return util.ErrInvalidArgument
 }
 
+// ErrMismatchedID represents an error that
+// occurs when projectID, columnID and/or projectIssueID mismatch
+type ErrMismatchedID struct {
+	Message string
+}
+
+func (err ErrMismatchedID) Error() string {
+	return fmt.Sprintf("Error: %v", err.Message)
+}
+
+func (err ErrMismatchedID) Unwrap() error {
+	return util.ErrInvalidArgument
+}
+
 // Model Types
 
 type TemplateType uint8

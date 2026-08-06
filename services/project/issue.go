@@ -12,6 +12,7 @@ import (
 	issues_model "forgejo.org/models/issues"
 	project_model "forgejo.org/models/project"
 	user_model "forgejo.org/models/user"
+	project_module "forgejo.org/modules/project"
 	project_types "forgejo.org/modules/structs"
 	"forgejo.org/modules/validation"
 )
@@ -51,9 +52,8 @@ func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID 
 		return nil, err
 	}
 	if i.ProjectID != projectID || i.ProjectColumnID != columnID {
-		return nil, validation.ErrNotValid{
-			Message: fmt.Sprintf("Issue with ID %v did not belong to Project with ID %v or Column with ID %v",
-				issueID, projectID, columnID),
+		return nil, project_module.ErrMismatchedID{
+			Message: fmt.Sprintf("Issue %d mismatched with column %d or project %d", issueID, columnID, projectID),
 		}
 	}
 	return i, nil

@@ -4,9 +4,11 @@
 package project
 
 import (
+	"errors"
 	"testing"
 
 	"forgejo.org/models/unittest"
+	"forgejo.org/modules/util"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,9 +38,9 @@ func TestGetValidProjectIssue(t *testing.T) {
 		assert.Contains(t, err.Error(), notExistStr)
 
 		_, err = GetValidProjectIssueByID(t.Context(), validProjectID, validColumnID, differentProjectIssueID)
-		assert.Contains(t, err.Error(), invalidStr)
+		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
 
 		_, err = GetValidProjectColumnByID(t.Context(), nonExistingProjectID, validColumnID)
-		assert.Contains(t, err.Error(), notExistStr)
+		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
 	})
 }
