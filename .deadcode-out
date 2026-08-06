@@ -50,11 +50,11 @@ forgejo.org/models/perm/access
 	GetRepoWriters
 
 forgejo.org/models/project
-	GetProjectIssues
-	GetProjectIssue
 	IsErrProjectIssueNotExist
 	ErrProjectIssueNotExist.Error
 	ErrProjectIssueNotExist.Unwrap
+	GetProjectIssues
+	GetProjectIssue
 	GetTemplateConfigs
 	IsTemplateTypeValid
 
@@ -293,7 +293,6 @@ forgejo.org/services/notify
 	UnregisterNotifier
 
 forgejo.org/services/project
-	ListProjectIssuesByColumn
 	getProjectIssueByID
 	GetValidProjectIssueByID
 	ListProjectIssues
