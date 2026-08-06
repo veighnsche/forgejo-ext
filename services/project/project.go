@@ -130,7 +130,7 @@ func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projec
 func GetProjectByIDForOwner(ctx context.Context, projectID, ownerID int64) (*project_model.Project, error) {
 	project, err := project_model.GetProjectByID(ctx, projectID)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get project %d for owner %d: %w", projectID, ownerID, err)
+		return nil, fmt.Errorf("could not get project %d for owner %d: %w", projectID, ownerID, err)
 	}
 	if err := ensureProjectOwnedBy(project, ownerID); err != nil {
 		return nil, err
@@ -175,7 +175,7 @@ func CountProjectsByOptions(ctx context.Context, opts *project_model.SearchOptio
 func CreateProject(ctx context.Context, project *project_model.Project) error {
 	err := project_model.CreateProject(ctx, project)
 	if err != nil {
-		return fmt.Errorf("Could not create project %d: %w", project.ID, err)
+		return fmt.Errorf("could not create project %d: %w", project.ID, err)
 	}
 	return nil
 }
@@ -222,7 +222,7 @@ func UpdateProject(ctx context.Context, project *project_model.Project, updated 
 func DeleteProjectByID(ctx context.Context, projectID int64, repoID optional.Option[int64]) error {
 	err := project_model.DeleteProjectByID(ctx, projectID, repoID)
 	if err != nil {
-		return fmt.Errorf("Could not delete project %d: %w", projectID, err)
+		return fmt.Errorf("could not delete project %d: %w", projectID, err)
 	}
 	return nil
 }

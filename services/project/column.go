@@ -17,7 +17,7 @@ import (
 func ListProjectColumns(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*project_model.Column, int64, error) {
 	columns, total, err := project_model.GetColumns(ctx, projectID, listOptions)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Could not list columns for project %d: %w", projectID, err)
+		return nil, 0, fmt.Errorf("could not list columns for project %d: %w", projectID, err)
 	}
 	return columns, total, nil
 }
@@ -25,7 +25,7 @@ func ListProjectColumns(ctx context.Context, projectID int64, listOptions db.Lis
 func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, error) {
 	column, err := project_model.GetColumn(ctx, columnID)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get column %d: %w", columnID, err)
+		return nil, fmt.Errorf("failed to get column %d: %w", columnID, err)
 	}
 	return column, nil
 }
@@ -34,16 +34,16 @@ func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, 
 func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (*project_model.Column, error) {
 	if columnID == int64(0) {
 		return nil, validation.ErrNotValid{
-			Message: "Column ID must not be empty",
+			Message: "column ID must not be empty",
 		}
 	}
 	c, err := getColumnByID(ctx, columnID)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get column for project %d: %w", projectID, err)
+		return nil, fmt.Errorf("could not get column for project %d: %w", projectID, err)
 	}
 	if c.ProjectID != projectID {
 		return nil, project_module.ErrMismatchedID{
-			Message: fmt.Sprintf("Column %d did not belong to project %d", columnID, projectID),
+			Message: fmt.Sprintf("column %d did not belong to project %d", columnID, projectID),
 		}
 	}
 	return c, nil
@@ -53,7 +53,7 @@ func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (
 func CreateColumnInProject(ctx context.Context, col *project_model.Column) error {
 	err := project_model.CreateColumn(ctx, col)
 	if err != nil {
-		return fmt.Errorf("Could not create column for project %d: %w", col.ProjectID, err)
+		return fmt.Errorf("could not create column for project %d: %w", col.ProjectID, err)
 	}
 	return nil
 }
@@ -62,7 +62,7 @@ func CreateColumnInProject(ctx context.Context, col *project_model.Column) error
 func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
 	err := project_model.UpdateColumn(ctx, col)
 	if err != nil {
-		return fmt.Errorf("Could not edit column for project %d: %w", col.ProjectID, err)
+		return fmt.Errorf("could not edit column for project %d: %w", col.ProjectID, err)
 	}
 	return nil
 }
@@ -76,7 +76,7 @@ func SetDefaultColumn(ctx context.Context, projectID, columnID int64) error {
 func DeleteColumnInProject(ctx context.Context, columnID int64) error {
 	err := project_model.DeleteColumnByID(ctx, columnID)
 	if err != nil {
-		return fmt.Errorf("Could not delete column %d: %w", columnID, err)
+		return fmt.Errorf("could not delete column %d: %w", columnID, err)
 	}
 	return nil
 }

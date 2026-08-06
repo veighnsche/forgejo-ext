@@ -44,7 +44,7 @@ func getProjectIssueByID(ctx context.Context, issueID int64) (*project_model.Pro
 func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID int64) (*project_model.ProjectIssue, error) {
 	if issueID == int64(0) {
 		return nil, validation.ErrNotValid{
-			Message: "IssueID must not be empty",
+			Message: "issueID must not be empty",
 		}
 	}
 	i, err := getProjectIssueByID(ctx, issueID)
@@ -53,7 +53,7 @@ func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID 
 	}
 	if i.ProjectID != projectID || i.ProjectColumnID != columnID {
 		return nil, project_module.ErrMismatchedID{
-			Message: fmt.Sprintf("Issue %d mismatched with column %d or project %d", issueID, columnID, projectID),
+			Message: fmt.Sprintf("issue %d mismatched with column %d or project %d", issueID, columnID, projectID),
 		}
 	}
 	return i, nil
@@ -63,7 +63,7 @@ func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID 
 func ListProjectIssues(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*project_model.ProjectIssue, int64, error) {
 	issues, total, err := project_model.GetProjectIssues(ctx, projectID, listOptions)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Could not get issues for project %d: %w", projectID, err)
+		return nil, 0, fmt.Errorf("could not get issues for project %d: %w", projectID, err)
 	}
 	return issues, total, nil
 }
@@ -77,7 +77,7 @@ func CreateIssueInProject(ctx context.Context, issue *issues_model.Issue, doer *
 	}
 	// CreateProjectIssue checks if the colID is 0 and then assigns to defaultCol
 	if err := issues_model.CreateProjectIssue(ctx, issue, doer, projIssue); err != nil {
-		return nil, fmt.Errorf("Could not create issue in project %d: %w", projectID, err)
+		return nil, fmt.Errorf("could not create issue in project %d: %w", projectID, err)
 	}
 	return projIssue, nil
 }
@@ -86,7 +86,7 @@ func CreateIssueInProject(ctx context.Context, issue *issues_model.Issue, doer *
 func GetIssues(ctx context.Context, issueIDs []int64) (issues_model.IssueList, bool, error) {
 	issues, err := issues_model.GetIssuesByIDs(ctx, issueIDs, true)
 	if err != nil {
-		return nil, false, fmt.Errorf("Could not get issues: %w", err)
+		return nil, false, fmt.Errorf("could not get issues: %w", err)
 	}
 	complete := len(issues) == len(issueIDs)
 	return issues, complete, nil
@@ -97,7 +97,7 @@ func MoveIssuesOnProjectColumn(ctx context.Context, column *project_model.Column
 	sortedIssueIDs := projectIssues.GetSortingsMap()
 	err := project_model.MoveIssuesOnProjectColumn(ctx, column, sortedIssueIDs)
 	if err != nil {
-		return fmt.Errorf("Could not sort or move issue on column %d: %w", column.ID, err)
+		return fmt.Errorf("could not sort or move issue on column %d: %w", column.ID, err)
 	}
 	return nil
 }
