@@ -66,3 +66,39 @@ test('Create tag from commit', async ({page}) => {
   response = await page.goto(`/user2/repo1/releases/tag/${tagName}`);
   expect(response?.status()).toBe(200);
 });
+
+test('Cherry-pick commit', async ({page}) => {
+  // Navigate to the test repository.
+  const response = await page.goto('/user2/cherry-picking/src/branch/main');
+  expect(response?.status()).toBe(200);
+
+  // Open the commit we want to cherry-pick.
+  await page.locator('#repo-files-table .shortsha').click();
+
+  // Check that the cherry-picking modal can be cancelled.
+  await page.locator('.commit-header-buttons .dropdown.button').click();
+  await page.getByRole('option', {name: 'Cherry-pick'}).click();
+  await expect(page.locator('#cherry-pick-modal')).toBeVisible();
+  await page.getByRole('button', {name: 'Cancel'}).click();
+  await expect(page.locator('#cherry-pick-modal')).toBeHidden();
+
+  // Open it again.
+  await page.locator('.commit-header-buttons .dropdown.button').click();
+  await page.getByRole('option', {name: 'Cherry-pick'}).click();
+  await expect(page.locator('#cherry-pick-modal')).toBeVisible();
+
+  // Pick the target branch.
+  await page.locator('.js-branch-tag-selector button').click();
+  const menu = page.locator('.js-branch-tag-selector .menu');
+  await menu.locator('.item').getByText('basket').click();
+
+  // Check that the file introduced in the cherry-picked commit is visible on the target branch.
+  await page.locator('#commit-button').click();
+  await expect(page).toHaveURL('/user2/cherry-picking/src/branch/basket');
+  await expect(page.locator('#repo-files-table > tbody > tr.entry > td.name')).toHaveText(['new-cherry.txt', 'old-cherries.txt', 'README.md']);
+
+  // Navigate to the cherry-picked commit and check that its author and committer are correct.
+  await page.locator('#repo-files-table .shortsha').click();
+  await expect(page.locator('.commit-header-row .author > strong')).toHaveText('Cherry Enthusiast');
+  await expect(page.locator('.commit-header-row .author > a > strong')).toHaveText('user2');
+});

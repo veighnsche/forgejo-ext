@@ -38,6 +38,7 @@ type FileChanges struct {
 	Filename  string
 	CommitMsg string
 	Versions  []string
+	Author    *files_service.IdentityOptions
 }
 
 // performs additional repo setup as needed
@@ -239,6 +240,24 @@ liberapay: example
 custom: "http://localhost:3003/"
 `},
 	}}, nil)
+	newRepo(t, 2, "cherry-picking", nil, []FileChanges{
+		{
+			Filename:  "old-cherries.txt",
+			Versions:  []string{"Many-a chery."},
+			CommitMsg: "Track already picked cherries",
+		},
+		{
+			Filename:  "new-cherry.txt",
+			Versions:  []string{"This cherry is ripe for the picking!"},
+			CommitMsg: "Pick me \\o/",
+			Author: &files_service.IdentityOptions{
+				Name:  "Cherry Enthusiast",
+				Email: "cherryenthusiast@example.com",
+			},
+		},
+	}, func(user *user_model.User, repo *repo_model.Repository) {
+		addCommitToBranch(t, user, repo, "main", "basket", "old-cherries.txt", "", "Many-a cherry.")
+	})
 	// add your repo declarations here
 }
 
@@ -279,6 +298,13 @@ func newRepo(t *testing.T, userID int64, repoName string, enabledUnits map[unit_
 				commitMsg = fmt.Sprintf("Patch: %s-%d", file.Filename, i+1)
 			}
 
+			author := file.Author
+			if author == nil {
+				author = &files_service.IdentityOptions{
+					Name:  user.Name,
+					Email: user.Email,
+				}
+			}
 			resp, err := files_service.ChangeRepoFiles(git.DefaultContext, somerepo, user, &files_service.ChangeRepoFilesOptions{
 				Files: []*files_service.ChangeRepoFile{{
 					Operation:     operation,
@@ -288,10 +314,7 @@ func newRepo(t *testing.T, userID int64, repoName string, enabledUnits map[unit_
 				Message:   commitMsg,
 				OldBranch: "main",
 				NewBranch: "main",
-				Author: &files_service.IdentityOptions{
-					Name:  user.Name,
-					Email: user.Email,
-				},
+				Author:    author,
 				Committer: &files_service.IdentityOptions{
 					Name:  user.Name,
 					Email: user.Email,
