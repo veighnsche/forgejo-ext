@@ -1,0 +1,21 @@
+From 09582d09b16f7c017cb7754fb64cb65a9883b715 Mon Sep 17 00:00:00 2001
+From: Cherry Enthusiast <cherryenthusiast@example.com>
+Date: Mon, 10 Aug 2026 20:11:39 +0200
+Subject: [PATCH] Pick me \o/
+
+---
+ new-cherry.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 new-cherry.txt
+
+diff --git a/new-cherry.txt b/new-cherry.txt
+new file mode 100644
+index 0000000..2b7c728
+--- /dev/null
++++ b/new-cherry.txt
+@@ -0,0 +1 @@
++This cherry is ripe for the picking!
+\ No newline at end of file
+-- 
+2.47.3
+

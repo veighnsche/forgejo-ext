@@ -68,12 +68,14 @@ test('Create tag from commit', async ({page}) => {
 });
 
 test('Cherry-pick commit', async ({page}) => {
+  const latestCommit = page.locator('#repo-files-table .commit-list .repo-files-table-latest-commit-cell .commit-summary .message-wrapper');
+
   // Navigate to the test repository.
   const response = await page.goto('/user2/cherry-picking/src/branch/main');
   expect(response?.status()).toBe(200);
 
   // Open the commit we want to cherry-pick.
-  await page.locator('#repo-files-table .shortsha').click();
+  await latestCommit.click();
 
   // Check that the cherry-picking modal can be cancelled.
   await page.locator('.commit-header-buttons .dropdown.button').click();
@@ -98,7 +100,7 @@ test('Cherry-pick commit', async ({page}) => {
   await expect(page.locator('#repo-files-table > tbody > tr.entry > td.name')).toHaveText(['new-cherry.txt', 'old-cherries.txt', 'README.md']);
 
   // Navigate to the cherry-picked commit and check that its author and committer are correct.
-  await page.locator('#repo-files-table .shortsha').click();
+  await latestCommit.click();
   await expect(page.locator('.commit-header-row .author > strong')).toHaveText('Cherry Enthusiast');
   await expect(page.locator('.commit-header-row .author > a > strong')).toHaveText('user2');
 });
