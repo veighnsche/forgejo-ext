@@ -69,7 +69,7 @@ test('Create tag from commit', async ({page}) => {
 
 test('Cherry-pick commit and then revert it', async ({page}) => {
   const latestCommit = page.locator('#repo-files-table .commit-list .repo-files-table-latest-commit-cell .commit-summary .message-wrapper .default-link');
-  const modal = page.locator("#cherry-pick-modal");
+  const modal = page.locator('#cherry-pick-modal');
   const menu = page.locator('.js-branch-tag-selector .menu');
 
   // Navigate to the test repository.
@@ -102,7 +102,7 @@ test('Cherry-pick commit and then revert it', async ({page}) => {
 
   // Navigate to the cherry-picked commit and check that its author and committer are correct.
   await latestCommit.click();
-  await expect(page.locator('.commit-header-row .author img').first()).toHaveAttribute('title', 'cherryenthusiast@example.com')
+  await expect(page.locator('.commit-header-row .author img').first()).toHaveAttribute('title', 'cherryenthusiast@example.com');
   await expect(page.locator('.commit-header-row .author strong').first()).toHaveText('Cherry Enthusiast');
   await expect(page.locator('.commit-header-row .author a strong')).toHaveText('user2');
 
@@ -129,6 +129,6 @@ test('Cherry-pick commit and then revert it', async ({page}) => {
 
   // Navigate to the reversal commit and check that its author is correct.
   await latestCommit.click();
-  await expect(page.locator('.commit-header-row .author img')).toHaveAttribute('title', '< U<se>r Tw<o > ><')
+  await expect(page.locator('.commit-header-row .author img')).toHaveAttribute('title', '< U<se>r Tw<o > ><');
   await expect(page.locator('.commit-header-row .author strong')).toHaveText('< U<se>r Tw<o > ><');
 });
