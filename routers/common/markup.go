@@ -125,7 +125,7 @@ func (re *Renderer) RenderMarkupWebContext(ctx *context.Context, repo *context.R
 	if err := markup.Render(&markup.RenderContext{
 		Ctx: ctx,
 		Links: markup.Links{
-			AbsolutePrefix: true,
+			AbsolutePrefix: false,
 			Base:           re.URLPrefix,
 			BranchPath:     re.BranchPath,
 		},
