@@ -10,7 +10,7 @@
   passwd_hash_algo: dummy
   must_change_password: false
   login_source: 1001
-  login_name: 123
+  login_name: remote01
   login_type: 6
   type: 5
   salt: ZogKvWdyEx
@@ -61,6 +61,120 @@
   prohibit_login: true
   avatar: ""
   avatar_email: avatarbot01@example.com
+  use_custom_avatar: false
+  num_followers: 0
+  num_following: 0
+  num_stars: 0
+  num_repos: 0
+  num_teams: 0
+  num_members: 0
+  visibility: 0
+  repo_admin_change_team_access: false
+  theme: ""
+  keep_activity_private: false
+
+-
+  id: 1043
+  lower_name: user1043
+  name: user1043
+  full_name: user1043
+  email: user1043@example.com
+  keep_email_private: false
+  email_notifications_preference: onmention
+  passwd: ZogKvWdyEx:password
+  passwd_hash_algo: dummy
+  must_change_password: false
+  login_type: 6
+  login_source: 1001
+  login_name: user1043
+  type: 0
+  salt: ZogKvWdyEx
+  max_repo_creation: -1
+  is_active: true
+  is_admin: false
+  is_restricted: false
+  allow_git_hook: false
+  allow_import_local: false
+  allow_create_organization: true
+  prohibit_login: false
+  avatar: ""
+  avatar_email: user1043@example.com
+  use_custom_avatar: false
+  num_followers: 0
+  num_following: 0
+  num_stars: 0
+  num_repos: 0
+  num_teams: 0
+  num_members: 0
+  visibility: 0
+  repo_admin_change_team_access: false
+  theme: ""
+  keep_activity_private: false
+
+-
+  id: 1044
+  lower_name: user1044
+  name: user1044
+  full_name: user1044
+  email: user1044@example.com
+  keep_email_private: false
+  email_notifications_preference: onmention
+  passwd: ""
+  passwd_hash_algo: dummy
+  must_change_password: false
+  login_type: 6
+  login_source: 1001
+  login_name: user1044
+  type: 0
+  salt: ""
+  max_repo_creation: -1
+  is_active: true
+  is_admin: false
+  is_restricted: false
+  allow_git_hook: false
+  allow_import_local: false
+  allow_create_organization: true
+  prohibit_login: false
+  avatar: ""
+  avatar_email: user1044@example.com
+  use_custom_avatar: false
+  num_followers: 0
+  num_following: 0
+  num_stars: 0
+  num_repos: 0
+  num_teams: 0
+  num_members: 0
+  visibility: 0
+  repo_admin_change_team_access: false
+  theme: ""
+  keep_activity_private: false
+
+-
+  id: 1045
+  lower_name: user1045
+  name: user1045
+  full_name: user1045
+  email: user1045@example.com
+  keep_email_private: false
+  email_notifications_preference: onmention
+  passwd: ""
+  passwd_hash_algo: dummy
+  must_change_password: false
+  login_type: 6
+  login_source: 1002
+  login_name: user1045
+  type: 0
+  salt: ""
+  max_repo_creation: -1
+  is_active: true
+  is_admin: false
+  is_restricted: false
+  allow_git_hook: false
+  allow_import_local: false
+  allow_create_organization: true
+  prohibit_login: false
+  avatar: ""
+  avatar_email: user1045@example.com
   use_custom_avatar: false
   num_followers: 0
   num_following: 0

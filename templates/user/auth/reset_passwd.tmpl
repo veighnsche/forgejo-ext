@@ -2,6 +2,11 @@
 <div role="main" aria-label="{{.Title}}" class="page-content user reset password">
 	<div class="ui middle very relaxed page grid">
 		<div class="column">
+			{{if .UnlinksAccount}}
+				<div class="ui warning message">
+					{{ctx.Locale.Tr "auth.reset_password.warn_unliking" (HTMLFormat "<b>%[1]s</b>" .ProviderName)}}
+				</div>
+			{{end}}
 			<form class="ui form ignore-dirty" action="{{.Link}}" method="post">
 				<input name="code" type="hidden" value="{{.Code}}">
 				<h2 class="ui top attached header">

@@ -85,6 +85,7 @@ type AuthenticationForm struct {
 	GroupTeamMap                  string `binding:"ValidGroupTeamMap"`
 	GroupTeamMapRemoval           bool
 	AllowUsernameChange           bool
+	AllowUnlinking                bool
 }
 
 // Validate validates fields

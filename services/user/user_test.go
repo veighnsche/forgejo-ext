@@ -207,7 +207,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestRenameUser(t *testing.T) {
-	defer unittest.OverrideFixtures("models/user/fixtures/")()
+	defer unittest.OverrideFixtures("models/user/fixtures")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 21})
 

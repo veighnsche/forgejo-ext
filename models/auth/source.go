@@ -112,12 +112,13 @@ type SourceSettable interface {
 
 // Source represents an external way for authorizing users.
 type Source struct {
-	ID            int64 `xorm:"pk autoincr"`
-	Type          Type
-	Name          string             `xorm:"UNIQUE"`
-	IsActive      bool               `xorm:"INDEX NOT NULL DEFAULT false"`
-	IsSyncEnabled bool               `xorm:"INDEX NOT NULL DEFAULT false"`
-	Cfg           convert.Conversion `xorm:"TEXT"`
+	ID             int64 `xorm:"pk autoincr"`
+	Type           Type
+	Name           string             `xorm:"UNIQUE"`
+	IsActive       bool               `xorm:"INDEX NOT NULL DEFAULT false"`
+	IsSyncEnabled  bool               `xorm:"INDEX NOT NULL DEFAULT false"`
+	Cfg            convert.Conversion `xorm:"TEXT"`
+	AllowUnlinking bool               `xorm:"NOT NULL DEFAULT false"`
 
 	CreatedUnix timeutil.TimeStamp `xorm:"INDEX created"`
 	UpdatedUnix timeutil.TimeStamp `xorm:"INDEX updated"`

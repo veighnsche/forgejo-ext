@@ -414,6 +414,15 @@
 						</div>
 					</div>
 				{{end}}
+
+				<div class="inline field">
+					<div class="ui checkbox">
+						<label>{{ctx.Locale.Tr "admin.auths.allow_unlinking.label"}}</label>
+						<input name="allow_unlinking" type="checkbox" {{if .Source.AllowUnlinking}}checked{{end}}>
+						<p class="help">{{ctx.Locale.Tr "admin.auths.allow_unlinking.help"}}</p>
+					</div>
+				</div>
+
 				<div class="inline field">
 					<div class="ui checkbox">
 						<label><strong>{{ctx.Locale.Tr "admin.auths.activated"}}</strong></label>

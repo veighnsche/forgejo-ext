@@ -71,7 +71,7 @@ func AccountPost(ctx *context.Context) {
 			Password:           optional.Some(form.Password),
 			MustChangePassword: optional.Some(false),
 		}
-		if err := user.UpdateAuth(ctx, ctx.Doer, opts); err != nil {
+		if err := user.UpdateAuth(ctx, ctx.Doer, opts, nil); err != nil {
 			switch {
 			case errors.Is(err, password.ErrMinLength):
 				ctx.Flash.Error(ctx.Tr("auth.password_too_short", setting.MinPasswordLength))

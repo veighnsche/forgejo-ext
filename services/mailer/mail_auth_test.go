@@ -32,7 +32,7 @@ func TestPasswordChangeMail(t *testing.T) {
 		called = true
 	})()
 
-	require.NoError(t, user_service.UpdateAuth(db.DefaultContext, user, &user_service.UpdateAuthOptions{Password: optional.Some("NewPasswordYolo!")}))
+	require.NoError(t, user_service.UpdateAuth(db.DefaultContext, user, &user_service.UpdateAuthOptions{Password: optional.Some("NewPasswordYolo!")}, nil))
 	assert.True(t, called)
 }
 

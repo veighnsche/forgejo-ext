@@ -289,7 +289,7 @@ func suspendAccount(ctx *context.Context, contentType moderation.ReportedContent
 
 	authOpts := &user_service.UpdateAuthOptions{ProhibitLogin: optional.Some(true)}
 	// TODO: should we implement a new, simpler, SuspendAccount() method?!
-	if err = user_service.UpdateAuth(ctx, reportedUser, authOpts); err != nil {
+	if err = user_service.UpdateAuth(ctx, reportedUser, authOpts, nil); err != nil {
 		ctx.Error(http.StatusInternalServerError, fmt.Sprintf("Failed to suspend the user: %s", err.Error()))
 		return
 	}

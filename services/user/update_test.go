@@ -99,23 +99,23 @@ func TestUpdateAuth(t *testing.T) {
 
 	require.NoError(t, UpdateAuth(db.DefaultContext, user, &UpdateAuthOptions{
 		LoginName: optional.Some("new-login"),
-	}))
+	}, nil))
 	assert.Equal(t, "new-login", user.LoginName)
 
 	require.NoError(t, UpdateAuth(db.DefaultContext, user, &UpdateAuthOptions{
 		Password:           optional.Some("%$DRZUVB576tfzgu"),
 		MustChangePassword: optional.Some(true),
-	}))
+	}, nil))
 	assert.True(t, user.MustChangePassword)
 	assert.NotEqual(t, userCopy.Passwd, user.Passwd)
 	assert.NotEqual(t, userCopy.Salt, user.Salt)
 
 	require.NoError(t, UpdateAuth(db.DefaultContext, user, &UpdateAuthOptions{
 		ProhibitLogin: optional.Some(true),
-	}))
+	}, nil))
 	assert.True(t, user.ProhibitLogin)
 
 	require.ErrorIs(t, UpdateAuth(db.DefaultContext, user, &UpdateAuthOptions{
 		Password: optional.Some("aaaa"),
-	}), password_module.ErrMinLength)
+	}, nil), password_module.ErrMinLength)
 }

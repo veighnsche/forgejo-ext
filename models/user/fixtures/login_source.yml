@@ -6,3 +6,13 @@
   cfg: '{"Provider":"invalid","ClientID":"invalid","ClientSecret":"invalid","AllowUsernameChange":true}'
   created_unix: 1753740851
   updated_unix: 1753740851
+  allow_unlinking: false
+-
+  id: 1002
+  type: 6 # OAuth2
+  name: Unlinkable OAuth2 authentication source
+  is_active: true
+  cfg: '{"Provider":"invalid","ClientID":"invalid","ClientSecret":"invalid","AllowUsernameChange":true}'
+  created_unix: 1786713024
+  updated_unix: 1786713024
+  allow_unlinking: true

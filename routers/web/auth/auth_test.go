@@ -8,12 +8,15 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/models/unittest"
+	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/templates"
 	"forgejo.org/modules/test"
 	"forgejo.org/services/contexttest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUserLogin(t *testing.T) {
@@ -68,6 +71,50 @@ func TestSignUpPostDisabled(t *testing.T) {
 	defer test.MockVariableValue(&setting.Service.DisableRegistration, true)()
 	SignUpPost(ctx)
 	assert.Equal(t, http.StatusForbidden, resp.Code)
+}
+
+func TestCanResetPassword(t *testing.T) {
+	defer unittest.OverrideFixtures("models/user/fixtures")()
+	require.NoError(t, unittest.PrepareTestDatabase())
+	ctx, _ := contexttest.MockContext(t, "/user/forgot_password")
+
+	// local account
+	u := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+	canReset, err := canResetPassword(ctx, u)
+	require.NoError(t, err)
+	assert.True(t, canReset)
+
+	_, ok := ctx.Data["UnlinksAccount"].(bool)
+	assert.False(t, ok)
+
+	// non local OAuth2 account with password
+	u = unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1043})
+	canReset, err = canResetPassword(ctx, u)
+	require.NoError(t, err)
+	assert.True(t, canReset)
+
+	_, ok = ctx.Data["UnlinksAccount"].(bool)
+	assert.False(t, ok)
+
+	// non local account without password not allowing unlinking
+	u = unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1044})
+	canReset, err = canResetPassword(ctx, u)
+	require.NoError(t, err)
+	assert.False(t, canReset)
+
+	data, ok := ctx.Data["UnlinksAccount"].(bool)
+	assert.True(t, ok)
+	assert.True(t, data)
+
+	// non local account without password allowing unlinking
+	u = unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1045})
+	canReset, err = canResetPassword(ctx, u)
+	require.NoError(t, err)
+	assert.True(t, canReset)
+
+	data, ok = ctx.Data["UnlinksAccount"].(bool)
+	assert.True(t, ok)
+	assert.True(t, data)
 }
 
 func TestSignUpWithUsernamePrefix(t *testing.T) {

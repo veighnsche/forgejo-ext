@@ -208,7 +208,7 @@ func EditUser(ctx *context.APIContext) {
 		MustChangePassword: optional.FromPtr(form.MustChangePassword),
 		ProhibitLogin:      optional.FromPtr(form.ProhibitLogin),
 	}
-	if err := user_service.UpdateAuth(ctx, ctx.User(), authOpts); err != nil {
+	if err := user_service.UpdateAuth(ctx, ctx.User(), authOpts, nil); err != nil {
 		switch {
 		case errors.Is(err, password.ErrMinLength):
 			ctx.Error(http.StatusBadRequest, "PasswordTooShort", fmt.Errorf("password must be at least %d characters", setting.MinPasswordLength))
