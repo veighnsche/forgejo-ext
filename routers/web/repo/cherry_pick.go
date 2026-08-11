@@ -120,23 +120,27 @@ func CherryPickPost(ctx *context.Context) {
 		return
 	}
 
-	cherryPickCommit, err := ctx.Repo.GitRepo.GetCommit(sha)
-	if err != nil {
-		ctx.ServerError("GetCommit", err)
-		return
+	author := gitIdentity
+	if !form.Revert {
+		cherryPickCommit, err := ctx.Repo.GitRepo.GetCommit(sha)
+		if err != nil {
+			ctx.ServerError("GetCommit", err)
+			return
+		}
+		authorSignature := cherryPickCommit.Author
+		author = &files.IdentityOptions{
+			Name:  authorSignature.Name,
+			Email: authorSignature.Email,
+		}
 	}
-	author := cherryPickCommit.Author
 
 	opts := &files.ApplyDiffPatchOptions{
 		LastCommitID: form.LastCommit,
 		OldBranch:    ctx.Repo.BranchName,
 		NewBranch:    branchName,
 		Message:      message,
-		Author: &files.IdentityOptions{
-			Name:  author.Name,
-			Email: author.Email,
-		},
-		Committer: gitIdentity,
+		Author:       author,
+		Committer:    gitIdentity,
 	}
 
 	// First lets try the simple plain read-tree -m approach

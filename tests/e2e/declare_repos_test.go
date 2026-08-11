@@ -23,6 +23,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	issue_service "forgejo.org/services/issue"
+	"forgejo.org/services/repository"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/services/wiki"
 	"forgejo.org/tests/forgery"
@@ -42,7 +43,7 @@ type FileChanges struct {
 }
 
 // performs additional repo setup as needed
-type SetupRepo func(*user_model.User, *repo_model.Repository)
+type SetupRepo func(*user_model.User, *repo_model.Repository, []string)
 
 // put your Git repo declarations in here
 // feel free to amend the helper function below or use the raw variant directly
@@ -89,7 +90,7 @@ func DeclareGitRepos(t *testing.T) {
 	}, []FileChanges{{
 		Filename: "a-file",
 		Versions: []string{"{a}{а}"},
-	}}, func(user *user_model.User, repo *repo_model.Repository) {
+	}}, func(user *user_model.User, repo *repo_model.Repository, _ []string) {
 		wiki.InitWiki(db.DefaultContext, repo)
 		wiki.AddWikiPage(db.DefaultContext, user, repo, "Home", "{a}{а}", "{a}{а}")
 		wiki.AddWikiPage(db.DefaultContext, user, repo, "_Sidebar", "{a}{а}", "{a}{а}")
@@ -135,7 +136,7 @@ body:
 			EnableDependencies: true,
 		},
 		unit_model.TypeCode: nil,
-	}, []FileChanges{}, func(user *user_model.User, repo *repo_model.Repository) {
+	}, []FileChanges{}, func(user *user_model.User, repo *repo_model.Repository, _ []string) {
 		postIssue(repo, user, 500, "first issue here", "an issue created earlier")
 		postIssue(repo, user, 400, "second issue here", "not the right issue, but in the right repo")
 		postIssue(repo, user, 300, "third issue here", "depends on things")
@@ -147,7 +148,7 @@ body:
 			EnableDependencies: true,
 		},
 		unit_model.TypeCode: nil,
-	}, []FileChanges{}, func(user *user_model.User, repo *repo_model.Repository) {
+	}, []FileChanges{}, func(user *user_model.User, repo *repo_model.Repository, _ []string) {
 		postIssue(repo, user, 450, "right issue", "an issue containing word right")
 		postIssue(repo, user, 150, "left issue", "an issue containing word left")
 	})
@@ -156,7 +157,7 @@ body:
 		Versions: []string{
 			readStringFile(t, "tests/e2e/declarative-repo/long-diff-test/0-README.md"),
 		},
-	}}, func(user *user_model.User, repo *repo_model.Repository) {
+	}}, func(user *user_model.User, repo *repo_model.Repository, _ []string) {
 		commit1Sha := addCommitToBranch(t, user, repo, "main", "test-branch", "test-README.md", "",
 			readStringFile(t, "tests/e2e/declarative-repo/long-diff-test/1-README.md"))
 		commit2Sha := addCommitToBranch(t, user, repo, "test-branch", "test-branch", "test-README.md", commit1Sha,
@@ -177,7 +178,7 @@ body:
 				return sb.String()
 			}(),
 		},
-	}}, func(user *user_model.User, repo *repo_model.Repository) {
+	}}, func(user *user_model.User, repo *repo_model.Repository, _ []string) {
 		addCommitToBranch(t, user, repo, "main", "main-2", "glossary.po", "",
 			func() string {
 				var sb strings.Builder
@@ -243,7 +244,7 @@ custom: "http://localhost:3003/"
 	newRepo(t, 2, "cherry-picking", nil, []FileChanges{
 		{
 			Filename:  "old-cherries.txt",
-			Versions:  []string{"Many-a chery."},
+			Versions:  []string{"Many-a cherry."},
 			CommitMsg: "Track already picked cherries",
 		},
 		{
@@ -255,8 +256,8 @@ custom: "http://localhost:3003/"
 				Email: "cherryenthusiast@example.com",
 			},
 		},
-	}, func(user *user_model.User, repo *repo_model.Repository) {
-		addCommitToBranch(t, user, repo, "main", "basket", "old-cherries.txt", "", "Many-a cherry.")
+	}, func(user *user_model.User, repo *repo_model.Repository, commits []string) {
+		repository.CreateNewBranchFromCommit(git.DefaultContext, user, repo, nil, commits[0], "basket")
 	})
 	// add your repo declarations here
 }
@@ -284,7 +285,14 @@ func newRepo(t *testing.T, userID int64, repoName string, enabledUnits map[unit_
 		forgery.EnableRepoUnit(t, somerepo, unit, config)
 	}
 
+	commitCount := 0
+	for _, file := range fileChanges {
+		commitCount += len(file.Versions)
+	}
+
 	var lastCommitID string
+	commits := make([]string, commitCount)
+	n := 0
 	for _, file := range fileChanges {
 		for i, version := range file.Versions {
 			operation := "update"
@@ -329,11 +337,13 @@ func newRepo(t *testing.T, userID int64, repoName string, enabledUnits map[unit_
 			assert.NotEmpty(t, resp)
 
 			lastCommitID = resp.Commit.SHA
+			commits[n] = lastCommitID
+			n++
 		}
 	}
 
 	if setup != nil {
-		setup(user, somerepo)
+		setup(user, somerepo, commits)
 	}
 
 	err := stats.UpdateRepoIndexer(somerepo)
