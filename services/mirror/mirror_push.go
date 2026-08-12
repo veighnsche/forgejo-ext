@@ -37,7 +37,7 @@ func addPushMirrorRemote(ctx context.Context, m *repo_model.PushMirror, addr str
 	addRemoteAndConfig := func(addr, path string) error {
 		var cmd *git.Command
 		if m.BranchFilter == "" {
-			cmd = git.NewCommand(ctx, "remote", "add", "--mirror").AddDynamicArguments(m.RemoteName, addr)
+			cmd = git.NewCommand(ctx, "remote", "add", "--mirror=push").AddDynamicArguments(m.RemoteName, addr)
 		} else {
 			cmd = git.NewCommand(ctx, "remote", "add").AddDynamicArguments(m.RemoteName, addr)
 		}
@@ -120,7 +120,7 @@ func RemovePushMirrorRemote(ctx context.Context, m *repo_model.PushMirror) error
 	cmd := git.NewCommand(ctx, "remote", "rm").AddDynamicArguments(m.RemoteName)
 	_ = m.GetRepository(ctx)
 
-	if _, _, err := cmd.RunStdString(&git.RunOpts{Dir: m.Repo.RepoPath()}); err != nil {
+	if _, _, err := cmd.RunStdString(&git.RunOpts{Dir: m.Repo.RepoPath()}); err != nil && !git.IsErrorExitCode(err, 2) {
 		return err
 	}
 
@@ -194,6 +194,9 @@ func runPushSync(ctx context.Context, m *repo_model.PushMirror) error {
 		path := repo.RepoPath()
 		if isWiki {
 			path = repo.WikiPath()
+		}
+		if _, _, err := git.NewCommand(ctx, "config", "--unset-all").AddDynamicArguments("remote." + m.RemoteName + ".fetch").RunStdString(&git.RunOpts{Dir: path}); err != nil && !git.IsErrorExitCode(err, 5) {
+			return err
 		}
 		remoteURL, err := git.GetRemoteURL(ctx, path, m.RemoteName)
 		if err != nil {
