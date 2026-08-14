@@ -203,6 +203,7 @@ func (p APITemplateType) String() string {
 	return string(p)
 }
 
+//llu:returnsTrKeyWeak
 func GetAPITemplateConfigs() []APITemplateConfig {
 	return []APITemplateConfig{
 		{APITemplateTypeNone, "repo.projects.type.none"},

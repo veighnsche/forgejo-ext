@@ -8,13 +8,9 @@ import (
 	"errors"
 	"fmt"
 
-	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	project_model "forgejo.org/models/project"
-	user_model "forgejo.org/models/user"
-	project_module "forgejo.org/modules/project"
 	project_types "forgejo.org/modules/structs"
-	"forgejo.org/modules/validation"
 )
 
 // ValidIssueID checks if the IDs of the given issue list are valid
@@ -28,58 +24,6 @@ func ValidIssueID(ctx context.Context, ownerID int64, issues issues_model.IssueL
 		}
 	}
 	return nil
-}
-
-// getProjectIssueByID Gets a single ProjectIssue by its ID
-func getProjectIssueByID(ctx context.Context, issueID int64) (*project_model.ProjectIssue, error) {
-	issue, err := project_model.GetProjectIssue(ctx, issueID)
-	if err != nil {
-		return nil, fmt.Errorf("Could not get issue %d: %w", issueID, err)
-	}
-	return issue, nil
-}
-
-// GetValidProjectIssueByID Gets a single ProjectIssue by its ID
-// And makes sure the ID is not zero and the ProjectID and ColumnID match for that issue
-func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID int64) (*project_model.ProjectIssue, error) {
-	if issueID == int64(0) {
-		return nil, validation.ErrNotValid{
-			Message: "issueID must not be empty",
-		}
-	}
-	i, err := getProjectIssueByID(ctx, issueID)
-	if err != nil {
-		return nil, err
-	}
-	if i.ProjectID != projectID || i.ProjectColumnID != columnID {
-		return nil, project_module.ErrMismatchedID{
-			Message: fmt.Sprintf("issue %d mismatched with column %d or project %d", issueID, columnID, projectID),
-		}
-	}
-	return i, nil
-}
-
-// ListProjectIssues Gets a list of ProjectIssues for a projectID, also returns the total count in that list
-func ListProjectIssues(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*project_model.ProjectIssue, int64, error) {
-	issues, total, err := project_model.GetProjectIssues(ctx, projectID, listOptions)
-	if err != nil {
-		return nil, 0, fmt.Errorf("could not get issues for project %d: %w", projectID, err)
-	}
-	return issues, total, nil
-}
-
-// CreateIssueInProject Create a ProjectIssue in a Project in the column with the given ID
-// If columnID is 0, adds to the DefaultColumn
-func CreateIssueInProject(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, projectID, colID int64) (*project_model.ProjectIssue, error) {
-	projIssue := &project_model.ProjectIssue{
-		ProjectID:       projectID,
-		ProjectColumnID: colID,
-	}
-	// CreateProjectIssue checks if the colID is 0 and then assigns to defaultCol
-	if err := issues_model.CreateProjectIssue(ctx, issue, doer, projIssue); err != nil {
-		return nil, fmt.Errorf("could not create issue in project %d: %w", projectID, err)
-	}
-	return projIssue, nil
 }
 
 // GetIssues Gets an issue list by IssueIDs and checks for completeness, returns false if not complete
@@ -100,9 +44,4 @@ func MoveIssuesOnProjectColumn(ctx context.Context, column *project_model.Column
 		return fmt.Errorf("could not sort or move issue on column %d: %w", column.ID, err)
 	}
 	return nil
-}
-
-// RemoveIssueFromProject Removes a ProjectIssue from a Project
-func RemoveIssueFromProject(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, columnID int64) error {
-	return issues_model.IssueAssignOrRemoveProject(ctx, issue, doer, 0, columnID)
 }

@@ -42,7 +42,6 @@ var (
 	page               = 1
 	pageSize           = 10
 	notExistStr        = "not exist"
-	invalidStr         = "Validation Error"
 )
 
 func TestMain(m *testing.M) {
@@ -376,48 +375,22 @@ func TestCRUDProject(t *testing.T) {
 	t.Run("TestCRUDProjectIssues", func(t *testing.T) {
 		// The yml's in models/fixtures provide information about the test DB
 		require.NoError(t, unittest.PrepareTestDatabase())
-		issue1 := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 		column1 := unittest.AssertExistsAndLoadBean(t, &project_model.Column{ID: 1})
 		project := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: 1})
-		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+		pI1 := unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: 1})
+		pI2 := unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: 2})
 
-		// Show all issues
-		issuesBefore, _, err := ListProjectIssues(t.Context(), project.ID, db.ListOptionsAll)
-		require.NoError(t, err)
-
-		// Remove an issue
-		err = RemoveIssueFromProject(t.Context(), issue1, user, column1.ID)
-		require.NoError(t, err)
-
-		issuesAfter, _, err := ListProjectIssues(t.Context(), project.ID, db.ListOptionsAll)
-		require.NoError(t, err)
-
-		assert.Less(t, len(issuesAfter), len(issuesBefore))
-
-		// Create an issue
-		_, err = CreateIssueInProject(t.Context(), issue1, user, project.ID, column1.ID)
-		require.NoError(t, err)
-
-		issuesAfter, _, err = ListProjectIssues(t.Context(), project.ID, db.ListOptionsAll)
-		require.NoError(t, err)
-
-		assert.Len(t, issuesAfter, len(issuesBefore))
-
-		_, err = CreateIssueInProject(t.Context(), issue1, user, project.ID, 0)
-		require.NoError(t, err)
-
-		// Move Issues
 		pIs := &project_structs.MovedIssuesOption{
 			ProjectIssues: []struct {
 				IssueID int64 "json:\"issueID\""
 				Sorting int64 "json:\"sorting\""
 			}{
 				{
-					IssueID: issuesAfter[0].ID,
+					IssueID: pI1.IssueID,
 					Sorting: int64(2),
 				},
 				{
-					IssueID: issuesAfter[1].ID,
+					IssueID: pI2.IssueID,
 					Sorting: int64(1),
 				},
 			},
@@ -425,12 +398,12 @@ func TestCRUDProject(t *testing.T) {
 		err = MoveIssuesOnProjectColumn(t.Context(), column1, pIs)
 		require.NoError(t, err)
 
-		// Remove issues
-		for _, projectIssue := range issuesAfter {
-			issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: projectIssue.ID})
-			err = RemoveIssueFromProject(t.Context(), issue, user, column1.ID)
-			require.NoError(t, err)
-		}
+		pI1 = unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: 1})
+		pI2 = unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: 2})
+		assert.Equal(t, int64(2), pI1.Sorting)
+		assert.Equal(t, int64(1), pI2.Sorting)
+		assert.Equal(t, int64(1), pI1.ProjectColumnID)
+		assert.Equal(t, int64(1), pI2.ProjectColumnID)
 
 		defaultCol, err := project.GetDefaultColumn(t.Context())
 		require.NoError(t, err)
@@ -438,7 +411,8 @@ func TestCRUDProject(t *testing.T) {
 		defaultIssues, _, err := defaultCol.GetIssues(t.Context(), db.ListOptionsAll)
 		require.NoError(t, err)
 
-		assert.Equal(t, issue1.ID, defaultIssues[0].IssueID)
+		assert.Contains(t, defaultIssues, pI1)
+		assert.Contains(t, defaultIssues, pI2)
 	})
 
 	err = DeleteProjectByID(t.Context(), wantProject.ID, optional.None[int64]())

@@ -181,17 +181,6 @@ func IssueAssignOrRemoveProject(ctx context.Context, issue *Issue, doer *user_mo
 	return issueAssignOrRemoveProject(ctx, issue, doer, projIssue)
 }
 
-// CreateProjectIssue creates a ProjectIssue and changes the project associated
-// with the issue. IssueID and Sorting are set in projectIssue.
-func CreateProjectIssue(
-	ctx context.Context,
-	issue *Issue,
-	doer *user_model.User,
-	projectIssue *project_model.ProjectIssue,
-) error {
-	return issueAssignOrRemoveProject(ctx, issue, doer, projectIssue)
-}
-
 // NumIssuesInProjects returns the amount of issues assigned to one of the project
 // in the list which the doer can access.
 func NumIssuesInProjects(ctx context.Context, pl []*project_model.Project, doer *user_model.User, org *org_model.Organization, isClosed optional.Option[bool]) (map[int64]int, error) {
