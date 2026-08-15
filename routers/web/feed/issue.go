@@ -17,10 +17,11 @@ import (
 // ShowIssueFeed shows comment activity on the issue as RSS / Atom feed
 func ShowIssueFeed(ctx *context.Context, issue *issues_model.Issue, formatType string) {
 	actions, _, err := activities_model.GetFeeds(ctx, activities_model.GetFeedsOptions{
-		RequestedIssue: issue,
-		Actor:          ctx.Doer,
-		IncludePrivate: true,
-		Date:           ctx.FormString("date"),
+		RequestedIssue:       issue,
+		Actor:                ctx.Doer,
+		IncludePrivate:       true,
+		Date:                 ctx.FormString("date"),
+		OnlyPerformedByActor: true,
 	})
 	if err != nil {
 		ctx.ServerError("GetFeeds", err)
