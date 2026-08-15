@@ -360,11 +360,7 @@ func getPullInfo(ctx *context.Context) (issue *issues_model.Issue, ok bool) {
 
 	if setting.Other.EnableFeed {
 		ctx.Data["EnableFeed"] = true
-		if issue.IsPull {
-			ctx.Data["FeedURL"] = fmt.Sprintf("%s/pulls/%d", ctx.Repo.RepoLink, issue.Index)
-		} else {
-			ctx.Data["FeedURL"] = fmt.Sprintf("%s/issues/%d", ctx.Repo.RepoLink, issue.Index)
-		}
+		ctx.Data["FeedURL"] = issue.HTMLURL()
 	}
 
 	if !issue.IsPull {
