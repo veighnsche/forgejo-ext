@@ -28,20 +28,20 @@ func ShowIssueFeed(ctx *context.Context, issue *issues_model.Issue, formatType s
 		return
 	}
 
-	titleFormat := "Issue %s/%s#%d: %s"
-	descriptionFormat := "Updates on issue %s/%s#%d by %s"
+	reference := fmt.Sprintf("%s/%s#%d", issue.Repo.OwnerName, issue.Repo.Name, issue.Index)
+	title := ctx.Locale.TrString("repo.rss.issue_feed_title", reference, issue.Title)
+	description := ctx.Locale.TrString("repo.rss.updates_on_issue", reference, issue.Poster.DisplayName())
 
 	if issue.IsPull {
-		titleFormat = "Pull request %s/%s!%d: %s"
-		descriptionFormat = "Updates on pull request %s/%s!%d by %s"
+		reference = fmt.Sprintf("%s/%s!%d", issue.Repo.OwnerName, issue.Repo.Name, issue.Index)
+		title = ctx.Locale.TrString("repo.rss.pull_feed_title", reference, issue.Title)
+		description = ctx.Locale.TrString("repo.rss.updates_on_pull", reference, issue.Poster.DisplayName())
 	}
-
-	title := fmt.Sprintf(titleFormat, issue.Repo.OwnerName, issue.Repo.Name, issue.Index, issue.Title)
 
 	feed := &feeds.Feed{
 		Title:       title,
 		Link:        &feeds.Link{Href: issue.HTMLURL()},
-		Description: fmt.Sprintf(descriptionFormat, issue.Repo.OwnerName, issue.Repo.Name, issue.Index, issue.Poster.DisplayName()),
+		Description: description,
 		Created:     time.Now(),
 	}
 
