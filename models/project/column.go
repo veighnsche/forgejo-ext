@@ -73,16 +73,16 @@ type ErrProjectColumnNotExist struct {
 }
 
 // Is checks if error is ErrProjectColumnNotExist.
-func (e ErrProjectColumnNotExist) Is(err error) bool {
-	_, ok := err.(ErrProjectColumnNotExist)
+func (err ErrProjectColumnNotExist) Is(target error) bool {
+	_, ok := target.(ErrProjectColumnNotExist)
 	return ok
 }
 
-func (e ErrProjectColumnNotExist) Error() string {
-	return fmt.Sprintf("project column does not exist [id: %d]", e.ColumnID)
+func (err ErrProjectColumnNotExist) Error() string {
+	return fmt.Sprintf("project column does not exist [id: %d]", err.ColumnID)
 }
 
-func (e ErrProjectColumnNotExist) Unwrap() error {
+func (err ErrProjectColumnNotExist) Unwrap() error {
 	return util.ErrNotExist
 }
 
