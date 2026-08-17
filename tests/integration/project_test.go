@@ -609,7 +609,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	session := loginUser(t, user2.Name)
 
-	// UC07, UC03: Create, Get project for an owner
+	// Create, Get project for an owner
 	projectOpts := forms_service.CreateProjectForm{
 		Title:        "Project 1",
 		Content:      "Test",
@@ -627,7 +627,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	resp = sessionGET(t, session, getProjectEndpoint)
 	assert.Equal(t, http.StatusOK, resp.Code)
 
-	// UC09: Create columns in a project
+	// Create columns in a project
 	createPCOpt1 := forms_service.EditProjectColumnForm{
 		Title:   "Col1",
 		Sorting: 0,
@@ -638,7 +638,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	resp = sessionJSONPOST(t, session, newProjectColEndpoint, createPCOpt1)
 	assert.Equal(t, http.StatusOK, resp.Code)
 
-	// UC07, UC03: Create, Get project for an owner
+	// Create, Get project for an owner
 	editProjectOpts := forms_service.CreateProjectForm{
 		Title:    "Project 1",
 		Content:  "Test",
@@ -649,7 +649,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	resp = sessionJSONPOST(t, session, editProjectEndpoint, editProjectOpts)
 	assert.Equal(t, http.StatusSeeOther, resp.Code)
 
-	// UC17: Remove project
+	// Remove project
 	deleteProjectEndpoint := fmt.Sprintf("/%v/-/projects/%d/delete", user2.Name, project.ID)
 	resp = sessionPOST(t, session, deleteProjectEndpoint)
 	assert.Equal(t, http.StatusOK, resp.Code)
