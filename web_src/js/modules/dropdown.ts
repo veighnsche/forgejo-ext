@@ -6,6 +6,8 @@
 // Event listeners in this file provide more convenient options for that:
 // click iteration with anything on the page and pressing Escape.
 
+// ToDo: reimplement patch for web_src/js/features/clipboard.js for new dropdowns
+
 export function initDropdowns() {
   // Close open dropdown by clicking elsewhere on the page
   document.addEventListener('click', (event: MouseEvent) => {
@@ -28,19 +30,29 @@ export function initDropdowns() {
   // Close open dropdown when it is unfocused (e.g. when user pressed Tab or Shift+Tab),
   // but not when user lost focus completely (e.g. browser window became unfocused)
   document.addEventListener('focusout', (event: FocusEvent) => {
-    const dropdown = document.querySelector<HTMLDetailsElement>('details.dropdown[open]');
-    if (dropdown === null) {
-      // No open dropdowns on page, nothing to do
-      return;
+    const legacyDropdown = document.querySelector<HTMLDetailsElement>('details.dropdown[open]');
+    if (legacyDropdown !== null) {
+      const target = event.target as HTMLElement;
+      const newTarget = event.relatedTarget as HTMLElement;
+
+      if (newTarget !== null && legacyDropdown.contains(target) && !legacyDropdown.contains(newTarget)) {
+        // The previously focused element was within the open dropdown, but something
+        // else is now focused, so the dropdown should be closed
+        legacyDropdown.removeAttribute('open');
+      }
     }
 
-    const target = event.target as HTMLElement;
-    const newTarget = event.relatedTarget as HTMLElement;
+    const dropdown = document.querySelector<HTMLDialogElement>('.dialog-dropdown dialog:popover-open');
+    if (dropdown !== null) {
+      const parent = dropdown.parentElement as HTMLDivElement;
+      const target = event.target as HTMLElement;
+      const newTarget = event.relatedTarget as HTMLElement;
 
-    if (newTarget !== null && dropdown.contains(target) && !dropdown.contains(newTarget)) {
-      // The previously focused element was within the open dropdown, but something
-      // else is now focused, so the dropdown should be closed
-      dropdown.removeAttribute('open');
+      if (newTarget !== null && parent.contains(target) && !parent.contains(newTarget)) {
+        // The previously focused element was within the open dropdown, but something
+        // else is now focused, so the dropdown should be closed
+        dropdown.hidePopover();
+      }
     }
   });
 
@@ -64,52 +76,105 @@ export function initDropdowns() {
       }
     }
 
-    const dropdown = document.querySelector<HTMLDetailsElement>('details.dropdown[open]');
-    // This part of the code only knows how to work with open dropdown
-    if (dropdown === null) {
-      // No open dropdowns on page, nothing to do
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      // User pressed Escape while having an open dropdown, we'll close it
-      dropdown.removeAttribute('open');
-      return;
-    }
-
-    // Knowing document.activeElement, find the <li> that contains it
-    const dropdownItems = dropdown.querySelectorAll<HTMLLIElement>('.content > ul > li');
-    let activeLi: HTMLLIElement, activeLiIndex: number;
-    for (let i = 0; i < dropdownItems.length; i++) {
-      const li = dropdownItems[i] as HTMLLIElement;
-      if (!li.contains(document.activeElement)) continue;
-      activeLi = li;
-      activeLiIndex = i;
-      break;
-    }
-    if (activeLi === undefined) {
-      // The focused element is not a list item or it's contents, but something else in the dropdown
-      return;
-    }
-
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      if (activeLiIndex === 0) {
-        // Last child is already selected, but we can navigate back to the opener and close the dropdown
-        dropdown.querySelector('summary').focus();
-        dropdown.removeAttribute('open');
+    if (document.activeElement.localName === 'button' && event.key === 'ArrowDown') {
+      const parent = document.activeElement.parentElement as HTMLDivElement;
+      if (parent.classList.contains('dialog-dropdown')) {
+        // Pressing ArrowDown on a focused opener of a closed dropdown will open
+        // the dropdown and focus it's first item
+        parent.querySelector<HTMLDialogElement>('dialog').showPopover();
+        const firstFocusable = parent.querySelector<HTMLElement>('.content > ul > li :is(a, button, input)');
+        firstFocusable?.focus();
+        event.preventDefault();
         return;
       }
-      dropdownItems[activeLiIndex - 1].querySelector<HTMLElement>(':is(a, button, input)')?.focus();
     }
 
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      if (activeLiIndex === dropdownItems.length - 1) {
-        // First child is already selected
+    const legacyDropdown = document.querySelector<HTMLDetailsElement>('details.dropdown[open]');
+    if (legacyDropdown !== null) {
+      if (event.key === 'Escape') {
+        // User pressed Escape while having an open dropdown, we'll close it
+        legacyDropdown.removeAttribute('open');
         return;
       }
-      dropdownItems[activeLiIndex + 1].querySelector<HTMLElement>(':is(a, button, input)')?.focus();
+
+      // Knowing document.activeElement, find the <li> that contains it
+      const dropdownItems = legacyDropdown.querySelectorAll<HTMLLIElement>('.content > ul > li');
+      let activeLi: HTMLLIElement, activeLiIndex: number;
+      for (let i = 0; i < dropdownItems.length; i++) {
+        const li = dropdownItems[i] as HTMLLIElement;
+        if (!li.contains(document.activeElement)) continue;
+        activeLi = li;
+        activeLiIndex = i;
+        break;
+      }
+      if (activeLi === undefined) {
+        // The focused element is not a list item or it's contents, but something else in the dropdown
+        return;
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (activeLiIndex === 0) {
+          // Last child is already selected, but we can navigate back to the opener and close the dropdown
+          legacyDropdown.querySelector('summary').focus();
+          legacyDropdown.removeAttribute('open');
+          return;
+        }
+        dropdownItems[activeLiIndex - 1].querySelector<HTMLElement>(':is(a, button, input)')?.focus();
+      }
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (activeLiIndex === dropdownItems.length - 1) {
+          // First child is already selected
+          return;
+        }
+        dropdownItems[activeLiIndex + 1].querySelector<HTMLElement>(':is(a, button, input)')?.focus();
+      }
+    }
+
+    const dropdown = document.querySelector<HTMLDialogElement>('.dialog-dropdown > dialog:popover-open');
+    if (dropdown !== null) {
+      if (event.key === 'Escape') {
+        // Pressing Escape while having an open dropdown closes it
+        dropdown.hidePopover();
+        return;
+      }
+
+      // Knowing document.activeElement, find the <li> that contains it
+      const dropdownItems = dropdown.querySelectorAll<HTMLLIElement>('dialog > ul > li');
+      let activeLi: HTMLLIElement, activeLiIndex: number;
+      for (let i = 0; i < dropdownItems.length; i++) {
+        const li = dropdownItems[i] as HTMLLIElement;
+        if (!li.contains(document.activeElement)) continue;
+        activeLi = li;
+        activeLiIndex = i;
+        break;
+      }
+      if (activeLi === undefined) {
+        // The focused element is not a list item or it's contents, but something else in the dropdown
+        return;
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (activeLiIndex === 0) {
+          // Last child is already selected, but we can navigate back to the opener and close the dropdown
+          (dropdown.parentElement as HTMLDivElement).querySelector<HTMLButtonElement>('.opener').focus();
+          dropdown.hidePopover();
+          return;
+        }
+        dropdownItems[activeLiIndex - 1].querySelector<HTMLElement>(':is(a, button, input)')?.focus();
+      }
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (activeLiIndex === dropdownItems.length - 1) {
+          // First child is already selected
+          return;
+        }
+        dropdownItems[activeLiIndex + 1].querySelector<HTMLElement>(':is(a, button, input)')?.focus();
+      }
     }
   });
 }

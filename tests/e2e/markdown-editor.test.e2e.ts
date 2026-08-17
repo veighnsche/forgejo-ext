@@ -409,12 +409,12 @@ test.describe('Markdown insert table', () => {
 
       let expectedContent = '| Header  | Header  |\n|---------|---------|\n| Content | Content |\n| Content | Content |\n| Content | Content |\n';
 
-      if (isEditing) {
-        // Preparations for evaluating comment editing
-        await area.locator('.comment-header-right.actions details.dropdown').click();
-        await area.locator('.comment-header-right.actions details.dropdown .edit-content').click();
-        expectedContent = `good work!${expectedContent}`;
-      }
+    if (isEditing) {
+      // Preparations for evaluating comment editing
+      await area.locator('.comment-header-right.actions .dialog-dropdown .opener').click();
+      await area.locator('.comment-header-right.actions .dialog-dropdown dialog .edit-content').click();
+      expectedContent = `good work!${expectedContent}`;
+    }
 
       const newTableButton = area.locator('button[data-md-action="new-table"]');
       await newTableButton.click();
@@ -466,12 +466,12 @@ test.describe('Markdown insert link', () => {
 
       const area = page.locator(selector);
 
-      if (isEditing) {
-        // Preparations for evaluating comment editing
-        await area.locator('.comment-header-right.actions details.dropdown').click();
-        await area.locator('.comment-header-right.actions details.dropdown .edit-content').click();
-        expectedContent = `good work!${expectedContent}`;
-      }
+    if (isEditing) {
+      // Preparations for evaluating comment editing
+      await area.locator('.comment-header-right.actions .dialog-dropdown .opener').click();
+      await area.locator('.comment-header-right.actions .dialog-dropdown dialog .edit-content').click();
+      expectedContent = `good work!${expectedContent}`;
+    }
 
       const newLinkButton = area.locator('button[data-md-action="new-link"]');
       await newLinkButton.click();
@@ -528,19 +528,22 @@ test.describe('Markdown insert link', () => {
       await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
       await expect(newLinkModal).toBeHidden();
 
-      await expect(textarea).toHaveValue(expectedContent);
-      await screenshot(page);
-    }
+    await expect(textarea).toHaveValue(expectedContent);
+    await screenshot(page);
+  }
+
+  const response = await page.goto('/user2/repo1/issues/1');
+  expect(response?.status()).toBe(200);
 
     await expect(async () => {
       await evaluateLinkInsertion(page, '#comment-form', false);
       await evaluateLinkInsertion(page, '#issuecomment-2', true);
-    }).toPass();
+    }).toPass({timeout: 3000});
 
     await expect(async () => {
       await evaluateLinkInsertionShortcut(page, '#comment-form');
       await evaluateLinkInsertionShortcut(page, '#issuecomment-2');
-    }).toPass();
+    }).toPass({timeout: 3000});
   });
 });
 
@@ -807,8 +810,8 @@ test('Persistent monospace preference across multiple editors', async ({page}) =
 
   // Open a second editor (by clicking "Edit" in the context menu of a message)
   const openSecondEditor = async () => {
-    const contextMenu = page.locator('.timeline-item details:has(summary[aria-label="Comment menu"]):has(.edit-content)').first();
-    const editButton = contextMenu.locator('.content').getByText('Edit').first();
+    const contextMenu = page.locator('.timeline-item .dialog-dropdown:has(.opener[aria-label="Comment menu"]):has(.edit-content)').first();
+    const editButton = contextMenu.locator('dialog').getByText('Edit').first();
     await contextMenu.click();
     await editButton.click();
   };
