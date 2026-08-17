@@ -145,9 +145,12 @@
 	<p>
 		Currently unused because of Safari and because not all features are implemented. Uses completely different approach to open/close behavior.
 	</p>
+	<p>
+		Note: content class is for improved compatibility with existing CSS selectors. If this replaces details.dropdown, selectors can be simplified dialog-dropdown > dialog.
+	</p>
 	<div class="button-sequence">
 		<div class="dialog-dropdown">
-			<button class="opener" command="show-popover" commandfor="dropdown-demo-dialog">
+			<button class="opener" command="toggle-popover" commandfor="dropdown-demo-dialog">
 				Button
 			</button>
 			<dialog popover class="content" id="dropdown-demo-dialog" closedBy="any">
