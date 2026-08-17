@@ -72,15 +72,6 @@
 				</ul>
 			</div>
 		</details>
-
-		<div class="dropdown">
-			<button command="show-modal" commandfor="dropdown-demo-dialog">
-				Button
-			</button>
-			<dialog id="dropdown-demo-dialog" closedBy="any">
-				Dialog contents
-			</dialog>
-		</div>
 	</div>
 
 	<h2>More actions</h2>
@@ -142,6 +133,21 @@
 				</ul>
 			</div>
 		</details>
+	</div>
+
+	<h2>The Dialog Foundation</h2>
+	<p>
+		Currently unused because of Safari and because not all features are implemented. Uses completely different approach to open/close behavior.
+	</p>
+	<div class="button-sequence">
+		<div class="dialog-dropdown">
+			<button class="opener" command="show-modal" commandfor="dropdown-demo-dialog">
+				Button
+			</button>
+			<dialog class="content" id="dropdown-demo-dialog" closedBy="any">
+				Dialog contents
+			</dialog>
+		</div>
 	</div>
 
 </div>
