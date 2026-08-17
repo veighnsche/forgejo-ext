@@ -8,7 +8,10 @@ import (
 	"testing"
 
 	"forgejo.org/models/db"
+	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
+	user_model "forgejo.org/models/user"
+	project_module "forgejo.org/modules/project"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -186,4 +189,37 @@ func Test_NewColumn(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "maximum number of columns reached")
+}
+
+// TestCreateColumnDefault tests CreateColumn in an empty project without a default column.
+func TestCreateColumnDefault(t *testing.T) {
+	// create empty project
+	require.NoError(t, unittest.PrepareTestDatabase())
+	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+	project := &Project{
+		Title:        "Testproject",
+		Description:  "Test",
+		OwnerID:      user1.ID,
+		Owner:        user1,
+		RepoID:       0,
+		Repo:         &repo_model.Repository{},
+		CreatorID:    user1.ID,
+		IsClosed:     false,
+		TemplateType: project_module.TemplateTypeNone,
+		CardType:     project_module.CardTypeTextOnly,
+		Type:         project_module.TypeIndividual,
+	}
+	err := CreateProject(t.Context(), project)
+	require.NoError(t, err)
+
+	// create column
+	column := &Column{
+		Title:     "new column",
+		ProjectID: project.ID,
+	}
+	err = CreateColumn(t.Context(), column)
+	require.NoError(t, err)
+
+	// new column should be default column
+	assert.True(t, column.Default)
 }
