@@ -50,11 +50,11 @@
 				<label class="{{if eq .SortType "recentupdate"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "recentupdate"}}checked{{end}} value="recentupdate"> {{ctx.Locale.Tr "issues.search.sort.recentupdate"}}</label>
 				<label class="{{if eq .SortType "leastupdate"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "leastupdate"}}checked{{end}} value="leastupdate"> {{ctx.Locale.Tr "issues.search.sort.leastupdate"}}</label>
 				{{if not .DisableStars}}
-					<label class="{{if eq .SortType "moststars"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "moststars"}}checked{{end}} value="moststars"> {{ctx.Locale.Tr "issues.search.sort.moststars"}}</label>
-					<label class="{{if eq .SortType "feweststars"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "feweststars"}}checked{{end}} value="feweststars"> {{ctx.Locale.Tr "issues.search.sort.feweststars"}}</label>
+					<label class="{{if eq .SortType "moststars"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "moststars"}}checked{{end}} value="moststars"> {{ctx.Locale.Tr "search.sort.moststars"}}</label>
+					<label class="{{if eq .SortType "feweststars"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "feweststars"}}checked{{end}} value="feweststars"> {{ctx.Locale.Tr "search.sort.feweststars"}}</label>
 				{{end}}
-				<label class="{{if eq .SortType "mostforks"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "mostforks"}}checked{{end}} value="mostforks"> {{ctx.Locale.Tr "issues.search.sort.mostforks"}}</label>
-				<label class="{{if eq .SortType "fewestforks"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "fewestforks"}}checked{{end}} value="fewestforks"> {{ctx.Locale.Tr "issues.search.sort.fewestforks"}}</label>
+				<label class="{{if eq .SortType "mostforks"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "mostforks"}}checked{{end}} value="mostforks"> {{ctx.Locale.Tr "search.sort.mostforks"}}</label>
+				<label class="{{if eq .SortType "fewestforks"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "fewestforks"}}checked{{end}} value="fewestforks"> {{ctx.Locale.Tr "search.sort.fewestforks"}}</label>
 				<label class="{{if eq .SortType "size"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "size"}}checked{{end}} value="size"> {{ctx.Locale.Tr "repo.issues.label.filter_sort.by_size"}}</label>
 				<label class="{{if eq .SortType "reversesize"}}active {{end}}item"><input hidden type="radio" name="sort" {{if eq .SortType "reversesize"}}checked{{end}} value="reversesize"> {{ctx.Locale.Tr "repo.issues.label.filter_sort.reverse_by_size"}}</label>
 			</div>
