@@ -1,21 +1,25 @@
 /* Copyright 2026 The Forgejo Authors. All rights reserved.
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
-.dropdown {
+.dialog-dropdown {
   anchor-scope: --dropdown-opener;
 }
 
-.dropdown button {
+.dialog-dropdown button {
   anchor-name: --dropdown-opener;
 }
 
-.dropdown dialog {
-  background-color: red;
-
+.dialog-dropdown dialog {
   /* Reset position from middle of the screen to being relative to parent */
   inset: unset;
   position-anchor: --dropdown-opener;
   position-area: bottom span-right;
+
+  /* Suppress default non-zero padding */
+  padding: unset;
+
+  /* Suppress default CanvasText color */
+  color: unset;
 
   &::backdrop {
     /* Backdrop is unwanted for open dropdown */
@@ -23,6 +27,3 @@
   }
 }
 
-.dropdown button.opener {
-
-}

@@ -14,14 +14,14 @@
 
 @import url("./dropdown-next.css");
 
-:root details.dropdown {
+:root :is(details.dropdown, .dialog-dropdown) {
   --dropdown-box-shadow: 0 6px 18px var(--color-shadow);
   --dropdown-item-min-height: 34px;
   --dropdown-padding-inline: 0.75rem;
 }
 
 @media (pointer: coarse) {
-  :root details.dropdown {
+  :root :is(details.dropdown, .dialog-dropdown) {
     --dropdown-item-min-height: 40px;
     --dropdown-padding-inline: 1rem;
   }
@@ -32,7 +32,8 @@ details.dropdown {
 }
 
 /* Opener */
-details.dropdown > summary {
+details.dropdown > summary,
+.dialog-dropdown > .opener {
   /* Optional flex+gap in case summary contains multiple elements */
   display: flex;
   gap: 0.25rem;
@@ -53,6 +54,10 @@ details.dropdown > summary {
   &.options {
     padding-inline: 0.75rem;
   }
+
+  /* Suppress default button colors */
+  background: unset;
+  color: unset;
 }
 
 /* NoJS mode: create a virtual fullscreen area which closes the dropdown when clicked on */
@@ -68,16 +73,18 @@ details.dropdown > summary {
 }
 
 details.dropdown > summary:hover,
-details.dropdown > .content > ul > li > :is(a, button):hover {
+.dialog-dropdown > .opener:hover,
+:is(details.dropdown, .dialog-dropdown) > .content > ul > li > :is(a, button):hover {
   background: var(--color-hover);
 }
 
 details.dropdown[open] > summary,
-details.dropdown > .content > ul > li:focus-within > :is(a, button) {
+.dialog-dropdown:has(dialog[open]) > .opener,
+:is(details.dropdown, .dialog-dropdown) > .content > ul > li:focus-within > :is(a, button) {
   background: var(--color-active);
 }
 
-details.dropdown > .content {
+:is(details.dropdown, .dialog-dropdown) > .content {
   z-index: 99;
   position: absolute;
   min-width: max-content;
@@ -95,7 +102,7 @@ details.dropdown > .content {
   }
 }
 
-details.dropdown > .content > ul {
+:is(details.dropdown, .dialog-dropdown) > .content > ul {
   /* Suppress default styling of <ul> */
   margin: 0;
   padding: 0;
@@ -115,7 +122,7 @@ details.dropdown > .content > ul {
 }
 
 /* General styling of list items */
-details.dropdown > .content > ul > li {
+:is(details.dropdown, .dialog-dropdown) > .content > ul > li {
   width: 100%;
 
   > :is(a, button) {
@@ -148,7 +155,7 @@ details.dropdown > .content > ul > li {
 
 /* Special styling for "headers" */
 /* A few dropdowns contain such headers, however, they are not semantically considered as headers */
-details.dropdown > .content > .header {
+:is(details.dropdown, .dialog-dropdown) > .content > .header {
   display: flex;
   padding-block: 0.5rem;
   padding-inline: var(--dropdown-padding-inline);
@@ -158,7 +165,7 @@ details.dropdown > .content > .header {
 }
 
 /* Decrease bottom padding if an <hr> follows, which adds it's own vertical padding */
-details.dropdown > .content > .header:has(+ hr) {
+:is(details.dropdown, .dialog-dropdown) > .content > .header:has(+ hr) {
   padding-bottom: 0.25rem;
 }
 
