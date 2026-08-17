@@ -72,8 +72,8 @@ type ErrProjectColumnNotExist struct {
 	ColumnID int64
 }
 
-// IsErrProjectColumnNotExist checks if an error is a ErrProjectColumnNotExist
-func IsErrProjectColumnNotExist(err error) bool {
+// Is checks if error is ErrProjectColumnNotExist.
+func (e ErrProjectColumnNotExist) Is(err error) bool {
 	_, ok := err.(ErrProjectColumnNotExist)
 	return ok
 }
@@ -171,7 +171,7 @@ func DeleteColumnByID(ctx context.Context, columnID int64) error {
 func deleteColumnByID(ctx context.Context, columnID int64) error {
 	column, err := GetColumn(ctx, columnID)
 	if err != nil {
-		if IsErrProjectColumnNotExist(err) {
+		if errors.Is(err, &ErrProjectColumnNotExist{}) {
 			return nil
 		}
 
