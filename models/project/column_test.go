@@ -223,3 +223,38 @@ func TestCreateColumnDefault(t *testing.T) {
 	// new column should be default column
 	assert.True(t, column.Default)
 }
+
+// TestGetColumnsPagination tests GetColumns with pagination.
+func TestGetColumnsPagination(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	project1 := unittest.AssertExistsAndLoadBean(t, &Project{ID: 1})
+
+	for _, tt := range []struct {
+		name     string
+		pageSize int
+		page     int
+		columns  int
+	}{
+		// one per page
+		{name: "one per page, first page", pageSize: 1, page: 1, columns: 1},
+		{name: "one per page, second page", pageSize: 1, page: 2, columns: 1},
+		{name: "one per page, third page", pageSize: 1, page: 3, columns: 1},
+		// two per page
+		{name: "two per page, first page", pageSize: 2, page: 1, columns: 2},
+		{name: "two per page, second page", pageSize: 2, page: 2, columns: 1},
+		// three+ per page
+		{name: "three per page", pageSize: 3, page: 1, columns: 3},
+		{name: "four per page", pageSize: 4, page: 1, columns: 3},
+		{name: "30 per page", pageSize: 30, page: 1, columns: 3},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			columns, total, err := GetColumns(t.Context(), project1.ID, db.ListOptions{
+				PageSize: tt.pageSize,
+				Page:     tt.page,
+			})
+			require.NoError(t, err)
+			assert.Len(t, columns, tt.columns)
+			assert.Equal(t, int64(3), total)
+		})
+	}
+}
