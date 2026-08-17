@@ -30,11 +30,6 @@ func init() {
 	db.RegisterModel(new(ProjectIssue))
 }
 
-// ErrProjectIssueNotExist represents a "ErrProjectIssueNotExist" kind of error.
-type ErrProjectIssueNotExist struct {
-	IssueID int64
-}
-
 func deleteProjectIssuesByProjectID(ctx context.Context, projectID int64) error {
 	_, err := db.GetEngine(ctx).Where("project_id=?", projectID).Delete(&ProjectIssue{})
 	return err
