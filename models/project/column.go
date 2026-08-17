@@ -78,11 +78,11 @@ func (e ErrProjectColumnNotExist) Is(err error) bool {
 	return ok
 }
 
-func (err ErrProjectColumnNotExist) Error() string {
-	return fmt.Sprintf("project column does not exist [id: %d]", err.ColumnID)
+func (e ErrProjectColumnNotExist) Error() string {
+	return fmt.Sprintf("project column does not exist [id: %d]", e.ColumnID)
 }
 
-func (err ErrProjectColumnNotExist) Unwrap() error {
+func (e ErrProjectColumnNotExist) Unwrap() error {
 	return util.ErrNotExist
 }
 
