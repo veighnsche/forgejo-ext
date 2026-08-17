@@ -218,7 +218,7 @@ func CreateProject(ctx *context.Context) {
 // ChangeProjectStatus updates the status of a project between "open" and "close"
 func ChangeProjectStatus(ctx *context.Context) {
 	var toClose bool
-	switch ctx.Params(":action") {
+	switch ctx.Params("action") {
 	case "open":
 		toClose = false
 	case "close":
@@ -227,7 +227,7 @@ func ChangeProjectStatus(ctx *context.Context) {
 		ctx.JSONRedirect(ctx.ContextUser.HomeLink() + "/-/projects")
 		return
 	}
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return
 	}
@@ -235,12 +235,12 @@ func ChangeProjectStatus(ctx *context.Context) {
 		ctx.ServerError("ChangeProjectStatus", err)
 		return
 	}
-	ctx.JSONRedirect(project_module.ProjectLinkForOrg(ctx.ContextUser.HomeLink(), ctx.ParamsInt64(":id")))
+	ctx.JSONRedirect(project_module.ProjectLinkForOrg(ctx.ContextUser.HomeLink(), ctx.ParamsInt64("id")))
 }
 
 // DeleteProject delete a project
 func DeleteProject(ctx *context.Context) {
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return
 	}
@@ -264,7 +264,7 @@ func RenderEditProject(ctx *context.Context) {
 
 	shared_user.RenderUserHeader(ctx)
 
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return
 	}
@@ -283,7 +283,7 @@ func RenderEditProject(ctx *context.Context) {
 // EditProjectPost response for editing a project
 func EditProjectPost(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.CreateProjectForm)
-	projectID := ctx.ParamsInt64(":id")
+	projectID := ctx.ParamsInt64("id")
 	ctx.Data["Title"] = ctx.Tr("repo.projects.edit")
 	ctx.Data["PageIsEditProjects"] = true
 	ctx.Data["PageIsViewProjects"] = true
@@ -304,7 +304,7 @@ func EditProjectPost(ctx *context.Context) {
 		return
 	}
 
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return
 	}
@@ -331,7 +331,7 @@ func EditProjectPost(ctx *context.Context) {
 
 // ViewProject renders the project with board view for a project
 func ViewProject(ctx *context.Context) {
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return
 	}
@@ -411,18 +411,18 @@ func DeleteProjectColumn(ctx *context.Context) {
 		return
 	}
 
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return
 	}
 
-	_, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
+	_, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64("columnID"))
 	if err != nil {
 		ctx.NotFoundOrServerError("GetValidProjectColumnByID", project_model.ErrProjectColumnNotExist{}.Is, err)
 		return
 	}
 
-	if err := project_service.DeleteColumnInProject(ctx, ctx.ParamsInt64(":columnID")); err != nil {
+	if err := project_service.DeleteColumnInProject(ctx, ctx.ParamsInt64("columnID")); err != nil {
 		ctx.ServerError("DeleteColumnInProject", err)
 		return
 	}
@@ -434,7 +434,7 @@ func DeleteProjectColumn(ctx *context.Context) {
 func CreateColumnInProject(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.EditProjectColumnForm)
 
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return
 	}
@@ -461,12 +461,12 @@ func CheckProjectColumnChangePermissions(ctx *context.Context) (*project_model.P
 		return nil, nil
 	}
 
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return nil, nil
 	}
 
-	column, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
+	column, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64("columnID"))
 	if err != nil {
 		ctx.NotFoundOrServerError("GetValidProjectColumnByID", project_model.ErrProjectColumnNotExist{}.Is, err)
 		return nil, nil
@@ -522,12 +522,12 @@ func MoveIssues(ctx *context.Context) {
 		return
 	}
 
-	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64(":id"))
+	project := getAndCheckProjectByID(ctx, ctx.ParamsInt64("id"))
 	if ctx.Written() {
 		return
 	}
 
-	column, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64(":columnID"))
+	column, err := project_service.GetValidProjectColumnByID(ctx, project.ID, ctx.ParamsInt64("columnID"))
 	if err != nil {
 		ctx.NotFoundOrServerError("GetValidProjectColumnByID", project_model.ErrProjectColumnNotExist{}.Is, err)
 		return
