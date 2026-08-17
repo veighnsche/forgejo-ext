@@ -1,4 +1,4 @@
-/* Copyright 2025 The Forgejo Authors. All rights reserved.
+/* Copyright 2026 The Forgejo Authors. All rights reserved.
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
 .dropdown {
@@ -15,7 +15,7 @@
   /* Reset position from middle of the screen to being relative to parent */
   inset: unset;
   position-anchor: --dropdown-opener;
-  position-area: bottom right;
+  position-area: bottom span-right;
 
   &::backdrop {
     /* Backdrop is unwanted for open dropdown */
