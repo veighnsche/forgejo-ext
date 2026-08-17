@@ -1,0 +1,28 @@
+/* Copyright 2025 The Forgejo Authors. All rights reserved.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+.dropdown {
+  anchor-scope: --dropdown-opener;
+}
+
+.dropdown button {
+  anchor-name: --dropdown-opener;
+}
+
+.dropdown dialog {
+  background-color: red;
+
+  /* Reset position from middle of the screen to being relative to parent */
+  inset: unset;
+  position-anchor: --dropdown-opener;
+  position-area: bottom right;
+
+  &::backdrop {
+    /* Backdrop is unwanted for open dropdown */
+    background-color: unset;
+  }
+}
+
+.dropdown button.opener {
+
+}

@@ -12,6 +12,8 @@
  * so it is possible to search for all dropdowns with `details class="dropdown`
 */
 
+@import url("./dropdown-next.css");
+
 :root details.dropdown {
   --dropdown-box-shadow: 0 6px 18px var(--color-shadow);
   --dropdown-item-min-height: 34px;
