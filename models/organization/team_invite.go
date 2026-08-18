@@ -224,6 +224,18 @@ func CreateTeamInviteForUser(ctx context.Context, doer, invited *user_model.User
 	return invite, db.Insert(ctx, invite)
 }
 
+func GetInviteByID(ctx context.Context, inviteID int64) (*TeamInvite, error) {
+	invite := &TeamInvite{}
+	has, err := db.GetEngine(ctx).Where("id=?", inviteID).Get(invite)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, ErrTeamInviteNotFound{}
+	}
+	return invite, nil
+}
+
 func RemoveInviteByID(ctx context.Context, inviteID, teamID int64) error {
 	_, err := db.DeleteByBean(ctx, &TeamInvite{
 		ID:     inviteID,
@@ -232,11 +244,51 @@ func RemoveInviteByID(ctx context.Context, inviteID, teamID int64) error {
 	return err
 }
 
+// SearchMembersOptions holds the search options
+type SearchInvitesOptions struct {
+	db.ListOptions
+	TeamID    int64
+	OrgID     int64
+	InvitedID int64
+}
+
+// GetTeamInvites returns all invites matching the specified criteria
+func GetTeamInvites(ctx context.Context, opts *SearchInvitesOptions) ([]*TeamInvite, error) {
+	var invites []*TeamInvite
+	sess := selectTeamInvites(ctx, opts)
+	if err := sess.OrderBy("id DESC").Find(&invites); err != nil {
+		return nil, err
+	}
+	return invites, nil
+}
+
+// CountTeamInvites returns the number of team invites matching the specified criteria
+func CountTeamInvites(ctx context.Context, opts *SearchInvitesOptions) (int64, error) {
+	return selectTeamInvites(ctx, opts).Count()
+}
+
+func selectTeamInvites(ctx context.Context, opts *SearchInvitesOptions) db.Engine {
+	sess := db.GetEngine(ctx).Table("team_invite")
+	if opts.TeamID > 0 {
+		sess = sess.
+			Where(builder.Eq{"team_id": opts.TeamID})
+	}
+	if opts.OrgID > 0 {
+		sess = sess.
+			Where(builder.Eq{"org_id": opts.OrgID})
+	}
+	if opts.InvitedID > 0 {
+		sess = sess.
+			Where(builder.Eq{"invited_id": opts.InvitedID})
+	}
+	if opts.PageSize > 0 && opts.Page > 0 {
+		sess = sess.Limit(opts.PageSize, (opts.Page-1)*opts.PageSize)
+	}
+	return sess
+}
+
 func GetInvitesByTeamID(ctx context.Context, teamID int64) ([]*TeamInvite, error) {
-	invites := make([]*TeamInvite, 0, 10)
-	return invites, db.GetEngine(ctx).
-		Where("team_id=?", teamID).
-		Find(&invites)
+	return GetTeamInvites(ctx, &SearchInvitesOptions{TeamID: teamID})
 }
 
 func GetInviteByToken(ctx context.Context, token string) (*TeamInvite, error) {
