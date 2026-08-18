@@ -1410,6 +1410,8 @@ func MergePullRequest(ctx *context.Context) {
 			ctx.JSONError(err.Error()) // has no translation ...
 		case errors.Is(err, pull_service.ErrDependenciesLeft):
 			ctx.JSONError(ctx.Tr("repo.issues.dependency.pr_close_blocked"))
+		case errors.Is(err, pull_service.ErrNothingToMerge):
+			ctx.JSONError(ctx.Tr("repo.pulls.nothing_to_compare"))
 		default:
 			ctx.ServerError("WebCheck", err)
 		}

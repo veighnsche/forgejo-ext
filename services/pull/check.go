@@ -39,6 +39,7 @@ var (
 	ErrIsChecking            = errors.New("cannot merge while conflict checking is in progress")
 	ErrNotMergeableState     = errors.New("not in mergeable state")
 	ErrDependenciesLeft      = errors.New("is blocked by an open dependency")
+	ErrNothingToMerge        = errors.New("repo.pulls.nothing_to_compare")
 )
 
 // AddToTaskQueue adds itself to pull request test task queue.
@@ -95,6 +96,10 @@ func CheckPullMergeable(stdCtx context.Context, doer *user_model.User, perm *acc
 		}
 
 		if !pr.CanAutoMerge() && !pr.IsEmpty() {
+			if pr.IsAncestor() {
+				return ErrNothingToMerge
+			}
+
 			return ErrNotMergeableState
 		}
 
