@@ -94,7 +94,8 @@ func Projects(ctx *context.Context) {
 		keyword,
 		project_module.APIOwnerTypeRepository,
 		page,
-		setting.UI.IssuePagingNum)
+		setting.UI.IssuePagingNum,
+	)
 	log.Debug("Got RepoSearchOpts for repo %v and project type %v", repo.Name, project_module.APIOwnerTypeRepository)
 	projects, err := project_service.ListProjectsByOptions(ctx, opts)
 	if err != nil {

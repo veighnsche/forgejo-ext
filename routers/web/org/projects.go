@@ -77,7 +77,8 @@ func Projects(ctx *context.Context) {
 		keyword,
 		projectType,
 		page,
-		setting.UI.IssuePagingNum)
+		setting.UI.IssuePagingNum,
+	)
 	log.Debug("Got OwnerSearch Opts for user %v and project type %v", ctx.ContextUser.Name, projectType)
 	projects, err := project_service.ListProjectsByOptions(*ctx, opts)
 	if err != nil {
