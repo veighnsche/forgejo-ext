@@ -5,6 +5,8 @@ package queue
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"maps"
 	"sync"
 	"time"
@@ -37,14 +39,36 @@ type ManagedWorkerPoolQueue interface {
 
 	// RemoveAllItems removes all items in the base queue (on-the-fly items are not affected)
 	RemoveAllItems(ctx context.Context) error
+	ShutdownWait(timeout time.Duration)
 }
 
 var manager *Manager
 
 func init() {
+	InitManager()
+}
+
+func InitManager() {
 	manager = &Manager{
 		Queues: make(map[int64]ManagedWorkerPoolQueue),
 	}
+}
+
+func ResetManager() {
+	if err := manager.FlushAll(context.Background(), 60*time.Second); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			panic(fmt.Sprintf("FlushAll %v", err))
+		}
+	}
+
+	for _, queue := range manager.ManagedQueues() {
+		if err := queue.RemoveAllItems(context.Background()); err != nil {
+			panic(fmt.Sprintf("RemoveAllItems %v %v", queue, err))
+		}
+		queue.ShutdownWait(0)
+	}
+
+	InitManager()
 }
 
 func GetManager() *Manager {
@@ -80,7 +104,7 @@ func (m *Manager) FlushAll(ctx context.Context, timeout time.Duration) error {
 	qs := m.ManagedQueues()
 	for _, q := range qs {
 		if err := q.FlushWithContext(ctx, timeout); err != nil {
-			finalErr = err // TODO: in Go 1.20: errors.Join
+			finalErr = fmt.Errorf("FlushWithContext: %w", err) // TODO: in Go 1.20: errors.Join
 		}
 	}
 	return finalErr

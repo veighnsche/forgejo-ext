@@ -111,6 +111,7 @@ forgejo.org/modules/gitrepo
 
 forgejo.org/modules/graceful
 	Manager.TerminateContext
+	ShutdownAndResetManager
 	Manager.Err
 	Manager.Value
 	Manager.Deadline
@@ -166,6 +167,7 @@ forgejo.org/modules/queue
 	newBaseChannelUnique
 	newBaseRedisSimple
 	newBaseRedisUnique
+	ResetManager
 	testStateRecorder.Records
 	testStateRecorder.Reset
 	newWorkerPoolQueueForTest

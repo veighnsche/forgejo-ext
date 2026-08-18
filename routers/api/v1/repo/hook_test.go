@@ -8,14 +8,16 @@ import (
 	"testing"
 
 	"forgejo.org/models/unittest"
-	"forgejo.org/models/webhook"
+	webhook_model "forgejo.org/models/webhook"
 	"forgejo.org/services/contexttest"
+	webhook_service "forgejo.org/services/webhook"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTestHook(t *testing.T) {
 	unittest.PrepareTestEnv(t)
+	webhook_service.Init()
 
 	ctx, _ := contexttest.MockAPIContext(t, "user2/repo1/wiki/_pages")
 	ctx.SetParams(":id", "1")
@@ -27,7 +29,7 @@ func TestTestHook(t *testing.T) {
 	TestHook(ctx)
 	assert.Equal(t, http.StatusNoContent, ctx.Resp.Status())
 
-	unittest.AssertExistsAndLoadBean(t, &webhook.HookTask{
+	unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{
 		HookID: 1,
 	}, unittest.Cond("is_delivered=?", false))
 }

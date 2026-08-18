@@ -50,6 +50,12 @@ func GetManager() *Manager {
 	return manager
 }
 
+func ShutdownAndResetManager() {
+	manager.DoImmediateHammer()
+	manager = newGracefulManager(context.Background())
+	process.DefaultContext = manager.HammerContext()
+}
+
 // InitManager creates the graceful manager in the provided context
 func InitManager(ctx context.Context) {
 	initOnce.Do(func() {

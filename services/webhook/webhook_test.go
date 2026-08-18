@@ -35,6 +35,7 @@ func TestPrepareWebhooks(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
+	require.NoError(t, Init())
 	activateWebhook(t, 1)
 
 	hookTasks := []*webhook_model.HookTask{
@@ -66,6 +67,7 @@ func TestPrepareWebhooksBranchFilterMatch(t *testing.T) {
 
 	// branch_filter: {master,feature*}
 	w := unittest.AssertExistsAndLoadBean(t, &webhook_model.Webhook{ID: 4})
+	require.NoError(t, Init())
 	activateWebhook(t, w.ID)
 
 	for _, p := range []api.Payloader{
@@ -145,6 +147,7 @@ func TestDeliverTestPayloadWithoutPushEvent(t *testing.T) {
 	// but if we deliver it as a testing payload, the check on event types is bypassed
 	// (so that webhooks can be tested regardless of the event types they are enabled for)
 	// See https://codeberg.org/forgejo/forgejo/issues/7934
+	require.NoError(t, Init())
 	require.NoError(t, PrepareTestWebhook(db.DefaultContext, hook, &api.ReleasePayload{}))
 
 	unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{

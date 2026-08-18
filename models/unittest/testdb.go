@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"forgejo.org/models/db"
@@ -17,6 +18,8 @@ import (
 	"forgejo.org/modules/auth/password/hash"
 	"forgejo.org/modules/base"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/graceful"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/setting/config"
 	"forgejo.org/modules/storage"
@@ -33,6 +36,8 @@ import (
 var (
 	giteaRoot   string
 	fixturesDir string
+
+	resetManager atomic.Bool
 )
 
 // FixturesDir returns the fixture directory
@@ -130,6 +135,7 @@ func MainTest(m *testing.M, testOpts ...*TestOptions) {
 	} else {
 		InitCustomSettings(testOpts[0].IniFileOverride)
 	}
+	setting.IsInTesting = true
 
 	fixturesDir = filepath.Join(giteaRoot, "models", "fixtures")
 	var opts FixturesOptions
@@ -223,6 +229,7 @@ func MainTest(m *testing.M, testOpts ...*TestOptions) {
 		}
 	}
 
+	resetManager.Store(true)
 	if len(testOpts) > 0 && testOpts[0].SetUp != nil {
 		if err := testOpts[0].SetUp(); err != nil {
 			fatalTestError("set up failed: %v\n", err)
@@ -297,8 +304,18 @@ func CreateTestEngine(opts FixturesOptions) error {
 	return InitFixtures(opts)
 }
 
-// PrepareTestDatabase load test fixtures into test database
+func ResetManager() {
+	queue.ResetManager()
+	graceful.ShutdownAndResetManager()
+	initStats()
+}
+
 func PrepareTestDatabase() error {
+	// This should be in a Cleanup function that runs on every test. But
+	// that does not exist and this function is the most commonly used.
+	if resetManager.Load() {
+		ResetManager()
+	}
 	return LoadFixtures()
 }
 

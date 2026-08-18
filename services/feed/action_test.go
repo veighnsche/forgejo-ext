@@ -27,17 +27,6 @@ import (
 
 const flushTimeout = 10 * time.Second
 
-var queueInit = false
-
-func initQueue(t *testing.T) {
-	if queueInit {
-		return
-	}
-
-	require.NoError(t, initNotificationQueue())
-	queueInit = true
-}
-
 func TestMain(m *testing.M) {
 	unittest.MainTest(m)
 }
@@ -45,7 +34,7 @@ func TestMain(m *testing.M) {
 func TestRenameRepoAction(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	initQueue(t)
+	require.NoError(t, initNotificationQueue())
 	ctx := t.Context()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: user.ID})
@@ -109,7 +98,7 @@ func pushCommits() *repository.PushCommits {
 func TestSyncPushCommits(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	initQueue(t)
+	require.NoError(t, initNotificationQueue())
 	ctx := t.Context()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: user.ID})
@@ -158,6 +147,8 @@ func TestPushCommits(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ctx := t.Context()
+	require.NoError(t, initNotificationQueue())
+
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: user.ID})
 
