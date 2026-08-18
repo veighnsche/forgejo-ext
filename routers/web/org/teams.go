@@ -647,29 +647,18 @@ func TeamInvitePost(ctx *context.Context) {
 		}
 		return
 	}
+	hideMembership := ctx.FormBool("hide_membership")
+
+	if err := org_service.AcceptInvite(ctx, team, invite, ctx.Doer, hideMembership); err != nil {
+		if org_model.IsErrTeamInviteNotFound(err) || org_model.IsErrTeamInviteExpired(err) {
+			ctx.NotFound("ErrTeamInviteNotFound", err)
+		} else {
+			ctx.ServerError("AcceptInvite", err)
+		}
+		return
+	}
 
 	linkedToUser, invitedUserID := invite.InvitedID.Get()
-	if linkedToUser && invitedUserID != ctx.Doer.ID {
-		ctx.NotFound("ErrTeamInviteNotFound", nil)
-		return
-	}
-
-	if err := models.AddTeamMember(ctx, team, ctx.Doer.ID); err != nil {
-		ctx.ServerError("AddTeamMember", err)
-		return
-	}
-
-	hideMembership := ctx.FormBool("hide_membership")
-	err = org_model.ChangeOrgUserStatus(ctx, org.ID, ctx.Doer.ID, !hideMembership)
-	if err != nil {
-		ctx.ServerError("ChangeOrgUserStatus", err)
-		return
-	}
-
-	if err := org_model.RemoveInviteByID(ctx, invite.ID, team.ID); err != nil {
-		log.Error("RemoveInviteByID: %v", err)
-	}
-
 	// if there is another invite in the same org for the same user, redirect them to that
 	if linkedToUser {
 		nextInvite, err := org_model.GetInviteByOrgAndUser(ctx, org.ID, invitedUserID)

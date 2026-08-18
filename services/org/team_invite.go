@@ -9,6 +9,7 @@ import (
 	"forgejo.org/models"
 	org_model "forgejo.org/models/organization"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/mailer"
 )
@@ -39,6 +40,32 @@ func InviteOrAddTeamMember(ctx context.Context, inviter, invited *user_model.Use
 		return CreateTeamInviteByUser(ctx, inviter, invited, team)
 	}
 	return models.AddTeamMember(ctx, team, invited.ID)
+}
+
+// AcceptInvite adds the doer to the invited team, deleting the invite
+func AcceptInvite(ctx context.Context, team *org_model.Team, invite *org_model.TeamInvite, doer *user_model.User, hideMembership bool) error {
+	if team.ID != invite.TeamID {
+		return org_model.ErrTeamInviteNotFound{}
+	}
+	linkedToUser, invitedUserID := invite.InvitedID.Get()
+	if linkedToUser && invitedUserID != doer.ID {
+		return org_model.ErrTeamInviteNotFound{}
+	}
+	if invite.IsExpired() {
+		return org_model.ErrTeamInviteExpired{}
+	}
+	if err := models.AddTeamMember(ctx, team, doer.ID); err != nil {
+		return err
+	}
+
+	if err := org_model.ChangeOrgUserStatus(ctx, team.OrgID, doer.ID, !hideMembership); err != nil {
+		return err
+	}
+
+	if err := org_model.RemoveInviteByID(ctx, invite.ID, team.ID); err != nil {
+		log.Error("RemoveInviteByID: %v", err)
+	}
+	return nil
 }
 
 // DeclineInvite turns down an invitation to a team
