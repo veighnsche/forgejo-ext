@@ -258,3 +258,47 @@ func TestGetColumnsPagination(t *testing.T) {
 		})
 	}
 }
+
+// TestColumnGetIssuesPagination tests GetIssues of Column with pagination.
+func TestColumnGetIssuesPagination(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	// get columns
+	column1 := unittest.AssertExistsAndLoadBean(t, &Column{ID: 1, ProjectID: 1})
+	column2 := unittest.AssertExistsAndLoadBean(t, &Column{ID: 2, ProjectID: 1})
+	column3 := unittest.AssertExistsAndLoadBean(t, &Column{ID: 3, ProjectID: 1})
+
+	// move all issues to one column to have more issues in one column
+	require.NoError(t, column2.moveIssuesToAnotherColumn(db.DefaultContext, column1))
+	require.NoError(t, column3.moveIssuesToAnotherColumn(db.DefaultContext, column1))
+
+	// test getting issues with pagination
+	for _, tt := range []struct {
+		name     string
+		pageSize int
+		page     int
+		issues   int
+	}{
+		// one per page
+		{name: "one per page, first page", pageSize: 1, page: 1, issues: 1},
+		{name: "one per page, second page", pageSize: 1, page: 2, issues: 1},
+		{name: "one per page, third page", pageSize: 1, page: 3, issues: 1},
+		// two per page
+		{name: "two per page, first page", pageSize: 2, page: 1, issues: 2},
+		{name: "two per page, second page", pageSize: 2, page: 2, issues: 1},
+		// three+ per page
+		{name: "three per page", pageSize: 3, page: 1, issues: 3},
+		{name: "four per page", pageSize: 4, page: 1, issues: 3},
+		{name: "30 per page", pageSize: 30, page: 1, issues: 3},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			issues, total, err := column1.GetIssues(t.Context(), db.ListOptions{
+				PageSize: tt.pageSize,
+				Page:     tt.page,
+			})
+			require.NoError(t, err)
+			assert.Len(t, issues, tt.issues)
+			assert.Equal(t, int64(3), total)
+		})
+	}
+}
