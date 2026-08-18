@@ -546,7 +546,7 @@ func MoveIssues(ctx *context.Context) {
 	}
 
 	if !complete {
-		ctx.Flash.Warning(ctx.Tr("project.missing_issue_connection"), true)
+		ctx.Flash.Warning(ctx.Tr("project.missing_issues_in_list"), true)
 	}
 
 	if err = project_service.ValidIssueID(ctx, project.OwnerID, existingIssues); err != nil {

@@ -582,7 +582,7 @@ func MoveIssues(ctx *context.Context) {
 	}
 
 	if !complete {
-		ctx.Flash.Warning(ctx.Tr("project.missing_issue_connection"), true)
+		ctx.Flash.Warning(ctx.Tr("project.missing_issues_in_list"), true)
 	}
 
 	for _, issue := range existingIssues {
