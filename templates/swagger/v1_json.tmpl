@@ -19942,6 +19942,131 @@
         }
       }
     },
+    "/teams/{teamid}/invitations": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "List the invitations to a team",
+        "operationId": "orgListTeamInvitations",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "id of the team",
+            "name": "teamid",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "description": "page number of results to return (1-based)",
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "page size of results",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/TeamInviteList"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/teams/{teamid}/invitations/{inviteid}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Get an invitation to a team",
+        "operationId": "orgGetTeamInvitation",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "id of the team",
+            "name": "teamid",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "id of the invitation",
+            "name": "inviteid",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/TeamInvite"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Remove a team invitation",
+        "operationId": "orgRemoveTeamInvitation",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "id of the team",
+            "name": "teamid",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "id of the invitation",
+            "name": "inviteid",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/responses/empty"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/topics/search": {
       "get": {
         "produces": [
@@ -22312,6 +22437,120 @@
         }
       }
     },
+    "/user/team_invitations": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "List the current user's team invitations",
+        "operationId": "orgListCurrentUserTeamInvitations",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "page number of results to return (1-based)",
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "description": "page size of results",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/TeamInviteList"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/user/team_invitations/{inviteid}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Get an invitation to a team for the current user",
+        "operationId": "orgGetMyTeamInvitation",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "id of the invitation",
+            "name": "inviteid",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/TeamInvite"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Accept an invitation to a team for the current user",
+        "operationId": "orgAcceptMyTeamInvitation",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "id of the invitation",
+            "name": "inviteid",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/AcceptTeamInviteOptions"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/responses/TeamInvite"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          },
+          "422": {
+            "$ref": "#/responses/validationError"
+          }
+        }
+      }
+    },
     "/user/teams": {
       "get": {
         "produces": [
@@ -23306,6 +23545,18 @@
         "target": {
           "type": "string",
           "x-go-name": "Target"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
+    "AcceptTeamInviteOptions": {
+      "description": "AcceptTeamInviteOptions options for accepting an invitation",
+      "type": "object",
+      "properties": {
+        "hide_membership": {
+          "description": "Whether to hide the membership to the organization containing this team.",
+          "type": "boolean",
+          "x-go-name": "HideMembership"
         }
       },
       "x-go-package": "forgejo.org/modules/structs"
@@ -30799,6 +31050,67 @@
       },
       "x-go-package": "forgejo.org/modules/structs"
     },
+    "TeamInvite": {
+      "description": "TeamInvite represents an invitation of a user to a team",
+      "type": "object",
+      "properties": {
+        "created_at": {
+          "description": "when this invitation was created",
+          "type": "string",
+          "format": "date-time",
+          "x-go-name": "CreatedAt"
+        },
+        "email": {
+          "description": "the email of the invited person, if they don't have an account yet",
+          "type": "string",
+          "x-go-name": "Email"
+        },
+        "expires_at": {
+          "description": "when this invitation will expire (if at all)",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "x-go-name": "ExpiresAt"
+        },
+        "id": {
+          "description": "the identifier of the invitation",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ID"
+        },
+        "invited": {
+          "$ref": "#/definitions/User"
+        },
+        "inviter": {
+          "$ref": "#/definitions/User"
+        },
+        "is_expired": {
+          "description": "whether this invitation has already expired",
+          "type": "boolean",
+          "x-go-name": "IsExpired"
+        },
+        "org_id": {
+          "description": "the identifier of the organization the invitation is issued for",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "OrgID"
+        },
+        "team_id": {
+          "description": "the identifier of the team the invitation is issued for",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "TeamID"
+        },
+        "token": {
+          "description": "a token that the invited user can use to accept the invitation",
+          "type": "string",
+          "x-go-name": "Token"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
     "TimeStamp": {
       "description": "TimeStamp defines a timestamp",
       "type": "integer",
@@ -32843,6 +33155,28 @@
       "description": "Team",
       "schema": {
         "$ref": "#/definitions/Team"
+      }
+    },
+    "TeamInvite": {
+      "description": "TeamInvite",
+      "schema": {
+        "$ref": "#/definitions/TeamInvite"
+      }
+    },
+    "TeamInviteList": {
+      "description": "TeamInviteList",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/TeamInvite"
+        }
+      },
+      "headers": {
+        "X-Total-Count": {
+          "type": "integer",
+          "format": "int64",
+          "description": "The total number of team invites"
+        }
       }
     },
     "TeamList": {

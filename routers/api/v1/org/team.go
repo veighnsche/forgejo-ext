@@ -547,6 +547,169 @@ func RemoveTeamMember(ctx *context.APIContext) {
 	ctx.Status(http.StatusNoContent)
 }
 
+// GetTeamInvitations api to list invitations to a team
+func GetTeamInvitations(ctx *context.APIContext) {
+	// swagger:operation GET /teams/{teamid}/invitations organization orgListTeamInvitations
+	// ---
+	// summary: List the invitations to a team
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: teamid
+	//   in: path
+	//   description: id of the team
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// - name: page
+	//   in: query
+	//   description: page number of results to return (1-based)
+	//   type: integer
+	// - name: limit
+	//   in: query
+	//   description: page size of results
+	//   type: integer
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/TeamInviteList"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	listTeamInvitations(ctx, &organization.SearchInvitesOptions{
+		ListOptions: utils.GetListOptions(ctx),
+		TeamID:      ctx.Org().Team.ID,
+	})
+}
+
+func listTeamInvitations(ctx *context.APIContext, options *organization.SearchInvitesOptions) {
+	teamInvitations, err := organization.GetTeamInvites(ctx, options)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetTeamInvites", err)
+		return
+	}
+
+	invitations := make([]*api.TeamInvite, len(teamInvitations))
+	for i, invitation := range teamInvitations {
+		err := invitation.LoadUsers(ctx)
+		if err != nil {
+			ctx.Error(http.StatusInternalServerError, "LoadUsers", err)
+			return
+		}
+		invitations[i] = convert.ToTeamInvite(ctx, invitation, ctx.Doer())
+	}
+
+	totalCount, err := organization.CountTeamInvites(ctx, options)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "CountTeamInvites", err)
+		return
+	}
+	ctx.SetTotalCountHeader(totalCount)
+	ctx.JSON(http.StatusOK, invitations)
+}
+
+// getTeamInvitationWithinTeam load the team designated by the `inviteid` parameter and check that it belongs to the team `id`
+func getTeamInvitationWithinTeam(ctx *context.APIContext) *organization.TeamInvite {
+	teamID := ctx.ParamsInt64("teamid")
+	inviteID := ctx.ParamsInt64("inviteid")
+	invite, err := organization.GetInviteByID(ctx, inviteID)
+	if err != nil {
+		if organization.IsErrTeamInviteNotFound(err) {
+			ctx.NotFound("getTeamInvitationWithinTeam")
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetInviteByID", err)
+		}
+		return nil
+	}
+	if invite.TeamID != teamID {
+		ctx.NotFound("getTeamInvitationWithinTeam")
+		return nil
+	}
+	err = invite.LoadUsers(ctx)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "LoadUsers", err)
+		return nil
+	}
+	return invite
+}
+
+// GetTeamInvitation API to get a particular team invitation
+func GetTeamInvitation(ctx *context.APIContext) {
+	// swagger:operation GET /teams/{teamid}/invitations/{inviteid} organization orgGetTeamInvitation
+	// ---
+	// summary: Get an invitation to a team
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: teamid
+	//   in: path
+	//   description: id of the team
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// - name: inviteid
+	//   in: path
+	//   description: id of the invitation
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/TeamInvite"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	invite := getTeamInvitationWithinTeam(ctx)
+	if ctx.Written() {
+		return
+	}
+	ctx.JSON(http.StatusOK, convert.ToTeamInvite(ctx, invite, ctx.Doer()))
+}
+
+// RemoveTeamInvitation api to remove an invitation to a team
+func RemoveTeamInvitation(ctx *context.APIContext) {
+	// swagger:operation DELETE /teams/{teamid}/invitations/{inviteid} organization orgRemoveTeamInvitation
+	// ---
+	// summary: Remove a team invitation
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: teamid
+	//   in: path
+	//   description: id of the team
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// - name: inviteid
+	//   in: path
+	//   description: id of the invitation
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// responses:
+	//   "204":
+	//     "$ref": "#/responses/empty"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	// check that the invite exists before deleting it
+	invite := getTeamInvitationWithinTeam(ctx)
+	if ctx.Written() {
+		return
+	}
+
+	if err := organization.RemoveInviteByID(ctx, invite.ID, invite.TeamID); err != nil {
+		ctx.Error(http.StatusInternalServerError, "RemoveInviteByID", err)
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
+
 // GetTeamRepos api for get a team's repos
 func GetTeamRepos(ctx *context.APIContext) {
 	// swagger:operation GET /teams/{id}/repos organization orgListTeamRepos
@@ -871,4 +1034,149 @@ func ListTeamActivityFeeds(ctx *context.APIContext) {
 	ctx.SetTotalCountHeader(count)
 
 	ctx.JSON(http.StatusOK, convert.ToActivities(ctx, feeds, ctx.Doer()))
+}
+
+// ListMyOrgs list all my team invitations
+func ListMyTeamInvitations(ctx *context.APIContext) {
+	// swagger:operation GET /user/team_invitations organization orgListCurrentUserTeamInvitations
+	// ---
+	// summary: List the current user's team invitations
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: page
+	//   in: query
+	//   description: page number of results to return (1-based)
+	//   type: integer
+	// - name: limit
+	//   in: query
+	//   description: page size of results
+	//   type: integer
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/TeamInviteList"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	listTeamInvitations(ctx, &organization.SearchInvitesOptions{
+		InvitedID: ctx.Doer().ID,
+	})
+}
+
+func getMyTeamInvitation(ctx *context.APIContext) *organization.TeamInvite {
+	inviteID := ctx.ParamsInt64("inviteid")
+	invite, err := organization.GetInviteByID(ctx, inviteID)
+	if err != nil {
+		if organization.IsErrTeamInviteNotFound(err) {
+			ctx.NotFound("GetInviteByID")
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetInviteByID", err)
+		}
+		return nil
+	}
+	// check that it is intended for the current user
+	hasInvitedUser, invitedUserID := invite.InvitedID.Get()
+	if !hasInvitedUser || invitedUserID != ctx.Doer().ID {
+		ctx.NotFound("getMyTeamInvite")
+		return nil
+	}
+	// check  that it is not expired
+	if invite.IsExpired() {
+		ctx.NotFound("getMyTeamInvite")
+		return nil
+	}
+	err = invite.LoadUsers(ctx)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "LoadUsers", err)
+		return nil
+	}
+	return invite
+}
+
+// GetMyTeamInvitation API to get a team invitation addressed to the current user
+func GetMyTeamInvitation(ctx *context.APIContext) {
+	// swagger:operation GET /user/team_invitations/{inviteid} organization orgGetMyTeamInvitation
+	// ---
+	// summary: Get an invitation to a team for the current user
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: inviteid
+	//   in: path
+	//   description: id of the invitation
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/TeamInvite"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+	invite := getMyTeamInvitation(ctx)
+	if ctx.Written() {
+		return
+	}
+	ctx.JSON(http.StatusOK, convert.ToTeamInvite(ctx, invite, ctx.Doer()))
+}
+
+// AcceptMyTeamInvitation API to accept an invitation addressed to the current user
+func AcceptMyTeamInvitation(ctx *context.APIContext) {
+	// swagger:operation POST /user/team_invitations/{inviteid} organization orgAcceptMyTeamInvitation
+	// ---
+	// summary: Accept an invitation to a team for the current user
+	// consumes:
+	// - application/json
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: inviteid
+	//   in: path
+	//   description: id of the invitation
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// - name: body
+	//   in: body
+	//   schema:
+	//     "$ref": "#/definitions/AcceptTeamInviteOptions"
+	// responses:
+	//   "204":
+	//     "$ref": "#/responses/TeamInvite"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+	//   "406":
+	//     "$ref": "#/responses/notAcceptable"
+	//   "422":
+	//     "$ref": "#/responses/validationError"
+
+	invite := getMyTeamInvitation(ctx)
+	if ctx.Written() {
+		return
+	}
+	team, err := organization.GetTeamByID(ctx, invite.TeamID)
+	if err != nil {
+		ctx.ServerError("GetTeamByID", err)
+		return
+	}
+	form := web.GetForm(ctx).(*api.AcceptTeamInviteOptions)
+
+	err = org_service.AcceptInvite(ctx, team, invite, ctx.Doer(), form.HideMembership)
+	if err != nil {
+		if organization.IsErrTeamInviteNotFound(err) {
+			ctx.NotFound("AcceptInvite")
+		} else if organization.IsErrTeamInviteExpired(err) {
+			ctx.Error(http.StatusNotAcceptable, "AcceptInvite", err)
+		} else {
+			ctx.ServerError("AcceptInvite", err)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusNoContent, convert.ToTeamInvite(ctx, invite, ctx.Doer()))
 }

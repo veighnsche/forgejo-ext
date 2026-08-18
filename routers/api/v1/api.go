@@ -1356,6 +1356,12 @@ func Routes() *web.Route {
 					Put(reqToken(), reqOrgOwnership(), org.AddTeamMember).
 					Delete(reqToken(), reqOrgOwnership(), org.RemoveTeamMember)
 			})
+			m.Group("/invitations", func() {
+				m.Get("", reqToken(), org.GetTeamInvitations)
+				m.Combo("/{inviteid}").
+					Delete(reqToken(), reqOrgOwnership(), org.RemoveTeamInvitation).
+					Get(reqToken(), reqOrgOwnership(), org.GetTeamInvitation)
+			})
 			m.Group("/repos", func() {
 				m.Get("", reqToken(), org.GetTeamRepos)
 				m.Combo("/{org}/{reponame}", orgAssignment, orgRepoAssignment("reponame"), repoAccess()).
@@ -1365,6 +1371,13 @@ func Routes() *web.Route {
 			})
 			m.Get("/activities/feeds", org.ListTeamActivityFeeds)
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryOrganization), orgTeamAssignment, reqToken(), reqTeamMembership(), checkTokenPublicOnly())
+		m.Group("/user/team_invitations", func() {
+			m.Get("", org.ListMyTeamInvitations)
+			m.Group("/{inviteid}", func() {
+				m.Get("", org.GetMyTeamInvitation)
+				m.Post("", bind(api.AcceptTeamInviteOptions{}), org.AcceptMyTeamInvitation)
+			})
+		}, reqToken(), tokenRequiresScopes(auth_model.AccessTokenScopeCategoryUser))
 
 		m.Group("/admin", func() {
 			m.Group("/cron", func() {

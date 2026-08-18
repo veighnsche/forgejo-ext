@@ -61,3 +61,20 @@ type swaggerResponseOrganizationPermissions struct {
 	// in:body
 	Body api.OrganizationPermissions `json:"body"`
 }
+
+// TeamInviteList
+// swagger:response TeamInviteList
+type swaggerTeamInviteList struct {
+	// in:body
+	Body []api.TeamInvite `json:"body"`
+
+	// The total number of team invites
+	TotalCount int64 `json:"X-Total-Count"`
+}
+
+// TeamInvite
+// swagger:response TeamInvite
+type swaggerResponseTeamInvite struct {
+	// in:body
+	Body api.TeamInvite `json:"body"`
+}
