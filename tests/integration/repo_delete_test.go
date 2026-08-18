@@ -13,6 +13,7 @@ import (
 	user_model "forgejo.org/models/user"
 	webhook_model "forgejo.org/models/webhook"
 	repo_service "forgejo.org/services/repository"
+	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,7 +50,7 @@ func TestTeam_RemoveRepository(t *testing.T) {
 }
 
 func TestDeleteOwnerRepositoriesDirectly(t *testing.T) {
-	unittest.PrepareTestEnv(t)
+	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
