@@ -252,6 +252,7 @@ class ComboMarkdownEditor {
     this.previewContext = tabPreviewer.getAttribute('data-preview-context');
     this.previewMode = this.options.previewMode ?? 'comment';
     this.previewWiki = this.options.previewWiki ?? false;
+    this.previewWikiPath = this.container.getAttribute('data-wiki-path') ?? '';
     tabPreviewer.addEventListener('click', async () => {
       toolbar.classList.add('markdown-toolbar-hidden');
       const formData = new FormData();
@@ -259,6 +260,7 @@ class ComboMarkdownEditor {
       formData.append('context', this.previewContext);
       formData.append('text', this.value());
       formData.append('wiki', this.previewWiki);
+      if (this.previewWiki) formData.append('wikiPath', this.previewWikiPath);
       const response = await POST(this.previewUrl, {data: formData});
       const data = await response.text();
       renderPreviewPanelContent($(panelPreviewer), data);

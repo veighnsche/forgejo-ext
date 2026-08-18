@@ -41,6 +41,10 @@ type MarkupOption struct {
 	//
 	// in: body
 	BranchPath string
+	// WikiPath is the directory path of the current wiki page (e.g. "Folder"), empty for root
+	//
+	// in: body
+	WikiPath string
 }
 
 // MarkupRender is a rendered markup document

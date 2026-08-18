@@ -232,13 +232,15 @@ func renderViewPage(ctx *context.Context) (*git.Repository, *git.TreeEntry, stri
 		Ctx:   ctx,
 		Metas: ctx.Repo.Repository.ComposeDocumentMetas(ctx),
 		Links: markup.Links{
-			Base: ctx.Repo.RepoLink,
+			Base:     ctx.Repo.RepoLink,
+			WikiPath: dir,
 		},
 		IsWiki: true,
 	}
 	buf := &strings.Builder{}
 
-	renderFn := func(data []byte) (escaped *charset.EscapeStatus, output string, err error) {
+	renderFn := func(data []byte, wikiPath string) (escaped *charset.EscapeStatus, output string, err error) {
+		rctx.Links.WikiPath = wikiPath
 		markupRd, markupWr := io.Pipe()
 		defer markupWr.Close()
 		done := make(chan struct{})
@@ -256,7 +258,7 @@ func renderViewPage(ctx *context.Context) (*git.Repository, *git.TreeEntry, stri
 		return escaped, output, err
 	}
 
-	ctx.Data["EscapeStatus"], ctx.Data["content"], err = renderFn(data)
+	ctx.Data["EscapeStatus"], ctx.Data["content"], err = renderFn(data, dir)
 	if err != nil {
 		ctx.ServerError("Render", err)
 		return nil, nil, ""
@@ -274,7 +276,7 @@ func renderViewPage(ctx *context.Context) (*git.Repository, *git.TreeEntry, stri
 
 	if !isSideBar {
 		buf.Reset()
-		ctx.Data["sidebarEscapeStatus"], ctx.Data["sidebarContent"], err = renderFn(sidebarContent)
+		ctx.Data["sidebarEscapeStatus"], ctx.Data["sidebarContent"], err = renderFn(sidebarContent, ".")
 		if err != nil {
 			ctx.ServerError("Render", err)
 			return nil, nil, ""
@@ -286,7 +288,7 @@ func renderViewPage(ctx *context.Context) (*git.Repository, *git.TreeEntry, stri
 
 	if !isFooter {
 		buf.Reset()
-		ctx.Data["footerEscapeStatus"], ctx.Data["footerContent"], err = renderFn(footerContent)
+		ctx.Data["footerEscapeStatus"], ctx.Data["footerContent"], err = renderFn(footerContent, ".")
 		if err != nil {
 			ctx.ServerError("Render", err)
 			return nil, nil, ""
@@ -408,10 +410,11 @@ func renderEditPage(ctx *context.Context) {
 		pagePath = "Home"
 	}
 
-	_, displayName := wiki_service.WebPathToUserTitle(pagePath)
+	dir, displayName := wiki_service.WebPathToUserTitle(pagePath)
 	ctx.Data["PageURL"] = wiki_service.WebPathToURLPath(pagePath)
 	ctx.Data["old_title"] = displayName
 	ctx.Data["Title"] = displayName
+	ctx.Data["dir"] = dir
 
 	wikiPath, _ := strings.CutSuffix(wiki_service.WebPathToGitPath(pagePath), ".md")
 	ctx.Data["title"] = wikiPath
@@ -661,12 +664,16 @@ func WikiRaw(ctx *context.Context) {
 func NewWiki(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.wiki.new_page")
 
+	title := "Home"
 	if !ctx.Repo.Repository.HasWiki() {
-		ctx.Data["title"] = "Home"
+		title = "Home"
 	}
-	if ctx.FormString("title") != "" {
-		ctx.Data["title"] = ctx.FormString("title")
+	if formTitle := ctx.FormString("title"); formTitle != "" {
+		title = formTitle
 	}
+	ctx.Data["title"] = title
+	dir, _ := wiki_service.WebPathToUserTitle(wiki_service.WebPathFromRequest(title))
+	ctx.Data["dir"] = dir
 
 	ctx.HTML(http.StatusOK, tplWikiNew)
 }
@@ -675,6 +682,8 @@ func NewWiki(ctx *context.Context) {
 func NewWikiPost(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.NewWikiForm)
 	ctx.Data["Title"] = ctx.Tr("repo.wiki.new_page")
+	dir, _ := wiki_service.WebPathToUserTitle(wiki_service.WebPathFromRequest(form.Title))
+	ctx.Data["dir"] = dir
 
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tplWikiNew)
@@ -735,6 +744,8 @@ func EditWiki(ctx *context.Context) {
 func EditWikiPost(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.NewWikiForm)
 	ctx.Data["Title"] = ctx.Tr("repo.wiki.new_page")
+	dir, _ := wiki_service.WebPathToUserTitle(wiki_service.WebPathFromRequest(form.Title))
+	ctx.Data["dir"] = dir
 
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tplWikiNew)

@@ -21,15 +21,16 @@
 			{{if not .PageIsWikiEdit}}
 				{{$content = ctx.Locale.Tr "repo.wiki.welcome"}}
 			{{end}}
-			{{template "shared/combomarkdowneditor" (dict
-				"MarkdownPreviewUrl" (print .Repository.Link "/markup")
-				"MarkdownPreviewContext" .RepoLink
-				"TextareaName" "content"
-				"TextareaPlaceholder" (ctx.Locale.Tr "repo.wiki.page_content")
-				"TextareaAriaLabel" (ctx.Locale.Tr "repo.wiki.page_content")
-				"TextareaContent" $content
-				"EasyMDE" true
-			)}}
+		{{template "shared/combomarkdowneditor" (dict
+			"MarkdownPreviewUrl" (print .Repository.Link "/markup")
+			"MarkdownPreviewContext" .RepoLink
+			"TextareaName" "content"
+			"TextareaPlaceholder" (ctx.Locale.Tr "repo.wiki.page_content")
+			"TextareaAriaLabel" (ctx.Locale.Tr "repo.wiki.page_content")
+			"TextareaContent" $content
+			"EasyMDE" true
+			"WikiPath" .dir
+		)}}
 
 			<div class="field tw-mt-4">
 				<input name="message" aria-label="{{ctx.Locale.Tr "repo.wiki.default_commit_message"}}" placeholder="{{ctx.Locale.Tr "repo.wiki.default_commit_message"}}">

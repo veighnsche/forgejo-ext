@@ -22,6 +22,7 @@ func Markup(ctx *context.Context) {
 		FilePath:   form.FilePath,
 		BranchPath: form.BranchPath,
 		IsWiki:     form.Wiki,
+		WikiPath:   form.WikiPath,
 	}
 
 	re.RenderMarkup(ctx.Base, ctx.Repo)

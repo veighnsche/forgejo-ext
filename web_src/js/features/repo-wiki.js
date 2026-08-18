@@ -10,6 +10,7 @@ async function initRepoWikiFormEditor() {
   const form = editArea.form;
   const editorContainer = editArea.closest('.combo-markdown-editor');
   if (!form || !editorContainer) return;
+  const wikiPath = editorContainer.getAttribute('data-wiki-path') ?? '';
   let editor;
 
   let renderRequesting = false;
@@ -28,6 +29,7 @@ async function initRepoWikiFormEditor() {
       formData.append('context', editor.previewContext);
       formData.append('text', newContent);
       formData.append('wiki', editor.previewWiki);
+      formData.append('wikiPath', wikiPath);
       try {
         const response = await POST(editor.previewUrl, {data: formData});
         const data = await response.text();

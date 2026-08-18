@@ -21,6 +21,7 @@ import (
 type Renderer struct {
 	Mode, Text, URLPrefix, FilePath, BranchPath string
 	IsWiki                                      bool
+	WikiPath                                    string
 }
 
 // RenderMarkup renders markup text for the /markup and /markdown endpoints
@@ -88,6 +89,7 @@ func (re *Renderer) RenderMarkup(ctx *context.Base, repo *context.Repository) {
 			AbsolutePrefix: true,
 			Base:           re.URLPrefix,
 			BranchPath:     re.BranchPath,
+			WikiPath:       re.WikiPath,
 		},
 		Metas:        meta,
 		IsWiki:       re.IsWiki,
