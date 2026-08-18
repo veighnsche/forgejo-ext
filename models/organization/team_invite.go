@@ -96,6 +96,7 @@ type TeamInvite struct {
 	ID          int64                               `xorm:"pk autoincr"`
 	Token       string                              `xorm:"UNIQUE(token) INDEX NOT NULL DEFAULT ''"`
 	InviterID   int64                               `xorm:"NOT NULL DEFAULT 0"`
+	InviterUser *user_model.User                    `xorm:"-"`
 	OrgID       int64                               `xorm:"INDEX NOT NULL DEFAULT 0"`
 	TeamID      int64                               `xorm:"UNIQUE(team_mail) INDEX NOT NULL DEFAULT 0"`
 	Email       string                              `xorm:"UNIQUE(team_mail) NOT NULL DEFAULT ''"`
@@ -249,6 +250,26 @@ func GetInviteByToken(ctx context.Context, token string) (*TeamInvite, error) {
 		return nil, ErrTeamInviteNotFound{Token: token}
 	}
 	return invite, nil
+}
+
+// LoadUsers loads the inviter and invited users (if any)
+func (i *TeamInvite) LoadUsers(ctx context.Context) error {
+	err := i.LoadInviterUser(ctx)
+	if err != nil {
+		return err
+	}
+	return i.LoadInvitedUser(ctx)
+}
+
+func (i *TeamInvite) LoadInviterUser(ctx context.Context) error {
+	if i.InviterUser == nil {
+		user, err := user_model.GetUserByID(ctx, i.InviterID)
+		if err != nil {
+			return err
+		}
+		i.InviterUser = user
+	}
+	return nil
 }
 
 // GetInviteByOrgAndUser finds any non-expired invite for this user to teams of the given org
