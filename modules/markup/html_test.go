@@ -635,6 +635,35 @@ func TestRender_ShortLinks(t *testing.T) {
 	)
 }
 
+func TestRender_ShortLinks_Subdir(t *testing.T) {
+	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
+
+	test := func(wikiPath, input, expectedWiki string) {
+		buffer, err := markdown.RenderString(&markup.RenderContext{
+			Ctx: git.DefaultContext,
+			Links: markup.Links{
+				Base:     markup.TestRepoURL,
+				WikiPath: wikiPath,
+			},
+			Metas:  localMetas,
+			IsWiki: true,
+		}, input)
+		require.NoError(t, err)
+		assert.Equal(t, strings.TrimSpace(expectedWiki), strings.TrimSpace(string(buffer)))
+	}
+
+	// Short link in a subdirectory page resolves relative to the directory
+	urlWikiFolder := util.URLJoin(markup.TestRepoURL, "wiki", "Folder", "Link")
+	imgurlWikiFolder := util.URLJoin(markup.TestRepoURL, "wiki", "raw", "Folder", "Link.jpg")
+
+	test("Folder", "[[Link]]",
+		`<p><a href="`+urlWikiFolder+`" rel="nofollow">Link</a></p>`)
+	test("Folder", "[[Link.jpg]]",
+		`<p><a href="`+imgurlWikiFolder+`" rel="nofollow"><img src="`+imgurlWikiFolder+`" title="Link.jpg" alt=""/></a></p>`)
+	test("Folder", "[[Name|Link]]",
+		`<p><a href="`+urlWikiFolder+`" rel="nofollow">Name</a></p>`)
+}
+
 func TestRender_RelativeImages(t *testing.T) {
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 

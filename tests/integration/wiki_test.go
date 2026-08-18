@@ -421,3 +421,72 @@ func TestWikiSubdirectoryOperations(t *testing.T) {
 		})
 	})
 }
+
+func TestWikiRelativeLinksInSubdirectories(t *testing.T) {
+	userName := "user1"
+	repoName := "test-wiki-relative-links"
+	repoPath := userName + "/" + repoName
+	wikiBasePath := "/" + repoPath + "/wiki/"
+
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: userName})
+
+		repo := forgery.CreateRepository(t, user, &forgery.CreateRepositoryOptions{
+			Name: repoName,
+		})
+		forgery.InitWiki(t, repo, "master")
+		err := wiki_service.DeleteWikiPage(db.DefaultContext, user, repo, "Home")
+		require.NoError(t, err, "unable to clean wiki to be empty")
+
+		// Create a page in a subdirectory that links to a sibling page
+		err = wiki_service.AddWikiPage(
+			db.DefaultContext,
+			user,
+			repo,
+			wiki_service.WebPath("Folder/Page1"),
+			"[link to Page2](Page2)\n\n[link with ./](./Page2)\n\n[link with ../](../Page2)\n\n![image](image.jpg)",
+			"Create Folder/Page1",
+		)
+		require.NoError(t, err)
+
+		// Create the sibling page so the link target exists
+		err = wiki_service.AddWikiPage(
+			db.DefaultContext,
+			user,
+			repo,
+			wiki_service.WebPath("Folder/Page2"),
+			"# Page 2",
+			"Create Folder/Page2",
+		)
+		require.NoError(t, err)
+
+		// Fetch the rendered page
+		req := NewRequest(t, "GET", wikiBasePath+"Folder/Page1")
+		resp := MakeRequest(t, req, http.StatusOK)
+		doc := NewHTMLParser(t, resp.Body)
+
+		// The first link "[link to Page2](Page2)" should resolve to wiki/Folder/Page2
+		link1 := doc.Find(".wiki-content-main a").First()
+		href1, exists := link1.Attr("href")
+		require.True(t, exists, "first link should have href")
+		assert.Equal(t, wikiBasePath+"Folder/Page2", href1, "relative link should resolve to sibling in subdirectory")
+
+		// The second link "[link with ./](./Page2)" should also resolve to wiki/Folder/Page2
+		link2 := doc.Find(".wiki-content-main a").Eq(1)
+		href2, exists := link2.Attr("href")
+		require.True(t, exists, "second link should have href")
+		assert.Equal(t, wikiBasePath+"Folder/Page2", href2, "./ link should resolve to sibling in subdirectory")
+
+		// The third link "[link with ../](../Page2)" should resolve to wiki/Page2 (one level up)
+		link3 := doc.Find(".wiki-content-main a").Eq(2)
+		href3, exists := link3.Attr("href")
+		require.True(t, exists, "third link should have href")
+		assert.Equal(t, wikiBasePath+"Page2", href3, "../ link should resolve one level up to wiki root")
+
+		// The image should resolve to wiki/raw/Folder/image.jpg
+		img := doc.Find(".wiki-content-main img").First()
+		src, exists := img.Attr("src")
+		require.True(t, exists, "image should have src")
+		assert.Equal(t, "/"+repoPath+"/wiki/raw/Folder/image.jpg", src, "image should resolve to subdirectory raw path")
+	})
+}

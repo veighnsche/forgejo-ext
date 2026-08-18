@@ -83,6 +83,51 @@ func TestRender_StandardLinks(t *testing.T) {
 		`<p><a href="`+lnkWiki+`" rel="nofollow">WikiPage</a></p>`)
 }
 
+func TestRender_WikiLinks_Subdir(t *testing.T) {
+	setting.AppURL = AppURL
+
+	test := func(wikiPath, input, expected string) {
+		buffer, err := markdown.RenderString(&markup.RenderContext{
+			Ctx: git.DefaultContext,
+			Links: markup.Links{
+				Base:     FullURL,
+				WikiPath: wikiPath,
+			},
+			IsWiki: true,
+		}, input)
+		require.NoError(t, err)
+		assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(buffer)))
+	}
+
+	// Page "Folder/Page1" linking to "Page2" -> resolves to "wiki/Folder/Page2"
+	test("Folder", "[Page2](Page2)",
+		`<p><a href="`+util.URLJoin(FullURL, "wiki", "Folder", "Page2")+`" rel="nofollow">Page2</a></p>`)
+
+	// Explicit "./" prefix behaves the same as no prefix
+	test("Folder", "[Page2](./Page2)",
+		`<p><a href="`+util.URLJoin(FullURL, "wiki", "Folder", "Page2")+`" rel="nofollow">Page2</a></p>`)
+
+	// "../" goes one level up from "Folder" to wiki root
+	test("Folder", "[Page2](../Page2)",
+		`<p><a href="`+util.URLJoin(FullURL, "wiki", "Page2")+`" rel="nofollow">Page2</a></p>`)
+
+	// Deeper nesting: "docs/api/v2/overview" linking to "details"
+	test("docs/api/v2", "[details](details)",
+		`<p><a href="`+util.URLJoin(FullURL, "wiki", "docs", "api", "v2", "details")+`" rel="nofollow">details</a></p>`)
+
+	// Root page (WikiPath = ".") links stay relative to wiki root
+	test(".", "[Page2](Page2)",
+		`<p><a href="`+util.URLJoin(FullURL, "wiki", "Page2")+`" rel="nofollow">Page2</a></p>`)
+
+	// Empty WikiPath behaves like root (backward compatibility)
+	test("", "[Page2](Page2)",
+		`<p><a href="`+util.URLJoin(FullURL, "wiki", "Page2")+`" rel="nofollow">Page2</a></p>`)
+
+	// Images are also subdir-aware
+	test("Folder", "![alt](image.jpg)",
+		`<p><a href="`+util.URLJoin(FullURL, "wiki", "raw", "Folder", "image.jpg")+`" target="_blank" rel="nofollow noopener"><img src="`+util.URLJoin(FullURL, "wiki", "raw", "Folder", "image.jpg")+`" alt="alt" loading="lazy"/></a></p>`)
+}
+
 func TestRender_Images(t *testing.T) {
 	setting.AppURL = AppURL
 
