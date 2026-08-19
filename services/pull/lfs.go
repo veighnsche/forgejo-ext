@@ -105,8 +105,8 @@ func createLFSMetaObjectsFromCatFileBatch(ctx context.Context, catFileBatchReade
 		}
 		pointerBuf = pointerBuf[:size]
 		// Now we need to check if the pointerBuf is an LFS pointer
-		pointer, _ := lfs.ReadPointerFromBuffer(pointerBuf)
-		if !pointer.IsValid() {
+		pointer, err := lfs.ReadPointerFromBuffer(pointerBuf)
+		if err != nil {
 			continue
 		}
 

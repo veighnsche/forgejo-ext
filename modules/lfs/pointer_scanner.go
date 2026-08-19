@@ -90,8 +90,8 @@ loop:
 		}
 		pointerBuf = pointerBuf[:size]
 		// Now we need to check if the pointerBuf is an LFS pointer
-		pointer, _ := ReadPointerFromBuffer(pointerBuf)
-		if !pointer.IsValid() {
+		pointer, err := ReadPointerFromBuffer(pointerBuf)
+		if err != nil {
 			continue
 		}
 

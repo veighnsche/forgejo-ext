@@ -139,8 +139,8 @@ func TestAPILFSBatch(t *testing.T) {
 		assert.NotNil(t, br.Objects[1].Error)
 		assert.Equal(t, http.StatusUnprocessableEntity, br.Objects[0].Error.Code)
 		assert.Equal(t, http.StatusUnprocessableEntity, br.Objects[1].Error.Code)
-		assert.Equal(t, "Oid or size are invalid", br.Objects[0].Error.Message)
-		assert.Equal(t, "Oid or size are invalid", br.Objects[1].Error.Message)
+		assert.Contains(t, br.Objects[0].Error.Message, "Oid or size are invalid")
+		assert.Contains(t, br.Objects[1].Error.Message, "Oid or size are invalid")
 	})
 
 	t.Run("PointerSizeMismatch", func(t *testing.T) {

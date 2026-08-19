@@ -165,10 +165,9 @@ func GetRawFileOrLFS(ctx *context.APIContext) {
 	}
 
 	// Check if the blob represents a pointer
-	pointer, _ := lfs.ReadPointer(bytes.NewReader(buf))
-
-	// if it's not a pointer, just serve the data directly
-	if !pointer.IsValid() {
+	pointer, err := lfs.ReadPointer(bytes.NewReader(buf))
+	// if it's not a valid pointer, just serve the data directly
+	if err != nil {
 		// First handle caching for the blob
 		if httpcache.HandleGenericETagTimeCache(ctx.Req, ctx.Resp, `"`+blob.ID.String()+`"`, lastModified) {
 			return

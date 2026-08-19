@@ -38,8 +38,8 @@ func ServeBlobOrLFS(ctx *context.Context, blob *git.Blob, lastModified *time.Tim
 		}
 	}()
 
-	pointer, _ := lfs.ReadPointer(dataRc)
-	if pointer.IsValid() {
+	pointer, err := lfs.ReadPointer(dataRc)
+	if err == nil {
 		meta, _ := git_model.GetLFSMetaObjectByOid(ctx, ctx.Repo.Repository.ID, pointer.Oid)
 		if meta == nil {
 			if err = dataRc.Close(); err != nil {

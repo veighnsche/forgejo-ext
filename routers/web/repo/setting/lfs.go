@@ -254,8 +254,8 @@ func LFSFileGet(ctx *context.Context) {
 	oid := ctx.Params("oid")
 
 	p := lfs.Pointer{Oid: oid}
-	if !p.IsValid() {
-		ctx.NotFound("LFSFileGet", nil)
+	if !p.IsOIDValid() {
+		ctx.NotFound("LFSFileGet", lfs.ErrInvalidOIDFormat)
 		return
 	}
 
@@ -264,7 +264,7 @@ func LFSFileGet(ctx *context.Context) {
 	meta, err := git_model.GetLFSMetaObjectByOid(ctx, ctx.Repo.Repository.ID, oid)
 	if err != nil {
 		if err == git_model.ErrLFSObjectNotExist {
-			ctx.NotFound("LFSFileGet", nil)
+			ctx.NotFound("LFSFileGet", err)
 			return
 		}
 		ctx.ServerError("LFSFileGet", err)
@@ -364,8 +364,8 @@ func LFSDelete(ctx *context.Context) {
 	}
 	oid := ctx.Params("oid")
 	p := lfs.Pointer{Oid: oid}
-	if !p.IsValid() {
-		ctx.NotFound("LFSDelete", nil)
+	if err := p.Validate(); err != nil {
+		ctx.NotFound("LFSDelete", err)
 		return
 	}
 
@@ -393,27 +393,28 @@ func LFSFileFind(ctx *context.Context) {
 		ctx.NotFound("LFSFind", nil)
 		return
 	}
-	oid := ctx.FormString("oid")
 	size := ctx.FormInt64("size")
-	if len(oid) == 0 || size == 0 {
-		ctx.NotFound("LFSFind", nil)
+	pointer := lfs.Pointer{Oid: ctx.FormString("oid"), Size: size}
+	// TODO: size == 0 should be handled elsewhere, ErrInvalidPointerTarget size isn't
+	// the same.
+	if err := pointer.Validate(); err != nil || size == 0 {
+		ctx.NotFound("LFSFind", err)
 		return
 	}
 	sha := ctx.FormString("sha")
-	ctx.Data["Title"] = oid
+	ctx.Data["Title"] = pointer.Oid
 	ctx.Data["PageIsSettingsLFS"] = true
 	objectFormat := ctx.Repo.GetObjectFormat()
 	var objectID git.ObjectID
 	if len(sha) == 0 {
-		pointer := lfs.Pointer{Oid: oid, Size: size}
 		objectID = git.ComputeBlobHash(objectFormat, []byte(pointer.StringContent()))
 		sha = objectID.String()
 	} else {
 		objectID = git.MustIDFromString(sha)
 	}
 	ctx.Data["LFSFilesLink"] = ctx.Repo.RepoLink + "/settings/lfs"
-	ctx.Data["Oid"] = oid
-	ctx.Data["Size"] = size
+	ctx.Data["Oid"] = pointer.Oid
+	ctx.Data["Size"] = pointer.Size
 	ctx.Data["SHA"] = sha
 
 	results, err := pipeline.FindLFSFile(ctx.Repo.GitRepo, objectID)

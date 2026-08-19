@@ -193,10 +193,10 @@ func BatchHandler(ctx *context.Context) {
 	var responseObjects []*lfs_module.ObjectResponse
 
 	for _, p := range br.Objects {
-		if !p.IsValid() {
+		if err := p.Validate(); err != nil {
 			responseObjects = append(responseObjects, buildObjectResponse(rc, p, false, false, &lfs_module.ObjectError{
 				Code:    http.StatusUnprocessableEntity,
-				Message: "Oid or size are invalid",
+				Message: fmt.Sprintf("Oid or size are invalid (oid: %s, size: %d)", p.Oid, p.Size),
 			}))
 			continue
 		}
@@ -287,7 +287,7 @@ func UploadHandler(ctx *context.Context) {
 		writeStatusMessage(ctx, http.StatusUnprocessableEntity, err.Error())
 	}
 
-	if !p.IsValid() {
+	if err = p.Validate(); err != nil {
 		log.Trace("Attempt to access invalid LFS OID[%s] in %s/%s", p.Oid, rc.User, rc.Repo)
 		writeStatus(ctx, http.StatusUnprocessableEntity)
 		return
@@ -413,7 +413,7 @@ func getRequestContext(ctx *context.Context) *requestContext {
 }
 
 func getAuthenticatedMeta(ctx *context.Context, rc *requestContext, p lfs_module.Pointer, requireWrite bool) *git_model.LFSMetaObject {
-	if !p.IsValid() {
+	if p.Validate() != nil {
 		log.Info("Attempt to access invalid LFS OID[%s] in %s/%s", p.Oid, rc.User, rc.Repo)
 		writeStatusMessage(ctx, http.StatusUnprocessableEntity, "Oid or size are invalid")
 		return nil

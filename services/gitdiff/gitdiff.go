@@ -945,12 +945,16 @@ func parseHunks(ctx context.Context, curFile *DiffFile, maxLines, maxLineCharact
 		curSection.Lines[len(curSection.Lines)-1].Content = line
 
 		// handle LFS
+		//
+		// FIXME: The "second line" is not necessarily the OID and so forth, see:
+		// https://github.com/git-lfs/git-lfs/blob/f0bffc4fe998fe5cb004dbca9e8951ea662ff66b/lfs/pointer_test.go#L189-L193
+		// Please also fix modules/lfs/pointer.go
 		if line[1:] == lfs.MetaFileIdentifier {
 			curFileLFSPrefix = true
 		} else if curFileLFSPrefix && strings.HasPrefix(line[1:], lfs.MetaFileOidPrefix) {
-			oid := strings.TrimPrefix(line[1:], lfs.MetaFileOidPrefix)
-			if len(oid) == 64 {
-				m := &git_model.LFSMetaObject{Pointer: lfs.Pointer{Oid: oid}}
+			p := lfs.Pointer{Oid: strings.TrimPrefix(line[1:], lfs.MetaFileOidPrefix)}
+			if p.IsOIDValid() {
+				m := &git_model.LFSMetaObject{Pointer: p}
 				count, err := db.CountByBean(ctx, m)
 
 				if err == nil && count > 0 {
