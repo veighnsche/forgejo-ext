@@ -140,3 +140,83 @@ func TestIsProjectStatusValid(t *testing.T) {
 		assert.Equal(t, v.valid, valid)
 	}
 }
+
+func TestTemplateTypeToAPITemplateType(t *testing.T) {
+	for _, v := range []struct {
+		template TemplateType
+		expect   APITemplateType
+	}{
+		{TemplateTypeNone, APITemplateTypeNone},
+		{TemplateTypeBasicKanban, APITemplateTypeBasicKanban},
+		{TemplateTypeBugTriage, APITemplateTypeBugTriage},
+		{TemplateType(255), APITemplateTypeNone},
+	} {
+		assert.Equal(t, v.expect, v.template.ToAPITemplateType())
+	}
+}
+
+func TestAPITemplateTypeToTemplateType(t *testing.T) {
+	for _, v := range []struct {
+		template APITemplateType
+		expect   TemplateType
+	}{
+		{APITemplateTypeNone, TemplateTypeNone},
+		{APITemplateTypeBasicKanban, TemplateTypeBasicKanban},
+		{APITemplateTypeBugTriage, TemplateTypeBugTriage},
+		{APITemplateType("does not exist"), TemplateTypeNone},
+	} {
+		assert.Equal(t, v.expect, v.template.ToTemplateType())
+	}
+}
+
+func TestCardTypeToAPICardType(t *testing.T) {
+	for _, v := range []struct {
+		template CardType
+		expect   APICardType
+	}{
+		{CardTypeTextOnly, APICardTypeTextOnly},
+		{CardTypeImagesAndText, APICardTypeImagesAndText},
+		{CardType(255), APICardTypeTextOnly},
+	} {
+		assert.Equal(t, v.expect, v.template.ToAPICardType())
+	}
+}
+
+func TestAPICardTypeToCardType(t *testing.T) {
+	for _, v := range []struct {
+		template APICardType
+		expect   CardType
+	}{
+		{APICardTypeTextOnly, CardTypeTextOnly},
+		{APICardTypeImagesAndText, CardTypeImagesAndText},
+		{APICardType("does not exist"), CardTypeTextOnly},
+	} {
+		assert.Equal(t, v.expect, v.template.ToCardType())
+	}
+}
+
+func TestOwnerTypeToAPIOwnerType(t *testing.T) {
+	for _, v := range []struct {
+		template OwnerType
+		expect   APIOwnerType
+	}{
+		{TypeIndividual, APIOwnerTypeIndividual},
+		{TypeRepository, APIOwnerTypeRepository},
+		{OwnerType(255), APIOwnerTypeOrganization},
+	} {
+		assert.Equal(t, v.expect, v.template.ToAPIOwnerType())
+	}
+}
+
+func TestAPIOwnerTypeToOwnerType(t *testing.T) {
+	for _, v := range []struct {
+		template APIOwnerType
+		expect   OwnerType
+	}{
+		{APIOwnerTypeIndividual, TypeIndividual},
+		{APIOwnerTypeRepository, TypeRepository},
+		{APIOwnerType("does not exist"), TypeOrganization},
+	} {
+		assert.Equal(t, v.expect, v.template.ToOwnerType())
+	}
+}
