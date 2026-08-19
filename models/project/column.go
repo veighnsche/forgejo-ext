@@ -171,7 +171,7 @@ func DeleteColumnByID(ctx context.Context, columnID int64) error {
 func deleteColumnByID(ctx context.Context, columnID int64) error {
 	column, err := GetColumn(ctx, columnID)
 	if err != nil {
-		if errors.Is(err, &ErrProjectColumnNotExist{}) {
+		if errors.Is(err, ErrProjectColumnNotExist{}) {
 			return nil
 		}
 

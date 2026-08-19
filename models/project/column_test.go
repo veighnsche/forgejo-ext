@@ -302,3 +302,17 @@ func TestColumnGetIssuesPagination(t *testing.T) {
 		})
 	}
 }
+
+// TestDeleteColumnByID tests DeleteColumnByID.
+func TestDeleteColumnByID(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	column := unittest.AssertExistsAndLoadBean(t, &Column{ID: 3, ProjectID: 1})
+
+	// delete existing column
+	err := DeleteColumnByID(t.Context(), column.ID)
+	require.NoError(t, err)
+
+	// delete not existing column
+	err = DeleteColumnByID(t.Context(), column.ID)
+	require.NoError(t, err)
+}
