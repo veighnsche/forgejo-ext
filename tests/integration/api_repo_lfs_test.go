@@ -139,8 +139,8 @@ func TestAPILFSBatch(t *testing.T) {
 		assert.NotNil(t, br.Objects[1].Error)
 		assert.Equal(t, http.StatusUnprocessableEntity, br.Objects[0].Error.Code)
 		assert.Equal(t, http.StatusUnprocessableEntity, br.Objects[1].Error.Code)
-		assert.Equal(t, "Oid or size are invalid", br.Objects[0].Error.Message)
-		assert.Equal(t, "Oid or size are invalid", br.Objects[1].Error.Message)
+		assert.Contains(t, br.Objects[0].Error.Message, "Oid or size are invalid")
+		assert.Contains(t, br.Objects[1].Error.Message, "Oid or size are invalid")
 	})
 
 	t.Run("PointerSizeMismatch", func(t *testing.T) {
@@ -334,6 +334,26 @@ func TestAPILFSBatch(t *testing.T) {
 			assert.NotNil(t, vl)
 			assert.NotEmpty(t, vl.Href)
 		})
+
+		t.Run("InvalidOID", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			defer test.MockVariableValue(&setting.LFS.MaxFileSize, 2)()
+
+			req := newRequest(t, &lfs.BatchRequest{
+				Operation: "upload",
+				Objects: []lfs.Pointer{
+					{Oid: "dummy", Size: 6},
+				},
+			})
+			req.AddBasicAuth("user2")
+
+			resp := MakeRequest(t, req, http.StatusOK)
+			br := decodeResponse(t, resp.Body)
+			assert.Len(t, br.Objects, 1)
+			assert.NotNil(t, br.Objects[0].Error)
+			assert.Equal(t, http.StatusUnprocessableEntity, br.Objects[0].Error.Code)
+			assert.Equal(t, "Oid or size are invalid (oid: dummy, size: 6)", br.Objects[0].Error.Message)
+		})
 	})
 }
 
@@ -353,12 +373,38 @@ func TestAPILFSUpload(t *testing.T) {
 	}
 
 	t.Run("InvalidPointer", func(t *testing.T) {
-		defer tests.PrintCurrentTest(t)()
+		t.Run("InvalidOID", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
 
-		req := newRequest(t, lfs.Pointer{Oid: "dummy"}, "")
-		req.AddBasicAuth("user2")
+			req := newRequest(t, lfs.Pointer{Oid: "dummy"}, "")
+			req.AddBasicAuth("user2")
 
-		MakeRequest(t, req, http.StatusUnprocessableEntity)
+			resp := MakeRequest(t, req, http.StatusUnprocessableEntity)
+			expected, err := json.Marshal(lfs.ErrorResponse{
+				Message:          "OID has an invalid format",
+				DocumentationURL: "https://codeberg.org/forgejo/forgejo/issues",
+			})
+			require.NoError(t, err)
+			assert.JSONEq(t, string(expected), resp.Body.String())
+		})
+
+		t.Run("NegativeSize", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := newRequest(t, lfs.Pointer{
+				Oid:  "83de2e488b89a0aa1c97496b888120a28b0c1e15463a4adb8405578c540f36d4",
+				Size: -1,
+			}, "")
+			req.AddBasicAuth("user2")
+
+			resp := MakeRequest(t, req, http.StatusUnprocessableEntity)
+			expected, err := json.Marshal(lfs.ErrorResponse{
+				Message:          "Pointer contains a negative size",
+				DocumentationURL: "https://codeberg.org/forgejo/forgejo/issues",
+			})
+			require.NoError(t, err)
+			assert.JSONEq(t, string(expected), resp.Body.String())
+		})
 	})
 
 	t.Run("AlreadyExistsInStore", func(t *testing.T) {
@@ -446,6 +492,7 @@ func TestAPILFSUpload(t *testing.T) {
 	})
 }
 
+// Beyond [lfs.VerifyHandler], this can also be used to test getAuthenticatedMeta.
 func TestAPILFSVerify(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
@@ -473,12 +520,33 @@ func TestAPILFSVerify(t *testing.T) {
 	})
 
 	t.Run("InvalidPointer", func(t *testing.T) {
-		defer tests.PrintCurrentTest(t)()
+		t.Run("InvalidOID", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
 
-		req := newRequest(t, &lfs.Pointer{})
-		req.AddBasicAuth("user2")
+			req := newRequest(t, &lfs.Pointer{})
+			req.AddBasicAuth("user2")
 
-		MakeRequest(t, req, http.StatusUnprocessableEntity)
+			resp := MakeRequest(t, req, http.StatusUnprocessableEntity)
+			expected, err := json.Marshal(lfs.ErrorResponse{
+				Message:          "OID has an invalid format",
+				DocumentationURL: "https://codeberg.org/forgejo/forgejo/issues",
+			})
+			require.NoError(t, err)
+			assert.JSONEq(t, string(expected), resp.Body.String())
+		})
+
+		// Size mismatch leads to pointer not being found.
+		t.Run("NegativeSize", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := newRequest(t, &lfs.Pointer{
+				Oid:  "83de2e488b89a0aa1c97496b888120a28b0c1e15463a4adb8405578c540f36d4",
+				Size: -1,
+			})
+			req.AddBasicAuth("user2")
+
+			MakeRequest(t, req, http.StatusNotFound)
+		})
 	})
 
 	t.Run("PointerNotExisting", func(t *testing.T) {

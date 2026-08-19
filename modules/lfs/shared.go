@@ -39,7 +39,11 @@ type Reference struct {
 	Name string `json:"name"`
 }
 
-// Pointer contains LFS pointer data
+// Pointer contains LFS pointer data.
+//
+// The database representation of a pointer cannot be null; it is possible that
+// a Pointer object that only contains an Oid is created for database get
+// reasons.
 type Pointer struct {
 	Oid  string `json:"oid" xorm:"UNIQUE(s) INDEX NOT NULL"`
 	Size int64  `json:"size" xorm:"NOT NULL"`
@@ -107,7 +111,7 @@ func (e *ObjectError) Unwrap() error {
 	}
 }
 
-// PointerBlob associates a Git blob with a Pointer.
+// PointerBlob associates a Git blob with a [Pointer].
 type PointerBlob struct {
 	Hash string
 	Pointer

@@ -23,6 +23,9 @@ const (
 
 	// MetaFileIdentifier is the string appearing at the first line of LFS pointer files.
 	// https://github.com/git-lfs/git-lfs/blob/master/docs/spec.md
+	//
+	// FIXME: There can be multiple different identifiers, not just that of the example.
+	// Please also fix services/gitdiff/gitdiff.go
 	MetaFileIdentifier = "version https://git-lfs.github.com/spec/v1"
 
 	// MetaFileOidPrefix appears in LFS pointer files on a line before the sha256 hash.
@@ -38,25 +41,47 @@ var (
 
 	// ErrInvalidOIDFormat occurs if the oid has an invalid format
 	ErrInvalidOIDFormat = errors.New("OID has an invalid format")
+
+	// ErrInvalidPointerTargetSize occurs if the size is negative (e.g. -1)
+	ErrInvalidPointerTargetSize = errors.New("Pointer contains a negative size")
 )
 
-// ReadPointer tries to read LFS pointer data from the reader
-func ReadPointer(reader io.Reader) (Pointer, error) {
-	buf := make([]byte, BlobSizeCutoff)
-	n, err := io.ReadFull(reader, buf)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		return Pointer{}, err
-	}
-	buf = buf[:n]
+var oidPattern = regexp.MustCompile(`^[a-f\d]{64}$`)
 
-	return ReadPointerFromBuffer(buf)
+// IsOIDValid only checks whether the pointer's OID format is correct; this
+// is only useful when we want to "distinguish" the reason as to why the pointer
+// can be invalid so that we can return [ErrInvalidOIDFormat]s.
+//
+// This may be the case when given an OID to perform an LFS operation, e.g. a
+// lookup or a deletion, instead of parsing a file representing an LFS pointer.
+func (p Pointer) IsOIDValid() bool {
+	return oidPattern.MatchString(p.Oid)
 }
 
-var oidPattern = regexp.MustCompile(`^[a-f\d]{64}$`)
+// Validate checks if the pointer has a valid structure.
+// It doesn't check if the pointed-to-content exists.
+//
+// Note that in certain cases, it is completely reasonable to create a Pointer
+// object that contains a provided OID as an identifier but not a valid size,
+// as the "missing pieces" are to be obtained by the database. This is primarily
+// intended for LFS pointer files.
+//
+// TODO: Refactor and fix the additional checks of ReadPointerFromBuffer here
+// or someplace else.
+func (p Pointer) Validate() error {
+	if !p.IsOIDValid() {
+		return ErrInvalidOIDFormat
+	}
+	if p.Size < 0 {
+		return ErrInvalidPointerTargetSize
+	}
+	return nil
+}
 
 // ReadPointerFromBuffer will return a pointer if the provided byte slice is a pointer file or an error otherwise.
 func ReadPointerFromBuffer(buf []byte) (Pointer, error) {
 	var p Pointer
+	var err error
 
 	headString := string(buf)
 	if !strings.HasPrefix(headString, MetaFileIdentifier) {
@@ -68,34 +93,36 @@ func ReadPointerFromBuffer(buf []byte) (Pointer, error) {
 		return p, ErrInvalidStructure
 	}
 
-	oid := strings.TrimPrefix(splitLines[1], MetaFileOidPrefix)
-	if len(oid) != 64 || !oidPattern.MatchString(oid) {
+	// More elaborate than Pointer's 'IsValid' method so as to be able to
+	// distinguish ErrInvalidOIDFormats.
+	p.Oid = strings.TrimPrefix(splitLines[1], MetaFileOidPrefix)
+	if !p.IsOIDValid() {
 		return p, ErrInvalidOIDFormat
 	}
-	size, err := strconv.ParseInt(strings.TrimPrefix(splitLines[2], "size "), 10, 64)
+
+	// FIXME: The second line is not necessarily that of the OID.
+	// See: https://github.com/git-lfs/git-lfs/blob/f0bffc4fe998fe5cb004dbca9e8951ea662ff66b/lfs/pointer_test.go#L189-L193
+	p.Size, err = strconv.ParseInt(strings.TrimPrefix(splitLines[2], "size "), 10, 64)
 	if err != nil {
 		return p, err
 	}
-
-	p.Oid = oid
-	p.Size = size
+	if p.Size < 0 {
+		return p, ErrInvalidPointerTargetSize
+	}
 
 	return p, nil
 }
 
-// IsValid checks if the pointer has a valid structure.
-// It doesn't check if the pointed-to-content exists.
-func (p Pointer) IsValid() bool {
-	if len(p.Oid) != 64 {
-		return false
+// ReadPointer tries to read LFS pointer data from the reader
+func ReadPointer(reader io.Reader) (Pointer, error) {
+	buf := make([]byte, BlobSizeCutoff)
+	n, err := io.ReadFull(reader, buf)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return Pointer{}, err
 	}
-	if !oidPattern.MatchString(p.Oid) {
-		return false
-	}
-	if p.Size < 0 {
-		return false
-	}
-	return true
+	buf = buf[:n]
+
+	return ReadPointerFromBuffer(buf)
 }
 
 // StringContent returns the string representation of the pointer

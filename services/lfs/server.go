@@ -193,10 +193,10 @@ func BatchHandler(ctx *context.Context) {
 	var responseObjects []*lfs_module.ObjectResponse
 
 	for _, p := range br.Objects {
-		if !p.IsValid() {
+		if err := p.Validate(); err != nil {
 			responseObjects = append(responseObjects, buildObjectResponse(rc, p, false, false, &lfs_module.ObjectError{
 				Code:    http.StatusUnprocessableEntity,
-				Message: "Oid or size are invalid",
+				Message: fmt.Sprintf("Oid or size are invalid (oid: %s, size: %d)", p.Oid, p.Size),
 			}))
 			continue
 		}
@@ -209,7 +209,7 @@ func BatchHandler(ctx *context.Context) {
 		}
 
 		meta, err := git_model.GetLFSMetaObjectByOid(ctx, repository.ID, p.Oid)
-		if err != nil && err != git_model.ErrLFSObjectNotExist {
+		if err != nil && !(err == git_model.ErrLFSObjectNotExist || err == lfs_module.ErrInvalidOIDFormat) {
 			log.Error("Unable to get LFS MetaObject [%s] for %s/%s. Error: %v", p.Oid, rc.User, rc.Repo, err)
 			writeStatus(ctx, http.StatusInternalServerError)
 			return
@@ -287,9 +287,9 @@ func UploadHandler(ctx *context.Context) {
 		writeStatusMessage(ctx, http.StatusUnprocessableEntity, err.Error())
 	}
 
-	if !p.IsValid() {
+	if err = p.Validate(); err != nil {
 		log.Trace("Attempt to access invalid LFS OID[%s] in %s/%s", p.Oid, rc.User, rc.Repo)
-		writeStatus(ctx, http.StatusUnprocessableEntity)
+		writeStatusMessage(ctx, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
@@ -379,12 +379,17 @@ func VerifyHandler(ctx *context.Context) {
 
 	rc := getRequestContext(ctx)
 
+	// Only catches invalid OIDs, but the size case is covered later.
 	meta := getAuthenticatedMeta(ctx, rc, p, true)
 	if meta == nil {
 		return
 	}
 
 	contentStore := lfs_module.NewContentStore()
+	// Implicitly catches pointers with invalid sizes (i.e. negative size, as the
+	// size of a file in the content store should never be equal to zero). Unlike
+	// in other functions, we don't care about reporting back whether the error
+	// was caused by a malformed oid or a wrong size; it's only "not found".
 	ok, err := contentStore.Verify(meta.Pointer)
 
 	status := http.StatusOK
@@ -413,9 +418,10 @@ func getRequestContext(ctx *context.Context) *requestContext {
 }
 
 func getAuthenticatedMeta(ctx *context.Context, rc *requestContext, p lfs_module.Pointer, requireWrite bool) *git_model.LFSMetaObject {
-	if !p.IsValid() {
+	// NOTE: p.Size is not necessarily valid, as the passed pointer object can simply contain the OID.
+	if !p.IsOIDValid() {
 		log.Info("Attempt to access invalid LFS OID[%s] in %s/%s", p.Oid, rc.User, rc.Repo)
-		writeStatusMessage(ctx, http.StatusUnprocessableEntity, "Oid or size are invalid")
+		writeStatusMessage(ctx, http.StatusUnprocessableEntity, lfs_module.ErrInvalidOIDFormat.Error())
 		return nil
 	}
 
@@ -426,7 +432,7 @@ func getAuthenticatedMeta(ctx *context.Context, rc *requestContext, p lfs_module
 
 	meta, err := git_model.GetLFSMetaObjectByOid(ctx, repository.ID, p.Oid)
 	if err != nil {
-		log.Error("Unable to get LFS OID[%s] Error: %v", p.Oid, err)
+		log.Error("Unable to get LFS OID[%s] in %s/%s. Error: %v", p.Oid, rc.User, rc.Repo, err)
 		writeStatus(ctx, http.StatusNotFound)
 		return nil
 	}
@@ -437,7 +443,7 @@ func getAuthenticatedMeta(ctx *context.Context, rc *requestContext, p lfs_module
 func getAuthenticatedRepository(ctx *context.Context, rc *requestContext, requireWrite bool) *repo_model.Repository {
 	repository, err := repo_model.GetRepositoryByOwnerAndName(ctx, rc.User, rc.Repo)
 	if err != nil {
-		log.Error("Unable to get repository: %s/%s Error: %v", rc.User, rc.Repo, err)
+		log.Error("Unable to get repository: %s/%s. Error: %v", rc.User, rc.Repo, err)
 		writeStatus(ctx, http.StatusNotFound)
 		return nil
 	}

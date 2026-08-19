@@ -222,7 +222,7 @@ func StoreMissingLfsObjectsInRepository(ctx context.Context, repo *repo_model.Re
 	var batch []lfs.Pointer
 	for pointerBlob := range pointerChan {
 		meta, err := git_model.GetLFSMetaObjectByOid(ctx, repo.ID, pointerBlob.Oid)
-		if err != nil && err != git_model.ErrLFSObjectNotExist {
+		if err != nil && !(err == git_model.ErrLFSObjectNotExist || err == lfs.ErrInvalidOIDFormat) {
 			log.Error("Repo[%-v]: Error querying LFS meta object %-v: %v", repo, pointerBlob.Pointer, err)
 			return err
 		}

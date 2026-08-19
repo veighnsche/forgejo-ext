@@ -273,16 +273,30 @@ func TestLFSPointerAndFindCommitView(t *testing.T) {
 			assert.Contains(t, filesTable.Text(), locale.TrString("repo.settings.lfs.no_pointers"))
 		})
 
-		t.Run("Find Commit View", func(t *testing.T) {
+		t.Run("Find Commit View (Valid OID)", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
-			req := NewRequest(t, "GET", "/user2/repo1/settings/lfs/find?oid=thisoiddoesnotexist&size=1")
+			req := NewRequest(t, "GET", "/user2/repo1/settings/lfs/find?oid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&size=1")
 			resp := session.MakeRequest(t, req, http.StatusOK)
 
 			filesTable := NewHTMLParser(t, resp.Body).doc.Find(".user-main-content")
 			assert.Contains(t, filesTable.Text(), locale.TrString("repo.settings.lfs_lfs_file_no_commits"))
 			// While we're at it, why not include this as well?
-			assert.Contains(t, filesTable.Text(), "LFS / thisoiddoesnotexist")
+			assert.Contains(t, filesTable.Text(), "LFS / aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+		})
+
+		t.Run("Find Commit View (Invalid OID)", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequest(t, "GET", "/user2/repo1/settings/lfs/find?oid=invalidoid&size=1")
+			session.MakeRequest(t, req, http.StatusNotFound)
+		})
+
+		t.Run("Find Commit View (Empty OID)", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequest(t, "GET", "/user2/repo1/settings/lfs/find?oid=invalidoid&size=1")
+			session.MakeRequest(t, req, http.StatusNotFound)
 		})
 	})
 

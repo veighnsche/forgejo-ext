@@ -238,8 +238,8 @@ func getFileReader(ctx gocontext.Context, repoID int64, blob *git.Blob) ([]byte,
 		return buf, dataRc, &fileInfo{isTextFile, false, blob.Size(), nil, st}, nil
 	}
 
-	pointer, _ := lfs.ReadPointerFromBuffer(buf)
-	if !pointer.IsValid() { // fallback to plain file
+	pointer, err := lfs.ReadPointerFromBuffer(buf)
+	if err != nil { // fallback to plain file
 		return buf, dataRc, &fileInfo{isTextFile, false, blob.Size(), nil, st}, nil
 	}
 
