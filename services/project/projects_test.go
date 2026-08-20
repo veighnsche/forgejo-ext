@@ -306,6 +306,25 @@ func TestEditColumnInProjectError(t *testing.T) {
 	assert.Contains(t, err.Error(), "bad color code")
 }
 
+func TestSetDefaultColumn(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	projectID := int64(1)
+	columnID := int64(2)
+
+	// column is not default
+	column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{ID: columnID})
+	assert.False(t, column.Default)
+
+	// set column as new default
+	err := SetDefaultColumn(t.Context(), projectID, columnID)
+	require.NoError(t, err)
+
+	// column is default
+	column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{ID: columnID})
+	assert.True(t, column.Default)
+}
+
 func TestCRUDProject(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
