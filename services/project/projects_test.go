@@ -277,6 +277,20 @@ func TestGetValidProjectColumnByID(t *testing.T) {
 	})
 }
 
+func TestCreateColumnInProjectError(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	column1 := &project_model.Column{
+		Title:     "Some title",
+		ProjectID: 1,
+		Color:     "Invalid Color",
+	}
+
+	err := CreateColumnInProject(t.Context(), column1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bad color code")
+}
+
 func TestCRUDProject(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
