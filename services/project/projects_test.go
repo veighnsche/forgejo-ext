@@ -17,6 +17,7 @@ import (
 	project_module "forgejo.org/modules/project"
 	project_structs "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
+	"forgejo.org/modules/validation"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -250,23 +251,28 @@ func TestNewProject(t *testing.T) {
 	assert.Contains(t, err.Error(), "Field APIOwnerType")
 }
 
-func TestGetValidProjectColumn(t *testing.T) {
+func TestGetValidProjectColumnByID(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
-
 	validProjectID := int64(1)
 
-	validColumnID := int64(1)
-	nonExistingColumnID := int64(99999)
-	differentColID := int64(4)
-
-	t.Run("GetValidProjectColumn", func(t *testing.T) {
+	t.Run("Valid Column ID", func(t *testing.T) {
+		validColumnID := int64(1)
 		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, validColumnID)
 		require.NoError(t, err)
-
-		_, err = GetValidProjectColumnByID(t.Context(), validProjectID, nonExistingColumnID)
+	})
+	t.Run("Empty Column ID", func(t *testing.T) {
+		emptyColumnID := int64(0)
+		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, emptyColumnID)
+		assert.True(t, validation.IsErrNotValid(err))
+	})
+	t.Run("Not Existing Column ID", func(t *testing.T) {
+		nonExistingColumnID := int64(99999)
+		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, nonExistingColumnID)
 		assert.Contains(t, err.Error(), notExistStr)
-
-		_, err = GetValidProjectColumnByID(t.Context(), validProjectID, differentColID)
+	})
+	t.Run("Different Column ID", func(t *testing.T) {
+		differentColID := int64(4)
+		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, differentColID)
 		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
 	})
 }
