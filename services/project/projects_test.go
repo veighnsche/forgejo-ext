@@ -291,6 +291,21 @@ func TestCreateColumnInProjectError(t *testing.T) {
 	assert.Contains(t, err.Error(), "bad color code")
 }
 
+func TestEditColumnInProjectError(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	column1 := &project_model.Column{
+		ID:        1,
+		Title:     "Some title",
+		ProjectID: 1,
+		Color:     "Invalid Color",
+	}
+
+	err := EditColumnInProject(t.Context(), column1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bad color code")
+}
+
 func TestCRUDProject(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
