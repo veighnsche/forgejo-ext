@@ -489,6 +489,8 @@ func TestGetProjectByIDForOwnerErrors(t *testing.T) {
 }
 
 func TestCRUDProject(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
 	project := &project_model.Project{
 		OwnerID:      ownerID,
 		Title:        projectTitle,
@@ -501,6 +503,7 @@ func TestCRUDProject(t *testing.T) {
 	newTitle := "Updated Title"
 	newDescription := "Updated Description"
 
+	// create project
 	err := CreateProject(t.Context(), project)
 	require.NoError(t, err)
 
@@ -508,6 +511,7 @@ func TestCRUDProject(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, wantProject.Title, projectTitle)
 
+	// update project
 	updated := &project_structs.CreateProjectOptions{
 		Title:       newTitle,
 		Description: newDescription,
@@ -529,6 +533,7 @@ func TestCRUDProject(t *testing.T) {
 			Color:     columnColor,
 		}
 
+		// create column
 		err := CreateColumnInProject(t.Context(), column1)
 		require.NoError(t, err)
 		assert.True(t, column1.Default)
@@ -536,6 +541,7 @@ func TestCRUDProject(t *testing.T) {
 		wantCol1, _ := GetValidProjectColumnByID(t.Context(), project.ID, column1.ID)
 		assert.Equal(t, wantCol1.Title, columnTitle1)
 
+		// create another column
 		err = CreateColumnInProject(t.Context(), column2)
 		require.NoError(t, err)
 
@@ -544,9 +550,11 @@ func TestCRUDProject(t *testing.T) {
 		assert.Equal(t, wantCol2.Title, columnTitle2)
 		assert.False(t, wantCol2.Default)
 
+		// try deleting default column
 		err = DeleteColumnInProject(t.Context(), column1.ID)
 		require.Error(t, err) // Can not delete default col
 
+		// delete other column
 		err = DeleteColumnInProject(t.Context(), column2.ID)
 		require.NoError(t, err)
 		unittest.AssertNotExistsBean(t, &project_model.Column{ID: column2.ID})
@@ -560,6 +568,7 @@ func TestCRUDProject(t *testing.T) {
 		pI1 := unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: 1})
 		pI2 := unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: 2})
 
+		// move/sort issues
 		pIs := &project_structs.MovedIssuesOption{
 			ProjectIssues: []struct {
 				IssueID int64 "json:\"issueID\""
@@ -585,6 +594,7 @@ func TestCRUDProject(t *testing.T) {
 		assert.Equal(t, int64(1), pI1.ProjectColumnID)
 		assert.Equal(t, int64(1), pI2.ProjectColumnID)
 
+		// get issues in default column
 		defaultCol, err := project.GetDefaultColumn(t.Context())
 		require.NoError(t, err)
 
@@ -595,6 +605,7 @@ func TestCRUDProject(t *testing.T) {
 		assert.Contains(t, defaultIssues, pI2)
 	})
 
+	// delete project
 	err = DeleteProjectByID(t.Context(), wantProject.ID, optional.None[int64]())
 	require.NoError(t, err)
 }
