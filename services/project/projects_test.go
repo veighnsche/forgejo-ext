@@ -177,6 +177,32 @@ func TestNewProject(t *testing.T) {
 		assert.Equal(t, project_module.TypeIndividual, proj.Type)
 	})
 
+	t.Run("individual, owner is org", func(t *testing.T) {
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
+
+		_, err := NewProject(&opts, org3, nilRepo, project_module.APIOwnerTypeIndividual)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Type was TypeIndividual, but owner was org")
+	})
+
+	t.Run("individual, repo given", func(t *testing.T) {
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
+
+		_, err := NewProject(&opts, user2, repo2, project_module.APIOwnerTypeIndividual)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Type was TypeIndividual, repo was given")
+	})
+
 	t.Run("organization", func(t *testing.T) {
 		opts := project_structs.CreateProjectOptions{
 			Title:        "Test",
@@ -190,6 +216,32 @@ func TestNewProject(t *testing.T) {
 		assert.Equal(t, opts.Title, proj.Title)
 		assert.Equal(t, opts.Description, proj.Description)
 		assert.Equal(t, project_module.TypeOrganization, proj.Type)
+	})
+
+	t.Run("organization, owner is individual", func(t *testing.T) {
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
+
+		_, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeOrganization)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Type was TypeOrganization, but owner was individual")
+	})
+
+	t.Run("organization, repo given", func(t *testing.T) {
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
+
+		_, err := NewProject(&opts, org3, repo2, project_module.APIOwnerTypeOrganization)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Type was TypeOrganization, repo was given")
 	})
 
 	t.Run("repository", func(t *testing.T) {
