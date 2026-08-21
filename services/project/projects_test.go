@@ -341,6 +341,33 @@ func TestValidIssueID(t *testing.T) {
 	require.Error(t, ValidIssueID(t.Context(), 1234567890, list))
 }
 
+func TestMoveIssuesOnProjectColumnErrors(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{ID: 1})
+
+	for _, v := range [][]struct {
+		IssueID int64 "json:\"issueID\""
+		Sorting int64 "json:\"sorting\""
+	}{
+		{
+			// duplicate issue IDs
+			{IssueID: int64(1), Sorting: int64(2)},
+			{IssueID: int64(1), Sorting: int64(1)},
+		},
+		{
+			// invalid issue ID
+			{IssueID: int64(1234567890), Sorting: int64(2)},
+			{IssueID: int64(1), Sorting: int64(1)},
+		},
+	} {
+		pIs := &project_structs.MovedIssuesOption{
+			ProjectIssues: v,
+		}
+		err := MoveIssuesOnProjectColumn(t.Context(), column, pIs)
+		require.Error(t, err)
+	}
+}
+
 func TestCRUDProject(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
