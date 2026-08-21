@@ -160,95 +160,107 @@ func TestNewProject(t *testing.T) {
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 3})
 	repo2 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
-
-	opts := project_structs.CreateProjectOptions{
-		Title:        "Test",
-		Description:  "Test",
-		TemplateType: project_module.APITemplateTypeNone.String(),
-		CardType:     project_module.APICardTypeTextOnly.String(),
-	}
-
 	var nilRepo *repo_model.Repository
 
-	proj, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeIndividual)
-	require.NoError(t, err)
-	assert.Equal(t, opts.Title, proj.Title)
-	assert.Equal(t, opts.Description, proj.Description)
-	assert.Equal(t, project_module.TypeIndividual, proj.Type)
+	t.Run("individual", func(t *testing.T) {
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
 
-	opts = project_structs.CreateProjectOptions{
-		Title:        "Test",
-		Description:  "Test",
-		TemplateType: project_module.APITemplateTypeNone.String(),
-		CardType:     project_module.APICardTypeTextOnly.String(),
-	}
+		proj, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeIndividual)
+		require.NoError(t, err)
+		assert.Equal(t, opts.Title, proj.Title)
+		assert.Equal(t, opts.Description, proj.Description)
+		assert.Equal(t, project_module.TypeIndividual, proj.Type)
+	})
 
-	proj, err = NewProject(&opts, org3, nilRepo, project_module.APIOwnerTypeOrganization)
-	require.NoError(t, err)
-	assert.Equal(t, opts.Title, proj.Title)
-	assert.Equal(t, opts.Description, proj.Description)
-	assert.Equal(t, project_module.TypeOrganization, proj.Type)
+	t.Run("organization", func(t *testing.T) {
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
 
-	opts = project_structs.CreateProjectOptions{
-		Title:        "Test",
-		Description:  "Test",
-		TemplateType: project_module.APITemplateTypeNone.String(),
-		CardType:     project_module.APICardTypeTextOnly.String(),
-	}
+		proj, err := NewProject(&opts, org3, nilRepo, project_module.APIOwnerTypeOrganization)
+		require.NoError(t, err)
+		assert.Equal(t, opts.Title, proj.Title)
+		assert.Equal(t, opts.Description, proj.Description)
+		assert.Equal(t, project_module.TypeOrganization, proj.Type)
+	})
 
-	proj, err = NewProject(&opts, user2, repo2, project_module.APIOwnerTypeRepository)
-	require.NoError(t, err)
-	assert.Equal(t, opts.Title, proj.Title)
-	assert.Equal(t, opts.Description, proj.Description)
-	assert.Equal(t, project_module.TypeRepository, proj.Type)
+	t.Run("repository", func(t *testing.T) {
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
 
-	opts = project_structs.CreateProjectOptions{
-		Title:        "Test",
-		Description:  "Test",
-		TemplateType: project_module.APITemplateTypeNone.String(),
-		CardType:     project_module.APICardTypeTextOnly.String(),
-	}
+		proj, err := NewProject(&opts, user2, repo2, project_module.APIOwnerTypeRepository)
+		require.NoError(t, err)
+		assert.Equal(t, opts.Title, proj.Title)
+		assert.Equal(t, opts.Description, proj.Description)
+		assert.Equal(t, project_module.TypeRepository, proj.Type)
+	})
 
-	_, err = NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Repo type given, but repo struct was empty")
+	t.Run("repository, empty repo", func(t *testing.T) {
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
 
-	invalidCardType := project_module.APICardType("invalid")
-	invalidTemplateType := project_module.APITemplateType("invalid")
-	invalidProjectType := project_module.APIOwnerType("99")
+		_, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Repo type given, but repo struct was empty")
+	})
 
-	opts = project_structs.CreateProjectOptions{
-		Title:        "Test",
-		Description:  "Test",
-		TemplateType: project_module.APITemplateTypeNone.String(),
-		CardType:     invalidCardType.String(),
-	}
+	t.Run("repository, invalid card type", func(t *testing.T) {
+		invalidCardType := project_module.APICardType("invalid")
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     invalidCardType.String(),
+		}
 
-	_, err = NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Field APICardType")
+		_, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Field APICardType")
+	})
 
-	opts = project_structs.CreateProjectOptions{
-		Title:        "Test",
-		Description:  "Test",
-		TemplateType: invalidTemplateType.String(),
-		CardType:     project_module.APICardTypeTextOnly.String(),
-	}
+	t.Run("repository, invalid template type", func(t *testing.T) {
+		invalidTemplateType := project_module.APITemplateType("invalid")
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: invalidTemplateType.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
 
-	_, err = NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Field APITemplateType")
+		_, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Field APITemplateType")
+	})
 
-	opts = project_structs.CreateProjectOptions{
-		Title:        "Test",
-		Description:  "Test",
-		TemplateType: project_module.APITemplateTypeNone.String(),
-		CardType:     project_module.APICardTypeTextOnly.String(),
-	}
+	t.Run("invalid project type", func(t *testing.T) {
+		invalidProjectType := project_module.APIOwnerType("99")
+		opts := project_structs.CreateProjectOptions{
+			Title:        "Test",
+			Description:  "Test",
+			TemplateType: project_module.APITemplateTypeNone.String(),
+			CardType:     project_module.APICardTypeTextOnly.String(),
+		}
 
-	_, err = NewProject(&opts, user2, nilRepo, invalidProjectType)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Field APIOwnerType")
+		_, err := NewProject(&opts, user2, nilRepo, invalidProjectType)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Field APIOwnerType")
+	})
 }
 
 func TestGetValidProjectColumnByID(t *testing.T) {
