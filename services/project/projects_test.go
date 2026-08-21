@@ -325,6 +325,22 @@ func TestSetDefaultColumn(t *testing.T) {
 	assert.True(t, column.Default)
 }
 
+func TestValidIssueID(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	issue1 := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
+	issue2 := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
+	issue3 := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 3})
+
+	list := issues_model.IssueList{issue1, issue2, issue3}
+
+	// valid owner ID
+	require.NoError(t, ValidIssueID(t.Context(), 2, list))
+
+	// invalid owner ID
+	require.Error(t, ValidIssueID(t.Context(), 1234567890, list))
+}
+
 func TestCRUDProject(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
