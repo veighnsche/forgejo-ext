@@ -432,6 +432,62 @@ func TestMoveIssuesOnProjectColumnErrors(t *testing.T) {
 	}
 }
 
+func TestGetProjectByIDForOwnerErrors(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	// prepare individual, repository, organization project
+	project := &project_model.Project{
+		OwnerID:      ownerID,
+		Title:        projectTitle,
+		Type:         projectType2,
+		Description:  projectDescription,
+		CreatorID:    ownerID,
+		TemplateType: templateType,
+		CardType:     cardType,
+	}
+	repoProject := &project_model.Project{
+		RepoID:       repoID,
+		Title:        projectTitle,
+		Type:         projectType3.ToOwnerType(),
+		Description:  projectDescription,
+		CreatorID:    ownerID,
+		TemplateType: templateType,
+		CardType:     cardType,
+	}
+	orgProject := &project_model.Project{
+		OwnerID:      orgOwnerID,
+		Title:        projectTitle,
+		Type:         projectType1.ToOwnerType(),
+		Description:  projectDescription,
+		CreatorID:    ownerID,
+		TemplateType: templateType,
+		CardType:     cardType,
+	}
+	require.NoError(t, CreateProject(t.Context(), project))
+	require.NoError(t, CreateProject(t.Context(), repoProject))
+	require.NoError(t, CreateProject(t.Context(), orgProject))
+
+	t.Run("individual, wrong owner", func(t *testing.T) {
+		_, err := GetProjectByIDForOwner(t.Context(), project.ID, 99)
+		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
+	})
+
+	t.Run("repository, wrong owner", func(t *testing.T) {
+		_, err := GetProjectByIDForOwner(t.Context(), repoProject.ID, 99)
+		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
+	})
+
+	t.Run("organization, wrong owner", func(t *testing.T) {
+		_, err := GetProjectByIDForOwner(t.Context(), orgProject.ID, 99)
+		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
+	})
+
+	t.Run("not existing project", func(t *testing.T) {
+		_, err := GetProjectByIDForOwner(t.Context(), 1234567890, 99)
+		assert.True(t, errors.Is(err, util.ErrNotExist))
+	})
+}
+
 func TestCRUDProject(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
@@ -451,43 +507,6 @@ func TestCRUDProject(t *testing.T) {
 	wantProject, err := GetProjectByIDForOwner(t.Context(), project.ID, ownerID)
 	require.NoError(t, err)
 	assert.Equal(t, wantProject.Title, projectTitle)
-
-	t.Run("Wrong OwnerID", func(t *testing.T) {
-		repoProject := &project_model.Project{
-			RepoID:       repoID,
-			Title:        projectTitle,
-			Type:         projectType3.ToOwnerType(),
-			Description:  projectDescription,
-			CreatorID:    ownerID,
-			TemplateType: templateType,
-			CardType:     cardType,
-		}
-
-		orgProject := &project_model.Project{
-			OwnerID:      orgOwnerID,
-			Title:        projectTitle,
-			Type:         projectType1.ToOwnerType(),
-			Description:  projectDescription,
-			CreatorID:    ownerID,
-			TemplateType: templateType,
-			CardType:     cardType,
-		}
-
-		err := CreateProject(t.Context(), repoProject)
-		require.NoError(t, err)
-
-		err = CreateProject(t.Context(), orgProject)
-		require.NoError(t, err)
-
-		_, err = GetProjectByIDForOwner(t.Context(), project.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
-
-		_, err = GetProjectByIDForOwner(t.Context(), repoProject.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
-
-		_, err = GetProjectByIDForOwner(t.Context(), orgProject.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
-	})
 
 	updated := &project_structs.CreateProjectOptions{
 		Title:       newTitle,
