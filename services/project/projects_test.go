@@ -488,6 +488,40 @@ func TestGetProjectByIDForOwnerErrors(t *testing.T) {
 	})
 }
 
+func TestUpdateProjectErrors(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	// prepare project
+	project := &project_model.Project{
+		OwnerID:      ownerID,
+		Title:        projectTitle,
+		Type:         projectType2,
+		Description:  projectDescription,
+		CreatorID:    ownerID,
+		TemplateType: templateType,
+		CardType:     cardType,
+	}
+	require.NoError(t, CreateProject(t.Context(), project))
+
+	t.Run("invalid card type", func(t *testing.T) {
+		updated := &project_structs.CreateProjectOptions{
+			CardType: "does not exist",
+		}
+		err := UpdateProject(t.Context(), project, updated)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Field APICardType")
+	})
+
+	t.Run("invalid status", func(t *testing.T) {
+		updated := &project_structs.CreateProjectOptions{
+			Status: "does not exist",
+		}
+		err := UpdateProject(t.Context(), project, updated)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Field APIStatus")
+	})
+}
+
 func TestCRUDProject(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
