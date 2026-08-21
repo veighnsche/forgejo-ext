@@ -352,10 +352,10 @@ clean-no-bindata:
 	rm -rf $(EXECUTABLE) $(DIST) \
 		integrations*.test \
 		e2e*.test \
-		tests/integration/gitea-integration-* \
+		tests/integration/*-integration-* \
 		tests/integration/indexers-* \
 		tests/mysql.ini tests/pgsql.ini man/ \
-		tests/e2e/gitea-e2e-*/ \
+		tests/e2e/*-e2e-*/ \
 		tests/e2e/indexers-*/ \
 		tests/e2e/reports/ tests/e2e/test-artifacts/ tests/e2e/test-snapshots/
 
