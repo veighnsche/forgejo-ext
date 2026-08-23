@@ -13,13 +13,17 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
 	actions_module "forgejo.org/modules/actions"
+	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
+	"code.forgejo.org/xorm/xorm"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"xorm.io/builder"
 )
 
 var ErrEphemeralRunnerHasAssignedTask = errors.New("ephemeral runner already has an assigned task")
@@ -44,7 +48,7 @@ func PickTask(ctx context.Context, runner *actions_model.ActionRunner, requestKe
 	}
 
 	if err := db.WithTx(ctx, func(ctx context.Context) error {
-		t, err := actions_model.CreateTaskForRunner(ctx, runner, requestKey, handle)
+		t, err := CreateTaskForRunner(ctx, runner, requestKey, handle)
 		if err != nil {
 			return fmt.Errorf("CreateTaskForRunner: %w", err)
 		}
@@ -439,4 +443,124 @@ func deleteTask(ctx context.Context, taskID int64) error {
 
 		return nil
 	})
+}
+
+func CreateTaskForRunner(ctx context.Context, runner *actions_model.ActionRunner, requestKey, handle *string) (*actions_model.ActionTask, error) {
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer committer.Close()
+
+	e := db.GetEngine(ctx)
+
+	jobs, err := actions_model.GetAvailableJobsForRunner(e, runner)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: a more efficient way to filter labels
+	var job *actions_model.ActionRunJob
+	log.Trace("runner labels: %v", runner.AgentLabels)
+	for _, j := range jobs {
+		if j.IsRequestedByRunner(handle) && j.ItRunsOn(runner.AgentLabels) {
+			job = j
+			break
+		}
+	}
+	if job == nil {
+		return nil, actions_model.ErrNoMatchingJobFound
+	}
+	if err := job.LoadAttributes(ctx); err != nil {
+		return nil, err
+	}
+
+	now := timeutil.TimeStampNow()
+	job.Started = now
+	job.Status = actions_model.StatusRunning
+
+	task := &actions_model.ActionTask{
+		JobID:             job.ID,
+		Attempt:           job.Attempt,
+		RunnerID:          runner.ID,
+		Started:           now,
+		Status:            actions_model.StatusRunning,
+		RepoID:            job.RepoID,
+		OwnerID:           job.OwnerID,
+		CommitSHA:         job.CommitSHA,
+		IsForkPullRequest: job.IsForkPullRequest,
+	}
+	if requestKey != nil {
+		task.RunnerRequestKey = *requestKey
+	}
+	task.GenerateToken()
+
+	var workflowJob *jobparser.Job
+	if gots, err := jobparser.Parse(job.WorkflowPayload, false); err != nil {
+		return nil, fmt.Errorf("parse workflow of job %d: %w", job.ID, err)
+	} else if len(gots) != 1 {
+		return nil, fmt.Errorf("workflow of job %d: not single workflow", job.ID)
+	} else { //nolint:revive
+		_, workflowJob = gots[0].Job()
+	}
+
+	if _, err := e.Insert(task); err != nil {
+		return nil, err
+	}
+
+	task.LogFilename = logFileName(job.Run.Repo, task.ID)
+	if err := actions_model.UpdateTask(ctx, task, "log_filename"); err != nil {
+		return nil, err
+	}
+
+	if len(workflowJob.Steps) > 0 {
+		steps := make([]*actions_model.ActionTaskStep, len(workflowJob.Steps))
+		for i, v := range workflowJob.Steps {
+			name, _ := util.SplitStringAtByteN(v.String(), 255)
+			steps[i] = &actions_model.ActionTaskStep{
+				Name:   name,
+				TaskID: task.ID,
+				Index:  int64(i),
+				RepoID: task.RepoID,
+				Status: actions_model.StatusWaiting,
+			}
+		}
+		if _, err := e.Insert(steps); err != nil {
+			return nil, err
+		}
+		task.Steps = steps
+	}
+
+	job.TaskID = task.ID
+	// We never have to send a notification here because the job is started with a not done status.
+	//
+	// ErrDeadlock can occur on MariaDB w/ `innodb_snapshot_isolation`, rather than returning 0 records -- we can treat
+	// that just the same and return the `ErrNoJobUpdated` error code. An alternative would be to use READ COMMITTED
+	// transaction isolation level, but models/db doesn't currently expose that, and it would cause transaction nesting
+	// difficulties.
+	if n, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, builder.Eq{"task_id": 0}); err != nil && errors.Is(err, xorm.ErrDeadlock) {
+		return nil, actions_model.ErrNoJobUpdated
+	} else if err != nil {
+		return nil, err
+	} else if n != 1 {
+		return nil, actions_model.ErrNoJobUpdated
+	}
+
+	task.Job = job
+
+	if err := committer.Commit(); err != nil {
+		return nil, err
+	}
+
+	return task, nil
+}
+
+func logFileName(repo *repo_model.Repository, taskID int64) string {
+	ret := fmt.Sprintf("%s/%02x/%d.log", repo.FullName(), taskID%256, taskID)
+
+	if setting.Actions.LogCompression.IsZstd() {
+		ret += ".zst"
+	}
+
+	return ret
 }
