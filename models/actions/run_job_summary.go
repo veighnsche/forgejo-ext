@@ -44,10 +44,7 @@ func GetJobSummary(ctx context.Context, jobID, attempt int64) (*ActionRunJobSumm
 }
 
 func SetJobSummary(ctx context.Context, summary *ActionRunJobSummary) error {
-	// todo: Figure out where/if to log why we're truncating now and maybe display the last few characters (after masking!)
-	if len(summary.Content) > MaxJobSummarySize {
-		summary.Content = summary.Content[:MaxJobSummarySize]
-	}
+	summary.Content, _ = util.SplitStringAtByteN(summary.Content, MaxJobSummarySize)
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		existing, err := GetJobSummary(ctx, summary.JobID, summary.Attempt)
 		if err != nil && err != util.ErrNotExist {

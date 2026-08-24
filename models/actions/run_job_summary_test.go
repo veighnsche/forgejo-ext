@@ -6,6 +6,7 @@ package actions
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/util"
@@ -43,7 +44,9 @@ func TestJobSummary(t *testing.T) {
 	}))
 	got, err = GetJobSummary(t.Context(), jobID, attempt)
 	require.NoError(t, err)
-	assert.Len(t, got.Content, MaxJobSummarySize)
+	assert.LessOrEqual(t, len(got.Content), MaxJobSummarySize)
+	assert.True(t, utf8.ValidString(got.Content))
+	assert.True(t, strings.HasSuffix(got.Content, "…"))
 
 	require.NoError(t, DeleteJobSummaries(t.Context(), jobID))
 	_, err = GetJobSummary(t.Context(), jobID, attempt)
