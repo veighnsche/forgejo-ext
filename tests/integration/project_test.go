@@ -709,6 +709,27 @@ func TestProjectAPIRenderNewProject(t *testing.T) {
 	}
 }
 
+func TestProjectAPICreateProject(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user2 := loginUser(t, "user2")
+	for testName, projectURL := range map[string]string{
+		"User":         "/user2/-/projects/new",
+		"Organization": "/org3/-/projects/new",
+		"Repository":   "/user2/repo1/projects/new",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			projectOpts := forms_service.CreateProjectForm{
+				Title:        "Project 1",
+				Content:      "Test",
+				TemplateType: project_module.APITemplateTypeNone.String(),
+				CardType:     project_module.APICardTypeTextOnly.String(),
+			}
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &projectOpts), http.StatusSeeOther)
+		})
+	}
+}
+
 // Test creation/getting/updating/deleting project for user
 func TestProjectAPICRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
