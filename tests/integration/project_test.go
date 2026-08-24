@@ -804,6 +804,41 @@ func TestProjectAPIRenderEditProject(t *testing.T) {
 	}
 }
 
+func TestProjectAPIEditProjectPost(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user2 := loginUser(t, "user2")
+
+	projectOpts := forms_service.CreateProjectForm{
+		Title:    "Project 1",
+		Content:  "Test",
+		CardType: project_module.APICardTypeTextOnly.String(),
+	}
+
+	// no errors
+	for testName, projectURL := range map[string]string{
+		"User":         "/user2/-/projects/4/edit",
+		"Organization": "/org3/-/projects/7/edit",
+		"Repository":   "/user2/repo1/projects/1/edit",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &projectOpts), http.StatusSeeOther)
+		})
+	}
+
+	// wrong owners
+	for testName, projectURL := range map[string]string{
+		"User, wrong owner":         "/org3/-/projects/4/edit",
+		"Organization, wrong owner": "/user2/-/projects/7/edit",
+		"Repository, wrong owner":   "/user2/-/projects/1/edit",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &projectOpts), http.StatusNotFound)
+		})
+	}
+}
+
 // Test creation/getting/updating/deleting project for user
 func TestProjectAPICRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
