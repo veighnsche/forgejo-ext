@@ -29,11 +29,6 @@ dialog {
   padding: 0;
 }
 
-dialog[open],
-dialog:target {
-  display: flex;
-}
-
 dialog::backdrop {
   background-color: var(--color-overlay-backdrop);
   will-change: opacity;
