@@ -17,11 +17,11 @@ const MaxJobSummarySize = 1024 * 1024
 
 // ActionRunJobSummary holds the GITHUB_STEP_SUMMARY markdown produced by one attempt of a single job.
 type ActionRunJobSummary struct {
-	ID          int64              `xorm:"pk autoincr"`
-	JobID       int64              `xorm:"unique(job_attempt)"`
-	Attempt     int64              `xorm:"unique(job_attempt)"`
-	RunID       int64              `xorm:"index"`
-	RepoID      int64              `xorm:"index"`
+	ID          int64 `xorm:"pk autoincr"`
+	JobID       int64 `xorm:"unique(job_attempt)"`
+	Attempt     int64 `xorm:"unique(job_attempt)"`
+	RunID       int64
+	RepoID      int64
 	Content     string             `xorm:"LONGTEXT"`
 	CreatedUnix timeutil.TimeStamp `xorm:"created"`
 	UpdatedUnix timeutil.TimeStamp `xorm:"updated"`

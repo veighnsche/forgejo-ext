@@ -18,11 +18,11 @@ func init() {
 
 func addActionRunJobSummary(x *xorm.Engine) error {
 	type ActionRunJobSummary struct {
-		ID          int64              `xorm:"pk autoincr"`
-		JobID       int64              `xorm:"unique(job_attempt)"`
-		Attempt     int64              `xorm:"unique(job_attempt)"`
-		RunID       int64              `xorm:"index"`
-		RepoID      int64              `xorm:"index"`
+		ID          int64 `xorm:"pk autoincr"`
+		JobID       int64 `xorm:"unique(job_attempt)"`
+		Attempt     int64 `xorm:"unique(job_attempt)"`
+		RunID       int64
+		RepoID      int64
 		Content     string             `xorm:"LONGTEXT"`
 		CreatedUnix timeutil.TimeStamp `xorm:"created"`
 		UpdatedUnix timeutil.TimeStamp `xorm:"updated"`
