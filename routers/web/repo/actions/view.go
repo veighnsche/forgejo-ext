@@ -188,10 +188,10 @@ type ViewRunInfo struct {
 }
 
 type ViewCurrentJob struct {
-	Title       string          `json:"title"`
-	Steps       []*ViewJobStep  `json:"steps"`
-	AllAttempts []*TaskAttempt  `json:"allAttempts"`
-	Summary     template.HTML   `json:"summary"`
+	Title       string         `json:"title"`
+	Steps       []*ViewJobStep `json:"steps"`
+	AllAttempts []*TaskAttempt `json:"allAttempts"`
+	Summary     template.HTML  `json:"summary"`
 }
 
 type ViewLogs struct {

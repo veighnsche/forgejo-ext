@@ -20,7 +20,7 @@ func TestJobSummary(t *testing.T) {
 	const jobID, attempt = int64(1001), int64(1)
 
 	_, err := GetJobSummary(t.Context(), jobID, attempt)
-	assert.ErrorIs(t, err, util.ErrNotExist)
+	require.ErrorIs(t, err, util.ErrNotExist)
 
 	require.NoError(t, SetJobSummary(t.Context(), &ActionRunJobSummary{
 		JobID: jobID, Attempt: attempt, RunID: 1, RepoID: 1, Content: "## initial",
