@@ -730,6 +730,21 @@ func TestProjectAPICreateProject(t *testing.T) {
 	}
 }
 
+func TestProjectAPIDeleteProject(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user2 := loginUser(t, "user2")
+	for testName, projectURL := range map[string]string{
+		"User":         "/user2/-/projects/4/delete",
+		"Organization": "/org3/-/projects/7/delete",
+		"Repository":   "/user2/repo1/projects/1/delete",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusOK)
+		})
+	}
+}
+
 // Test creation/getting/updating/deleting project for user
 func TestProjectAPICRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
