@@ -771,6 +771,39 @@ func TestProjectAPIDeleteProject(t *testing.T) {
 	}
 }
 
+func TestProjectAPIRenderEditProject(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user2 := loginUser(t, "user2")
+
+	// template: templates/projects/new.tmpl
+	for testName, projectURL := range map[string]string{
+		"User":         "/user2/-/projects/4/edit",
+		"Organization": "/org3/-/projects/7/edit",
+		"Repository":   "/user2/repo1/projects/1/edit",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			for _, cc := range project_module.GetAPICardConfig() {
+				doc.AssertElement(t, fmt.Sprintf(".item[data-id='%s']", cc.CardType), true)
+			}
+		})
+	}
+
+	// wrong owners
+	for testName, projectURL := range map[string]string{
+		"User, wrong owner":         "/org3/-/projects/4/edit",
+		"Organization, wrong owner": "/user2/-/projects/7/edit",
+		"Repository, wrong owner":   "/user2/-/projects/1/edit",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusNotFound)
+		})
+	}
+}
+
 // Test creation/getting/updating/deleting project for user
 func TestProjectAPICRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
