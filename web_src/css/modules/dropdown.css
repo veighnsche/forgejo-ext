@@ -30,8 +30,12 @@
     /* Reset position from middle of the screen to being relative to parent */
     inset: unset;
     position-anchor: --dropdown-opener;
+
+    /* Default placement */
     position-area: bottom span-right;
-    position-try: normal flip-inline;
+
+    /* Try to horizontally mirror if ran into viewport */
+    position-try: flip-inline, flip-block, flip-inline flip-block;
 
     /* Suppress default non-zero padding */
     padding: unset;
