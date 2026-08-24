@@ -21,27 +21,27 @@
 
 .dialog-dropdown {
   anchor-scope: --dropdown-opener;
-}
 
-.dialog-dropdown button {
-  anchor-name: --dropdown-opener;
-}
+  button {
+    anchor-name: --dropdown-opener;
+  }
 
-.dialog-dropdown dialog {
-  /* Reset position from middle of the screen to being relative to parent */
-  inset: unset;
-  position-anchor: --dropdown-opener;
-  position-area: bottom span-right;
+  dialog {
+    /* Reset position from middle of the screen to being relative to parent */
+    inset: unset;
+    position-anchor: --dropdown-opener;
+    position-area: bottom span-right;
 
-  /* Suppress default non-zero padding */
-  padding: unset;
+    /* Suppress default non-zero padding */
+    padding: unset;
 
-  /* Suppress default CanvasText color */
-  color: unset;
+    /* Suppress default CanvasText color */
+    color: unset;
 
-  &::backdrop {
-    /* Backdrop is unwanted for open dropdown */
-    background-color: unset;
+    &::backdrop {
+      /* Backdrop is unwanted for open dropdown */
+      background-color: unset;
+    }
   }
 }
 
