@@ -688,6 +688,27 @@ func TestProjectAPIProjects(t *testing.T) {
 	})
 }
 
+func TestProjectAPIRenderNewProject(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	// template: templates/projects/new.tmpl
+	user2 := loginUser(t, "user2")
+	for testName, projectURL := range map[string]string{
+		"User":         "/user2/-/projects/new",
+		"Organization": "/org3/-/projects/new",
+		"Repository":   "/user2/repo1/projects/new",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			for _, cc := range project_module.GetAPICardConfig() {
+				doc.AssertElement(t, fmt.Sprintf(".item[data-id='%s']", cc.CardType), true)
+			}
+		})
+	}
+}
+
 // Test creation/getting/updating/deleting project for user
 func TestProjectAPICRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
