@@ -148,14 +148,48 @@
 	<p>
 		Note: content class is for improved compatibility with existing CSS selectors. If this replaces details.dropdown, selectors can be simplified dialog-dropdown > dialog.
 	</p>
-	<div class="button-sequence">
+	<div class="button-sequence tw-justify-between">
 		<div class="dialog-dropdown">
-			<button class="opener" command="toggle-popover" commandfor="dropdown-demo-dialog">
+			<button class="opener" command="toggle-popover" commandfor="dropdown-demo-dialog-1">
 				Button
 			</button>
-			<dialog popover class="content" id="dropdown-demo-dialog">
+			<dialog popover class="content" id="dropdown-demo-dialog-1">
 				<span class="header">
 					With header and hr
+				</span>
+				<hr>
+				<ul>
+					<li>
+						<a href="#noscroll">"Go to" action</a>
+					</li>
+					<li>
+						<button type="button">Button action</button>
+					</li>
+				</ul>
+				<hr>
+				<ul>
+					<li>
+						<button class="orange text">
+							{{svg "octicon-blocked"}}
+							Block
+						</button>
+					</li>
+					<li>
+						<a class="orange text" href="#noscroll">
+							{{svg "octicon-stop"}}
+							Report abuse
+						</a>
+					</li>
+				</ul>
+			</dialog>
+		</div>
+		<div class="dialog-dropdown">
+			<button class="opener" command="toggle-popover" commandfor="dropdown-demo-dialog-2">
+				Button
+			</button>
+			<dialog popover class="content" id="dropdown-demo-dialog-2">
+				<span class="header">
+					With header and hr but a bit longer
 				</span>
 				<hr>
 				<ul>
