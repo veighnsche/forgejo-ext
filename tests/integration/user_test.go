@@ -1135,10 +1135,11 @@ func TestUserActivate(t *testing.T) {
 
 	session := emptyTestSession(t)
 	req := NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-		"user_name": "doesnotexist",
-		"email":     "doesnotexist@example.com",
-		"password":  "examplePassword!1",
-		"retype":    "examplePassword!1",
+		"user_name":     "doesnotexist",
+		"email":         "doesnotexist@example.com",
+		"confirm_email": "doesnotexist@example.com",
+		"password":      "examplePassword!1",
+		"retype":        "examplePassword!1",
 	})
 	session.MakeRequest(t, req, http.StatusOK)
 	assert.True(t, called)

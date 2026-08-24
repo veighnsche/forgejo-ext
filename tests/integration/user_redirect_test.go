@@ -46,10 +46,11 @@ func TestUserRedirect(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		req := NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-			"user_name": "user2",
-			"email":     "doesnotexist@example.com",
-			"password":  "examplePassword!1",
-			"retype":    "examplePassword!1",
+			"user_name":     "user2",
+			"email":         "doesnotexist@example.com",
+			"confirm_email": "doesnotexist@example.com",
+			"password":      "examplePassword!1",
+			"retype":        "examplePassword!1",
 		})
 		resp := MakeRequest(t, req, http.StatusOK)
 

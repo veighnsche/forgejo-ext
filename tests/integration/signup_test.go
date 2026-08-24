@@ -26,10 +26,11 @@ func TestSignup(t *testing.T) {
 	defer test.MockVariableValue(&setting.Service.EnableCaptcha, false)()
 
 	req := NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-		"user_name": "exampleUser",
-		"email":     "exampleUser@example.com",
-		"password":  "examplePassword!1",
-		"retype":    "examplePassword!1",
+		"user_name":     "exampleUser",
+		"email":         "exampleUser@example.com",
+		"confirm_email": "exampleUser@example.com",
+		"password":      "examplePassword!1",
+		"retype":        "examplePassword!1",
 	})
 	MakeRequest(t, req, http.StatusSeeOther)
 
@@ -48,10 +49,11 @@ func TestSignupAsRestricted(t *testing.T) {
 	defer test.MockVariableValue(&setting.Service.DefaultUserIsRestricted, true)()
 
 	req := NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-		"user_name": "restrictedUser",
-		"email":     "restrictedUser@example.com",
-		"password":  "examplePassword!1",
-		"retype":    "examplePassword!1",
+		"user_name":     "restrictedUser",
+		"email":         "restrictedUser@example.com",
+		"confirm_email": "restrictedUser@example.com",
+		"password":      "examplePassword!1",
+		"retype":        "examplePassword!1",
 	})
 	MakeRequest(t, req, http.StatusSeeOther)
 
@@ -80,10 +82,11 @@ func TestSignupEmail(t *testing.T) {
 
 	for i, test := range tests {
 		req := NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-			"user_name": fmt.Sprintf("exampleUser%d", i),
-			"email":     test.email,
-			"password":  "examplePassword!1",
-			"retype":    "examplePassword!1",
+			"user_name":     fmt.Sprintf("exampleUser%d", i),
+			"email":         test.email,
+			"confirm_email": test.email,
+			"password":      "examplePassword!1",
+			"retype":        "examplePassword!1",
 		})
 		resp := MakeRequest(t, req, test.wantStatus)
 		if test.wantMsg != "" {
@@ -105,10 +108,11 @@ func TestSignupEmailChangeForInactiveUser(t *testing.T) {
 
 	// Create user
 	req := NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-		"user_name": "exampleUserX",
-		"email":     "wrong-email@example.com",
-		"password":  "examplePassword!1",
-		"retype":    "examplePassword!1",
+		"user_name":     "exampleUserX",
+		"email":         "wrong-email@example.com",
+		"confirm_email": "wrong-email@example.com",
+		"password":      "examplePassword!1",
+		"retype":        "examplePassword!1",
 	})
 	MakeRequest(t, req, http.StatusOK)
 
@@ -120,7 +124,8 @@ func TestSignupEmailChangeForInactiveUser(t *testing.T) {
 
 	// Change the email address
 	req = NewRequestWithValues(t, "POST", "/user/activate", map[string]string{
-		"email": "fine-email@example.com",
+		"change_mail": "true",
+		"email":       "fine-email@example.com",
 	})
 	session.MakeRequest(t, req, http.StatusSeeOther)
 
@@ -130,7 +135,8 @@ func TestSignupEmailChangeForInactiveUser(t *testing.T) {
 
 	// Try to change the email again
 	req = NewRequestWithValues(t, "POST", "/user/activate", map[string]string{
-		"email": "wrong-again@example.com",
+		"change_mail": "true",
+		"email":       "wrong-again@example.com",
 	})
 	session.MakeRequest(t, req, http.StatusSeeOther)
 	// Verify that the email was NOT updated
@@ -147,10 +153,11 @@ func TestSignupEmailChangeForActiveUser(t *testing.T) {
 
 	// Create user
 	req := NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-		"user_name": "exampleUserY",
-		"email":     "wrong-email-2@example.com",
-		"password":  "examplePassword!1",
-		"retype":    "examplePassword!1",
+		"user_name":     "exampleUserY",
+		"email":         "wrong-email-2@example.com",
+		"confirm_email": "wrong-email-2@example.com",
+		"password":      "examplePassword!1",
+		"retype":        "examplePassword!1",
 	})
 	MakeRequest(t, req, http.StatusSeeOther)
 
@@ -162,7 +169,8 @@ func TestSignupEmailChangeForActiveUser(t *testing.T) {
 
 	// Changing the email for a validated address is not available
 	req = NewRequestWithValues(t, "POST", "/user/activate", map[string]string{
-		"email": "fine-email-2@example.com",
+		"change_mail": "true",
+		"email":       "fine-email-2@example.com",
 	})
 	session.MakeRequest(t, req, http.StatusNotFound)
 
@@ -198,6 +206,7 @@ func TestSignupImageCaptcha(t *testing.T) {
 	req = NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
 		"user_name":            "captcha-test",
 		"email":                "captcha-test@example.com",
+		"confirm_email":        "captcha-test@example.com",
 		"password":             "examplePassword!1",
 		"retype":               "examplePassword!1",
 		"img-captcha-id":       idCaptcha,
@@ -232,5 +241,37 @@ func TestSignupFormUI(t *testing.T) {
 			htmlDoc.AssertElement(t, "form[action='/user/sign_up'] input#user_name", false)
 			htmlDoc.AssertElement(t, ".divider-text", false)
 		})
+	})
+}
+
+func TestSignupTypo(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Service.EnableCaptcha, false)()
+
+	locale := translation.NewLocale("en_US")
+	testReq := func(t *testing.T, form map[string]string, contains string) {
+		req := NewRequestWithValues(t, "POST", "/user/sign_up", form)
+		resp := MakeRequest(t, req, http.StatusOK)
+		assert.Contains(t, resp.Body.String(), contains)
+	}
+
+	t.Run("Email", func(t *testing.T) {
+		testReq(t, map[string]string{
+			"user_name":     "exampleUser",
+			"email":         "exampleUser@example.com",
+			"confirm_email": "exampleUser@example.net",
+			"password":      "examplePassword!1",
+			"retype":        "examplePassword!1",
+		}, locale.TrString("auth.email_missmatch"))
+	})
+
+	t.Run("Password", func(t *testing.T) {
+		testReq(t, map[string]string{
+			"user_name":     "exampleUser",
+			"email":         "exampleUser@example.com",
+			"confirm_email": "exampleUser@example.com",
+			"password":      "examplePassword!1",
+			"retype":        "examplePassword!1234",
+		}, locale.TrString("form.password_not_match"))
 	})
 }

@@ -340,10 +340,11 @@ func TestAPIEditOtherWikiPage(t *testing.T) {
 	// (drive-by-user) user, session, and token for a drive-by wiki editor
 	username := "drive-by-user"
 	req := NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-		"user_name": username,
-		"email":     "drive-by@example.com",
-		"password":  "examplePassword!1",
-		"retype":    "examplePassword!1",
+		"user_name":     username,
+		"email":         "drive-by@example.com",
+		"confirm_email": "drive-by@example.com",
+		"password":      "examplePassword!1",
+		"retype":        "examplePassword!1",
 	})
 	MakeRequest(t, req, http.StatusSeeOther)
 	session := loginUserWithPassword(t, username, "examplePassword!1")

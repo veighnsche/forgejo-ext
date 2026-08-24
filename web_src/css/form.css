@@ -336,7 +336,6 @@ input:-webkit-autofill:active,
 }
 
 @media (min-width: 768px) {
-  .user.activate form,
   .user.forgot.password form,
   .user.reset.password form,
   .user.link-account form,
@@ -356,14 +355,6 @@ input:-webkit-autofill:active,
     text-align: end;
     width: 250px !important;
     word-wrap: break-word;
-  }
-  .user.activate form .help,
-  .user.forgot.password form .help,
-  .user.reset.password form .help,
-  .user.link-account form .help,
-  .user.signin form .help,
-  .user.signup form .help {
-    margin-inline-start: 265px !important;
   }
   .user.activate form .optional .title,
   .user.forgot.password form .optional .title,

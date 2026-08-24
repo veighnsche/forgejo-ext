@@ -23,6 +23,10 @@
 					<label for="email">{{ctx.Locale.Tr "email"}}</label>
 					<input id="email" name="email" type="email" value="{{.email}}" required>
 				</div>
+				<div class="required field {{if .Err_Email}}error{{end}}">
+					<label for="confirm_email">{{ctx.Locale.Tr "auth.confirm_email"}}</label>
+					<input id="confirm_email" name="confirm_email" type="email" value="{{.confirm_email}}" required>
+				</div>
 
 				{{if not .DisablePassword}}
 					<div class="required field {{if and (.Err_Password) (or (not .LinkAccountMode) (and .LinkAccountMode .LinkAccountModeRegister))}}error{{end}}">

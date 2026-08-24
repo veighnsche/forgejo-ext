@@ -20,6 +20,7 @@ test('Register Form', async ({page}, workerInfo) => {
   expect(response?.status()).toBe(200); // Status OK
   await page.fill('input[name=user_name]', `e2e-test-${workerInfo.workerIndex}`);
   await page.fill('input[name=email]', `e2e-test-${workerInfo.workerIndex}@test.com`);
+  await page.fill('input[name=confirm_email]', `e2e-test-${workerInfo.workerIndex}@test.com`);
   await page.fill('input[name=password]', 'test123test123');
   await page.fill('input[name=retype]', 'test123test123');
   await page.click('form button.ui.primary.button:visible');

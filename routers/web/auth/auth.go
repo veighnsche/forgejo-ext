@@ -514,6 +514,12 @@ func SignUpPost(ctx *context.Context) {
 		return
 	}
 
+	if form.Email != form.ConfirmEmail {
+		ctx.Data["Err_Email"] = true
+		ctx.RenderWithErr(ctx.Tr("auth.email_missmatch"), tplSignUp, &form)
+		return
+	}
+
 	if form.Password != form.Retype {
 		ctx.Data["Err_Password"] = true
 		ctx.RenderWithErr(ctx.Tr("form.password_not_match"), tplSignUp, &form)
@@ -673,6 +679,7 @@ func handleUserCreated(ctx *context.Context, u *user_model.User, gothUser *goth.
 		ctx.Data["IsSendRegisterMail"] = true
 		ctx.Data["Email"] = u.Email
 		ctx.Data["ActiveCodeLives"] = timeutil.MinutesToFriendly(setting.Service.ActiveCodeLives, ctx.Locale)
+		ctx.Data["UserName"] = u.Name
 
 		if err := ctx.Cache.Put("MailResendLimit_"+u.LowerName, u.LowerName, 180); err != nil {
 			log.Error("Set cache(MailResendLimit) fail: %v", err)
@@ -695,6 +702,9 @@ func Activate(ctx *context.Context) {
 			ctx.NotFound("invalid user", nil)
 			return
 		}
+
+		ctx.Data["UserName"] = ctx.Doer.Name
+
 		// Resend confirmation email.
 		if setting.Service.RegisterEmailConfirm {
 			var cacheKey string
@@ -757,84 +767,95 @@ func Activate(ctx *context.Context) {
 
 // ActivatePost handles account activation with password check
 func ActivatePost(ctx *context.Context) {
+	// try to activate the account if an activation code is given
 	code := ctx.FormString("code")
-	if len(code) == 0 {
-		email := ctx.FormString("email")
-		if len(email) > 0 {
-			ctx.Data["IsActivatePage"] = true
-			if ctx.Doer == nil || ctx.Doer.IsActive {
-				ctx.NotFound("invalid user", nil)
+	if len(code) != 0 {
+		user, _, deleteToken, err := user_model.VerifyUserAuthorizationToken(ctx, code, auth.UserActivation)
+		if err != nil {
+			ctx.ServerError("VerifyUserAuthorizationToken", err)
+			return
+		}
+
+		// if code is wrong
+		if user == nil {
+			ctx.Data["IsCodeInvalid"] = true
+			ctx.HTML(http.StatusOK, TplActivate)
+			return
+		}
+
+		// if account is local account, verify password
+		if user.LoginSource == 0 {
+			password := ctx.FormString("password")
+			if len(password) == 0 {
+				ctx.Data["Code"] = code
+				ctx.Data["NeedsPassword"] = true
+				ctx.HTML(http.StatusOK, TplActivate)
 				return
 			}
-			// Change the primary email
-			if setting.Service.RegisterEmailConfirm {
-				if ctx.Cache.IsExist("MailChangeLimit_" + ctx.Doer.LowerName) {
-					ctx.Data["ResendLimited"] = true
-				} else {
-					ctx.Data["ActiveCodeLives"] = timeutil.MinutesToFriendly(setting.Service.ActiveCodeLives, ctx.Locale)
-					err := user_service.ReplaceInactivePrimaryEmail(ctx, ctx.Doer.Email, &user_model.EmailAddress{
-						UID:   ctx.Doer.ID,
-						Email: email,
-					})
-					if err != nil {
-						ctx.Data["IsActivatePage"] = false
-						log.Error("Couldn't replace inactive primary email of user %d: %v", ctx.Doer.ID, err)
-						ctx.RenderWithErr(ctx.Tr("auth.change_unconfirmed_email_error", err), TplActivate, nil)
-						return
-					}
-					if err := ctx.Cache.Put("MailChangeLimit_"+ctx.Doer.LowerName, ctx.Doer.LowerName, 180); err != nil {
-						log.Error("Set cache(MailChangeLimit) fail: %v", err)
-					}
-					if err := ctx.Cache.Put("MailChangedJustNow_"+ctx.Doer.LowerName, ctx.Doer.LowerName, 180); err != nil {
-						log.Error("Set cache(MailChangedJustNow) fail: %v", err)
-					}
-
-					// Confirmation mail will be re-sent after the redirect to `/user/activate` below.
-				}
-			} else {
-				ctx.Data["ServiceNotEnabled"] = true
+			if !user.ValidatePassword(ctx, password) {
+				ctx.Data["IsPasswordInvalid"] = true
+				ctx.HTML(http.StatusOK, TplActivate)
+				return
 			}
 		}
 
-		ctx.Redirect(setting.AppSubURL + "/user/activate")
-		return
-	}
-
-	user, _, deleteToken, err := user_model.VerifyUserAuthorizationToken(ctx, code, auth.UserActivation)
-	if err != nil {
-		ctx.ServerError("VerifyUserAuthorizationToken", err)
-		return
-	}
-
-	// if code is wrong
-	if user == nil {
-		ctx.Data["IsCodeInvalid"] = true
-		ctx.HTML(http.StatusOK, TplActivate)
-		return
-	}
-
-	// if account is local account, verify password
-	if user.LoginSource == 0 {
-		password := ctx.FormString("password")
-		if len(password) == 0 {
-			ctx.Data["Code"] = code
-			ctx.Data["NeedsPassword"] = true
-			ctx.HTML(http.StatusOK, TplActivate)
+		if err := deleteToken(); err != nil {
+			ctx.ServerError("deleteToken", err)
 			return
 		}
-		if !user.ValidatePassword(ctx, password) {
-			ctx.Data["IsPasswordInvalid"] = true
-			ctx.HTML(http.StatusOK, TplActivate)
-			return
-		}
-	}
 
-	if err := deleteToken(); err != nil {
-		ctx.ServerError("deleteToken", err)
+		handleAccountActivation(ctx, user)
 		return
 	}
 
-	handleAccountActivation(ctx, user)
+	changeEmail := ctx.FormString("change_mail")
+	if len(changeEmail) > 0 {
+		ctx.Data["IsActivatePage"] = true
+		if ctx.Doer == nil || ctx.Doer.IsActive {
+			ctx.NotFound("invalid user", nil)
+			return
+		}
+
+		email := ctx.FormString("email")
+		if len(email) == 0 {
+			// The confirmation page is rendered from / over a check if the user is
+			// activated, since that hasn't happened yet, they will be shown the form
+			// again.
+			ctx.Redirect("/")
+			return
+		}
+
+		// Change the primary email
+		if setting.Service.RegisterEmailConfirm {
+			if ctx.Cache.IsExist("MailChangeLimit_" + ctx.Doer.LowerName) {
+				ctx.Data["ResendLimited"] = true
+			} else {
+				ctx.Data["ActiveCodeLives"] = timeutil.MinutesToFriendly(setting.Service.ActiveCodeLives, ctx.Locale)
+				err := user_service.ReplaceInactivePrimaryEmail(ctx, ctx.Doer.Email, &user_model.EmailAddress{
+					UID:   ctx.Doer.ID,
+					Email: email,
+				})
+				if err != nil {
+					ctx.Data["IsActivatePage"] = false
+					log.Error("Couldn't replace inactive primary email of user %d: %v", ctx.Doer.ID, err)
+					ctx.RenderWithErr(ctx.Tr("auth.change_unconfirmed_email_error", err), TplActivate, nil)
+					return
+				}
+				if err := ctx.Cache.Put("MailChangeLimit_"+ctx.Doer.LowerName, ctx.Doer.LowerName, 180); err != nil {
+					log.Error("Set cache(MailChangeLimit) fail: %v", err)
+				}
+				if err := ctx.Cache.Put("MailChangedJustNow_"+ctx.Doer.LowerName, ctx.Doer.LowerName, 180); err != nil {
+					log.Error("Set cache(MailChangedJustNow) fail: %v", err)
+				}
+
+				// Confirmation mail will be re-sent after the redirect to `/user/activate` below.
+			}
+		} else {
+			ctx.Data["ServiceNotEnabled"] = true
+		}
+	}
+
+	ctx.Redirect(setting.AppSubURL + "/user/activate")
 }
 
 func handleAccountActivation(ctx *context.Context, user *user_model.User) {

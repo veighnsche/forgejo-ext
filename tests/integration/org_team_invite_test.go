@@ -252,10 +252,11 @@ func TestOrgTeamEmailInviteRedirectsNewUser(t *testing.T) {
 	resp = MakeRequest(t, req, http.StatusOK)
 
 	req = NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-		"user_name": "doesnotexist",
-		"email":     "doesnotexist@example.com",
-		"password":  "examplePassword!1",
-		"retype":    "examplePassword!1",
+		"user_name":     "doesnotexist",
+		"email":         "doesnotexist@example.com",
+		"confirm_email": "doesnotexist@example.com",
+		"password":      "examplePassword!1",
+		"retype":        "examplePassword!1",
 	})
 	for _, c := range resp.Result().Cookies() {
 		req.AddCookie(c)
@@ -324,10 +325,11 @@ func TestOrgTeamEmailInviteRedirectsNewUserWithActivation(t *testing.T) {
 	inviteResp := MakeRequest(t, req, http.StatusOK)
 
 	req = NewRequestWithValues(t, "POST", "/user/sign_up", map[string]string{
-		"user_name": "doesnotexist",
-		"email":     "doesnotexist@example.com",
-		"password":  "examplePassword!1",
-		"retype":    "examplePassword!1",
+		"user_name":     "doesnotexist",
+		"email":         "doesnotexist@example.com",
+		"confirm_email": "doesnotexist@example.com",
+		"password":      "examplePassword!1",
+		"retype":        "examplePassword!1",
 	})
 	for _, c := range inviteResp.Result().Cookies() {
 		req.AddCookie(c)
