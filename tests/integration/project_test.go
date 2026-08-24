@@ -733,6 +733,32 @@ func TestProjectAPICreateProject(t *testing.T) {
 func TestProjectAPIDeleteProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
+
+	// not existing projects
+	for testName, projectURL := range map[string]string{
+		"User, not existing project":         "/user2/-/projects/1234567890/delete",
+		"Organization, not existing project": "/org3/-/projects/1234567890/delete",
+		"Repository, not existing project":   "/user2/repo1/projects/1234567890/delete",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusInternalServerError)
+		})
+	}
+
+	// wrong owners
+	for testName, projectURL := range map[string]string{
+		"User, wrong owner":         "/org3/-/projects/4/delete",
+		"Organization, wrong owner": "/user2/-/projects/7/delete",
+		"Repository, wrong owner":   "/user2/-/projects/1/delete",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+		})
+	}
+
+	// no errors
 	for testName, projectURL := range map[string]string{
 		"User":         "/user2/-/projects/4/delete",
 		"Organization": "/org3/-/projects/7/delete",
