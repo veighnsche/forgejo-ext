@@ -1,14 +1,8 @@
 /* Copyright 2025 The Forgejo Authors. All rights reserved.
  * SPDX-License-Identifier: GPL-3.0-or-later */
 
-/* This is an implementation of a dropdown menu based on details HTML tag.
- * It is inspired by https://picocss.com/docs/dropdown.
- *
- * NoJS mode could be improved by forcing the same [name] onto all dropdowns, so
- * that the browser will automatically close all but the one that was just opened
- * using keyboard. But the code doing that will not be as clean.
- *
- * Note: when implementing this dropdown, please use `dropdown` as the 1st class,
+/*
+ * Note: when implementing the older details dropdown, please use `dropdown` as the 1st class,
  * so it is possible to search for all dropdowns with `details class="dropdown`
 */
 
@@ -60,7 +54,8 @@ details.dropdown > summary,
   color: unset;
 }
 
-/* NoJS mode: create a virtual fullscreen area which closes the dropdown when clicked on */
+/* NoJS mode: create a virtual fullscreen area which closes the dropdown when clicked on
+ * It is inspired by https://picocss.com/docs/dropdown. */
 .no-js details.dropdown[open] > summary::before {
   z-index: 1;
   position: fixed;
