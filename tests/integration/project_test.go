@@ -601,6 +601,93 @@ func TestProjectPermissionsAndConsistency(t *testing.T) {
 	})
 }
 
+func TestProjectAPIProjects(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	// template: templates/projects/list.tmpl
+	user2 := loginUser(t, "user2")
+	t.Run("User", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		projectsURL := "/user2/-/projects"
+
+		// no closed project
+		t.Run("get open", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, 3, projectList.Length())
+		})
+
+		t.Run("get closed", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL+"?state=closed"), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, 0, projectList.Length())
+		})
+
+		// one closed project
+		user2.MakeRequest(t, NewRequest(t, "POST", projectsURL+"/4/close"), http.StatusOK)
+		t.Run("get open, one closed", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, 2, projectList.Length())
+		})
+
+		t.Run("get closed, one close", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL+"?state=closed"), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, 1, projectList.Length())
+		})
+	})
+
+	t.Run("Organization", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		projectsURL := "/org3/-/projects"
+
+		t.Run("get open", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, 1, projectList.Length())
+		})
+
+		t.Run("get closed", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL+"?state=closed"), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, 0, projectList.Length())
+		})
+	})
+
+	t.Run("Repository", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		projectsURL := "/user2/repo1/projects"
+
+		t.Run("get open", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, 1, projectList.Length())
+		})
+		t.Run("get closed", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL+"?state=closed"), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, 0, projectList.Length())
+		})
+	})
+}
+
 // Test creation/getting/updating/deleting project for user
 func TestProjectAPICRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
