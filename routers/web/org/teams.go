@@ -392,8 +392,8 @@ func TeamMembers(ctx *context.Context) {
 	opts.Page = page
 	opts.PageSize = setting.UI.MembersPagingNum
 
-	if err := ctx.Org.Team.LoadPaginatedMembers(ctx, opts); err != nil {
-		ctx.ServerError("GetMembers", err)
+	if err := ctx.Org.Team.LoadPaginatedMemberships(ctx, opts); err != nil {
+		ctx.ServerError("LoadPaginatedMemberships", err)
 		return
 	}
 	ctx.Data["Page"] = pager

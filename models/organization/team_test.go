@@ -89,6 +89,22 @@ func TestTeam_GetMembers(t *testing.T) {
 	test(3)
 }
 
+func TestTeam_GetMemberships(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	test := func(teamID int64) {
+		team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: teamID})
+		require.NoError(t, team.LoadPaginatedMemberships(db.DefaultContext, db.ListOptionsAll))
+		assert.Len(t, team.Memberships, team.NumMembers)
+		for _, membership := range team.Memberships {
+			assert.NotNil(t, membership.User)
+			assert.Equal(t, membership.User.ID, membership.UID)
+		}
+	}
+	test(1)
+	test(3)
+}
+
 func TestGetTeam(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
