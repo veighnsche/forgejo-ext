@@ -28,8 +28,8 @@ code.forgejo.org/forgejo/levelqueue v1.1.0 h1:IgDbeZBdzJhbI8M0hXCQ1qyJIk83cGnBS3
 code.forgejo.org/forgejo/levelqueue v1.1.0/go.mod h1:flCo3rqxrybUXQR2I8TFyiDSsLkOjb71CZOEdAuJmgc=
 code.forgejo.org/forgejo/reply v1.0.2 h1:dMhQCHV6/O3L5CLWNTol+dNzDAuyCK88z4J/lCdgFuQ=
 code.forgejo.org/forgejo/reply v1.0.2/go.mod h1:RyZUfzQLc+fuLIGjTSQWDAJWPiL4WtKXB/FifT5fM7U=
-code.forgejo.org/forgejo/runner/v13 v13.0.0 h1:t2jlpAcODXk+oTmRWF5P9Zcj23wO6fkLXhGjTNU5ECo=
-code.forgejo.org/forgejo/runner/v13 v13.0.0/go.mod h1:FzSRg2wo1u3nf9thJAna28EwE3A4boZYcOonHRr6faI=
+code.forgejo.org/forgejo/runner/v13 v13.0.1-0.20260825194952-8f6679eb6be3 h1:sElvcYnW456yKTpUEf+qNiyvVqx39of9FlaNiHOKw8o=
+code.forgejo.org/forgejo/runner/v13 v13.0.1-0.20260825194952-8f6679eb6be3/go.mod h1:Jes/E7X4NLncr+xIupjqJ+4CVESUohAIiRSB52A0+Uw=
 code.forgejo.org/forgejo/ssh v0.0.0-20241211213324-5fc306ca0616 h1:kEZL84+02jY9RxXM4zHBWZ3Fml0B09cmP1LGkDsCfIA=
 code.forgejo.org/forgejo/ssh v0.0.0-20241211213324-5fc306ca0616/go.mod h1:zpHEXBstFnQYtGnB8k8kQLol82umzn/2/snG7alWVD8=
 code.forgejo.org/go-chi/binding v1.0.1 h1:coKNI+X1NzRN7X85LlrpvBRqk0TXpJ+ja28vusQWEuY=
@@ -634,8 +634,8 @@ github.com/serenize/snaker v0.0.0-20171204205717-a683aaf2d516/go.mod h1:Yow6lPLS
 github.com/sergi/go-diff v1.4.0 h1:n/SP9D5ad1fORl+llWyN+D6qoUETXNZARKjyY2/KVCw=
 github.com/sergi/go-diff v1.4.0/go.mod h1:A0bzQcvG0E7Rwjx0REVgAGH58e96+X0MeOfepqsbeW4=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
-github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
-github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
+github.com/sirupsen/logrus v1.10.1 h1:xi4336Zh11WpU14fXR6I67V3yaTPQYwRx2WEtHbRg4Q=
+github.com/sirupsen/logrus v1.10.1/go.mod h1:vsQHnG7xzNsxk3NrwboUiWPnIC3dmbjcGPykD7+tiHk=
 github.com/sorairolake/lzip-go v0.3.8 h1:j5Q2313INdTA80ureWYRhX+1K78mUXfMoPZCw/ivWik=
 github.com/sorairolake/lzip-go v0.3.8/go.mod h1:JcBqGMV0frlxwrsE9sMWXDjqn3EeVf0/54YPsw66qkU=
 github.com/sourcegraph/go-ctags v0.0.0-20250729094530-349a251d78d8 h1:hpCD/FvbXLR7/034fKD0CQ8LmT4zoQfT2DzJIjqMzUI=
