@@ -606,6 +606,15 @@ func TestProjectAPIProjects(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
 	// template: templates/projects/list.tmpl
+	// template lines:
+	// <div class="milestone-list">
+	//	{{range .Projects}}
+	//		<li class="milestone-card">
+	// [...]
+	//		</li>
+	//	{{end}}
+	// [...]
+	// </div>
 	user2 := loginUser(t, "user2")
 	testProjectListLength := func(t *testing.T, name string, url string, expectLength int) {
 		// get list of projects from url and check number of projects in list
@@ -652,6 +661,10 @@ func TestProjectAPIRenderNewProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
 	// template: templates/projects/new.tmpl
+	// template lines:
+	// {{range $element := .CardTypes}}
+	// 	<div class="item" data-id="{{$element.CardType}}" data-value="{{$element.CardType}}">{{ctx.Locale.Tr $element.Translation}}</div>
+	// {{end}}
 	user2 := loginUser(t, "user2")
 	for testName, projectURL := range map[string]string{
 		"User":         "/user2/-/projects/new",
@@ -736,6 +749,10 @@ func TestProjectAPIRenderEditProject(t *testing.T) {
 	user2 := loginUser(t, "user2")
 
 	// template: templates/projects/new.tmpl
+	// template lines:
+	// {{range $element := .CardTypes}}
+	// 	<div class="item" data-id="{{$element.CardType}}" data-value="{{$element.CardType}}">{{ctx.Locale.Tr $element.Translation}}</div>
+	// {{end}}
 	for testName, projectURL := range map[string]string{
 		"User":         "/user2/-/projects/4/edit",
 		"Organization": "/org3/-/projects/7/edit",
