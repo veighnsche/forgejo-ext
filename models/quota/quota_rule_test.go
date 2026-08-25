@@ -52,6 +52,7 @@ func makePartiallyUsed() quota_model.Used {
 }
 
 func setUsed(used quota_model.Used, subject quota_model.LimitSubject, value int64) *quota_model.Used {
+	// nosemgrep: semgrep.config.forgejo-switch-empty-case
 	switch subject {
 	case quota_model.LimitSubjectSizeReposPublic:
 		used.Size.Repos.Public = value

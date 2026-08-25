@@ -100,6 +100,7 @@ func TestMutexMap_DifferentKeys(t *testing.T) {
 		done <- true
 	}()
 
+	// nosemgrep: semgrep.config.forgejo-switch-empty-case
 	select {
 	case <-done:
 		// Success

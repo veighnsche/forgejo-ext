@@ -58,6 +58,7 @@ func TestManager_Cancel(t *testing.T) {
 
 	pm.Cancel(GetPID(ctx))
 
+	// nosemgrep: semgrep.config.forgejo-switch-empty-case
 	select {
 	case <-ctx.Done():
 	default:
@@ -70,6 +71,7 @@ func TestManager_Cancel(t *testing.T) {
 
 	cancel()
 
+	// nosemgrep: semgrep.config.forgejo-switch-empty-case
 	select {
 	case <-ctx.Done():
 	default:

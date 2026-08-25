@@ -371,6 +371,7 @@ func TestSearchRepository(t *testing.T) {
 						}
 					}
 
+					// nosemgrep: semgrep.config.forgejo-logic-suspicious-OwnerID-check
 					if testCase.opts.OwnerID > 0 && !testCase.opts.AllPublic {
 						if has, value := testCase.opts.Collaborate.Get(); has {
 							if value {

@@ -118,6 +118,7 @@ func TestWebhookDeliverAuthorizationHeader(t *testing.T) {
 	assert.NotNil(t, hookTask)
 
 	require.NoError(t, Deliver(t.Context(), hookTask))
+	// nosemgrep: semgrep.config.forgejo-switch-empty-case
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
@@ -185,6 +186,7 @@ func TestWebhookDeliverHookTask(t *testing.T) {
 		assert.NotNil(t, hookTask)
 
 		require.NoError(t, Deliver(t.Context(), hookTask))
+		// nosemgrep: semgrep.config.forgejo-switch-empty-case
 		select {
 		case <-done:
 		case <-time.After(5 * time.Second):
@@ -211,6 +213,7 @@ func TestWebhookDeliverHookTask(t *testing.T) {
 		assert.NotNil(t, hookTask)
 
 		require.NoError(t, Deliver(t.Context(), hookTask))
+		// nosemgrep: semgrep.config.forgejo-switch-empty-case
 		select {
 		case <-done:
 		case <-time.After(5 * time.Second):
