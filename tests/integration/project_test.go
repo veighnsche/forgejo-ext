@@ -931,6 +931,23 @@ func TestProjectAPICreateColumnInProject(t *testing.T) {
 		})
 	}
 
+	// bad color
+	createOptsBad := forms_service.EditProjectColumnForm{
+		Title:   "Col1",
+		Sorting: 0,
+		Color:   "bad color",
+	}
+	for testName, projectURL := range map[string]string{
+		"User, bad color":         "/user2/-/projects/4",
+		"Organization, bad color": "/org3/-/projects/7",
+		"Repository, bad color":   "/user2/repo1/projects/1/",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &createOptsBad), http.StatusInternalServerError)
+		})
+	}
+
 	// no error
 	for testName, projectURL := range map[string]string{
 		"User":         "/user2/-/projects/4",
