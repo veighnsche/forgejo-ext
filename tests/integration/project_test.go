@@ -839,6 +839,64 @@ func TestProjectAPIEditProjectPost(t *testing.T) {
 	}
 }
 
+func TestProjectAPIDeleteProjectColumn(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user2 := loginUser(t, "user2")
+
+	// invalid project
+	for testName, projectURL := range map[string]string{
+		"User, invalid project":         "/user2/-/projects/1234567890/0",
+		"Organization, invalid project": "/org3/-/projects/1234567890/0",
+		"Repository, invalid project":   "/user2/repo1/projects/1234567890/0",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequest(t, "DELETE", projectURL), http.StatusNotFound)
+		})
+	}
+
+	// wrong owner
+	for testName, projectURL := range map[string]string{
+		"User, wrong owner":         "/org3/-/projects/4/0",
+		"Organization, wrong owner": "/user2/-/projects/7/0",
+		"Repository, wrong owner":   "/user2/-/projects/1/0",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequest(t, "DELETE", projectURL), http.StatusNotFound)
+		})
+	}
+
+	// invalid column
+	for testName, projectURL := range map[string]string{
+		"User, invalid column":         "/user2/-/projects/4/0",
+		"Organization, invalid column": "/org3/-/projects/7/0",
+		"Repository, invalid column":   "/user2/repo1/projects/1/0",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequest(t, "DELETE", projectURL), http.StatusInternalServerError)
+		})
+	}
+
+	// no error
+	column := &project_model.Column{
+		Title:     "New Organization Project Column",
+		ProjectID: 7,
+	}
+	require.NoError(t, project_model.CreateColumn(t.Context(), column))
+	for testName, projectURL := range map[string]string{
+		"User":         "/user2/-/projects/4/4",
+		"Organization": fmt.Sprintf("/org3/-/projects/7/%d", column.ID),
+		"Repository":   "/user2/repo1/projects/1/2",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequest(t, "DELETE", projectURL), http.StatusOK)
+		})
+	}
+}
+
 // Test creation/getting/updating/deleting project for user
 func TestProjectAPICRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
