@@ -897,6 +897,53 @@ func TestProjectAPIDeleteProjectColumn(t *testing.T) {
 	}
 }
 
+func TestProjectAPICreateColumnInProject(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user2 := loginUser(t, "user2")
+
+	createOpts := forms_service.EditProjectColumnForm{
+		Title:   "Col1",
+		Sorting: 0,
+		Color:   "#ab1099",
+	}
+
+	// invalid project
+	for testName, projectURL := range map[string]string{
+		"User, invalid project":         "/user2/-/projects/1234567890",
+		"Organization, invalid project": "/org3/-/projects/1234567890",
+		"Repository, invalid project":   "/user2/repo1/projects/1234567890",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &createOpts), http.StatusNotFound)
+		})
+	}
+
+	// wrong owner
+	for testName, projectURL := range map[string]string{
+		"User, wrong owner":         "/org3/-/projects/4",
+		"Organization, wrong owner": "/user2/-/projects/7",
+		"Repository, wrong owner":   "/user2/-/projects/1",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &createOpts), http.StatusNotFound)
+		})
+	}
+
+	// no error
+	for testName, projectURL := range map[string]string{
+		"User":         "/user2/-/projects/4",
+		"Organization": "/org3/-/projects/7",
+		"Repository":   "/user2/repo1/projects/1/",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &createOpts), http.StatusOK)
+		})
+	}
+}
+
 // Test creation/getting/updating/deleting project for user
 func TestProjectAPICRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
