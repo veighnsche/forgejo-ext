@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func Test_installSignals(t *testing.T) {

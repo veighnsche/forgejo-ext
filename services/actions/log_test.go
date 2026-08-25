@@ -11,6 +11,7 @@ import (
 	dbfs_model "forgejo.org/models/dbfs"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 
 	"github.com/stretchr/testify/assert"

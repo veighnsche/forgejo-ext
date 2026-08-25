@@ -17,6 +17,7 @@ import (
 	base "forgejo.org/modules/migration"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/migrations/allowlist"
 
 	"github.com/google/go-github/v81/github"

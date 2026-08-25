@@ -11,6 +11,7 @@ import (
 
 	"forgejo.org/models/db"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 
 	"code.forgejo.org/xorm/xorm"

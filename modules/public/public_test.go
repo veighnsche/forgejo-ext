@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/container"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 )

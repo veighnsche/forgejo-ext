@@ -13,6 +13,7 @@ import (
 
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/markup"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 
 	"github.com/stretchr/testify/assert"

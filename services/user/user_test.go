@@ -26,6 +26,7 @@ import (
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/services/auth/source/oauth2"
 	redirect_service "forgejo.org/services/redirect"

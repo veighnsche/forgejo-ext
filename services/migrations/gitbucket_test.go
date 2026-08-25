@@ -10,6 +10,7 @@ import (
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/migrations/allowlist"
 
 	"github.com/stretchr/testify/require"

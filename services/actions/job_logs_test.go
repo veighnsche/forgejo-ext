@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/actions"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 
 	"github.com/stretchr/testify/assert"

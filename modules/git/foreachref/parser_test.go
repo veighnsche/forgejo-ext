@@ -12,6 +12,7 @@ import (
 
 	"forgejo.org/modules/git/foreachref"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/require"
 )

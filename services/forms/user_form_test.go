@@ -10,6 +10,7 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/gobwas/glob"
 	"github.com/stretchr/testify/assert"

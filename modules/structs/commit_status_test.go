@@ -5,6 +5,8 @@ package structs
 
 import (
 	"testing"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func TestNoBetterThan(t *testing.T) {

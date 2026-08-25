@@ -10,6 +10,7 @@ import (
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/contexttest"
 
 	"github.com/stretchr/testify/assert"

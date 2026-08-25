@@ -10,6 +10,7 @@ import (
 
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	webhook_module "forgejo.org/modules/webhook"
 	"forgejo.org/services/contexttest"
 

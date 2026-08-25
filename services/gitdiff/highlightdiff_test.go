@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
 )

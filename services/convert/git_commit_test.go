@@ -11,6 +11,7 @@ import (
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 
 	"github.com/stretchr/testify/assert"

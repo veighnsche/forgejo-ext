@@ -13,6 +13,7 @@ import (
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/templates"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/context"
 	"forgejo.org/services/contexttest"
 

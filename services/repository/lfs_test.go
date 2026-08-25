@@ -16,6 +16,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/storage"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	repo_service "forgejo.org/services/repository"
 
 	"github.com/stretchr/testify/assert"

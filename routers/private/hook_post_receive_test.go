@@ -14,6 +14,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/private"
 	repo_module "forgejo.org/modules/repository"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/contexttest"
 
 	"github.com/stretchr/testify/assert"

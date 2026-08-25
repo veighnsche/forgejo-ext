@@ -13,6 +13,7 @@ import (
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/contexttest"
 	"forgejo.org/services/forms"

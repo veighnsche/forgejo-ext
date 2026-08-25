@@ -9,6 +9,7 @@ import (
 
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/keying"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 
 	"github.com/stretchr/testify/assert"

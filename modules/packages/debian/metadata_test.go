@@ -10,6 +10,7 @@ import (
 	"io"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/zstd"
 
 	"github.com/blakesmith/ar"

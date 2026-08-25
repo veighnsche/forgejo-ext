@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"go.yaml.in/yaml/v3"
 )
 

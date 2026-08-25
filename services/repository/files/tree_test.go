@@ -8,6 +8,7 @@ import (
 
 	"forgejo.org/models/unittest"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/contexttest"
 
 	"github.com/stretchr/testify/assert"

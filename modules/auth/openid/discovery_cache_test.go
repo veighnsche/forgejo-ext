@@ -6,6 +6,8 @@ package openid
 import (
 	"testing"
 	"time"
+
+	"forgejo.org/modules/testhelper"
 )
 
 type testDiscoveredInfo struct{}

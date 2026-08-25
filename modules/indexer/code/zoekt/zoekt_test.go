@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/indexer/code/internal"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/sourcegraph/zoekt"
 	"github.com/stretchr/testify/assert"

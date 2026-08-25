@@ -8,6 +8,7 @@ import (
 
 	"forgejo.org/modules/queue/lqinternal"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 
 	"code.forgejo.org/forgejo/levelqueue"
 	"github.com/stretchr/testify/assert"

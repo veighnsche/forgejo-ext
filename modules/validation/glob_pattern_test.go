@@ -6,6 +6,8 @@ package validation
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"code.forgejo.org/go-chi/binding"
 	"github.com/gobwas/glob"
 )

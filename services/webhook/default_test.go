@@ -8,6 +8,7 @@ import (
 
 	webhook_model "forgejo.org/models/webhook"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 	webhook_module "forgejo.org/modules/webhook"
 
 	jsoniter "github.com/json-iterator/go"

@@ -12,6 +12,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/packages"
+	"forgejo.org/modules/testhelper"
 	packages_service "forgejo.org/services/packages"
 
 	"github.com/stretchr/testify/assert"

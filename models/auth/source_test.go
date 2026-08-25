@@ -11,6 +11,7 @@ import (
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 
 	"code.forgejo.org/xorm/xorm/schemas"
 	"github.com/stretchr/testify/assert"

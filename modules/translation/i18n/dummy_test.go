@@ -6,6 +6,7 @@ package i18n_test
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation/i18n"
 
 	"github.com/stretchr/testify/assert"

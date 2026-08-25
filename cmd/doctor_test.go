@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/doctor"
 
 	"github.com/stretchr/testify/require"

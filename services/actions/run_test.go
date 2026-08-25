@@ -9,6 +9,7 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/unittest"
+	"forgejo.org/modules/testhelper"
 	notify_service "forgejo.org/services/notify"
 
 	"github.com/stretchr/testify/assert"

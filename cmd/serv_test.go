@@ -9,6 +9,7 @@ import (
 	asymkey_model "forgejo.org/models/asymkey"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/testhelper"
 )
 
 func TestGetKeyCheckMessage(t *testing.T) {

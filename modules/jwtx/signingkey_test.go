@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/generate"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"

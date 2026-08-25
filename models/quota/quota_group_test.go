@@ -9,6 +9,7 @@ import (
 	quota_model "forgejo.org/models/quota"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 )

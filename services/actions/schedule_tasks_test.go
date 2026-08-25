@@ -15,6 +15,7 @@ import (
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	webhook_module "forgejo.org/modules/webhook"
 

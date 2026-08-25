@@ -8,6 +8,7 @@ import (
 
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/require"
 )

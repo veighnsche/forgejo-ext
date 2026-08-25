@@ -13,6 +13,7 @@ import (
 	"forgejo.org/modules/indexer/code/bleve"
 	"forgejo.org/modules/indexer/code/elasticsearch"
 	"forgejo.org/modules/indexer/code/internal"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

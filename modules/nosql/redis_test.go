@@ -5,6 +5,8 @@ package nosql
 
 import (
 	"testing"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func TestToRedisURI(t *testing.T) {

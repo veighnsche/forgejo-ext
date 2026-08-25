@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/suite"
 )

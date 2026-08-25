@@ -3,7 +3,11 @@
 
 package analyze
 
-import "testing"
+import (
+	"testing"
+
+	"forgejo.org/modules/testhelper"
+)
 
 func TestIsVendor(t *testing.T) {
 	testhelper.Setup(t)

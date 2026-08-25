@@ -8,6 +8,8 @@ import (
 	"testing"
 	"unicode"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 )
 

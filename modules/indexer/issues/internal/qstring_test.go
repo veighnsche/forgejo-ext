@@ -10,6 +10,7 @@ import (
 	"forgejo.org/models/unittest"
 	"forgejo.org/models/user"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/testhelper"
 
 	_ "forgejo.org/modules/testimport"
 

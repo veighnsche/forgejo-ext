@@ -14,6 +14,7 @@ import (
 	"forgejo.org/modules/lfs"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/auth"
 	"forgejo.org/services/authz"
 

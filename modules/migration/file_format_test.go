@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	pingv1 "code.forgejo.org/forgejo/actions-proto/ping/v1"
 	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	"connectrpc.com/connect"

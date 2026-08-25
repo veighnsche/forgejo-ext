@@ -8,6 +8,7 @@ import (
 
 	"forgejo.org/models/issues"
 	"forgejo.org/models/moderation"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 
 	"github.com/stretchr/testify/assert"

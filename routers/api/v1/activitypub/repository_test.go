@@ -6,6 +6,7 @@ package activitypub
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/validation"
 )
 

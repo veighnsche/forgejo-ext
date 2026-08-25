@@ -10,6 +10,7 @@ import (
 
 	"forgejo.org/models/auth"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/auth/source/pam"
 
 	"github.com/stretchr/testify/assert"

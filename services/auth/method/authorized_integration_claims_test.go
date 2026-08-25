@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"

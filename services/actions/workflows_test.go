@@ -10,6 +10,7 @@ import (
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/repo"
 	"forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/webhook"
 
 	"code.forgejo.org/forgejo/runner/v13/act/jobparser"

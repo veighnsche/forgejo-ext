@@ -10,6 +10,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/contexttest"
 	"forgejo.org/services/gitdiff"
 

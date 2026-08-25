@@ -5,6 +5,8 @@ package unittest
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"code.forgejo.org/xorm/xorm/contexts"
 	"github.com/stretchr/testify/require"
 )

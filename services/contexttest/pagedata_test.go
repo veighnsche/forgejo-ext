@@ -6,6 +6,7 @@ package contexttest
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	"forgejo.org/modules/translation/i18n"
 

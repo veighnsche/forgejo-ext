@@ -9,6 +9,7 @@ import (
 
 	git_model "forgejo.org/models/git"
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 )

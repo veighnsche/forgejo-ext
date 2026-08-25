@@ -7,6 +7,8 @@ package repo
 import (
 	"reflect"
 	"testing"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func Test_localizedExtensions(t *testing.T) {

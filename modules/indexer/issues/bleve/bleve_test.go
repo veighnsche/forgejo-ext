@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/indexer/issues/internal/tests"
+	"forgejo.org/modules/testhelper"
 )
 
 func TestBleveIndexer(t *testing.T) {

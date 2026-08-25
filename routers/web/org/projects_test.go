@@ -12,6 +12,7 @@ import (
 	"forgejo.org/models/project"
 	"forgejo.org/models/unittest"
 	"forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 	"forgejo.org/routers/web/org"
 	"forgejo.org/services/contexttest"

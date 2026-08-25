@@ -6,6 +6,7 @@ package validation
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 
 	ap "github.com/go-ap/activitypub"

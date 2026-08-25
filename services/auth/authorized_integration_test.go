@@ -16,6 +16,7 @@ import (
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/jwtx"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/authz"
 
 	"github.com/stretchr/testify/assert"

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/emersion/go-imap"
 	"github.com/jhillyerd/enmime/v2"
 	"github.com/stretchr/testify/assert"

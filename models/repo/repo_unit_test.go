@@ -9,6 +9,7 @@ import (
 	"forgejo.org/models/perm"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 )

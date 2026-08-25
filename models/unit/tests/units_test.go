@@ -8,6 +8,7 @@ import (
 
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 )

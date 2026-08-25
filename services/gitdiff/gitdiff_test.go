@@ -17,6 +17,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/paginator"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 
 	dmp "github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"

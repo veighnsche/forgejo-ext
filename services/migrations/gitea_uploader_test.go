@@ -32,6 +32,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/migrations/allowlist"
 
 	"github.com/stretchr/testify/assert"

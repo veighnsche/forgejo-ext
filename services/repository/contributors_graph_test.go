@@ -14,6 +14,7 @@ import (
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 
 	"code.forgejo.org/go-chi/cache"
 	"github.com/stretchr/testify/assert"

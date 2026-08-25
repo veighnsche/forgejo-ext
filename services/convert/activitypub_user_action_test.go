@@ -15,6 +15,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/forgefed"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 
 	ap "github.com/go-ap/activitypub"
 	"github.com/stretchr/testify/assert"

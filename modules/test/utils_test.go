@@ -6,6 +6,8 @@ package test
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 )
 

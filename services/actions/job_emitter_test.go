@@ -13,6 +13,7 @@ import (
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	notify_service "forgejo.org/services/notify"
 
 	"code.forgejo.org/forgejo/runner/v13/act/jobparser"

@@ -12,6 +12,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/storage"
+	"forgejo.org/modules/testhelper"
 	repo_service "forgejo.org/services/repository"
 	"forgejo.org/tests/forgery"
 

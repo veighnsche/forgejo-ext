@@ -11,6 +11,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"

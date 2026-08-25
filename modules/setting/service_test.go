@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/gobwas/glob"
 	"github.com/stretchr/testify/assert"

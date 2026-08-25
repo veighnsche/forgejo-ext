@@ -17,6 +17,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/queue"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 	"forgejo.org/services/feed"
 	notify_service "forgejo.org/services/notify"

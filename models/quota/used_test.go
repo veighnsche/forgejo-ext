@@ -8,6 +8,7 @@ import (
 
 	quota_model "forgejo.org/models/quota"
 	"forgejo.org/models/unittest"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

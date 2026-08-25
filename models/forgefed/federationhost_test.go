@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/validation"
 
 	"github.com/stretchr/testify/require"

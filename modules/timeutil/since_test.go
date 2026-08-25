@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 
 	"github.com/stretchr/testify/assert"

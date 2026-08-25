@@ -14,6 +14,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	packages_module "forgejo.org/modules/packages"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	packages_service "forgejo.org/services/packages"
 

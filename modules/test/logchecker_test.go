@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 )

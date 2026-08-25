@@ -13,6 +13,7 @@ import (
 	"forgejo.org/modules/markup"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/contexttest"
 

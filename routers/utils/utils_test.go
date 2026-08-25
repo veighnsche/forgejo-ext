@@ -5,6 +5,8 @@ package utils
 
 import (
 	"testing"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func TestSanitizeFlashErrorString(t *testing.T) {

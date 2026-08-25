@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/cache"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 

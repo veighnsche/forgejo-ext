@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"forgejo.org/modules/testhelper"
 )
 
 const (

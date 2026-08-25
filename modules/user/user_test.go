@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func getWhoamiOutput() (string, error) {

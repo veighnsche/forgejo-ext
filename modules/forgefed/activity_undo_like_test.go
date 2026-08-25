@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"forgejo.org/modules/forgefed"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/validation"
 
 	ap "github.com/go-ap/activitypub"

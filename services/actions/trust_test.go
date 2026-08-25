@@ -11,6 +11,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	actions_module "forgejo.org/modules/actions"
+	"forgejo.org/modules/testhelper"
 	webhook_module "forgejo.org/modules/webhook"
 
 	"github.com/stretchr/testify/assert"

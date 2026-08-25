@@ -9,6 +9,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func TestRunWithContextNoTimeout(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 
 	"forgejo.org/modules/forgefed"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 
 	ap "github.com/go-ap/activitypub"
 )

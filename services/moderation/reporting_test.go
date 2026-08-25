@@ -10,6 +10,7 @@ import (
 	"forgejo.org/models/db"
 	moderation_model "forgejo.org/models/moderation"
 	"forgejo.org/models/unittest"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 
 	"github.com/stretchr/testify/require"

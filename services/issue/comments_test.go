@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	issue_service "forgejo.org/services/issue"
 	"forgejo.org/tests"
 

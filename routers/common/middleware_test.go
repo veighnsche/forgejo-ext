@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/web"
 
 	chi "github.com/go-chi/chi/v5"

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/encoding/charmap"

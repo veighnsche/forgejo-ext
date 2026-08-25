@@ -10,6 +10,7 @@ import (
 	"forgejo.org/models/forgejo/semver"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/require"
 )

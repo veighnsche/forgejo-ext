@@ -10,6 +10,7 @@ import (
 	"forgejo.org/modules/nosql"
 	queue_mock "forgejo.org/modules/queue/mock"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/mock"

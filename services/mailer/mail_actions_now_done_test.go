@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	notify_service "forgejo.org/services/notify"
 
 	"github.com/stretchr/testify/assert"

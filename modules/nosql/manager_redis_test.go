@@ -6,6 +6,8 @@ package nosql
 import (
 	"net/url"
 	"testing"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func TestRedisUsernameOpt(t *testing.T) {

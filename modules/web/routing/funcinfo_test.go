@@ -6,6 +6,8 @@ package routing
 import (
 	"fmt"
 	"testing"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func Test_shortenFilename(t *testing.T) {

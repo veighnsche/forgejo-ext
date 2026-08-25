@@ -9,6 +9,7 @@ import (
 
 	"forgejo.org/modules/json"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

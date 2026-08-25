@@ -12,6 +12,7 @@ import (
 
 	"forgejo.org/modules/indexer/issues/internal"
 	"forgejo.org/modules/indexer/issues/internal/tests"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/meilisearch/meilisearch-go"
 	"github.com/stretchr/testify/assert"

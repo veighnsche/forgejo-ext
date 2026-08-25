@@ -3,7 +3,11 @@
 
 package queue
 
-import "testing"
+import (
+	"testing"
+
+	"forgejo.org/modules/testhelper"
+)
 
 func TestBaseChannel(t *testing.T) {
 	testhelper.Setup(t)

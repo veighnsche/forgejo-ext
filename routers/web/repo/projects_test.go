@@ -10,6 +10,7 @@ import (
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/unittest"
 	"forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/contexttest"
 
 	"github.com/stretchr/testify/assert"

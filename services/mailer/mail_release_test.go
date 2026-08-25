@@ -11,6 +11,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/gitrepo"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/mailer"
 	release_service "forgejo.org/services/release"
 

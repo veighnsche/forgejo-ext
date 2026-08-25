@@ -11,6 +11,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	"forgejo.org/services/mailer"
 	user_service "forgejo.org/services/user"

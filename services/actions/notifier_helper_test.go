@@ -19,6 +19,7 @@ import (
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	webhook_module "forgejo.org/modules/webhook"
 
 	"code.forgejo.org/forgejo/runner/v13/act/jobparser"

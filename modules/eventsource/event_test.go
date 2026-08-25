@@ -6,6 +6,8 @@ package eventsource
 import (
 	"bytes"
 	"testing"
+
+	"forgejo.org/modules/testhelper"
 )
 
 func Test_wrapNewlines(t *testing.T) {

@@ -14,6 +14,7 @@ import (
 	base "forgejo.org/modules/migration"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/migrations/allowlist"
 
 	gitea_sdk "code.gitea.io/sdk/gitea"

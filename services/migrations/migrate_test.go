@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/migration"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/migrations/allowlist"
 
 	"github.com/stretchr/testify/assert"

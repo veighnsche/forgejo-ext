@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/packages/container/helm"
+	"forgejo.org/modules/testhelper"
 
 	oci "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"

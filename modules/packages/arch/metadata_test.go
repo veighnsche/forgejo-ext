@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"forgejo.org/modules/packages"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/mholt/archives"
 	"github.com/stretchr/testify/require"

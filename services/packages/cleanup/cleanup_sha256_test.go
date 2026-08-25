@@ -14,6 +14,7 @@ import (
 	"forgejo.org/modules/log"
 	container_module "forgejo.org/modules/packages/container"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	container_service "forgejo.org/services/packages/container"
 
