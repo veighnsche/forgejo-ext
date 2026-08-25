@@ -3,8 +3,6 @@ body:has(dialog[open]) {
 }
 
 dialog {
-  align-items: center;
-  justify-content: center;
   position: fixed;
   text-align: start;
   border: none;
