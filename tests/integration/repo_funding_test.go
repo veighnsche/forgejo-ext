@@ -142,7 +142,7 @@ func TestRepoFundingErrorReadoutOnFileView(t *testing.T) {
 		sel := ".non-diff-file-content > .ui.error.message"
 		user := forgery.CreateUser(t, nil)
 
-		t.Run("no error", func (t *testing.T)  {
+		t.Run("no error", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 
 			repo := forgery.CreateRepository(t, user, &forgery.CreateRepositoryOptions{
@@ -181,7 +181,7 @@ func TestRepoFundingErrorReadoutOnFileView(t *testing.T) {
 				doc.AssertElementPredicate(t, sel, func(els *goquery.Selection) {
 					require.Equal(t, 1, els.Length())
 					s := strings.TrimSpace(els.Text())
-					assert.True(t, strings.HasPrefix(s, expectedErr), "expected prefix: "+expectedErr, "actual: "+(s))
+					assert.True(t, strings.HasPrefix(s, expectedErr), "expected prefix: "+expectedErr, "actual: "+s)
 					assert.NotContains(t, els.Text(), "Unknown error")
 				})
 
@@ -221,8 +221,6 @@ custom:
 				"FUNDING.yml": forgery.MapFile(config),
 			},
 		})
-
-
 
 		req := NewRequest(t, "GET", fmt.Sprintf("/%s/%s", repo.OwnerName, repo.Name))
 		resp := MakeRequest(t, req, http.StatusOK)
