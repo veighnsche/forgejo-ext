@@ -616,7 +616,7 @@ func TestProjectAPIProjects(t *testing.T) {
 	// [...]
 	// </div>
 	user2 := loginUser(t, "user2")
-	testProjectListLength := func(t *testing.T, name string, url string, expectLength int) {
+	testProjectListLength := func(t *testing.T, name, url string, expectLength int) {
 		// get list of projects from url and check number of projects in list
 		t.Run(name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
