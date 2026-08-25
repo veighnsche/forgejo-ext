@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
@@ -14,6 +15,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/optional"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -117,18 +119,40 @@ func TestDeleteTeam(t *testing.T) {
 	unittest.AssertNotExistsBean(t, &access_model.Access{UserID: user.ID, RepoID: repo.ID, Mode: perm.AccessModeWrite})
 }
 
-func TestAddTeamMember(t *testing.T) {
+func TestAddTeamMemberByCooptation(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	test := func(teamID, userID int64) {
+	test := func(teamID, userID, inviterID int64) {
 		team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: teamID})
-		require.NoError(t, AddTeamMember(db.DefaultContext, team, userID))
+		require.NoError(t, AddTeamMemberByCooptation(db.DefaultContext, team, userID, inviterID))
+		if userID == 4 {
+			unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: userID, TeamID: teamID, Reason: organization.MembershipReasonByUser, CreatedByUserID: optional.Some(inviterID)})
+		} else {
+			unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: userID, TeamID: teamID})
+		}
+		unittest.CheckConsistencyFor(t, &organization.Team{ID: teamID}, &user_model.User{ID: team.OrgID})
+	}
+	test(1, 2, 5)
+	test(1, 4, 5)
+	test(3, 2, 5)
+}
+
+func TestAddTeamMemberByLoginSource(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	loginSource := auth_model.Source{ID: 1}
+	_, err := db.GetEngine(db.DefaultContext).Insert(loginSource)
+	require.NoError(t, err)
+
+	test := func(teamID, userID, loginSourceID int64) {
+		team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: teamID})
+		require.NoError(t, AddTeamMemberByLoginSource(db.DefaultContext, team, userID, loginSourceID))
 		unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: userID, TeamID: teamID})
 		unittest.CheckConsistencyFor(t, &organization.Team{ID: teamID}, &user_model.User{ID: team.OrgID})
 	}
-	test(1, 2)
-	test(1, 4)
-	test(3, 2)
+	test(1, 2, loginSource.ID)
+	test(1, 4, loginSource.ID)
+	test(3, 2, loginSource.ID)
 }
 
 func TestTeam_AddAndReturnTeamMember(t *testing.T) {
@@ -139,27 +163,31 @@ func TestTeam_AddAndReturnTeamMember(t *testing.T) {
 		alreadyMember bool
 		teamID        int64
 		userID        int64
+		inviterID     int64
 	}{
 		{
 			name:          "Already member of a team with repositories",
 			alreadyMember: true,
 			teamID:        1,
 			userID:        2,
+			inviterID:     28,
 		},
 		{
-			name:   "New member of a team with repositories",
-			teamID: 1,
-			userID: 4,
+			name:      "New member of a team with repositories",
+			teamID:    1,
+			userID:    4,
+			inviterID: 1,
 		},
 		{
-			name:   "New member of a team with no repositories",
-			teamID: 3,
-			userID: 2,
+			name:      "New member of a team with no repositories",
+			teamID:    3,
+			userID:    2,
+			inviterID: 4,
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: testCase.teamID})
-			teamUser, err := InsertTeamMember(db.DefaultContext, team, testCase.userID)
+			teamUser, err := InsertTeamMember(db.DefaultContext, team, testCase.userID, organization.MembershipReasonByUser, optional.Some(testCase.inviterID), optional.None[int64]())
 			require.NoError(t, err)
 			if testCase.alreadyMember {
 				assert.Nil(t, teamUser)
@@ -167,8 +195,8 @@ func TestTeam_AddAndReturnTeamMember(t *testing.T) {
 				require.NotNil(t, teamUser)
 				assert.Equal(t, testCase.teamID, teamUser.TeamID)
 				assert.Equal(t, testCase.userID, teamUser.UID)
+				unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID, Reason: organization.MembershipReasonByUser, CreatedByUserID: optional.Some(testCase.inviterID)})
 			}
-			unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID})
 			unittest.CheckConsistencyFor(t, &organization.Team{ID: testCase.teamID}, &user_model.User{ID: team.OrgID})
 		})
 	}
@@ -251,7 +279,7 @@ func TestRepository_RecalculateAccesses3(t *testing.T) {
 
 	// adding user29 to team5 should add an explicit access row for repo 23
 	// even though repo 23 is public
-	require.NoError(t, AddTeamMember(db.DefaultContext, team5, user29.ID))
+	require.NoError(t, AddTeamMemberByCooptation(db.DefaultContext, team5, user29.ID, 1))
 
 	has, err = db.GetEngine(db.DefaultContext).Get(&access_model.Access{UserID: 29, RepoID: 23})
 	require.NoError(t, err)

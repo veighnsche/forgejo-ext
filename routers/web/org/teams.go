@@ -85,7 +85,7 @@ func TeamsAction(ctx *context.Context) {
 			ctx.Error(http.StatusNotFound)
 			return
 		}
-		err = models.AddTeamMember(ctx, ctx.Org.Team, ctx.Doer.ID)
+		err = models.AddTeamMemberByCooptation(ctx, ctx.Org.Team, ctx.Doer.ID, ctx.Doer.ID)
 	case "leave":
 		err = models.RemoveTeamMember(ctx, ctx.Org.Team, ctx.Doer.ID)
 		if err != nil {
@@ -645,7 +645,7 @@ func TeamInvitePost(ctx *context.Context) {
 		return
 	}
 
-	if err := models.AddTeamMember(ctx, team, ctx.Doer.ID); err != nil {
+	if err := models.AddTeamMemberByCooptation(ctx, team, ctx.Doer.ID, invite.InviterID); err != nil {
 		ctx.ServerError("AddTeamMember", err)
 		return
 	}

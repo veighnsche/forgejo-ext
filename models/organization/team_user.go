@@ -8,16 +8,39 @@ import (
 
 	"forgejo.org/models/db"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/optional"
+	"forgejo.org/modules/timeutil"
 
 	"xorm.io/builder"
 )
 
+// MembershipReason defines why a user is member of a team/org
+type MembershipReason int
+
+const (
+	// MembershipReasonUnknown represents a membership created before Forgejo started to track membership provenance
+	MembershipReasonUnknown MembershipReason = iota // Represented as zero to match the default values created by the SQL migration
+
+	// MembershipReasonOrgFounder represents a membership that was induced by creating the organization
+	MembershipReasonOrgFounder // 1
+
+	// MembershipReasonByUser represents a membership created by another user (already member of the organization or site admin)
+	MembershipReasonByUser // 2
+
+	// MembershipReasonByAuthProvider represents a membership created by an authentication source whose metadata was mapped to team membership
+	MembershipReasonByAuthProvider // 3
+)
+
 // TeamUser represents an team-user relation.
 type TeamUser struct {
-	ID     int64 `xorm:"pk autoincr"`
-	OrgID  int64 `xorm:"INDEX"`
-	TeamID int64 `xorm:"UNIQUE(s)"`
-	UID    int64 `xorm:"UNIQUE(s)"`
+	ID                     int64                               `xorm:"pk autoincr"`
+	OrgID                  int64                               `xorm:"INDEX"`
+	TeamID                 int64                               `xorm:"UNIQUE(s)"`
+	UID                    int64                               `xorm:"UNIQUE(s)"`
+	CreatedUnix            optional.Option[timeutil.TimeStamp] `xorm:"created_unix"`
+	Reason                 MembershipReason
+	CreatedByUserID        optional.Option[int64] `xorm:"index REFERENCES(user, id)"`
+	CreatedByLoginSourceID optional.Option[int64] `xorm:"INDEX REFERENCES(login_source, id)"`
 }
 
 // IsTeamMember returns true if given user is a member of team.
