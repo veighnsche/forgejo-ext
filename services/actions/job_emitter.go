@@ -445,7 +445,11 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 	}
 
 	err = db.WithTx(ctx, func(ctx context.Context) error {
-		if err := actions_model.InsertRunJobs(ctx, blockedJob.Run, newJobWorkflows); err != nil {
+		jobs, err := convertSingleWorkflowToJobs(blockedJob.Run, newJobWorkflows)
+		if err != nil {
+			return fmt.Errorf("failed to convert parsed workflows to jobs of run %d: %w", blockedJob.RunID, err)
+		}
+		if err := actions_model.InsertRunJobs(ctx, blockedJob.Run, jobs); err != nil {
 			return fmt.Errorf("failure in InsertRunJobs: %w", err)
 		}
 
