@@ -28,5 +28,6 @@ func addActionRunJobSummary(x *xorm.Engine) error {
 		UpdatedUnix timeutil.TimeStamp `xorm:"updated"`
 	}
 
-	return x.Sync(new(ActionRunJobSummary))
+	_, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true}, new(ActionRunJobSummary))
+	return err
 }
