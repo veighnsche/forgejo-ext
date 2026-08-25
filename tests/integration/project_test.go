@@ -742,7 +742,7 @@ func TestProjectAPIDeleteProject(t *testing.T) {
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusInternalServerError)
+			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
 		})
 	}
 

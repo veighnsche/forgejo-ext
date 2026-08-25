@@ -5,6 +5,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 
@@ -29,7 +30,7 @@ type ErrProjectNotExist struct {
 
 // IsErrProjectNotExist checks if an error is a ErrProjectNotExist
 func IsErrProjectNotExist(err error) bool {
-	_, ok := err.(ErrProjectNotExist)
+	_, ok := errors.AsType[ErrProjectNotExist](err)
 	return ok
 }
 
