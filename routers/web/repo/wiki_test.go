@@ -96,7 +96,7 @@ func TestWikiPages(t *testing.T) {
 	contexttest.LoadRepo(t, ctx, 1)
 	WikiPages(ctx)
 	assert.Equal(t, http.StatusOK, ctx.Resp.Status())
-	assertPagesMetas(t, []string{"Home", "Long Page", "Page With Image", "Page With Spaced Name", "Unescaped File"}, ctx.Data["Pages"])
+	assertPagesMetas(t, []string{"Home", "Long Page", "Page With Image", "Page With Spaced Name", "Page With Unescaped Special Chars: (1)", "Unescaped File"}, ctx.Data["Pages"])
 }
 
 func TestNewWiki(t *testing.T) {
