@@ -35,7 +35,7 @@ func IsErrProjectNotExist(err error) bool {
 }
 
 func (err ErrProjectNotExist) Error() string {
-	return fmt.Sprintf("projects does not exist [id: %d]", err.ID)
+	return fmt.Sprintf("project does not exist [id: %d]", err.ID)
 }
 
 func (err ErrProjectNotExist) Unwrap() error {
