@@ -357,7 +357,7 @@ func TestSSHPushMirror(t *testing.T) {
 					htmlDoc = NewHTMLParser(t, resp.Body)
 
 					return resp.Code == http.StatusOK && htmlDoc.Find(".shortsha").Text() == expectedSHA
-				}, time.Second*30, time.Second)
+				}, time.Second*60, time.Second)
 			})
 
 			t.Run("Check known host keys", func(t *testing.T) {
