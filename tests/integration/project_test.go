@@ -23,6 +23,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/optional"
 	project_module "forgejo.org/modules/project"
+	project_structs "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
 	forms_service "forgejo.org/services/forms"
 	"forgejo.org/tests"
@@ -1086,6 +1087,61 @@ func TestProjectAPISetDefaultProjectColumn(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusOK)
+		})
+	}
+}
+
+func TestProjectAPIMoveIssues(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user2 := loginUser(t, "user2")
+
+	moveOpts := &project_structs.MovedIssuesOption{}
+
+	// invalid project
+	for testName, projectURL := range map[string]string{
+		"User, invalid project":         "/user2/-/projects/1234567890/0/move",
+		"Organization, invalid project": "/org3/-/projects/1234567890/0/move",
+		"Repository, invalid project":   "/user2/repo1/projects/1234567890/0/move",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusNotFound)
+		})
+	}
+
+	// wrong owner
+	for testName, projectURL := range map[string]string{
+		"User, wrong owner":         "/org3/-/projects/4/0/move",
+		"Organization, wrong owner": "/user2/-/projects/7/0/move",
+		"Repository, wrong owner":   "/user2/-/projects/1/0/move",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusNotFound)
+		})
+	}
+
+	// invalid column
+	for testName, projectURL := range map[string]string{
+		"User, invalid column":         "/user2/-/projects/4/0/move",
+		"Organization, invalid column": "/org3/-/projects/7/0/move",
+		"Repository, invalid column":   "/user2/repo1/projects/1/0/move",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusInternalServerError)
+		})
+	}
+
+	// no error
+	for testName, projectURL := range map[string]string{
+		"User":         "/user2/-/projects/4/4/move",
+		"Organization": "/org3/-/projects/7/10/move",
+		"Repository":   "/user2/repo1/projects/1/2/move",
+	} {
+		t.Run(testName, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusOK)
 		})
 	}
 }
