@@ -40,6 +40,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestTimeSincePro(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "now", timeSincePro(BaseDate, BaseDate, translation.NewLocale("en-US")))
 
 	// test that a difference of `diff` yields the expected string
@@ -73,6 +74,7 @@ func TestTimeSincePro(t *testing.T) {
 }
 
 func TestMinutesToFriendly(t *testing.T) {
+	testhelper.Setup(t)
 	// test that a number of minutes yields the expected string
 	test := func(expected string, minutes int) {
 		actual := MinutesToFriendly(minutes, translation.NewLocale("en-US"))

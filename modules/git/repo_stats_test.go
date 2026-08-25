@@ -13,6 +13,7 @@ import (
 )
 
 func TestRepository_GetCodeActivityStats(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)

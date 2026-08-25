@@ -25,6 +25,7 @@ import (
 )
 
 func Test_RandomImageSize(t *testing.T) {
+	testhelper.Setup(t)
 	_, err := RandomImageSize(0, []byte("gitea@local"))
 	require.Error(t, err)
 
@@ -33,11 +34,13 @@ func Test_RandomImageSize(t *testing.T) {
 }
 
 func Test_RandomImage(t *testing.T) {
+	testhelper.Setup(t)
 	_, err := RandomImage([]byte("gitea@local"))
 	require.NoError(t, err)
 }
 
 func Test_ProcessAvatarPNG(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Avatar.MaxWidth, 4096)()
 	defer test.MockVariableValue(&setting.Avatar.MaxHeight, 4096)()
 
@@ -50,6 +53,7 @@ func Test_ProcessAvatarPNG(t *testing.T) {
 }
 
 func Test_ProcessAvatarJPEG(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Avatar.MaxWidth, 4096)()
 	defer test.MockVariableValue(&setting.Avatar.MaxHeight, 4096)()
 
@@ -62,6 +66,7 @@ func Test_ProcessAvatarJPEG(t *testing.T) {
 }
 
 func Test_ProcessAvatarGIF(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Avatar.MaxWidth, 4096)()
 	defer test.MockVariableValue(&setting.Avatar.MaxHeight, 4096)()
 
@@ -74,6 +79,7 @@ func Test_ProcessAvatarGIF(t *testing.T) {
 }
 
 func Test_ProcessAvatarInvalidData(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Avatar.MaxWidth, 5)()
 	defer test.MockVariableValue(&setting.Avatar.MaxHeight, 5)()
 
@@ -82,6 +88,7 @@ func Test_ProcessAvatarInvalidData(t *testing.T) {
 }
 
 func Test_ProcessAvatarInvalidImageSize(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Avatar.MaxWidth, 5)()
 	defer test.MockVariableValue(&setting.Avatar.MaxHeight, 5)()
 
@@ -93,6 +100,7 @@ func Test_ProcessAvatarInvalidImageSize(t *testing.T) {
 }
 
 func Test_ProcessAvatarImage(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Avatar.MaxWidth, 4096)()
 	defer test.MockVariableValue(&setting.Avatar.MaxHeight, 4096)()
 	scaledSize := DefaultAvatarSize * setting.Avatar.RenderedSizeFactor
@@ -163,6 +171,7 @@ func Test_ProcessAvatarImage(t *testing.T) {
 }
 
 func Test_FetchExternalImageData(t *testing.T) {
+	testhelper.Setup(t)
 	blackPng, err := base64.URLEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==")
 	if err != nil {
 		t.Error(err)

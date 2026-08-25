@@ -12,6 +12,7 @@ import (
 )
 
 func Test_FederatedUserFollowerValidation(t *testing.T) {
+	testhelper.Setup(t)
 	sut := FederatedUserFollower{
 		FollowedUserID:  12,
 		FollowingUserID: 1,

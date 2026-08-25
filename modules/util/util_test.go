@@ -18,6 +18,7 @@ import (
 )
 
 func TestURLJoin(t *testing.T) {
+	testhelper.Setup(t)
 	type test struct {
 		Expected string
 		Base     string
@@ -51,6 +52,7 @@ func TestURLJoin(t *testing.T) {
 }
 
 func TestIsEmptyString(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		s        string
 		expected bool
@@ -67,6 +69,7 @@ func TestIsEmptyString(t *testing.T) {
 }
 
 func Test_NormalizeEOL(t *testing.T) {
+	testhelper.Setup(t)
 	data1 := []string{
 		"",
 		"This text starts with empty lines",
@@ -125,6 +128,7 @@ func Test_NormalizeEOL(t *testing.T) {
 }
 
 func Test_RandomString(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Low", func(t *testing.T) {
 		str1 := util.CryptoRandomString(util.RandomStringLow)
 		assert.Regexp(t, "^[a-zA-Z0-9_-]{11}$", str1)
@@ -157,6 +161,7 @@ func Test_RandomString(t *testing.T) {
 }
 
 func Test_RandomBytes(t *testing.T) {
+	testhelper.Setup(t)
 	bytes1 := util.CryptoRandomBytes(32)
 	bytes2 := util.CryptoRandomBytes(32)
 
@@ -191,6 +196,7 @@ var upperTests = []StringTest{
 }
 
 func TestToUpperASCII(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tc := range upperTests {
 		assert.Equal(t, util.ToUpperASCII(tc.in), tc.out)
 	}
@@ -207,11 +213,13 @@ func BenchmarkToUpper(b *testing.B) {
 }
 
 func TestToTitleCase(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, `Foo Bar Baz`, util.ToTitleCase(`foo bar baz`))
 	assert.Equal(t, `Foo Bar Baz`, util.ToTitleCase(`FOO BAR BAZ`))
 }
 
 func TestReserveLineBreakForTextarea(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "test\ndata", util.ReserveLineBreakForTextarea("test\r\ndata"))
 	assert.Equal(t, "test\ndata\n", util.ReserveLineBreakForTextarea("test\r\ndata\r\n"))
 }
@@ -228,6 +236,7 @@ dHX8yEKexoMqBPPwG4pGAhhjo5CyiHLiJZ7p3jg0aJZMAAAAAAECAwQF
 )
 
 func TestGeneratingEd25519Keypair(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&rand.Reader)()
 	cryptotest.SetGlobalRandom(t, 0)
 
@@ -238,6 +247,7 @@ func TestGeneratingEd25519Keypair(t *testing.T) {
 }
 
 func TestOptionalArg(t *testing.T) {
+	testhelper.Setup(t)
 	foo := func(other any, optArg ...int) int {
 		return util.OptionalArg(optArg)
 	}

@@ -15,6 +15,7 @@ import (
 )
 
 func TestTestHook(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	ctx, _ := contexttest.MockAPIContext(t, "user2/repo1/wiki/_pages")

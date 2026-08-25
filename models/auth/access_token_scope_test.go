@@ -17,6 +17,7 @@ type scopeTestNormalize struct {
 }
 
 func TestAccessTokenScope_Normalize(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []scopeTestNormalize{
 		{"", "", nil},
 		{"write:misc,write:notification,read:package,write:notification,public-only", "public-only,write:misc,write:notification,read:package", nil},
@@ -52,6 +53,7 @@ type scopeTestHasScope struct {
 }
 
 func TestAccessTokenScope_HasScope(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []scopeTestHasScope{
 		{"read:admin", "write:package", false, nil},
 		{"all", "write:package", true, nil},

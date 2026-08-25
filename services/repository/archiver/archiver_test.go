@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestArchive_Basic(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ctx, _ := contexttest.MockContext(t, "user27/repo49")

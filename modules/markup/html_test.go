@@ -41,6 +41,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRender_Commits(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 	test := func(input, expected string) {
 		buffer, err := markup.RenderString(&markup.RenderContext{
@@ -110,6 +111,7 @@ func TestRender_Commits(t *testing.T) {
 }
 
 func TestRender_CrossReferences(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	test := func(input, expected string) {
@@ -160,6 +162,7 @@ func TestRender_CrossReferences(t *testing.T) {
 }
 
 func TestRender_links(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	test := func(input, expected string) {
@@ -286,6 +289,7 @@ func TestRender_links(t *testing.T) {
 }
 
 func TestRender_PullReviewCommitLink(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	sha := "190d9492934af498c3f669d6a2431dc5459e5b20"
@@ -326,6 +330,7 @@ func TestRender_PullReviewCommitLink(t *testing.T) {
 }
 
 func TestRender_email(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	test := func(input, expected string) {
@@ -427,6 +432,7 @@ func TestRender_email(t *testing.T) {
 }
 
 func TestRender_emoji(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 	setting.StaticURLPrefix = markup.TestAppURL
 
@@ -506,6 +512,7 @@ func TestRender_emoji(t *testing.T) {
 }
 
 func TestRender_ShortLinks(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 	tree := util.URLJoin(markup.TestRepoURL, "src", "master")
 
@@ -636,6 +643,7 @@ func TestRender_ShortLinks(t *testing.T) {
 }
 
 func TestRender_RelativeImages(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	test := func(input, expected, expectedWiki string) {
@@ -680,6 +688,7 @@ func TestRender_RelativeImages(t *testing.T) {
 // Verifies that PostProcess does not re-resolve <img> src URLs that are already in the resolved form
 // (produced by the markdown renderer: `![alt](image.jpg)` into `<img src="/user/repo/media/branch/main/image.jpg">`).
 func TestPostProcess_ResolvedImageURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	test := func(input, expected string) {
@@ -716,6 +725,7 @@ func TestPostProcess_ResolvedImageURL(t *testing.T) {
 }
 
 func Test_ParseClusterFuzz(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	localMetas := map[string]string{
@@ -752,6 +762,7 @@ func Test_ParseClusterFuzz(t *testing.T) {
 }
 
 func TestPostProcess_RenderDocument(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 	setting.StaticURLPrefix = markup.TestAppURL // can't run standalone
 
@@ -801,6 +812,7 @@ func TestPostProcess_RenderDocument(t *testing.T) {
 }
 
 func TestIssue16020(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	localMetas := map[string]string{
@@ -836,6 +848,7 @@ func BenchmarkEmojiPostprocess(b *testing.B) {
 }
 
 func TestFuzz(t *testing.T) {
+	testhelper.Setup(t)
 	s := "t/l/issues/8#/../../a"
 	renderContext := markup.RenderContext{
 		Ctx: git.DefaultContext,
@@ -854,6 +867,7 @@ func TestFuzz(t *testing.T) {
 }
 
 func TestIssue18471(t *testing.T) {
+	testhelper.Setup(t)
 	data := `http://domain/org/repo/compare/783b039...da951ce`
 
 	var res strings.Builder
@@ -870,6 +884,7 @@ func TestIssue18471(t *testing.T) {
 }
 
 func TestRender_FilePreview(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.StaticRootPath, "../../")()
 	defer test.MockVariableValue(&setting.Names, []string{"english"})()
 	defer test.MockVariableValue(&setting.Langs, []string{"en-US"})()
@@ -1452,6 +1467,7 @@ func TestRender_FilePreview(t *testing.T) {
 }
 
 func TestRenderDescriptionHTML(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, markup.TestAppURL)()
 
 	test := func(input, expected string) {

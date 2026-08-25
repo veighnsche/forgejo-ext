@@ -36,6 +36,7 @@ func (source *TestSource) ToDB() ([]byte, error) {
 }
 
 func TestDumpAuthSource(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	authSourceSchema, err := db.TableInfo(new(auth_model.Source))

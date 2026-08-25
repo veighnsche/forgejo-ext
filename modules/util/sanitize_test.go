@@ -11,12 +11,14 @@ import (
 )
 
 func TestSanitizeErrorCredentialURLs(t *testing.T) {
+	testhelper.Setup(t)
 	err := errors.New("error with https://a@b.com")
 	se := SanitizeErrorCredentialURLs(err)
 	assert.Equal(t, "error with https://"+userPlaceholder+"@b.com", se.Error())
 }
 
 func TestSanitizeCredentialURLs(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		input    string
 		expected string

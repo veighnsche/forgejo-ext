@@ -25,6 +25,7 @@ import (
 )
 
 func TestWebhookProxy(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&setting.Webhook)()
 	t.Setenv("http_proxy", "")
 	t.Setenv("https_proxy", "")
@@ -84,6 +85,7 @@ func TestWebhookProxy(t *testing.T) {
 }
 
 func TestWebhookDeliverAuthorizationHeader(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	done := make(chan struct{}, 1)
@@ -126,6 +128,7 @@ func TestWebhookDeliverAuthorizationHeader(t *testing.T) {
 }
 
 func TestWebhookDeliverHookTask(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	done := make(chan struct{}, 1)
@@ -218,6 +221,7 @@ func TestWebhookDeliverHookTask(t *testing.T) {
 }
 
 func TestWebhookDeliverSpecificTypes(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	type hookCase struct {

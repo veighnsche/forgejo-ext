@@ -17,6 +17,7 @@ import (
 )
 
 func TestGetRefEndNamesAndURLs(t *testing.T) {
+	testhelper.Setup(t)
 	issues := []*issues_model.Issue{
 		{ID: 1, Ref: "refs/heads/branch1"},
 		{ID: 2, Ref: "refs/tags/tag1"},
@@ -34,6 +35,7 @@ func TestGetRefEndNamesAndURLs(t *testing.T) {
 }
 
 func TestIssue_DeleteIssue(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issueIDs, err := issues_model.GetIssueIDsByRepoID(db.DefaultContext, 1)

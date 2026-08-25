@@ -14,6 +14,7 @@ import (
 )
 
 func TestConfigQuotaDefaultTotal(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := ``
 	cfg, err := NewConfigProviderFromData(iniStr)
 	require.NoError(t, err)

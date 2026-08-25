@@ -10,6 +10,7 @@ import (
 )
 
 func TestMockProtect(t *testing.T) {
+	testhelper.Setup(t)
 	mockable := "original"
 	restore := MockProtect(&mockable)
 	mockable = "tainted"

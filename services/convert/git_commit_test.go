@@ -18,6 +18,7 @@ import (
 )
 
 func TestToCommitMeta(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	headRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	sha1 := git.Sha1ObjectFormat

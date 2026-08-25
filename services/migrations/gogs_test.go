@@ -20,6 +20,7 @@ import (
 )
 
 func TestGogsDownloadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	// Skip tests if Gogs token is not found
 	gogsPersonalAccessToken := os.Getenv("GOGS_READ_TOKEN")
 	if len(gogsPersonalAccessToken) == 0 {
@@ -144,6 +145,7 @@ func TestGogsDownloadRepo(t *testing.T) {
 }
 
 func TestGogsDownloaderFactory_New(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name      string
 		args      base.MigrateOptions
@@ -228,6 +230,7 @@ func TestGogsDownloaderFactory_New(t *testing.T) {
 }
 
 func TestGogsDownloaderAvatarDownload(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	GithubLimitRateRemaining = 3 // Wait at 3 remaining since we could have 3 CI in //
 

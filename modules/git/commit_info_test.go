@@ -103,6 +103,7 @@ func testGetCommitsInfo(t *testing.T, repo1 *Repository) {
 }
 
 func TestEntries_GetCommitsInfo(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)

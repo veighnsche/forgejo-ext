@@ -11,6 +11,7 @@ import (
 )
 
 func TestNewRecipeReference(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		Name     string
 		Version  string
@@ -50,6 +51,7 @@ func TestNewRecipeReference(t *testing.T) {
 }
 
 func TestRecipeReferenceRevisionOrDefault(t *testing.T) {
+	testhelper.Setup(t)
 	rref, err := NewRecipeReference("name", "1.0", "", "", "")
 	require.NoError(t, err)
 	assert.Equal(t, DefaultRevision, rref.RevisionOrDefault())
@@ -64,6 +66,7 @@ func TestRecipeReferenceRevisionOrDefault(t *testing.T) {
 }
 
 func TestRecipeReferenceString(t *testing.T) {
+	testhelper.Setup(t)
 	rref, err := NewRecipeReference("name", "1.0", "", "", "")
 	require.NoError(t, err)
 	assert.Equal(t, "name/1.0", rref.String())
@@ -78,6 +81,7 @@ func TestRecipeReferenceString(t *testing.T) {
 }
 
 func TestRecipeReferenceLinkName(t *testing.T) {
+	testhelper.Setup(t)
 	rref, err := NewRecipeReference("name", "1.0", "", "", "")
 	require.NoError(t, err)
 	assert.Equal(t, "name/1.0/_/_/0", rref.LinkName())
@@ -92,6 +96,7 @@ func TestRecipeReferenceLinkName(t *testing.T) {
 }
 
 func TestNewPackageReference(t *testing.T) {
+	testhelper.Setup(t)
 	rref, _ := NewRecipeReference("name", "1.0", "", "", "")
 
 	cases := []struct {
@@ -120,6 +125,7 @@ func TestNewPackageReference(t *testing.T) {
 }
 
 func TestPackageReferenceRevisionOrDefault(t *testing.T) {
+	testhelper.Setup(t)
 	rref, _ := NewRecipeReference("name", "1.0", "", "", "")
 
 	pref, err := NewPackageReference(rref, "ref", "")
@@ -136,6 +142,7 @@ func TestPackageReferenceRevisionOrDefault(t *testing.T) {
 }
 
 func TestPackageReferenceLinkName(t *testing.T) {
+	testhelper.Setup(t)
 	rref, _ := NewRecipeReference("name", "1.0", "", "", "")
 
 	pref, err := NewPackageReference(rref, "ref", "")

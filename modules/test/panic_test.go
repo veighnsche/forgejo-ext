@@ -12,6 +12,7 @@ import (
 )
 
 func TestPanicError(t *testing.T) {
+	testhelper.Setup(t)
 	message := "MESSAGE"
 	err := errors.New(message)
 	assert.True(t, PanicErrorContains(t, func() { panic(err) }, message))

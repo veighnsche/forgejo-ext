@@ -16,6 +16,7 @@ import (
 )
 
 func TestIsProjectTypeValid(t *testing.T) {
+	testhelper.Setup(t)
 	const UnknownType Type = 15
 
 	cases := []struct {
@@ -34,6 +35,7 @@ func TestIsProjectTypeValid(t *testing.T) {
 }
 
 func TestGetProjects(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	projects, err := db.Find[Project](db.DefaultContext, SearchOptions{RepoID: 1})
@@ -50,6 +52,7 @@ func TestGetProjects(t *testing.T) {
 }
 
 func TestProjectsSort(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	tests := []struct {
@@ -89,6 +92,7 @@ func TestProjectsSort(t *testing.T) {
 }
 
 func TestGetProjectForUserByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	found := func(t *testing.T, uid, id int64) {
@@ -120,6 +124,7 @@ func TestGetProjectForUserByID(t *testing.T) {
 }
 
 func TestChangeProjectStatus(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Unchanged", func(t *testing.T) {

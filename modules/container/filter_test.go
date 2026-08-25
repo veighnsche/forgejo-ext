@@ -10,6 +10,7 @@ import (
 )
 
 func TestFilterMapUnique(t *testing.T) {
+	testhelper.Setup(t)
 	result := FilterSlice([]int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
 	}, func(i int) (int, bool) {

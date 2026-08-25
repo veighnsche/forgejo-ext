@@ -15,6 +15,7 @@ import (
 )
 
 func TestMakeAbsoluteAssetURL(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "https://localhost:2345", MakeAbsoluteAssetURL("https://localhost:1234", "https://localhost:2345"))
 	assert.Equal(t, "https://localhost:2345", MakeAbsoluteAssetURL("https://localhost:1234/", "https://localhost:2345"))
 	assert.Equal(t, "https://localhost:2345", MakeAbsoluteAssetURL("https://localhost:1234/", "https://localhost:2345/"))
@@ -30,12 +31,14 @@ func TestMakeAbsoluteAssetURL(t *testing.T) {
 }
 
 func TestMakeManifestData(t *testing.T) {
+	testhelper.Setup(t)
 	jsonBytes, err := GetManifestJSON()
 	require.NoError(t, err)
 	assert.True(t, json.Valid(jsonBytes))
 }
 
 func TestMakeManifestDataStandalone(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&PWA.Standalone, true)()
 
 	jsonBytes, err := GetManifestJSON()
@@ -45,6 +48,7 @@ func TestMakeManifestDataStandalone(t *testing.T) {
 }
 
 func TestLoadServiceDomainListsForFederation(t *testing.T) {
+	testhelper.Setup(t)
 	oldAppURL := AppURL
 	oldFederation := Federation
 	oldService := Service
@@ -73,6 +77,7 @@ EMAIL_DOMAIN_BLOCKLIST = *.block.random
 }
 
 func TestLoadServiceDomainListsNoFederation(t *testing.T) {
+	testhelper.Setup(t)
 	oldAppURL := AppURL
 	oldFederation := Federation
 	oldService := Service
@@ -100,6 +105,7 @@ EMAIL_DOMAIN_BLOCKLIST = *.block.random
 }
 
 func TestLoadServiceDomainListsFederationEmptyAllowList(t *testing.T) {
+	testhelper.Setup(t)
 	oldAppURL := AppURL
 	oldFederation := Federation
 	oldService := Service

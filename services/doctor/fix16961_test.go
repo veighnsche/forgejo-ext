@@ -12,6 +12,7 @@ import (
 )
 
 func Test_fixUnitConfig_16961(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name      string
 		bs        string
@@ -58,6 +59,7 @@ func Test_fixUnitConfig_16961(t *testing.T) {
 }
 
 func Test_fixExternalWikiConfig_16961(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name      string
 		bs        string
@@ -105,6 +107,7 @@ func Test_fixExternalWikiConfig_16961(t *testing.T) {
 }
 
 func Test_fixExternalTrackerConfig_16961(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name      string
 		bs        string
@@ -172,6 +175,7 @@ func Test_fixExternalTrackerConfig_16961(t *testing.T) {
 }
 
 func Test_fixPullRequestsConfig_16961(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name      string
 		bs        string
@@ -227,6 +231,7 @@ func Test_fixPullRequestsConfig_16961(t *testing.T) {
 }
 
 func Test_fixIssuesConfig_16961(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name      string
 		bs        string

@@ -27,6 +27,7 @@ func match(globs []glob.Glob, s string) bool {
 }
 
 func TestLoadServices(t *testing.T) {
+	testhelper.Setup(t)
 	oldService := Service
 	defer func() {
 		Service = oldService
@@ -53,6 +54,7 @@ EMAIL_DOMAIN_BLOCKLIST = d3, *.b
 }
 
 func TestLoadServiceBlockDisposable(t *testing.T) {
+	testhelper.Setup(t)
 	oldService := Service
 	defer func() {
 		Service = oldService
@@ -91,6 +93,7 @@ EMAIL_DOMAIN_BLOCK_DISPOSABLE = true
 }
 
 func TestLoadServiceBlockDisposableWithExistingGlobs(t *testing.T) {
+	testhelper.Setup(t)
 	oldService := Service
 	defer func() {
 		Service = oldService
@@ -145,6 +148,7 @@ EMAIL_DOMAIN_BLOCK_DISPOSABLE = true
 }
 
 func TestLoadServiceBlockDisposableWithComplementGlobs(t *testing.T) {
+	testhelper.Setup(t)
 	oldService := Service
 	defer func() {
 		Service = oldService
@@ -168,6 +172,7 @@ EMAIL_DOMAIN_BLOCK_DISPOSABLE = true
 }
 
 func TestLoadServiceVisibilityModes(t *testing.T) {
+	testhelper.Setup(t)
 	oldService := Service
 	defer func() {
 		Service = oldService

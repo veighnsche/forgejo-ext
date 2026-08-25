@@ -14,6 +14,7 @@ import (
 )
 
 func Test_FederationHostValidation(t *testing.T) {
+	testhelper.Setup(t)
 	sut := FederationHost{
 		HostFqdn: "host.do.main",
 		NodeInfo: NodeInfo{
@@ -92,6 +93,7 @@ func Test_FederationHostValidation(t *testing.T) {
 }
 
 func Test_FederationHostDefaultPort(t *testing.T) {
+	testhelper.Setup(t)
 	// test default HTTPS port is not in the URI
 	sut := FederationHost{
 		HostFqdn: "host.do.main",

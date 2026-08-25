@@ -10,6 +10,7 @@ import (
 )
 
 func TestLanguagePercentages(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		input  LanguageStatList
 		output map[string]float32

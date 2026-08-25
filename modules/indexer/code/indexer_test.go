@@ -167,6 +167,7 @@ func testIndexer(name string, t *testing.T, indexer internal.Indexer) {
 }
 
 func TestBleveIndexAndSearch(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	dir := t.TempDir()
@@ -185,6 +186,7 @@ func TestBleveIndexAndSearch(t *testing.T) {
 }
 
 func TestESIndexAndSearch(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	u := os.Getenv("TEST_INDEXER_CODE_ES_URL")

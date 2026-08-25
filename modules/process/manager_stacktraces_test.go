@@ -11,6 +11,7 @@ import (
 )
 
 func TestProcessStacktraces(t *testing.T) {
+	testhelper.Setup(t)
 	_, _, finish := GetManager().AddContext(t.Context(), "Normal process")
 	defer finish()
 	parentCtx, _, finish := GetManager().AddContext(t.Context(), "Children normal process")

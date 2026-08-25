@@ -147,6 +147,7 @@ var urlListValidationTestCases = []validationTestCase{
 }
 
 func Test_ValidURLListValidation(t *testing.T) {
+	testhelper.Setup(t)
 	AddBindingRules()
 
 	for _, testCase := range urlListValidationTestCases {

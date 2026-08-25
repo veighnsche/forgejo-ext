@@ -15,6 +15,7 @@ import (
 )
 
 func Test_HashAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	myImage := image.NewRGBA(image.Rect(0, 0, 32, 32))
 	var buff bytes.Buffer
 	png.Encode(&buff, myImage)

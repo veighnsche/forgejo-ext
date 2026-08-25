@@ -17,6 +17,7 @@ import (
 )
 
 func TestPackagistPayload(t *testing.T) {
+	testhelper.Setup(t)
 	payloads := []api.Payloader{
 		createTestPayload(),
 		deleteTestPayload(),

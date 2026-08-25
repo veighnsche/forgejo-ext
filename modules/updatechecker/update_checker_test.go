@@ -11,6 +11,7 @@ import (
 )
 
 func TestDNSUpdate(t *testing.T) {
+	testhelper.Setup(t)
 	version, err := getVersionDNS("release.forgejo.org")
 	require.NoError(t, err)
 	assert.NotEmpty(t, version)

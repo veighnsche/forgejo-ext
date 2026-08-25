@@ -28,6 +28,7 @@ import (
 )
 
 func TestActionsNotifier_SkipPullRequestEvent(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repoID := int64(1)
@@ -63,6 +64,7 @@ func TestActionsNotifier_SkipPullRequestEvent(t *testing.T) {
 }
 
 func TestActionsNotifier_IssueCommentOnForkPullRequestEvent(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -141,6 +143,7 @@ func testActionsNotifierPullRequestWithDoer(t *testing.T, repo *repo_model.Repos
 }
 
 func TestActionsNotifier_OpenForkPullRequestEvent(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -160,6 +163,7 @@ func TestActionsNotifier_OpenForkPullRequestEvent(t *testing.T) {
 }
 
 func TestActionsNotifier_ConcurrencyGroup(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -202,6 +206,7 @@ func TestActionsNotifier_ConcurrencyGroup(t *testing.T) {
 }
 
 func TestActionsNotifier_PreExecutionErrorInvalidJobs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -226,6 +231,7 @@ func TestActionsNotifier_PreExecutionErrorInvalidJobs(t *testing.T) {
 }
 
 func TestActionsNotifier_PreExecutionEventDetectionError(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -251,6 +257,7 @@ func TestActionsNotifier_PreExecutionEventDetectionError(t *testing.T) {
 }
 
 func TestActionsNotifier_handleWorkflows_setRunTrustForPullRequest(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -276,6 +283,7 @@ func TestActionsNotifier_handleWorkflows_setRunTrustForPullRequest(t *testing.T)
 }
 
 func TestActionsNotifier_DynamicMatrix(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -304,6 +312,7 @@ func TestActionsNotifier_DynamicMatrix(t *testing.T) {
 }
 
 func TestActionsNotifier_RunsOnNeeds(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -332,6 +341,7 @@ func TestActionsNotifier_RunsOnNeeds(t *testing.T) {
 }
 
 func TestActionsNotifier_WorkflowDetection(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -360,6 +370,7 @@ func TestActionsNotifier_WorkflowDetection(t *testing.T) {
 // Verifies that the notifier_helper's `handleWorkflows` provides the local & remote reusable workflow expansion
 // routines to the jobparser, and that data flows into them accurately.
 func TestActionsNotifier_ExpandReusableWorkflow(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	var localReusableCalled []string
@@ -413,6 +424,7 @@ func TestActionsNotifier_ExpandReusableWorkflow(t *testing.T) {
 }
 
 func TestActionsNotifier_PermissionsWarning(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})

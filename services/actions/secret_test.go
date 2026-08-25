@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetSecretsOfJob(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name     string
 		runJobID int64

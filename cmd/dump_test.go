@@ -20,6 +20,7 @@ func mockArchiverAsync(ch chan archives.ArchiveAsyncJob, files *[]string) {
 }
 
 func TestAddRecursiveExclude(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Empty", func(t *testing.T) {
 		ch := make(chan archives.ArchiveAsyncJob)
 		var files []string

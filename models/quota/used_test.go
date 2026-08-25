@@ -14,6 +14,7 @@ import (
 )
 
 func TestQuotaUsedGetUsedForUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/TestGetUsedForUser/")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -24,6 +25,7 @@ func TestQuotaUsedGetUsedForUser(t *testing.T) {
 }
 
 func TestQuotaUsedTotals(t *testing.T) {
+	testhelper.Setup(t)
 	used := quota_model.Used{
 		Size: quota_model.UsedSize{
 			Repos: quota_model.UsedSizeRepos{

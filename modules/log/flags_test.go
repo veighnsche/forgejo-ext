@@ -13,6 +13,7 @@ import (
 )
 
 func TestFlags(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, Ldefault, Flags{}.Bits())
 	assert.EqualValues(t, 0, FlagsFromString("").Bits())
 	assert.Equal(t, Ldate|Ltime, FlagsFromString("date,time").Bits())

@@ -12,6 +12,7 @@ import (
 )
 
 func TestSetResponseHeaders(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Content-Length for empty content", func(t *testing.T) {
 		recorder := httptest.NewRecorder()
 
@@ -67,6 +68,7 @@ func TestSetResponseHeaders(t *testing.T) {
 
 // TestResponseHeadersForEmptyBlobs tests the core fix for ORAS empty blob support
 func TestResponseHeadersForEmptyBlobs(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Content-Length set for empty blob", func(t *testing.T) {
 		recorder := httptest.NewRecorder()
 

@@ -11,6 +11,7 @@ import (
 )
 
 func Test_getStorageInheritNameSectionTypeForRepoArchive(t *testing.T) {
+	testhelper.Setup(t)
 	// packages storage inherits from storage if nothing configured
 	iniStr := `
 [storage]
@@ -68,6 +69,7 @@ STORAGE_TYPE = minio
 }
 
 func Test_RepoArchiveStorage(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 [storage]

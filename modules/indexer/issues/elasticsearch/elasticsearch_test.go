@@ -16,6 +16,7 @@ import (
 )
 
 func TestElasticsearchIndexer(t *testing.T) {
+	testhelper.Setup(t)
 	url := os.Getenv("TEST_ELASTICSEARCH_URL")
 	if url == "" {
 		t.Skip("TEST_ELASTICSEARCH_URL not set")

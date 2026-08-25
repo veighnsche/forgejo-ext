@@ -24,6 +24,7 @@ func testShadowCopyField(t *testing.T, scField moderation.ShadowCopyField, key, 
 }
 
 func TestIssueDataGetFieldsMap(t *testing.T) {
+	testhelper.Setup(t)
 	id := issues.IssueData{
 		RepoID:         2001,
 		Index:          2,
@@ -49,6 +50,7 @@ func TestIssueDataGetFieldsMap(t *testing.T) {
 }
 
 func TestCommentDataGetFieldsMap(t *testing.T) {
+	testhelper.Setup(t)
 	cd := issues.CommentData{
 		PosterID:       1002,
 		IssueID:        3001,

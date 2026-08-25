@@ -30,6 +30,7 @@ type testResult struct {
 }
 
 func TestConvertFullHTMLReferencesToShortRefs(t *testing.T) {
+	testhelper.Setup(t)
 	re := regexp.MustCompile(`(\s|^|\(|\[)` +
 		regexp.QuoteMeta("https://ourgitea.com/git/") +
 		`([0-9a-zA-Z-_\.]+/[0-9a-zA-Z-_\.]+)/` +
@@ -50,6 +51,7 @@ owner/repo!123456789
 }
 
 func TestFindAllIssueReferences(t *testing.T) {
+	testhelper.Setup(t)
 	fixtures := []testFixture{
 		{
 			"Simply closes: #29 yes",
@@ -318,6 +320,7 @@ func testFixtures(t *testing.T, fixtures []testFixture, context string) {
 }
 
 func TestFindAllMentions(t *testing.T) {
+	testhelper.Setup(t)
 	res := FindAllMentionsBytes([]byte("@tasha, @mike; @lucy: @john"))
 	assert.Equal(t, []RefSpan{
 		{Start: 0, End: 6},
@@ -328,6 +331,7 @@ func TestFindAllMentions(t *testing.T) {
 }
 
 func TestFindRenderizableCommitCrossReference(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		Input    string
 		Expected *RenderizableReference
@@ -389,6 +393,7 @@ func TestFindRenderizableCommitCrossReference(t *testing.T) {
 }
 
 func TestRegExp_mentionPattern(t *testing.T) {
+	testhelper.Setup(t)
 	trueTestCases := []struct {
 		pat string
 		exp string
@@ -449,6 +454,7 @@ func TestRegExp_mentionPattern(t *testing.T) {
 }
 
 func TestRegExp_issueNumericPattern(t *testing.T) {
+	testhelper.Setup(t)
 	trueTestCases := []string{
 		"#1234",
 		"#0",
@@ -479,6 +485,7 @@ func TestRegExp_issueNumericPattern(t *testing.T) {
 }
 
 func TestRegExp_issueAlphanumericPattern(t *testing.T) {
+	testhelper.Setup(t)
 	trueTestCases := []string{
 		"ABC-1234",
 		"A-1",
@@ -516,6 +523,7 @@ func TestRegExp_issueAlphanumericPattern(t *testing.T) {
 }
 
 func TestCustomizeCloseKeywords(t *testing.T) {
+	testhelper.Setup(t)
 	fixtures := []testFixture{
 		{
 			"Simplemente cierra: #29 yes",
@@ -553,6 +561,7 @@ func TestCustomizeCloseKeywords(t *testing.T) {
 }
 
 func TestParseCloseKeywords(t *testing.T) {
+	testhelper.Setup(t)
 	// Test parsing of CloseKeywords and ReopenKeywords
 	assert.Empty(t, parseKeywords([]string{""}))
 	assert.Len(t, parseKeywords([]string{"  aa  ", " bb  ", "99", "#", "", "this is", "cc"}), 3)

@@ -28,6 +28,7 @@ func (opts mockListOptions) ToConds() builder.Cond {
 }
 
 func TestFind(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	xe, err := unittest.GetXORMEngine()
 	require.NoError(t, err)

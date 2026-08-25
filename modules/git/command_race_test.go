@@ -12,6 +12,7 @@ import (
 )
 
 func TestRunWithContextNoTimeout(t *testing.T) {
+	testhelper.Setup(t)
 	maxLoops := 10
 
 	// 'git --version' does not block so it must be finished before the timeout triggered.
@@ -24,6 +25,7 @@ func TestRunWithContextNoTimeout(t *testing.T) {
 }
 
 func TestRunWithContextTimeout(t *testing.T) {
+	testhelper.Setup(t)
 	maxLoops := 10
 
 	// 'git hash-object --stdin' blocks on stdin so we can have the timeout triggered.

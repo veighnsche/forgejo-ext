@@ -13,6 +13,7 @@ import (
 )
 
 func TestInit(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Domain, "domain")()
 	defer test.MockVariableValue(&setting.AppName, "AppName")()
 	defer test.MockVariableValue(&setting.AppURL, "https://domain/")()

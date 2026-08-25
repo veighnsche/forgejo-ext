@@ -32,6 +32,7 @@ func activateWebhook(t *testing.T, hookID int64) {
 }
 
 func TestPrepareWebhooks(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -62,6 +63,7 @@ func eventType(p api.Payloader) webhook_module.HookEventType {
 }
 
 func TestPrepareWebhooksBranchFilterMatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// branch_filter: {master,feature*}
@@ -86,6 +88,7 @@ func TestPrepareWebhooksBranchFilterMatch(t *testing.T) {
 }
 
 func TestPrepareWebhooksBranchFilterNoMatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// branch_filter: {master,feature*}
@@ -106,6 +109,7 @@ func TestPrepareWebhooksBranchFilterNoMatch(t *testing.T) {
 }
 
 func TestWebhookUserMail(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.Service.NoReplyAddress, "no-reply.com")()
 
@@ -115,6 +119,7 @@ func TestWebhookUserMail(t *testing.T) {
 }
 
 func TestDeliverTestPayloadWithoutPushEvent(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	done := make(chan struct{}, 1)

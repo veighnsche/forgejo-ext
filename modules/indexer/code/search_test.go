@@ -13,6 +13,7 @@ import (
 )
 
 func TestHighlightSearchResultCode(t *testing.T) {
+	testhelper.Setup(t)
 	opts := []struct {
 		Title  string
 		File   string

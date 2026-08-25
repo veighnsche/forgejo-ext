@@ -11,6 +11,7 @@ import (
 )
 
 func TestDefaultPrioritizationStrategy(t *testing.T) {
+	testhelper.Setup(t)
 	runs := []*ActionRun{
 		{ID: 2, Priority: 89, Prioritize: true},
 		{ID: 1, Priority: MinRunPriority},

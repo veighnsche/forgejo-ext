@@ -33,6 +33,7 @@ func int64SliceToCommaSeparated(a []int64) string {
 }
 
 func TestInitializeLabels(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	require.NoError(t, repository.LoadRepoConfig())
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/labels/initialize")
@@ -50,6 +51,7 @@ func TestInitializeLabels(t *testing.T) {
 }
 
 func TestRetrieveLabels(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	for _, testCase := range []struct {
 		RepoID           int64
@@ -77,6 +79,7 @@ func TestRetrieveLabels(t *testing.T) {
 }
 
 func TestNewLabel(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/labels/edit")
 	contexttest.LoadUser(t, ctx, 2)
@@ -95,6 +98,7 @@ func TestNewLabel(t *testing.T) {
 }
 
 func TestUpdateLabel(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/labels/edit")
 	contexttest.LoadUser(t, ctx, 2)
@@ -116,6 +120,7 @@ func TestUpdateLabel(t *testing.T) {
 }
 
 func TestDeleteLabel(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/labels/delete")
 	contexttest.LoadUser(t, ctx, 2)
@@ -129,6 +134,7 @@ func TestDeleteLabel(t *testing.T) {
 }
 
 func TestUpdateIssueLabel_Clear(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/issues/labels")
 	contexttest.LoadUser(t, ctx, 2)
@@ -143,6 +149,7 @@ func TestUpdateIssueLabel_Clear(t *testing.T) {
 }
 
 func TestUpdateIssueLabel_Toggle(t *testing.T) {
+	testhelper.Setup(t)
 	for _, testCase := range []struct {
 		Action      string
 		IssueIDs    []int64

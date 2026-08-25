@@ -12,6 +12,7 @@ import (
 )
 
 func TestIssueTemplate_Type(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		fileName string
 		want     IssueTemplateType
@@ -44,6 +45,7 @@ func TestIssueTemplate_Type(t *testing.T) {
 }
 
 func TestIssueTemplateLabels_UnmarshalYAML(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name    string
 		content string

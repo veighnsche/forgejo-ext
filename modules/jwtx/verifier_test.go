@@ -83,6 +83,7 @@ func genVerificationKey(t *testing.T, skey SigningKey) VerificationKey {
 // then check that all signatures verify OK
 // check that signatures made with another set of keys do not verify ok
 func TestVerfifier(t *testing.T) {
+	testhelper.Setup(t)
 	privKeyVerifier := NewVerifier()
 	pubKeyVerifier := NewVerifier()
 	signingKeys := make(map[string]SigningKey, len(allowedAlgorithms))

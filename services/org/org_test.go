@@ -23,6 +23,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestDeleteOrganization(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/org/TestDeleteOrganization")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

@@ -9,6 +9,7 @@ import (
 )
 
 func Test_wrapNewlines(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name   string
 		prefix string

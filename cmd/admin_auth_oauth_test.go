@@ -17,6 +17,7 @@ import (
 )
 
 func TestAddOauth(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock cli functions to do not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 
@@ -327,6 +328,7 @@ func TestAddOauth(t *testing.T) {
 }
 
 func TestUpdateOauth(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock cli functions to do not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 

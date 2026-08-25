@@ -12,6 +12,7 @@ import (
 )
 
 func TestCanGithubEventMatch(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		desc           string
 		eventName      string

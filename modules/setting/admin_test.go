@@ -13,6 +13,7 @@ import (
 )
 
 func Test_loadAdminFrom(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 	[admin]
 	DISABLE_REGULAR_ORG_CREATION = true

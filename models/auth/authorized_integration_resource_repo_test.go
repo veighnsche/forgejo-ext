@@ -14,6 +14,7 @@ import (
 )
 
 func TestGetRepositoriesAccessibleWithIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/auth/TestGetRepositoriesAccessibleWithIntegration")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -40,6 +41,7 @@ func TestGetRepositoriesAccessibleWithIntegration(t *testing.T) {
 }
 
 func TestInsertAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ai1 := makeAuthorizedIntegration(t)

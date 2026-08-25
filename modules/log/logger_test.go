@@ -52,6 +52,7 @@ func newDummyWriter(name string, level Level, delay time.Duration) *dummyWriter 
 }
 
 func TestLogger(t *testing.T) {
+	testhelper.Setup(t)
 	logger := NewLoggerWithWriters(t.Context(), "test")
 
 	dump := logger.DumpWriters()
@@ -87,6 +88,7 @@ func TestLogger(t *testing.T) {
 }
 
 func TestLoggerPause(t *testing.T) {
+	testhelper.Setup(t)
 	logger := NewLoggerWithWriters(t.Context(), "test")
 
 	w1 := newDummyWriter("dummy-1", DEBUG, 0)
@@ -116,6 +118,7 @@ func (t testLogString) LogString() string {
 }
 
 func TestLoggerLogString(t *testing.T) {
+	testhelper.Setup(t)
 	logger := NewLoggerWithWriters(t.Context(), "test")
 
 	w1 := newDummyWriter("dummy-1", DEBUG, 0)
@@ -129,6 +132,7 @@ func TestLoggerLogString(t *testing.T) {
 }
 
 func TestLoggerExpressionFilter(t *testing.T) {
+	testhelper.Setup(t)
 	logger := NewLoggerWithWriters(t.Context(), "test")
 
 	w1 := newDummyWriter("dummy-1", DEBUG, 0)
@@ -145,6 +149,7 @@ func TestLoggerExpressionFilter(t *testing.T) {
 }
 
 func TestLoggerExclusionFilter(t *testing.T) {
+	testhelper.Setup(t)
 	logger := NewLoggerWithWriters(t.Context(), "test")
 
 	w1 := newDummyWriter("dummy-1", DEBUG, 0)

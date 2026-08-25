@@ -43,6 +43,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRenameRepoAction(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	initQueue(t)
@@ -107,6 +108,7 @@ func pushCommits() *repository.PushCommits {
 }
 
 func TestSyncPushCommits(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	initQueue(t)
@@ -155,6 +157,7 @@ func TestSyncPushCommits(t *testing.T) {
 }
 
 func TestPushCommits(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ctx := t.Context()
@@ -202,6 +205,7 @@ func TestPushCommits(t *testing.T) {
 }
 
 func TestAbbreviatedComment(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name     string
 		input    string
@@ -263,6 +267,7 @@ func TestAbbreviatedComment(t *testing.T) {
 }
 
 func TestDeliverNotification(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 

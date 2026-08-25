@@ -10,6 +10,7 @@ import (
 )
 
 func TestSplitString(t *testing.T) {
+	testhelper.Setup(t)
 	type testCase struct {
 		input    string
 		n        int
@@ -46,6 +47,7 @@ func TestSplitString(t *testing.T) {
 }
 
 func TestTruncateRunes(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Empty(t, TruncateRunes("", 0))
 	assert.Empty(t, TruncateRunes("", 1))
 

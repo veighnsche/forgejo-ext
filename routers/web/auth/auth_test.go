@@ -17,6 +17,7 @@ import (
 )
 
 func TestUserLogin(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, resp := contexttest.MockContext(t, "/user/login")
 	SignIn(ctx)
 	assert.Equal(t, http.StatusOK, resp.Code)
@@ -47,6 +48,7 @@ func TestUserLogin(t *testing.T) {
 // NB: Full signup test is in tests/integration/signup_test.go
 // this is to test disabled signup
 func TestSignUpDefault(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, resp := contexttest.MockContext(t, "/user/sign_up",
 		contexttest.MockContextOption{Render: templates.HTMLRenderer()})
 	SignUp(ctx)
@@ -55,6 +57,7 @@ func TestSignUpDefault(t *testing.T) {
 }
 
 func TestSignUpDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, resp := contexttest.MockContext(t, "/user/sign_up",
 		contexttest.MockContextOption{Render: templates.HTMLRenderer()})
 	defer test.MockVariableValue(&setting.Service.DisableRegistration, true)()
@@ -64,6 +67,7 @@ func TestSignUpDisabled(t *testing.T) {
 }
 
 func TestSignUpPostDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, resp := contexttest.MockContext(t, "/user/sign_up")
 	defer test.MockVariableValue(&setting.Service.DisableRegistration, true)()
 	SignUpPost(ctx)

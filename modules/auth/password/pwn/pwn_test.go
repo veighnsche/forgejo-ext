@@ -58,6 +58,7 @@ var client = New(WithHTTP(&http.Client{
 }))
 
 func TestPassword(t *testing.T) {
+	testhelper.Setup(t)
 	count, err := client.CheckPassword("", false)
 	require.ErrorIs(t, err, ErrEmptyPassword, "blank input should return ErrEmptyPassword")
 	assert.Equal(t, -1, count)

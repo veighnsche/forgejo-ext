@@ -14,6 +14,7 @@ import (
 )
 
 func TestQuotaGroupAllRulesMustAllow(t *testing.T) {
+	testhelper.Setup(t)
 	unlimitedRule := quota_model.Rule{
 		Limit: -1,
 		Subjects: quota_model.LimitSubjects{
@@ -44,6 +45,7 @@ func TestQuotaGroupAllRulesMustAllow(t *testing.T) {
 }
 
 func TestQuotaGroupRuleScenario1(t *testing.T) {
+	testhelper.Setup(t)
 	group := quota_model.Group{
 		Rules: []quota_model.Rule{
 			{
@@ -86,6 +88,7 @@ func TestQuotaGroupRuleScenario1(t *testing.T) {
 }
 
 func TestQuotaGroupRuleCombination(t *testing.T) {
+	testhelper.Setup(t)
 	repoRule := quota_model.Rule{
 		Limit: 4096,
 		Subjects: quota_model.LimitSubjects{
@@ -127,6 +130,7 @@ func TestQuotaGroupRuleCombination(t *testing.T) {
 }
 
 func TestQuotaGroupListsRequireOnlyOneAllow(t *testing.T) {
+	testhelper.Setup(t)
 	unlimitedRule := quota_model.Rule{
 		Limit: -1,
 		Subjects: quota_model.LimitSubjects{
@@ -162,6 +166,7 @@ func TestQuotaGroupListsRequireOnlyOneAllow(t *testing.T) {
 }
 
 func TestQuotaGroupListAllDeny(t *testing.T) {
+	testhelper.Setup(t)
 	denyRule := quota_model.Rule{
 		Limit: 0,
 		Subjects: quota_model.LimitSubjects{
@@ -198,6 +203,7 @@ func TestQuotaGroupListAllDeny(t *testing.T) {
 // An empty group list should result in the use of the built in Default
 // group: size:all defaulting to unlimited
 func TestQuotaDefaultGroup(t *testing.T) {
+	testhelper.Setup(t)
 	groups := quota_model.GroupList{}
 
 	used := quota_model.Used{}

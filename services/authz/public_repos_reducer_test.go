@@ -16,6 +16,7 @@ import (
 )
 
 func TestPublicReposAuthorizationReducer(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	reducer := &PublicReposAuthorizationReducer{}

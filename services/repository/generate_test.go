@@ -23,6 +23,7 @@ text/*.txt
 `)
 
 func TestGiteaTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	gt := GiteaTemplate{Content: giteaTemplate}
 	assert.Len(t, gt.Globs(), 3)
 
@@ -56,6 +57,7 @@ func TestGiteaTemplate(t *testing.T) {
 }
 
 func TestFileNameSanitize(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "test_CON", fileNameSanitize("test_CON"))
 	assert.Equal(t, "test CON", fileNameSanitize("test CON "))
 	assert.Equal(t, "__traverse__", fileNameSanitize("../traverse/.."))
@@ -67,6 +69,7 @@ func TestFileNameSanitize(t *testing.T) {
 }
 
 func TestExpandTemplateVars(t *testing.T) {
+	testhelper.Setup(t)
 	expansionMap := map[string]string{
 		"REPO_NAME":           "my-repo",
 		"REPO_NAME_SNAKE":     "my_repo",
@@ -110,6 +113,7 @@ func TestExpandTemplateVars(t *testing.T) {
 }
 
 func TestTransformers(t *testing.T) {
+	testhelper.Setup(t)
 	input := "Foo_Forgejo-BAR"
 
 	tests := []struct {

@@ -19,6 +19,7 @@ import (
 )
 
 func Test_NewForgeLike(t *testing.T) {
+	testhelper.Setup(t)
 	want := []byte(`{"type":"Like","startTime":"2024-03-07T00:00:00Z","actor":"https://repo.prod.meissa.de/api/v1/activitypub/user-id/1","object":"https://codeberg.org/api/v1/activitypub/repository-id/1"}`)
 
 	actorIRI := "https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"
@@ -36,6 +37,7 @@ func Test_NewForgeLike(t *testing.T) {
 }
 
 func Test_LikeMarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	type testPair struct {
 		item    forgefed.ForgeLike
 		want    []byte
@@ -69,6 +71,7 @@ func Test_LikeMarshalJSON(t *testing.T) {
 }
 
 func Test_LikeUnmarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	type testPair struct {
 		item    []byte
 		want    *forgefed.ForgeLike
@@ -108,6 +111,7 @@ func Test_LikeUnmarshalJSON(t *testing.T) {
 }
 
 func Test_ForgeLikeValidation(t *testing.T) {
+	testhelper.Setup(t)
 	// Successful
 	sut := new(forgefed.ForgeLike)
 	sut.UnmarshalJSON([]byte(`{"type":"Like",
@@ -149,6 +153,7 @@ func Test_ForgeLikeValidation(t *testing.T) {
 }
 
 func TestActivityValidation_Attack(t *testing.T) {
+	testhelper.Setup(t)
 	sut := new(forgefed.ForgeLike)
 	sut.UnmarshalJSON([]byte(`{rubbish}`))
 	assert.Len(t, sut.Validate(), 5)

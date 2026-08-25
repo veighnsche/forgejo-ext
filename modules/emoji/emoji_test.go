@@ -12,11 +12,13 @@ import (
 )
 
 func TestDumpInfo(t *testing.T) {
+	testhelper.Setup(t)
 	t.Logf("codes: %d", len(codeMap))
 	t.Logf("aliases: %d", len(aliasMap))
 }
 
 func TestLookup(t *testing.T) {
+	testhelper.Setup(t)
 	a := FromCode("\U0001f37a")
 	b := FromCode("🍺")
 	c := FromAlias(":beer:")
@@ -51,6 +53,7 @@ func TestLookup(t *testing.T) {
 }
 
 func TestReplacers(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		f      func(string) string
 		v, exp string
@@ -68,6 +71,7 @@ func TestReplacers(t *testing.T) {
 }
 
 func TestFindEmojiSubmatchIndex(t *testing.T) {
+	testhelper.Setup(t)
 	type testcase struct {
 		teststring string
 		expected   []int

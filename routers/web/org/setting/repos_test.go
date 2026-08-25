@@ -63,6 +63,7 @@ func repoNames(repos repo_model.RepositoryList) []string {
 // The default sort is "recentupdate", and any unknown value must fall back to
 // it rather than being passed through to the query layer.
 func TestReposSortType(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	org, owner := createOrgWithRepos(t)
 
@@ -84,6 +85,7 @@ func TestReposSortType(t *testing.T) {
 // Sorting must actually order the returned repositories, for every sortable
 // column of the page.
 func TestReposSortOrdersResults(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	org, owner := createOrgWithRepos(t)
 
@@ -115,6 +117,7 @@ func TestReposSortOrdersResults(t *testing.T) {
 // Only repositories owned by the organization must be listed: private ones
 // included, and repositories of other owners excluded.
 func TestReposOnlyOrgRepos(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	org, owner := createOrgWithRepos(t)
 	// A repository owned by the owner personally must not appear in the
@@ -134,6 +137,7 @@ func TestReposOnlyOrgRepos(t *testing.T) {
 // Total must reflect the full repository count across all pages, and the pages
 // must be disjoint; page indexes <= 0 must clamp to the first page.
 func TestReposPagination(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	defer test.MockVariableValue(&setting.UI.Admin.RepoPagingNum, 2)()
 	org, owner := createOrgWithRepos(t)
@@ -157,6 +161,7 @@ func TestReposPagination(t *testing.T) {
 // An organization that owns no repositories must still render successfully with
 // an empty list (Total == 0), exercising the {{else}} branch of the template.
 func TestReposNoRepos(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	owner := createOwner(t)
 	org := forgery.CreateOrganisation(t, owner)

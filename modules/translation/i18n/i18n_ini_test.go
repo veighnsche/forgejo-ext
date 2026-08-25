@@ -14,6 +14,7 @@ import (
 )
 
 func TestLocaleStoreINI(t *testing.T) {
+	testhelper.Setup(t)
 	testData1 := []byte(`
 .dot.name = Dot Name
 fmt = %[1]s %[2]s
@@ -68,6 +69,7 @@ sub = Changed Sub String
 }
 
 func TestLocaleStoreMoreSource(t *testing.T) {
+	testhelper.Setup(t)
 	testData1 := []byte(`
 a=11
 b=12
@@ -119,6 +121,7 @@ func (e *errorPointerReceiver) Error() string {
 }
 
 func TestLocaleWithTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	ls := NewLocaleStore()
 	require.NoError(t, ls.AddLocaleByIni("lang1", "Lang1", MockPluralRule, UsedPluralFormsMock, []byte(`key=<a>%s</a>`), nil))
 	lang1, _ := ls.Locale("lang1")
@@ -152,6 +155,7 @@ func TestLocaleWithTemplate(t *testing.T) {
 }
 
 func TestLocaleStoreQuirks(t *testing.T) {
+	testhelper.Setup(t)
 	const nl = "\n"
 	q := func(q1, s string, q2 ...string) string {
 		return q1 + s + strings.Join(q2, "")

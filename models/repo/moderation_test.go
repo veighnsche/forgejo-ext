@@ -24,6 +24,7 @@ func testShadowCopyField(t *testing.T, scField moderation.ShadowCopyField, key, 
 }
 
 func TestRepositoryDataGetFieldsMap(t *testing.T) {
+	testhelper.Setup(t)
 	rd := repo.RepositoryData{
 		OwnerID:     1002,
 		OwnerName:   "alexsmith",

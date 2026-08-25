@@ -16,6 +16,7 @@ import (
 )
 
 func TestContentHistory(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	dbCtx := db.DefaultContext
@@ -81,6 +82,7 @@ func TestContentHistory(t *testing.T) {
 }
 
 func TestHasIssueContentHistory(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Ensures that comment_id is into taken account even if it's zero.

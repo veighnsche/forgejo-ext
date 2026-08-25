@@ -15,6 +15,7 @@ import (
 var testReposDir = "tests/repos/"
 
 func TestVerifyCommits(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	gitRepo, err := git.OpenRepository(t.Context(), testReposDir+"repo1_hook_verification")

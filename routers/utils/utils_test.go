@@ -8,6 +8,7 @@ import (
 )
 
 func TestSanitizeFlashErrorString(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		arg  string

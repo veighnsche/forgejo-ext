@@ -18,6 +18,7 @@ import (
 )
 
 func TestPamService(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock cli functions to do not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 
@@ -127,6 +128,7 @@ func TestPamService(t *testing.T) {
 }
 
 func TestUpdatePAM(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock cli functions to do not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 

@@ -18,6 +18,7 @@ import (
 )
 
 func TestCloseIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/mailer/fixtures/TestCloseIssue")()
 	defer require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -39,6 +40,7 @@ func TestCloseIssue(t *testing.T) {
 }
 
 func TestCloseIssueByCommit(t *testing.T) {
+	testhelper.Setup(t)
 	defer require.NoError(t, unittest.PrepareTestDatabase())
 
 	called := false

@@ -7,6 +7,7 @@ import (
 )
 
 func TestGrantAdditionalScopes(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		grantScopes    string
 		expectedScopes string

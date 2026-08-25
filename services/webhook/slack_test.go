@@ -16,6 +16,7 @@ import (
 )
 
 func TestSlackPayload(t *testing.T) {
+	testhelper.Setup(t)
 	sc := slackConvertor{}
 
 	t.Run("Create", func(t *testing.T) {
@@ -158,6 +159,7 @@ func TestSlackPayload(t *testing.T) {
 }
 
 func TestSlackJSONPayload(t *testing.T) {
+	testhelper.Setup(t)
 	p := pushTestPayload()
 	data, err := p.JSONPayload()
 	require.NoError(t, err)
@@ -193,6 +195,7 @@ func TestSlackJSONPayload(t *testing.T) {
 }
 
 func TestIsValidSlackChannel(t *testing.T) {
+	testhelper.Setup(t)
 	tt := []struct {
 		channelName string
 		expected    bool
@@ -212,6 +215,7 @@ func TestIsValidSlackChannel(t *testing.T) {
 }
 
 func TestSlackMetadata(t *testing.T) {
+	testhelper.Setup(t)
 	w := &webhook_model.Webhook{
 		Meta: `{"channel": "foo", "username": "username", "color": "blue"}`,
 	}
@@ -225,6 +229,7 @@ func TestSlackMetadata(t *testing.T) {
 }
 
 func TestSlackToHook(t *testing.T) {
+	testhelper.Setup(t)
 	w := &webhook_model.Webhook{
 		Type:        webhook_module.SLACK,
 		ContentType: webhook_model.ContentTypeJSON,

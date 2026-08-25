@@ -20,6 +20,7 @@ func (t *testReleaseReopener) ReleaseReopen() error {
 }
 
 func TestManager(t *testing.T) {
+	testhelper.Setup(t)
 	m := NewManager()
 
 	t1 := &testReleaseReopener{}

@@ -14,6 +14,7 @@ import (
 )
 
 func TestBlob_Data(t *testing.T) {
+	testhelper.Setup(t)
 	output := "file2\n"
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	repo, err := openRepositoryWithDefaultContext(bareRepo1Path)
@@ -36,6 +37,7 @@ func TestBlob_Data(t *testing.T) {
 }
 
 func TestBlob(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	repo, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)

@@ -19,6 +19,7 @@ import (
 )
 
 func TestMailNewRelease(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/mailer/fixtures/TestMailNewRelease")()
 	defer require.NoError(t, unittest.PrepareTestDatabase())
 

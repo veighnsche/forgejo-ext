@@ -16,6 +16,7 @@ import (
 )
 
 func TestLoadHeadRevision(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("AGit", func(t *testing.T) {

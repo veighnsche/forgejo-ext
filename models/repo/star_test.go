@@ -15,6 +15,7 @@ import (
 )
 
 func TestStarRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	const userID = 2
 	const repoID = 1
@@ -28,12 +29,14 @@ func TestStarRepo(t *testing.T) {
 }
 
 func TestIsStaring(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	assert.True(t, repo_model.IsStaring(db.DefaultContext, 2, 4))
 	assert.False(t, repo_model.IsStaring(db.DefaultContext, 3, 4))
 }
 
 func TestRepository_GetStargazers(t *testing.T) {
+	testhelper.Setup(t)
 	// repo with stargazers
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -45,6 +48,7 @@ func TestRepository_GetStargazers(t *testing.T) {
 }
 
 func TestRepository_GetStargazers2(t *testing.T) {
+	testhelper.Setup(t)
 	// repo with stargazers
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
@@ -54,6 +58,7 @@ func TestRepository_GetStargazers2(t *testing.T) {
 }
 
 func TestClearRepoStars(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	const userID = 2
 	const repoID = 1

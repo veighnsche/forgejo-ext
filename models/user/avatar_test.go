@@ -19,6 +19,7 @@ import (
 )
 
 func TestUserAvatarLink(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, "https://localhost/")()
 	defer test.MockVariableValue(&setting.AppSubURL, "")()
 
@@ -33,6 +34,7 @@ func TestUserAvatarLink(t *testing.T) {
 }
 
 func TestUserAvatarLinkWithSize(t *testing.T) {
+	testhelper.Setup(t)
 	u := &User{ID: 1, Avatar: "avatar.png"}
 	link := u.AvatarLinkWithSize(db.DefaultContext, 12)
 	assert.Equal(t, "/avatars/avatar.png?size=64", link)
@@ -41,6 +43,7 @@ func TestUserAvatarLinkWithSize(t *testing.T) {
 }
 
 func TestUserAvatarGenerate(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	var err error
 	tmpDir := t.TempDir()

@@ -13,6 +13,7 @@ import (
 )
 
 func TestTranslatePreExecutionError(t *testing.T) {
+	testhelper.Setup(t)
 	translation.InitLocales(t.Context())
 	lang := translation.NewLocale("en-US")
 

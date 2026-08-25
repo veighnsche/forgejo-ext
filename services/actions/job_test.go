@@ -13,6 +13,7 @@ import (
 )
 
 func TestDeleteJobsOfRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Deletes completed job", func(t *testing.T) {
 		defer unittest.OverrideFixtures("services/actions/TestDeleteJobsOfRun")()
 		require.NoError(t, unittest.PrepareTestDatabase())

@@ -27,6 +27,7 @@ func listenReadAndClose(t *testing.T, l net.Listener, expected string) {
 }
 
 func TestConnLogger(t *testing.T) {
+	testhelper.Setup(t)
 	protocol := "tcp"
 	address := ":3099"
 

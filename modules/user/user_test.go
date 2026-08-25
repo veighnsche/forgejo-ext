@@ -18,6 +18,7 @@ func getWhoamiOutput() (string, error) {
 }
 
 func TestCurrentUsername(t *testing.T) {
+	testhelper.Setup(t)
 	user := CurrentUsername()
 	if len(user) == 0 {
 		t.Errorf("expected non-empty user, got: %s", user)

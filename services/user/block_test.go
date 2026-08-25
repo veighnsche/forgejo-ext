@@ -22,6 +22,7 @@ import (
 // TestBlockUser will ensure that when you block a user, certain actions have
 // been taken, like unfollowing each other etc.
 func TestBlockUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 5})

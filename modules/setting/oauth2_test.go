@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetGeneralSigningSecret(t *testing.T) {
+	testhelper.Setup(t)
 	// when there is no general signing secret, it should be generated, and keep the same value
 	generalSigningSecret.Store(nil)
 	s1 := GetGeneralTokenSigningSecret()
@@ -36,6 +37,7 @@ JWT_SECRET = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 }
 
 func TestGetGeneralSigningSecretSave(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&InstallLock, true)()
 
 	old := GetGeneralTokenSigningSecret()

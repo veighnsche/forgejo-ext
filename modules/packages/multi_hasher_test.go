@@ -20,6 +20,7 @@ const (
 )
 
 func TestMultiHasherSums(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Sums", func(t *testing.T) {
 		h := NewMultiHasher()
 		h.Write([]byte("gitea"))

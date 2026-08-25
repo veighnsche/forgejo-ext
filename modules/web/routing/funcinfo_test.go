@@ -9,6 +9,7 @@ import (
 )
 
 func Test_shortenFilename(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		filename string
 		fallback string
@@ -45,6 +46,7 @@ func Test_shortenFilename(t *testing.T) {
 }
 
 func Test_trimAnonymousFunctionSuffix(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		want string

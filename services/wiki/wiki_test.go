@@ -25,11 +25,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestWebPathSegments(t *testing.T) {
+	testhelper.Setup(t)
 	a := WebPathSegments("a%2Fa/b+c/d-e/f-g.-")
 	assert.Equal(t, []string{"a/a", "b c", "d e", "f-g"}, a)
 }
 
 func TestUserTitleToWebPath(t *testing.T) {
+	testhelper.Setup(t)
 	type test struct {
 		Expected  string
 		UserTitle string
@@ -50,6 +52,7 @@ func TestUserTitleToWebPath(t *testing.T) {
 }
 
 func TestWebPathToDisplayName(t *testing.T) {
+	testhelper.Setup(t)
 	type test struct {
 		Expected string
 		WebPath  WebPath
@@ -68,6 +71,7 @@ func TestWebPathToDisplayName(t *testing.T) {
 }
 
 func TestWebPathToGitPath(t *testing.T) {
+	testhelper.Setup(t)
 	type test struct {
 		Expected string
 		WikiName WebPath
@@ -85,6 +89,7 @@ func TestWebPathToGitPath(t *testing.T) {
 }
 
 func TestGitPathToWebPath(t *testing.T) {
+	testhelper.Setup(t)
 	type test struct {
 		Expected string
 		Filename string
@@ -114,6 +119,7 @@ func TestGitPathToWebPath(t *testing.T) {
 }
 
 func TestUserWebGitPathConsistency(t *testing.T) {
+	testhelper.Setup(t)
 	maxLen := 20
 	b := make([]byte, maxLen)
 	for range 1000 {
@@ -141,6 +147,7 @@ func TestUserWebGitPathConsistency(t *testing.T) {
 }
 
 func TestRepository_InitWiki(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	// repo1 already has a wiki
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -153,6 +160,7 @@ func TestRepository_InitWiki(t *testing.T) {
 }
 
 func TestRepository_AddWikiPage(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	const wikiContent = "This is the wiki content"
 	const commitMsg = "Commit message"
@@ -197,6 +205,7 @@ func TestRepository_AddWikiPage(t *testing.T) {
 }
 
 func TestRepository_EditWikiPage(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	const newWikiContent = "This is the new content"
@@ -231,6 +240,7 @@ func TestRepository_EditWikiPage(t *testing.T) {
 }
 
 func TestRepository_DeleteWikiPage(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -248,6 +258,7 @@ func TestRepository_DeleteWikiPage(t *testing.T) {
 }
 
 func TestPrepareWikiFileName(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	gitRepo, err := gitrepo.OpenWikiRepository(git.DefaultContext, repo)
@@ -295,6 +306,7 @@ func TestPrepareWikiFileName(t *testing.T) {
 }
 
 func TestPrepareWikiFileName_FirstPage(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	// Now create a temporaryDirectory
@@ -315,12 +327,14 @@ func TestPrepareWikiFileName_FirstPage(t *testing.T) {
 }
 
 func TestWebPathConversion(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "path/wiki", WebPathToURLPath(WebPath("path/wiki")))
 	assert.Equal(t, "wiki", WebPathToURLPath(WebPath("wiki")))
 	assert.Empty(t, WebPathToURLPath(WebPath("")))
 }
 
 func TestWebPathFromRequest(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, WebPath("a%2Fb"), WebPathFromRequest("a/b"))
 	assert.Equal(t, WebPath("a"), WebPathFromRequest("a"))
 	assert.Equal(t, WebPath("b"), WebPathFromRequest("a/../b"))

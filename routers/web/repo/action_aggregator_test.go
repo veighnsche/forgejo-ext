@@ -231,6 +231,7 @@ func (kase *testCase) doTest(t *testing.T) {
 // **************** Start of the tests ******************
 
 func TestCombineLabelComments(t *testing.T) {
+	testhelper.Setup(t)
 	var tmon int64 = 60 * 60 * 24 * 30
 	var tday int64 = 60 * 60 * 24
 	var thour int64 = 60 * 60
@@ -478,6 +479,7 @@ func TestCombineLabelComments(t *testing.T) {
 }
 
 func TestCombineReviewRequests(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []testCase{
 		// ADD single = normal request review comment
 		{
@@ -625,6 +627,7 @@ func TestCombineReviewRequests(t *testing.T) {
 }
 
 func TestCombineOpenClose(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []testCase{
 		// Close then open = nullified
 		{
@@ -664,6 +667,7 @@ func TestCombineOpenClose(t *testing.T) {
 }
 
 func TestCombineMultipleDifferentComments(t *testing.T) {
+	testhelper.Setup(t)
 	lblA := createLabel("a")
 	kases := []testCase{
 		// Add Label + Close + ReqReview = Combined

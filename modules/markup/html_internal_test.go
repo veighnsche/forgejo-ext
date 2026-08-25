@@ -73,6 +73,7 @@ var localMetas = map[string]string{
 }
 
 func TestRender_IssueIndexPattern(t *testing.T) {
+	testhelper.Setup(t)
 	// numeric: render inputs without valid mentions
 	test := func(s string) {
 		testRenderIssueIndexPattern(t, s, s, &RenderContext{
@@ -109,6 +110,7 @@ func TestRender_IssueIndexPattern(t *testing.T) {
 }
 
 func TestRender_IssueIndexPattern2(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, TestAppURL)()
 
 	// numeric: render inputs with valid mentions
@@ -176,6 +178,7 @@ func TestRender_IssueIndexPattern2(t *testing.T) {
 }
 
 func TestRender_IssueIndexPattern3(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, TestAppURL)()
 
 	// alphanumeric: render inputs without valid mentions
@@ -204,6 +207,7 @@ func TestRender_IssueIndexPattern3(t *testing.T) {
 }
 
 func TestRender_IssueIndexPattern4(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, TestAppURL)()
 
 	// alphanumeric: render inputs with valid mentions
@@ -224,6 +228,7 @@ func TestRender_IssueIndexPattern4(t *testing.T) {
 }
 
 func TestRender_IssueIndexPattern5(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, TestAppURL)()
 
 	// regexp: render inputs without valid mentions
@@ -267,6 +272,7 @@ func TestRender_IssueIndexPattern5(t *testing.T) {
 }
 
 func TestRender_IssueIndexPattern_Document(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, TestAppURL)()
 	metas := map[string]string{
 		"format": "https://someurl.com/{user}/{repo}/{index}",
@@ -303,6 +309,7 @@ func testRenderIssueIndexPattern(t *testing.T, input, expected string, ctx *Rend
 }
 
 func TestRender_AutoLink(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, TestAppURL)()
 
 	assert := func(input, expected, base string) {
@@ -423,6 +430,7 @@ func TestRender_AutoLink(t *testing.T) {
 }
 
 func TestRender_IssueIndexPatternRef(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, TestAppURL)()
 
 	test := func(input, expected string) {
@@ -439,6 +447,7 @@ func TestRender_IssueIndexPatternRef(t *testing.T) {
 }
 
 func TestRender_FullIssueURLs(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, TestAppURL)()
 
 	test := func(input, expected string) {
@@ -472,6 +481,7 @@ func TestRender_FullIssueURLs(t *testing.T) {
 }
 
 func TestRegExp_hashCurrentPattern(t *testing.T) {
+	testhelper.Setup(t)
 	trueTestCases := []string{
 		"d8a994ef243349f321568f9e36d5c3f444b99cae",
 		"abcdefabcdefabcdefabcdefabcdefabcdefabcd",
@@ -510,6 +520,7 @@ func TestRegExp_hashCurrentPattern(t *testing.T) {
 }
 
 func TestRegExp_anySHA1Pattern(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := map[string][]string{
 		"https://github.com/jquery/jquery/blob/a644101ed04d0beacea864ce805e0c4f86ba1cd1/test/unit/event.js#L2703": {
 			"jquery/jquery/blob",
@@ -593,6 +604,7 @@ func TestRegExp_anySHA1Pattern(t *testing.T) {
 }
 
 func TestRegExp_shortLinkPattern(t *testing.T) {
+	testhelper.Setup(t)
 	trueTestCases := []string{
 		"[[stuff]]",
 		"[[]]",
@@ -617,6 +629,7 @@ func TestRegExp_shortLinkPattern(t *testing.T) {
 }
 
 func TestRender_escapeInlineCodeBlocks(t *testing.T) {
+	testhelper.Setup(t)
 	test := func(input, expected string) {
 		result := escapeInlineCodeBlocks(input)
 		assert.Equal(t, expected, result)

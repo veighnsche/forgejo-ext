@@ -70,6 +70,7 @@ func BenchmarkParseGlyphs(b *testing.B) {
 }
 
 func TestReleaseUnusedColors(t *testing.T) {
+	testhelper.Setup(t)
 	testcases := []struct {
 		availableColors []int
 		oldColors       []int
@@ -188,6 +189,7 @@ func TestReleaseUnusedColors(t *testing.T) {
 }
 
 func TestParseGlyphs(t *testing.T) {
+	testhelper.Setup(t)
 	parser := &Parser{}
 	parser.Reset()
 	tgBytes := []byte(testglyphs)
@@ -227,6 +229,7 @@ func TestParseGlyphs(t *testing.T) {
 }
 
 func TestCommitStringParsing(t *testing.T) {
+	testhelper.Setup(t)
 	dataFirstPart := "* DATA:abc123||4e61bacab44e9b4730e44a6615d04098dd3a8eaf|Tue, 20 Dec 2016 21:10:41 +0100|4e61bac|"
 	tests := []struct {
 		shouldPass    bool
@@ -256,6 +259,7 @@ func TestCommitStringParsing(t *testing.T) {
 }
 
 func TestNewCommitParentHashes(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name            string
 		data            string
@@ -288,6 +292,7 @@ func TestNewCommitParentHashes(t *testing.T) {
 }
 
 func TestComputeGlyphConnectivity(t *testing.T) {
+	testhelper.Setup(t)
 	addCommit := func(graph *Graph, row, col int, hash string, parents []string) {
 		flowID := int64(col + 1)
 		commit := &Commit{Row: row, Column: col, Rev: hash, ParentHashes: parents, Flow: flowID}

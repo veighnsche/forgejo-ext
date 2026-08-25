@@ -16,6 +16,7 @@ import (
 )
 
 func TestRegisterForm_IsDomainAllowed_Empty(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.EmailDomainAllowList, nil)()
 
 	form := RegisterForm{}
@@ -26,6 +27,7 @@ func TestRegisterForm_IsDomainAllowed_Empty(t *testing.T) {
 }
 
 func TestRegisterForm_IsDomainAllowed_InvalidEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.EmailDomainAllowList, []glob.Glob{glob.MustCompile("gitea.io")})()
 
 	tt := []struct {
@@ -44,6 +46,7 @@ func TestRegisterForm_IsDomainAllowed_InvalidEmail(t *testing.T) {
 }
 
 func TestRegisterForm_IsDomainAllowed_AllowedEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.EmailDomainAllowList, []glob.Glob{glob.MustCompile("gitea.io"), glob.MustCompile("*.allow")})()
 
 	tt := []struct {
@@ -68,6 +71,7 @@ func TestRegisterForm_IsDomainAllowed_AllowedEmail(t *testing.T) {
 }
 
 func TestRegisterForm_IsDomainAllowed_BlockedEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.EmailDomainBlockList, []glob.Glob{glob.MustCompile("gitea.io"), glob.MustCompile("*.block")})()
 
 	tt := []struct {
@@ -90,6 +94,7 @@ func TestRegisterForm_IsDomainAllowed_BlockedEmail(t *testing.T) {
 }
 
 func TestNewAccessTokenForm_GetScope(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		form        NewAccessTokenPostForm
 		scope       auth_model.AccessTokenScope

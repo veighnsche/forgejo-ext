@@ -12,6 +12,7 @@ import (
 )
 
 func TestEmpty(t *testing.T) {
+	testhelper.Setup(t)
 	options := New()
 	assert.True(t, options.Empty())
 	options.Parse(fmt.Sprintf("%v", RepoPrivate))
@@ -19,6 +20,7 @@ func TestEmpty(t *testing.T) {
 }
 
 func TestToAndFromMap(t *testing.T) {
+	testhelper.Setup(t)
 	options := New()
 	options.Parse(fmt.Sprintf("%v", RepoPrivate))
 	actual := options.Map()
@@ -28,6 +30,7 @@ func TestToAndFromMap(t *testing.T) {
 }
 
 func TestChangeRepositorySettings(t *testing.T) {
+	testhelper.Setup(t)
 	options := New()
 	assert.False(t, options.ChangeRepoSettings())
 	assert.True(t, options.Parse(fmt.Sprintf("%v=description", AgitDescription)))
@@ -42,6 +45,7 @@ func TestChangeRepositorySettings(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("no key", func(t *testing.T) {
 		options := New()
 
@@ -113,6 +117,7 @@ line`
 }
 
 func TestReadEnv(t *testing.T) {
+	testhelper.Setup(t)
 	t.Setenv(envPrefix+"_0", fmt.Sprintf("%v=true", AgitForcePush))
 	t.Setenv(envPrefix+"_1", fmt.Sprintf("%v", RepoPrivate))
 	t.Setenv(envPrefix+"_2", fmt.Sprintf("%v=equal=in string", AgitTitle))

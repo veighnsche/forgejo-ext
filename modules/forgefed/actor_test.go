@@ -13,6 +13,7 @@ import (
 )
 
 func TestActorNew(t *testing.T) {
+	testhelper.Setup(t)
 	sut, err := forgefed.NewActorID("https://an.other.forgejo.host/api/v1/activitypub/user-id/5")
 	require.NoError(t, err)
 	assert.Equal(t, forgefed.ActorID{
@@ -51,6 +52,7 @@ func TestActorNew(t *testing.T) {
 }
 
 func TestActorIdValidation(t *testing.T) {
+	testhelper.Setup(t)
 	sut := forgefed.ActorID{}
 	sut.HostSchema = "https"
 	sut.Path = "api/v1/activitypub/user-id"

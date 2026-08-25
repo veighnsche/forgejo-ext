@@ -11,6 +11,7 @@ import (
 )
 
 func Test_getCronSettings(t *testing.T) {
+	testhelper.Setup(t)
 	type BaseStruct struct {
 		Base   bool
 		Second string
@@ -45,6 +46,7 @@ EXTEND = true
 
 // Test_getCronSettings2 tests that getCronSettings can not handle two levels of embedding
 func Test_getCronSettings2(t *testing.T) {
+	testhelper.Setup(t)
 	type BaseStruct struct {
 		Enabled    bool
 		RunAtStart bool

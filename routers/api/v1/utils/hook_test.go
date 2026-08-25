@@ -18,6 +18,7 @@ import (
 )
 
 func TestTestHookValidation(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	t.Run("Test Validation", func(t *testing.T) {
@@ -89,6 +90,7 @@ func TestTestHookValidation(t *testing.T) {
 }
 
 func TestHookEventInclusion(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, _ := contexttest.MockAPIContext(t, "user2/repo1/hooks")
 	contexttest.LoadRepo(t, ctx, 1)
 	contexttest.LoadGitRepo(t, ctx)

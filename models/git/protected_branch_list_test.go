@@ -12,6 +12,7 @@ import (
 )
 
 func TestBranchRuleMatchPriority(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		Rules            []string
 		BranchName       string
@@ -77,6 +78,7 @@ func TestBranchRuleMatchPriority(t *testing.T) {
 }
 
 func TestBranchRuleSort(t *testing.T) {
+	testhelper.Setup(t)
 	in := []*ProtectedBranch{{
 		RuleName:    "b",
 		CreatedUnix: 1,

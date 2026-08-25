@@ -17,6 +17,7 @@ import (
 )
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	packageScope := "@scope"
 	packageName := "test-package"
 	packageFullName := packageScope + "/" + packageName

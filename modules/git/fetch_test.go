@@ -11,6 +11,7 @@ import (
 )
 
 func TestFetch(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("SHA1", func(t *testing.T) {
 		dstDir := t.TempDir()
 

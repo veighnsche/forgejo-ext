@@ -18,6 +18,7 @@ import (
 )
 
 func TestForkRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// user 13 has already forked repo10

@@ -19,6 +19,7 @@ import (
 )
 
 func TestCodebaseDownloaderBlocksLocalhost(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, false, func() { require.NoError(t, allowlist.Init()) })()
 
 	u, _ := url.Parse("http://localhost")
@@ -34,6 +35,7 @@ func TestCodebaseDownloaderBlocksLocalhost(t *testing.T) {
 }
 
 func TestCodebaseDownloadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	// Skip tests if Codebase token is not found
 	cloneUser := os.Getenv("CODEBASE_CLONE_USER")
 	clonePassword := os.Getenv("CODEBASE_CLONE_PASSWORD")

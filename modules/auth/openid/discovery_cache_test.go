@@ -23,6 +23,7 @@ func (s *testDiscoveredInfo) OpLocalID() string {
 }
 
 func TestTimedDiscoveryCache(t *testing.T) {
+	testhelper.Setup(t)
 	dc := newTimedDiscoveryCache(100 * time.Millisecond)
 
 	// Put some initial values

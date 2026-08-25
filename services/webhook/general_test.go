@@ -394,6 +394,7 @@ func packageTestPayload() *api.PackagePayload {
 }
 
 func TestGetIssuesPayloadInfo(t *testing.T) {
+	testhelper.Setup(t)
 	p := issueTestPayload()
 
 	cases := []struct {
@@ -493,6 +494,7 @@ func TestGetIssuesPayloadInfo(t *testing.T) {
 }
 
 func TestGetPullRequestPayloadInfo(t *testing.T) {
+	testhelper.Setup(t)
 	p := pullRequestTestPayload()
 
 	cases := []struct {
@@ -592,6 +594,7 @@ func TestGetPullRequestPayloadInfo(t *testing.T) {
 }
 
 func TestGetWikiPayloadInfo(t *testing.T) {
+	testhelper.Setup(t)
 	p := wikiTestPayload()
 
 	cases := []struct {
@@ -630,6 +633,7 @@ func TestGetWikiPayloadInfo(t *testing.T) {
 }
 
 func TestGetReleasePayloadInfo(t *testing.T) {
+	testhelper.Setup(t)
 	p := pullReleaseTestPayload()
 
 	cases := []struct {
@@ -663,6 +667,7 @@ func TestGetReleasePayloadInfo(t *testing.T) {
 }
 
 func TestGetIssueCommentPayloadInfo(t *testing.T) {
+	testhelper.Setup(t)
 	p := pullRequestCommentTestPayload()
 
 	cases := []struct {
@@ -701,6 +706,7 @@ func TestGetIssueCommentPayloadInfo(t *testing.T) {
 }
 
 func TestGetActionPayloadInfo(t *testing.T) {
+	testhelper.Setup(t)
 	p := ActionTestPayload()
 
 	cases := []struct {
@@ -734,6 +740,7 @@ func TestGetActionPayloadInfo(t *testing.T) {
 }
 
 func TestWebhookPayloadTextFormatter(t *testing.T) {
+	testhelper.Setup(t)
 	p := issueTestPayload()
 	p.Action = api.HookIssueOpened
 

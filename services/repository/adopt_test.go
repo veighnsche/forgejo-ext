@@ -19,6 +19,7 @@ import (
 )
 
 func TestCheckUnadoptedRepositories_Add(t *testing.T) {
+	testhelper.Setup(t)
 	start := 10
 	end := 20
 	unadopted := &unadoptedRepositories{
@@ -37,6 +38,7 @@ func TestCheckUnadoptedRepositories_Add(t *testing.T) {
 }
 
 func TestCheckUnadoptedRepositories(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	//
 	// Non existent user
@@ -67,6 +69,7 @@ func TestCheckUnadoptedRepositories(t *testing.T) {
 }
 
 func TestListUnadoptedRepositories_ListOptions(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	username := "user2"
 	unadoptedList := []string{path.Join(username, "rendering-test"), path.Join(username, "unadopted1"), path.Join(username, "unadopted2")}
@@ -102,6 +105,7 @@ func TestListUnadoptedRepositories_ListOptions(t *testing.T) {
 }
 
 func TestAdoptRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	username := "user2"
 

@@ -12,6 +12,7 @@ import (
 )
 
 func Test_getStorageMultipleName(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [lfs]
 MINIO_BUCKET = gitea-lfs
@@ -40,6 +41,7 @@ MINIO_BUCKET = gitea-storage
 }
 
 func Test_getStorageUseOtherNameAsType(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [attachment]
 STORAGE_TYPE = lfs
@@ -61,6 +63,7 @@ MINIO_BUCKET = gitea-storage
 }
 
 func Test_getStorageInheritStorageType(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [storage]
 STORAGE_TYPE = minio
@@ -119,6 +122,7 @@ func testLocalStoragePath(t *testing.T, appDataPath, iniStr string, cases []test
 }
 
 func Test_getStorageInheritStorageTypeLocal(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage]
 STORAGE_TYPE = local
@@ -135,6 +139,7 @@ STORAGE_TYPE = local
 }
 
 func Test_getStorageInheritStorageTypeLocalPath(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage]
 STORAGE_TYPE = local
@@ -152,6 +157,7 @@ PATH = /data/gitea
 }
 
 func Test_getStorageInheritStorageTypeLocalRelativePath(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage]
 STORAGE_TYPE = local
@@ -169,6 +175,7 @@ PATH = storages
 }
 
 func Test_getStorageInheritStorageTypeLocalPathOverride(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage]
 STORAGE_TYPE = local
@@ -189,6 +196,7 @@ PATH = /data/gitea/the-archives-dir
 }
 
 func Test_getStorageInheritStorageTypeLocalPathOverrideEmpty(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage]
 STORAGE_TYPE = local
@@ -208,6 +216,7 @@ PATH = /data/gitea
 }
 
 func Test_getStorageInheritStorageTypeLocalRelativePathOverride(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage]
 STORAGE_TYPE = local
@@ -228,6 +237,7 @@ PATH = the-archives-dir
 }
 
 func Test_getStorageInheritStorageTypeLocalPathOverride3(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage.repo-archive]
 STORAGE_TYPE = local
@@ -245,6 +255,7 @@ PATH = /data/gitea/archives
 }
 
 func Test_getStorageInheritStorageTypeLocalPathOverride3_5(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage.repo-archive]
 STORAGE_TYPE = local
@@ -262,6 +273,7 @@ PATH = a-relative-path
 }
 
 func Test_getStorageInheritStorageTypeLocalPathOverride4(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage.repo-archive]
 STORAGE_TYPE = local
@@ -282,6 +294,7 @@ PATH = /tmp/gitea/archives
 }
 
 func Test_getStorageInheritStorageTypeLocalPathOverride5(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage.repo-archive]
 STORAGE_TYPE = local
@@ -301,6 +314,7 @@ PATH = /data/gitea/archives
 }
 
 func Test_getStorageInheritStorageTypeLocalPathOverride72(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [repo-archive]
 STORAGE_TYPE = local
@@ -311,6 +325,7 @@ PATH = archives
 }
 
 func Test_getStorageConfiguration20(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromData(`
 [repo-archive]
 STORAGE_TYPE = my_storage
@@ -322,6 +337,7 @@ PATH = archives
 }
 
 func Test_getStorageConfiguration21(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage.repo-archive]
 `, []testLocalStoragePathCase{
@@ -330,6 +346,7 @@ func Test_getStorageConfiguration21(t *testing.T) {
 }
 
 func Test_getStorageConfiguration22(t *testing.T) {
+	testhelper.Setup(t)
 	testLocalStoragePath(t, "/appdata", `
 [storage.repo-archive]
 PATH = archives
@@ -339,6 +356,7 @@ PATH = archives
 }
 
 func Test_getStorageConfiguration23(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromData(`
 [repo-archive]
 STORAGE_TYPE = minio
@@ -357,6 +375,7 @@ MINIO_SECRET_ACCESS_KEY = my_secret_key
 }
 
 func Test_getStorageConfiguration24(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromData(`
 [repo-archive]
 STORAGE_TYPE = my_archive
@@ -370,6 +389,7 @@ PATH = archives
 }
 
 func Test_getStorageConfiguration25(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromData(`
 [repo-archive]
 STORAGE_TYPE = my_archive
@@ -384,6 +404,7 @@ PATH = archives
 }
 
 func Test_getStorageConfiguration26(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromData(`
 [repo-archive]
 STORAGE_TYPE = minio
@@ -399,6 +420,7 @@ MINIO_USE_SSL = abc
 }
 
 func Test_getStorageConfiguration27(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromData(`
 [storage.repo-archive]
 STORAGE_TYPE = minio
@@ -415,6 +437,7 @@ MINIO_USE_SSL = true
 }
 
 func Test_getStorageConfiguration28(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromData(`
 [storage]
 STORAGE_TYPE = minio

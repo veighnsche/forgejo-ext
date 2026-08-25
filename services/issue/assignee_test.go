@@ -16,6 +16,7 @@ import (
 )
 
 func TestDeleteNotPassedAssignee(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Fake issue with assignees

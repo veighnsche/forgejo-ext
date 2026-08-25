@@ -11,6 +11,7 @@ import (
 )
 
 func TestPaginator(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Basic logics", func(t *testing.T) {
 		p := New(0, -1, -1, 0)
 		assert.Equal(t, 1, p.PagingNum())

@@ -12,6 +12,7 @@ import (
 )
 
 func TestFormatDummy(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "(admin.config.git.diff.max_lines)", i18n.FormatDummy("admin.config.git.diff.max_lines"))
 	assert.Equal(t, "(dashboard)", i18n.FormatDummy("dashboard"))
 	assert.Equal(t, "(branch.create_branch: main)", i18n.FormatDummy("branch.create_branch", "main"))

@@ -13,6 +13,7 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
+	testhelper.Setup(t)
 	r := Routes()
 	assert.NotNil(t, r)
 

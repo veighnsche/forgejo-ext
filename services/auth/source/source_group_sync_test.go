@@ -15,6 +15,7 @@ import (
 
 // TestNewDynGroupMapsCaseInsensitive tests NewDynGroupMaps, case insensitive.
 func TestNewDynGroupMapsCaseInsensitive(t *testing.T) {
+	testhelper.Setup(t)
 	want := NewDynGroupMaps([]string{
 		"dyn-{org}-{team}",
 		"other:{org}/{team}",
@@ -34,6 +35,7 @@ func TestNewDynGroupMapsCaseInsensitive(t *testing.T) {
 
 // TestNewDynGroupMapsInvalidPlaceholders tests NewDynGroupMaps, invalid placeholders.
 func TestNewDynGroupMapsInvalidPlaceholders(t *testing.T) {
+	testhelper.Setup(t)
 	got := NewDynGroupMaps([]string{
 		"dyn-{org}",
 		"dyn-{team}",
@@ -47,6 +49,7 @@ func TestNewDynGroupMapsInvalidPlaceholders(t *testing.T) {
 
 // TestGetDynGroupMaps tests GetDynGroupMaps.
 func TestGetDynGroupMaps(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&sourceDynGroupMaps.d)()
 
 	// same source
@@ -70,6 +73,7 @@ func TestGetDynGroupMaps(t *testing.T) {
 
 // TestRemoveDynGroupMaps tests RemoveDynGroupMaps.
 func TestRemoveDynGroupMaps(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&sourceDynGroupMaps.d)()
 
 	// empty
@@ -89,6 +93,7 @@ func TestRemoveDynGroupMaps(t *testing.T) {
 
 // TestResolveMappedMemberships tests resolveMappedMemberships.
 func TestResolveMappedMemberships(t *testing.T) {
+	testhelper.Setup(t)
 	type test struct {
 		name        string
 		srcGroups   container.Set[string]

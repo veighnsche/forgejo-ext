@@ -12,6 +12,7 @@ import (
 )
 
 func TestMapSortOrder(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, MapSortOrder("newest"), db.SearchOrderBy("`user`.created_unix DESC"))
 	assert.Equal(t, MapSortOrder("oldest"), db.SearchOrderBy("`user`.created_unix ASC"))
 	assert.Equal(t, MapSortOrder("leastupdate"), db.SearchOrderBy("`user`.updated_unix ASC"))

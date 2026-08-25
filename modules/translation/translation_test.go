@@ -13,6 +13,7 @@ import (
 )
 
 func TestTrSize(t *testing.T) {
+	testhelper.Setup(t)
 	l := NewLocale("")
 	size := int64(1)
 	assert.Equal(t, "1 munits.data.b", l.TrSize(size).String())
@@ -31,6 +32,7 @@ func TestTrSize(t *testing.T) {
 }
 
 func TestPrettyNumber(t *testing.T) {
+	testhelper.Setup(t)
 	i18n.ResetDefaultLocales()
 
 	allLangMap = make(map[string]*LangType)

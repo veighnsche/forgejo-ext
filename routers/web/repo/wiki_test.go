@@ -78,6 +78,7 @@ func assertPagesMetas(t *testing.T, expectedNames []string, metas any) {
 }
 
 func TestWiki(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki")
@@ -90,6 +91,7 @@ func TestWiki(t *testing.T) {
 }
 
 func TestWikiPages(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki/?action=_pages")
@@ -100,6 +102,7 @@ func TestWikiPages(t *testing.T) {
 }
 
 func TestNewWiki(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki/?action=_new")
@@ -111,6 +114,7 @@ func TestNewWiki(t *testing.T) {
 }
 
 func TestNewWikiPost(t *testing.T) {
+	testhelper.Setup(t)
 	for _, title := range []string{
 		"New page",
 		"&&&&",
@@ -133,6 +137,7 @@ func TestNewWikiPost(t *testing.T) {
 }
 
 func TestNewWikiPost_ReservedName(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki/?action=_new")
@@ -150,6 +155,7 @@ func TestNewWikiPost_ReservedName(t *testing.T) {
 }
 
 func TestEditWiki(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki/Home?action=_edit")
@@ -163,6 +169,7 @@ func TestEditWiki(t *testing.T) {
 }
 
 func TestEditWikiPost(t *testing.T) {
+	testhelper.Setup(t)
 	for _, title := range []string{
 		"Home",
 		"New/<page>",
@@ -188,6 +195,7 @@ func TestEditWikiPost(t *testing.T) {
 }
 
 func TestDeleteWikiPagePost(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/wiki/Home?action=_delete")
@@ -199,6 +207,7 @@ func TestDeleteWikiPagePost(t *testing.T) {
 }
 
 func TestWikiRaw(t *testing.T) {
+	testhelper.Setup(t)
 	for filepath, filetype := range map[string]string{
 		"jpeg.jpg":                 "image/jpeg",
 		"images/jpeg.jpg":          "image/jpeg",

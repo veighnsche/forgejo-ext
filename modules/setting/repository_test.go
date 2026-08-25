@@ -14,6 +14,7 @@ import (
 )
 
 func TestSSHInstanceKey(t *testing.T) {
+	testhelper.Setup(t)
 	sshSigningKeyPath, err := filepath.Abs("../../tests/integration/ssh-signing-key.pub")
 	require.NoError(t, err)
 

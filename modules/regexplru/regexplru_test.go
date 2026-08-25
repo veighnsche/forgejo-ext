@@ -11,6 +11,7 @@ import (
 )
 
 func TestRegexpLru(t *testing.T) {
+	testhelper.Setup(t)
 	r, err := GetCompiled("a")
 	require.NoError(t, err)
 	assert.True(t, r.MatchString("a"))

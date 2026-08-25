@@ -32,6 +32,7 @@ func makeAuthorizedIntegration(t *testing.T) *auth_model.AuthorizedIntegration {
 }
 
 func TestGetAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ai := makeAuthorizedIntegration(t)
 
@@ -46,6 +47,7 @@ func TestGetAuthorizedIntegration(t *testing.T) {
 }
 
 func TestGetAuthorizedIntegrationByUI(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ai := makeAuthorizedIntegration(t)
 
@@ -68,6 +70,7 @@ func TestGetAuthorizedIntegrationByUI(t *testing.T) {
 }
 
 func TestAuthorizedIntegrationUpdateLastUsed(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ai := makeAuthorizedIntegration(t)
@@ -98,6 +101,7 @@ func TestAuthorizedIntegrationUpdateLastUsed(t *testing.T) {
 }
 
 func TestNewAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	ai := &auth_model.AuthorizedIntegration{
 		UserID:           2,
 		Scope:            auth_model.AccessTokenScopeAll,
@@ -129,6 +133,7 @@ func TestNewAuthorizedIntegration(t *testing.T) {
 }
 
 func TestAuthorizedIntegrationCalculatedValues(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("HasRecentActivity", func(t *testing.T) {
 		timeutil.MockSet(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC))
 		ai := &auth_model.AuthorizedIntegration{
@@ -155,6 +160,7 @@ func TestAuthorizedIntegrationCalculatedValues(t *testing.T) {
 }
 
 func TestListAuthorizedIntegrationOptions(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	makeAuthorizedIntegration(t)
@@ -177,6 +183,7 @@ func TestListAuthorizedIntegrationOptions(t *testing.T) {
 }
 
 func TestUpdateAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ai := makeAuthorizedIntegration(t)
@@ -195,6 +202,7 @@ func TestUpdateAuthorizedIntegration(t *testing.T) {
 }
 
 func TestDeleteAuthorizedIntegrationByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	t.Run("simple delete", func(t *testing.T) {
 		ai := makeAuthorizedIntegration(t)

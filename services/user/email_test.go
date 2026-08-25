@@ -19,6 +19,7 @@ import (
 )
 
 func TestAdminAddOrSetPrimaryEmailAddress(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 27})
@@ -68,6 +69,7 @@ func TestAdminAddOrSetPrimaryEmailAddress(t *testing.T) {
 }
 
 func TestReplacePrimaryEmailAddress(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("User", func(t *testing.T) {
@@ -108,6 +110,7 @@ func TestReplacePrimaryEmailAddress(t *testing.T) {
 }
 
 func TestAddEmailAddresses(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -124,6 +127,7 @@ func TestAddEmailAddresses(t *testing.T) {
 }
 
 func TestReplaceInactivePrimaryEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/user/TestReplaceInactivePrimaryEmail/")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -155,6 +159,7 @@ func TestReplaceInactivePrimaryEmail(t *testing.T) {
 }
 
 func TestDeleteEmailAddresses(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -175,6 +180,7 @@ func TestDeleteEmailAddresses(t *testing.T) {
 }
 
 func TestMakeEmailAddressPrimary(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	newPrimaryEmail := unittest.AssertExistsAndLoadBean(t, &user_model.EmailAddress{ID: 35, UID: user.ID}, "is_primary = false")

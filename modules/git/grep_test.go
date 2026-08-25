@@ -15,6 +15,7 @@ import (
 )
 
 func TestGrepSearch(t *testing.T) {
+	testhelper.Setup(t)
 	repo, err := openRepositoryWithDefaultContext(filepath.Join(testReposDir, "language_stats_repo"))
 	require.NoError(t, err)
 	defer repo.Close()
@@ -119,6 +120,7 @@ func TestGrepSearch(t *testing.T) {
 }
 
 func TestGrepDashesAreFine(t *testing.T) {
+	testhelper.Setup(t)
 	tmpDir := t.TempDir()
 
 	err := InitRepository(DefaultContext, tmpDir, false, Sha1ObjectFormat.Name())
@@ -144,6 +146,7 @@ func TestGrepDashesAreFine(t *testing.T) {
 }
 
 func TestGrepNoBinary(t *testing.T) {
+	testhelper.Setup(t)
 	tmpDir := t.TempDir()
 
 	err := InitRepository(DefaultContext, tmpDir, false, Sha1ObjectFormat.Name())
@@ -169,6 +172,7 @@ func TestGrepNoBinary(t *testing.T) {
 }
 
 func TestGrepLongFiles(t *testing.T) {
+	testhelper.Setup(t)
 	tmpDir := t.TempDir()
 
 	err := InitRepository(DefaultContext, tmpDir, false, Sha1ObjectFormat.Name())
@@ -193,6 +197,7 @@ func TestGrepLongFiles(t *testing.T) {
 }
 
 func TestGrepRefs(t *testing.T) {
+	testhelper.Setup(t)
 	tmpDir := t.TempDir()
 
 	err := InitRepository(DefaultContext, tmpDir, false, Sha1ObjectFormat.Name())
@@ -223,6 +228,7 @@ func TestGrepRefs(t *testing.T) {
 }
 
 func TestGrepCanHazRegexOnDemand(t *testing.T) {
+	testhelper.Setup(t)
 	tmpDir := t.TempDir()
 
 	err := InitRepository(DefaultContext, tmpDir, false, Sha1ObjectFormat.Name())

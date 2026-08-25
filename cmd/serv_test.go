@@ -12,6 +12,7 @@ import (
 )
 
 func TestGetKeyCheckMessage(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tt := range []struct {
 		name        string
 		key         *asymkey_model.PublicKey

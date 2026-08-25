@@ -24,6 +24,7 @@ import (
 )
 
 func TestIssue_ReplaceLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(issueID int64, labelIDs, expectedLabelIDs []int64) {
@@ -53,6 +54,7 @@ func TestIssue_ReplaceLabels(t *testing.T) {
 }
 
 func Test_GetIssueIDsByRepoID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ids, err := issues_model.GetIssueIDsByRepoID(db.DefaultContext, 1)
@@ -61,6 +63,7 @@ func Test_GetIssueIDsByRepoID(t *testing.T) {
 }
 
 func TestIssueAPIURL(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 	err := issue.LoadAttributes(db.DefaultContext)
@@ -74,6 +77,7 @@ func TestIssueAPIURL(t *testing.T) {
 }
 
 func TestGetIssuesByIDs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	testSuccess := func(expectedIssueIDs, nonExistentIssueIDs []int64) {
 		issues, err := issues_model.GetIssuesByIDs(db.DefaultContext, append(expectedIssueIDs, nonExistentIssueIDs...), true)
@@ -90,6 +94,7 @@ func TestGetIssuesByIDs(t *testing.T) {
 }
 
 func TestGetParticipantIDsByIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/issues/TestGetParticipantIDsByIssue")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -118,6 +123,7 @@ func TestGetParticipantIDsByIssue(t *testing.T) {
 }
 
 func TestIssue_ClearLabels(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		issueID int64
 		doerID  int64
@@ -136,6 +142,7 @@ func TestIssue_ClearLabels(t *testing.T) {
 }
 
 func TestUpdateIssueCols(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{})
 
@@ -156,6 +163,7 @@ func TestUpdateIssueCols(t *testing.T) {
 }
 
 func TestIssues(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	for idx, test := range []struct {
 		Opts             issues_model.IssuesOptions
@@ -263,6 +271,7 @@ func TestIssues(t *testing.T) {
 }
 
 func TestIssue_loadTotalTimes(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ms, err := issues_model.GetIssueByID(db.DefaultContext, 2)
 	require.NoError(t, err)
@@ -299,6 +308,7 @@ func testInsertIssue(t *testing.T, title, content string, expectIndex int64) *is
 }
 
 func TestIssue_InsertIssue(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// there are 5 issues and max index is 5 on repository 1, so this one should 6
@@ -312,6 +322,7 @@ func TestIssue_InsertIssue(t *testing.T) {
 }
 
 func TestIssue_ResolveMentions(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(owner, repo, doer string, mentions []string, expected []int64) {
@@ -346,6 +357,7 @@ func TestIssue_ResolveMentions(t *testing.T) {
 }
 
 func TestResourceIndex(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	beforeCount, err := issues_model.CountIssues(t.Context(), &issues_model.IssuesOptions{})
@@ -372,6 +384,7 @@ func TestResourceIndex(t *testing.T) {
 }
 
 func TestCorrectIssueStats(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Because the condition is to have chunked database look-ups,
@@ -424,6 +437,7 @@ func TestCorrectIssueStats(t *testing.T) {
 }
 
 func TestMilestoneList_LoadTotalTrackedTimes(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	miles := issues_model.MilestoneList{
 		unittest.AssertExistsAndLoadBean(t, &issues_model.Milestone{ID: 1}),
@@ -435,6 +449,7 @@ func TestMilestoneList_LoadTotalTrackedTimes(t *testing.T) {
 }
 
 func TestLoadTotalTrackedTime(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	milestone := unittest.AssertExistsAndLoadBean(t, &issues_model.Milestone{ID: 1})
 
@@ -444,6 +459,7 @@ func TestLoadTotalTrackedTime(t *testing.T) {
 }
 
 func TestCountIssues(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	count, err := issues_model.CountIssues(db.DefaultContext, &issues_model.IssuesOptions{})
 	require.NoError(t, err)
@@ -451,6 +467,7 @@ func TestCountIssues(t *testing.T) {
 }
 
 func TestIssueLoadAttributes(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	setting.Service.EnableTimetracking = true
 
@@ -529,9 +546,11 @@ func assertCreateIssues(t *testing.T, isPull bool) {
 }
 
 func TestMigrate_CreateIssuesIsPullFalse(t *testing.T) {
+	testhelper.Setup(t)
 	assertCreateIssues(t, false)
 }
 
 func TestMigrate_CreateIssuesIsPullTrue(t *testing.T) {
+	testhelper.Setup(t)
 	assertCreateIssues(t, true)
 }

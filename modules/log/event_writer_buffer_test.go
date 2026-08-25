@@ -12,6 +12,7 @@ import (
 )
 
 func TestBufferLogger(t *testing.T) {
+	testhelper.Setup(t)
 	prefix := "TestPrefix "
 	level := log.INFO
 	expected := "something"
@@ -33,6 +34,7 @@ func TestBufferLogger(t *testing.T) {
 }
 
 func TestBufferLoggerWithExclusion(t *testing.T) {
+	testhelper.Setup(t)
 	prefix := "ExclusionPrefix "
 	level := log.INFO
 	message := "something"
@@ -54,6 +56,7 @@ func TestBufferLoggerWithExclusion(t *testing.T) {
 }
 
 func TestBufferLoggerWithExpressionAndExclusion(t *testing.T) {
+	testhelper.Setup(t)
 	prefix := "BothPrefix "
 	level := log.INFO
 	expression := ".*foo.*"

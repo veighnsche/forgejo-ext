@@ -11,6 +11,7 @@ import (
 )
 
 func TestEncryptDecrypt(t *testing.T) {
+	testhelper.Setup(t)
 	hex, err := EncryptSecret("foo", "baz")
 	require.NoError(t, err)
 	str, _ := DecryptSecret("foo", hex)

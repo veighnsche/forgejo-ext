@@ -18,6 +18,7 @@ import (
 )
 
 func TestFundingProviderConfigValidDefaultTemplates(t *testing.T) {
+	testhelper.Setup(t)
 	// If FUNDING_TEST_LIVE_PROVIDERS is set, this test will make HTTP requests to the live funding provider URLs.
 	// When doing so, the responses will be forgotten (saved to a garbage directory).
 	// If the var is not set, this test does nothing.

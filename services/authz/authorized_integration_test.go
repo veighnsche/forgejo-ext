@@ -14,6 +14,7 @@ import (
 )
 
 func TestGetAuthorizationReducerForAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/authz/TestGetAuthorizationReducerForAuthorizedIntegration")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

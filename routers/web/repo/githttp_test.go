@@ -10,6 +10,7 @@ import (
 )
 
 func TestContainsParentDirectorySeparator(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		v string
 		b bool

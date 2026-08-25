@@ -12,6 +12,7 @@ import (
 )
 
 func TestAmbiguousCharacters(t *testing.T) {
+	testhelper.Setup(t)
 	for locale, ambiguous := range AmbiguousCharacters {
 		assert.Equal(t, locale, ambiguous.Locale)
 		assert.Len(t, ambiguous.With, len(ambiguous.Confusable))

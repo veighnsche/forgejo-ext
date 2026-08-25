@@ -51,6 +51,7 @@ func createAndParseToken(t *testing.T, grant *auth.OAuth2Grant) *oauth2.OIDCToke
 }
 
 func TestNewAccessTokenResponse_OIDCToken(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	grants, err := auth.GetOAuth2GrantsByUserID(db.DefaultContext, 3)
@@ -88,6 +89,7 @@ func TestNewAccessTokenResponse_OIDCToken(t *testing.T) {
 }
 
 func TestEncodeCodeChallenge(t *testing.T) {
+	testhelper.Setup(t)
 	// test vector from https://datatracker.ietf.org/doc/html/rfc7636#page-18
 	codeChallenge, err := encodeCodeChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
 	require.NoError(t, err)
@@ -95,6 +97,7 @@ func TestEncodeCodeChallenge(t *testing.T) {
 }
 
 func TestOIDCWellKnownDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, resp := contexttest.MockContext(t, "/openid-configuration")
 	defer test.MockVariableValue(&setting.OAuth2.Enabled, false)()
 	OIDCWellKnown(ctx)
@@ -102,6 +105,7 @@ func TestOIDCWellKnownDisabled(t *testing.T) {
 }
 
 func TestOIDCWellKnownEnabled(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, resp := contexttest.MockContext(t, "/openid-configuration", contexttest.MockContextOption{Render: templates.HTMLRenderer()})
 	err := oauth2.Init(ctx)
 	require.NoError(t, err)

@@ -29,6 +29,7 @@ import (
 )
 
 func TestReducer(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("routers/api/shared/TestReducer")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

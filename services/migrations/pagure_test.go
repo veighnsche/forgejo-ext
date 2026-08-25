@@ -21,6 +21,7 @@ import (
 )
 
 func TestPagureDownloaderBlocksLocalhost(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, false, func() { require.NoError(t, allowlist.Init()) })()
 
 	u, _ := url.Parse("http://localhost")
@@ -31,6 +32,7 @@ func TestPagureDownloaderBlocksLocalhost(t *testing.T) {
 }
 
 func TestPagureDownloadRepoWithPublicIssues(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	// Skip tests if Pagure token is not found
@@ -464,6 +466,7 @@ func TestPagureDownloadRepoWithPublicIssues(t *testing.T) {
 }
 
 func TestPagureDownloadRepoWithPrivateIssues(t *testing.T) {
+	testhelper.Setup(t)
 	t.Skip("Does not work")
 	// Skip tests if Pagure token is not found
 	cloneUser := os.Getenv("PAGURE_CLONE_USER")
@@ -646,6 +649,7 @@ func TestPagureDownloadRepoWithPrivateIssues(t *testing.T) {
 }
 
 func TestProcessDate(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name     string
 		input    *string

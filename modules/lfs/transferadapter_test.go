@@ -17,12 +17,14 @@ import (
 )
 
 func TestBasicTransferAdapterName(t *testing.T) {
+	testhelper.Setup(t)
 	a := &BasicTransferAdapter{}
 
 	assert.Equal(t, "basic", a.Name())
 }
 
 func TestBasicTransferAdapter(t *testing.T) {
+	testhelper.Setup(t)
 	p := Pointer{Oid: "b5a2c96250612366ea272ffac6d9744aaf4b45aacd96aa7cfcb931ee3b558259", Size: 5}
 
 	roundTripHandler := func(req *http.Request) *http.Response {

@@ -10,6 +10,7 @@ import (
 )
 
 func Test_parseRemoteUpdateOutput(t *testing.T) {
+	testhelper.Setup(t)
 	output := `
  * [new tag]         v0.1.8     -> v0.1.8
  * [new branch]      master     -> origin/master
@@ -66,6 +67,7 @@ func Test_parseRemoteUpdateOutput(t *testing.T) {
 }
 
 func Test_checkRecoverableSyncError(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		recoverable bool
 		message     string

@@ -17,6 +17,7 @@ import (
 )
 
 func TestCancelStopwatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1, err := user_model.GetUserByID(db.DefaultContext, 1)
@@ -37,6 +38,7 @@ func TestCancelStopwatch(t *testing.T) {
 }
 
 func TestStopwatchExists(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	assert.True(t, issues_model.StopwatchExists(db.DefaultContext, 1, 1))
@@ -44,6 +46,7 @@ func TestStopwatchExists(t *testing.T) {
 }
 
 func TestHasUserStopwatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	exists, sw, _, err := issues_model.HasUserStopwatch(db.DefaultContext, 1)
@@ -57,6 +60,7 @@ func TestHasUserStopwatch(t *testing.T) {
 }
 
 func TestCreateOrStopIssueStopwatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user2, err := user_model.GetUserByID(db.DefaultContext, 2)
@@ -79,6 +83,7 @@ func TestCreateOrStopIssueStopwatch(t *testing.T) {
 }
 
 func TestGetUIDsAndStopwatch(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/issues/TestGetUIDsAndStopwatch")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

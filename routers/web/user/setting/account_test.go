@@ -17,6 +17,7 @@ import (
 )
 
 func TestChangePassword(t *testing.T) {
+	testhelper.Setup(t)
 	oldPassword := "password"
 	setting.MinPasswordLength = 6
 	pcALL := []string{"lower", "upper", "digit", "spec"}

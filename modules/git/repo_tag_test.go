@@ -14,6 +14,7 @@ import (
 )
 
 func TestRepository_GetTags(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	if err != nil {
@@ -40,6 +41,7 @@ func TestRepository_GetTags(t *testing.T) {
 }
 
 func TestRepository_GetTag(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	clonedPath, err := cloneRepo(t, bareRepo1Path)
@@ -106,6 +108,7 @@ func TestRepository_GetTag(t *testing.T) {
 }
 
 func TestRepository_GetAnnotatedTag(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	clonedPath, err := cloneRepo(t, bareRepo1Path)
@@ -163,6 +166,7 @@ func TestRepository_GetAnnotatedTag(t *testing.T) {
 }
 
 func TestRepository_parseTagRef(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 

@@ -16,6 +16,7 @@ import (
 )
 
 func TestRepoArchiveDownloadCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	release, err := repo_model.GetReleaseByID(db.DefaultContext, 1)

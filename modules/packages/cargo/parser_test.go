@@ -22,6 +22,7 @@ const (
 )
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	createPackage := func(name, version, dependency string) io.Reader {
 		metadata := `{
    "name":"` + name + `",

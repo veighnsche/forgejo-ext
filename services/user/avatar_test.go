@@ -34,6 +34,7 @@ func (s alreadyDeletedStorage) Delete(_ string) error {
 }
 
 func TestUserDeleteAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	myImage := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	var buff bytes.Buffer
 	png.Encode(&buff, myImage)
@@ -105,6 +106,7 @@ func TestUserDeleteAvatar(t *testing.T) {
 }
 
 func TestUserReplaceAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	firstImage := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	var firstBuff bytes.Buffer
 	png.Encode(&firstBuff, firstImage)

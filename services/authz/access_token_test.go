@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetAuthorizationReducerForAccessToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/authz/TestGetAuthorizationReducerForAccessToken")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -47,6 +48,7 @@ func TestGetAuthorizationReducerForAccessToken(t *testing.T) {
 }
 
 func TestValidateAccessToken(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("valid - all access", func(t *testing.T) {
 		token := &auth.AccessToken{
 			ResourceAllRepos: true,

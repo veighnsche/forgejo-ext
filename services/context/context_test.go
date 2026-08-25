@@ -14,6 +14,7 @@ import (
 )
 
 func TestRemoveSessionCookieHeader(t *testing.T) {
+	testhelper.Setup(t)
 	w := httptest.NewRecorder()
 	w.Header().Add("Set-Cookie", (&http.Cookie{Name: setting.SessionConfig.CookieName, Value: "foo"}).String())
 	w.Header().Add("Set-Cookie", (&http.Cookie{Name: "other", Value: "bar"}).String())

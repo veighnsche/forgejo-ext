@@ -18,6 +18,7 @@ import (
 )
 
 func TestRenderPanicErrorPage(t *testing.T) {
+	testhelper.Setup(t)
 	w := httptest.NewRecorder()
 	req := &http.Request{URL: &url.URL{}}
 	req = req.WithContext(middleware.WithContextData(t.Context()))

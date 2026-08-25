@@ -17,6 +17,7 @@ import (
 )
 
 func TestKeygen(t *testing.T) {
+	testhelper.Setup(t)
 	priv, pub, err := GenerateKeyPair(2048)
 	require.NoError(t, err)
 
@@ -28,6 +29,7 @@ func TestKeygen(t *testing.T) {
 }
 
 func TestSignUsingKeys(t *testing.T) {
+	testhelper.Setup(t)
 	priv, pub, err := GenerateKeyPair(2048)
 	require.NoError(t, err)
 

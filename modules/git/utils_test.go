@@ -19,6 +19,7 @@ func skipIfSHA256NotSupported(t *testing.T) {
 }
 
 func TestHashFilePathForWebUI(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t,
 		"8843d7f92416211de9ebb963ff4ce28125932878",
 		HashFilePathForWebUI("foobar"),

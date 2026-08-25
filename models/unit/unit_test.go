@@ -15,6 +15,7 @@ import (
 )
 
 func TestLoadUnitConfig(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("regular", func(t *testing.T) {
 		defer tests.SaveUnits()()
 

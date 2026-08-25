@@ -14,6 +14,7 @@ import (
 )
 
 func TestCopyFile(t *testing.T) {
+	testhelper.Setup(t)
 	testContent := []byte("hello")
 
 	tmpDir := os.TempDir()

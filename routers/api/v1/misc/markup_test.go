@@ -59,6 +59,7 @@ func testRenderMarkdown(t *testing.T, mode, text, responseBody string, responseC
 }
 
 func TestAPI_RenderGFM(t *testing.T) {
+	testhelper.Setup(t)
 	markup.Init(&markup.ProcessorHelper{
 		IsUsernameMentionable: func(ctx go_context.Context, username string) bool {
 			return username == "r-lyeh"
@@ -156,6 +157,7 @@ var simpleCases = []string{
 }
 
 func TestAPI_RenderSimple(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppURL = AppURL
 	options := api.MarkdownOption{
 		Mode:    "markdown",
@@ -173,6 +175,7 @@ func TestAPI_RenderSimple(t *testing.T) {
 }
 
 func TestAPI_RenderRaw(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppURL = AppURL
 	ctx, resp := contexttest.MockAPIContext(t, "POST /api/v1/markdown")
 	for i := 0; i < len(simpleCases); i += 2 {

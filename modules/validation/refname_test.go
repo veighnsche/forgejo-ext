@@ -255,6 +255,7 @@ var gitRefNameValidationTestCases = []validationTestCase{
 }
 
 func Test_GitRefNameValidation(t *testing.T) {
+	testhelper.Setup(t)
 	AddBindingRules()
 
 	for _, testCase := range gitRefNameValidationTestCases {

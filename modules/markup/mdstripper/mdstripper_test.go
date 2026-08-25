@@ -11,6 +11,7 @@ import (
 )
 
 func TestMarkdownStripper(t *testing.T) {
+	testhelper.Setup(t)
 	type testItem struct {
 		markdown      string
 		expectedText  []string

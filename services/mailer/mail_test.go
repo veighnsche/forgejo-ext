@@ -63,6 +63,7 @@ func prepareMailerTest(t *testing.T) (doer *user_model.User, repo *repo_model.Re
 }
 
 func TestComposeIssueCommentMessage(t *testing.T) {
+	testhelper.Setup(t)
 	defer MockMailSettings(nil)()
 	doer, _, issue, comment := prepareMailerTest(t)
 
@@ -118,6 +119,7 @@ func TestComposeIssueCommentMessage(t *testing.T) {
 }
 
 func TestComposeIssueMessage(t *testing.T) {
+	testhelper.Setup(t)
 	defer MockMailSettings(nil)()
 	doer, _, issue, _ := prepareMailerTest(t)
 
@@ -147,6 +149,7 @@ func TestComposeIssueMessage(t *testing.T) {
 }
 
 func TestMailerIssueTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	defer MockMailSettings(nil)()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -249,6 +252,7 @@ func TestMailerIssueTemplate(t *testing.T) {
 }
 
 func TestTemplateSelection(t *testing.T) {
+	testhelper.Setup(t)
 	defer MockMailSettings(nil)()
 	doer, repo, issue, comment := prepareMailerTest(t)
 	recipients := []*user_model.User{{Name: "Test", Email: "test@gitea.com"}}
@@ -304,6 +308,7 @@ func TestTemplateSelection(t *testing.T) {
 }
 
 func TestTemplateServices(t *testing.T) {
+	testhelper.Setup(t)
 	defer MockMailSettings(nil)()
 	doer, _, issue, comment := prepareMailerTest(t)
 	require.NoError(t, issue.LoadRepo(db.DefaultContext))
@@ -357,6 +362,7 @@ func testComposeIssueCommentMessage(t *testing.T, ctx *mailCommentContext, recip
 }
 
 func TestGenerateAdditionalHeaders(t *testing.T) {
+	testhelper.Setup(t)
 	defer MockMailSettings(nil)()
 	doer, _, issue, _ := prepareMailerTest(t)
 
@@ -390,6 +396,7 @@ func TestGenerateAdditionalHeaders(t *testing.T) {
 }
 
 func Test_createReference(t *testing.T) {
+	testhelper.Setup(t)
 	defer MockMailSettings(nil)()
 	_, _, issue, comment := prepareMailerTest(t)
 	_, _, pullIssue, _ := prepareMailerTest(t)
@@ -499,6 +506,7 @@ func Test_createReference(t *testing.T) {
 }
 
 func TestFromDisplayName(t *testing.T) {
+	testhelper.Setup(t)
 	template, err := texttmpl.New("mailFrom").Parse("{{ .DisplayName }}")
 	require.NoError(t, err)
 	defer test.MockVariableValue(&setting.MailService, &setting.Mailer{FromDisplayNameFormatTemplate: template})()
@@ -553,6 +561,7 @@ func TestFromDisplayName(t *testing.T) {
 }
 
 func TestFallbackSubjectType(t *testing.T) {
+	testhelper.Setup(t)
 	_, _, issue, _ := prepareMailerTest(t)
 	assert.Contains(t, fallbackMailSubject(issue), "Issue")
 	_, _, pr, _ := prepareMailerTest(t)

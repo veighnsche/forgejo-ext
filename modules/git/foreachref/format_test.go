@@ -12,6 +12,7 @@ import (
 )
 
 func TestFormat_Flag(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 

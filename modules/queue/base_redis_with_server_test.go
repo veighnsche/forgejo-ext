@@ -14,6 +14,7 @@ type baseRedisWithServerTestSuite struct {
 }
 
 func TestBaseRedisWithServer(t *testing.T) {
+	testhelper.Setup(t)
 	suite.Run(t, &baseRedisWithServerTestSuite{})
 }
 

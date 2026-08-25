@@ -13,6 +13,7 @@ import (
 )
 
 func TestOption(t *testing.T) {
+	testhelper.Setup(t)
 	var uninitialized optional.Option[int]
 	assert.False(t, uninitialized.Has())
 	assert.Equal(t, int(0), uninitialized.ValueOrZeroValue())
@@ -63,6 +64,7 @@ func TestOption(t *testing.T) {
 }
 
 func Test_ParseBool(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, optional.None[bool](), optional.ParseBool(""))
 	assert.Equal(t, optional.None[bool](), optional.ParseBool("x"))
 
@@ -97,6 +99,7 @@ func roundtrip[T any](t *testing.T, orig optional.Option[T]) {
 }
 
 func TestOptionValueScan(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("string roundtrip", func(t *testing.T) {
 		roundtrip(t, optional.Some("hello world"))
 	})
@@ -118,6 +121,7 @@ func TestOptionValueScan(t *testing.T) {
 }
 
 func TestDelegateSQLType(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "string", optional.Some("hello world").DelegateSQLType().Name())
 	assert.Equal(t, "string", optional.None[string]().DelegateSQLType().Name())
 	assert.Equal(t, "int64", optional.Some(int64(123)).DelegateSQLType().Name())

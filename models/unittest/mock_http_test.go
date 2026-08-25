@@ -13,6 +13,7 @@ import (
 
 // NOTE: This is a test of the unittest helper itself
 func TestMockWebServer(t *testing.T) {
+	testhelper.Setup(t)
 	server := NewMockWebServer(t, "https://example.com", "testdata", false)
 	defer server.Close()
 	request, err := http.NewRequest("GET", server.URL+"/", nil)

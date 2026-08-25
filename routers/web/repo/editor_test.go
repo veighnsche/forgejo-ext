@@ -16,6 +16,7 @@ import (
 )
 
 func TestCleanUploadName(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	kases := map[string]string{
@@ -42,6 +43,7 @@ func TestCleanUploadName(t *testing.T) {
 }
 
 func TestGetUniquePatchBranchName(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1")
 	ctx.SetParams(":id", "1")
@@ -56,6 +58,7 @@ func TestGetUniquePatchBranchName(t *testing.T) {
 }
 
 func TestGetClosestParentWithFiles(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	branch := repo.DefaultBranch

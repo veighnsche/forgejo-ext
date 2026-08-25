@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetFormatPatch(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	clonedPath, err := cloneRepo(t, bareRepo1Path)
 	if err != nil {
@@ -48,6 +49,7 @@ func TestGetFormatPatch(t *testing.T) {
 }
 
 func TestReadPatch(t *testing.T) {
+	testhelper.Setup(t)
 	// Ensure we can read the patch files
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	repo, err := openRepositoryWithDefaultContext(bareRepo1Path)
@@ -78,6 +80,7 @@ func TestReadPatch(t *testing.T) {
 }
 
 func TestReadWritePullHead(t *testing.T) {
+	testhelper.Setup(t)
 	// Ensure we can write SHA1 head corresponding to PR and open them
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
@@ -123,6 +126,7 @@ func TestReadWritePullHead(t *testing.T) {
 }
 
 func TestGetCommitFilesChanged(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	repo, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -165,6 +169,7 @@ func TestGetCommitFilesChanged(t *testing.T) {
 }
 
 func TestGetCommitShortStat(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("repo1_bare", func(t *testing.T) {
 		repo, err := openRepositoryWithDefaultContext(filepath.Join(testReposDir, "repo1_bare"))
 		if err != nil {
@@ -257,6 +262,7 @@ func TestGetCommitShortStat(t *testing.T) {
 }
 
 func TestGetShortStat(t *testing.T) {
+	testhelper.Setup(t)
 	// https://github.com/git/git/blob/60f3f52f17cceefa5299709b189ce6fe2d181e7b/t/t4068-diff-symmetric-merge-base.sh#L10-L23
 	repo, err := OpenRepository(t.Context(), filepath.Join(testReposDir, "symmetric_repo"))
 	require.NoError(t, err)
@@ -338,6 +344,7 @@ func TestGetShortStat(t *testing.T) {
 }
 
 func TestGetMergeBaseSimple(t *testing.T) {
+	testhelper.Setup(t)
 	repo, err := OpenRepository(t.Context(), filepath.Join(testReposDir, "symmetric_repo"))
 	require.NoError(t, err)
 

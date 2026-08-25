@@ -18,6 +18,7 @@ import (
 )
 
 func TestIncreaseDownloadCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	attachment, err := repo_model.GetAttachmentByUUID(db.DefaultContext, "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
@@ -34,6 +35,7 @@ func TestIncreaseDownloadCount(t *testing.T) {
 }
 
 func TestGetByCommentOrIssueID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// count of attachments from issue ID
@@ -47,6 +49,7 @@ func TestGetByCommentOrIssueID(t *testing.T) {
 }
 
 func TestDeleteAttachments(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	count, err := repo_model.DeleteAttachmentsByComment(db.DefaultContext, 2, false)
@@ -63,6 +66,7 @@ func TestDeleteAttachments(t *testing.T) {
 }
 
 func TestGetAttachmentByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	attach, err := repo_model.GetAttachmentByID(db.DefaultContext, 1)
@@ -71,6 +75,7 @@ func TestGetAttachmentByID(t *testing.T) {
 }
 
 func TestAttachment_DownloadURL(t *testing.T) {
+	testhelper.Setup(t)
 	attach := &repo_model.Attachment{
 		UUID: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
 		ID:   1,
@@ -79,6 +84,7 @@ func TestAttachment_DownloadURL(t *testing.T) {
 }
 
 func TestUpdateAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	attach, err := repo_model.GetAttachmentByID(db.DefaultContext, 1)
@@ -92,6 +98,7 @@ func TestUpdateAttachment(t *testing.T) {
 }
 
 func TestFindRepoAttachmentsByUUID(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/repo/fixtures/TestFindRepoAttachmentsByUUID")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

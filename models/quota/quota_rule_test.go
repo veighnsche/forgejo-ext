@@ -90,6 +90,7 @@ func assertEvaluation(t *testing.T, rule quota_model.Rule, used quota_model.Used
 }
 
 func TestQuotaRuleNoMatch(t *testing.T) {
+	testhelper.Setup(t)
 	testSets := []struct {
 		name  string
 		limit int64
@@ -123,6 +124,7 @@ func TestQuotaRuleNoMatch(t *testing.T) {
 }
 
 func TestQuotaRuleDirectEvaluation(t *testing.T) {
+	testhelper.Setup(t)
 	// This function is meant to test direct rule evaluation: cases where we set
 	// a rule for a subject, and we evaluate against the same subject.
 
@@ -184,6 +186,7 @@ func TestQuotaRuleDirectEvaluation(t *testing.T) {
 }
 
 func TestQuotaRuleCombined(t *testing.T) {
+	testhelper.Setup(t)
 	used := quota_model.Used{
 		Size: quota_model.UsedSize{
 			Repos: quota_model.UsedSizeRepos{
@@ -248,6 +251,7 @@ func TestQuotaRuleCombined(t *testing.T) {
 }
 
 func TestQuotaRuleSizeAll(t *testing.T) {
+	testhelper.Setup(t)
 	type Test struct {
 		name        string
 		limit       int64

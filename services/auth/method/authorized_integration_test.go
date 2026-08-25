@@ -31,6 +31,7 @@ import (
 )
 
 func TestCheckClaims(t *testing.T) {
+	testhelper.Setup(t)
 	ai := &AuthorizedIntegration{}
 	rules := func(rule ...auth_model.ClaimRule) *auth_model.ClaimRules {
 		return &auth_model.ClaimRules{Rules: rule}
@@ -299,6 +300,7 @@ func requireOutput[K auth.MethodOutput](t *testing.T, o auth.MethodOutput) K {
 }
 
 func TestAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("no token", func(t *testing.T) {
 		ai := &AuthorizedIntegration{}
 		aiBasic := &AuthorizedIntegration{PermitBasic: true}

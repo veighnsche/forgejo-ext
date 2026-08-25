@@ -13,6 +13,7 @@ import (
 )
 
 func TestGitConfig(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&Git)()
 	defer test.MockProtect(&GitConfig)()
 
@@ -61,6 +62,7 @@ fsck.missingSpaceBeforeDate = error
 }
 
 func TestGitReflog(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&Git)()
 	defer test.MockProtect(&GitConfig)()
 

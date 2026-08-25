@@ -25,6 +25,7 @@ import (
 )
 
 func TestActionsViewGetRunByID(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: 5, ID: 4})
@@ -66,6 +67,7 @@ func TestActionsViewGetRunByID(t *testing.T) {
 }
 
 func TestActionsViewArtifactsFind(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	for _, testCase := range []struct {
@@ -98,6 +100,7 @@ func TestActionsViewArtifactsFind(t *testing.T) {
 }
 
 func TestActionsViewArtifactsFindByNameOrID(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	for _, testCase := range []struct {
@@ -225,6 +228,7 @@ func baseExpectedViewResponse() *ViewResponse {
 }
 
 func TestActionsViewViewPost(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	tests := []struct {
@@ -391,6 +395,7 @@ func TestActionsViewViewPost(t *testing.T) {
 }
 
 func TestActionsViewCancelableUntilAllJobsFinished(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	tests := []struct {
@@ -440,6 +445,7 @@ func TestActionsViewCancelableUntilAllJobsFinished(t *testing.T) {
 }
 
 func TestActionsViewRedirectToLatestAttempt(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	tests := []struct {
@@ -528,6 +534,7 @@ func TestActionsViewRedirectToLatestAttempt(t *testing.T) {
 }
 
 func TestActionsRerun(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name         string
 		runIndex     int64
@@ -600,6 +607,7 @@ func TestActionsRerun(t *testing.T) {
 }
 
 func TestActionsViewStatusDiagnostics(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	timeutil.MockSet(time.Date(2024, 5, 19, 7, 40, 32, 0, time.UTC))

@@ -12,6 +12,7 @@ import (
 )
 
 func TestMakeSelfOnTop(t *testing.T) {
+	testhelper.Setup(t)
 	users := MakeSelfOnTop(nil, []*user.User{{ID: 2}, {ID: 1}})
 	assert.Len(t, users, 2)
 	assert.EqualValues(t, 2, users[0].ID)

@@ -24,6 +24,7 @@ func openRepositoryWithDefaultContext(repoPath string) (*git.Repository, error) 
 }
 
 func TestGetNotes(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -37,6 +38,7 @@ func TestGetNotes(t *testing.T) {
 }
 
 func TestGetNestedNotes(t *testing.T) {
+	testhelper.Setup(t)
 	repoPath := filepath.Join(testReposDir, "repo3_notes")
 	repo, err := openRepositoryWithDefaultContext(repoPath)
 	require.NoError(t, err)
@@ -53,6 +55,7 @@ func TestGetNestedNotes(t *testing.T) {
 }
 
 func TestGetNonExistentNotes(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -65,6 +68,7 @@ func TestGetNonExistentNotes(t *testing.T) {
 }
 
 func TestSetNote(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	tempDir := t.TempDir()
@@ -83,6 +87,7 @@ func TestSetNote(t *testing.T) {
 }
 
 func TestRemoveNote(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	tempDir := t.TempDir()

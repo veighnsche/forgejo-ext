@@ -21,6 +21,7 @@ import (
 )
 
 func TestPullRequest_APIFormat(t *testing.T) {
+	testhelper.Setup(t)
 	// with HeadRepo
 	require.NoError(t, unittest.PrepareTestDatabase())
 	headRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -51,6 +52,7 @@ func TestPullRequest_APIFormat(t *testing.T) {
 }
 
 func TestPullReviewList(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Pending review", func(t *testing.T) {

@@ -17,6 +17,7 @@ import (
 )
 
 func TestDingTalkPayload(t *testing.T) {
+	testhelper.Setup(t)
 	parseRealSingleURL := func(singleURL string) string {
 		if u, err := url.Parse(singleURL); err == nil {
 			assert.Equal(t, "dingtalk", u.Scheme)
@@ -216,6 +217,7 @@ func TestDingTalkPayload(t *testing.T) {
 }
 
 func TestDingTalkJSONPayload(t *testing.T) {
+	testhelper.Setup(t)
 	p := pushTestPayload()
 	data, err := p.JSONPayload()
 	require.NoError(t, err)

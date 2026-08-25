@@ -12,6 +12,7 @@ import (
 )
 
 func Test_discardStorage(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []DiscardStorage{
 		UninitializedStorage,
 		DiscardStorage("empty"),

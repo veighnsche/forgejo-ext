@@ -73,6 +73,7 @@ func assertTidelift(t *testing.T, entry *api.RepoFundingEntry, expectedTitle, ex
 }
 
 func TestFundingConfigParseErrors(t *testing.T) {
+	testhelper.Setup(t)
 	configs := []string{
 		`this isn't yaml`,
 		`[`,
@@ -92,6 +93,7 @@ func TestFundingConfigParseErrors(t *testing.T) {
 }
 
 func TestFundingEntriesFromConfig(t *testing.T) {
+	testhelper.Setup(t)
 	defer defaultSettings(t)()
 
 	t.Run("Empty config", func(t *testing.T) {
@@ -179,6 +181,7 @@ func TestFundingEntriesFromConfig(t *testing.T) {
 }
 
 func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
+	testhelper.Setup(t)
 	defer defaultSettings(t)()
 
 	t.Run("Skips duplicate entries", func(t *testing.T) {
@@ -415,6 +418,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 }
 
 func TestFundingEntriesWithCustomSchemes(t *testing.T) {
+	testhelper.Setup(t)
 	defer defaultSettings(t)()
 
 	t.Run("an HTTPS website under default schemes", func(t *testing.T) {

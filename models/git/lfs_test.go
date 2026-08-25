@@ -17,6 +17,7 @@ import (
 )
 
 func TestIterateRepositoryIDsWithLFSMetaObjects(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/git/TestIterateRepositoryIDsWithLFSMetaObjects")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -52,6 +53,7 @@ func TestIterateRepositoryIDsWithLFSMetaObjects(t *testing.T) {
 }
 
 func TestIterateLFSMetaObjectsForRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	expectedIDs := []int64{1, 2, 3, 4}

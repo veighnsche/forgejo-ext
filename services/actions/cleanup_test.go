@@ -18,6 +18,7 @@ import (
 )
 
 func TestCleanup(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Deletes no longer existing logs", func(t *testing.T) {
 		require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -61,6 +62,7 @@ func TestCleanup(t *testing.T) {
 }
 
 func TestCleanupEphemeralRunners(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Deletes ephemeral runner with successful task", func(t *testing.T) {

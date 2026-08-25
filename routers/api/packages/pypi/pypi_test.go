@@ -10,6 +10,7 @@ import (
 )
 
 func TestIsValidNameAndVersion(t *testing.T) {
+	testhelper.Setup(t)
 	// The test cases below were created from the following Python PEPs:
 	// https://peps.python.org/pep-0426/#name
 	// https://peps.python.org/pep-0440/#appendix-b-parsing-version-strings-with-regular-expressions
@@ -38,6 +39,7 @@ func TestIsValidNameAndVersion(t *testing.T) {
 }
 
 func TestNormalizeLabel(t *testing.T) {
+	testhelper.Setup(t)
 	// Cases fetched from https://packaging.python.org/en/latest/specifications/well-known-project-urls/#label-normalization.
 	assert.Equal(t, "homepage", normalizeLabel("Homepage"))
 	assert.Equal(t, "homepage", normalizeLabel("Home-page"))

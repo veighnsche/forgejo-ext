@@ -12,6 +12,7 @@ import (
 )
 
 func TestDebounce(t *testing.T) {
+	testhelper.Setup(t)
 	var c atomic.Int64
 	d := Debounce(50 * time.Millisecond)
 	d(func() { c.Add(1) })

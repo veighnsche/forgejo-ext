@@ -18,6 +18,7 @@ import (
 )
 
 func TestGetManager(t *testing.T) {
+	testhelper.Setup(t)
 	go func() {
 		// test race protection
 		_ = GetManager()
@@ -27,6 +28,7 @@ func TestGetManager(t *testing.T) {
 }
 
 func TestManager_AddContext(t *testing.T) {
+	testhelper.Setup(t)
 	pm := Manager{processMap: make(map[IDType]*process), next: 1}
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -46,6 +48,7 @@ func TestManager_AddContext(t *testing.T) {
 }
 
 func TestManager_Cancel(t *testing.T) {
+	testhelper.Setup(t)
 	pm := Manager{processMap: make(map[IDType]*process), next: 1}
 
 	ctx, _, finished := pm.AddContext(t.Context(), "foo")
@@ -74,6 +77,7 @@ func TestManager_Cancel(t *testing.T) {
 }
 
 func TestManager_Remove(t *testing.T) {
+	testhelper.Setup(t)
 	pm := Manager{processMap: make(map[IDType]*process), next: 1}
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -95,6 +99,7 @@ func TestManager_Remove(t *testing.T) {
 }
 
 func TestExecTimeoutNever(t *testing.T) {
+	testhelper.Setup(t)
 	// TODO Investigate how to improve the time elapsed per round.
 	maxLoops := 10
 	for i := 1; i < maxLoops; i++ {
@@ -106,6 +111,7 @@ func TestExecTimeoutNever(t *testing.T) {
 }
 
 func TestExecTimeoutAlways(t *testing.T) {
+	testhelper.Setup(t)
 	maxLoops := 100
 	for i := 1; i < maxLoops; i++ {
 		_, stderr, err := GetManager().ExecTimeout(100*time.Microsecond, "ExecTimeout", "sleep", "5")
@@ -117,6 +123,7 @@ func TestExecTimeoutAlways(t *testing.T) {
 }
 
 func TestSetupCancellableCommand(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("context cancellation gives process time to clean itself up", func(t *testing.T) {
 		script := `
 		trap 'rm -f lock; exit 0' TERM
@@ -268,6 +275,7 @@ func TestSetupCancellableCommand(t *testing.T) {
 }
 
 func TestIsCancellableCommandCancellation(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("nil", func(t *testing.T) {
 		assert.False(t, IsErrCancellableCommandCancellation(nil))
 	})

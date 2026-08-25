@@ -15,6 +15,7 @@ import (
 )
 
 func TestLineBlame(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("SHA1", func(t *testing.T) {
 		repo, err := OpenRepository(t.Context(), filepath.Join(testReposDir, "repo1_bare"))
 		require.NoError(t, err)
@@ -122,6 +123,7 @@ func TestLineBlame(t *testing.T) {
 }
 
 func TestReverseLineBlame(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("single commit", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		require.NoError(t, InitRepository(t.Context(), tmpDir, false, Sha1ObjectFormat.Name()))

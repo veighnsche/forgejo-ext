@@ -10,6 +10,7 @@ import (
 )
 
 func Test_FederatedUserActivityValidation(t *testing.T) {
+	testhelper.Setup(t)
 	sut := FederatedUserActivity{}
 	sut.UserID = 13
 	sut.ActorID = 33

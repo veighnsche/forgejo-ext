@@ -16,6 +16,7 @@ import (
 )
 
 func TestShadowPassword(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		Provider string
 		CfgItem  string
@@ -74,6 +75,7 @@ func TestShadowPassword(t *testing.T) {
 }
 
 func TestMonitorStats(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	t.Run("Normal", func(t *testing.T) {

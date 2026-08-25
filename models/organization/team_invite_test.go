@@ -21,6 +21,7 @@ import (
 )
 
 func TestTeamInvite(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.Service.TeamInvitationExpiryDays, 14)()
 

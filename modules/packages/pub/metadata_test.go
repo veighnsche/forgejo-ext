@@ -43,6 +43,7 @@ dev_dependencies:
   http: '>=0.13.0'`
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(files map[string][]byte) io.Reader {
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)
@@ -105,6 +106,7 @@ func TestParsePackage(t *testing.T) {
 }
 
 func TestParsePubspecMetadata(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("InvalidName", func(t *testing.T) {
 		for _, name := range []string{"123abc", "ab-cd"} {
 			pp, err := ParsePubspecMetadata(strings.NewReader(`name: ` + name))

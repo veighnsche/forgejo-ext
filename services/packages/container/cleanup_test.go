@@ -12,6 +12,7 @@ import (
 )
 
 func TestShouldBeSkipped(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name    string
 		pv      *packages_model.PackageVersion

@@ -153,6 +153,7 @@ var cfgVariants = []namedCfg{
 }
 
 func TestAuthenticate(t *testing.T) {
+	testhelper.Setup(t)
 	for _, v := range cfgVariants {
 		cfg := iniCommon + v.cfg
 		t.Run(v.name, func(t *testing.T) { testAuthenticate(t, cfg) })

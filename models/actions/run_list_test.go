@@ -14,6 +14,7 @@ import (
 )
 
 func TestActionStatusList(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	translation.InitLocales(t.Context())
 

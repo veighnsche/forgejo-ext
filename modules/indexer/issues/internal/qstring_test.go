@@ -278,6 +278,7 @@ var testOpts = []testIssueQueryStringOpt{
 }
 
 func TestIssueQueryString(t *testing.T) {
+	testhelper.Setup(t)
 	ctx := t.Context()
 	for _, res := range testOpts {
 		t.Run(res.Keyword, func(t *testing.T) {
@@ -293,6 +294,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestIssueQueryStringWithFilters(t *testing.T) {
+	testhelper.Setup(t)
 	// we don't need all the fixures
 	// insert only one single test user
 	require.NoError(t, user.CreateUser(t.Context(), &user.User{
@@ -455,6 +457,7 @@ func TestIssueQueryStringWithFilters(t *testing.T) {
 }
 
 func TestToken_ParseIssueReference(t *testing.T) {
+	testhelper.Setup(t)
 	var tk Token
 	{
 		tk.Term = "123"

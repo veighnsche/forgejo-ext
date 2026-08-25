@@ -11,6 +11,7 @@ import (
 )
 
 func TestSharedWorker(t *testing.T) {
+	testhelper.Setup(t)
 	RegisterEventWriter("dummy", func(writerName string, writerMode WriterMode) EventWriter {
 		return newDummyWriter(writerName, writerMode.Level, 0)
 	})

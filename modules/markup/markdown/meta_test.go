@@ -29,6 +29,7 @@ func (it *IssueTemplate) Valid() bool {
 }
 
 func TestExtractMetadata(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("ValidFrontAndBody", func(t *testing.T) {
 		var meta IssueTemplate
 		body, err := ExtractMetadata(fmt.Sprintf("%s\n%s\n%s\n%s", sepTest, frontTest, sepTest, bodyTest), &meta)
@@ -61,6 +62,7 @@ func TestExtractMetadata(t *testing.T) {
 }
 
 func TestExtractMetadataBytes(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("ValidFrontAndBody", func(t *testing.T) {
 		var meta IssueTemplate
 		body, err := ExtractMetadataBytes(fmt.Appendf(nil, "%s\n%s\n%s\n%s", sepTest, frontTest, sepTest, bodyTest), &meta)

@@ -14,6 +14,7 @@ import (
 )
 
 func TestDict(t *testing.T) {
+	testhelper.Setup(t)
 	type M map[string]any
 	cases := []struct {
 		args []any
@@ -46,6 +47,7 @@ func TestDict(t *testing.T) {
 }
 
 func TestUtils(t *testing.T) {
+	testhelper.Setup(t)
 	execTmpl := func(code string, data any) string {
 		tmpl := template.New("test")
 		tmpl.Funcs(template.FuncMap{"SliceUtils": NewSliceUtils, "StringUtils": NewStringUtils})

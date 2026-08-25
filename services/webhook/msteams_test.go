@@ -50,6 +50,7 @@ func findTextInContainer(c MSTeamsContainer, substr string) bool {
 }
 
 func TestMSTeamsPayload(t *testing.T) {
+	testhelper.Setup(t)
 	mc := msteamsConvertor{}
 
 	// helper to find text within the adaptive card body
@@ -377,6 +378,7 @@ func TestMSTeamsPayload(t *testing.T) {
 }
 
 func TestMSTeamsJSONPayload(t *testing.T) {
+	testhelper.Setup(t)
 	p := pushTestPayload()
 	data, err := p.JSONPayload()
 	require.NoError(t, err)

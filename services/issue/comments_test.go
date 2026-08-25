@@ -23,6 +23,7 @@ import (
 )
 
 func TestDeleteComment(t *testing.T) {
+	testhelper.Setup(t)
 	// Use the webhook notification to check if a notification is fired for an action.
 	defer test.MockVariableValue(&setting.DisableWebhooks, false)()
 	require.NoError(t, unittest.PrepareTestDatabase())
@@ -84,6 +85,7 @@ func TestDeleteComment(t *testing.T) {
 }
 
 func TestUpdateComment(t *testing.T) {
+	testhelper.Setup(t)
 	// Use the webhook notification to check if a notification is fired for an action.
 	defer test.MockVariableValue(&setting.DisableWebhooks, false)()
 	require.NoError(t, unittest.PrepareTestDatabase())
@@ -150,6 +152,7 @@ func TestUpdateComment(t *testing.T) {
 }
 
 func TestCreateShadowCopyOnCommentUpdate(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/ModerationFeatures")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

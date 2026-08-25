@@ -13,12 +13,14 @@ import (
 )
 
 func TestStringContent(t *testing.T) {
+	testhelper.Setup(t)
 	p := Pointer{Oid: "4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393", Size: 1234}
 	expected := "version https://git-lfs.github.com/spec/v1\noid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\nsize 1234\n"
 	assert.Equal(t, expected, p.StringContent())
 }
 
 func TestRelativePath(t *testing.T) {
+	testhelper.Setup(t)
 	p := Pointer{Oid: "4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393"}
 	expected := path.Join("4d", "7a", "214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393")
 	assert.Equal(t, expected, p.RelativePath())
@@ -28,6 +30,7 @@ func TestRelativePath(t *testing.T) {
 }
 
 func TestIsValid(t *testing.T) {
+	testhelper.Setup(t)
 	p := Pointer{}
 	assert.False(t, p.IsValid())
 
@@ -45,6 +48,7 @@ func TestIsValid(t *testing.T) {
 }
 
 func TestGeneratePointer(t *testing.T) {
+	testhelper.Setup(t)
 	p, err := GeneratePointer(strings.NewReader("Gitea"))
 	require.NoError(t, err)
 	assert.True(t, p.IsValid())
@@ -53,6 +57,7 @@ func TestGeneratePointer(t *testing.T) {
 }
 
 func TestReadPointerFromBuffer(t *testing.T) {
+	testhelper.Setup(t)
 	p, err := ReadPointerFromBuffer([]byte{})
 	require.ErrorIs(t, err, ErrMissingPrefix)
 	assert.False(t, p.IsValid())
@@ -95,6 +100,7 @@ func TestReadPointerFromBuffer(t *testing.T) {
 }
 
 func TestReadPointer(t *testing.T) {
+	testhelper.Setup(t)
 	p, err := ReadPointer(strings.NewReader("version https://git-lfs.github.com/spec/v1\noid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\nsize 1234\n"))
 	require.NoError(t, err)
 	assert.True(t, p.IsValid())

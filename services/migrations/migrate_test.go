@@ -95,6 +95,7 @@ func (testingDownloader) GetPullRequests(page, _ int) ([]*migration.PullRequest,
 }
 
 func TestMigrateRepository(t *testing.T) {
+	testhelper.Setup(t)
 	messages := []struct {
 		key  string
 		args []any
@@ -126,6 +127,7 @@ func TestMigrateRepository(t *testing.T) {
 }
 
 func TestMigrationUserAgent(t *testing.T) {
+	testhelper.Setup(t)
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userAgent := r.Header.Get("User-Agent")
 		assert.Equal(t, "Forgejo-migration-http-client/1.1", userAgent)

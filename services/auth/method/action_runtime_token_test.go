@@ -21,6 +21,7 @@ import (
 )
 
 func TestActionRuntimeTokenVerify(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Actions JWT", func(t *testing.T) {
@@ -55,6 +56,7 @@ func TestActionRuntimeTokenVerify(t *testing.T) {
 }
 
 func TestCheckTaskIsRunning(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	cases := map[string]struct {
 		TaskID   int64

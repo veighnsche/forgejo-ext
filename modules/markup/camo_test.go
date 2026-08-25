@@ -12,6 +12,7 @@ import (
 )
 
 func TestCamoHandleLink(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppURL = "https://gitea.com"
 	// Test media proxy
 	setting.Camo.Enabled = true

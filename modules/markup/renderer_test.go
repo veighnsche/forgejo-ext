@@ -22,6 +22,7 @@ func (*failReader) Read(p []byte) (n int, err error) {
 }
 
 func TestRender_postProcessOrCopy(t *testing.T) {
+	testhelper.Setup(t)
 	renderContext := &RenderContext{Ctx: t.Context()}
 
 	t.Run("CopyOK", func(t *testing.T) {

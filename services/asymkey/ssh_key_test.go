@@ -19,6 +19,7 @@ import (
 )
 
 func TestAddLdapSSHPublicKeys(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.SSH.RootPath, t.TempDir())()
 

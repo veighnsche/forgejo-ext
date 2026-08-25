@@ -98,6 +98,7 @@ const awsClaims = `
 `
 
 func TestFlexibleClaimsUnmarshal(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Forgejo", func(t *testing.T) {
 		var retval flexibleClaims
 		data := []byte(forgejoClaims)

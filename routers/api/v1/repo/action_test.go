@@ -15,6 +15,7 @@ import (
 )
 
 func TestActions(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	t.Run("ListActionRuns", func(t *testing.T) {

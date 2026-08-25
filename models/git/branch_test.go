@@ -20,6 +20,7 @@ import (
 )
 
 func TestAddDeletedBranch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	assert.Equal(t, git.Sha1ObjectFormat.Name(), repo.ObjectFormatName)
@@ -45,6 +46,7 @@ func TestAddDeletedBranch(t *testing.T) {
 }
 
 func TestGetDeletedBranches(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -58,6 +60,7 @@ func TestGetDeletedBranches(t *testing.T) {
 }
 
 func TestGetDeletedBranch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	firstBranch := unittest.AssertExistsAndLoadBean(t, &git_model.Branch{ID: 1})
 
@@ -65,6 +68,7 @@ func TestGetDeletedBranch(t *testing.T) {
 }
 
 func TestDeletedBranchLoadUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	firstBranch := unittest.AssertExistsAndLoadBean(t, &git_model.Branch{ID: 1})
@@ -84,6 +88,7 @@ func TestDeletedBranchLoadUser(t *testing.T) {
 }
 
 func TestRemoveDeletedBranch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -109,6 +114,7 @@ func getDeletedBranch(t *testing.T, branch *git_model.Branch) *git_model.Branch 
 }
 
 func TestFindRenamedBranch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	branch, exist, err := git_model.FindRenamedBranch(db.DefaultContext, 1, "dev")
 	require.NoError(t, err)
@@ -121,6 +127,7 @@ func TestFindRenamedBranch(t *testing.T) {
 }
 
 func TestRenameBranch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	_isDefault := false
@@ -161,6 +168,7 @@ func TestRenameBranch(t *testing.T) {
 }
 
 func TestOnlyGetDeletedBranchOnCorrectRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Get deletedBranch with ID of 1 on repo with ID 2.
@@ -186,6 +194,7 @@ func TestOnlyGetDeletedBranchOnCorrectRepo(t *testing.T) {
 }
 
 func TestFindBranchesByRepoAndBranchName(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// With no repos or branches given, we find no branches.

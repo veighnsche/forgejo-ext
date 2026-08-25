@@ -28,6 +28,7 @@ var (
 )
 
 func TestGetRepositoryCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ctx := db.DefaultContext
@@ -42,6 +43,7 @@ func TestGetRepositoryCount(t *testing.T) {
 }
 
 func TestGetPublicRepositoryCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	count, err := repo_model.CountRepositories(db.DefaultContext, countReposptsPublic)
@@ -50,6 +52,7 @@ func TestGetPublicRepositoryCount(t *testing.T) {
 }
 
 func TestGetPrivateRepositoryCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	count, err := repo_model.CountRepositories(db.DefaultContext, countReposptsPrivate)
@@ -58,6 +61,7 @@ func TestGetPrivateRepositoryCount(t *testing.T) {
 }
 
 func TestRepoAPIURL(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
 
@@ -65,6 +69,7 @@ func TestRepoAPIURL(t *testing.T) {
 }
 
 func TestWatchRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	const repoID = 3
 	const userID = 2
@@ -79,6 +84,7 @@ func TestWatchRepo(t *testing.T) {
 }
 
 func TestMetas(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := &repo_model.Repository{Name: "testRepo"}
@@ -130,6 +136,7 @@ func TestMetas(t *testing.T) {
 }
 
 func TestGetRepositoryByURL(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("InvalidPath", func(t *testing.T) {
@@ -192,6 +199,7 @@ func TestGetRepositoryByURL(t *testing.T) {
 }
 
 func TestComposeSSHCloneURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.SSH, setting.SSH)()
 	defer test.MockVariableValue(&setting.Repository, setting.Repository)()
 
@@ -221,6 +229,7 @@ func TestComposeSSHCloneURL(t *testing.T) {
 }
 
 func TestAPActorID(t *testing.T) {
+	testhelper.Setup(t)
 	repo := repo_model.Repository{ID: 1}
 	url := repo.APActorID()
 	expected := "https://try.gitea.io/api/v1/activitypub/repository-id/1"

@@ -16,6 +16,7 @@ import (
 )
 
 func TestGiteaPayload(t *testing.T) {
+	testhelper.Setup(t)
 	dh := defaultHandler{
 		forgejo: false,
 	}
@@ -121,6 +122,7 @@ func TestGiteaPayload(t *testing.T) {
 }
 
 func TestForgejoPayload(t *testing.T) {
+	testhelper.Setup(t)
 	dh := defaultHandler{
 		forgejo: true,
 	}
@@ -224,6 +226,7 @@ func TestForgejoPayload(t *testing.T) {
 }
 
 func TestOpenProjectPayload(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("PullRequest", func(t *testing.T) {
 		p := pullRequestTestPayload()
 		data, err := p.JSONPayload()

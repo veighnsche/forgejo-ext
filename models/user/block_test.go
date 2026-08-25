@@ -15,6 +15,7 @@ import (
 )
 
 func TestIsBlocked(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	assert.True(t, user_model.IsBlocked(db.DefaultContext, 4, 1))
 
@@ -24,6 +25,7 @@ func TestIsBlocked(t *testing.T) {
 }
 
 func TestIsBlockedMultiple(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	assert.True(t, user_model.IsBlockedMultiple(db.DefaultContext, []int64{4}, 1))
 	assert.True(t, user_model.IsBlockedMultiple(db.DefaultContext, []int64{4, 3, 4, 5}, 1))
@@ -34,6 +36,7 @@ func TestIsBlockedMultiple(t *testing.T) {
 }
 
 func TestUnblockUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	assert.True(t, user_model.IsBlocked(db.DefaultContext, 4, 1))
 
@@ -44,6 +47,7 @@ func TestUnblockUser(t *testing.T) {
 }
 
 func TestListBlockedUsers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	blockedUsers, err := user_model.ListBlockedUsers(db.DefaultContext, 4, db.ListOptions{})
@@ -56,6 +60,7 @@ func TestListBlockedUsers(t *testing.T) {
 }
 
 func TestListBlockedByUsersID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	blockedByUserIDs, err := user_model.ListBlockedByUsersID(db.DefaultContext, 1)
@@ -66,6 +71,7 @@ func TestListBlockedByUsersID(t *testing.T) {
 }
 
 func TestCountBlockedUsers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	count, err := user_model.CountBlockedUsers(db.DefaultContext, 4)

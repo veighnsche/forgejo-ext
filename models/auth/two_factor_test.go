@@ -13,6 +13,7 @@ import (
 )
 
 func TestHasTwoFactorByUID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("No twofactor", func(t *testing.T) {
@@ -35,6 +36,7 @@ func TestHasTwoFactorByUID(t *testing.T) {
 }
 
 func TestNewTwoFactor(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	otpKey, err := totp.Generate(totp.GenerateOpts{

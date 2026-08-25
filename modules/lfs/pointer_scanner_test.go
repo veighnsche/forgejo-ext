@@ -16,6 +16,7 @@ import (
 )
 
 func TestSearchPointerBlobs(t *testing.T) {
+	testhelper.Setup(t)
 	repo, err := git.OpenRepository(t.Context(), filepath.Join(testReposDir, "simple-lfs"))
 	require.NoError(t, err)
 

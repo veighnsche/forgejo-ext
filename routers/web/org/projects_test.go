@@ -21,6 +21,7 @@ import (
 )
 
 func TestCheckProjectColumnChangePermissions(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/-/projects/4/4")
 	contexttest.LoadUser(t, ctx, 2)
@@ -35,6 +36,7 @@ func TestCheckProjectColumnChangePermissions(t *testing.T) {
 }
 
 func TestViewProjectPRLinkVisibility(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("routers/web/org/TestViewProjectPRLinkVisibility")()
 	unittest.PrepareTestEnv(t)
 
@@ -98,6 +100,7 @@ func TestViewProjectPRLinkVisibility(t *testing.T) {
 }
 
 func TestViewProjectTitle(t *testing.T) {
+	testhelper.Setup(t)
 	// Verify that an organization project has its title set
 	unittest.PrepareTestEnv(t)
 	for _, testCase := range []struct {

@@ -12,6 +12,7 @@ import (
 )
 
 func Test_loadMailerFrom(t *testing.T) {
+	testhelper.Setup(t)
 	kases := map[string]*Mailer{
 		"smtp.mydomain.com": {
 			SMTPAddr: "smtp.mydomain.com",

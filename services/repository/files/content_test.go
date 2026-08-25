@@ -53,6 +53,7 @@ func getExpectedReadmeContentsResponse() *api.ContentsResponse {
 }
 
 func TestGetContents(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -75,6 +76,7 @@ func TestGetContents(t *testing.T) {
 }
 
 func TestGetContentsOrListForDir(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -104,6 +106,7 @@ func TestGetContentsOrListForDir(t *testing.T) {
 }
 
 func TestGetContentsOrListForFile(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -126,6 +129,7 @@ func TestGetContentsOrListForFile(t *testing.T) {
 }
 
 func TestGetContentsErrors(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -148,6 +152,7 @@ func TestGetContentsErrors(t *testing.T) {
 }
 
 func TestGetContentsOrListErrors(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -170,6 +175,7 @@ func TestGetContentsOrListErrors(t *testing.T) {
 }
 
 func TestGetContentsOrListOfEmptyRepos(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 52})
 
@@ -181,6 +187,7 @@ func TestGetContentsOrListOfEmptyRepos(t *testing.T) {
 }
 
 func TestGetBlobBySHA(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -201,6 +208,7 @@ func TestGetBlobBySHA(t *testing.T) {
 }
 
 func TestGetBlobsBySHA(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
 

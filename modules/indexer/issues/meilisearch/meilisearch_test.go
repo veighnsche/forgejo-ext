@@ -19,6 +19,7 @@ import (
 )
 
 func TestMeilisearchIndexer(t *testing.T) {
+	testhelper.Setup(t)
 	t.Skip("meilisearch not found in Forgejo test yet")
 	// The meilisearch instance started by pull-db-tests.yml > test-unit > services > meilisearch
 	url := "http://meilisearch:7700"
@@ -46,6 +47,7 @@ func TestMeilisearchIndexer(t *testing.T) {
 }
 
 func TestConvertHits(t *testing.T) {
+	testhelper.Setup(t)
 	for _, invalidID := range []string{"\"aa\"", "{\"aa\":\"123\"}", "[\"aa\"]"} {
 		_, err := convertHits(&meilisearch.SearchResponse{
 			Hits: meilisearch.Hits{
@@ -83,6 +85,7 @@ func TestConvertHits(t *testing.T) {
 }
 
 func TestDoubleQuoteKeyword(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Empty(t, doubleQuoteKeyword(""))
 	assert.Equal(t, `"a" "b" "c"`, doubleQuoteKeyword("a b c"))
 	assert.Equal(t, `"a" "d" "g"`, doubleQuoteKeyword("a  d g"))

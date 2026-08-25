@@ -13,6 +13,7 @@ import (
 )
 
 func TestDisplayNameDefault(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&AppName, "Forgejo")()
 	defer test.MockVariableValue(&AppSlogan, "Beyond coding. We Forge.")()
 	defer test.MockVariableValue(&AppDisplayNameFormat, "{APP_NAME}: {APP_SLOGAN}")()
@@ -21,6 +22,7 @@ func TestDisplayNameDefault(t *testing.T) {
 }
 
 func TestDisplayNameEmptySlogan(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&AppName, "Forgejo")()
 	defer test.MockVariableValue(&AppSlogan, "")()
 	defer test.MockVariableValue(&AppDisplayNameFormat, "{APP_NAME}: {APP_SLOGAN}")()
@@ -29,6 +31,7 @@ func TestDisplayNameEmptySlogan(t *testing.T) {
 }
 
 func TestDisplayNameCustomFormat(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&AppName, "Forgejo")()
 	defer test.MockVariableValue(&AppSlogan, "Beyond coding. We Forge.")()
 	defer test.MockVariableValue(&AppDisplayNameFormat, "{APP_NAME} - {APP_SLOGAN}")()
@@ -37,6 +40,7 @@ func TestDisplayNameCustomFormat(t *testing.T) {
 }
 
 func TestMaxUserRedirectsDefault(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := ``
 	cfg, err := NewConfigProviderFromData(iniStr)
 	require.NoError(t, err)
@@ -75,6 +79,7 @@ MAX_USER_REDIRECTS = 8`
 }
 
 func TestUnixSocketAbstractNamespace(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 	[server]
 	PROTOCOL=http+unix

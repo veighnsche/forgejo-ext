@@ -16,6 +16,7 @@ import (
 )
 
 func TestActions_getLabels(t *testing.T) {
+	testhelper.Setup(t)
 	type testCase struct {
 		args      []string
 		hasLabels bool

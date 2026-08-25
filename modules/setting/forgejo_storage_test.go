@@ -18,6 +18,7 @@ import (
 )
 
 func TestForgejoDocs_StorageTypes(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [server]
 APP_DATA_PATH = /

@@ -14,6 +14,7 @@ import (
 )
 
 func Test_ForgeUserActivityValidation(t *testing.T) {
+	testhelper.Setup(t)
 	note := forgefed.ForgeUserActivityNote{}
 	note.Type = ap.NoteType
 	note.Content = ap.NaturalLanguageValues{

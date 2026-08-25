@@ -19,6 +19,7 @@ import (
 )
 
 func TestConfigureActionRunTitle(t *testing.T) {
+	testhelper.Setup(t)
 	const defaultTitle = "default title"
 	for _, tc := range []struct {
 		name          string
@@ -70,6 +71,7 @@ jobs:
 }
 
 func TestConfigureActionRunConcurrency(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tc := range []struct {
 		name                     string
 		concurrency              *act_model.RawConcurrency
@@ -177,6 +179,7 @@ func TestConfigureActionRunConcurrency(t *testing.T) {
 }
 
 func TestResolveDispatchInputAcceptsValidInput(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tc := range []struct {
 		name          string
 		key           string
@@ -284,6 +287,7 @@ func TestResolveDispatchInputAcceptsValidInput(t *testing.T) {
 }
 
 func TestResolveDispatchInputRejectsInvalidInput(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tc := range []struct {
 		name     string
 		key      string

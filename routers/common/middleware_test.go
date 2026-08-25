@@ -14,6 +14,7 @@ import (
 )
 
 func TestStripSlashesMiddleware(t *testing.T) {
+	testhelper.Setup(t)
 	type test struct {
 		name               string
 		expectedPath       string

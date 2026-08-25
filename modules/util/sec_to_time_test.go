@@ -10,6 +10,7 @@ import (
 )
 
 func TestSecToTime(t *testing.T) {
+	testhelper.Setup(t)
 	second := int64(1)
 	minute := 60 * second
 	hour := 60 * minute

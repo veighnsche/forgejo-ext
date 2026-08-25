@@ -33,6 +33,7 @@ func enableGravatar(t *testing.T) {
 }
 
 func TestHashEmail(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t,
 		"d41d8cd98f00b204e9800998ecf8427e",
 		avatars_model.HashEmail(""),
@@ -44,6 +45,7 @@ func TestHashEmail(t *testing.T) {
 }
 
 func TestSizedAvatarLink(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppSubURL = "/testsuburl"
 
 	disableGravatar(t)
@@ -60,6 +62,7 @@ func TestSizedAvatarLink(t *testing.T) {
 }
 
 func TestBestAvatarCachedSize(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, 64, avatar.BestAvatarCachedSize(2))
 	assert.Equal(t, 64, avatar.BestAvatarCachedSize(64))
 	assert.Equal(t, 128, avatar.BestAvatarCachedSize(65))

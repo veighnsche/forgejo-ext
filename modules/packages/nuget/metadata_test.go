@@ -78,6 +78,7 @@ const symbolsNuspecContent = `<?xml version="1.0" encoding="utf-8"?>
 </package>`
 
 func TestParsePackageMetaData(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(files map[string]string) []byte {
 		var buf bytes.Buffer
 		archive := zip.NewWriter(&buf)

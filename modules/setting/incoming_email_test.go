@@ -12,6 +12,7 @@ import (
 )
 
 func Test_loadIncomingEmailFrom(t *testing.T) {
+	testhelper.Setup(t)
 	makeBaseConfig := func() (ConfigProvider, ConfigSection) {
 		cfg, _ := NewConfigProviderFromData("")
 		sec := cfg.Section("email.incoming")

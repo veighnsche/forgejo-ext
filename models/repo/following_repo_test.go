@@ -10,6 +10,7 @@ import (
 )
 
 func Test_FollowingRepoValidation(t *testing.T) {
+	testhelper.Setup(t)
 	sut := FollowingRepo{
 		RepoID:           12,
 		ExternalID:       "12",

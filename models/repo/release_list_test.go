@@ -13,6 +13,7 @@ import (
 )
 
 func TestReleaseListLoadAttributes(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	releases := ReleaseList{&Release{

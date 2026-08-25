@@ -27,6 +27,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestDBSearchIssues(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	defer test.MockVariableValue(&setting.Indexer.IssueType, "db")()
@@ -421,6 +422,7 @@ func searchIssueWithPaginator(t *testing.T) {
 }
 
 func TestBleveDeleteIssue(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	tmp := t.TempDir()

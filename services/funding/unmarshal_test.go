@@ -14,6 +14,7 @@ import (
 )
 
 func TestCouldBeFundingConfig(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []string{
 		".forgejo/FUNDING",
 		".forgejo/Funding",
@@ -41,6 +42,7 @@ func TestCouldBeFundingConfig(t *testing.T) {
 }
 
 func TestCannotBeFundingConfig(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []string{
 		"README.md",
 		".gitea/FUNDING.yml",
@@ -58,6 +60,7 @@ func TestCannotBeFundingConfig(t *testing.T) {
 }
 
 func TestFundingConfigParse(t *testing.T) {
+	testhelper.Setup(t)
 	// custom UnmarshalYAML implementation should let us gather ordering info on mapping pairs
 	t.Run("no data", func(t *testing.T) {
 		badConfigs := []string{

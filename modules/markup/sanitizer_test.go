@@ -13,6 +13,7 @@ import (
 )
 
 func Test_Sanitizer(t *testing.T) {
+	testhelper.Setup(t)
 	NewSanitizer()
 	testCases := []string{
 		// Regular
@@ -87,6 +88,7 @@ func Test_Sanitizer(t *testing.T) {
 }
 
 func TestDescriptionSanitizer(t *testing.T) {
+	testhelper.Setup(t)
 	NewSanitizer()
 
 	testCases := []string{
@@ -112,6 +114,7 @@ func TestDescriptionSanitizer(t *testing.T) {
 }
 
 func TestSanitizeNonEscape(t *testing.T) {
+	testhelper.Setup(t)
 	descStr := "<scrİpt>&lt;script&gt;alert(document.domain)&lt;/script&gt;</scrİpt>"
 
 	output := template.HTML(Sanitize(descStr))

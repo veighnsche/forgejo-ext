@@ -16,6 +16,7 @@ import (
 )
 
 func TestLayered(t *testing.T) {
+	testhelper.Setup(t)
 	dir := filepath.Join(t.TempDir(), "assetfs-layers")
 	dir1 := filepath.Join(dir, "l1")
 	dir2 := filepath.Join(dir, "l2")
@@ -112,6 +113,7 @@ func TestLayered(t *testing.T) {
 
 // Allow layers to read symlink outside the layer root.
 func TestLayeredSymlink(t *testing.T) {
+	testhelper.Setup(t)
 	dir := t.TempDir()
 	dirl1 := filepath.Join(dir, "l1")
 	require.NoError(t, os.MkdirAll(dirl1, 0o755))

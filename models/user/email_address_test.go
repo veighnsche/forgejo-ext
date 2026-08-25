@@ -18,6 +18,7 @@ import (
 )
 
 func TestGetEmailAddresses(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	emails, _ := user_model.GetEmailAddresses(db.DefaultContext, int64(1))
@@ -35,6 +36,7 @@ func TestGetEmailAddresses(t *testing.T) {
 }
 
 func TestIsEmailUsed(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	isExist, _ := user_model.IsEmailUsed(db.DefaultContext, "")
@@ -46,6 +48,7 @@ func TestIsEmailUsed(t *testing.T) {
 }
 
 func TestActivate(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	email := &user_model.EmailAddress{
@@ -65,6 +68,7 @@ func TestActivate(t *testing.T) {
 }
 
 func TestListEmails(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Must find all users and their emails
@@ -127,6 +131,7 @@ func TestListEmails(t *testing.T) {
 }
 
 func TestGetActivatedEmailAddresses(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testCases := []struct {
@@ -161,6 +166,7 @@ func TestGetActivatedEmailAddresses(t *testing.T) {
 }
 
 func TestDeletePrimaryEmailAddressOfUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user, err := user_model.GetUserByName(db.DefaultContext, "org3")
@@ -179,6 +185,7 @@ func TestDeletePrimaryEmailAddressOfUser(t *testing.T) {
 }
 
 func TestActivateUserEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/TestActivateUserEmail")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

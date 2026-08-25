@@ -13,6 +13,7 @@ import (
 )
 
 func TestAddTaskToScheduler(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Empty(t, scheduler.Jobs())
 	defer scheduler.Clear()
 
@@ -47,6 +48,7 @@ func TestAddTaskToScheduler(t *testing.T) {
 }
 
 func TestScheduleHasSeconds(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		schedule  string
 		hasSecond bool

@@ -19,6 +19,7 @@ import (
 )
 
 func TestServicesActions_transferLingeringLogs(t *testing.T) {
+	testhelper.Setup(t)
 	// it would be easier to dynamically create fixtures instead of injecting them
 	// in the database for testing, but the dbfs API does not have what is needed to
 	// create them

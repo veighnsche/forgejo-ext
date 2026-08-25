@@ -15,6 +15,7 @@ import (
 )
 
 func TestIsUserAllowed(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pt := &git_model.ProtectedTag{}
@@ -58,6 +59,7 @@ func TestIsUserAllowed(t *testing.T) {
 }
 
 func TestIsUserAllowedToControlTag(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		name    string
 		userid  int64

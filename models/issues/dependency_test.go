@@ -16,6 +16,7 @@ import (
 )
 
 func TestCreateIssueDependency(t *testing.T) {
+	testhelper.Setup(t)
 	// Prepare
 	require.NoError(t, unittest.PrepareTestDatabase())
 

@@ -17,6 +17,7 @@ import (
 )
 
 func Test_parsePostgreSQLHostPort(t *testing.T) {
+	testhelper.Setup(t)
 	tests := map[string]struct {
 		HostPort string
 		Host     string
@@ -64,6 +65,7 @@ func Test_parsePostgreSQLHostPort(t *testing.T) {
 }
 
 func Test_getPostgreSQLConnectionString(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		Host    string
 		User    string
@@ -185,6 +187,7 @@ func getPostgreSQLEngineGroupConnectionStrings(primaryHost, replicaHosts, user, 
 }
 
 func Test_getPostgreSQLEngineGroupConnectionStrings(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		primaryHost    string // primary host setting (e.g. "localhost" or "[::1]:1234")
 		replicaHosts   string // comma-separated replica hosts (e.g. "replica1,replica2:2345")
@@ -261,6 +264,7 @@ func Test_getPostgreSQLEngineGroupConnectionStrings(t *testing.T) {
 }
 
 func Test_loadDBSetting(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&Database)()
 	t.Run("Does not overwrite Passwd", func(t *testing.T) {
 		expectedPassword := "already_set"

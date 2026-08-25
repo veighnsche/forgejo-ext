@@ -27,6 +27,7 @@ import (
 )
 
 func TestAddReadOnlyDeployKey(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.SSH.RootPath, t.TempDir())()
 	unittest.PrepareTestEnv(t)
 
@@ -51,6 +52,7 @@ func TestAddReadOnlyDeployKey(t *testing.T) {
 }
 
 func TestAddReadWriteOnlyDeployKey(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.SSH.RootPath, t.TempDir())()
 
 	unittest.PrepareTestEnv(t)
@@ -77,6 +79,7 @@ func TestAddReadWriteOnlyDeployKey(t *testing.T) {
 }
 
 func TestCollaborationPost(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/issues/labels")
 	contexttest.LoadUser(t, ctx, 2)
@@ -114,6 +117,7 @@ func TestCollaborationPost(t *testing.T) {
 }
 
 func TestCollaborationPost_InactiveUser(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/issues/labels")
 	contexttest.LoadUser(t, ctx, 2)
@@ -137,6 +141,7 @@ func TestCollaborationPost_InactiveUser(t *testing.T) {
 }
 
 func TestCollaborationPost_AddCollaboratorTwice(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/issues/labels")
 	contexttest.LoadUser(t, ctx, 2)
@@ -180,6 +185,7 @@ func TestCollaborationPost_AddCollaboratorTwice(t *testing.T) {
 }
 
 func TestCollaborationPost_NonExistentUser(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/issues/labels")
 	contexttest.LoadUser(t, ctx, 2)
@@ -202,6 +208,7 @@ func TestCollaborationPost_NonExistentUser(t *testing.T) {
 }
 
 func TestAddTeamPost(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "org26/repo43")
 
@@ -242,6 +249,7 @@ func TestAddTeamPost(t *testing.T) {
 }
 
 func TestAddTeamPost_NotAllowed(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "org26/repo43")
 
@@ -282,6 +290,7 @@ func TestAddTeamPost_NotAllowed(t *testing.T) {
 }
 
 func TestAddTeamPost_AddTeamTwice(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "org26/repo43")
 
@@ -323,6 +332,7 @@ func TestAddTeamPost_AddTeamTwice(t *testing.T) {
 }
 
 func TestAddTeamPost_NonExistentTeam(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "org26/repo43")
 
@@ -356,6 +366,7 @@ func TestAddTeamPost_NonExistentTeam(t *testing.T) {
 }
 
 func TestDeleteTeam(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "org3/team1/repo3")
 

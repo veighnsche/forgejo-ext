@@ -10,6 +10,7 @@ import (
 )
 
 func TestAggregateJobStatus(t *testing.T) {
+	testhelper.Setup(t)
 	testStatuses := func(expected Status, statuses []Status) {
 		t.Helper()
 		var jobs []*ActionRunJob

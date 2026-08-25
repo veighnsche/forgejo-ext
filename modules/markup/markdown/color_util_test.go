@@ -10,6 +10,7 @@ import (
 )
 
 func TestMatchColor(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		input    string
 		expected bool

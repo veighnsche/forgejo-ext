@@ -22,6 +22,7 @@ import (
 )
 
 func TestGiteaDownloadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	giteaToken := os.Getenv("GITEA_TOKEN")
@@ -324,6 +325,7 @@ func TestGiteaDownloadRepo(t *testing.T) {
 }
 
 func TestForgejoDownloadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	token := os.Getenv("CODE_FORGEJO_TOKEN")
 
@@ -412,6 +414,7 @@ func createForgejoIssueComments(comments []*gitea_sdk.Comment) []*base.Comment {
 }
 
 func TestBreakConditions(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	giteaToken := os.Getenv("GITEA_TOKEN")
 
@@ -462,6 +465,7 @@ func TestBreakConditions(t *testing.T) {
 }
 
 func TestGiteaDownloaderAvatarURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	GithubLimitRateRemaining = 3 // Wait at 3 remaining since we could have 3 CI in //
 

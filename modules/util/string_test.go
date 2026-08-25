@@ -10,6 +10,7 @@ import (
 )
 
 func TestToSnakeCase(t *testing.T) {
+	testhelper.Setup(t)
 	cases := map[string]string{
 		// all old cases from the legacy package
 		"HTTPServer":         "http_server",
@@ -47,6 +48,7 @@ func TestToSnakeCase(t *testing.T) {
 }
 
 func TestASCIIEqualFold(t *testing.T) {
+	testhelper.Setup(t)
 	cases := map[string]struct {
 		First    string
 		Second   string
@@ -73,6 +75,7 @@ func TestASCIIEqualFold(t *testing.T) {
 }
 
 func TestRemoveAllStr(t *testing.T) {
+	testhelper.Setup(t)
 	for name, c := range map[string]struct {
 		str, res string
 		prefix   bool

@@ -20,6 +20,7 @@ func (t testSaltHasher) HashWithSaltBytes(password string, salt []byte) string {
 }
 
 func Test_registerHasher(t *testing.T) {
+	testhelper.Setup(t)
 	MustRegister("Test_registerHasher", func(config string) testSaltHasher {
 		return testSaltHasher(config)
 	})
@@ -44,6 +45,7 @@ func Test_registerHasher(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
+	testhelper.Setup(t)
 	hashAlgorithmsToTest := []string{}
 	for plainHashAlgorithmNames := range availableHasherFactories {
 		hashAlgorithmsToTest = append(hashAlgorithmsToTest, plainHashAlgorithmNames)
@@ -62,6 +64,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestHashing(t *testing.T) {
+	testhelper.Setup(t)
 	hashAlgorithmsToTest := []string{}
 	for plainHashAlgorithmNames := range availableHasherFactories {
 		hashAlgorithmsToTest = append(hashAlgorithmsToTest, plainHashAlgorithmNames)
@@ -180,6 +183,7 @@ var vectors = []struct {
 
 // Ensure that the current code will correctly verify against the test vectors.
 func TestVectors(t *testing.T) {
+	testhelper.Setup(t)
 	for i, vector := range vectors {
 		for _, algorithm := range vector.algorithms {
 			t.Run(strconv.Itoa(i)+": "+algorithm, func(t *testing.T) {

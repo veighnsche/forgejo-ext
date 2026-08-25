@@ -10,6 +10,7 @@ import (
 )
 
 func Test_FederatedUserValidation(t *testing.T) {
+	testhelper.Setup(t)
 	sut := FederatedUser{
 		UserID:           12,
 		ExternalID:       "12",

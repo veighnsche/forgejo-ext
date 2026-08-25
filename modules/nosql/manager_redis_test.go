@@ -9,6 +9,7 @@ import (
 )
 
 func TestRedisUsernameOpt(t *testing.T) {
+	testhelper.Setup(t)
 	uri, _ := url.Parse("redis://redis:password@myredis/0")
 	opts := getRedisOptions(uri)
 
@@ -18,6 +19,7 @@ func TestRedisUsernameOpt(t *testing.T) {
 }
 
 func TestRedisPasswordOpt(t *testing.T) {
+	testhelper.Setup(t)
 	uri, _ := url.Parse("redis://redis:password@myredis/0")
 	opts := getRedisOptions(uri)
 
@@ -27,6 +29,7 @@ func TestRedisPasswordOpt(t *testing.T) {
 }
 
 func TestSkipVerifyOpt(t *testing.T) {
+	testhelper.Setup(t)
 	uri, _ := url.Parse("rediss://myredis/0?skipverify=true")
 	tlsConfig := getRedisTLSOptions(uri)
 
@@ -36,6 +39,7 @@ func TestSkipVerifyOpt(t *testing.T) {
 }
 
 func TestInsecureSkipVerifyOpt(t *testing.T) {
+	testhelper.Setup(t)
 	uri, _ := url.Parse("rediss://myredis/0?insecureskipverify=true")
 	tlsConfig := getRedisTLSOptions(uri)
 
@@ -45,6 +49,7 @@ func TestInsecureSkipVerifyOpt(t *testing.T) {
 }
 
 func TestRedisSentinelUsernameOpt(t *testing.T) {
+	testhelper.Setup(t)
 	uri, _ := url.Parse("redis+sentinel://redis:password@myredis/0?sentinelusername=suser&sentinelpassword=spass")
 	opts := getRedisOptions(uri).Failover()
 
@@ -54,6 +59,7 @@ func TestRedisSentinelUsernameOpt(t *testing.T) {
 }
 
 func TestRedisSentinelPasswordOpt(t *testing.T) {
+	testhelper.Setup(t)
 	uri, _ := url.Parse("redis+sentinel://redis:password@myredis/0?sentinelusername=suser&sentinelpassword=spass")
 	opts := getRedisOptions(uri).Failover()
 
@@ -63,6 +69,7 @@ func TestRedisSentinelPasswordOpt(t *testing.T) {
 }
 
 func TestRedisDatabaseIndexTcp(t *testing.T) {
+	testhelper.Setup(t)
 	uri, _ := url.Parse("redis://redis:password@myredis/12")
 	opts := getRedisOptions(uri)
 
@@ -72,6 +79,7 @@ func TestRedisDatabaseIndexTcp(t *testing.T) {
 }
 
 func TestRedisDatabaseIndexUnix(t *testing.T) {
+	testhelper.Setup(t)
 	uri, _ := url.Parse("redis+socket:///var/run/redis.sock?database=12")
 	opts := getRedisOptions(uri)
 

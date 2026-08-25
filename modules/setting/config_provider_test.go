@@ -13,6 +13,7 @@ import (
 )
 
 func TestConfigProviderBehaviors(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("BuggyKeyOverwritten", func(t *testing.T) {
 		cfg, _ := NewConfigProviderFromData(`
 [foo]
@@ -45,6 +46,7 @@ xxx = yyy
 }
 
 func TestConfigProviderHelper(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, _ := NewConfigProviderFromData(`
 [foo]
 empty =
@@ -79,6 +81,7 @@ key = 123
 }
 
 func TestNewConfigProviderFromFile(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromFile("no-such.ini")
 	require.NoError(t, err)
 	assert.True(t, cfg.IsLoadedFromEmpty())
@@ -116,6 +119,7 @@ func TestNewConfigProviderFromFile(t *testing.T) {
 }
 
 func TestNewConfigProviderForLocale(t *testing.T) {
+	testhelper.Setup(t)
 	// load locale from file
 	localeFile := t.TempDir() + "/locale.ini"
 	_ = os.WriteFile(localeFile, []byte(`k1=a`), 0o644)
@@ -134,6 +138,7 @@ func TestNewConfigProviderForLocale(t *testing.T) {
 }
 
 func TestDisableSaving(t *testing.T) {
+	testhelper.Setup(t)
 	testFile := t.TempDir() + "/test.ini"
 	_ = os.WriteFile(testFile, []byte("k1=a\nk2=b"), 0o644)
 	cfg, err := NewConfigProviderFromFile(testFile)
@@ -158,6 +163,7 @@ func TestDisableSaving(t *testing.T) {
 }
 
 func TestMustBytes(t *testing.T) {
+	testhelper.Setup(t)
 	test := func(value string) int64 {
 		cfg, err := NewConfigProviderFromData("[test]")
 		require.NoError(t, err)

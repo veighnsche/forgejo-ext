@@ -44,6 +44,7 @@ func captureOutput(t *testing.T, stdFD *os.File) (finish func() (output string))
 }
 
 func TestPktLine(t *testing.T) {
+	testhelper.Setup(t)
 	ctx := t.Context()
 
 	t.Run("Read", func(t *testing.T) {
@@ -115,6 +116,7 @@ func TestPktLine(t *testing.T) {
 }
 
 func TestDelayWriter(t *testing.T) {
+	testhelper.Setup(t)
 	// Setup the environment.
 	defer test.MockVariableValue(&setting.InternalToken, "Random")()
 	defer test.MockVariableValue(&setting.InstallLock, true)()
@@ -166,6 +168,7 @@ func TestDelayWriter(t *testing.T) {
 }
 
 func TestRunHookPrePostReceive(t *testing.T) {
+	testhelper.Setup(t)
 	// Setup the environment.
 	defer test.MockVariableValue(&setting.InternalToken, "Random")()
 	defer test.MockVariableValue(&setting.InstallLock, true)()

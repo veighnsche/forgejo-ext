@@ -13,6 +13,7 @@ import (
 )
 
 func TestMigrationJSON_IssueOK(t *testing.T) {
+	testhelper.Setup(t)
 	issues := make([]*Issue, 0, 10)
 	err := Load("file_format_testdata/issue_a.json", &issues, true)
 	require.NoError(t, err)
@@ -21,6 +22,7 @@ func TestMigrationJSON_IssueOK(t *testing.T) {
 }
 
 func TestMigrationJSON_IssueFail(t *testing.T) {
+	testhelper.Setup(t)
 	issues := make([]*Issue, 0, 10)
 	err := Load("file_format_testdata/issue_b.json", &issues, true)
 	if _, ok := err.(*jsonschema.ValidationError); ok {
@@ -33,6 +35,7 @@ func TestMigrationJSON_IssueFail(t *testing.T) {
 }
 
 func TestMigrationJSON_MilestoneOK(t *testing.T) {
+	testhelper.Setup(t)
 	milestones := make([]*Milestone, 0, 10)
 	err := Load("file_format_testdata/milestones.json", &milestones, true)
 	require.NoError(t, err)

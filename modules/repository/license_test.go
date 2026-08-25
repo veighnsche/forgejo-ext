@@ -13,6 +13,7 @@ import (
 )
 
 func Test_getLicense(t *testing.T) {
+	testhelper.Setup(t)
 	type args struct {
 		name   string
 		values *LicenseValues
@@ -69,6 +70,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 }
 
 func Test_fillLicensePlaceholder(t *testing.T) {
+	testhelper.Setup(t)
 	type args struct {
 		name   string
 		values *LicenseValues

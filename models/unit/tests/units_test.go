@@ -13,6 +13,7 @@ import (
 )
 
 func TestSaveUnits(t *testing.T) {
+	testhelper.Setup(t)
 	restoreUnits := SaveUnits()
 
 	unit_model.DisabledRepoUnitsSet([]unit_model.Type{unit_model.TypeInvalid})

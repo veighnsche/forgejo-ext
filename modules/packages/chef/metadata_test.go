@@ -23,6 +23,7 @@ const (
 )
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("MissingMetadataFile", func(t *testing.T) {
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)
@@ -63,6 +64,7 @@ func TestParsePackage(t *testing.T) {
 }
 
 func TestParseChefMetadata(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("InvalidName", func(t *testing.T) {
 		for _, name := range []string{" test", "test "} {
 			p, err := ParseChefMetadata(strings.NewReader(`{"name":"` + name + `","version":"1.0.0"}`))

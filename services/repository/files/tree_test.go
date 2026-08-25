@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetTreeBySHA(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1")
 	contexttest.LoadRepo(t, ctx, 1)

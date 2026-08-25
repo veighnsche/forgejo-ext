@@ -13,6 +13,7 @@ import (
 )
 
 func TestPackagesGetOrInsertBlob(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/TestPackagesGetOrInsertBlob")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

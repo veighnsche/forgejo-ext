@@ -37,6 +37,7 @@ var (
 )
 
 func TestLocaleStoreJSON(t *testing.T) {
+	testhelper.Setup(t)
 	testDataJSON2 := []byte(`
 {
 	"section.json": "the JSON is %s",
@@ -124,6 +125,7 @@ func TestLocaleStoreJSON(t *testing.T) {
 }
 
 func TestMissingTranslationHandling(t *testing.T) {
+	testhelper.Setup(t)
 	ls := NewLocaleStore()
 
 	// Currently LocaleStore has to be first populated with langcodes via AddLocaleByIni

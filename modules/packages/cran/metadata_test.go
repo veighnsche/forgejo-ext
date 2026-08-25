@@ -38,6 +38,7 @@ func createDescription(name, version string) *bytes.Buffer {
 }
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run(".tar.gz", func(t *testing.T) {
 		createArchive := func(filename string, content []byte) *bytes.Reader {
 			var buf bytes.Buffer
@@ -120,6 +121,7 @@ func TestParsePackage(t *testing.T) {
 }
 
 func TestParseDescription(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("InvalidName", func(t *testing.T) {
 		for _, name := range []string{"123abc", "ab-cd", "ab cd", "ab/cd"} {
 			p, err := ParseDescription(createDescription(name, packageVersion))

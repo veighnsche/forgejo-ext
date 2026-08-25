@@ -16,6 +16,7 @@ import (
 )
 
 func TestRepoAssignees(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo2 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
@@ -41,6 +42,7 @@ func TestRepoAssignees(t *testing.T) {
 }
 
 func TestRepoGetReviewers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// test public repo

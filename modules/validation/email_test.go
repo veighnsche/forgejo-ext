@@ -11,6 +11,7 @@ import (
 )
 
 func TestEmailAddressValidate(t *testing.T) {
+	testhelper.Setup(t)
 	kases := map[string]error{
 		"abc@gmail.com":                  nil,
 		"132@hotmail.com":                nil,

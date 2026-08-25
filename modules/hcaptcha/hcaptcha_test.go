@@ -22,6 +22,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestCaptcha(t *testing.T) {
+	testhelper.Setup(t)
 	tt := []struct {
 		Name   string
 		Secret string

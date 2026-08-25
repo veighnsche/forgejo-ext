@@ -19,6 +19,7 @@ import (
 )
 
 func TestOneDevDownloaderBlocksLocalhost(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, false, func() { require.NoError(t, allowlist.Init()) })()
 
 	u, _ := url.Parse("http://localhost")
@@ -29,6 +30,7 @@ func TestOneDevDownloaderBlocksLocalhost(t *testing.T) {
 }
 
 func TestOneDevDownloadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	resp, err := http.Get("https://code.onedev.io/projects/go-gitea-test_repo")
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Skipf("Can't access test repo, skipping %s", t.Name())

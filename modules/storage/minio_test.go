@@ -25,6 +25,7 @@ import (
 )
 
 func TestMinioStorageIterator(t *testing.T) {
+	testhelper.Setup(t)
 	endpoint := os.Getenv("TEST_MINIO_ENDPOINT")
 	if endpoint == "" {
 		t.Skip("TEST_MINIO_ENDPOINT not set")
@@ -42,6 +43,7 @@ func TestMinioStorageIterator(t *testing.T) {
 }
 
 func TestVirtualHostMinioStorage(t *testing.T) {
+	testhelper.Setup(t)
 	endpoint := os.Getenv("TEST_MINIO_ENDPOINT")
 	if endpoint == "" {
 		t.Skip("TEST_MINIO_ENDPOINT not set")
@@ -60,6 +62,7 @@ func TestVirtualHostMinioStorage(t *testing.T) {
 }
 
 func TestMinioStoragePath(t *testing.T) {
+	testhelper.Setup(t)
 	m := &MinioStorage{basePath: ""}
 	assert.Empty(t, m.buildMinioPath("/"))
 	assert.Empty(t, m.buildMinioPath("."))
@@ -94,6 +97,7 @@ func TestMinioStoragePath(t *testing.T) {
 }
 
 func TestS3StorageBadRequest(t *testing.T) {
+	testhelper.Setup(t)
 	endpoint := os.Getenv("TEST_MINIO_ENDPOINT")
 	if endpoint == "" {
 		t.Skip("TEST_MINIO_ENDPOINT not set")
@@ -123,6 +127,7 @@ func TestS3StorageBadRequest(t *testing.T) {
 }
 
 func TestMinioCredentials(t *testing.T) {
+	testhelper.Setup(t)
 	const (
 		ExpectedAccessKey       = "ExampleAccessKeyID"
 		ExpectedSecretAccessKey = "ExampleSecretAccessKeyID"
@@ -226,6 +231,7 @@ func TestMinioCredentials(t *testing.T) {
 }
 
 func TestNewMinioStorageInitializationTimeout(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&getBucketVersioning, func(ctx context.Context, minioClient *minio.Client, bucket string) error {
 		select {
 		case <-ctx.Done():
@@ -291,6 +297,7 @@ func newProxyServer(t *testing.T, proxied *atomic.Bool) *httptest.Server {
 }
 
 func TestMinioStorageProxy(t *testing.T) {
+	testhelper.Setup(t)
 	// Start a fake TLS S3-compatible server.
 	// `UseSSL: true` triggers CONNECT-style proxying.
 	// `InsecureSkipVerify: true` accepts the self-signed cert.

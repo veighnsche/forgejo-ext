@@ -17,6 +17,7 @@ import (
 )
 
 func TestNewIssueValidateProject(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	user := forgery.CreateUser(t, &forgery.CreateUserOptions{

@@ -17,6 +17,7 @@ import (
 )
 
 func TestServeContentByReader(t *testing.T) {
+	testhelper.Setup(t)
 	data := "0123456789abcdef"
 
 	test := func(t *testing.T, expectedStatusCode int, expectedContent string) {
@@ -59,6 +60,7 @@ func TestServeContentByReader(t *testing.T) {
 }
 
 func TestServeContentByReadSeeker(t *testing.T) {
+	testhelper.Setup(t)
 	data := "0123456789abcdef"
 	tmpFile := t.TempDir() + "/test"
 	err := os.WriteFile(tmpFile, []byte(data), 0o644)

@@ -19,6 +19,7 @@ import (
 )
 
 func TestXRef_AddCrossReferences(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Issue #1 to test against
@@ -70,6 +71,7 @@ func TestXRef_AddCrossReferences(t *testing.T) {
 }
 
 func TestXRef_NeuterCrossReferences(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Issue #1 to test against
@@ -92,6 +94,7 @@ func TestXRef_NeuterCrossReferences(t *testing.T) {
 }
 
 func TestXRef_ResolveCrossReferences(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	d := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

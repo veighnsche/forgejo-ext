@@ -23,6 +23,7 @@ import (
 )
 
 func TestDumpDatabase(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	dir := t.TempDir()
@@ -39,6 +40,7 @@ func TestDumpDatabase(t *testing.T) {
 }
 
 func TestDeleteOrphanedObjects(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	countBefore, err := db.GetEngine(db.DefaultContext).Count(&issues_model.PullRequest{})
@@ -66,6 +68,7 @@ func TestDeleteOrphanedObjects(t *testing.T) {
 }
 
 func TestPrimaryKeys(t *testing.T) {
+	testhelper.Setup(t)
 	// Some dbs require that all tables have primary keys, see
 	//   https://github.com/go-gitea/gitea/issues/21086
 	//   https://github.com/go-gitea/gitea/issues/16802
@@ -98,6 +101,7 @@ func TestPrimaryKeys(t *testing.T) {
 }
 
 func TestSlowQuery(t *testing.T) {
+	testhelper.Setup(t)
 	lc, cleanup := test.NewLogChecker("slow-query", log.INFO)
 	lc.StopMark("[Slow SQL Query]")
 	defer cleanup()
@@ -132,6 +136,7 @@ func TestSlowQuery(t *testing.T) {
 }
 
 func TestErrorQuery(t *testing.T) {
+	testhelper.Setup(t)
 	lc, cleanup := test.NewLogChecker("error-query", log.INFO)
 	lc.StopMark("[Error SQL Query]")
 	defer cleanup()

@@ -24,6 +24,7 @@ func (sut Sut) Validate() []string {
 }
 
 func Test_IsValid(t *testing.T) {
+	testhelper.Setup(t)
 	sut := Sut{valid: true}
 	if res, _ := IsValid(sut); !res {
 		t.Errorf("sut expected to be valid: %v\n", sut.Validate())
@@ -39,6 +40,7 @@ func Test_IsValid(t *testing.T) {
 }
 
 func Test_ValidateNotEmpty_ForString(t *testing.T) {
+	testhelper.Setup(t)
 	sut := ""
 	res := ValidateNotEmpty(sut, "dummyField")
 	assert.Len(t, res, 1)
@@ -49,6 +51,7 @@ func Test_ValidateNotEmpty_ForString(t *testing.T) {
 }
 
 func Test_ValidateNotEmpty_ForTimestamp(t *testing.T) {
+	testhelper.Setup(t)
 	sut := timeutil.TimeStamp(0)
 	res := ValidateNotEmpty(sut, "dummyField")
 	assert.Len(t, res, 1)
@@ -59,6 +62,7 @@ func Test_ValidateNotEmpty_ForTimestamp(t *testing.T) {
 }
 
 func Test_ValidateIDExists_ForItem(t *testing.T) {
+	testhelper.Setup(t)
 	sut := ap.Activity{
 		Object: nil,
 	}
@@ -79,6 +83,7 @@ func Test_ValidateIDExists_ForItem(t *testing.T) {
 }
 
 func Test_ValidateMaxLen(t *testing.T) {
+	testhelper.Setup(t)
 	sut := "0123456789"
 	res := ValidateMaxLen(sut, 9, "dummyField")
 	assert.Len(t, res, 1)

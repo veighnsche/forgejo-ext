@@ -63,6 +63,7 @@ func runTestApp(app *cli.Command, args ...string) (runResult, error) {
 }
 
 func TestCliCmd(t *testing.T) {
+	testhelper.Setup(t)
 	path, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -145,6 +146,7 @@ func TestCliCmd(t *testing.T) {
 }
 
 func TestCliCmdError(t *testing.T) {
+	testhelper.Setup(t)
 	app := newTestApp(func(_ context.Context, ctx *cli.Command) error { return errors.New("normal error") })
 	r, err := runTestApp(app, "./gitea", "test-cmd")
 	require.Error(t, err)

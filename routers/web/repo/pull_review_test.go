@@ -27,6 +27,7 @@ import (
 )
 
 func TestRenderConversation(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	pr, _ := issues_model.GetPullRequestByID(db.DefaultContext, 2)
@@ -151,6 +152,7 @@ func TestRenderConversation(t *testing.T) {
 // TestCreateCodeCommentRejectsNegativeExtraLinesCount checks that the CreateCodeComment handler
 // rejects a negative extra_lines_count with a 400 response, before reaching any comment creation.
 func TestCreateCodeCommentRejectsNegativeExtraLinesCount(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	pr, err := issues_model.GetPullRequestByID(db.DefaultContext, 2)
@@ -179,6 +181,7 @@ func TestCreateCodeCommentRejectsNegativeExtraLinesCount(t *testing.T) {
 // TestCreateCodeCommentRejectsExceedingMaxLines checks that the CreateCodeComment handler rejects a
 // multi-line comment spanning more than setting.UI.MaxCodeCommentLines lines with a 400 response.
 func TestCreateCodeCommentRejectsExceedingMaxLines(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	defer test.MockVariableValue(&setting.UI.MaxCodeCommentLines, 50)()

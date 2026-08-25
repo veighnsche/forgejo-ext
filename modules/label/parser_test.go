@@ -11,6 +11,7 @@ import (
 )
 
 func TestYamlParser(t *testing.T) {
+	testhelper.Setup(t)
 	data := []byte(`labels:
   - name: priority/low
     exclusive: true
@@ -50,6 +51,7 @@ func TestYamlParser(t *testing.T) {
 }
 
 func TestLegacyParser(t *testing.T) {
+	testhelper.Setup(t)
 	data := []byte(`#ee0701 bug   ;   Something is not working
 #cccccc   duplicate ; This issue or pull request already exists
 #84b6eb enhancement`)

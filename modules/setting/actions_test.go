@@ -14,6 +14,7 @@ import (
 )
 
 func Test_getStorageInheritNameSectionTypeForActions(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 	[storage]
 	STORAGE_TYPE = minio
@@ -100,6 +101,7 @@ STORAGE_TYPE = minio
 }
 
 func Test_getDefaultActionsURLForActions(t *testing.T) {
+	testhelper.Setup(t)
 	oldActions := Actions
 	oldAppURL := AppURL
 	defer func() {
@@ -159,6 +161,7 @@ DEFAULT_ACTIONS_URL = https://example.com
 }
 
 func Test_getIDTokenSettingsForActions(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&AppDataPath, "/home/app/data")()
 
 	oldActions := Actions

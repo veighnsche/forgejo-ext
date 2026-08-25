@@ -14,6 +14,7 @@ import (
 )
 
 func TestRepository_GetBlob_Found(t *testing.T) {
+	testhelper.Setup(t)
 	repoPath := filepath.Join(testReposDir, "repo1_bare")
 	r, err := openRepositoryWithDefaultContext(repoPath)
 	require.NoError(t, err)
@@ -42,6 +43,7 @@ func TestRepository_GetBlob_Found(t *testing.T) {
 }
 
 func TestRepository_GetBlob_NotExist(t *testing.T) {
+	testhelper.Setup(t)
 	repoPath := filepath.Join(testReposDir, "repo1_bare")
 	r, err := openRepositoryWithDefaultContext(repoPath)
 	require.NoError(t, err)
@@ -56,6 +58,7 @@ func TestRepository_GetBlob_NotExist(t *testing.T) {
 }
 
 func TestRepository_GetBlob_NoId(t *testing.T) {
+	testhelper.Setup(t)
 	repoPath := filepath.Join(testReposDir, "repo1_bare")
 	r, err := openRepositoryWithDefaultContext(repoPath)
 	require.NoError(t, err)

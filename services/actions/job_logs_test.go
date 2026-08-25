@@ -26,6 +26,7 @@ import (
 // in DBFS — LogFilename can point at "does-not-exist".
 
 func TestOpenJobLogReader_RepoMismatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	unittest.AssertSuccessfulInsert(t, &actions_model.ActionRunJob{ID: 9001, RepoID: 1, TaskID: 9001})
@@ -36,6 +37,7 @@ func TestOpenJobLogReader_RepoMismatch(t *testing.T) {
 }
 
 func TestOpenJobLogReader_JobNotExecuted(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	unittest.AssertSuccessfulInsert(t, &actions_model.ActionRunJob{ID: 9002, RepoID: 1, TaskID: 0})
@@ -46,6 +48,7 @@ func TestOpenJobLogReader_JobNotExecuted(t *testing.T) {
 }
 
 func TestOpenJobLogReader_LogsExpired(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	unittest.AssertSuccessfulInsert(t, &actions_model.ActionTask{ID: 9003, LogExpired: true})
@@ -57,6 +60,7 @@ func TestOpenJobLogReader_LogsExpired(t *testing.T) {
 }
 
 func TestOpenJobLogReader_UnknownAttempt(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	unittest.AssertSuccessfulInsert(t, &actions_model.ActionTask{ID: 9004, JobID: 9004, Attempt: 1})
@@ -68,6 +72,7 @@ func TestOpenJobLogReader_UnknownAttempt(t *testing.T) {
 }
 
 func TestOpenJobLogReader_StepOutOfRange(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Task with one real step → FullSteps returns 3 entries (setup, real, complete).
@@ -96,6 +101,7 @@ func TestOpenJobLogReader_StepOutOfRange(t *testing.T) {
 // TestWriteJobLogStream_TextNoFilter confirms the cheap path: when JSON is
 // off, every line is passed through verbatim with a trailing newline.
 func TestWriteJobLogStream_TextNoFilter(t *testing.T) {
+	testhelper.Setup(t)
 	input := "2026-01-01T00:00:00.0000000Z hello\n2026-01-01T00:00:01.0000000Z world\n"
 	var out bytes.Buffer
 	require.NoError(t, WriteJobLogStream(&out, strings.NewReader(input), JobLogFilterOptions{}))
@@ -106,6 +112,7 @@ func TestWriteJobLogStream_TextNoFilter(t *testing.T) {
 // TestWriteJobLogStream_JSON confirms NDJSON output shape: one object per
 // line with `time` and `content` fields, separated by `\n`.
 func TestWriteJobLogStream_JSON(t *testing.T) {
+	testhelper.Setup(t)
 	input := "2026-01-01T00:00:00.0000000Z hello\n2026-01-01T00:00:01.0000000Z world\n"
 	var out bytes.Buffer
 	require.NoError(t, WriteJobLogStream(&out, strings.NewReader(input), JobLogFilterOptions{JSON: true}))
@@ -128,6 +135,7 @@ func TestWriteJobLogStream_JSON(t *testing.T) {
 // aborting the whole stream. Defense-in-depth — storage writes well-formed
 // lines, so this shouldn't happen in practice.
 func TestWriteJobLogStream_SkipMalformed(t *testing.T) {
+	testhelper.Setup(t)
 	input := "2026-01-01T00:00:00.0000000Z hello\nbogus-line-no-prefix\n2026-01-01T00:00:02.0000000Z bye\n"
 	var out bytes.Buffer
 	require.NoError(t, WriteJobLogStream(&out, strings.NewReader(input), JobLogFilterOptions{JSON: true}))
@@ -138,12 +146,14 @@ func TestWriteJobLogStream_SkipMalformed(t *testing.T) {
 // TestMaxStoredLineSizeTracks sanity-checks that the exported constant the
 // scanner uses tracks MaxLineSize (timestamp + space + content).
 func TestMaxStoredLineSizeTracks(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Greater(t, actions.MaxStoredLineSize, actions.MaxLineSize)
 }
 
 // TestWriteJobLogStream_QuerySubstring confirms substring filtering against
 // line content (not the timestamp prefix).
 func TestWriteJobLogStream_QuerySubstring(t *testing.T) {
+	testhelper.Setup(t)
 	input := "2026-01-01T00:00:00.0000000Z error: failed to bind\n" +
 		"2026-01-01T00:00:01.0000000Z info: ok\n" +
 		"2026-01-01T00:00:02.0000000Z error: deadlock\n"
@@ -161,6 +171,7 @@ func TestWriteJobLogStream_QuerySubstring(t *testing.T) {
 // directions -- a prefix-only "2026" is ignored, a content "2026" is matched --
 // so a bug that matched the whole raw line (or dropped every line) would fail.
 func TestWriteJobLogStream_QueryIgnoresTimestamp(t *testing.T) {
+	testhelper.Setup(t)
 	input := "2026-01-01T00:00:00.0000000Z hello\n" +
 		"2026-01-01T00:00:01.0000000Z bye\n" +
 		"2026-01-01T00:00:02.0000000Z shipped in 2026\n"
@@ -174,6 +185,7 @@ func TestWriteJobLogStream_QueryIgnoresTimestamp(t *testing.T) {
 
 // TestWriteJobLogStream_IgnoreCase confirms case-insensitive substring match.
 func TestWriteJobLogStream_IgnoreCase(t *testing.T) {
+	testhelper.Setup(t)
 	input := "2026-01-01T00:00:00.0000000Z ERROR: BOOM\n2026-01-01T00:00:01.0000000Z info: ok\n"
 	var out bytes.Buffer
 	require.NoError(t, WriteJobLogStream(&out, strings.NewReader(input), JobLogFilterOptions{Query: "error", IgnoreCase: true}))
@@ -183,6 +195,7 @@ func TestWriteJobLogStream_IgnoreCase(t *testing.T) {
 
 // TestWriteJobLogStream_JSONWithQuery confirms JSON + substring filter compose.
 func TestWriteJobLogStream_JSONWithQuery(t *testing.T) {
+	testhelper.Setup(t)
 	input := "2026-01-01T00:00:00.0000000Z error: boom\n2026-01-01T00:00:01.0000000Z info: ok\n"
 	var out bytes.Buffer
 	require.NoError(t, WriteJobLogStream(&out, strings.NewReader(input), JobLogFilterOptions{Query: "error", JSON: true}))

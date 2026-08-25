@@ -13,6 +13,7 @@ import (
 )
 
 func TestFileBackedBuffer(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		MaxMemorySize int
 		Data          string

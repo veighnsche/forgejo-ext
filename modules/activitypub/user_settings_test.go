@@ -16,6 +16,7 @@ import (
 )
 
 func TestUserSettings(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 	pub, priv, err := activitypub.GetKeyPair(db.DefaultContext, user1)

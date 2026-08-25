@@ -24,6 +24,7 @@ import (
 )
 
 func TestDiffToHTML(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "foo <span class=\"added-code\">bar</span> biz", diffToHTML(nil, []dmp.Diff{
 		{Type: dmp.DiffEqual, Text: "foo "},
 		{Type: dmp.DiffInsert, Text: "bar"},
@@ -40,6 +41,7 @@ func TestDiffToHTML(t *testing.T) {
 }
 
 func TestParsePatch_singlefile(t *testing.T) {
+	testhelper.Setup(t)
 	type testcase struct {
 		name        string
 		gitdiff     string
@@ -405,6 +407,7 @@ func setupDefaultDiff() *Diff {
 }
 
 func TestDiff_LoadCommentsNoOutdated(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
@@ -415,6 +418,7 @@ func TestDiff_LoadCommentsNoOutdated(t *testing.T) {
 }
 
 func TestDiff_LoadCommentsWithOutdated(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
@@ -427,6 +431,7 @@ func TestDiff_LoadCommentsWithOutdated(t *testing.T) {
 }
 
 func TestDiffLine_CanComment(t *testing.T) {
+	testhelper.Setup(t)
 	assert.False(t, (&DiffLine{Type: DiffLineSection}).CanComment())
 	assert.False(t, (&DiffLine{Type: DiffLineAdd, Conversations: []issues_model.CodeConversation{{{Content: "bla"}}}}).CanComment())
 	assert.True(t, (&DiffLine{Type: DiffLineAdd}).CanComment())
@@ -435,11 +440,13 @@ func TestDiffLine_CanComment(t *testing.T) {
 }
 
 func TestDiffLine_GetCommentSide(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "previous", (&DiffLine{Conversations: []issues_model.CodeConversation{{{Line: -3}}}}).GetCommentSide())
 	assert.Equal(t, "proposed", (&DiffLine{Conversations: []issues_model.CodeConversation{{{Line: 3}}}}).GetCommentSide())
 }
 
 func TestGetDiffRangeWithWhitespaceBehavior(t *testing.T) {
+	testhelper.Setup(t)
 	gitRepo, err := git.OpenRepository(git.DefaultContext, "./testdata/academic-module")
 	require.NoError(t, err)
 
@@ -461,6 +468,7 @@ func TestGetDiffRangeWithWhitespaceBehavior(t *testing.T) {
 }
 
 func TestGetDiffFull(t *testing.T) {
+	testhelper.Setup(t)
 	gitRepo, err := git.OpenRepository(git.DefaultContext, "./../../modules/git/tests/repos/language_stats_repo")
 	require.NoError(t, err)
 
@@ -521,6 +529,7 @@ func TestGetDiffFull(t *testing.T) {
 }
 
 func TestGetDiffNameStatus_GetsAllChangedFiles(t *testing.T) {
+	testhelper.Setup(t)
 	gitRepo, err := git.OpenRepository(git.DefaultContext, "./../../modules/git/tests/repos/language_stats_repo")
 	require.NoError(t, err)
 
@@ -551,6 +560,7 @@ func TestGetDiffNameStatus_GetsAllChangedFiles(t *testing.T) {
 }
 
 func TestDiffLine_GetExpandDirection(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name           string
 		diffLine       *DiffLine
@@ -708,6 +718,7 @@ func TestDiffLine_GetExpandDirection(t *testing.T) {
 }
 
 func TestNoCrashes(t *testing.T) {
+	testhelper.Setup(t)
 	type testcase struct {
 		gitdiff string
 	}
@@ -727,6 +738,7 @@ func TestNoCrashes(t *testing.T) {
 }
 
 func TestEnrichWithReview(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name        string
 		reviewState *pull_model.ReviewState
@@ -787,6 +799,7 @@ func TestEnrichWithReview(t *testing.T) {
 }
 
 func TestGetFileNames(t *testing.T) {
+	testhelper.Setup(t)
 	files := []*DiffFileMetadata{
 		{Name: "a.go"},
 		{Name: "b/c.go"},
@@ -799,6 +812,7 @@ func TestGetFileNames(t *testing.T) {
 }
 
 func TestGetDiffMetadata(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name               string
 		review             *pull_model.ReviewState
@@ -847,6 +861,7 @@ func TestGetDiffMetadata(t *testing.T) {
 }
 
 func TestGetDiffFilePage(t *testing.T) {
+	testhelper.Setup(t)
 	metadata := []*DiffFileMetadata{
 		{Name: "a.go"},
 		{Name: "b.go"},

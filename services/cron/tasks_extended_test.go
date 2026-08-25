@@ -15,6 +15,7 @@ import (
 )
 
 func Test_GCLFSConfig(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := setting.NewConfigProviderFromData(`
 [cron.gc_lfs]
 ENABLED = true

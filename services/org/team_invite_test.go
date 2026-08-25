@@ -19,6 +19,7 @@ import (
 )
 
 func Test_InviteTeamMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, true)()
 
@@ -35,6 +36,7 @@ func Test_InviteTeamMember(t *testing.T) {
 }
 
 func Test_AddTeamMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, false)()
 
@@ -51,6 +53,7 @@ func Test_AddTeamMember(t *testing.T) {
 }
 
 func Test_SelfInvite(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, true)()
 

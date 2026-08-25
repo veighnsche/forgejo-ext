@@ -20,6 +20,7 @@ import (
 )
 
 func TestPullRequest_LoadAttributes(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 1})
 	require.NoError(t, pr.LoadAttributes(db.DefaultContext))
@@ -28,6 +29,7 @@ func TestPullRequest_LoadAttributes(t *testing.T) {
 }
 
 func TestPullRequest_LoadIssue(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 1})
 	require.NoError(t, pr.LoadIssue(db.DefaultContext))
@@ -39,6 +41,7 @@ func TestPullRequest_LoadIssue(t *testing.T) {
 }
 
 func TestPullRequest_LoadBaseRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 1})
 	require.NoError(t, pr.LoadBaseRepo(db.DefaultContext))
@@ -50,6 +53,7 @@ func TestPullRequest_LoadBaseRepo(t *testing.T) {
 }
 
 func TestPullRequest_LoadHeadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 1})
 	require.NoError(t, pr.LoadHeadRepo(db.DefaultContext))
@@ -62,6 +66,7 @@ func TestPullRequest_LoadHeadRepo(t *testing.T) {
 // TODO TestNewPullRequest
 
 func TestPullRequestsNewest(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	prs, count, err := issues_model.PullRequests(db.DefaultContext, 1, &issues_model.PullRequestsOptions{
 		ListOptions: db.ListOptions{
@@ -80,6 +85,7 @@ func TestPullRequestsNewest(t *testing.T) {
 }
 
 func TestPullRequests_Closed_RecentSortType(t *testing.T) {
+	testhelper.Setup(t)
 	// Issue ID | Closed At.  | Updated At
 	//    2     | 1707270001  | 1707270001
 	//    3     | 1707271000  | 1707279999
@@ -121,6 +127,7 @@ func TestPullRequests_Closed_RecentSortType(t *testing.T) {
 }
 
 func TestLoadRequestedReviewers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pull := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 1})
@@ -149,6 +156,7 @@ func TestLoadRequestedReviewers(t *testing.T) {
 }
 
 func TestPullRequestsOldest(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	prs, count, err := issues_model.PullRequests(db.DefaultContext, 1, &issues_model.PullRequestsOptions{
 		ListOptions: db.ListOptions{
@@ -167,6 +175,7 @@ func TestPullRequestsOldest(t *testing.T) {
 }
 
 func TestGetUnmergedPullRequest(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr, err := issues_model.GetUnmergedPullRequest(db.DefaultContext, 1, 1, "branch2", "master", issues_model.PullRequestFlowGithub)
 	require.NoError(t, err)
@@ -183,6 +192,7 @@ func TestGetUnmergedPullRequest(t *testing.T) {
 }
 
 func TestHasUnmergedPullRequestsByHeadInfo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	exist, err := issues_model.HasUnmergedPullRequestsByHeadInfo(db.DefaultContext, 1, "branch2")
@@ -195,6 +205,7 @@ func TestHasUnmergedPullRequestsByHeadInfo(t *testing.T) {
 }
 
 func TestGetUnmergedPullRequestsByHeadInfo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	prs, err := issues_model.GetUnmergedPullRequestsByHeadInfo(db.DefaultContext, 1, "branch2")
 	require.NoError(t, err)
@@ -206,6 +217,7 @@ func TestGetUnmergedPullRequestsByHeadInfo(t *testing.T) {
 }
 
 func TestGetUnmergedPullRequestsByHeadInfoMax(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/TestGetUnmergedPullRequestsByHeadInfoMax")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -300,6 +312,7 @@ func TestGetUnmergedPullRequestsByHeadInfoMax(t *testing.T) {
 }
 
 func TestGetUnmergedPullRequestsByBaseInfo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	prs, err := issues_model.GetUnmergedPullRequestsByBaseInfo(db.DefaultContext, 1, "master")
 	require.NoError(t, err)
@@ -311,6 +324,7 @@ func TestGetUnmergedPullRequestsByBaseInfo(t *testing.T) {
 }
 
 func TestGetPullRequestByIndex(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr, err := issues_model.GetPullRequestByIndex(db.DefaultContext, 1, 2)
 	require.NoError(t, err)
@@ -327,6 +341,7 @@ func TestGetPullRequestByIndex(t *testing.T) {
 }
 
 func TestGetPullRequestByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr, err := issues_model.GetPullRequestByID(db.DefaultContext, 1)
 	require.NoError(t, err)
@@ -339,6 +354,7 @@ func TestGetPullRequestByID(t *testing.T) {
 }
 
 func TestGetPullRequestByIssueID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr, err := issues_model.GetPullRequestByIssueID(db.DefaultContext, 2)
 	require.NoError(t, err)
@@ -350,6 +366,7 @@ func TestGetPullRequestByIssueID(t *testing.T) {
 }
 
 func TestPullRequest_Update(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 1})
 	pr.BaseBranch = "baseBranch"
@@ -363,6 +380,7 @@ func TestPullRequest_Update(t *testing.T) {
 }
 
 func TestPullRequest_UpdateCols(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := &issues_model.PullRequest{
 		ID:         1,
@@ -378,6 +396,7 @@ func TestPullRequest_UpdateCols(t *testing.T) {
 }
 
 func TestPullRequestList_LoadAttributes(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	prs := []*issues_model.PullRequest{
@@ -396,6 +415,7 @@ func TestPullRequestList_LoadAttributes(t *testing.T) {
 // TODO TestAddTestPullRequestTask
 
 func TestPullRequest_IsWorkInProgress(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 2})
@@ -411,6 +431,7 @@ func TestPullRequest_IsWorkInProgress(t *testing.T) {
 }
 
 func TestPullRequest_GetWorkInProgressPrefixWorkInProgress(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 2})
@@ -427,6 +448,7 @@ func TestPullRequest_GetWorkInProgressPrefixWorkInProgress(t *testing.T) {
 }
 
 func TestParseCodeOwnersLine(t *testing.T) {
+	testhelper.Setup(t)
 	type CodeOwnerTest struct {
 		Line   string
 		Tokens []string
@@ -449,6 +471,7 @@ func TestParseCodeOwnersLine(t *testing.T) {
 }
 
 func TestGetApprovers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 5})
 	// Official reviews are already deduplicated. Allow unofficial reviews
@@ -460,6 +483,7 @@ func TestGetApprovers(t *testing.T) {
 }
 
 func TestGetPullRequestByMergedCommit(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr, err := issues_model.GetPullRequestByMergedCommit(db.DefaultContext, 1, "1a8823cd1a9549fde083f992f6b9b87a7ab74fb3")
 	require.NoError(t, err)
@@ -472,6 +496,7 @@ func TestGetPullRequestByMergedCommit(t *testing.T) {
 }
 
 func TestPullRequest_IsForkPullRequest(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("FlowGithub from a fork", func(t *testing.T) {
@@ -509,6 +534,7 @@ func TestPullRequest_IsForkPullRequest(t *testing.T) {
 }
 
 func TestMigrate_InsertPullRequests(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	reponame := "repo1"
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{Name: reponame})

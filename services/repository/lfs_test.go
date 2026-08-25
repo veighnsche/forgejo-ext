@@ -23,6 +23,7 @@ import (
 )
 
 func TestGarbageCollectLFSMetaObjects(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	defer test.MockVariableValue(&setting.LFS.StartServer, true)()

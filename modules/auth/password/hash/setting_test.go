@@ -10,6 +10,7 @@ import (
 )
 
 func TestCheckSettingPasswordHashAlgorithm(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("pbkdf2 is pbkdf2_v2", func(t *testing.T) {
 		pbkdf2v2Config, pbkdf2v2Algo := SetDefaultPasswordHashAlgorithm("pbkdf2_v2")
 		pbkdf2Config, pbkdf2Algo := SetDefaultPasswordHashAlgorithm("pbkdf2")

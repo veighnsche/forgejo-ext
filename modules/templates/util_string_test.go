@@ -11,6 +11,7 @@ import (
 )
 
 func Test_StringUtils_HasPrefix(t *testing.T) {
+	testhelper.Setup(t)
 	su := &StringUtils{}
 	assert.True(t, su.HasPrefix("ABC", "A"))
 	assert.False(t, su.HasPrefix("ABC", "B"))

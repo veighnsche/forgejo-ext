@@ -15,6 +15,7 @@ import (
 )
 
 func TestLogIndexes_ToDB(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		indexes LogIndexes
 	}{
@@ -36,6 +37,7 @@ func TestLogIndexes_ToDB(t *testing.T) {
 }
 
 func Test_calculateDuration(t *testing.T) {
+	testhelper.Setup(t)
 	oldTimeSince := timeSince
 	defer func() {
 		timeSince = oldTimeSince

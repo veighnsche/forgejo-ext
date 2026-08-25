@@ -13,6 +13,7 @@ import (
 )
 
 func TestTreeEntry_Path(t *testing.T) {
+	testhelper.Setup(t)
 	repo, err := openRepositoryWithDefaultContext(filepath.Join(testReposDir, "templates_repo"))
 	require.NoError(t, err)
 	defer repo.Close()

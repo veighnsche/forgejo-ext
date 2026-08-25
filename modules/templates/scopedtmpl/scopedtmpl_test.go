@@ -16,6 +16,7 @@ import (
 )
 
 func TestScopedTemplateSetFuncMap(t *testing.T) {
+	testhelper.Setup(t)
 	all := template.New("")
 
 	all.Funcs(template.FuncMap{"CtxFunc": func(s string) string {
@@ -72,6 +73,7 @@ func TestScopedTemplateSetFuncMap(t *testing.T) {
 }
 
 func TestScopedTemplateSetEscape(t *testing.T) {
+	testhelper.Setup(t)
 	all := template.New("")
 	_, err := all.New("base").Parse(`<a href="?q={{.param}}">{{.text}}</a>`)
 	require.NoError(t, err)
@@ -90,6 +92,7 @@ func TestScopedTemplateSetEscape(t *testing.T) {
 }
 
 func TestScopedTemplateSetUnsafe(t *testing.T) {
+	testhelper.Setup(t)
 	all := template.New("")
 	_, err := all.New("test").Parse(`<a href="{{if true}}?{{end}}a={{.param}}"></a>`)
 	require.NoError(t, err)

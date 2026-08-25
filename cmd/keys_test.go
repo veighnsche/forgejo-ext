@@ -19,6 +19,7 @@ import (
 )
 
 func TestKeys(t *testing.T) {
+	testhelper.Setup(t)
 	// Setup the server that processes the request.
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/internal/ssh/authorized_keys", r.URL.Path)

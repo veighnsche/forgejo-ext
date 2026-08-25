@@ -11,6 +11,7 @@ import (
 )
 
 func TestHostOrIPMatchesList(t *testing.T) {
+	testhelper.Setup(t)
 	type tc struct {
 		host     string
 		ip       net.IP

@@ -15,6 +15,7 @@ import (
 )
 
 func TestTeam_AddRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(teamID, repoID int64) {

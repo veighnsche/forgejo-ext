@@ -16,6 +16,7 @@ import (
 )
 
 func TestService(t *testing.T) {
+	testhelper.Setup(t)
 	mux := http.NewServeMux()
 	mux.Handle(pingv1connect.NewPingServiceHandler(
 		&Service{},

@@ -44,6 +44,7 @@ func assertUwu(t *testing.T, conn *proxyprotocol.Conn) {
 }
 
 func TestProxyProtocolParse(t *testing.T) {
+	testhelper.Setup(t)
 	// Basic v4/v6 TCP
 	ipv4Conn := testConnection(t, []byte("PROXY TCP4 7.3.3.1 1.3.3.7 14231 443\r\nuwu"))
 
@@ -100,6 +101,7 @@ func TestProxyProtocolParse(t *testing.T) {
 }
 
 func TestProxyProtocolInvalidHeader(t *testing.T) {
+	testhelper.Setup(t)
 	// Short prefix
 	conn := testConnection(t, []byte("PROXY\r\n"))
 	_, err := conn.Read([]byte{})

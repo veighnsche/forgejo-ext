@@ -16,6 +16,7 @@ import (
 )
 
 func TestUser_RemoveMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 
@@ -39,6 +40,7 @@ func TestUser_RemoveMember(t *testing.T) {
 }
 
 func TestRemoveOrgUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	testSuccess := func(orgID, userID int64) {
 		org := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: orgID})

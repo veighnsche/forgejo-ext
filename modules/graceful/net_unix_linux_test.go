@@ -10,6 +10,7 @@ import (
 )
 
 func TestAbstractUnixSocket(t *testing.T) {
+	testhelper.Setup(t)
 	_, err := DefaultGetListener("unix", "@abc")
 	require.NoError(t, err)
 }

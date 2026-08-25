@@ -15,6 +15,7 @@ import (
 )
 
 func TestCompressOldFile(t *testing.T) {
+	testhelper.Setup(t)
 	tmpDir := t.TempDir()
 	fname := filepath.Join(tmpDir, "test")
 	nonGzip := filepath.Join(tmpDir, "test-nonGzip")

@@ -15,6 +15,7 @@ import (
 )
 
 func TestManager(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppDataPath, t.TempDir())()
 
 	newQueueFromConfig := func(name, cfg string) (*WorkerPoolQueue[int], error) {

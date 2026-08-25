@@ -15,6 +15,7 @@ import (
 )
 
 func TestRenderCSV(t *testing.T) {
+	testhelper.Setup(t)
 	var render Renderer
 	kases := map[string]string{
 		"a":        "<table class=\"data-table\"><tr><th class=\"line-num\">1</th><th>a</th></tr></table>",

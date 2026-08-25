@@ -14,6 +14,7 @@ import (
 )
 
 func TestMutexMap_BasicLockUnlock(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 
 	unlock := mm.Lock("test-key")
@@ -25,6 +26,7 @@ func TestMutexMap_BasicLockUnlock(t *testing.T) {
 }
 
 func TestMutexMap_BasicTryLockUnlock(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 
 	locked, unlock := mm.TryLock("test-key")
@@ -38,6 +40,7 @@ func TestMutexMap_BasicTryLockUnlock(t *testing.T) {
 }
 
 func TestMutexMap_TryLock(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 
 	locked, unlock1 := mm.TryLock("test-key")
@@ -50,6 +53,7 @@ func TestMutexMap_TryLock(t *testing.T) {
 }
 
 func TestMutexMap_ConcurrentSameKey(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 	var anotherLockActive atomic.Bool
 	var firstError atomic.Value
@@ -78,6 +82,7 @@ func TestMutexMap_ConcurrentSameKey(t *testing.T) {
 }
 
 func TestMutexMap_DifferentKeys(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 	done := make(chan bool, 1)
 
@@ -102,6 +107,7 @@ func TestMutexMap_DifferentKeys(t *testing.T) {
 }
 
 func TestMutexMap_SimpleCleanup(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 	unlock1 := mm.Lock("test-key-1")
 
@@ -117,6 +123,7 @@ func TestMutexMap_SimpleCleanup(t *testing.T) {
 }
 
 func TestMutexMap_TryLockCleanup(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 	_, unlock1 := mm.TryLock("test-key-1")
 	_, unlock2 := mm.TryLock("test-key-1")
@@ -134,6 +141,7 @@ func TestMutexMap_TryLockCleanup(t *testing.T) {
 }
 
 func TestMutexMap_ConcurrentCleanup(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 	var foundRefGreaterThanOne atomic.Bool
 	var wg sync.WaitGroup
@@ -164,6 +172,7 @@ func TestMutexMap_ConcurrentCleanup(t *testing.T) {
 }
 
 func TestMutexMap_UnlockTwice(t *testing.T) {
+	testhelper.Setup(t)
 	mm := &MutexMap{}
 	assert.Panics(t, func() {
 		unlock := mm.Lock("test")

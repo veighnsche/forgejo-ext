@@ -21,6 +21,7 @@ import (
 )
 
 func TestUser_IsOwnedBy(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	for _, testCase := range []struct {
 		OrgID         int64
@@ -42,6 +43,7 @@ func TestUser_IsOwnedBy(t *testing.T) {
 }
 
 func TestUser_IsOrgMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	for _, testCase := range []struct {
 		OrgID          int64
@@ -63,6 +65,7 @@ func TestUser_IsOrgMember(t *testing.T) {
 }
 
 func TestUser_GetTeam(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	team, err := org.GetTeam(db.DefaultContext, "team1")
@@ -79,6 +82,7 @@ func TestUser_GetTeam(t *testing.T) {
 }
 
 func TestUser_GetOwnerTeam(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	team, err := org.GetOwnerTeam(db.DefaultContext)
@@ -91,6 +95,7 @@ func TestUser_GetOwnerTeam(t *testing.T) {
 }
 
 func TestUser_GetTeams(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	teams, err := org.LoadTeams(db.DefaultContext)
@@ -105,6 +110,7 @@ func TestUser_GetTeams(t *testing.T) {
 }
 
 func TestUser_GetMembers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	members, _, err := org.GetMembers(db.DefaultContext, &user_model.User{IsAdmin: true})
@@ -117,6 +123,7 @@ func TestUser_GetMembers(t *testing.T) {
 }
 
 func TestGetOrgByName(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	org, err := organization.GetOrgByName(db.DefaultContext, "org3")
@@ -132,6 +139,7 @@ func TestGetOrgByName(t *testing.T) {
 }
 
 func TestIsOrganizationOwner(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	test := func(orgID, userID int64, expected bool) {
 		isOwner, err := organization.IsOrganizationOwner(db.DefaultContext, orgID, userID)
@@ -146,6 +154,7 @@ func TestIsOrganizationOwner(t *testing.T) {
 }
 
 func TestIsOrganizationMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	test := func(orgID, userID int64, expected bool) {
 		isMember, err := organization.IsOrganizationMember(db.DefaultContext, orgID, userID)
@@ -161,6 +170,7 @@ func TestIsOrganizationMember(t *testing.T) {
 }
 
 func TestIsPublicMembership(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	test := func(orgID, userID int64, expected bool) {
 		isMember, err := organization.IsPublicMembership(db.DefaultContext, orgID, userID)
@@ -176,6 +186,7 @@ func TestIsPublicMembership(t *testing.T) {
 }
 
 func TestIsPrivateMembership(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	test := func(orgID, userID int64, expected bool) {
 		isMember, err := organization.IsPrivateMembership(db.DefaultContext, orgID, userID)
@@ -191,6 +202,7 @@ func TestIsPrivateMembership(t *testing.T) {
 }
 
 func TestGetOrgUsersByOrgID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	opts := &organization.FindOrgMembersOpts{
@@ -235,6 +247,7 @@ func TestGetOrgUsersByOrgID(t *testing.T) {
 }
 
 func TestChangeOrgUserStatus(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(orgID, userID int64, public bool) {
@@ -250,6 +263,7 @@ func TestChangeOrgUserStatus(t *testing.T) {
 }
 
 func TestUser_GetUserTeamIDs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	testSuccess := func(userID int64, expected []int64) {
@@ -263,6 +277,7 @@ func TestUser_GetUserTeamIDs(t *testing.T) {
 }
 
 func TestAccessibleReposEnv_CountRepos(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	testSuccess := func(userID, expectedCount int64) {
@@ -277,6 +292,7 @@ func TestAccessibleReposEnv_CountRepos(t *testing.T) {
 }
 
 func TestAccessibleReposEnv_RepoIDs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	testSuccess := func(userID int64, expectedRepoIDs []int64) {
@@ -291,6 +307,7 @@ func TestAccessibleReposEnv_RepoIDs(t *testing.T) {
 }
 
 func TestAccessibleReposEnv_Repos(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	testSuccess := func(userID int64, expectedRepoIDs []int64) {
@@ -310,6 +327,7 @@ func TestAccessibleReposEnv_Repos(t *testing.T) {
 }
 
 func TestAccessibleReposEnv_MirrorRepos(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	testSuccess := func(userID int64, expectedRepoIDs []int64) {
@@ -329,6 +347,7 @@ func TestAccessibleReposEnv_MirrorRepos(t *testing.T) {
 }
 
 func TestHasOrgVisibleTypePublic(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 3})
@@ -352,6 +371,7 @@ func TestHasOrgVisibleTypePublic(t *testing.T) {
 }
 
 func TestHasOrgVisibleTypeLimited(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 3})
@@ -375,6 +395,7 @@ func TestHasOrgVisibleTypeLimited(t *testing.T) {
 }
 
 func TestHasOrgVisibleTypePrivate(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 3})
@@ -398,6 +419,7 @@ func TestHasOrgVisibleTypePrivate(t *testing.T) {
 }
 
 func TestGetUsersWhoCanCreateOrgRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	users, err := organization.GetUsersWhoCanCreateOrgRepo(db.DefaultContext, 3)
@@ -416,6 +438,7 @@ func TestGetUsersWhoCanCreateOrgRepo(t *testing.T) {
 }
 
 func TestUser_RemoveOrgRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: org.ID})
@@ -439,6 +462,7 @@ func TestUser_RemoveOrgRepo(t *testing.T) {
 }
 
 func TestCreateOrganization(t *testing.T) {
+	testhelper.Setup(t)
 	// successful creation of org
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -459,6 +483,7 @@ func TestCreateOrganization(t *testing.T) {
 }
 
 func TestCreateOrganization2(t *testing.T) {
+	testhelper.Setup(t)
 	// unauthorized creation of org
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -477,6 +502,7 @@ func TestCreateOrganization2(t *testing.T) {
 }
 
 func TestCreateOrganization3(t *testing.T) {
+	testhelper.Setup(t)
 	// create org with same name as existent org
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -490,6 +516,7 @@ func TestCreateOrganization3(t *testing.T) {
 }
 
 func TestCreateOrganization4(t *testing.T) {
+	testhelper.Setup(t)
 	// create org with unusable name
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -501,6 +528,7 @@ func TestCreateOrganization4(t *testing.T) {
 }
 
 func TestUnitPermission(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	publicOrg := &organization.Organization{ID: 1001, Visibility: structs.VisibleTypePublic}

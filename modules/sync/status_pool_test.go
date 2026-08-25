@@ -10,6 +10,7 @@ import (
 )
 
 func Test_StatusTable(t *testing.T) {
+	testhelper.Setup(t)
 	table := NewStatusTable()
 
 	assert.False(t, table.IsRunning("xyz"))

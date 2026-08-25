@@ -17,6 +17,7 @@ import (
 )
 
 func TestAddLdapBindDn(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock cli functions to do not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 
@@ -241,6 +242,7 @@ func TestAddLdapBindDn(t *testing.T) {
 }
 
 func TestAddLdapSimpleAuth(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock cli functions to do not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 
@@ -470,6 +472,7 @@ func TestAddLdapSimpleAuth(t *testing.T) {
 }
 
 func TestUpdateLdapBindDn(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock cli functions to do not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 
@@ -931,6 +934,7 @@ func TestUpdateLdapBindDn(t *testing.T) {
 }
 
 func TestUpdateLdapSimpleAuth(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock cli functions to do not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 

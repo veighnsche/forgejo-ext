@@ -16,6 +16,7 @@ import (
 )
 
 func TestGenerate(t *testing.T) {
+	testhelper.Setup(t)
 	dir, _ := os.Getwd()
 	dir = dir + "/testdata"
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {

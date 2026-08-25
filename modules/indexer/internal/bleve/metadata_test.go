@@ -13,6 +13,7 @@ import (
 )
 
 func TestMetadata(t *testing.T) {
+	testhelper.Setup(t)
 	dir := t.TempDir()
 
 	meta, err := readIndexMetadata(dir)

@@ -46,6 +46,7 @@ func createTestCache(t *testing.T) {
 }
 
 func TestNewContext(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, Init())
 
 	setting.CacheService.Cache = setting.Cache{Adapter: "redis", Conn: "some random string"}
@@ -59,12 +60,14 @@ func TestNewContext(t *testing.T) {
 }
 
 func TestGetCache(t *testing.T) {
+	testhelper.Setup(t)
 	createTestCache(t)
 
 	assert.NotNil(t, GetCache())
 }
 
 func TestGetString(t *testing.T) {
+	testhelper.Setup(t)
 	createTestCache(t)
 
 	data, err := GetString("key", func() (string, error) {
@@ -101,6 +104,7 @@ func TestGetString(t *testing.T) {
 }
 
 func TestGetInt(t *testing.T) {
+	testhelper.Setup(t)
 	createTestCache(t)
 
 	data, err := GetInt("key", func() (int, error) {
@@ -137,6 +141,7 @@ func TestGetInt(t *testing.T) {
 }
 
 func TestGetInt64(t *testing.T) {
+	testhelper.Setup(t)
 	createTestCache(t)
 
 	data, err := GetInt64("key", func() (int64, error) {
@@ -173,6 +178,7 @@ func TestGetInt64(t *testing.T) {
 }
 
 func TestCacheConcurrencySafety(t *testing.T) {
+	testhelper.Setup(t)
 	createTestCache(t)
 
 	testRedisHost := os.Getenv("TEST_REDIS_SERVER")

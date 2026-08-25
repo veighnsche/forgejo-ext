@@ -11,6 +11,7 @@ import (
 )
 
 func TestItoa(t *testing.T) {
+	testhelper.Setup(t)
 	b := itoa(nil, 0, 0)
 	assert.Equal(t, "0", string(b))
 
@@ -22,6 +23,7 @@ func TestItoa(t *testing.T) {
 }
 
 func TestEventFormatTextMessage(t *testing.T) {
+	testhelper.Setup(t)
 	res := EventFormatTextMessage(&WriterMode{Prefix: "[PREFIX] ", Colorize: false, Flags: Flags{defined: true, flags: 0xffffffff}},
 		&Event{
 			Time:       time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC),
@@ -55,6 +57,7 @@ func TestEventFormatTextMessage(t *testing.T) {
 }
 
 func TestEventFormatTextMessageStd(t *testing.T) {
+	testhelper.Setup(t)
 	res := EventFormatTextMessage(&WriterMode{Prefix: "[PREFIX] ", Colorize: false, Flags: Flags{defined: true, flags: LstdFlags}},
 		&Event{
 			Time:       time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC),
@@ -88,6 +91,7 @@ func TestEventFormatTextMessageStd(t *testing.T) {
 }
 
 func TestEventFormatTextMessageJournal(t *testing.T) {
+	testhelper.Setup(t)
 	// TODO: it makes no sense to emit \n-containing messages to journal as they will get mangled
 	//       the proper way here is to attach the backtrace as structured metadata, but we can't do that via stderr
 	res := EventFormatTextMessage(&WriterMode{Prefix: "[PREFIX] ", Colorize: false, Flags: Flags{defined: true, flags: LjournaldFlags}},

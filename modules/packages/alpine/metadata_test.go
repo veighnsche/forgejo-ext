@@ -44,6 +44,7 @@ provides = gitea`)
 }
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	createPackage := func(name string, content []byte) io.Reader {
 		names := []string{"first.stream", name}
 		contents := [][]byte{{0}, content}
@@ -101,6 +102,7 @@ func TestParsePackage(t *testing.T) {
 }
 
 func TestParsePackageInfo(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("InvalidName", func(t *testing.T) {
 		data := createPKGINFOContent("", packageVersion)
 

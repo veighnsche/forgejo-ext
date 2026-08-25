@@ -16,6 +16,7 @@ import (
 )
 
 func TestActionTask_GetTaskByJobAttempt(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	task, err := GetTaskByJobAttempt(t.Context(), 192, 2)
@@ -28,6 +29,7 @@ func TestActionTask_GetTaskByJobAttempt(t *testing.T) {
 }
 
 func TestActionTask_CreatePlaceholderTask(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	job := unittest.AssertExistsAndLoadBean(t, &ActionRunJob{ID: 396})
@@ -58,6 +60,7 @@ func TestActionTask_CreatePlaceholderTask(t *testing.T) {
 }
 
 func TestActionTask_GetTasksByRunnerRequestKey(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/actions/TestActionTask_GetTasksByRunnerRequestKey")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -81,6 +84,7 @@ func TestActionTask_GetTasksByRunnerRequestKey(t *testing.T) {
 }
 
 func TestActionTask_GetAvailableJobsForRunner(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Priority takes precedence", func(t *testing.T) {
 		defer unittest.OverrideFixtures("models/actions/TestActionTask_GetAvailableJobsForRunner")()
 		require.NoError(t, unittest.PrepareTestDatabase())

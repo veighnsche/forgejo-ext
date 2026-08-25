@@ -39,6 +39,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestDeleteUser(t *testing.T) {
+	testhelper.Setup(t)
 	// Note: an earlier revision of TestDeleteUser also tested for deleting user 2, but then failed to remove them from
 	// all organizations because ErrLastOrgOwner and considered a successful test -- since that didn't actually test
 	// DeleteUser in any way, that case has been removed from TestDeleteUser.
@@ -93,6 +94,7 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestDeleteUserRetainsTrackedTime(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/user/TestDeleteUser")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 8})
@@ -117,6 +119,7 @@ func TestDeleteUserRetainsTrackedTime(t *testing.T) {
 }
 
 func TestDeleteUserCleansUpBranchProtectionRules(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/user/TestDeleteUserCleansUpBranchProtectionRules")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 8})
@@ -137,6 +140,7 @@ func TestDeleteUserCleansUpBranchProtectionRules(t *testing.T) {
 }
 
 func TestPurgeUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/user/TestPurgeUser")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.SSH.RootPath, t.TempDir())()
@@ -192,6 +196,7 @@ func TestPurgeUser(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
+	testhelper.Setup(t)
 	user := &user_model.User{
 		Name:               "GiteaBot",
 		Email:              "GiteaBot@gitea.io",
@@ -207,6 +212,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestRenameUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/user/fixtures/")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 21})
@@ -306,6 +312,7 @@ func TestRenameUser(t *testing.T) {
 }
 
 func TestCreateUser_Issue5882(t *testing.T) {
+	testhelper.Setup(t)
 	// Init settings
 	_ = setting.Admin
 
@@ -336,6 +343,7 @@ func TestCreateUser_Issue5882(t *testing.T) {
 }
 
 func TestDeleteInactiveUsers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	// Add an inactive user older than a minute, with an associated email_address record.
 	oldUser := &user_model.User{Name: "OldInactive", LowerName: "oldinactive", Email: "old@example.com", CreatedUnix: timeutil.TimeStampNow().Add(-120)}
@@ -366,6 +374,7 @@ func TestDeleteInactiveUsers(t *testing.T) {
 }
 
 func TestCreateShadowCopyOnUserUpdate(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/ModerationFeatures")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

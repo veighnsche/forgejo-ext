@@ -24,6 +24,7 @@ func changeDefaultFileBlockSize(n int64) (restore func()) {
 }
 
 func TestDbfsBasic(t *testing.T) {
+	testhelper.Setup(t)
 	defer changeDefaultFileBlockSize(4)()
 
 	// test basic write/read
@@ -128,6 +129,7 @@ func TestDbfsBasic(t *testing.T) {
 }
 
 func TestDbfsReadWrite(t *testing.T) {
+	testhelper.Setup(t)
 	defer changeDefaultFileBlockSize(4)()
 
 	f1, err := OpenFile(db.DefaultContext, "test.log", os.O_RDWR|os.O_CREATE)
@@ -160,6 +162,7 @@ func TestDbfsReadWrite(t *testing.T) {
 }
 
 func TestDbfsSeekWrite(t *testing.T) {
+	testhelper.Setup(t)
 	defer changeDefaultFileBlockSize(4)()
 
 	f, err := OpenFile(db.DefaultContext, "test2.log", os.O_RDWR|os.O_CREATE)
@@ -191,6 +194,7 @@ func TestDbfsSeekWrite(t *testing.T) {
 }
 
 func TestDbfsAccessingNonExistentFileCausesError(t *testing.T) {
+	testhelper.Setup(t)
 	defer changeDefaultFileBlockSize(4)()
 
 	filename := "test.log"

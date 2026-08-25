@@ -57,6 +57,7 @@ func pushCommits() *repository.PushCommits {
 }
 
 func TestSyncPushCommits(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/webhook/TestPushCommits")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -90,6 +91,7 @@ func TestSyncPushCommits(t *testing.T) {
 }
 
 func TestPushCommits(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/webhook/TestPushCommits")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -137,6 +139,7 @@ func assertActionEqual(t *testing.T, expectedRun *actions_model.ActionRun, actua
 }
 
 func TestAction(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/webhook/TestPushCommits")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

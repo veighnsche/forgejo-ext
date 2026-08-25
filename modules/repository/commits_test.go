@@ -18,6 +18,7 @@ import (
 )
 
 func TestPushCommits_ToAPIPayloadCommits(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pushCommits := NewPushCommits()
@@ -101,6 +102,7 @@ func TestPushCommits_ToAPIPayloadCommits(t *testing.T) {
 }
 
 func TestPushCommits_AvatarLink(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pushCommits := NewPushCommits()
@@ -133,6 +135,7 @@ func TestPushCommits_AvatarLink(t *testing.T) {
 }
 
 func TestPushCommitToCommit(t *testing.T) {
+	testhelper.Setup(t)
 	now := time.Now()
 	sig := &git.Signature{
 		Email: "example@example.com",
@@ -161,6 +164,7 @@ func TestPushCommitToCommit(t *testing.T) {
 }
 
 func TestPushCommitToCommitInvalidSha(t *testing.T) {
+	testhelper.Setup(t)
 	now := time.Now()
 	const hexString = "012"
 	_, err := PushCommitToCommit(&PushCommit{
@@ -177,6 +181,7 @@ func TestPushCommitToCommitInvalidSha(t *testing.T) {
 }
 
 func TestCommitToPushCommit(t *testing.T) {
+	testhelper.Setup(t)
 	now := time.Now()
 	sig := &git.Signature{
 		Email: "example@example.com",
@@ -202,6 +207,7 @@ func TestCommitToPushCommit(t *testing.T) {
 }
 
 func TestListToPushCommits(t *testing.T) {
+	testhelper.Setup(t)
 	now := time.Now()
 	sig := &git.Signature{
 		Email: "example@example.com",

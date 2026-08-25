@@ -10,6 +10,7 @@ import (
 )
 
 func TestNaturalSortLess(t *testing.T) {
+	testhelper.Setup(t)
 	test := func(s1, s2 string, less bool) {
 		assert.Equal(t, less, NaturalSortLess(s1, s2))
 	}

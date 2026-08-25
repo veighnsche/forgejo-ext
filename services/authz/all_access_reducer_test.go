@@ -16,6 +16,7 @@ import (
 )
 
 func TestAllAccessAuthorizationReducer(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	reducer := &AllAccessAuthorizationReducer{}

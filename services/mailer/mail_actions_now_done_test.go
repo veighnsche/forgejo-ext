@@ -58,6 +58,7 @@ func assertTranslatedLocaleMailActionsNowDone(t *testing.T, msgBody string) {
 }
 
 func TestActionRunNowDoneStatusMatrix(t *testing.T) {
+	testhelper.Setup(t)
 	successStatuses := []actions_model.Status{
 		actions_model.StatusSuccess,
 		actions_model.StatusSkipped,
@@ -102,6 +103,7 @@ func TestActionRunNowDoneStatusMatrix(t *testing.T) {
 }
 
 func TestActionRunNowDoneNotificationMail(t *testing.T) {
+	testhelper.Setup(t)
 	ctx := t.Context()
 
 	defer test.MockVariableValue(&setting.Admin.DisableRegularOrgCreation, false)()

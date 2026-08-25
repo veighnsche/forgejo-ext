@@ -28,6 +28,7 @@ const (
 )
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(files map[string][]byte) io.Reader {
 		var buf bytes.Buffer
 		aw := ar.NewWriter(&buf)
@@ -139,6 +140,7 @@ func (nopCloser) Close() error {
 }
 
 func TestParseControlFile(t *testing.T) {
+	testhelper.Setup(t)
 	buildContent := func(name, version, architecture string) *bytes.Buffer {
 		var buf bytes.Buffer
 		buf.WriteString("Package: " + name + "\nVersion: " + version + "\nArchitecture: " + architecture + "\nMaintainer: " + packageAuthor + " <kn4ck3r@gitea.io>\nHomepage: " + projectURL + "\nDepends: a,\n b\nDescription: Description\n with multiple\n lines.")

@@ -10,6 +10,7 @@ import (
 )
 
 func TestContext(t *testing.T) {
+	testhelper.Setup(t)
 	type ctxKey struct{}
 
 	// Test that the original context is used for its context functions.

@@ -14,6 +14,7 @@ import (
 )
 
 func TestGetRepositoriesAccessibleWithToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/auth/TestGetRepositoriesAccessibleWithToken")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -40,6 +41,7 @@ func TestGetRepositoriesAccessibleWithToken(t *testing.T) {
 }
 
 func TestGetRepositoriesAccessibleWithTokens(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/auth/TestGetRepositoriesAccessibleWithTokens")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -72,6 +74,7 @@ func TestGetRepositoriesAccessibleWithTokens(t *testing.T) {
 }
 
 func TestInsertAccessTokenResourceRepos(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	token1 := unittest.AssertExistsAndLoadBean(t, &auth_model.AccessToken{ID: 1})

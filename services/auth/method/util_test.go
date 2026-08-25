@@ -11,6 +11,7 @@ import (
 )
 
 func TestTokenFromAuthorizationBearer(t *testing.T) {
+	testhelper.Setup(t)
 	cases := map[string]struct {
 		Header        string
 		ExpectedToken string

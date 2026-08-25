@@ -18,6 +18,7 @@ fgAA3AEAAAQAAAAjU3RyaW5ncwAAAADgAQAABAAAACNVUwDkAQAAMAAAACNHVUlEAAAAFAIAACgB
 AAAjQmxvYgAAAGm7ENm9SGxMtAFVvPUsPJTF6PbtAAAAAFcVogEJAAAAAQAAAA==`
 
 func TestExtractPortablePdb(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(name string, content []byte) []byte {
 		var buf bytes.Buffer
 		archive := zip.NewWriter(&buf)
@@ -58,6 +59,7 @@ func TestExtractPortablePdb(t *testing.T) {
 }
 
 func TestParseDebugHeaderID(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("InvalidPdbMagicNumber", func(t *testing.T) {
 		id, err := ParseDebugHeaderID(bytes.NewReader([]byte{0, 0, 0, 0}))
 		require.ErrorIs(t, err, ErrInvalidPdbMagicNumber)

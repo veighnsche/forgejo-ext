@@ -231,6 +231,7 @@ const awsJWKS = `
 `
 
 func TestParseOpenIDConfiguration(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Forgejo", func(t *testing.T) {
 		var retval AuthorizedIntegrationOpenIDConfiguration
 		data := []byte(forgejoOIDC)
@@ -252,6 +253,7 @@ func TestParseOpenIDConfiguration(t *testing.T) {
 }
 
 func TestParseJSONWebKeySet(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Forgejo", func(t *testing.T) {
 		var retval AuthorizedIntegrationOpenIDKeys
 		data := []byte(forgejoJWKS)

@@ -12,6 +12,7 @@ import (
 )
 
 func Test_parseTagData(t *testing.T) {
+	testhelper.Setup(t)
 	testData := []struct {
 		data []byte
 		tag  Tag

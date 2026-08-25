@@ -15,6 +15,7 @@ import (
 )
 
 func TestRepository_GetCommitBranches(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -42,6 +43,7 @@ func TestRepository_GetCommitBranches(t *testing.T) {
 }
 
 func TestGetTagCommitWithSignature(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -57,6 +59,7 @@ func TestGetTagCommitWithSignature(t *testing.T) {
 }
 
 func TestGetCommitWithBadCommitID(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -69,6 +72,7 @@ func TestGetCommitWithBadCommitID(t *testing.T) {
 }
 
 func TestIsCommitInBranch(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -84,6 +88,7 @@ func TestIsCommitInBranch(t *testing.T) {
 }
 
 func TestRepository_CommitsBetweenIDs(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo4_commitsbetween")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -106,6 +111,7 @@ func TestRepository_CommitsBetweenIDs(t *testing.T) {
 }
 
 func TestGetTagCommit(t *testing.T) {
+	testhelper.Setup(t)
 	t.Setenv("GIT_COMMITTER_DATE", "2006-01-01 13:37")
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
@@ -143,6 +149,7 @@ func TestGetTagCommit(t *testing.T) {
 }
 
 func TestCommitsByRange(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -168,6 +175,7 @@ func TestCommitsByRange(t *testing.T) {
 }
 
 func TestCommitsByFileAndRange(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -201,6 +209,7 @@ func TestCommitsByFileAndRange(t *testing.T) {
 }
 
 func TestCommitsByFileAndRangeWithPageSize(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -239,6 +248,7 @@ func TestCommitsByFileAndRangeWithPageSize(t *testing.T) {
 }
 
 func TestGetCommitsFromIDs(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1, err := openRepositoryWithDefaultContext(filepath.Join(testReposDir, "repo1_bare"))
 	require.NoError(t, err)
 
@@ -276,6 +286,7 @@ func TestGetCommitsFromIDs(t *testing.T) {
 }
 
 func TestConvertToGitID(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)
 	require.NoError(t, err)
@@ -303,6 +314,7 @@ func TestConvertToGitID(t *testing.T) {
 }
 
 func TestGetLatestCommitTime(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("repo1", func(t *testing.T) {
 		repo, err := openRepositoryWithDefaultContext(filepath.Join(testReposDir, "repo1_bare"))
 		require.NoError(t, err)

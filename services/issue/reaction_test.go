@@ -32,6 +32,7 @@ func (o *reactionNotifier) DeleteReaction(ctx context.Context, reaction *issues_
 }
 
 func TestServicesReaction(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	reactionEqual := func(t *testing.T, a, b *issues_model.Reaction) {

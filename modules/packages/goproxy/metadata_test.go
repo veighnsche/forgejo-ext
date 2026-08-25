@@ -18,6 +18,7 @@ const (
 )
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(files map[string][]byte) *bytes.Reader {
 		var buf bytes.Buffer
 		zw := zip.NewWriter(&buf)

@@ -18,6 +18,7 @@ import (
 )
 
 func TestUserListIsPublicMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	tt := []struct {
 		orgid    int64
@@ -45,6 +46,7 @@ func testUserListIsPublicMember(t *testing.T, orgID int64, expected map[int64]bo
 }
 
 func TestUserListIsUserOrgOwner(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	tt := []struct {
 		orgid    int64
@@ -72,6 +74,7 @@ func testUserListIsUserOrgOwner(t *testing.T, orgID int64, expected map[int64]bo
 }
 
 func TestAddOrgUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	testSuccess := func(orgID, userID int64, isPublic bool) {
 		org := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: orgID})
@@ -108,6 +111,7 @@ func TestAddOrgUser(t *testing.T) {
 }
 
 func TestIsAnEligibleTeamMemberByID(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/user/fixtures/")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

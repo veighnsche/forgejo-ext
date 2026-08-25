@@ -72,6 +72,7 @@ const pomWithMissingGroupID = `<?xml version="1.0"?>
 </project>`
 
 func TestParsePackageMetaData(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("InvalidFile", func(t *testing.T) {
 		m, err := ParsePackageMetaData(strings.NewReader(""))
 		assert.Nil(t, m)

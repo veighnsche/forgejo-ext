@@ -19,6 +19,7 @@ import (
 )
 
 func TestNewReleasePost(t *testing.T) {
+	testhelper.Setup(t)
 	for _, testCase := range []struct {
 		RepoID  int64
 		UserID  int64
@@ -69,6 +70,7 @@ func TestNewReleasePost(t *testing.T) {
 }
 
 func TestCalReleaseNumCommitsBehind(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo-release/releases")
 	contexttest.LoadUser(t, ctx, 2)
@@ -124,6 +126,7 @@ func TestCalReleaseNumCommitsBehind(t *testing.T) {
 }
 
 func Test_getReleaseInfos(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name              string
 		listOptions       db.ListOptions

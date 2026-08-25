@@ -23,6 +23,7 @@ import (
 )
 
 func TestValidateAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	ii := NewMockInternalIssuer(t)
 	ii.On("IssuerPlaceholder").Return("urn:forgejo:authorized-issuer:internal:test2")
 	RegisterInternalIssuerForTesting(t, "/fake-jwt-issuer", ii)
@@ -116,6 +117,7 @@ func TestValidateAuthorizedIntegration(t *testing.T) {
 }
 
 func TestInsertAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ii := NewMockInternalIssuer(t)
@@ -164,6 +166,7 @@ func TestInsertAuthorizedIntegration(t *testing.T) {
 }
 
 func TestUpdateAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ii := NewMockInternalIssuer(t)
@@ -322,6 +325,7 @@ type openIDTweak func(*AuthorizedIntegrationOpenIDConfiguration)
 type jwksTweak func(*AuthorizedIntegrationOpenIDKeys)
 
 func TestValidateExternalIssuer(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("valid", func(t *testing.T) {
 		eit := newEITester(t)
 		defer eit.close()
@@ -400,6 +404,7 @@ func TestValidateExternalIssuer(t *testing.T) {
 }
 
 func TestValidateClaimRules(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("nil", func(t *testing.T) {
 		err := validateClaimRules(nil, "root")
 		require.ErrorIs(t, err, ErrInvalidClaimRules)

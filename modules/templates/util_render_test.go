@@ -50,16 +50,19 @@ var testMetas = map[string]string{
 }
 
 func TestApostrophesInMentions(t *testing.T) {
+	testhelper.Setup(t)
 	rendered := RenderMarkdownToHtml(t.Context(), "@mention-user's comment")
 	assert.Equal(t, template.HTML("<p><a href=\"/mention-user\" class=\"mention\" rel=\"nofollow\">@mention-user</a>&#39;s comment</p>\n"), rendered)
 }
 
 func TestNonExistentUserMention(t *testing.T) {
+	testhelper.Setup(t)
 	rendered := RenderMarkdownToHtml(t.Context(), "@ThisUserDoesNotExist @mention-user")
 	assert.Equal(t, template.HTML("<p>@ThisUserDoesNotExist <a href=\"/mention-user\" class=\"mention\" rel=\"nofollow\">@mention-user</a></p>\n"), rendered)
 }
 
 func TestRenderCommitBody(t *testing.T) {
+	testhelper.Setup(t)
 	type args struct {
 		ctx   context.Context
 		msg   string
@@ -125,18 +128,21 @@ com 88fc37a3c0a4dda553bdcfc80c178a58247f42fb mit
 }
 
 func TestRenderCommitMessage(t *testing.T) {
+	testhelper.Setup(t)
 	expected := `space <a href="/mention-user" class="mention">@mention-user</a>`
 
 	assert.EqualValues(t, expected, RenderCommitMessage(t.Context(), testInput, testMetas))
 }
 
 func TestRenderCommitMessageLinkSubject(t *testing.T) {
+	testhelper.Setup(t)
 	expected := `<a href="https://example.com/link" class="default-link muted">space </a><a href="/mention-user" class="mention">@mention-user</a>`
 
 	assert.EqualValues(t, expected, RenderCommitMessageLinkSubject(t.Context(), testInput, "https://example.com/link", testMetas))
 }
 
 func TestRenderIssueTitle(t *testing.T) {
+	testhelper.Setup(t)
 	expected := `  space @mention-user
 /just/a/path.bin
 https://example.com/file.bin
@@ -163,6 +169,7 @@ mail@domain.com
 }
 
 func TestRenderRefIssueTitle(t *testing.T) {
+	testhelper.Setup(t)
 	expected := `  space @mention-user
 /just/a/path.bin
 https://example.com/file.bin
@@ -189,6 +196,7 @@ mail@domain.com
 }
 
 func TestRenderMarkdownToHtml(t *testing.T) {
+	testhelper.Setup(t)
 	expected := `<p>space <a href="/mention-user" class="mention" rel="nofollow">@mention-user</a>
 /just/a/path.bin
 <a href="https://example.com/file.bin" rel="nofollow">https://example.com/file.bin</a>
@@ -215,6 +223,7 @@ space
 }
 
 func TestRenderLabels(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	tr := &translation.MockLocale{}
@@ -250,6 +259,7 @@ func TestRenderLabels(t *testing.T) {
 }
 
 func TestRenderUser(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -273,6 +283,7 @@ func TestRenderUser(t *testing.T) {
 }
 
 func TestRenderReviewRequest(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	target1 := issues_model.RequestReviewTarget{User: &user_model.User{ID: 1, Name: "user1", FullName: "User <One>"}}

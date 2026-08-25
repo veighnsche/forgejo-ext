@@ -20,6 +20,7 @@ import (
 )
 
 func TestCreateOrUpdateIssueNotifications(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 
@@ -35,6 +36,7 @@ func TestCreateOrUpdateIssueNotifications(t *testing.T) {
 }
 
 func TestNotificationsForUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	notfs, err := db.Find[Notification](db.DefaultContext, FindNotificationOptions{
@@ -56,6 +58,7 @@ func TestNotificationsForUser(t *testing.T) {
 }
 
 func TestNotification_GetRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	notf := unittest.AssertExistsAndLoadBean(t, &Notification{RepoID: 1})
 	repo, err := notf.GetRepo(db.DefaultContext)
@@ -65,6 +68,7 @@ func TestNotification_GetRepo(t *testing.T) {
 }
 
 func TestNotification_GetIssue(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	notf := unittest.AssertExistsAndLoadBean(t, &Notification{RepoID: 1})
 	issue, err := notf.GetIssue(db.DefaultContext)
@@ -74,6 +78,7 @@ func TestNotification_GetIssue(t *testing.T) {
 }
 
 func TestGetNotificationCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 	cnt, err := db.Count[Notification](db.DefaultContext, FindNotificationOptions{
@@ -96,6 +101,7 @@ func TestGetNotificationCount(t *testing.T) {
 }
 
 func TestSetNotificationStatus(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	notf := unittest.AssertExistsAndLoadBean(t,
@@ -112,6 +118,7 @@ func TestSetNotificationStatus(t *testing.T) {
 }
 
 func TestUpdateNotificationStatuses(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	notfUnread := unittest.AssertExistsAndLoadBean(t,
@@ -130,6 +137,7 @@ func TestUpdateNotificationStatuses(t *testing.T) {
 }
 
 func TestSetIssueReadBy(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
@@ -143,6 +151,7 @@ func TestSetIssueReadBy(t *testing.T) {
 }
 
 func TestUpdateIssueNotification(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	timeutil.MockSet(now)

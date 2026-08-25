@@ -16,6 +16,7 @@ import (
 )
 
 func TestSyncRepoBranches(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	_, err := db.GetEngine(db.DefaultContext).ID(1).Update(&repo_model.Repository{ObjectFormatName: "bad-fmt"})
 	require.NoError(t, db.TruncateBeans(db.DefaultContext, &git_model.Branch{}))

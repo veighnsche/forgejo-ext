@@ -17,6 +17,7 @@ import (
 )
 
 func TestGenerateMessageID(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.MailService, &setting.Mailer{
 		From: "test@gitea.com",
 	})()
@@ -40,6 +41,7 @@ func TestGenerateMessageID(t *testing.T) {
 }
 
 func TestGenerateMessageIDForRelease(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Domain, "localhost")()
 
 	rel := repo_model.Release{
@@ -54,6 +56,7 @@ func TestGenerateMessageIDForRelease(t *testing.T) {
 }
 
 func TestToMessage(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.MailService, &setting.Mailer{
 		From: "test@gitea.com",
 	})()

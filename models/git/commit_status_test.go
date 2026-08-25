@@ -21,6 +21,7 @@ import (
 )
 
 func TestGetCommitStatuses(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -75,6 +76,7 @@ func TestGetCommitStatuses(t *testing.T) {
 }
 
 func Test_CalcCommitStatus(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		statuses []*git_model.CommitStatus
 		expected *git_model.CommitStatus
@@ -221,6 +223,7 @@ func Test_CalcCommitStatus(t *testing.T) {
 }
 
 func TestFindRepoRecentCommitStatusContexts(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo2 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
@@ -273,6 +276,7 @@ func TestFindRepoRecentCommitStatusContexts(t *testing.T) {
 }
 
 func TestCleanupCommitStatus(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/git/TestCleanupCommitStatus")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

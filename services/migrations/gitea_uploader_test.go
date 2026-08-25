@@ -39,6 +39,7 @@ import (
 )
 
 func TestUpload(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 	var (
@@ -482,6 +483,7 @@ func TestUpload(t *testing.T) {
 }
 
 func TestGiteaUploadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	// FIXME: Since no accesskey or user/password will trigger rate limit of github, just skip
 	t.Skip()
 
@@ -579,6 +581,7 @@ func TestGiteaUploadRepo(t *testing.T) {
 }
 
 func TestGiteaUploadRemapLocalUser(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -629,6 +632,7 @@ func TestGiteaUploadRemapLocalUser(t *testing.T) {
 }
 
 func TestGiteaUploadRemapExternalUser(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 
@@ -680,6 +684,7 @@ func TestGiteaUploadRemapExternalUser(t *testing.T) {
 }
 
 func TestGiteaUploadUpdateGitForPullRequest(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	//
@@ -963,6 +968,7 @@ func TestGiteaUploadUpdateGitForPullRequest(t *testing.T) {
 }
 
 func TestGiteaUploaderWithAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	unittest.PrepareTestEnv(t)
 	defer test.MockVariableValue(&setting.Migrations.AvatarFetchTimeout, 1*time.Second)()

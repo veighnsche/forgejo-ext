@@ -28,6 +28,7 @@ import (
 )
 
 func TestCurrentTime(t *testing.T) {
+	testhelper.Setup(t)
 	date := activitypub.CurrentTime()
 	_, err := time.Parse(http.TimeFormat, date)
 	require.NoError(t, err)
@@ -67,6 +68,7 @@ Set up a user called "me" for all tests
 */
 
 func TestClientCtx(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -83,6 +85,7 @@ func TestClientCtx(t *testing.T) {
 }
 
 func TestClientNilHostsCtx(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, false)()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -139,6 +142,7 @@ func TestActivityPubSignedGet(t *testing.T) {
 */
 
 func TestActivityPubSignedPost(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -172,6 +176,7 @@ func TestActivityPubSignedPost(t *testing.T) {
 }
 
 func TestActivityPubRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 	pubID := "https://example.com/pubID"
@@ -199,6 +204,7 @@ func TestActivityPubRedirect(t *testing.T) {
 }
 
 func TestActivityPubMatchesList(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))

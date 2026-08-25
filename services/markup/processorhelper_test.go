@@ -19,6 +19,7 @@ import (
 )
 
 func TestProcessorHelper(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	userPublic := "user1"

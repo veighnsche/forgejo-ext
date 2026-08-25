@@ -211,6 +211,7 @@ func getTestCases() []struct {
 }
 
 func TestSearchRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// test search public repository on explore page
@@ -385,6 +386,7 @@ func TestSearchRepository(t *testing.T) {
 }
 
 func TestCountRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testCases := getTestCases()
@@ -400,6 +402,7 @@ func TestCountRepository(t *testing.T) {
 }
 
 func TestSearchRepositoryByTopicName(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testCases := []struct {
@@ -434,6 +437,7 @@ func TestSearchRepositoryByTopicName(t *testing.T) {
 }
 
 func TestSearchRepositoryIDsByCondition(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/repo/TestSearchRepositoryIDsByCondition")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	// Sanity check of the database

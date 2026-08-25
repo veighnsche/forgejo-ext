@@ -14,6 +14,7 @@ import (
 )
 
 func TestCancelAbandonedJobs(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/TestCancelAbandonedJobs")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

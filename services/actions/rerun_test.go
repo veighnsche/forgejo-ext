@@ -20,6 +20,7 @@ import (
 )
 
 func TestRerun_GetAllRerunJobs(t *testing.T) {
+	testhelper.Setup(t)
 	job1 := &actions_model.ActionRunJob{JobID: "job1"}
 	job2 := &actions_model.ActionRunJob{JobID: "job2", Needs: []string{"job1"}}
 	job3 := &actions_model.ActionRunJob{JobID: "job3", Needs: []string{"job2"}}
@@ -56,6 +57,7 @@ func TestRerun_GetAllRerunJobs(t *testing.T) {
 }
 
 func TestRerun_RerunAllJobs(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Reruns completed workflow", func(t *testing.T) {
 		defer unittest.OverrideFixtures("services/actions/TestRerun_RerunAllJobs")()
 		require.NoError(t, unittest.PrepareTestDatabase())
@@ -204,6 +206,7 @@ func TestRerun_RerunAllJobs(t *testing.T) {
 }
 
 func TestRerun_RerunJob(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Rerun independent job", func(t *testing.T) {
 		defer unittest.OverrideFixtures("services/actions/TestRerun_RerunJob")()
 		require.NoError(t, unittest.PrepareTestDatabase())

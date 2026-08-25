@@ -12,6 +12,7 @@ import (
 )
 
 func TestFileURLToPath(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		url      string
 		expected string
@@ -47,6 +48,7 @@ func TestFileURLToPath(t *testing.T) {
 }
 
 func TestMisc_IsReadmeFileName(t *testing.T) {
+	testhelper.Setup(t)
 	trueTestCases := []string{
 		"readme",
 		"README",
@@ -128,6 +130,7 @@ func TestMisc_IsReadmeFileName(t *testing.T) {
 }
 
 func TestCleanPath(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		elems    []string
 		expected string

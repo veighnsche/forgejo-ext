@@ -12,6 +12,7 @@ import (
 )
 
 func TestFullSteps(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		task *actions_model.ActionTask

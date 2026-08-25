@@ -20,6 +20,7 @@ import (
 )
 
 func TestRepository_AddCollaborator(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(repoID, userID int64) {
@@ -35,6 +36,7 @@ func TestRepository_AddCollaborator(t *testing.T) {
 }
 
 func TestRepository_AddCollaborator_IsBlocked(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(repoID, userID int64) {
@@ -62,6 +64,7 @@ func TestRepository_AddCollaborator_IsBlocked(t *testing.T) {
 }
 
 func TestRepoPermissionPublicNonOrgRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// public non-organization repo
@@ -115,6 +118,7 @@ func TestRepoPermissionPublicNonOrgRepo(t *testing.T) {
 }
 
 func TestRepoPermissionPrivateNonOrgRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// private non-organization repo
@@ -167,6 +171,7 @@ func TestRepoPermissionPrivateNonOrgRepo(t *testing.T) {
 }
 
 func TestRepoPermissionPublicOrgRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// public organization repo
@@ -229,6 +234,7 @@ func TestRepoPermissionPublicOrgRepo(t *testing.T) {
 }
 
 func TestRepoPermissionPrivateOrgRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// private organization repo

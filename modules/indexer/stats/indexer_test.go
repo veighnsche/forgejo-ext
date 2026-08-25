@@ -22,6 +22,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRepoStatsIndex(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	setting.CfgProvider, _ = setting.NewConfigProviderFromData("")
 

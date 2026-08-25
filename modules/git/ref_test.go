@@ -10,6 +10,7 @@ import (
 )
 
 func TestRefName(t *testing.T) {
+	testhelper.Setup(t)
 	// Test branch names (with and without slash).
 	assert.Equal(t, "foo", RefName("refs/heads/foo").BranchName())
 	assert.Equal(t, "feature/foo", RefName("refs/heads/feature/foo").BranchName())
@@ -33,6 +34,7 @@ func TestRefName(t *testing.T) {
 }
 
 func TestRefURL(t *testing.T) {
+	testhelper.Setup(t)
 	repoURL := "/user/repo"
 	assert.Equal(t, repoURL+"/src/branch/foo", RefURL(repoURL, "refs/heads/foo"))
 	assert.Equal(t, repoURL+"/src/tag/foo", RefURL(repoURL, "refs/tags/foo"))

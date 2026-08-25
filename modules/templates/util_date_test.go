@@ -17,6 +17,7 @@ import (
 )
 
 func TestDateTime(t *testing.T) {
+	testhelper.Setup(t)
 	testTz, err := time.LoadLocation("America/New_York")
 	require.NoError(t, err)
 	defer test.MockVariableValue(&setting.DefaultUILocation, testTz)()
@@ -61,6 +62,7 @@ func TestDateTime(t *testing.T) {
 }
 
 func TestTimeSince(t *testing.T) {
+	testhelper.Setup(t)
 	testTz, _ := time.LoadLocation("America/New_York")
 	defer test.MockVariableValue(&setting.DefaultUILocation, testTz)()
 	defer test.MockVariableValue(&setting.IsInTesting, false)()
@@ -82,6 +84,7 @@ func TestTimeSince(t *testing.T) {
 }
 
 func TestTimeDuration(t *testing.T) {
+	testhelper.Setup(t)
 	parisTZ, err := time.LoadLocation("Europe/Paris")
 	require.NoError(t, err)
 

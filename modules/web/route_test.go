@@ -16,6 +16,7 @@ import (
 )
 
 func TestRoute1(t *testing.T) {
+	testhelper.Setup(t)
 	buff := bytes.NewBufferString("")
 	recorder := httptest.NewRecorder()
 	recorder.Body = buff
@@ -37,6 +38,7 @@ func TestRoute1(t *testing.T) {
 }
 
 func TestRoute2(t *testing.T) {
+	testhelper.Setup(t)
 	buff := bytes.NewBufferString("")
 	recorder := httptest.NewRecorder()
 	recorder.Body = buff
@@ -113,6 +115,7 @@ func TestRoute2(t *testing.T) {
 }
 
 func TestRoute3(t *testing.T) {
+	testhelper.Setup(t)
 	buff := bytes.NewBufferString("")
 	recorder := httptest.NewRecorder()
 	recorder.Body = buff

@@ -20,6 +20,7 @@ import (
 )
 
 func TestRemoveScheduledAutoMerge(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/automerge/fixtures/TestRemoveScheduledAutoMerge")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

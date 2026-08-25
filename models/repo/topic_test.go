@@ -15,6 +15,7 @@ import (
 )
 
 func TestAddTopic(t *testing.T) {
+	testhelper.Setup(t)
 	totalNrOfTopics := 6
 	repo1NrOfTopics := 3
 
@@ -67,6 +68,7 @@ func TestAddTopic(t *testing.T) {
 }
 
 func TestTopicValidator(t *testing.T) {
+	testhelper.Setup(t)
 	assert.True(t, repo_model.ValidateTopic("12345"))
 	assert.True(t, repo_model.ValidateTopic("2-test"))
 	assert.True(t, repo_model.ValidateTopic("foo.bar"))

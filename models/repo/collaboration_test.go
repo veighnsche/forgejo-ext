@@ -18,6 +18,7 @@ import (
 )
 
 func TestRepository_GetCollaborators(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	test := func(repoID int64) {
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: repoID})
@@ -51,6 +52,7 @@ func TestRepository_GetCollaborators(t *testing.T) {
 }
 
 func TestRepository_IsCollaborator(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	test := func(repoID, userID int64, expected bool) {
@@ -66,6 +68,7 @@ func TestRepository_IsCollaborator(t *testing.T) {
 }
 
 func TestRepository_ChangeCollaborationAccessMode(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -88,6 +91,7 @@ func TestRepository_ChangeCollaborationAccessMode(t *testing.T) {
 }
 
 func TestRepository_CountCollaborators(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -113,6 +117,7 @@ func TestRepository_CountCollaborators(t *testing.T) {
 }
 
 func TestRepository_IsOwnerMemberCollaborator(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
@@ -148,6 +153,7 @@ func TestRepository_IsOwnerMemberCollaborator(t *testing.T) {
 }
 
 func TestRepo_GetCollaboration(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -166,6 +172,7 @@ func TestRepo_GetCollaboration(t *testing.T) {
 }
 
 func TestGetCollaboratorWithUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user16 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 16})

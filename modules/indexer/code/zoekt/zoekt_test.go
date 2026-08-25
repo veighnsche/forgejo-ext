@@ -14,6 +14,7 @@ import (
 )
 
 func TestConvertZoektResult_BasicMatch(t *testing.T) {
+	testhelper.Setup(t)
 	content := "hello world\nsecond line\n"
 
 	files := []zoekt.FileMatch{
@@ -58,6 +59,7 @@ func TestConvertZoektResult_BasicMatch(t *testing.T) {
 }
 
 func TestConvertZoektResult_PlainTextFallback(t *testing.T) {
+	testhelper.Setup(t)
 	files := []zoekt.FileMatch{
 		{
 			RepositoryID: 2,
@@ -82,6 +84,7 @@ func TestConvertZoektResult_PlainTextFallback(t *testing.T) {
 }
 
 func TestGetSearchResultLanguages(t *testing.T) {
+	testhelper.Setup(t)
 	searchResult := &zoekt.SearchResult{
 		Files: []zoekt.FileMatch{
 			{Language: "Go"},
@@ -106,6 +109,7 @@ func TestGetSearchResultLanguages(t *testing.T) {
 }
 
 func TestGenerateZoektQuery_Union(t *testing.T) {
+	testhelper.Setup(t)
 	indexer := &Indexer{}
 
 	opts := &internal.SearchOptions{
@@ -120,6 +124,7 @@ func TestGenerateZoektQuery_Union(t *testing.T) {
 }
 
 func TestGenerateZoektQuery_SpecialCharacters(t *testing.T) {
+	testhelper.Setup(t)
 	indexer := &Indexer{}
 
 	opts := &internal.SearchOptions{
@@ -133,6 +138,7 @@ func TestGenerateZoektQuery_SpecialCharacters(t *testing.T) {
 }
 
 func TestZoektFormatter_Format(t *testing.T) {
+	testhelper.Setup(t)
 	for _, testCase := range []struct {
 		name          string
 		content       string
@@ -234,6 +240,7 @@ func TestZoektFormatter_Format(t *testing.T) {
 }
 
 func TestConvertZoektResult_IgnoresFilenameMatches(t *testing.T) {
+	testhelper.Setup(t)
 	files := []zoekt.FileMatch{
 		{
 			RepositoryID: 1,

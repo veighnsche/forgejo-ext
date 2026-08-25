@@ -11,6 +11,7 @@ import (
 )
 
 func Test_getStorageInheritNameSectionTypeForPackages(t *testing.T) {
+	testhelper.Setup(t)
 	// packages storage inherits from storage if nothing configured
 	iniStr := `
 [storage]
@@ -68,6 +69,7 @@ STORAGE_TYPE = minio
 }
 
 func Test_PackageStorage1(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 [packages]
@@ -95,6 +97,7 @@ MINIO_SECRET_ACCESS_KEY = correct_key
 }
 
 func Test_PackageStorage2(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 [storage.packages]
@@ -122,6 +125,7 @@ MINIO_SECRET_ACCESS_KEY = correct_key
 }
 
 func Test_PackageStorage3(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 [packages]
@@ -150,6 +154,7 @@ MINIO_SECRET_ACCESS_KEY = correct_key
 }
 
 func Test_PackageStorage4(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 [storage.packages]

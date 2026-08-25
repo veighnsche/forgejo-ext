@@ -14,6 +14,7 @@ import (
 )
 
 func TestFundingProviderConfigCleanUpSigils(t *testing.T) {
+	testhelper.Setup(t)
 	// if the result expects more than one input, or an incomplete formatting sigil, then fmt.Sprintf may complain!
 	// we don't worry here about strings that take zero inputs, we don't know where one should go!
 	cases := [][2]string{
@@ -56,6 +57,7 @@ func TestFundingProviderConfigCleanUpSigils(t *testing.T) {
 }
 
 func TestFundingProviderConfigIgnoresInvalidTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	// a template string that doesn't take exactly one input may cause errors.
@@ -90,6 +92,7 @@ TEMPLATE = "%%s"
 }
 
 func TestFundingProviderConfig(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	// only requires template string. the title and icon can be derived automatically
@@ -108,6 +111,7 @@ TEMPLATE = "https://mycustom.example.com/%s"
 }
 
 func TestFundingProviderConfigWithMailtoUrlTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	// not sure what an email domain would do for funding stuffs, but weird formatting cases are good to test
@@ -126,6 +130,7 @@ TEMPLATE = "mailto:%s@localhost"
 }
 
 func TestFundingProviderConfigWithMailtoUrlWithTitle(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	cfg, err := NewConfigProviderFromData(`
@@ -144,6 +149,7 @@ TITLE = "Email %s@localhost for info"
 }
 
 func TestFundingProviderConfigWithTitle(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	cfg, err := NewConfigProviderFromData(`
@@ -162,6 +168,7 @@ TEMPLATE = "https://mycustom.example.com/%s"
 }
 
 func TestFundingProviderConfigWithSchemalessUrlTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	cfg, err := NewConfigProviderFromData(`
@@ -179,6 +186,7 @@ TEMPLATE = "mycustom.example.com/%s"
 }
 
 func TestFundingProviderConfigWithWeirdSchemalessUrlTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	cfg, err := NewConfigProviderFromData(`
@@ -196,6 +204,7 @@ TEMPLATE = "://mycustom.example.com/%s"
 }
 
 func TestFundingProviderConfigHandlesSigils(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	cases := [][3]string{
@@ -228,6 +237,7 @@ TEMPLATE = "%s"
 }
 
 func TestFundingProviderConfigWithCustomInputPattern(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	cases := [][2]string{
@@ -260,6 +270,7 @@ INPUT_PATTERN = %v
 }
 
 func TestFundingProviderConfigIgnoredOverride(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&FundingProviders)()
 
 	cfg, err := NewConfigProviderFromData(`
@@ -277,6 +288,7 @@ TEMPLATE = example.com/%[1]s
 }
 
 func TestFundingProviderConfigMaxEntries(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&MaxFundingEntriesPerConfig)()
 
 	cases := [][2]int{

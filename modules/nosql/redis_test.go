@@ -8,6 +8,7 @@ import (
 )
 
 func TestToRedisURI(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name       string
 		connection string

@@ -25,6 +25,7 @@ import (
 )
 
 func TestServiceActions_startTask(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/TestServiceActions_startTask")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -82,6 +83,7 @@ jobs:
 }
 
 func TestCreateScheduleTask(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2, OwnerID: 2})
 
@@ -194,6 +196,7 @@ jobs:
 }
 
 func TestCancelPreviousJobs(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/TestCancelPreviousJobs")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -216,6 +219,7 @@ func TestCancelPreviousJobs(t *testing.T) {
 }
 
 func TestCancelPreviousWithConcurrencyGroup(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tc := range []struct {
 		name              string
 		updateRun901      map[string]any
@@ -293,6 +297,7 @@ func TestCancelPreviousWithConcurrencyGroup(t *testing.T) {
 }
 
 func TestServiceActions_DynamicMatrix(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/TestServiceActions_startTask")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -360,6 +365,7 @@ jobs:
 }
 
 func TestServiceActions_RunsOnNeeds(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/TestServiceActions_startTask")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -423,6 +429,7 @@ jobs:
 }
 
 func TestServiceActions_ExpandReusableWorkflow(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/TestServiceActions_startTask")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

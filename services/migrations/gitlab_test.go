@@ -25,6 +25,7 @@ import (
 )
 
 func TestGitlabDownloadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	// If a GitLab access token is provided, this test will make HTTP requests to the live gitlab.com instance.
@@ -488,6 +489,7 @@ func TestGitlabDownloadRepo(t *testing.T) {
 }
 
 func TestGitlabSkippedIssueNumber(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	// If a GitLab access token is provided, this test will make HTTP requests to the live gitlab.com instance.
@@ -616,6 +618,7 @@ func convertTestCase(t reviewTestCase) (func(w http.ResponseWriter, r *http.Requ
 }
 
 func TestGitlabGetReviews(t *testing.T) {
+	testhelper.Setup(t)
 	mux, server, client := gitlabClientMockSetup(t)
 	defer gitlabClientMockTeardown(server)
 
@@ -669,6 +672,7 @@ func TestGitlabGetReviews(t *testing.T) {
 }
 
 func TestAwardsToReactions(t *testing.T) {
+	testhelper.Setup(t)
 	downloader := &GitlabDownloader{}
 	// yes gitlab can have duplicated reactions (https://gitlab.com/jaywink/socialhome/-/issues/24)
 	testResponse := `
@@ -737,6 +741,7 @@ func makeTestNote(id int64, body string, system bool, t time.Time) gitlab.Note {
 }
 
 func TestNoteToComment(t *testing.T) {
+	testhelper.Setup(t)
 	downloader := &GitlabDownloader{}
 
 	now := time.Now()
@@ -798,6 +803,7 @@ func TestNoteToComment(t *testing.T) {
 }
 
 func TestGitlabIIDResolver(t *testing.T) {
+	testhelper.Setup(t)
 	r := gitlabIIDResolver{}
 	r.recordIssueIID(1)
 	r.recordIssueIID(2)
@@ -815,6 +821,7 @@ func TestGitlabIIDResolver(t *testing.T) {
 }
 
 func TestCommentBodyParser(t *testing.T) {
+	testhelper.Setup(t)
 	downloader := GitlabDownloader{}
 	downloader.iidResolver.maxIssueIID = int64(10)
 	now := time.Now()
@@ -847,6 +854,7 @@ func TestCommentBodyParser(t *testing.T) {
 }
 
 func TestGitlabConfidential(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	// If a GitLab access token is provided, this test will make HTTP requests to the live gitlab.com instance.
@@ -919,6 +927,7 @@ func TestGitlabConfidential(t *testing.T) {
 }
 
 func TestGitlabDownloaderAvatarURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	GithubLimitRateRemaining = 3 // Wait at 3 remaining since we could have 3 CI in //
 

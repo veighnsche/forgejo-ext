@@ -52,6 +52,7 @@ func preparePackage(t *testing.T, owner *user_model.User, name string) {
 }
 
 func TestSearchPackages(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

@@ -13,6 +13,7 @@ import (
 )
 
 func TestDiffWithHighlight(t *testing.T) {
+	testhelper.Setup(t)
 	hcd := NewHighlightCodeDiff()
 	diffs := hcd.diffWithHighlight(
 		"main.v", "",
@@ -47,6 +48,7 @@ func TestDiffWithHighlight(t *testing.T) {
 }
 
 func TestDiffWithHighlightPlaceholder(t *testing.T) {
+	testhelper.Setup(t)
 	hcd := NewHighlightCodeDiff()
 	diffs := hcd.diffWithHighlight(
 		"main.js", "",
@@ -72,6 +74,7 @@ func TestDiffWithHighlightPlaceholder(t *testing.T) {
 }
 
 func TestDiffWithHighlightPlaceholderExhausted(t *testing.T) {
+	testhelper.Setup(t)
 	hcd := NewHighlightCodeDiff()
 	hcd.placeholderMaxCount = 0
 	diffs := hcd.diffWithHighlight(
@@ -100,6 +103,7 @@ func TestDiffWithHighlightPlaceholderExhausted(t *testing.T) {
 }
 
 func TestDiffWithHighlightTagMatch(t *testing.T) {
+	testhelper.Setup(t)
 	totalOverflow := 0
 	for i := range 100 {
 		hcd := NewHighlightCodeDiff()

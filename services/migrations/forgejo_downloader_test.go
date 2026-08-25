@@ -12,5 +12,6 @@ import (
 )
 
 func TestForgejoDownload(t *testing.T) {
+	testhelper.Setup(t)
 	require.NotNil(t, getFactoryFromServiceType(structs.ForgejoService))
 }

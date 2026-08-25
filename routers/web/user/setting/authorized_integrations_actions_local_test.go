@@ -28,6 +28,7 @@ func makeLocalContext(t *testing.T) *context.Context {
 }
 
 func TestLocalPopulateTemplateContext(t *testing.T) {
+	testhelper.Setup(t)
 	ui := actionsLocalUI{}
 
 	t.Run("search for repos", func(t *testing.T) {
@@ -64,6 +65,7 @@ func TestLocalPopulateTemplateContext(t *testing.T) {
 }
 
 func TestLocalPopulateError(t *testing.T) {
+	testhelper.Setup(t)
 	ui := actionsLocalUI{}
 
 	t.Run("unrecognized error", func(t *testing.T) {
@@ -90,6 +92,7 @@ func TestLocalPopulateError(t *testing.T) {
 }
 
 func TestLocalPopulateForm(t *testing.T) {
+	testhelper.Setup(t)
 	form := &actionsLocalAuthorizedIntegrationForm{}
 	issuer := "urn:forgejo:authorized-integrations:actions"
 
@@ -132,6 +135,7 @@ func TestLocalPopulateForm(t *testing.T) {
 }
 
 func TestLocalConvertForm(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("empty", func(t *testing.T) {
 		form := &actionsLocalAuthorizedIntegrationForm{}
 		_, _, err := form.convertForm(makeLocalContext(t))

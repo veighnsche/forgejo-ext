@@ -15,6 +15,7 @@ import (
 )
 
 func TestRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, "http://localhost:3000/")()
 	req, _ := http.NewRequest("GET", "/", nil)
 
@@ -50,6 +51,7 @@ func TestRedirect(t *testing.T) {
 }
 
 func TestRedirectOptionalStatus(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, "http://localhost:3000/")()
 	req, _ := http.NewRequest("GET", "/", nil)
 

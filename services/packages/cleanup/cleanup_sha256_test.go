@@ -22,6 +22,7 @@ import (
 )
 
 func TestCleanupSHA256(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&container_service.SHA256BatchSize, 1)()
 

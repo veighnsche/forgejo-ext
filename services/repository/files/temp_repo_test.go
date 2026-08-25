@@ -15,6 +15,7 @@ import (
 )
 
 func TestTemporaryUploadRepositoryRemoveFilesFromIndexSha256(t *testing.T) {
+	testhelper.Setup(t)
 	if git.CheckGitVersionAtLeast("2.42") != nil {
 		t.Skip("skipping because installed Git version doesn't support SHA256")
 	}
@@ -28,6 +29,7 @@ func TestTemporaryUploadRepositoryRemoveFilesFromIndexSha256(t *testing.T) {
 }
 
 func TestTemporaryUploadRepositoryAddObjectToIndex(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 

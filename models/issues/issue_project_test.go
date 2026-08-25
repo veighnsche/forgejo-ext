@@ -20,6 +20,7 @@ import (
 )
 
 func TestPrivateIssueProjects(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/PrivateIssueProjects")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -119,6 +120,7 @@ func TestPrivateIssueProjects(t *testing.T) {
 }
 
 func TestPrivateRepoProjects(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/TestPrivateRepoProjects")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

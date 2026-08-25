@@ -11,6 +11,7 @@ import (
 )
 
 func TestRunWithContextStd(t *testing.T) {
+	testhelper.Setup(t)
 	cmd := NewCommand(t.Context(), "--version")
 	stdout, stderr, err := cmd.RunStdString(&RunOpts{})
 	require.NoError(t, err)
@@ -43,6 +44,7 @@ func TestRunWithContextStd(t *testing.T) {
 }
 
 func TestGitArgument(t *testing.T) {
+	testhelper.Setup(t)
 	assert.True(t, isValidArgumentOption("-x"))
 	assert.True(t, isValidArgumentOption("--xx"))
 	assert.False(t, isValidArgumentOption(""))
@@ -54,6 +56,7 @@ func TestGitArgument(t *testing.T) {
 }
 
 func TestCommandString(t *testing.T) {
+	testhelper.Setup(t)
 	cmd := NewCommandContextNoGlobals(t.Context(), "a", "-m msg", "it's a test", `say "hello"`)
 	assert.Equal(t, cmd.prog+` a "-m msg" "it's a test" "say \"hello\""`, cmd.String())
 
@@ -62,6 +65,7 @@ func TestCommandString(t *testing.T) {
 }
 
 func TestGrepOnlyFunction(t *testing.T) {
+	testhelper.Setup(t)
 	cmd := NewCommand(t.Context(), "anything-but-grep")
 	assert.Panics(t, func() {
 		cmd.AddGitGrepExpression("whatever")

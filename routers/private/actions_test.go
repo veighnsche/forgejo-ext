@@ -13,6 +13,7 @@ import (
 )
 
 func TestParseScope(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name          string
 		scope         string

@@ -11,6 +11,7 @@ import (
 )
 
 func TestComplexity_IsComplexEnough(t *testing.T) {
+	testhelper.Setup(t)
 	matchComplexityOnce.Do(func() {})
 
 	testlist := []struct {
@@ -44,6 +45,7 @@ func TestComplexity_IsComplexEnough(t *testing.T) {
 }
 
 func TestComplexity_Generate(t *testing.T) {
+	testhelper.Setup(t)
 	matchComplexityOnce.Do(func() {})
 
 	const maxCount = 50

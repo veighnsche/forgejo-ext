@@ -25,6 +25,7 @@ func testShadowCopyField(t *testing.T, scField moderation.ShadowCopyField, key, 
 }
 
 func TestUserDataGetFieldsMap(t *testing.T) {
+	testhelper.Setup(t)
 	ud := user.UserData{
 		Name:        "alexsmith",
 		FullName:    "Alex Smith",

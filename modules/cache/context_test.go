@@ -12,6 +12,7 @@ import (
 )
 
 func TestWithCacheContext(t *testing.T) {
+	testhelper.Setup(t)
 	ctx := WithCacheContext(t.Context())
 
 	v := GetContextData(ctx, "empty_field", "my_config1")
@@ -52,6 +53,7 @@ func TestWithCacheContext(t *testing.T) {
 }
 
 func TestWithNoCacheContext(t *testing.T) {
+	testhelper.Setup(t)
 	ctx := t.Context()
 
 	const field = "system_setting"

@@ -10,6 +10,7 @@ import (
 )
 
 func TestValidatePackageName(t *testing.T) {
+	testhelper.Setup(t)
 	bad := []string{
 		"",
 		".",
@@ -36,6 +37,7 @@ func TestValidatePackageName(t *testing.T) {
 }
 
 func TestValidateFileName(t *testing.T) {
+	testhelper.Setup(t)
 	bad := []string{
 		"",
 		".",

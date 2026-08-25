@@ -16,6 +16,7 @@ import (
 )
 
 func TestMatrixPayload(t *testing.T) {
+	testhelper.Setup(t)
 	mc := matrixConvertor{
 		MsgType: "m.text",
 	}
@@ -192,6 +193,7 @@ func TestMatrixPayload(t *testing.T) {
 }
 
 func TestMatrixJSONPayload(t *testing.T) {
+	testhelper.Setup(t)
 	p := pushTestPayload()
 	data, err := p.JSONPayload()
 	require.NoError(t, err)

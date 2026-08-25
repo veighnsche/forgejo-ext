@@ -14,6 +14,7 @@ import (
 )
 
 func TestForgejoSemVerSetGet(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ctx := db.DefaultContext
 
@@ -27,6 +28,7 @@ func TestForgejoSemVerSetGet(t *testing.T) {
 }
 
 func TestForgejoSemVerMissing(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ctx := db.DefaultContext
 	e := db.GetEngine(ctx)

@@ -19,6 +19,7 @@ import (
 )
 
 func TestSetCommitNotesPullRequest(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	commitID := "65f1bf27bc3bf70f64657658635e66094edbcb4d"
 	pullID := "5"
@@ -42,6 +43,7 @@ func TestSetCommitNotesPullRequest(t *testing.T) {
 }
 
 func TestRemoveCommitNotesPullRequest(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	commitID := "65f1bf27bc3bf70f64657658635e66094edbcb4d"
 	pullID := "5"

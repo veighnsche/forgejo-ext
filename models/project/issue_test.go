@@ -14,6 +14,7 @@ import (
 )
 
 func TestMoveIssuesOnProjectColumn(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Get column 1 which belongs to project 1 and has issue 1
@@ -65,6 +66,7 @@ func TestMoveIssuesOnProjectColumn(t *testing.T) {
 }
 
 func TestMoveIssuesOnProjectColumnSwap(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	column := unittest.AssertExistsAndLoadBean(t, &Column{ID: 1})
@@ -109,6 +111,7 @@ func TestMoveIssuesOnProjectColumnSwap(t *testing.T) {
 }
 
 func TestMoveIssuesOnProjectColumnEmptyMap(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	column := unittest.AssertExistsAndLoadBean(t, &Column{ID: 1})
@@ -117,6 +120,7 @@ func TestMoveIssuesOnProjectColumnEmptyMap(t *testing.T) {
 }
 
 func TestMoveIssuesOnProjectColumnDuplicateIssueIDs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	column := unittest.AssertExistsAndLoadBean(t, &Column{ID: 1})
@@ -129,6 +133,7 @@ func TestMoveIssuesOnProjectColumnDuplicateIssueIDs(t *testing.T) {
 }
 
 func TestMoveIssuesToAnotherColumnErrorPaths(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("DifferentProject", func(t *testing.T) {

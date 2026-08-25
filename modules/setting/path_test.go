@@ -18,6 +18,7 @@ func (e envVars) Getenv(key string) string {
 }
 
 func TestInitWorkPathAndCommonConfig(t *testing.T) {
+	testhelper.Setup(t)
 	testInit := func(defaultWorkPath, defaultCustomPath, defaultCustomConf string) {
 		AppWorkPathMismatch = false
 		AppWorkPath = defaultWorkPath

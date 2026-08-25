@@ -14,6 +14,7 @@ import (
 )
 
 func TestActionScheduleSpec_NewActionScheduleSpec(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name        string
 		refTime     time.Time
@@ -52,6 +53,7 @@ func TestActionScheduleSpec_NewActionScheduleSpec(t *testing.T) {
 }
 
 func TestActionScheduleSpec_Parse(t *testing.T) {
+	testhelper.Setup(t)
 	// Mock the local timezone is not UTC
 	local := time.Local
 	tz, err := time.LoadLocation("Asia/Shanghai")

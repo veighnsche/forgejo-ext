@@ -20,6 +20,7 @@ import (
 )
 
 func TestTeam_RemoveMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(teamID, userID int64) {
@@ -39,11 +40,13 @@ func TestTeam_RemoveMember(t *testing.T) {
 }
 
 func TestIsUsableTeamName(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, organization.IsUsableTeamName("usable"))
 	assert.True(t, db.IsErrNameReserved(organization.IsUsableTeamName("new")))
 }
 
 func TestNewTeam(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	const teamName = "newTeamName"
@@ -54,6 +57,7 @@ func TestNewTeam(t *testing.T) {
 }
 
 func TestUpdateTeam(t *testing.T) {
+	testhelper.Setup(t)
 	// successful update
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -74,6 +78,7 @@ func TestUpdateTeam(t *testing.T) {
 }
 
 func TestUpdateTeam2(t *testing.T) {
+	testhelper.Setup(t)
 	// update to already-existing team
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -88,6 +93,7 @@ func TestUpdateTeam2(t *testing.T) {
 }
 
 func TestDeleteTeam(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 2})
@@ -105,6 +111,7 @@ func TestDeleteTeam(t *testing.T) {
 }
 
 func TestAddTeamMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	test := func(teamID, userID int64) {
@@ -119,6 +126,7 @@ func TestAddTeamMember(t *testing.T) {
 }
 
 func TestTeam_AddAndReturnTeamMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	for _, testCase := range []struct {
@@ -162,6 +170,7 @@ func TestTeam_AddAndReturnTeamMember(t *testing.T) {
 }
 
 func TestTeam_AddTeamRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	for _, testCase := range []struct {
@@ -209,6 +218,7 @@ func TestTeam_AddTeamRepository(t *testing.T) {
 }
 
 func TestRemoveTeamMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(teamID, userID int64) {
@@ -228,6 +238,7 @@ func TestRemoveTeamMember(t *testing.T) {
 }
 
 func TestRepository_RecalculateAccesses3(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	team5 := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 5})
 	user29 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 29})

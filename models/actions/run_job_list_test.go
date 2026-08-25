@@ -12,6 +12,7 @@ import (
 )
 
 func TestActionJobList_GetJobIDs(t *testing.T) {
+	testhelper.Setup(t)
 	jobs := ActionJobList{
 		&ActionRunJob{JobID: "job 1"},
 		&ActionRunJob{JobID: "job 2"},

@@ -14,6 +14,7 @@ import (
 )
 
 func TestListTagsSetsLinkHeader(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	// limit=1 so that any repo with >=2 tags will paginate

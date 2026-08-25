@@ -32,6 +32,7 @@ func resetDefaultCharsetsOrder() {
 }
 
 func TestMaybeRemoveBOM(t *testing.T) {
+	testhelper.Setup(t)
 	res := MaybeRemoveBOM([]byte{0xc3, 0xa1, 0xc3, 0xa9, 0xc3, 0xad, 0xc3, 0xb3, 0xc3, 0xba}, ConvertOpts{})
 	assert.Equal(t, []byte{0xc3, 0xa1, 0xc3, 0xa9, 0xc3, 0xad, 0xc3, 0xb3, 0xc3, 0xba}, res)
 
@@ -40,6 +41,7 @@ func TestMaybeRemoveBOM(t *testing.T) {
 }
 
 func TestToUTF8(t *testing.T) {
+	testhelper.Setup(t)
 	resetDefaultCharsetsOrder()
 
 	// Note: golang compiler seems so behave differently depending on the current
@@ -106,6 +108,7 @@ func TestToUTF8(t *testing.T) {
 }
 
 func TestToUTF8WithFallback(t *testing.T) {
+	testhelper.Setup(t)
 	resetDefaultCharsetsOrder()
 	// "ABC"
 	res := ToUTF8WithFallback([]byte{0x41, 0x42, 0x43}, ConvertOpts{})
@@ -153,6 +156,7 @@ func TestToUTF8WithFallback(t *testing.T) {
 }
 
 func TestToUTF8DropErrors(t *testing.T) {
+	testhelper.Setup(t)
 	resetDefaultCharsetsOrder()
 	// "ABC"
 	res := ToUTF8DropErrors([]byte{0x41, 0x42, 0x43}, ConvertOpts{})
@@ -195,6 +199,7 @@ func TestToUTF8DropErrors(t *testing.T) {
 }
 
 func TestDetectEncoding(t *testing.T) {
+	testhelper.Setup(t)
 	resetDefaultCharsetsOrder()
 	testSuccess := func(b []byte, expected string) {
 		encoding, err := DetectEncoding(b)
@@ -241,6 +246,7 @@ func stringMustEndWith(t *testing.T, expected, value string) {
 }
 
 func TestToUTF8WithFallbackReader(t *testing.T) {
+	testhelper.Setup(t)
 	resetDefaultCharsetsOrder()
 
 	for testLen := range 2048 {

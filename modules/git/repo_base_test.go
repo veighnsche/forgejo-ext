@@ -16,6 +16,7 @@ import (
 
 // This unit test relies on the implementation detail of CatFileBatch.
 func TestCatFileBatch(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
@@ -140,6 +141,7 @@ func TestCatFileBatch(t *testing.T) {
 
 // This unit test relies on the implementation detail of CatFileBatchCheck.
 func TestCatFileBatchCheck(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 

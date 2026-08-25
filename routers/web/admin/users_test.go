@@ -19,6 +19,7 @@ import (
 )
 
 func TestNewUserPost_MustChangePassword(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "admin/users/new")
 
@@ -56,6 +57,7 @@ func TestNewUserPost_MustChangePassword(t *testing.T) {
 }
 
 func TestNewUserPost_MustChangePasswordFalse(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "admin/users/new")
 
@@ -93,6 +95,7 @@ func TestNewUserPost_MustChangePasswordFalse(t *testing.T) {
 }
 
 func TestNewUserPost_InvalidEmail(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "admin/users/new")
 
@@ -123,6 +126,7 @@ func TestNewUserPost_InvalidEmail(t *testing.T) {
 }
 
 func TestNewUserPost_VisibilityDefaultPublic(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "admin/users/new")
 
@@ -161,6 +165,7 @@ func TestNewUserPost_VisibilityDefaultPublic(t *testing.T) {
 }
 
 func TestNewUserPost_VisibilityPrivate(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "admin/users/new")
 

@@ -16,6 +16,7 @@ import (
 )
 
 func TestRemoveResolvedReportsWhenNoTimeSet(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	// reportAge needs to be an int64 to match what timeutil.Day expects so we cast the value
 	reportAge := int64(20)
@@ -36,6 +37,7 @@ func TestRemoveResolvedReportsWhenNoTimeSet(t *testing.T) {
 }
 
 func TestRemoveResolvedReportsWhenMatchTimeSet(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	// keepReportsFor needs to an int64 to match what timeutil.Day expects so we cast the value
 	keepReportsFor := int64(4)
@@ -57,6 +59,7 @@ func TestRemoveResolvedReportsWhenMatchTimeSet(t *testing.T) {
 }
 
 func TestRemoveResolvedReportsWhenTimeSetButReportNew(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	resolvedReport := &moderation_model.AbuseReport{
 		Status:     moderation_model.ReportStatusTypeHandled,
@@ -75,6 +78,7 @@ func TestRemoveResolvedReportsWhenTimeSetButReportNew(t *testing.T) {
 }
 
 func TestDoesNotRemoveOpenReports(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	// keepReportsFor needs to an int64 to match what timeutil.Day expects so we cast the value
 	keepReportsFor := int64(4)

@@ -16,6 +16,7 @@ import (
 )
 
 func TestOAuth2Application_GenerateClientSecret(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	app := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2Application{ID: 1})
 	secret, err := app.GenerateClientSecret(db.DefaultContext)
@@ -33,6 +34,7 @@ func BenchmarkOAuth2Application_GenerateClientSecret(b *testing.B) {
 }
 
 func TestOAuth2Application_ContainsRedirectURI(t *testing.T) {
+	testhelper.Setup(t)
 	app := &auth_model.OAuth2Application{
 		RedirectURIs: []string{"a", "b", "c"},
 	}
@@ -43,6 +45,7 @@ func TestOAuth2Application_ContainsRedirectURI(t *testing.T) {
 }
 
 func TestOAuth2Application_ContainsRedirectURI_WithPort(t *testing.T) {
+	testhelper.Setup(t)
 	app := &auth_model.OAuth2Application{
 		RedirectURIs:       []string{"http://127.0.0.1/", "http://::1/", "http://192.168.0.1/", "http://intranet/", "https://127.0.0.1/"},
 		ConfidentialClient: false,
@@ -64,6 +67,7 @@ func TestOAuth2Application_ContainsRedirectURI_WithPort(t *testing.T) {
 }
 
 func TestOAuth2Application_ContainsRedirect_Slash(t *testing.T) {
+	testhelper.Setup(t)
 	app := &auth_model.OAuth2Application{RedirectURIs: []string{"http://127.0.0.1"}}
 	assert.True(t, app.ContainsRedirectURI("http://127.0.0.1"))
 	assert.True(t, app.ContainsRedirectURI("http://127.0.0.1/"))
@@ -76,6 +80,7 @@ func TestOAuth2Application_ContainsRedirect_Slash(t *testing.T) {
 }
 
 func TestOAuth2Application_ContainsRedirect_Normalization(t *testing.T) {
+	testhelper.Setup(t)
 	app := &auth_model.OAuth2Application{RedirectURIs: []string{"https://website.com"}}
 	assert.True(t, app.ContainsRedirectURI("https://website.com"))
 	assert.True(t, app.ContainsRedirectURI("https://webSITE.com"))  // ascii uppercase I
@@ -83,6 +88,7 @@ func TestOAuth2Application_ContainsRedirect_Normalization(t *testing.T) {
 }
 
 func TestOAuth2Application_ValidateClientSecret(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	app := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2Application{ID: 1})
 	secret, err := app.GenerateClientSecret(db.DefaultContext)
@@ -92,6 +98,7 @@ func TestOAuth2Application_ValidateClientSecret(t *testing.T) {
 }
 
 func TestGetOAuth2ApplicationByClientID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	app, err := auth_model.GetOAuth2ApplicationByClientID(db.DefaultContext, "da7da3ba-9a13-4167-856f-3899de0b0138")
 	require.NoError(t, err)
@@ -103,6 +110,7 @@ func TestGetOAuth2ApplicationByClientID(t *testing.T) {
 }
 
 func TestCreateOAuth2Application(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	app, err := auth_model.CreateOAuth2Application(db.DefaultContext, auth_model.CreateOAuth2ApplicationOptions{Name: "newapp", UserID: 1})
 	require.NoError(t, err)
@@ -112,10 +120,12 @@ func TestCreateOAuth2Application(t *testing.T) {
 }
 
 func TestOAuth2Application_TableName(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "oauth2_application", new(auth_model.OAuth2Application).TableName())
 }
 
 func TestOAuth2Application_GetGrantByUserID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	app := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2Application{ID: 1})
 	grant, err := app.GetGrantByUserID(db.DefaultContext, 1)
@@ -128,6 +138,7 @@ func TestOAuth2Application_GetGrantByUserID(t *testing.T) {
 }
 
 func TestOAuth2Application_CreateGrant(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	app := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2Application{ID: 1})
 	grant, err := app.CreateGrant(db.DefaultContext, 2, "")
@@ -141,6 +152,7 @@ func TestOAuth2Application_CreateGrant(t *testing.T) {
 //////////////////// Grant
 
 func TestGetOAuth2GrantByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	grant, err := auth_model.GetOAuth2GrantByID(db.DefaultContext, 1)
 	require.NoError(t, err)
@@ -152,6 +164,7 @@ func TestGetOAuth2GrantByID(t *testing.T) {
 }
 
 func TestOAuth2Grant_IncreaseCounter(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	grant := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2Grant{ID: 1, Counter: 1})
 
@@ -169,6 +182,7 @@ func TestOAuth2Grant_IncreaseCounter(t *testing.T) {
 }
 
 func TestOAuth2Grant_ScopeContains(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	grant := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2Grant{ID: 1, Scope: "openid profile"})
 	assert.True(t, grant.ScopeContains("openid"))
@@ -178,6 +192,7 @@ func TestOAuth2Grant_ScopeContains(t *testing.T) {
 }
 
 func TestOAuth2Grant_GenerateNewAuthorizationCode(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	grant := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2Grant{ID: 1})
 	code, err := grant.GenerateNewAuthorizationCode(db.DefaultContext, "https://example2.com/callback", "CjvyTLSdR47G5zYenDA-eDWW4lRrO8yvjcWwbD_deOg", "S256")
@@ -187,10 +202,12 @@ func TestOAuth2Grant_GenerateNewAuthorizationCode(t *testing.T) {
 }
 
 func TestOAuth2Grant_TableName(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "oauth2_grant", new(auth_model.OAuth2Grant).TableName())
 }
 
 func TestGetOAuth2GrantsByUserID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	result, err := auth_model.GetOAuth2GrantsByUserID(db.DefaultContext, 1)
 	require.NoError(t, err)
@@ -204,6 +221,7 @@ func TestGetOAuth2GrantsByUserID(t *testing.T) {
 }
 
 func TestRevokeOAuth2Grant(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	require.NoError(t, auth_model.RevokeOAuth2Grant(db.DefaultContext, 1, 1))
 	unittest.AssertNotExistsBean(t, &auth_model.OAuth2Grant{ID: 1, UserID: 1})
@@ -212,6 +230,7 @@ func TestRevokeOAuth2Grant(t *testing.T) {
 //////////////////// Authorization Code
 
 func TestGetOAuth2AuthorizationByCode(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	code, err := auth_model.GetOAuth2AuthorizationByCode(db.DefaultContext, "authcode")
 	require.NoError(t, err)
@@ -225,6 +244,7 @@ func TestGetOAuth2AuthorizationByCode(t *testing.T) {
 }
 
 func TestOAuth2AuthorizationCode_ValidateCodeChallenge(t *testing.T) {
+	testhelper.Setup(t)
 	// test plain
 	code := &auth_model.OAuth2AuthorizationCode{
 		CodeChallengeMethod: "plain",
@@ -278,6 +298,7 @@ func TestOAuth2AuthorizationCode_ValidateCodeChallenge(t *testing.T) {
 }
 
 func TestOAuth2AuthorizationCode_GenerateRedirectURI(t *testing.T) {
+	testhelper.Setup(t)
 	code := &auth_model.OAuth2AuthorizationCode{
 		RedirectURI: "https://example.com/callback",
 		Code:        "thecode",
@@ -293,6 +314,7 @@ func TestOAuth2AuthorizationCode_GenerateRedirectURI(t *testing.T) {
 }
 
 func TestOAuth2AuthorizationCode_Invalidate(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	code := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2AuthorizationCode{Code: "authcode"})
 	require.NoError(t, code.Invalidate(db.DefaultContext))
@@ -300,6 +322,7 @@ func TestOAuth2AuthorizationCode_Invalidate(t *testing.T) {
 }
 
 func TestOAuth2AuthorizationCode_Invalidate_DoubleUse(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	code := unittest.AssertExistsAndLoadBean(t, &auth_model.OAuth2AuthorizationCode{Code: "authcode"})
 
@@ -314,16 +337,19 @@ func TestOAuth2AuthorizationCode_Invalidate_DoubleUse(t *testing.T) {
 }
 
 func TestOAuth2AuthorizationCode_TableName(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "oauth2_authorization_code", new(auth_model.OAuth2AuthorizationCode).TableName())
 }
 
 func TestBuiltinApplicationsClientIDs(t *testing.T) {
+	testhelper.Setup(t)
 	clientIDs := auth_model.BuiltinApplicationsClientIDs()
 	slices.Sort(clientIDs)
 	assert.Equal(t, []string{"a4792ccc-144e-407e-86c9-5e7d8d9c3269", "d57cb8c4-630c-4168-8324-ec79935e18d4", "e90ee53c-94e2-48ac-9358-a874fb9e0662"}, clientIDs)
 }
 
 func TestOrphanedOAuth2Applications(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/auth/TestOrphanedOAuth2Applications")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

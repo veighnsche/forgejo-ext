@@ -19,6 +19,7 @@ import (
 )
 
 func TestUpdateIssuesCommit(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pushCommits := []*repository.PushCommit{
 		{
@@ -121,6 +122,7 @@ func TestUpdateIssuesCommit(t *testing.T) {
 }
 
 func TestUpdateIssuesCommit_Colon(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pushCommits := []*repository.PushCommit{
 		{
@@ -146,6 +148,7 @@ func TestUpdateIssuesCommit_Colon(t *testing.T) {
 }
 
 func TestUpdateIssuesCommit_Issue5957(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -180,6 +183,7 @@ func TestUpdateIssuesCommit_Issue5957(t *testing.T) {
 }
 
 func TestUpdateIssuesCommit_AnotherRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -215,6 +219,7 @@ func TestUpdateIssuesCommit_AnotherRepo(t *testing.T) {
 }
 
 func TestUpdateIssuesCommit_AnotherRepo_FullAddress(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -250,6 +255,7 @@ func TestUpdateIssuesCommit_AnotherRepo_FullAddress(t *testing.T) {
 }
 
 func TestUpdateIssuesCommit_AnotherRepoNoPermission(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 10})
 

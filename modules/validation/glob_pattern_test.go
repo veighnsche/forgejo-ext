@@ -51,6 +51,7 @@ var globValidationTestCases = []validationTestCase{
 }
 
 func Test_GlobPatternValidation(t *testing.T) {
+	testhelper.Setup(t)
 	AddBindingRules()
 
 	for _, testCase := range globValidationTestCases {

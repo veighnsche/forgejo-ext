@@ -27,6 +27,7 @@ func countFormalHeaders(h http.Header) (c int) {
 }
 
 func TestHandleGenericETagCache(t *testing.T) {
+	testhelper.Setup(t)
 	etag := `"test"`
 
 	t.Run("No_If-None-Match", func(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetIssueStats(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ids, err := issues_model.GetIssueIDsByRepoID(db.DefaultContext, 1)

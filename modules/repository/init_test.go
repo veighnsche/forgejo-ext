@@ -10,6 +10,7 @@ import (
 )
 
 func TestMergeCustomLabels(t *testing.T) {
+	testhelper.Setup(t)
 	files := mergeCustomLabelFiles(optionFileList{
 		all:    []string{"a", "a.yaml", "a.yml"},
 		custom: nil,

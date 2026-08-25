@@ -12,6 +12,7 @@ import (
 )
 
 func TestParseAcceptEncoding(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		Header   string
 		Expected container.Set[string]

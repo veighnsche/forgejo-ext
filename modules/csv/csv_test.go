@@ -20,6 +20,7 @@ import (
 )
 
 func TestCreateReader(t *testing.T) {
+	testhelper.Setup(t)
 	rd := CreateReader(bytes.NewReader([]byte{}), ',')
 	assert.Equal(t, ',', rd.Comma)
 }
@@ -33,6 +34,7 @@ func decodeSlashes(t *testing.T, s string) string {
 }
 
 func TestCreateReaderAndDetermineDelimiter(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		csv               string
 		expectedRows      [][]string
@@ -115,6 +117,7 @@ func (r *mockReader) Read(buf []byte) (int, error) {
 }
 
 func TestDetermineDelimiterShortBufferError(t *testing.T) {
+	testhelper.Setup(t)
 	rd, err := CreateReaderAndDetermineDelimiter(nil, &mockReader{})
 	require.Error(t, err, "CreateReaderAndDetermineDelimiter() should throw an error")
 	require.ErrorIs(t, err, io.ErrShortBuffer)
@@ -122,6 +125,7 @@ func TestDetermineDelimiterShortBufferError(t *testing.T) {
 }
 
 func TestDetermineDelimiterReadAllError(t *testing.T) {
+	testhelper.Setup(t)
 	rd, err := CreateReaderAndDetermineDelimiter(nil, strings.NewReader(`col1,col2
 	a;b
 	c@e
@@ -137,6 +141,7 @@ func TestDetermineDelimiterReadAllError(t *testing.T) {
 }
 
 func TestDetermineDelimiter(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		csv               string
 		filename          string
@@ -241,6 +246,7 @@ John Doe	john@doe.com	This,note,had,a,lot,of,commas,to,test,delimiters`,
 }
 
 func TestRemoveQuotedString(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		text         string
 		expectedText string
@@ -306,6 +312,7 @@ abc   | |123
 }
 
 func TestGuessDelimiter(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		csv               string
 		expectedDelimiter rune
@@ -461,6 +468,7 @@ jkl`,
 }
 
 func TestGuessFromBeforeAfterQuotes(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		csv               string
 		expectedDelimiter rune
@@ -553,6 +561,7 @@ a|"he said, ""here I am"""`,
 }
 
 func TestFormatError(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		err             error
 		expectedMessage string

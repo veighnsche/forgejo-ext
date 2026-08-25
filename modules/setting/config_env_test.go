@@ -13,6 +13,7 @@ import (
 )
 
 func TestDecodeEnvSectionKey(t *testing.T) {
+	testhelper.Setup(t)
 	ok, section, key := decodeEnvSectionKey("SEC__KEY")
 	assert.True(t, ok)
 	assert.Equal(t, "sec", section)
@@ -35,6 +36,7 @@ func TestDecodeEnvSectionKey(t *testing.T) {
 }
 
 func TestDecodeEnvironmentKey(t *testing.T) {
+	testhelper.Setup(t)
 	prefix := regexp.MustCompile(EnvConfigKeyPrefixGitea)
 	suffix := "__FILE"
 
@@ -84,6 +86,7 @@ func TestDecodeEnvironmentKey(t *testing.T) {
 }
 
 func TestEnvironmentToConfig(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, _ := NewConfigProviderFromData("")
 
 	changed := EnvironmentToConfig(cfg, nil)
@@ -125,6 +128,7 @@ key = old
 }
 
 func TestEnvironmentToConfigSubSecKey(t *testing.T) {
+	testhelper.Setup(t)
 	// the INI package has a quirk: by default, the keys are inherited.
 	// when maintaining the keys, the newly added sub key should not be affected by the parent key.
 	cfg, err := NewConfigProviderFromData(`

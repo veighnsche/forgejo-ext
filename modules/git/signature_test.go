@@ -11,6 +11,7 @@ import (
 )
 
 func TestParseSignatureFromCommitLine(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		line string
 		want *Signature

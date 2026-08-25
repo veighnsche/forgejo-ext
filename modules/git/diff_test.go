@@ -81,6 +81,7 @@ index d46c152..a7d2d55 100644
 \ No newline at end of file`
 
 func TestCutDiffAroundLineIssue17875(t *testing.T) {
+	testhelper.Setup(t)
 	result, err := CutDiffAroundLine(strings.NewReader(issue17875Diff), 23, false, 3)
 	require.NoError(t, err)
 	expected := `diff --git a/Geschäftsordnung.md b/Geschäftsordnung.md
@@ -94,6 +95,7 @@ func TestCutDiffAroundLineIssue17875(t *testing.T) {
 }
 
 func TestCutDiffAroundLine(t *testing.T) {
+	testhelper.Setup(t)
 	result, err := CutDiffAroundLine(strings.NewReader(exampleDiff), 4, false, 3)
 	require.NoError(t, err)
 	resultByLine := strings.Split(result, "\n")
@@ -155,6 +157,7 @@ func TestCutDiffAroundLine(t *testing.T) {
 }
 
 func TestCutDiffAroundLineMultiRange(t *testing.T) {
+	testhelper.Setup(t)
 	// Simulate multi-line comment: lines 2-4 on new side (
 	// 	displayLine=4 -> last line of the comment
 	// context=3+2=5 -> 3 lines of context + 2 lines of the comment that are above the display line
@@ -189,6 +192,7 @@ func BenchmarkCutDiffAroundLine(b *testing.B) {
 }
 
 func TestParseDiffHunkString(t *testing.T) {
+	testhelper.Setup(t)
 	leftLine, leftHunk, rightLine, rightHunk := ParseDiffHunkString("@@ -19,3 +19,5 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER")
 	assert.Equal(t, 19, leftLine)
 	assert.Equal(t, 3, leftHunk)
@@ -197,6 +201,7 @@ func TestParseDiffHunkString(t *testing.T) {
 }
 
 func TestFindAdjustedLineNumber(t *testing.T) {
+	testhelper.Setup(t)
 	commentCutDiff := `diff --git a/file1.md b/file1.md
 --- a/file1.md
 +++ b/file1.md
@@ -438,6 +443,7 @@ index 2d203fb..d0cb63f 100644
 }
 
 func TestPatchRightSideContent(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("empty", func(t *testing.T) {
 		assert.Empty(t, PatchRightSideContent(""))
 	})

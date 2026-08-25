@@ -15,6 +15,7 @@ import (
 )
 
 func TestNotHandleTwice(t *testing.T) {
+	testhelper.Setup(t)
 	handledSet := new(imap.SeqSet)
 	msg := imap.NewMessage(90, []imap.FetchItem{imap.FetchBody})
 
@@ -28,6 +29,7 @@ func TestNotHandleTwice(t *testing.T) {
 }
 
 func TestIsAutomaticReply(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		Headers  map[string]string
 		Expected bool
@@ -91,6 +93,7 @@ func TestIsAutomaticReply(t *testing.T) {
 }
 
 func TestGetContentFromMailReader(t *testing.T) {
+	testhelper.Setup(t)
 	mailString := "Content-Type: multipart/mixed; boundary=message-boundary\r\n" +
 		"\r\n" +
 		"--message-boundary\r\n" +

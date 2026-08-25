@@ -51,6 +51,7 @@ var testVKCerr = []struct {
 }
 
 func TestLoadVerificationKeyCfgErr(t *testing.T) {
+	testhelper.Setup(t)
 	cfgSec := "foo"
 	cfgBase := fmt.Sprintf("[%s]\n", cfgSec)
 
@@ -253,6 +254,7 @@ var (
 )
 
 func TestLoadVerificationKeyCfg(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&AppDataPath, t.TempDir())()
 
 	// init files

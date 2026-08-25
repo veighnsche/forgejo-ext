@@ -16,6 +16,7 @@ func str2url(raw string) *url.URL {
 }
 
 func TestDetermineEndpoint(t *testing.T) {
+	testhelper.Setup(t)
 	// Test cases
 	cases := []struct {
 		cloneurl string

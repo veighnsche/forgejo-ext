@@ -16,6 +16,7 @@ import (
 )
 
 func TestRemoveLogs(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Logs removed", func(t *testing.T) {
 		require.NoError(t, unittest.PrepareTestDatabase())
 

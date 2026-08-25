@@ -28,6 +28,7 @@ const (
 )
 
 func TestRender_StandardLinks(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppURL = AppURL
 	setting.AppSubURL = AppSubURL
 
@@ -55,6 +56,7 @@ func TestRender_StandardLinks(t *testing.T) {
 }
 
 func TestRender_BaseLinks(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppURL = AppURL
 	setting.AppSubURL = AppSubURL
 
@@ -95,6 +97,7 @@ func TestRender_BaseLinks(t *testing.T) {
 }
 
 func TestRender_SearchSuffix(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppURL = AppURL
 	setting.AppSubURL = AppSubURL
 
@@ -132,6 +135,7 @@ func TestRender_SearchSuffix(t *testing.T) {
 }
 
 func TestRender_Media(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppURL = AppURL
 	setting.AppSubURL = AppSubURL
 
@@ -199,6 +203,7 @@ func TestRender_Media(t *testing.T) {
 }
 
 func TestRender_Source(t *testing.T) {
+	testhelper.Setup(t)
 	setting.AppURL = AppURL
 	setting.AppSubURL = AppSubURL
 
@@ -225,6 +230,7 @@ func HelloWorld() {
 }
 
 func TestRender_Includes(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, AppURL)()
 	defer test.MockVariableValue(&setting.AppSubURL, AppSubURL)()
 

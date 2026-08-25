@@ -11,6 +11,7 @@ import (
 )
 
 func TestServiceActions_jobParser(t *testing.T) {
+	testhelper.Setup(t)
 	for _, testCase := range []struct {
 		name            string
 		workflow        string

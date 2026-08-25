@@ -17,6 +17,7 @@ import (
 )
 
 func TestCheckCreateRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Success", func(t *testing.T) {

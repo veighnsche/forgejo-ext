@@ -12,6 +12,7 @@ import (
 )
 
 func TestDoNotPanic_SafeFuncWithError(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("OK", func(t *testing.T) {
 		assert.NoError(t, SafeFuncWithError(func() error { return nil }))
 	})

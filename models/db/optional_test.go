@@ -16,6 +16,7 @@ import (
 )
 
 func TestOptionFieldInt(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	type OptionInt struct {
@@ -84,6 +85,7 @@ func TestOptionFieldInt(t *testing.T) {
 }
 
 func TestOptionFieldString(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	type OptionString struct {
@@ -152,6 +154,7 @@ func TestOptionFieldString(t *testing.T) {
 }
 
 func TestOptionFieldIntrospection(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	type OptionIntrospectInt struct {

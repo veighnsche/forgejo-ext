@@ -52,6 +52,7 @@ func gitConfigContains(sub string) bool {
 }
 
 func TestGitConfig(t *testing.T) {
+	testhelper.Setup(t)
 	assert.False(t, gitConfigContains("key-a"))
 
 	require.NoError(t, configSetNonExist("test.key-a", "val-a"))
@@ -85,6 +86,7 @@ func TestGitConfig(t *testing.T) {
 }
 
 func TestSyncConfig(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&setting.GitConfig)()
 
 	setting.GitConfig.Options["sync-test.cfg-key-a"] = "CfgValA"
@@ -94,6 +96,7 @@ func TestSyncConfig(t *testing.T) {
 }
 
 func TestSyncConfigGPGFormat(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockProtect(&setting.GitConfig)()
 
 	t.Run("No format", func(t *testing.T) {

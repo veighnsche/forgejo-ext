@@ -16,6 +16,7 @@ import (
 )
 
 func TestCommentListLoadUser(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &Issue{})
@@ -86,6 +87,7 @@ func TestCommentListLoadUser(t *testing.T) {
 }
 
 func TestCommentListLoadResolveDoers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &Issue{})
@@ -133,6 +135,7 @@ func TestCommentListLoadResolveDoers(t *testing.T) {
 }
 
 func TestCommentListLoadReactions(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &Issue{})

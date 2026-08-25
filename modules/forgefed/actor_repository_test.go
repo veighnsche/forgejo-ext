@@ -14,6 +14,7 @@ import (
 )
 
 func TestNewRepositoryId(t *testing.T) {
+	testhelper.Setup(t)
 	var sut, expected forgefed.RepositoryID
 	var err error
 	setting.AppURL = "http://localhost:3000/"

@@ -16,6 +16,7 @@ import (
 )
 
 func TestInsertEncryptedSecret(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Global secret", func(t *testing.T) {
@@ -98,6 +99,7 @@ func TestInsertEncryptedSecret(t *testing.T) {
 }
 
 func TestSecretDataIsNormalized(t *testing.T) {
+	testhelper.Setup(t)
 	secret := Secret{ID: 494, OwnerID: 829, RepoID: 0, Name: "A_SECRET"}
 
 	secret.SetData("  \r\ndatà\t  ")
@@ -108,6 +110,7 @@ func TestSecretDataIsNormalized(t *testing.T) {
 }
 
 func TestSecretGetDecryptedData(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Recovers original data", func(t *testing.T) {
 		secret := Secret{ID: 494, OwnerID: 829, RepoID: 0, Name: "A_SECRET"}
 		secret.SetData("data")
@@ -131,6 +134,7 @@ func TestSecretGetDecryptedData(t *testing.T) {
 }
 
 func TestSecretGetSecretByID(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/secret/TestSecretGetSecretByID")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -212,6 +216,7 @@ func TestSecretGetSecretByID(t *testing.T) {
 }
 
 func TestSecretUpdateSecret(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	secret, err := InsertEncryptedSecret(t.Context(), 2, 0, "a_secret", "very secret")
@@ -232,6 +237,7 @@ func TestSecretUpdateSecret(t *testing.T) {
 }
 
 func TestSecretUpdateSecret_RejectsInvalidName(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	secret, err := InsertEncryptedSecret(t.Context(), 2, 0, "a_secret", "very secret")
@@ -252,6 +258,7 @@ func TestSecretUpdateSecret_RejectsInvalidName(t *testing.T) {
 }
 
 func TestSecretValidateName(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name  string
 		valid bool

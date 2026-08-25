@@ -16,6 +16,7 @@ import (
 )
 
 func TestGitbucketDownloaderCreation(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	token := os.Getenv("GITHUB_READ_TOKEN")

@@ -19,6 +19,7 @@ import (
 )
 
 func TestUploadAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	// Generate image
 	myImage := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	var buff bytes.Buffer
@@ -33,6 +34,7 @@ func TestUploadAvatar(t *testing.T) {
 }
 
 func TestUploadBigAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	// Generate BIG image
 	myImage := image.NewRGBA(image.Rect(0, 0, 5000, 1))
 	var buff bytes.Buffer
@@ -46,6 +48,7 @@ func TestUploadBigAvatar(t *testing.T) {
 }
 
 func TestDeleteAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	// Generate image
 	myImage := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	var buff bytes.Buffer
@@ -64,6 +67,7 @@ func TestDeleteAvatar(t *testing.T) {
 }
 
 func TestTemplateGenerateAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	// Generate image
 	myImage := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	var buff bytes.Buffer

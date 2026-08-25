@@ -22,6 +22,7 @@ import (
 )
 
 func Test_SSHParsePublicKey(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name          string
 		skipSSHKeygen bool
@@ -73,6 +74,7 @@ func Test_SSHParsePublicKey(t *testing.T) {
 }
 
 func Test_CheckPublicKeyString(t *testing.T) {
+	testhelper.Setup(t)
 	oldValue := setting.SSH.MinimumKeySizeCheck
 	setting.SSH.MinimumKeySizeCheck = false
 	for _, test := range []struct {
@@ -166,6 +168,7 @@ AAAAC3NzaC1lZDI1NTE5AAAAICV0MGX/W9IvLA4FXpIuUcdDcbj5KX4syHgsTy7soVgf
 }
 
 func Test_calcFingerprint(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name          string
 		skipSSHKeygen bool
@@ -299,6 +302,7 @@ AAAED7y4N/DsVnRQiBZNxEWdsJ9RmbranvtQ3X9jnb6gFed0HjnNEfE88W1pvBLdV3otv2
 )
 
 func TestFromOpenSSH(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tt := range []struct {
 		name string
 		pub  string
@@ -355,6 +359,7 @@ func TestFromOpenSSH(t *testing.T) {
 }
 
 func TestToOpenSSH(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tt := range []struct {
 		name string
 		pub  string
@@ -410,6 +415,7 @@ func TestToOpenSSH(t *testing.T) {
 }
 
 func TestRoundTrip(t *testing.T) {
+	testhelper.Setup(t)
 	data := []byte("my good data to be signed!")
 
 	// Create one extra signature for all the tests.
@@ -506,6 +512,7 @@ func runErr(t *testing.T, stdin []byte, args ...string) {
 }
 
 func Test_PublicKeysAreExternallyManaged(t *testing.T) {
+	testhelper.Setup(t)
 	key1 := unittest.AssertExistsAndLoadBean(t, &PublicKey{ID: 1})
 	externals, err := PublicKeysAreExternallyManaged(db.DefaultContext, []*PublicKey{key1})
 	require.NoError(t, err)

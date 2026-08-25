@@ -19,6 +19,7 @@ import (
 )
 
 func TestSetCommitNotes(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	commitID := "65f1bf27bc3bf70f64657658635e66094edbcb4d"
 	path := "/user2/repo1/commit/" + commitID
@@ -40,6 +41,7 @@ func TestSetCommitNotes(t *testing.T) {
 }
 
 func TestRemoveCommitNotes(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	commitID := "65f1bf27bc3bf70f64657658635e66094edbcb4d"
 	path := "/user2/repo1/commit/" + commitID

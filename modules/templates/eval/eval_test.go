@@ -20,6 +20,7 @@ func tokens(s string) (a []any) {
 }
 
 func TestEval(t *testing.T) {
+	testhelper.Setup(t)
 	n, err := Expr(0, "/", 0.0)
 	require.NoError(t, err)
 	assert.True(t, math.IsNaN(n.Value.(float64)))

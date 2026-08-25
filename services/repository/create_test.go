@@ -20,6 +20,7 @@ import (
 )
 
 func TestIncludesAllRepositoriesTeams(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testTeamRepositories := func(teamID int64, repoIds []int64) {
@@ -149,6 +150,7 @@ func TestIncludesAllRepositoriesTeams(t *testing.T) {
 }
 
 func TestCreateRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 

@@ -13,6 +13,7 @@ import (
 )
 
 func TestPamAuth(t *testing.T) {
+	testhelper.Setup(t)
 	result, err := Auth("gitea", "user1", "false-pwd")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidCredentials)

@@ -10,6 +10,7 @@ import (
 )
 
 func TestPaginateSlice(t *testing.T) {
+	testhelper.Setup(t)
 	stringSlice := []string{"a", "b", "c", "d", "e"}
 	result, ok := PaginateSlice(stringSlice, 1, 2).([]string)
 	assert.True(t, ok)

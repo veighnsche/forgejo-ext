@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetLatestRunnerToken(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	token := unittest.AssertExistsAndLoadBean(t, &ActionRunnerToken{ID: 3})
 	expectedToken, err := GetLatestRunnerToken(db.DefaultContext, optional.Some[int64](1), optional.None[int64]())
@@ -23,6 +24,7 @@ func TestGetLatestRunnerToken(t *testing.T) {
 }
 
 func TestNewRunnerToken(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	token, err := NewRunnerToken(db.DefaultContext, optional.Some[int64](1), optional.None[int64]())
 	require.NoError(t, err)
@@ -32,6 +34,7 @@ func TestNewRunnerToken(t *testing.T) {
 }
 
 func TestUpdateRunnerToken(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	token := unittest.AssertExistsAndLoadBean(t, &ActionRunnerToken{ID: 3})
 	token.IsActive = true

@@ -14,6 +14,7 @@ import (
 )
 
 func TestNewCard(t *testing.T) {
+	testhelper.Setup(t)
 	width, height := 100, 50
 	card, err := NewCard(width, height)
 	require.NoError(t, err, "No error should occur when creating a new card")
@@ -30,6 +31,7 @@ func TestNewCard(t *testing.T) {
 }
 
 func TestSplit(t *testing.T) {
+	testhelper.Setup(t)
 	// Note: you normally wouldn't split the same card twice as draw operations would start to overlap each other; but
 	// it's fine for this limited scope test
 	card, _ := NewCard(200, 100)
@@ -50,6 +52,7 @@ func TestSplit(t *testing.T) {
 }
 
 func TestDrawTextSingleLine(t *testing.T) {
+	testhelper.Setup(t)
 	card, _ := NewCard(300, 100)
 	lines, err := card.DrawText("This is a single line", color.Black, 12, Middle, Center)
 	require.NoError(t, err, "No error should occur when drawing text")
@@ -58,6 +61,7 @@ func TestDrawTextSingleLine(t *testing.T) {
 }
 
 func TestDrawTextLongLine(t *testing.T) {
+	testhelper.Setup(t)
 	card, _ := NewCard(300, 100)
 	text := "This text is definitely too long to fit in three hundred pixels width without wrapping"
 	lines, err := card.DrawText(text, color.Black, 12, Middle, Center)
@@ -68,6 +72,7 @@ func TestDrawTextLongLine(t *testing.T) {
 }
 
 func TestDrawTextWordTooLong(t *testing.T) {
+	testhelper.Setup(t)
 	card, _ := NewCard(300, 100)
 	text := "Line 1 Superduperlongwordthatcannotbewrappedbutshouldenduponitsownsingleline Line 3"
 	lines, err := card.DrawText(text, color.Black, 12, Middle, Center)

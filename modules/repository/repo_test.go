@@ -18,6 +18,7 @@ import (
 )
 
 func Test_calcSync(t *testing.T) {
+	testhelper.Setup(t)
 	gitTags := []*git.Tag{
 		/*{
 			Name: "v0.1.0-beta", //deleted tag
@@ -82,6 +83,7 @@ func Test_calcSync(t *testing.T) {
 }
 
 func TestSyncReleasesWithTags(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Can be any repository that doesn't have the git tag releases.

@@ -25,6 +25,7 @@ import (
 )
 
 func TestGithubDownloaderFilterComments(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	GithubLimitRateRemaining = 3 // Wait at 3 remaining since we could have 3 CI in //
@@ -131,6 +132,7 @@ func ratelimitInjectHandler(handler http.Handler, urlpattern *regexp.Regexp, eve
 }
 
 func TestGitHubDownloadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	GithubLimitRateRemaining = 3 // Wait at 3 remaining since we could have 3 CI in //
 
@@ -470,6 +472,7 @@ func TestGitHubDownloadRepo(t *testing.T) {
 }
 
 func TestGithubMultiToken(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		desc             string
 		token            string
@@ -503,6 +506,7 @@ func TestGithubMultiToken(t *testing.T) {
 }
 
 func TestGithubIssuePagination(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	GithubLimitRateRemaining = 3 // Wait at 3 remaining since we could have 3 CI in //
 
@@ -547,6 +551,7 @@ func TestGithubIssuePagination(t *testing.T) {
 }
 
 func TestGithubAvatarDownload(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 	GithubLimitRateRemaining = 3 // Wait at 3 remaining since we could have 3 CI in //
 

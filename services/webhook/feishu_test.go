@@ -16,6 +16,7 @@ import (
 )
 
 func TestFeishuPayload(t *testing.T) {
+	testhelper.Setup(t)
 	fc := feishuConvertor{}
 	t.Run("Create", func(t *testing.T) {
 		p := createTestPayload()
@@ -157,6 +158,7 @@ func TestFeishuPayload(t *testing.T) {
 }
 
 func TestFeishuJSONPayload(t *testing.T) {
+	testhelper.Setup(t)
 	p := pushTestPayload()
 	data, err := p.JSONPayload()
 	require.NoError(t, err)

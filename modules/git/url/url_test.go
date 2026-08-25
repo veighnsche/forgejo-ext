@@ -12,6 +12,7 @@ import (
 )
 
 func TestParseGitURLs(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		kase     string
 		expected *GitURL

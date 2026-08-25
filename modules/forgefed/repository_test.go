@@ -15,6 +15,7 @@ import (
 )
 
 func Test_RepositoryMarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	type testPair struct {
 		item    forgefed.Repository
 		want    []byte
@@ -94,6 +95,7 @@ func Test_RepositoryMarshalJSON(t *testing.T) {
 }
 
 func Test_RepositoryUnmarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	type testPair struct {
 		data    []byte
 		want    *forgefed.Repository

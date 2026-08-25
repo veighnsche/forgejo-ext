@@ -11,6 +11,7 @@ import (
 )
 
 func TestExpandVars(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		tmpl  string
 		data  map[string]string

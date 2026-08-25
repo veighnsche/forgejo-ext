@@ -18,6 +18,7 @@ import (
 )
 
 func TestCreateAuthorizationToken(t *testing.T) {
+	testhelper.Setup(t)
 	task := &actions_model.ActionTask{
 		ID: 23,
 		Job: &actions_model.ActionRunJob{
@@ -131,6 +132,7 @@ func TestCreateAuthorizationToken(t *testing.T) {
 }
 
 func TestParseAuthorizationToken(t *testing.T) {
+	testhelper.Setup(t)
 	task := &actions_model.ActionTask{
 		ID: 23,
 		Job: &actions_model.ActionRunJob{
@@ -151,6 +153,7 @@ func TestParseAuthorizationToken(t *testing.T) {
 }
 
 func TestParseAuthorizationTokenClaims(t *testing.T) {
+	testhelper.Setup(t)
 	task := &actions_model.ActionTask{
 		ID: 23,
 		Job: &actions_model.ActionRunJob{
@@ -198,6 +201,7 @@ func TestParseAuthorizationTokenClaims(t *testing.T) {
 }
 
 func TestParseAuthorizationTokenNoAuthHeader(t *testing.T) {
+	testhelper.Setup(t)
 	headers := http.Header{}
 	rTaskID, err := ParseAuthorizationToken(&http.Request{
 		Header: headers,
@@ -207,6 +211,7 @@ func TestParseAuthorizationTokenNoAuthHeader(t *testing.T) {
 }
 
 func TestGenerateOIDCSub(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("pull_request event", func(t *testing.T) {
 		sub := generateOIDCSub(map[string]any{
 			"event_name":          "pull_request",
@@ -233,6 +238,7 @@ func TestGenerateOIDCSub(t *testing.T) {
 }
 
 func TestLegacyGenerateOIDCSub(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("pull_request event", func(t *testing.T) {
 		sub := legacyGenerateOIDCSub(map[string]any{
 			"event_name": "pull_request",

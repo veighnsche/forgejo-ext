@@ -10,6 +10,7 @@ import (
 )
 
 func TestIsValidSHAPattern(t *testing.T) {
+	testhelper.Setup(t)
 	h := Sha1ObjectFormat
 	assert.True(t, h.IsValid("fee1"))
 	assert.True(t, h.IsValid("abc000"))
@@ -25,6 +26,7 @@ func TestIsValidSHAPattern(t *testing.T) {
 }
 
 func TestIsEmptyCommitID(t *testing.T) {
+	testhelper.Setup(t)
 	assert.True(t, IsEmptyCommitID("", nil))
 	assert.True(t, IsEmptyCommitID("", Sha1ObjectFormat))
 	assert.True(t, IsEmptyCommitID("", Sha256ObjectFormat))

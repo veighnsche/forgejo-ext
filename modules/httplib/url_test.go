@@ -13,6 +13,7 @@ import (
 )
 
 func TestIsRiskyRedirectURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, "http://localhost:3000/sub/")()
 	defer test.MockVariableValue(&setting.AppSubURL, "/sub")()
 
@@ -68,6 +69,7 @@ func TestIsRiskyRedirectURL(t *testing.T) {
 }
 
 func TestIsRiskyRedirectURLWithoutSubURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, "https://next.forgejo.org/")()
 	defer test.MockVariableValue(&setting.AppSubURL, "")()
 

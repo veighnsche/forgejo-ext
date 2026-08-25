@@ -49,6 +49,7 @@ const (
 )
 
 func TestParseConaninfo(t *testing.T) {
+	testhelper.Setup(t)
 	info, err := ParseConaninfo(strings.NewReader(contentConaninfo))
 	assert.NotNil(t, info)
 	require.NoError(t, err)

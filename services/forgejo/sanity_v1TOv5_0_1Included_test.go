@@ -15,6 +15,7 @@ import (
 )
 
 func TestForgejo_v1TOv5_0_1Included(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	logFatal = func(string, ...any) {}

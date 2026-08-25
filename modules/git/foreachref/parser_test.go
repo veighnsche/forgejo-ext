@@ -19,6 +19,7 @@ import (
 type refSlice = []map[string]string
 
 func TestParser(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 

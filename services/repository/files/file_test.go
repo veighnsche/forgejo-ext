@@ -10,6 +10,7 @@ import (
 )
 
 func TestCleanUploadFileName(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Clean regular file", func(t *testing.T) {
 		name := "this/is/test"
 		cleanName := CleanUploadFileName(name)

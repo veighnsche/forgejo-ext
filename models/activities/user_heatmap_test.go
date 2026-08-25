@@ -19,6 +19,7 @@ import (
 )
 
 func TestGetUserHeatmapDataByUser(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		desc        string
 		userID      int64

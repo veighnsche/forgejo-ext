@@ -15,6 +15,7 @@ import (
 )
 
 func TestActions_RegisterRunner_Token(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ownerID := int64(0)
 	repoID := int64(0)
@@ -36,6 +37,7 @@ func TestActions_RegisterRunner_Token(t *testing.T) {
 // parameter whose first 16 bytes match that record but where the last 24 bytes
 // do not match.
 func TestActions_RegisterRunner_TokenUpdate(t *testing.T) {
+	testhelper.Setup(t)
 	const recordID = 12345678
 	oldToken := "7e577e577e577e57feedfacefeedfacefeedface"
 	newToken := "7e577e577e577e57deadbeefdeadbeefdeadbeef"
@@ -62,6 +64,7 @@ func TestActions_RegisterRunner_TokenUpdate(t *testing.T) {
 }
 
 func TestActions_RegisterRunner_CreateWithLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ownerID := int64(0)
 	repoID := int64(0)
@@ -94,6 +97,7 @@ func TestActions_RegisterRunner_CreateWithLabels(t *testing.T) {
 }
 
 func TestActions_RegisterRunner_CreateWithoutLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ownerID := int64(0)
 	repoID := int64(0)
@@ -124,6 +128,7 @@ func TestActions_RegisterRunner_CreateWithoutLabels(t *testing.T) {
 }
 
 func TestActions_RegisterRunner_UpdateWithLabels(t *testing.T) {
+	testhelper.Setup(t)
 	const recordID = 12345678
 	token := "7e577e577e577e57feedfacefeedfacefeedface"
 	require.NoError(t, unittest.PrepareTestDatabase())
@@ -159,6 +164,7 @@ func TestActions_RegisterRunner_UpdateWithLabels(t *testing.T) {
 }
 
 func TestActions_RegisterRunner_UpdateWithoutLabels(t *testing.T) {
+	testhelper.Setup(t)
 	const recordID = 12345678
 	token := "7e577e577e577e57feedfacefeedfacefeedface"
 	require.NoError(t, unittest.PrepareTestDatabase())

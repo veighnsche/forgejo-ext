@@ -12,6 +12,7 @@ import (
 )
 
 func TestMinimalEncoder(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		Value    any
 		Expected []byte

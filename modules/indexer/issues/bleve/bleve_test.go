@@ -10,6 +10,7 @@ import (
 )
 
 func TestBleveIndexer(t *testing.T) {
+	testhelper.Setup(t)
 	dir := t.TempDir()
 	indexer := NewIndexer(dir)
 	defer indexer.Close()

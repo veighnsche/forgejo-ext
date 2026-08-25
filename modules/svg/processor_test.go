@@ -10,6 +10,7 @@ import (
 )
 
 func TestNormalize(t *testing.T) {
+	testhelper.Setup(t)
 	res := Normalize([]byte("foo"), 1)
 	assert.Equal(t, "foo", string(res))
 

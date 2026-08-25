@@ -17,6 +17,7 @@ import (
 )
 
 func TestPushMirrorsIterate(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	now := timeutil.TimeStampNow()
@@ -50,6 +51,7 @@ func TestPushMirrorsIterate(t *testing.T) {
 }
 
 func TestPushMirrorPrivatekey(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	m := &repo_model.PushMirror{
@@ -77,6 +79,7 @@ func TestPushMirrorPrivatekey(t *testing.T) {
 }
 
 func TestPushMirrorBranchFilter(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Create push mirror with branch filter", func(t *testing.T) {

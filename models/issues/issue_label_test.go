@@ -16,6 +16,7 @@ import (
 )
 
 func TestIssueNewIssueLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
@@ -40,6 +41,7 @@ func TestIssueNewIssueLabels(t *testing.T) {
 }
 
 func TestIssueNewIssueLabel(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 3})
@@ -55,6 +57,7 @@ func TestIssueNewIssueLabel(t *testing.T) {
 }
 
 func TestIssueReplaceIssueLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
@@ -81,6 +84,7 @@ func TestIssueReplaceIssueLabels(t *testing.T) {
 }
 
 func TestIssueDeleteIssueLabel(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
@@ -100,6 +104,7 @@ func TestIssueDeleteIssueLabel(t *testing.T) {
 }
 
 func TestIssueLoadLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
@@ -124,6 +129,7 @@ func TestIssueLoadLabels(t *testing.T) {
 }
 
 func TestNewIssueLabelsScope(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 18})

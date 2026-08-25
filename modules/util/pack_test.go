@@ -10,6 +10,7 @@ import (
 )
 
 func TestPackAndUnpackData(t *testing.T) {
+	testhelper.Setup(t)
 	s := "string"
 	i := int64(4)
 	f := float32(4.1)

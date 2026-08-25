@@ -22,6 +22,7 @@ import (
 // TestUpdateSecret checks that ActionRunner.UpdateSecret() sets the Token,
 // TokenSalt and TokenHash fields based on the specified token.
 func TestUpdateSecret(t *testing.T) {
+	testhelper.Setup(t)
 	runner := ActionRunner{}
 	token := "0123456789012345678901234567890123456789"
 
@@ -34,6 +35,7 @@ func TestUpdateSecret(t *testing.T) {
 }
 
 func TestDeleteRunner(t *testing.T) {
+	testhelper.Setup(t)
 	const recordID = 12345678
 	require.NoError(t, unittest.PrepareTestDatabase())
 	before := unittest.AssertExistsAndLoadBean(t, &ActionRunner{ID: recordID})
@@ -79,6 +81,7 @@ func TestDeleteRunner(t *testing.T) {
 }
 
 func TestDeleteOfflineRunnersRunnerGlobalOnly(t *testing.T) {
+	testhelper.Setup(t)
 	baseTime := time.Date(2024, 5, 19, 7, 40, 32, 0, time.UTC)
 	timeutil.MockSet(baseTime)
 	defer timeutil.MockUnset()
@@ -108,6 +111,7 @@ func TestDeleteOfflineRunnersRunnerGlobalOnly(t *testing.T) {
 }
 
 func TestDeleteOfflineRunnersAll(t *testing.T) {
+	testhelper.Setup(t)
 	baseTime := time.Date(2024, 5, 19, 7, 40, 32, 0, time.UTC)
 	timeutil.MockSet(baseTime)
 	defer timeutil.MockUnset()
@@ -137,6 +141,7 @@ func TestDeleteOfflineRunnersAll(t *testing.T) {
 }
 
 func TestDeleteOfflineRunnersErrorOnInvalidOlderThanValue(t *testing.T) {
+	testhelper.Setup(t)
 	baseTime := time.Date(2024, 5, 19, 7, 40, 32, 0, time.UTC)
 	timeutil.MockSet(baseTime)
 	defer timeutil.MockUnset()
@@ -144,6 +149,7 @@ func TestDeleteOfflineRunnersErrorOnInvalidOlderThanValue(t *testing.T) {
 }
 
 func TestRunnerEditable(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name     string
 		runner   *ActionRunner
@@ -239,6 +245,7 @@ func TestRunnerEditable(t *testing.T) {
 }
 
 func TestRunner_GetVisibleRunnerByID(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/actions/TestRunner_GetVisibleRunnerByID")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -377,6 +384,7 @@ func TestRunner_GetVisibleRunnerByID(t *testing.T) {
 }
 
 func TestRunner_FindRunnerOptionsToConds(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/actions/TestRunner_FindRunnerOptionsToConds")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -482,6 +490,7 @@ func TestRunner_FindRunnerOptionsToConds(t *testing.T) {
 }
 
 func TestDeleteEphemeralRunner(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	persistentRunnerOne := &ActionRunner{
@@ -541,6 +550,7 @@ func TestDeleteEphemeralRunner(t *testing.T) {
 }
 
 func TestUpdateRunner(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("ownership is not altered", func(t *testing.T) {
 		require.NoError(t, unittest.PrepareTestDatabase())
 

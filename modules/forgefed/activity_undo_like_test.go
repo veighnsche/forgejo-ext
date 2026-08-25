@@ -17,6 +17,7 @@ import (
 )
 
 func Test_NewForgeUndoLike(t *testing.T) {
+	testhelper.Setup(t)
 	actorIRI := "https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"
 	objectIRI := "https://codeberg.org/api/v1/activitypub/repository-id/1"
 	want := []byte(`{"type":"Undo","startTime":"2024-03-27T00:00:00Z",` +
@@ -46,6 +47,7 @@ func Test_NewForgeUndoLike(t *testing.T) {
 }
 
 func Test_UndoLikeMarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	type testPair struct {
 		item    forgefed.ForgeUndoLike
 		want    []byte
@@ -94,6 +96,7 @@ func Test_UndoLikeMarshalJSON(t *testing.T) {
 }
 
 func Test_UndoLikeUnmarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	type testPair struct {
 		item    []byte
 		want    *forgefed.ForgeUndoLike
@@ -152,6 +155,7 @@ func Test_UndoLikeUnmarshalJSON(t *testing.T) {
 }
 
 func TestActivityValidationUndo(t *testing.T) {
+	testhelper.Setup(t)
 	sut := new(forgefed.ForgeUndoLike)
 
 	_ = sut.UnmarshalJSON([]byte(`

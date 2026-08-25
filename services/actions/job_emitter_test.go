@@ -23,6 +23,7 @@ import (
 )
 
 func Test_jobStatusResolver_Resolve(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		jobs actions_model.ActionJobList
@@ -387,6 +388,7 @@ func (m *mockNotifier) WorkflowRunEvent(_ context.Context, event actions_model.A
 }
 
 func Test_prepareJobForEmitting(t *testing.T) {
+	testhelper.Setup(t)
 	// Shouldn't get any decoding errors during this test -- pop them up from a log warning to a test fatal error.
 	defer test.MockVariableValue(&model.OnDecodeNodeError, func(node yaml.Node, out any, err error) {
 		t.Fatalf("Failed to decode node %v into %T: %v", node, out, err)
@@ -809,6 +811,7 @@ func Test_prepareJobForEmitting(t *testing.T) {
 }
 
 func Test_tryHandleWorkflowCallOuterJob(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name            string
 		runJobID        int64
@@ -882,6 +885,7 @@ func Test_tryHandleWorkflowCallOuterJob(t *testing.T) {
 }
 
 func Test_checkJobsOfRun(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/Test_checkJobsOfRun")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -943,6 +947,7 @@ jobs:
 }
 
 func Test_checkJobsOfRun_ExpandsMatrixWithCorrectOutputJobStatuses(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/Test_checkJobsOfRun")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

@@ -14,6 +14,7 @@ import (
 )
 
 func TestNewRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	// redirect to a completely new name
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -33,6 +34,7 @@ func TestNewRedirect(t *testing.T) {
 }
 
 func TestNewRedirect2(t *testing.T) {
+	testhelper.Setup(t)
 	// redirect to previously used name
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -52,6 +54,7 @@ func TestNewRedirect2(t *testing.T) {
 }
 
 func TestNewRedirect3(t *testing.T) {
+	testhelper.Setup(t)
 	// redirect for a previously-unredirected repo
 	require.NoError(t, unittest.PrepareTestDatabase())
 

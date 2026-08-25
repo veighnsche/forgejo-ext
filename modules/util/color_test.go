@@ -9,6 +9,7 @@ import (
 )
 
 func Test_HexToRBGColor(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		colorString string
 		expectedR   float64
@@ -34,6 +35,7 @@ func Test_HexToRBGColor(t *testing.T) {
 }
 
 func Test_UseLightText(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		color    string
 		expected string

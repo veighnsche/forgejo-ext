@@ -15,6 +15,7 @@ import (
 )
 
 func TestCreateOrUpdateIssueWatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	require.NoError(t, issues_model.CreateOrUpdateIssueWatch(db.DefaultContext, 3, 1, true))
@@ -27,6 +28,7 @@ func TestCreateOrUpdateIssueWatch(t *testing.T) {
 }
 
 func TestGetIssueWatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	_, exists, err := issues_model.GetIssueWatch(db.DefaultContext, 9, 1)
@@ -44,6 +46,7 @@ func TestGetIssueWatch(t *testing.T) {
 }
 
 func TestGetIssueWatchers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	iws, err := issues_model.GetIssueWatchers(db.DefaultContext, 1, db.ListOptions{})

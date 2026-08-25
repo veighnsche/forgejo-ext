@@ -14,6 +14,7 @@ import (
 )
 
 func TestMergeRequiredContextsCommitStatus(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := [][]*git_model.CommitStatus{
 		{
 			{Context: "Build 1", State: structs.CommitStatusSuccess},

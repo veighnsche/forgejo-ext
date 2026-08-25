@@ -18,6 +18,7 @@ import (
 )
 
 func TestActionsTrust_ChangeStatus(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repoID := int64(10)
@@ -244,6 +245,7 @@ jobs:
 }
 
 func TestActionsTrust_GetPullRequestUserIsTrustedWithActions(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/actions/TestActionsTrust_GetPullRequestUserIsTrustedWithActions")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

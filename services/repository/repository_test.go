@@ -16,6 +16,7 @@ import (
 )
 
 func TestLinkedRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	testCases := []struct {
 		name             string
@@ -43,6 +44,7 @@ func TestLinkedRepository(t *testing.T) {
 }
 
 func TestConvertMirrorToNormalRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	repo.IsMirror = true

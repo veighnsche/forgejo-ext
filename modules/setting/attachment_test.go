@@ -11,6 +11,7 @@ import (
 )
 
 func Test_getStorageCustomType(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [attachment]
 STORAGE_TYPE = my_minio
@@ -32,6 +33,7 @@ MINIO_ENDPOINT = my_minio:9000
 }
 
 func Test_getStorageTypeSectionOverridesStorageSection(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [attachment]
 STORAGE_TYPE = minio
@@ -53,6 +55,7 @@ MINIO_BUCKET = gitea
 }
 
 func Test_getStorageSpecificOverridesStorage(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [attachment]
 STORAGE_TYPE = minio
@@ -75,6 +78,7 @@ STORAGE_TYPE = local
 }
 
 func Test_getStorageGetDefaults(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, err := NewConfigProviderFromData("")
 	require.NoError(t, err)
 
@@ -85,6 +89,7 @@ func Test_getStorageGetDefaults(t *testing.T) {
 }
 
 func Test_getStorageInheritNameSectionType(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [storage.attachments]
 STORAGE_TYPE = minio
@@ -98,6 +103,7 @@ STORAGE_TYPE = minio
 }
 
 func Test_AttachmentStorage(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 [storage]
@@ -120,6 +126,7 @@ MINIO_SECRET_ACCESS_KEY = correct_key
 }
 
 func Test_AttachmentStorage1(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [storage]
 STORAGE_TYPE = minio

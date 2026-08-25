@@ -15,6 +15,7 @@ import (
 )
 
 func TestParsePackageMetaData(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(filename string, content []byte) io.Reader {
 		var buf bytes.Buffer
 		tw := tar.NewWriter(&buf)
@@ -48,6 +49,7 @@ func TestParsePackageMetaData(t *testing.T) {
 }
 
 func TestParseMetadataFile(t *testing.T) {
+	testhelper.Setup(t)
 	content, _ := base64.StdEncoding.DecodeString(`H4sIAMe7I2ECA9VVTW/UMBC9+1eYXvaUbJpSQBZUHJAqDlwK4kCFIseZzZrGH9iTqisEv52Js9nd
 0KqggiqRXWnX45n3ZuZ5nCzL+JPQ15ulq7+AQnEORoj3HpReaSVRO8usNCB4qxEku4YQySbuCPo4
 bjHOd07HeZGfMt9JXLlgBB9imOxx7UIULOPnCZMMLsDXXgeiYbW2jQ6C0y9TELBSa6kJ6/IzaySS
@@ -89,6 +91,7 @@ yjAbmt9LsOMp8xMamFkSQ38fP5EFjdz8LA4do2C69VvqWXAJgrPbKZb58/xZXrKoW6ttW13Bhvzi
 }
 
 func TestPessimisticVersioning(t *testing.T) {
+	testhelper.Setup(t)
 	content, _ := base64.StdEncoding.DecodeString(`H4sIABmkhGkCA+1WTY/TMBC9+1eYvfSU1G1ZkCxRgYTYCwcEEgcQshxnmnrXX9gO2lz2t2MnTdOy
 1YIKYoVEEimZ8WT8/GY8nqIo8BPfVt3cVtcgIr0CTekHB0JupOBRWoMM10CxgxCkliFKUXwDH9KI
 NE0RIUS0k+kJVx+HIYTx3oiUi5Igp3jcWK8pzv8g3sat9YGiAm+yYD18baUHiippaukpTm8kwEcm

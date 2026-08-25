@@ -24,6 +24,7 @@ import (
 )
 
 func Test_expandDefaultMergeMessage(t *testing.T) {
+	testhelper.Setup(t)
 	type args struct {
 		template string
 		vars     map[string]string
@@ -156,6 +157,7 @@ func prepareLoadMergeMessageTemplates(targetDir string) error {
 }
 
 func TestLoadMergeMessageTemplates(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.CustomPath, t.TempDir())()
 	templateTemp := path.Join(setting.CustomPath, "default_merge_message")
 
@@ -187,6 +189,7 @@ func TestLoadMergeMessageTemplates(t *testing.T) {
 }
 
 func TestMergeMergedPR(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 1})
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

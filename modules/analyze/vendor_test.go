@@ -6,6 +6,7 @@ package analyze
 import "testing"
 
 func TestIsVendor(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		path string
 		want bool

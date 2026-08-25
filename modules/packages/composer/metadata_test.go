@@ -49,6 +49,7 @@ const composerContent = `{
 }`
 
 func TestLicenseUnmarshal(t *testing.T) {
+	testhelper.Setup(t)
 	var l Licenses
 	require.NoError(t, json.NewDecoder(strings.NewReader(`["MIT"]`)).Decode(&l))
 	assert.Len(t, l, 1)
@@ -59,6 +60,7 @@ func TestLicenseUnmarshal(t *testing.T) {
 }
 
 func TestCommentsUnmarshal(t *testing.T) {
+	testhelper.Setup(t)
 	var c Comments
 	require.NoError(t, json.NewDecoder(strings.NewReader(`["comment"]`)).Decode(&c))
 	assert.Len(t, c, 1)
@@ -69,6 +71,7 @@ func TestCommentsUnmarshal(t *testing.T) {
 }
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(files map[string]string) []byte {
 		var buf bytes.Buffer
 		archive := zip.NewWriter(&buf)

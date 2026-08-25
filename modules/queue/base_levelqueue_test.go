@@ -16,6 +16,7 @@ import (
 )
 
 func TestBaseLevelDB(t *testing.T) {
+	testhelper.Setup(t)
 	_, err := newBaseLevelQueueGeneric(&BaseConfig{ConnStr: "redis://"}, false)
 	require.ErrorContains(t, err, "invalid leveldb connection string")
 
@@ -27,6 +28,7 @@ func TestBaseLevelDB(t *testing.T) {
 }
 
 func TestCorruptedLevelQueue(t *testing.T) {
+	testhelper.Setup(t)
 	// sometimes the levelqueue could be in a corrupted state, this test is to make sure it can recover from it
 	dbDir := t.TempDir() + "/levelqueue-test"
 	db, err := leveldb.OpenFile(dbDir, nil)

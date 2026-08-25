@@ -19,6 +19,7 @@ import (
 )
 
 func TestInspectPublicKeys(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.SSH.RootPath, t.TempDir())()
 	authorizedKeysPath := filepath.Join(setting.SSH.RootPath, "authorized_keys")
 
@@ -82,6 +83,7 @@ func TestInspectPublicKeys(t *testing.T) {
 }
 
 func TestRewriteAllPublicKeys(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.SSH.RootPath, t.TempDir())()
 	authorizedKeysPath := filepath.Join(setting.SSH.RootPath, "authorized_keys")
 

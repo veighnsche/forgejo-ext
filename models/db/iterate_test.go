@@ -22,6 +22,7 @@ import (
 )
 
 func TestIterate(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Database.IterateBufferSize, 50)()
 
 	t.Run("No Modifications", func(t *testing.T) {
@@ -117,6 +118,7 @@ func TestIterate(t *testing.T) {
 }
 
 func TestIterateMultipleFields(t *testing.T) {
+	testhelper.Setup(t)
 	for _, bufferSize := range []int{1, 2, 3, 10} { // 8 records in fixture
 		t.Run(fmt.Sprintf("No Modifications bufferSize=%d", bufferSize), func(t *testing.T) {
 			require.NoError(t, unittest.PrepareTestDatabase())

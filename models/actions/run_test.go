@@ -24,6 +24,7 @@ import (
 )
 
 func TestSetConcurrencyGroup(t *testing.T) {
+	testhelper.Setup(t)
 	run := ActionRun{}
 	run.SetConcurrencyGroup("abc123")
 	assert.Equal(t, "abc123", run.ConcurrencyGroup)
@@ -32,6 +33,7 @@ func TestSetConcurrencyGroup(t *testing.T) {
 }
 
 func TestSetDefaultConcurrencyGroup(t *testing.T) {
+	testhelper.Setup(t)
 	run := ActionRun{
 		Ref:          "refs/heads/main",
 		WorkflowID:   "testing",
@@ -49,6 +51,7 @@ func TestSetDefaultConcurrencyGroup(t *testing.T) {
 }
 
 func TestGetWorkflowPath(t *testing.T) {
+	testhelper.Setup(t)
 	run := ActionRun{
 		WorkflowID:        "ci.yml",
 		WorkflowDirectory: ".some/path/to/workflows",
@@ -57,6 +60,7 @@ func TestGetWorkflowPath(t *testing.T) {
 }
 
 func TestGetCommitLink(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	defer test.MockVariableValue(&setting.AppSubURL, "/sub")()
 
@@ -70,6 +74,7 @@ func TestGetCommitLink(t *testing.T) {
 }
 
 func TestIsScheduledRun(t *testing.T) {
+	testhelper.Setup(t)
 	scheduledRun := ActionRun{
 		CommitSHA:    "a356d1f1f82945a039cd16d4ce0137bd55284e77",
 		TriggerEvent: "schedule",
@@ -84,6 +89,7 @@ func TestIsScheduledRun(t *testing.T) {
 }
 
 func TestIsManualRun(t *testing.T) {
+	testhelper.Setup(t)
 	manualRunRun := ActionRun{
 		CommitSHA:    "a356d1f1f82945a039cd16d4ce0137bd55284e77",
 		TriggerEvent: "workflow_dispatch",
@@ -98,6 +104,7 @@ func TestIsManualRun(t *testing.T) {
 }
 
 func TestActionRun_IsValid(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name    string
 		run     ActionRun
@@ -123,6 +130,7 @@ func TestActionRun_IsValid(t *testing.T) {
 }
 
 func TestActionRun_CanBeRerun(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name       string
 		run        ActionRun
@@ -178,6 +186,7 @@ func TestActionRun_CanBeRerun(t *testing.T) {
 }
 
 func TestRepoNumOpenActions(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	err := cache.Init()
 	require.NoError(t, err)
@@ -217,6 +226,7 @@ func TestRepoNumOpenActions(t *testing.T) {
 }
 
 func TestActionRun_GetRunsNotDoneByRepoIDAndPullRequestPosterID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repoID := int64(10)
@@ -270,6 +280,7 @@ func TestActionRun_GetRunsNotDoneByRepoIDAndPullRequestPosterID(t *testing.T) {
 }
 
 func TestActionRun_NeedApproval(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pullRequestPosterID := int64(4)
@@ -335,6 +346,7 @@ func TestActionRun_NeedApproval(t *testing.T) {
 }
 
 func TestActionRun_IncompleteMatrix(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pullRequestPosterID := int64(4)
@@ -372,6 +384,7 @@ jobs:
 }
 
 func TestActionRun_IncompleteRunsOn(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pullRequestPosterID := int64(4)
@@ -406,6 +419,7 @@ jobs:
 }
 
 func TestActionRun_FindOuterWorkflowCall(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pullRequestPosterID := int64(4)
@@ -461,6 +475,7 @@ jobs:
 }
 
 func TestActionRun_IncompleteWith(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pullRequestPosterID := int64(4)
@@ -509,6 +524,7 @@ jobs:
 }
 
 func TestInsertRunJobs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	pullRequestPosterID := int64(4)
@@ -570,6 +586,7 @@ jobs:
 }
 
 func TestActionRunLoadAttributes(t *testing.T) {
+	testhelper.Setup(t)
 	run := &ActionRun{
 		RepoID:        10,
 		TriggerUserID: 1000,
@@ -579,6 +596,7 @@ func TestActionRunLoadAttributes(t *testing.T) {
 }
 
 func TestGetRunByID(t *testing.T) {
+	testhelper.Setup(t)
 	const (
 		existingRunID    = 0xdeadbeef
 		nonexistingRunID = 0xffffffff
@@ -605,6 +623,7 @@ func TestGetRunByID(t *testing.T) {
 }
 
 func TestGetQueuedRunsByRepoID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	fixtures := []*ActionRun{
@@ -632,6 +651,7 @@ func TestGetQueuedRunsByRepoID(t *testing.T) {
 }
 
 func TestPrepareNextAttempt(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Error if pending", func(t *testing.T) {
 		for _, pendingStatus := range PendingStatuses() {
 			t.Run(pendingStatus.String(), func(t *testing.T) {
@@ -671,6 +691,7 @@ func TestPrepareNextAttempt(t *testing.T) {
 }
 
 func TestRefreshStatus(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Unchanged status", func(t *testing.T) {
 		run := &ActionRun{ID: 24, Status: StatusRunning, Stopped: 0}
 
@@ -721,6 +742,7 @@ func TestRefreshStatus(t *testing.T) {
 }
 
 func TestUpdateRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Truncates title", func(t *testing.T) {
 		require.NoError(t, unittest.PrepareTestDatabase())
 

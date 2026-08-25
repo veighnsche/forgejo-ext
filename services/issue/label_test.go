@@ -15,6 +15,7 @@ import (
 )
 
 func TestIssue_AddLabels(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		issueID  int64
 		labelIDs []int64
@@ -41,6 +42,7 @@ func TestIssue_AddLabels(t *testing.T) {
 }
 
 func TestIssue_AddLabel(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		issueID int64
 		labelID int64

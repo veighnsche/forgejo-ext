@@ -14,6 +14,7 @@ import (
 )
 
 func TestHashedBuffer(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		MaxMemorySize int
 		Data          string

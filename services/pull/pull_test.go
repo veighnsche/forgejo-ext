@@ -23,6 +23,7 @@ import (
 // TODO TestPullRequest_PushToBaseRepo
 
 func TestPullRequest_CommitMessageTrailersPattern(t *testing.T) {
+	testhelper.Setup(t)
 	// Not a valid trailer section
 	assert.False(t, commitMessageTrailersPattern.MatchString(""))
 	assert.False(t, commitMessageTrailersPattern.MatchString("No trailer."))
@@ -40,6 +41,7 @@ func TestPullRequest_CommitMessageTrailersPattern(t *testing.T) {
 }
 
 func TestPullRequest_GetDefaultMergeMessage_InternalTracker(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 2})
 
@@ -67,6 +69,7 @@ func TestPullRequest_GetDefaultMergeMessage_InternalTracker(t *testing.T) {
 }
 
 func TestPullRequest_GetDefaultMergeMessage_ExternalTracker(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	externalTracker := repo_model.RepoUnit{
@@ -101,6 +104,7 @@ func TestPullRequest_GetDefaultMergeMessage_ExternalTracker(t *testing.T) {
 }
 
 func TestPullRequest_GetDefaultMergeMessage_GlobalTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 2})
 

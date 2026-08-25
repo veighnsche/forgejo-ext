@@ -11,6 +11,7 @@ import (
 )
 
 func TestSubjectBodySeparator(t *testing.T) {
+	testhelper.Setup(t)
 	test := func(input, subject, body string) {
 		loc := mailSubjectSplit.FindIndex([]byte(input))
 		if loc == nil {
@@ -55,13 +56,16 @@ func TestSubjectBodySeparator(t *testing.T) {
 }
 
 func TestJSEscapeSafe(t *testing.T) {
+	testhelper.Setup(t)
 	assert.EqualValues(t, `\u0026\u003C\u003E\'\"`, JSEscapeSafe(`&<>'"`))
 }
 
 func TestHTMLFormat(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, template.HTML("<a>&lt; < 1</a>"), HTMLFormat("<a>%s %s %d</a>", "<", template.HTML("<"), 1))
 }
 
 func TestSanitizeHTML(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, template.HTML(`<a href="/" rel="nofollow">link</a> xss <div>inline</div>`), SanitizeHTML(`<a href="/">link</a> <a href="javascript:">xss</a> <div style="dangerous">inline</div>`))
 }

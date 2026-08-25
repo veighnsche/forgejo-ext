@@ -11,6 +11,7 @@ import (
 )
 
 func TestRenderConfig_UnmarshalYAML(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name     string
 		expected *RenderConfig

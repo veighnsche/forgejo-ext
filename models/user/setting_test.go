@@ -15,6 +15,7 @@ import (
 )
 
 func TestSettings(t *testing.T) {
+	testhelper.Setup(t)
 	keyName := "test_user_setting"
 	require.NoError(t, unittest.PrepareTestDatabase())
 

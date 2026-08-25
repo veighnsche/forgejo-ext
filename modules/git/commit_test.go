@@ -15,6 +15,7 @@ import (
 )
 
 func TestCommitsCount(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	commitsCount, err := CommitsCount(DefaultContext,
@@ -28,6 +29,7 @@ func TestCommitsCount(t *testing.T) {
 }
 
 func TestCommitsCountWithoutBase(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	commitsCount, err := CommitsCount(DefaultContext,
@@ -42,6 +44,7 @@ func TestCommitsCountWithoutBase(t *testing.T) {
 }
 
 func TestGetFullCommitID(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	id, err := GetFullCommitID(DefaultContext, bareRepo1Path, "8006ff9a")
@@ -50,6 +53,7 @@ func TestGetFullCommitID(t *testing.T) {
 }
 
 func TestGetFullCommitIDError(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	id, err := GetFullCommitID(DefaultContext, bareRepo1Path, "unknown")
@@ -60,6 +64,7 @@ func TestGetFullCommitIDError(t *testing.T) {
 }
 
 func TestCommitFromReader(t *testing.T) {
+	testhelper.Setup(t)
 	commitString := `feaf4ba6bc635fec442f46ddd4512416ec43c2c2 commit 1074
 tree f1a6cb52b2d16773290cefe49ad0684b50a4f930
 parent 37991dec2c8e592043f47155ce4808d4580f9123
@@ -127,6 +132,7 @@ empty commit`, commitFromReader.Signature.Payload)
 }
 
 func TestCommitWithEncodingFromReader(t *testing.T) {
+	testhelper.Setup(t)
 	commitString := `feaf4ba6bc635fec442f46ddd4512416ec43c2c2 commit 1074
 tree ca3fad42080dd1a6d291b75acdfc46e5b9b307e5
 parent 47b24e7ab977ed31c5a39989d570847d6d0052af
@@ -192,6 +198,7 @@ ISO-8859-1`, commitFromReader.Signature.Payload)
 }
 
 func TestCommitWithChangeIDFromReader(t *testing.T) {
+	testhelper.Setup(t)
 	commitString := `e66911914414b0daa85d4a428c8d607b9b249a2c commit 611
 tree efd3cbedfc360ce9f60e5f92d51221be5afb4bf0
 author Nicole Patricia Mazzuca <nicole@strega-nil.co> 1746965490 +0200
@@ -241,6 +248,7 @@ January where the year starts on a Monday :)`, commitFromReader.Signature.Payloa
 }
 
 func TestGitbutlerCustomHeaderFields(t *testing.T) {
+	testhelper.Setup(t)
 	// example from: https://github.com/go-gitea/gitea/issues/34529#issuecomment-2908481092
 	commitString := `tree a29321bf9e3ec433ed9e47b1cbbac6906c71fc60
 parent c0d83043ade7fa3ca10659608799477e9daa670b
@@ -312,6 +320,7 @@ asdf
 }
 
 func TestHasPreviousCommit(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	repo, err := openRepositoryWithDefaultContext(bareRepo1Path)
@@ -338,6 +347,7 @@ func TestHasPreviousCommit(t *testing.T) {
 }
 
 func TestParseCommitFileStatus(t *testing.T) {
+	testhelper.Setup(t)
 	type testcase struct {
 		output   string
 		added    []string
@@ -443,6 +453,7 @@ func TestParseCommitFileStatus(t *testing.T) {
 }
 
 func TestGetCommitFileStatusMerges(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo6_merge")
 
 	commitFileStatus, err := GetCommitFileStatus(DefaultContext, bareRepo1Path, "022f4ce6214973e018f02bf363bf8a2e3691f699")
@@ -466,6 +477,7 @@ func TestGetCommitFileStatusMerges(t *testing.T) {
 }
 
 func TestParseCommitRenames(t *testing.T) {
+	testhelper.Setup(t)
 	testcases := []struct {
 		output  string
 		renames [][2]string
@@ -493,6 +505,7 @@ func TestParseCommitRenames(t *testing.T) {
 }
 
 func TestGetAllBranches(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 
 	bareRepo1, err := openRepositoryWithDefaultContext(bareRepo1Path)

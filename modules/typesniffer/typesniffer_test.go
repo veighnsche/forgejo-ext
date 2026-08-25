@@ -15,6 +15,7 @@ import (
 )
 
 func TestDetectContentTypeLongerThanSniffLen(t *testing.T) {
+	testhelper.Setup(t)
 	// Pre-condition: Shorter than sniffLen detects SVG.
 	assert.Equal(t, "image/svg+xml", DetectContentType([]byte(`<!-- Comment --><svg></svg>`), "").contentType)
 	// Longer than sniffLen detects something else.
@@ -22,11 +23,13 @@ func TestDetectContentTypeLongerThanSniffLen(t *testing.T) {
 }
 
 func TestIsTextFile(t *testing.T) {
+	testhelper.Setup(t)
 	assert.True(t, DetectContentType([]byte{}, "").IsText())
 	assert.True(t, DetectContentType([]byte("lorem ipsum"), "").IsText())
 }
 
 func TestIsSvgImage(t *testing.T) {
+	testhelper.Setup(t)
 	assert.True(t, DetectContentType([]byte("<svg></svg>"), "").IsSvgImage())
 	assert.True(t, DetectContentType([]byte("    <svg></svg>"), "").IsSvgImage())
 	assert.True(t, DetectContentType([]byte(`<svg width="100"></svg>`), "").IsSvgImage())
@@ -96,18 +99,21 @@ func TestIsSvgImage(t *testing.T) {
 }
 
 func TestIsPDF(t *testing.T) {
+	testhelper.Setup(t)
 	pdf, _ := base64.StdEncoding.DecodeString("JVBERi0xLjYKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDMgMCBSL0ZpbHRlci9GbGF0ZURlY29kZT4+CnN0cmVhbQp4nF3NPwsCMQwF8D2f4s2CNYk1baF0EHRwOwg4iJt/NsFb/PpevUE4Mjwe")
 	assert.True(t, DetectContentType(pdf, "").IsPDF())
 	assert.False(t, DetectContentType([]byte("plain text"), "").IsPDF())
 }
 
 func TestIsVideo(t *testing.T) {
+	testhelper.Setup(t)
 	mp4, _ := base64.StdEncoding.DecodeString("AAAAGGZ0eXBtcDQyAAAAAGlzb21tcDQyAAEI721vb3YAAABsbXZoZAAAAADaBlwX2gZcFwAAA+gA")
 	assert.True(t, DetectContentType(mp4, "").IsVideo())
 	assert.False(t, DetectContentType([]byte("plain text"), "").IsVideo())
 }
 
 func TestIsAudio(t *testing.T) {
+	testhelper.Setup(t)
 	mp3, _ := base64.StdEncoding.DecodeString("SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3Zl")
 	assert.True(t, DetectContentType(mp3, "").IsAudio())
 	assert.False(t, DetectContentType([]byte("plain text"), "").IsAudio())
@@ -118,6 +124,7 @@ func TestIsAudio(t *testing.T) {
 }
 
 func TestIsGLB(t *testing.T) {
+	testhelper.Setup(t)
 	glb, _ := hex.DecodeString("676c5446")
 	assert.True(t, DetectContentType(glb, "").IsGLB())
 	assert.True(t, DetectContentType(glb, "").Is3DModel())
@@ -126,6 +133,7 @@ func TestIsGLB(t *testing.T) {
 }
 
 func TestDetectContentTypeFromReader(t *testing.T) {
+	testhelper.Setup(t)
 	mp3, _ := base64.StdEncoding.DecodeString("SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3Zl")
 	st, err := DetectContentTypeFromReader(bytes.NewReader(mp3), "")
 	require.NoError(t, err)
@@ -133,6 +141,7 @@ func TestDetectContentTypeFromReader(t *testing.T) {
 }
 
 func TestDetectContentTypeOgg(t *testing.T) {
+	testhelper.Setup(t)
 	oggAudio, _ := hex.DecodeString("4f67675300020000000000000000352f0000000000007dc39163011e01766f72626973000000000244ac0000000000000071020000000000b8014f6767530000")
 	st, err := DetectContentTypeFromReader(bytes.NewReader(oggAudio), "")
 	require.NoError(t, err)
@@ -145,6 +154,7 @@ func TestDetectContentTypeOgg(t *testing.T) {
 }
 
 func TestDetectContentTypeAvif(t *testing.T) {
+	testhelper.Setup(t)
 	avifImage, err := hex.DecodeString("000000206674797061766966")
 	require.NoError(t, err)
 
@@ -155,6 +165,7 @@ func TestDetectContentTypeAvif(t *testing.T) {
 }
 
 func TestDetectContentTypeModelGLB(t *testing.T) {
+	testhelper.Setup(t)
 	glb, err := hex.DecodeString("676c5446")
 	require.NoError(t, err)
 
@@ -167,6 +178,7 @@ func TestDetectContentTypeModelGLB(t *testing.T) {
 }
 
 func TestDetectInterlisp(t *testing.T) {
+	testhelper.Setup(t)
 	interlisp, err := base64.StdEncoding.DecodeString("ICAKKERFRklORS1GSUxFLUlORk8gHlBBQ0tBR0UgIklOVEVSTElTUCIgHlJFQURUQUJMRSAiSU5URVJMSVNQIiAeQkFTRSAxMCkKCgYB")
 	require.NoError(t, err)
 	st, err := DetectContentTypeFromReader(bytes.NewReader(interlisp), "test")

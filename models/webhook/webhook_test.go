@@ -19,17 +19,20 @@ import (
 )
 
 func TestHookContentType_Name(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "json", ContentTypeJSON.Name())
 	assert.Equal(t, "form", ContentTypeForm.Name())
 }
 
 func TestIsValidHookContentType(t *testing.T) {
+	testhelper.Setup(t)
 	assert.True(t, IsValidHookContentType("json"))
 	assert.True(t, IsValidHookContentType("form"))
 	assert.False(t, IsValidHookContentType("invalid"))
 }
 
 func TestWebhook_History(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	webhook := unittest.AssertExistsAndLoadBean(t, &Webhook{ID: 1})
 	tasks, err := webhook.History(db.DefaultContext, 0)
@@ -47,6 +50,7 @@ func TestWebhook_History(t *testing.T) {
 }
 
 func TestWebhook_UpdateEvent(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	webhook := unittest.AssertExistsAndLoadBean(t, &Webhook{ID: 1})
 	hookEvent := &webhook_module.HookEvent{
@@ -68,6 +72,7 @@ func TestWebhook_UpdateEvent(t *testing.T) {
 }
 
 func TestWebhook_EventsArray(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, []string{
 		"create", "delete", "fork", "push",
 		"issues", "issue_assign", "issue_label", "issue_milestone", "issue_comment",
@@ -89,6 +94,7 @@ func TestWebhook_EventsArray(t *testing.T) {
 }
 
 func TestCreateWebhook(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Some chosen events 1", func(t *testing.T) {
 		hook := &Webhook{
 			RepoID:      3,
@@ -163,6 +169,7 @@ func TestCreateWebhook(t *testing.T) {
 }
 
 func TestGetWebhookByRepoID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hook, err := GetWebhookByRepoID(db.DefaultContext, 1, 1)
 	require.NoError(t, err)
@@ -174,6 +181,7 @@ func TestGetWebhookByRepoID(t *testing.T) {
 }
 
 func TestGetWebhookByOwnerID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hook, err := GetWebhookByOwnerID(db.DefaultContext, 3, 3)
 	require.NoError(t, err)
@@ -185,6 +193,7 @@ func TestGetWebhookByOwnerID(t *testing.T) {
 }
 
 func TestGetActiveWebhooksByRepoID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	activateWebhook(t, 1)
@@ -198,6 +207,7 @@ func TestGetActiveWebhooksByRepoID(t *testing.T) {
 }
 
 func TestGetWebhooksByRepoID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hooks, err := db.Find[Webhook](db.DefaultContext, ListWebhookOptions{RepoID: 1})
 	require.NoError(t, err)
@@ -208,6 +218,7 @@ func TestGetWebhooksByRepoID(t *testing.T) {
 }
 
 func TestGetActiveWebhooksByOwnerID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	activateWebhook(t, 3)
@@ -228,6 +239,7 @@ func activateWebhook(t *testing.T, hookID int64) {
 }
 
 func TestGetWebhooksByOwnerID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	activateWebhook(t, 3)
@@ -241,6 +253,7 @@ func TestGetWebhooksByOwnerID(t *testing.T) {
 }
 
 func TestUpdateWebhook(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hook := unittest.AssertExistsAndLoadBean(t, &Webhook{ID: 2})
 	hook.IsActive = true
@@ -251,6 +264,7 @@ func TestUpdateWebhook(t *testing.T) {
 }
 
 func TestDeleteWebhookByRepoID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	unittest.AssertExistsAndLoadBean(t, &Webhook{ID: 2, RepoID: 1})
 	require.NoError(t, DeleteWebhookByRepoID(db.DefaultContext, 1, 2))
@@ -262,6 +276,7 @@ func TestDeleteWebhookByRepoID(t *testing.T) {
 }
 
 func TestDeleteWebhookByOwnerID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	unittest.AssertExistsAndLoadBean(t, &Webhook{ID: 3, OwnerID: 3})
 	require.NoError(t, DeleteWebhookByOwnerID(db.DefaultContext, 3, 3))
@@ -273,6 +288,7 @@ func TestDeleteWebhookByOwnerID(t *testing.T) {
 }
 
 func TestHookTasks(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hookTasks, err := HookTasks(db.DefaultContext, 1, 1)
 	require.NoError(t, err)
@@ -288,6 +304,7 @@ func TestHookTasks(t *testing.T) {
 }
 
 func TestCreateHookTask(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hookTask := &HookTask{
 		HookID:         3,
@@ -300,6 +317,7 @@ func TestCreateHookTask(t *testing.T) {
 }
 
 func TestUpdateHookTask(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	hook := unittest.AssertExistsAndLoadBean(t, &HookTask{ID: 1})
@@ -311,6 +329,7 @@ func TestUpdateHookTask(t *testing.T) {
 }
 
 func TestCleanupHookTaskTable_PerWebhook_DeletesDelivered(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hookTask := &HookTask{
 		HookID:         3,
@@ -328,6 +347,7 @@ func TestCleanupHookTaskTable_PerWebhook_DeletesDelivered(t *testing.T) {
 }
 
 func TestCleanupHookTaskTable_PerWebhook_LeavesUndelivered(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hookTask := &HookTask{
 		HookID:         4,
@@ -344,6 +364,7 @@ func TestCleanupHookTaskTable_PerWebhook_LeavesUndelivered(t *testing.T) {
 }
 
 func TestCleanupHookTaskTable_PerWebhook_LeavesMostRecentTask(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hookTask := &HookTask{
 		HookID:         4,
@@ -361,6 +382,7 @@ func TestCleanupHookTaskTable_PerWebhook_LeavesMostRecentTask(t *testing.T) {
 }
 
 func TestCleanupHookTaskTable_OlderThan_DeletesDelivered(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hookTask := &HookTask{
 		HookID:         3,
@@ -378,6 +400,7 @@ func TestCleanupHookTaskTable_OlderThan_DeletesDelivered(t *testing.T) {
 }
 
 func TestCleanupHookTaskTable_OlderThan_LeavesUndelivered(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hookTask := &HookTask{
 		HookID:         4,
@@ -394,6 +417,7 @@ func TestCleanupHookTaskTable_OlderThan_LeavesUndelivered(t *testing.T) {
 }
 
 func TestCleanupHookTaskTable_OlderThan_LeavesTaskEarlierThanAgeToDelete(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	hookTask := &HookTask{
 		HookID:         4,

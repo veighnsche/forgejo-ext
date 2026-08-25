@@ -13,6 +13,7 @@ import (
 )
 
 func TestCheckIfDiffDiffers(t *testing.T) {
+	testhelper.Setup(t)
 	tmpDir := t.TempDir()
 
 	err := InitRepository(t.Context(), tmpDir, false, Sha1ObjectFormat.Name())

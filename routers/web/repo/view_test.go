@@ -10,6 +10,7 @@ import (
 )
 
 func Test_localizedExtensions(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name              string
 		ext               string

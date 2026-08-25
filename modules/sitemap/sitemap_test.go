@@ -15,6 +15,7 @@ import (
 )
 
 func TestNewSitemap(t *testing.T) {
+	testhelper.Setup(t)
 	ts := time.Unix(1651322008, 0).UTC()
 
 	tests := []struct {
@@ -91,6 +92,7 @@ func TestNewSitemap(t *testing.T) {
 }
 
 func TestNewSitemapIndex(t *testing.T) {
+	testhelper.Setup(t)
 	ts := time.Unix(1651322008, 0).UTC()
 
 	tests := []struct {

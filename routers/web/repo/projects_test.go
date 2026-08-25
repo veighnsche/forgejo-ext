@@ -17,6 +17,7 @@ import (
 )
 
 func TestCheckProjectColumnChangePermissions(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1/projects/1/2")
 	contexttest.LoadUser(t, ctx, 2)
@@ -31,6 +32,7 @@ func TestCheckProjectColumnChangePermissions(t *testing.T) {
 }
 
 func TestViewProjectPRLinkVisibility(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("routers/web/repo/TestViewProjectPRLinkVisibility")()
 	unittest.PrepareTestEnv(t)
 

@@ -140,6 +140,7 @@ then resh (ר), and finally heh (ה) (which should appear leftmost).`,
 }
 
 func TestEscapeControlReader(t *testing.T) {
+	testhelper.Setup(t)
 	// add some control characters to the tests
 	tests := make([]escapeControlTest, 0, len(escapeControlTests)*3)
 	copy(tests, escapeControlTests)
@@ -172,6 +173,7 @@ func TestEscapeControlReader(t *testing.T) {
 }
 
 func TestSettingAmbiguousUnicodeDetection(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.UI.AmbiguousUnicodeDetection, true)()
 
 	_, out := EscapeControlHTML("a test", &translation.MockLocale{}, testContext)
@@ -182,6 +184,7 @@ func TestSettingAmbiguousUnicodeDetection(t *testing.T) {
 }
 
 func TestAmbiguousUnicodeDetectionContext(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.UI.SkipEscapeContexts, []string{"test"})()
 
 	input := template.HTML("a test")

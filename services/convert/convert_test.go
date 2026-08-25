@@ -22,6 +22,7 @@ import (
 )
 
 func TestToVerification(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/TestParseCommitWithSSHSignature")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -110,6 +111,7 @@ uf51WIBywxztet6vi+jYJK1jFoY4iA==
 }
 
 func TestToAnnotatedTag(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/TestParseCommitWithSSHSignature")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -206,6 +208,7 @@ uf51WIBywxztet6vi+jYJK1jFoY4iA==
 }
 
 func TestToActionRunner(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name           string
 		runner         actions_model.ActionRunner

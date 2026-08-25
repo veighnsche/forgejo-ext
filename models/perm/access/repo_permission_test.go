@@ -27,6 +27,7 @@ func assertAccess(t *testing.T, expectedMode perm_model.AccessMode, perm *access
 }
 
 func TestActionTaskCanAccessOwnRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	actionTask := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionTask{ID: 47})
@@ -38,6 +39,7 @@ func TestActionTaskCanAccessOwnRepo(t *testing.T) {
 }
 
 func TestActionTaskCanAccessPublicRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	actionTask := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionTask{ID: 47})
@@ -49,6 +51,7 @@ func TestActionTaskCanAccessPublicRepo(t *testing.T) {
 }
 
 func TestActionTaskCanAccessPublicRepoOfLimitedOrg(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	actionTask := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionTask{ID: 47})
@@ -60,6 +63,7 @@ func TestActionTaskCanAccessPublicRepoOfLimitedOrg(t *testing.T) {
 }
 
 func TestActionTaskNoAccessPublicRepoOfPrivateOrg(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	actionTask := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionTask{ID: 47})
@@ -71,6 +75,7 @@ func TestActionTaskNoAccessPublicRepoOfPrivateOrg(t *testing.T) {
 }
 
 func TestActionTaskNoAccessPrivateRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	actionTask := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionTask{ID: 47})
@@ -82,6 +87,7 @@ func TestActionTaskNoAccessPrivateRepo(t *testing.T) {
 }
 
 func TestGetUserRepoPermissionWithReducer(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("no unit-level overrides", func(t *testing.T) {
@@ -152,6 +158,7 @@ func TestGetUserRepoPermissionWithReducer(t *testing.T) {
 }
 
 func TestGetUserRepoPermissionOrganization(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/perm/access/TestGetUserRepoPermissionOrganization")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

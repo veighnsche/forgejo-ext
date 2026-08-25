@@ -45,6 +45,7 @@ func toJSON(v any) string {
 }
 
 func TestLogConfigDefault(t *testing.T) {
+	testhelper.Setup(t)
 	manager, managerClose := initLoggersByConfig(t, ``)
 	defer managerClose()
 
@@ -81,6 +82,7 @@ func TestLogConfigDefault(t *testing.T) {
 }
 
 func TestLogConfigDisable(t *testing.T) {
+	testhelper.Setup(t)
 	manager, managerClose := initLoggersByConfig(t, `
 [log]
 logger.router.MODE =
@@ -121,6 +123,7 @@ logger.xorm.MODE =
 }
 
 func TestLogConfigLegacyDefault(t *testing.T) {
+	testhelper.Setup(t)
 	manager, managerClose := initLoggersByConfig(t, `
 [log]
 MODE = console
@@ -160,6 +163,7 @@ MODE = console
 }
 
 func TestLogConfigLegacyMode(t *testing.T) {
+	testhelper.Setup(t)
 	tempDir := t.TempDir()
 
 	tempPath := func(file string) string {
@@ -234,6 +238,7 @@ ACCESS = file
 }
 
 func TestLogConfigLegacyModeDisable(t *testing.T) {
+	testhelper.Setup(t)
 	manager, managerClose := initLoggersByConfig(t, `
 [log]
 ROUTER = file
@@ -251,6 +256,7 @@ ENABLE_ACCESS_LOG = false
 }
 
 func TestLogConfigNewConfig(t *testing.T) {
+	testhelper.Setup(t)
 	manager, managerClose := initLoggersByConfig(t, `
 [log]
 LOGGER_ACCESS_MODE = console
@@ -324,6 +330,7 @@ STDERR = true
 }
 
 func TestLogConfigModeFile(t *testing.T) {
+	testhelper.Setup(t)
 	tempDir := t.TempDir()
 
 	tempPath := func(file string) string {
@@ -407,6 +414,7 @@ COMPRESSION_LEVEL = 4
 }
 
 func TestLogPrepareFilenameForWriter(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("forgejo.log is the default and a backward compatible symlink is created for gitea.log", func(t *testing.T) {
 		d := t.TempDir()
 		defer test.MockVariableValue(&Log.RootPath, d)()
@@ -500,6 +508,7 @@ func TestLogPrepareFilenameForWriter(t *testing.T) {
 }
 
 func TestLegacyLoggerMigrations(t *testing.T) {
+	testhelper.Setup(t)
 	type Cases = []struct {
 		name string
 		cfg  string

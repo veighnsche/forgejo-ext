@@ -18,6 +18,7 @@ import (
 )
 
 func TestGetDiffPreview(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	ctx, _ := contexttest.MockContext(t, "user2/repo1")
 	ctx.SetParams(":id", "1")
@@ -136,6 +137,7 @@ func TestGetDiffPreview(t *testing.T) {
 }
 
 func TestGetDiffPreviewErrors(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	branch := repo.DefaultBranch

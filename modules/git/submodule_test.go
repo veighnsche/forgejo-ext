@@ -12,6 +12,7 @@ import (
 )
 
 func TestGetRefURL(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		refURL     string
 		prefixURL  string
@@ -44,6 +45,7 @@ func TestGetRefURL(t *testing.T) {
 }
 
 func Test_parseSubmoduleContent(t *testing.T) {
+	testhelper.Setup(t)
 	submoduleFiles := []struct {
 		fileContent  string
 		expectedPath string

@@ -21,6 +21,7 @@ import (
 )
 
 func TestNewCheckAttrStdoutReader(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("two_times", func(t *testing.T) {
 		read := newCheckAttrStdoutReader(strings.NewReader(
 			".gitignore\x00linguist-vendored\x00unspecified\x00"+
@@ -80,6 +81,7 @@ func TestNewCheckAttrStdoutReader(t *testing.T) {
 }
 
 func TestGitAttributeBareNonBare(t *testing.T) {
+	testhelper.Setup(t)
 	if !SupportCheckAttrOnBare {
 		t.Skip("git check-attr supported on bare repo starting with git 2.40")
 	}
@@ -127,6 +129,7 @@ func TestGitAttributeBareNonBare(t *testing.T) {
 }
 
 func TestGitAttributes(t *testing.T) {
+	testhelper.Setup(t)
 	repoPath := filepath.Join(testReposDir, "language_stats_repo")
 	gitRepo, err := openRepositoryWithDefaultContext(repoPath)
 	require.NoError(t, err)
@@ -156,6 +159,7 @@ func TestGitAttributes(t *testing.T) {
 }
 
 func TestGitAttributeFirst(t *testing.T) {
+	testhelper.Setup(t)
 	repoPath := filepath.Join(testReposDir, "language_stats_repo")
 	gitRepo, err := openRepositoryWithDefaultContext(repoPath)
 	require.NoError(t, err)
@@ -181,6 +185,7 @@ func TestGitAttributeFirst(t *testing.T) {
 }
 
 func TestGitAttributeStruct(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Empty(t, GitAttribute("").String())
 	assert.Empty(t, GitAttribute("unspecified").String())
 
@@ -191,6 +196,7 @@ func TestGitAttributeStruct(t *testing.T) {
 }
 
 func TestGitAttributeCheckerError(t *testing.T) {
+	testhelper.Setup(t)
 	prepareRepo := func(t *testing.T) *Repository {
 		t.Helper()
 		path := t.TempDir()

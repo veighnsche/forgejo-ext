@@ -21,6 +21,7 @@ import (
 )
 
 func TestPullRequest_AddToTaskQueue(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	idChan := make(chan int64, 10)
@@ -70,6 +71,7 @@ func TestPullRequest_AddToTaskQueue(t *testing.T) {
 }
 
 func TestIsMergeSigningRequired(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name       string
 		mergeStyle repo_model.MergeStyle

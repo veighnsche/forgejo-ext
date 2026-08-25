@@ -11,6 +11,7 @@ import (
 )
 
 func TestEncodeSha256(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t,
 		"c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2",
 		EncodeSha256("foobar"),
@@ -18,10 +19,12 @@ func TestEncodeSha256(t *testing.T) {
 }
 
 func TestShortSha(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "veryverylo", ShortSha("veryverylong"))
 }
 
 func TestBasicAuthDecode(t *testing.T) {
+	testhelper.Setup(t)
 	_, _, err := BasicAuthDecode("?")
 	assert.Equal(t, "illegal base64 data at input byte 0", err.Error())
 
@@ -41,6 +44,7 @@ func TestBasicAuthDecode(t *testing.T) {
 }
 
 func TestFileSize(t *testing.T) {
+	testhelper.Setup(t)
 	var size int64 = 512
 	assert.Equal(t, "512 B", FileSize(size))
 	size *= 1024
@@ -58,6 +62,7 @@ func TestFileSize(t *testing.T) {
 }
 
 func TestEllipsisString(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "...", EllipsisString("foobar", 0))
 	assert.Equal(t, "...", EllipsisString("foobar", 1))
 	assert.Equal(t, "...", EllipsisString("foobar", 2))
@@ -73,6 +78,7 @@ func TestEllipsisString(t *testing.T) {
 }
 
 func TestTruncateString(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Empty(t, TruncateString("foobar", 0))
 	assert.Equal(t, "f", TruncateString("foobar", 1))
 	assert.Equal(t, "fo", TruncateString("foobar", 2))
@@ -88,6 +94,7 @@ func TestTruncateString(t *testing.T) {
 }
 
 func TestStringsToInt64s(t *testing.T) {
+	testhelper.Setup(t)
 	testSuccess := func(input []string, expected []int64) {
 		result, err := StringsToInt64s(input)
 		require.NoError(t, err)
@@ -104,6 +111,7 @@ func TestStringsToInt64s(t *testing.T) {
 }
 
 func TestInt64sToStrings(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, []string{}, Int64sToStrings([]int64{}))
 	assert.Equal(t,
 		[]string{"1", "4", "16", "64", "256"},
@@ -114,6 +122,7 @@ func TestInt64sToStrings(t *testing.T) {
 // TODO: Test EntryIcon
 
 func TestSetupGiteaRoot(t *testing.T) {
+	testhelper.Setup(t)
 	t.Setenv("GITEA_ROOT", "test")
 	assert.Equal(t, "test", SetupGiteaRoot())
 	t.Setenv("GITEA_ROOT", "")
@@ -121,6 +130,7 @@ func TestSetupGiteaRoot(t *testing.T) {
 }
 
 func TestFormatNumberSI(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "125", FormatNumberSI(int(125)))
 	assert.Equal(t, "1.3k", FormatNumberSI(int64(1317)))
 	assert.Equal(t, "21.3M", FormatNumberSI(21317675))

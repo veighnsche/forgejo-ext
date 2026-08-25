@@ -47,6 +47,7 @@ func deletePackage(t *testing.T, p *packages_model.Package) {
 }
 
 func TestTryInsertPackage(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -73,6 +74,7 @@ func TestTryInsertPackage(t *testing.T) {
 }
 
 func TestGetPackageByID(t *testing.T) {
+	testhelper.Setup(t)
 	p0 := prepareExamplePackage(t)
 
 	// Get package should return package and yield no error
@@ -91,6 +93,7 @@ func TestGetPackageByID(t *testing.T) {
 }
 
 func TestDeletePackageByID(t *testing.T) {
+	testhelper.Setup(t)
 	p0 := prepareExamplePackage(t)
 
 	// Delete existing package should yield no error
@@ -104,6 +107,7 @@ func TestDeletePackageByID(t *testing.T) {
 }
 
 func TestSetRepositoryLink(t *testing.T) {
+	testhelper.Setup(t)
 	p0 := prepareExamplePackage(t)
 
 	// Set repository link to package should yield no error and package RepoID should be updated
@@ -123,6 +127,7 @@ func TestSetRepositoryLink(t *testing.T) {
 }
 
 func TestUnlinkRepositoryFromAllPackages(t *testing.T) {
+	testhelper.Setup(t)
 	p0 := prepareExamplePackage(t)
 
 	// Unlink repository from all packages should yield no error and package with p0.ID should have RepoID 0
@@ -141,6 +146,7 @@ func TestUnlinkRepositoryFromAllPackages(t *testing.T) {
 }
 
 func TestGetPackageByName(t *testing.T) {
+	testhelper.Setup(t)
 	p0 := prepareExamplePackage(t)
 
 	// Get package should return package and yield no error
@@ -173,6 +179,7 @@ func TestGetPackageByName(t *testing.T) {
 }
 
 func TestHasCountPackages(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -316,6 +323,7 @@ func TestHasCountPackages(t *testing.T) {
 }
 
 func TestPackageTotalSize(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	ctx := t.Context()
@@ -432,6 +440,7 @@ func TestPackageTotalSize(t *testing.T) {
 }
 
 func TestSortPackages(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/packages/fixtures/TestSortPackages")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

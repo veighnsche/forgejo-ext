@@ -14,12 +14,14 @@ import (
 )
 
 func TestListSystemWebhooks(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/webhook/fixtures/TestListSystemWebhooks")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	testGetAdminWebhooks(t, true)
 }
 
 func TestListDefaultWebhooks(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/webhook/fixtures/TestListDefaultWebhooks")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	testGetAdminWebhooks(t, false)

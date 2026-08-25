@@ -15,6 +15,7 @@ import (
 )
 
 func TestNotice_TrStr(t *testing.T) {
+	testhelper.Setup(t)
 	notice := &system.Notice{
 		Type:        system.NoticeRepository,
 		Description: "test description",
@@ -23,6 +24,7 @@ func TestNotice_TrStr(t *testing.T) {
 }
 
 func TestCreateNotice(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	noticeBean := &system.Notice{
@@ -35,6 +37,7 @@ func TestCreateNotice(t *testing.T) {
 }
 
 func TestCreateRepositoryNotice(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	noticeBean := &system.Notice{
@@ -49,11 +52,13 @@ func TestCreateRepositoryNotice(t *testing.T) {
 // TODO TestRemoveAllWithNotice
 
 func TestCountNotices(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	assert.Equal(t, int64(3), system.CountNotices(db.DefaultContext))
 }
 
 func TestNotices(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	notices, err := system.Notices(db.DefaultContext, 1, 2)
@@ -71,6 +76,7 @@ func TestNotices(t *testing.T) {
 }
 
 func TestDeleteNotices(t *testing.T) {
+	testhelper.Setup(t)
 	// delete a non-empty range
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -84,6 +90,7 @@ func TestDeleteNotices(t *testing.T) {
 }
 
 func TestDeleteNotices2(t *testing.T) {
+	testhelper.Setup(t)
 	// delete an empty range
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -97,6 +104,7 @@ func TestDeleteNotices2(t *testing.T) {
 }
 
 func TestDeleteNoticesByIDs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	unittest.AssertExistsAndLoadBean(t, &system.Notice{ID: 1})

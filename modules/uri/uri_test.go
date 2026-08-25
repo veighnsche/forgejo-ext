@@ -11,6 +11,7 @@ import (
 )
 
 func TestReadURI(t *testing.T) {
+	testhelper.Setup(t)
 	p, err := filepath.Abs("./uri.go")
 	require.NoError(t, err)
 	f, err := Open("file://" + p)

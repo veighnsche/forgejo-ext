@@ -18,6 +18,7 @@ import (
 )
 
 func TestCheckArmoredGPGKeyString(t *testing.T) {
+	testhelper.Setup(t)
 	testGPGArmor := `-----BEGIN PGP PUBLIC KEY BLOCK-----
 
 mQENBFh91QoBCADciaDd7aqegYkn4ZIG7J0p1CRwpqMGjxFroJEMg6M1ZiuEVTRv
@@ -55,6 +56,7 @@ MkM/fdpyc2hY7Dl/+qFmN5MG5yGmMpQcX+RNNR222ibNC1D3wg==
 }
 
 func TestCheckArmoredbrainpoolP256r1GPGKeyString(t *testing.T) {
+	testhelper.Setup(t)
 	testGPGArmor := `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v2
 
@@ -76,6 +78,7 @@ OyjLLnFQiVmq7kEA/0z0CQe3ZQiQIq5zrs7Nh1XRkFAo8GlU/SGC9XFFi722
 }
 
 func TestExtractSignature(t *testing.T) {
+	testhelper.Setup(t)
 	testGPGArmor := `-----BEGIN PGP PUBLIC KEY BLOCK-----
 
 mQENBFh91QoBCADciaDd7aqegYkn4ZIG7J0p1CRwpqMGjxFroJEMg6M1ZiuEVTRv
@@ -196,6 +199,7 @@ Unknown GPG key with good email
 }
 
 func TestCheckGPGUserEmail(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	_ = unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -242,6 +246,7 @@ Q0KHb+QcycSgbDx0ZAvdIacuKvBBcbxrsmFUI4LR+oIup0G9gUc0roPvr014jYQL
 }
 
 func TestCheckGPGRevokedIdentity(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	require.NoError(t, db.Insert(db.DefaultContext, &user_model.EmailAddress{UID: 1, Email: "no-reply@golang.com", IsActivated: true}))
@@ -302,6 +307,7 @@ heiQvzkApQup5c+BhH5zFDFdKJ2CBByxw9+7QjMFI/wgLixKuE0Ob2kAokXf7RlB
 }
 
 func TestCheckGParseGPGExpire(t *testing.T) {
+	testhelper.Setup(t)
 	testIssue6599 := `-----BEGIN PGP PUBLIC KEY BLOCK-----
 
 mQINBFlFJRsBEAClNcRT5El+EaTtQEYs/eNAhr/bqiyt6fPMtabDq2x6a8wFWMX0
@@ -455,6 +461,7 @@ epiDVQ==
 }
 
 func TestTryGetKeyIDFromSignature(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Empty(t, tryGetKeyIDFromSignature(&packet.Signature{}))
 	assert.Equal(t, "038D1A3EADDBEA9C", tryGetKeyIDFromSignature(&packet.Signature{
 		IssuerKeyId: new(uint64(0x38D1A3EADDBEA9C)),

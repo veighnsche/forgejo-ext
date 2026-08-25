@@ -38,6 +38,7 @@ func getAdminNewUserTestUsers(t *testing.T) []*user_model.User {
 }
 
 func TestAdminNotificationMail_test(t *testing.T) {
+	testhelper.Setup(t)
 	ctx := t.Context()
 
 	users := getAdminNewUserTestUsers(t)

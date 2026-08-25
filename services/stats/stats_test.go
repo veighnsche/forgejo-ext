@@ -19,6 +19,7 @@ import (
 )
 
 func TestQueueAndFlush(t *testing.T) {
+	testhelper.Setup(t)
 	var mu sync.Mutex
 	callValues := []int64{}
 	RegisterRecalc(-99, func(ctx context.Context, i int64, _ optional.Option[timeutil.TimeStamp]) error {
@@ -43,6 +44,7 @@ func TestQueueAndFlush(t *testing.T) {
 }
 
 func TestQueueUnique(t *testing.T) {
+	testhelper.Setup(t)
 	var mu sync.Mutex
 	callValues := []int64{}
 	RegisterRecalc(-100, func(ctx context.Context, i int64, _ optional.Option[timeutil.TimeStamp]) error {
@@ -73,6 +75,7 @@ func TestQueueUnique(t *testing.T) {
 }
 
 func TestQueueAndError(t *testing.T) {
+	testhelper.Setup(t)
 	var mu sync.Mutex
 	callValues := []int64{}
 	RegisterRecalc(-101, func(ctx context.Context, i int64, _ optional.Option[timeutil.TimeStamp]) error {
@@ -99,6 +102,7 @@ func TestQueueAndError(t *testing.T) {
 }
 
 func TestQueueAfterTx(t *testing.T) {
+	testhelper.Setup(t)
 	// This is a really micro version of unittest.PrepareTestDatabase -- as the unittest package references the stats
 	// package (for access to `Flush`), we can't use it without causing a circular dependency.  But we need a DB in
 	// order to create a Tx.

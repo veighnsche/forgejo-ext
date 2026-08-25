@@ -12,6 +12,7 @@ import (
 )
 
 func TestSubmitReviewForm_IsEmpty(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		form     SubmitReviewForm
 		expected bool
@@ -41,6 +42,7 @@ func TestSubmitReviewForm_IsEmpty(t *testing.T) {
 }
 
 func TestIssueLock_HasValidReason(t *testing.T) {
+	testhelper.Setup(t)
 	// Init settings
 	_ = setting.Repository
 

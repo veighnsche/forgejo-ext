@@ -11,6 +11,7 @@ import (
 )
 
 func TestParseTreeEntriesLong(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		Input    string
 		Expected []*TreeEntry
@@ -63,6 +64,7 @@ func TestParseTreeEntriesLong(t *testing.T) {
 }
 
 func TestParseTreeEntriesShort(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		Input    string
 		Expected []*TreeEntry
@@ -96,6 +98,7 @@ func TestParseTreeEntriesShort(t *testing.T) {
 }
 
 func TestParseTreeEntriesInvalid(t *testing.T) {
+	testhelper.Setup(t)
 	// there was a panic: "runtime error: slice bounds out of range" when the input was invalid: #20315
 	entries, err := ParseTreeEntries([]byte("100644 blob ea0d83c9081af9500ac9f804101b3fd0a5c293af"))
 	require.Error(t, err)
@@ -103,6 +106,7 @@ func TestParseTreeEntriesInvalid(t *testing.T) {
 }
 
 func TestParseMode(t *testing.T) {
+	testhelper.Setup(t)
 	ok := func(t *testing.T, mode string, entry EntryMode) {
 		t.Helper()
 		actualEntry, err := parseMode(mode)

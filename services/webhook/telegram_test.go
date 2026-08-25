@@ -16,6 +16,7 @@ import (
 )
 
 func TestTelegramPayload(t *testing.T) {
+	testhelper.Setup(t)
 	tc := telegramConvertor{}
 
 	t.Run("Correct webhook params", func(t *testing.T) {
@@ -174,6 +175,7 @@ good job`, pl.Message)
 }
 
 func TestTelegramJSONPayload(t *testing.T) {
+	testhelper.Setup(t)
 	p := pushTestPayload()
 	data, err := p.JSONPayload()
 	require.NoError(t, err)

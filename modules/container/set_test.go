@@ -11,6 +11,7 @@ import (
 )
 
 func TestSet(t *testing.T) {
+	testhelper.Setup(t)
 	s := make(Set[string])
 
 	assert.True(t, s.Add("key1"))

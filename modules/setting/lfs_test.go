@@ -11,6 +11,7 @@ import (
 )
 
 func Test_getStorageInheritNameSectionTypeForLFS(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 	[storage]
 	STORAGE_TYPE = minio
@@ -88,6 +89,7 @@ STORAGE_TYPE = minio
 }
 
 func Test_LFSStorage1(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [storage]
 STORAGE_TYPE = minio
@@ -102,6 +104,7 @@ STORAGE_TYPE = minio
 }
 
 func Test_LFSClientServerConfigs(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [server]
 LFS_MAX_BATCH_SIZE = 100

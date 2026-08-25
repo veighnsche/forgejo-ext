@@ -34,6 +34,7 @@ func assertConvertedContains(ctx context.Context, t *testing.T, a *activities_mo
 }
 
 func TestActionToForgeUserActivity(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 	ctx := t.Context()
 

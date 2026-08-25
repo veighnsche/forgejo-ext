@@ -17,6 +17,7 @@ import (
 )
 
 func TestSpecificReposAuthorizationReducer(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	reducer := &SpecificReposAuthorizationReducer{

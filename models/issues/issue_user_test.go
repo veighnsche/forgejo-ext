@@ -15,6 +15,7 @@ import (
 )
 
 func Test_NewIssueUsers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -37,6 +38,7 @@ func Test_NewIssueUsers(t *testing.T) {
 }
 
 func TestUpdateIssueUserByRead(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 
@@ -50,6 +52,7 @@ func TestUpdateIssueUserByRead(t *testing.T) {
 }
 
 func TestUpdateIssueUsersByMentions(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 

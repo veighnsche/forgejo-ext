@@ -10,6 +10,7 @@ import (
 )
 
 func TestToCorrectPageSize(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, 30, ToCorrectPageSize(0))
 	assert.Equal(t, 30, ToCorrectPageSize(-10))
 	assert.Equal(t, 20, ToCorrectPageSize(20))
@@ -17,6 +18,7 @@ func TestToCorrectPageSize(t *testing.T) {
 }
 
 func TestToGitServiceType(t *testing.T) {
+	testhelper.Setup(t)
 	tc := []struct {
 		typ  string
 		enum int

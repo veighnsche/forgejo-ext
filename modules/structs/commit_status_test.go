@@ -8,6 +8,7 @@ import (
 )
 
 func TestNoBetterThan(t *testing.T) {
+	testhelper.Setup(t)
 	type args struct {
 		css  CommitStatusState
 		css2 CommitStatusState

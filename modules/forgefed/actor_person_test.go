@@ -17,6 +17,7 @@ import (
 )
 
 func TestNewPersonIdFromModel(t *testing.T) {
+	testhelper.Setup(t)
 	expected := forgefed.PersonID{}
 	expected.ID = "1"
 	expected.Source = "forgejo"
@@ -32,6 +33,7 @@ func TestNewPersonIdFromModel(t *testing.T) {
 }
 
 func TestNewPersonId(t *testing.T) {
+	testhelper.Setup(t)
 	var sut, expected forgefed.PersonID
 	var err error
 
@@ -104,6 +106,7 @@ func TestNewPersonId(t *testing.T) {
 }
 
 func TestPersonIdValidation(t *testing.T) {
+	testhelper.Setup(t)
 	sut := forgefed.PersonID{}
 	sut.ID = "1"
 	sut.Source = "forgejo"
@@ -204,11 +207,13 @@ func TestPersonIdValidation(t *testing.T) {
 }
 
 func TestWebfingerId(t *testing.T) {
+	testhelper.Setup(t)
 	sut, _ := forgefed.NewPersonID("https://codeberg.org/api/v1/activitypub/user-id/12345", "forgejo")
 	assert.Equal(t, "@12345@codeberg.org", sut.AsWebfinger())
 }
 
 func TestShouldThrowErrorOnInvalidInput(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		input     string
 		username  string
@@ -235,6 +240,7 @@ func TestShouldThrowErrorOnInvalidInput(t *testing.T) {
 }
 
 func Test_PersonMarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	sut := forgefed.ForgePerson{}
 	sut.Type = ap.PersonType
 	sut.PreferredUsername = ap.NaturalLanguageValuesNew()
@@ -244,6 +250,7 @@ func Test_PersonMarshalJSON(t *testing.T) {
 }
 
 func Test_PersonUnmarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	expected := &forgefed.ForgePerson{
 		Actor: ap.Actor{
 			Type: ap.PersonType,
@@ -280,6 +287,7 @@ func Test_PersonUnmarshalJSON(t *testing.T) {
 }
 
 func TestForgePersonValidation(t *testing.T) {
+	testhelper.Setup(t)
 	sut := new(forgefed.ForgePerson)
 	sut.UnmarshalJSON([]byte(`{"type":"Person","preferredUsername":"MaxMuster"}`))
 	valid, _ := validation.IsValid(sut)
@@ -287,6 +295,7 @@ func TestForgePersonValidation(t *testing.T) {
 }
 
 func TestAsloginName(t *testing.T) {
+	testhelper.Setup(t)
 	sut, _ := forgefed.NewPersonID("https://codeberg.org/api/v1/activitypub/user-id/12345", "forgejo")
 	assert.Equal(t, "12345@codeberg.org", sut.AsLoginName())
 
@@ -295,6 +304,7 @@ func TestAsloginName(t *testing.T) {
 }
 
 func TestHostSuffix(t *testing.T) {
+	testhelper.Setup(t)
 	sut, _ := forgefed.NewPersonID("https://codeberg.org/api/v1/activitypub/user-id/12345", "forgejo")
 	sut.Host = "forgejo.example.tld"
 	sut.HostPort = 80

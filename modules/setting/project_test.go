@@ -11,6 +11,7 @@ import (
 )
 
 func TestLoadDefaultProjectFrom(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := ``
 	cfg, err := NewConfigProviderFromData(iniStr)
 	require.NoError(t, err)
@@ -24,6 +25,7 @@ func TestLoadDefaultProjectFrom(t *testing.T) {
 }
 
 func TestLoadProjectFromOverrideConfig(t *testing.T) {
+	testhelper.Setup(t)
 	iniStr := `
 [project]
 PROJECT_BOARD_BASIC_KANBAN_TYPE = Backlog,In Progress,Review,Done

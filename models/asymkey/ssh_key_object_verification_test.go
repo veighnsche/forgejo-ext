@@ -20,6 +20,7 @@ import (
 )
 
 func TestParseCommitWithSSHSignature(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	sshKey := unittest.AssertExistsAndLoadBean(t, &PublicKey{ID: 1000, OwnerID: 2})

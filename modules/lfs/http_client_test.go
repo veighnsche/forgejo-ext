@@ -164,6 +164,7 @@ func lfsTestRoundtripHandler(req *http.Request) *http.Response {
 }
 
 func TestHTTPClientDownload(t *testing.T) {
+	testhelper.Setup(t)
 	p := Pointer{Oid: "fb8f7d8435968c4f82a726a92395be4d16f2f63116caf36c8ad35c60831ab041", Size: 6}
 
 	hc := &http.Client{Transport: RoundTripFunc(func(req *http.Request) *http.Response {
@@ -268,6 +269,7 @@ func TestHTTPClientDownload(t *testing.T) {
 }
 
 func TestHTTPClientUpload(t *testing.T) {
+	testhelper.Setup(t)
 	p := Pointer{Oid: "fb8f7d8435968c4f82a726a92395be4d16f2f63116caf36c8ad35c60831ab041", Size: 6}
 
 	hc := &http.Client{Transport: RoundTripFunc(func(req *http.Request) *http.Response {

@@ -12,6 +12,7 @@ import (
 )
 
 func TestRepository_GetLanguageStats(t *testing.T) {
+	testhelper.Setup(t)
 	repoPath := filepath.Join(testReposDir, "language_stats_repo")
 	gitRepo, err := openRepositoryWithDefaultContext(repoPath)
 	require.NoError(t, err)
@@ -47,6 +48,7 @@ func TestRepository_GetLanguageStats(t *testing.T) {
 }
 
 func TestMergeLanguageStats(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, map[string]int64{
 		"PHP":    1,
 		"python": 10,

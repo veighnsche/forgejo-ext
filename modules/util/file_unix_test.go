@@ -12,6 +12,7 @@ import (
 )
 
 func TestApplyUmask(t *testing.T) {
+	testhelper.Setup(t)
 	f, err := os.CreateTemp(t.TempDir(), "test-filemode-")
 	require.NoError(t, err)
 

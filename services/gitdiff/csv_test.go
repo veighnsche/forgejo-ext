@@ -17,6 +17,7 @@ import (
 )
 
 func TestCSVDiff(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		diff  string
 		base  string

@@ -14,6 +14,7 @@ import (
 )
 
 func TestBuildLocalPath(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		localDir string
 		path     string
@@ -56,6 +57,7 @@ func TestBuildLocalPath(t *testing.T) {
 }
 
 func TestLocalStorageIterator(t *testing.T) {
+	testhelper.Setup(t)
 	dir := filepath.Join(os.TempDir(), "TestLocalStorageIteratorTestDir")
 	testStorageIterator(t, setting.LocalStorageType, &setting.Storage{Path: dir})
 }

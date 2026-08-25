@@ -16,6 +16,7 @@ import (
 )
 
 func TestGenerateTaskContext(t *testing.T) {
+	testhelper.Setup(t)
 	workflowFormat := `
 name: Pull Request
 on: pull_request
@@ -107,6 +108,7 @@ jobs:
 }
 
 func TestDeleteTask(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Task removed with logs and ephemeral runner", func(t *testing.T) {
 		defer unittest.OverrideFixtures("services/actions/TestDeleteTask")()
 		require.NoError(t, unittest.PrepareTestDatabase())

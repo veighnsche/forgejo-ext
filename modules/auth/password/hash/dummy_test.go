@@ -11,6 +11,7 @@ import (
 )
 
 func TestDummyHasher(t *testing.T) {
+	testhelper.Setup(t)
 	dummy := &PasswordHashAlgorithm{
 		PasswordSaltHasher: NewDummyHasher(""),
 		Specification:      "dummy",

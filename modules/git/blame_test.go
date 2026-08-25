@@ -12,6 +12,7 @@ import (
 )
 
 func TestReadingBlameOutput(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 

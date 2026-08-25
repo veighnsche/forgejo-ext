@@ -15,6 +15,7 @@ import (
 )
 
 func TestValidate(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name     string
 		filename string
@@ -768,6 +769,7 @@ Content
 }
 
 func TestRenderToMarkdown(t *testing.T) {
+	testhelper.Setup(t)
 	type args struct {
 		template string
 		values   url.Values
@@ -909,6 +911,7 @@ Option 1 of dropdown, Option 2 of dropdown
 }
 
 func Test_minQuotes(t *testing.T) {
+	testhelper.Setup(t)
 	type args struct {
 		value string
 	}

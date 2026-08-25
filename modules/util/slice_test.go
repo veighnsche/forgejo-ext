@@ -10,6 +10,7 @@ import (
 )
 
 func TestSliceContainsString(t *testing.T) {
+	testhelper.Setup(t)
 	assert.True(t, SliceContainsString([]string{"c", "b", "a", "b"}, "a"))
 	assert.True(t, SliceContainsString([]string{"c", "b", "a", "b"}, "b"))
 	assert.True(t, SliceContainsString([]string{"c", "b", "a", "b"}, "A", true))
@@ -22,6 +23,7 @@ func TestSliceContainsString(t *testing.T) {
 }
 
 func TestSliceSortedEqual(t *testing.T) {
+	testhelper.Setup(t)
 	assert.True(t, SliceSortedEqual([]int{2, 0, 2, 3}, []int{2, 0, 2, 3}))
 	assert.True(t, SliceSortedEqual([]int{3, 0, 2, 2}, []int{2, 0, 2, 3}))
 	assert.True(t, SliceSortedEqual([]int{}, []int{}))
@@ -41,6 +43,7 @@ func TestSliceSortedEqual(t *testing.T) {
 }
 
 func TestSliceRemoveAll(t *testing.T) {
+	testhelper.Setup(t)
 	assert.ElementsMatch(t, []int{2, 2, 3}, SliceRemoveAll([]int{2, 0, 2, 3}, 0))
 	assert.ElementsMatch(t, []int{0, 3}, SliceRemoveAll([]int{2, 0, 2, 3}, 2))
 	assert.Empty(t, SliceRemoveAll([]int{0, 0, 0, 0}, 0))

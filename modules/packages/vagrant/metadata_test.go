@@ -24,6 +24,7 @@ const (
 )
 
 func TestParseMetadataFromBox(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(files map[string][]byte) io.Reader {
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)
@@ -73,6 +74,7 @@ func TestParseMetadataFromBox(t *testing.T) {
 }
 
 func TestParseInfoFile(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("UnknownKeys", func(t *testing.T) {
 		content, err := json.Marshal(map[string]string{
 			"package": "",

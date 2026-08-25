@@ -13,6 +13,7 @@ import (
 )
 
 func TestPostgresSchemaDriverRegistered(t *testing.T) {
+	testhelper.Setup(t)
 	// Verify the driver is registered (happens in init())
 	drivers := sql.Drivers()
 	found := slices.Contains(drivers, "postgresschema")
@@ -20,6 +21,7 @@ func TestPostgresSchemaDriverRegistered(t *testing.T) {
 }
 
 func TestPostgresSchemaDriverOpenFailsWithInvalidConnString(t *testing.T) {
+	testhelper.Setup(t)
 	// Verify Open() is actually called by checking that an invalid connection string returns an error
 	drv := &postgresSchemaDriver{innerDriver: nil}
 

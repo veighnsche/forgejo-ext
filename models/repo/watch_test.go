@@ -16,6 +16,7 @@ import (
 )
 
 func TestIsWatching(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	assert.True(t, repo_model.IsWatcher(db.DefaultContext, 1, 1))
@@ -39,6 +40,7 @@ func TestIsWatching(t *testing.T) {
 }
 
 func TestGetSelectWatchers(t *testing.T) {
+	testhelper.Setup(t)
 	for idx, test := range []struct {
 		RepoID          int64
 		Selection       repo_model.WatchSelection
@@ -113,6 +115,7 @@ func TestGetSelectWatchers(t *testing.T) {
 }
 
 func TestRepository_GetWatchers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -130,6 +133,7 @@ func TestRepository_GetWatchers(t *testing.T) {
 }
 
 func TestWatchRepoExplicitly(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	// There is no record for this watch in the fixture.
 	assert.False(t, repo_model.IsWatcher(db.DefaultContext, 1, 2))
@@ -199,6 +203,7 @@ func TestWatchRepoExplicitly(t *testing.T) {
 }
 
 func TestWatchIfAutoWatchNewRepos(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -262,6 +267,7 @@ func TestWatchIfAutoWatchNewRepos(t *testing.T) {
 }
 
 func TestWatchIfAutoWatchOnChanges(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -325,6 +331,7 @@ func TestWatchIfAutoWatchOnChanges(t *testing.T) {
 }
 
 func TestUnwatchRepos(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	unittest.AssertExistsAndLoadBean(t, &repo_model.Watch{UserID: 4, RepoID: 1})

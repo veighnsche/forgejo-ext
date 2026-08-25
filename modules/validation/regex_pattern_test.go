@@ -49,6 +49,7 @@ var regexValidationTestCases = []validationTestCase{
 }
 
 func Test_RegexPatternValidation(t *testing.T) {
+	testhelper.Setup(t)
 	AddBindingRules()
 
 	for _, testCase := range regexValidationTestCases {

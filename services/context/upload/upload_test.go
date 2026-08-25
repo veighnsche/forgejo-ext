@@ -12,6 +12,7 @@ import (
 )
 
 func TestUpload(t *testing.T) {
+	testhelper.Setup(t)
 	testContent := []byte(`This is a plain text file.`)
 	var b bytes.Buffer
 	w := gzip.NewWriter(&b)

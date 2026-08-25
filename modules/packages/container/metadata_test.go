@@ -16,6 +16,7 @@ import (
 )
 
 func TestParseImageConfig(t *testing.T) {
+	testhelper.Setup(t)
 	description := "Image Description"
 	author := "Gitea"
 	license := "MIT"
@@ -63,6 +64,7 @@ func TestParseImageConfig(t *testing.T) {
 }
 
 func TestParseImageConfigEmptyBlob(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Empty config blob (EOF)", func(t *testing.T) {
 		// Test empty reader (simulates empty config blob common in OCI artifacts)
 		metadata, err := ParseImageConfig(oci.MediaTypeImageManifest, strings.NewReader(""))

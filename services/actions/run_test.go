@@ -16,6 +16,7 @@ import (
 )
 
 func TestActions_CancelOrApproveRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("run, job and task Running changes to run, job and task Cancelled", func(t *testing.T) {
 		defer unittest.OverrideFixtures("services/actions/TestActions_CancelOrApproveRun")()
 		require.NoError(t, unittest.PrepareTestDatabase())
@@ -106,6 +107,7 @@ func TestActions_CancelOrApproveRun(t *testing.T) {
 }
 
 func TestActions_consistencyCheckRun(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name                     string
 		runID                    int64
@@ -164,6 +166,7 @@ func TestActions_consistencyCheckRun(t *testing.T) {
 }
 
 func TestDeleteRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Removes run and its dependencies", func(t *testing.T) {
 		defer unittest.OverrideFixtures("services/actions/TestDeleteRun")()
 		require.NoError(t, unittest.PrepareTestDatabase())
@@ -203,6 +206,7 @@ func TestDeleteRun(t *testing.T) {
 }
 
 func TestPrioritizeRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Run prioritized", func(t *testing.T) {
 		require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -284,6 +288,7 @@ func TestPrioritizeRun(t *testing.T) {
 }
 
 func TestDeprioritizeRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Run deprioritized", func(t *testing.T) {
 		require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -365,6 +370,7 @@ func TestDeprioritizeRun(t *testing.T) {
 }
 
 func TestRecalculateRunPriorities(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	fixtures := []*actions_model.ActionRun{
@@ -406,6 +412,7 @@ func TestRecalculateRunPriorities(t *testing.T) {
 }
 
 func TestInitiateNextRunAttempt(t *testing.T) {
+	testhelper.Setup(t)
 	fixtures := []*actions_model.ActionRun{
 		{
 			ID:               535681,
@@ -474,6 +481,7 @@ func TestInitiateNextRunAttempt(t *testing.T) {
 }
 
 func TestRefreshAndPropagateRunStatus(t *testing.T) {
+	testhelper.Setup(t)
 	fixtures := []*actions_model.ActionRun{
 		{ID: 535681, Index: 1, RepoID: 62, OwnerID: 2, Status: actions_model.StatusWaiting},
 	}

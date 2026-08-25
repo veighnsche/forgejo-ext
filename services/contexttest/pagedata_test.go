@@ -13,6 +13,7 @@ import (
 )
 
 func TestPluralStringsForClient(t *testing.T) {
+	testhelper.Setup(t)
 	mockLocale := translation.MockLocale{}
 	mockLocale.MockTranslations = map[string]string{
 		"relativetime.mins" + i18n.PluralFormSeparator + "one":     "%d minute ago",

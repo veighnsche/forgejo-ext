@@ -10,6 +10,7 @@ import (
 )
 
 func TestIndexerBleveHierarchyTokenizer(t *testing.T) {
+	testhelper.Setup(t)
 	tokenizer := &PathHierarchyTokenizer{}
 	keywords := []struct {
 		Term    string

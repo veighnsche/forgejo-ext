@@ -40,6 +40,7 @@ jobs:
 `
 
 func TestExpandForJob(t *testing.T) {
+	testhelper.Setup(t)
 	job := jobparser.Job{}
 
 	err := yaml.Unmarshal([]byte("{ name: job1 }"), &job)
@@ -56,6 +57,7 @@ func TestExpandForJob(t *testing.T) {
 }
 
 func TestExpandLocalReusableWorkflows(t *testing.T) {
+	testhelper.Setup(t)
 	gitRepo, err := git.OpenRepository(git.DefaultContext, "./TestExpandLocalReusableWorkflows")
 	require.NoError(t, err)
 	defer gitRepo.Close()
@@ -108,6 +110,7 @@ func replaceTestRepo(t *testing.T, owner, repo, replacement string) {
 }
 
 func TestLazyRepoExpandLocalReusableWorkflows(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Shouldn't need valid content if we never call the lazy evaluator
@@ -128,6 +131,7 @@ func TestLazyRepoExpandLocalReusableWorkflows(t *testing.T) {
 }
 
 func TestExpandInstanceReusableWorkflows(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	tests := []struct {

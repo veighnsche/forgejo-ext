@@ -11,6 +11,7 @@ import (
 )
 
 func TestNewClient(t *testing.T) {
+	testhelper.Setup(t)
 	u, _ := url.Parse("file:///test")
 	c := NewClient(u, nil)
 	assert.IsType(t, &FilesystemClient{}, c)

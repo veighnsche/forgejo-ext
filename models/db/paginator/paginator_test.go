@@ -13,6 +13,7 @@ import (
 )
 
 func TestPaginator(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		db.Paginator
 		Skip  int

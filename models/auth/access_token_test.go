@@ -17,6 +17,7 @@ import (
 )
 
 func TestNewAccessToken(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	token := &auth_model.AccessToken{
 		UID:  3,
@@ -34,6 +35,7 @@ func TestNewAccessToken(t *testing.T) {
 }
 
 func TestAccessTokenByNameExists(t *testing.T) {
+	testhelper.Setup(t)
 	name := "Token Gitea"
 
 	require.NoError(t, unittest.PrepareTestDatabase())
@@ -69,6 +71,7 @@ func TestAccessTokenByNameExists(t *testing.T) {
 }
 
 func TestGetAccessTokenBySHA(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	token, err := auth_model.GetAccessTokenBySHA(db.DefaultContext, "d2c6c1ba3890b309189a8e618c72a162e4efbf36")
 	require.NoError(t, err)
@@ -87,6 +90,7 @@ func TestGetAccessTokenBySHA(t *testing.T) {
 }
 
 func TestListAccessTokens(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	tokens, err := db.Find[auth_model.AccessToken](db.DefaultContext, auth_model.ListAccessTokensOptions{UserID: 1})
 	require.NoError(t, err)
@@ -110,6 +114,7 @@ func TestListAccessTokens(t *testing.T) {
 }
 
 func TestUpdateLastUsed(t *testing.T) {
+	testhelper.Setup(t)
 	timeutil.MockSet(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC))
 	defer timeutil.MockUnset()
 
@@ -123,6 +128,7 @@ func TestUpdateLastUsed(t *testing.T) {
 }
 
 func TestDeleteAccessTokenByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	token, err := auth_model.GetAccessTokenBySHA(db.DefaultContext, "4c6f36e6cf498e2a448662f915d932c09c5a146c")
@@ -138,6 +144,7 @@ func TestDeleteAccessTokenByID(t *testing.T) {
 }
 
 func TestRegenerateAccessTokenByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	token, err := auth_model.GetAccessTokenBySHA(db.DefaultContext, "4c6f36e6cf498e2a448662f915d932c09c5a146c")

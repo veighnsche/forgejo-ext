@@ -25,6 +25,7 @@ const (
 )
 
 func TestParsePackage(t *testing.T) {
+	testhelper.Setup(t)
 	createArchive := func(files map[string][]byte) *bytes.Reader {
 		var buf bytes.Buffer
 		zw := zip.NewWriter(&buf)
@@ -118,6 +119,7 @@ func TestParsePackage(t *testing.T) {
 }
 
 func TestTrimmedVersionString(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		Version  *version.Version
 		Expected string

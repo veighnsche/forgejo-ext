@@ -11,6 +11,7 @@ import (
 )
 
 func TestServicesAction_envNameCIRegexMatch(t *testing.T) {
+	testhelper.Setup(t)
 	require.ErrorContains(t, envNameCIRegexMatch("ci"), "cannot be ci")
 	require.ErrorContains(t, envNameCIRegexMatch("CI"), "cannot be ci")
 	assert.NoError(t, envNameCIRegexMatch("CI_SOMETHING"))

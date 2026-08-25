@@ -20,6 +20,7 @@ import (
 )
 
 func TestFindTaskNeeds(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	task := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionTask{ID: 51})
@@ -35,6 +36,7 @@ func TestFindTaskNeeds(t *testing.T) {
 }
 
 func TestGenerateGiteaContext(t *testing.T) {
+	testhelper.Setup(t)
 	testUser := &user.User{
 		ID:   123,
 		Name: "testuser",
@@ -262,6 +264,7 @@ func TestGenerateGiteaContext(t *testing.T) {
 }
 
 func TestGenerateGiteaContextForRun(t *testing.T) {
+	testhelper.Setup(t)
 	testUser := &user.User{
 		ID:   1,
 		Name: "testuser",

@@ -13,6 +13,7 @@ import (
 )
 
 func TestGetTableNames(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Simple", func(t *testing.T) {
 		defer test.MockVariableValue(&tables, []any{new(GPGKey)})()
 

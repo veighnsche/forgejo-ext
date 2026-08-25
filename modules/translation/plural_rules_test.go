@@ -12,6 +12,7 @@ import (
 )
 
 func TestGetPluralRule(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, PluralRuleDefault, GetPluralRuleImpl("en"))
 	assert.Equal(t, PluralRuleDefault, GetPluralRuleImpl("en-US"))
 	assert.Equal(t, PluralRuleDefault, GetPluralRuleImpl("en_UK"))
@@ -52,6 +53,7 @@ func TestGetPluralRule(t *testing.T) {
 }
 
 func TestApplyPluralRule(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		expect     i18n.PluralFormIndex
 		pluralRule int

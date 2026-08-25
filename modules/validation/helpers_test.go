@@ -14,6 +14,7 @@ import (
 )
 
 func Test_IsValidURL(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		description string
 		url         string
@@ -49,6 +50,7 @@ func Test_IsValidURL(t *testing.T) {
 }
 
 func Test_IsValidExternalURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, "https://code.forgejo.org/")()
 
 	cases := []struct {
@@ -91,6 +93,7 @@ func Test_IsValidExternalURL(t *testing.T) {
 }
 
 func Test_IsValidExternalTrackerURLFormat(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, "https://code.forgejo.org/")()
 
 	cases := []struct {
@@ -158,6 +161,7 @@ func Test_IsValidExternalTrackerURLFormat(t *testing.T) {
 }
 
 func TestIsValidUsernameAllowDots(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.AllowDotsInUsernames, true)()
 
 	tests := []struct {
@@ -191,6 +195,7 @@ func TestIsValidUsernameAllowDots(t *testing.T) {
 }
 
 func TestIsValidUsernameBanDots(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.AllowDotsInUsernames, false)()
 
 	tests := []struct {
@@ -216,6 +221,7 @@ func TestIsValidUsernameBanDots(t *testing.T) {
 }
 
 func TestIsValidActivityPubUsername(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		description string
 		username    string

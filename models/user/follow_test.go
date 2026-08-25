@@ -15,6 +15,7 @@ import (
 )
 
 func TestIsFollowing(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	assert.True(t, user_model.IsFollowing(db.DefaultContext, 4, 2))
 	assert.False(t, user_model.IsFollowing(db.DefaultContext, 2, 4))

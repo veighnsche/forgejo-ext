@@ -10,6 +10,7 @@ import (
 )
 
 func TestShellEscape(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name     string
 		toEscape string

@@ -15,6 +15,7 @@ import (
 )
 
 func TestDoctorRun(t *testing.T) {
+	testhelper.Setup(t)
 	doctor.Register(&doctor.Check{
 		Title: "Test Check",
 		Name:  "test-check",

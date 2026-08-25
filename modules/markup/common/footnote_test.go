@@ -10,6 +10,7 @@ import (
 )
 
 func TestCleanValue(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		param  string
 		expect string

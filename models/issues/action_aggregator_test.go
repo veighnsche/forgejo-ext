@@ -15,6 +15,7 @@ import (
 )
 
 func TestRequestReviewTarget(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	target := RequestReviewTarget{User: &user_model.User{ID: 1, Name: "user1"}}

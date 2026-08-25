@@ -14,6 +14,7 @@ import (
 )
 
 func TestActionsConfig(t *testing.T) {
+	testhelper.Setup(t)
 	cfg := &ActionsConfig{}
 	cfg.DisableWorkflow("test1.yaml")
 	assert.Equal(t, []string{"test1.yaml"}, cfg.DisabledWorkflows)
@@ -34,6 +35,7 @@ func TestActionsConfig(t *testing.T) {
 }
 
 func TestRepoUnitAccessMode(t *testing.T) {
+	testhelper.Setup(t)
 	// assert.Equal(t, perm.AccessModeNone, UnitAccessModeNone.ToAccessMode(perm.AccessModeAdmin))
 	// assert.Equal(t, perm.AccessModeRead, UnitAccessModeRead.ToAccessMode(perm.AccessModeAdmin))
 	assert.Equal(t, perm.AccessModeWrite, UnitAccessModeWrite.ToAccessMode(perm.AccessModeAdmin))
@@ -41,6 +43,7 @@ func TestRepoUnitAccessMode(t *testing.T) {
 }
 
 func TestRepoPRIsUpdateStyleAllowed(t *testing.T) {
+	testhelper.Setup(t)
 	var cfg PullRequestsConfig
 	cfg = PullRequestsConfig{
 		AllowRebaseUpdate: true,
@@ -56,6 +59,7 @@ func TestRepoPRIsUpdateStyleAllowed(t *testing.T) {
 }
 
 func TestRepoPRGetDefaultUpdateStyle(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Repository.PullRequest.DefaultUpdateStyle, "merge")()
 
 	var cfg PullRequestsConfig

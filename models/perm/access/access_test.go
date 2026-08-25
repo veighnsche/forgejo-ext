@@ -18,6 +18,7 @@ import (
 )
 
 func TestAccessLevel(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -69,6 +70,7 @@ func TestAccessLevel(t *testing.T) {
 }
 
 func TestHasAccess(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -95,6 +97,7 @@ func TestHasAccess(t *testing.T) {
 }
 
 func TestRepository_RecalculateAccesses(t *testing.T) {
+	testhelper.Setup(t)
 	// test with organization repo
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
@@ -112,6 +115,7 @@ func TestRepository_RecalculateAccesses(t *testing.T) {
 }
 
 func TestRepository_RecalculateAccesses2(t *testing.T) {
+	testhelper.Setup(t)
 	// test with non-organization repo
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})

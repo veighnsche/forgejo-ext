@@ -25,6 +25,7 @@ type testSerializationStruct struct {
 }
 
 func TestOptionalToJson(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		obj  *testSerializationStruct
@@ -62,6 +63,7 @@ func TestOptionalToJson(t *testing.T) {
 }
 
 func TestOptionalFromJson(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		data string
@@ -101,6 +103,7 @@ func TestOptionalFromJson(t *testing.T) {
 }
 
 func TestOptionalToYaml(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		obj  *testSerializationStruct
@@ -142,6 +145,7 @@ optional_two_string: null
 }
 
 func TestOptionalFromYaml(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		data string

@@ -19,6 +19,7 @@ import (
 )
 
 func TestCreateComment(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{})
@@ -48,6 +49,7 @@ func TestCreateComment(t *testing.T) {
 }
 
 func TestFetchCodeConversations(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
@@ -83,6 +85,7 @@ func TestFetchCodeConversations(t *testing.T) {
 }
 
 func TestAsCommentType(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, issues_model.CommentTypeComment, issues_model.CommentType(0))
 	assert.Equal(t, issues_model.CommentTypeUndefined, issues_model.AsCommentType(""))
 	assert.Equal(t, issues_model.CommentTypeUndefined, issues_model.AsCommentType("nonsense"))
@@ -91,6 +94,7 @@ func TestAsCommentType(t *testing.T) {
 }
 
 func TestMigrate_InsertIssueComments(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 	_ = issue.LoadRepo(db.DefaultContext)
@@ -118,6 +122,7 @@ func TestMigrate_InsertIssueComments(t *testing.T) {
 }
 
 func TestUpdateCommentsMigrationsByType(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
@@ -144,6 +149,7 @@ func TestUpdateCommentsMigrationsByType(t *testing.T) {
 }
 
 func Test_UpdateIssueNumComments(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	issue2 := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
 
@@ -153,6 +159,7 @@ func Test_UpdateIssueNumComments(t *testing.T) {
 }
 
 func TestDisplayLine(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name     string
 		line     int64
@@ -175,6 +182,7 @@ func TestDisplayLine(t *testing.T) {
 }
 
 func TestUnsignedDisplayLine(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name     string
 		line     int64
@@ -195,6 +203,7 @@ func TestUnsignedDisplayLine(t *testing.T) {
 }
 
 func TestCheckLineRangeValid_SingleLine(t *testing.T) {
+	testhelper.Setup(t)
 	// ExtraLinesCount=0 should return true immediately without any git operations
 	c := &issues_model.Comment{Line: 10, ExtraLinesCount: 0}
 	valid, err := c.CheckLineRangeValid(t.Context(), nil, "any-commit-id")

@@ -23,6 +23,7 @@ import (
 )
 
 func TestAccessTokenCreate(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	ctx, resp := contexttest.MockContext(t, "user/settings/applications/tokens/new",
@@ -45,6 +46,7 @@ func TestAccessTokenCreate(t *testing.T) {
 }
 
 func TestAccessTokenCreatePost(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	post := func(t *testing.T, form *forms.NewAccessTokenPostForm) (*context.Context, *httptest.ResponseRecorder) {

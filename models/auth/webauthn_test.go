@@ -16,6 +16,7 @@ import (
 )
 
 func TestGetWebAuthnCredentialByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	res, err := auth_model.GetWebAuthnCredentialByID(db.DefaultContext, 1)
@@ -28,6 +29,7 @@ func TestGetWebAuthnCredentialByID(t *testing.T) {
 }
 
 func TestGetWebAuthnCredentialsByUID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	res, err := auth_model.GetWebAuthnCredentialsByUID(db.DefaultContext, 32)
@@ -37,10 +39,12 @@ func TestGetWebAuthnCredentialsByUID(t *testing.T) {
 }
 
 func TestWebAuthnCredential_TableName(t *testing.T) {
+	testhelper.Setup(t)
 	assert.Equal(t, "webauthn_credential", auth_model.WebAuthnCredential{}.TableName())
 }
 
 func TestWebAuthnCredential_UpdateSignCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	cred := unittest.AssertExistsAndLoadBean(t, &auth_model.WebAuthnCredential{ID: 1})
 	cred.SignCount = 1
@@ -49,6 +53,7 @@ func TestWebAuthnCredential_UpdateSignCount(t *testing.T) {
 }
 
 func TestWebAuthnCredential_UpdateLargeCounter(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	cred := unittest.AssertExistsAndLoadBean(t, &auth_model.WebAuthnCredential{ID: 1})
 	cred.SignCount = 0xffffffff
@@ -57,6 +62,7 @@ func TestWebAuthnCredential_UpdateLargeCounter(t *testing.T) {
 }
 
 func TestWebAuthenCredential_UpdateFromLegacy(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	cred := unittest.AssertExistsAndLoadBean(t, &auth_model.WebAuthnCredential{ID: 1, Legacy: true})
 	cred.Legacy = false
@@ -67,6 +73,7 @@ func TestWebAuthenCredential_UpdateFromLegacy(t *testing.T) {
 }
 
 func TestCreateCredential(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	res, err := auth_model.CreateCredential(db.DefaultContext, 1, "WebAuthn Created Credential", &webauthn.Credential{ID: []byte("Test"), Flags: webauthn.CredentialFlags{BackupEligible: true, BackupState: true}})

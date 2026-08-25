@@ -13,6 +13,7 @@ import (
 )
 
 func TestLogCheckerInfo(t *testing.T) {
+	testhelper.Setup(t)
 	lc, cleanup := NewLogChecker(log.DEFAULT, log.INFO)
 	defer cleanup()
 
@@ -47,6 +48,7 @@ func TestLogCheckerInfo(t *testing.T) {
 }
 
 func TestLogCheckerDebug(t *testing.T) {
+	testhelper.Setup(t)
 	lc, cleanup := NewLogChecker(log.DEFAULT, log.DEBUG)
 	defer cleanup()
 

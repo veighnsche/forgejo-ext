@@ -17,6 +17,7 @@ import (
 )
 
 func TestReverseProxyAuth(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.EnableReverseProxyEmail, true)()
 	defer test.MockVariableValue(&setting.Service.EnableReverseProxyFullName, true)()
 	defer test.MockVariableValue(&setting.Service.EnableReverseProxyFullName, true)()

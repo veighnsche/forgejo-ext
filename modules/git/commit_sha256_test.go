@@ -13,6 +13,7 @@ import (
 )
 
 func TestCommitsCountSha256(t *testing.T) {
+	testhelper.Setup(t)
 	skipIfSHA256NotSupported(t)
 
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare_sha256")
@@ -28,6 +29,7 @@ func TestCommitsCountSha256(t *testing.T) {
 }
 
 func TestCommitsCountWithoutBaseSha256(t *testing.T) {
+	testhelper.Setup(t)
 	skipIfSHA256NotSupported(t)
 
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare_sha256")
@@ -44,6 +46,7 @@ func TestCommitsCountWithoutBaseSha256(t *testing.T) {
 }
 
 func TestGetFullCommitIDSha256(t *testing.T) {
+	testhelper.Setup(t)
 	skipIfSHA256NotSupported(t)
 
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare_sha256")
@@ -54,6 +57,7 @@ func TestGetFullCommitIDSha256(t *testing.T) {
 }
 
 func TestGetFullCommitIDErrorSha256(t *testing.T) {
+	testhelper.Setup(t)
 	skipIfSHA256NotSupported(t)
 
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare_sha256")
@@ -66,6 +70,7 @@ func TestGetFullCommitIDErrorSha256(t *testing.T) {
 }
 
 func TestCommitFromReaderSha256(t *testing.T) {
+	testhelper.Setup(t)
 	skipIfSHA256NotSupported(t)
 
 	commitString := `9433b2a62b964c17a4485ae180f45f595d3e69d31b786087775e28c6b6399df0 commit 1114
@@ -140,6 +145,7 @@ signed commit`, commitFromReader.Signature.Payload)
 }
 
 func TestHasPreviousCommitSha256(t *testing.T) {
+	testhelper.Setup(t)
 	skipIfSHA256NotSupported(t)
 
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare_sha256")
@@ -173,6 +179,7 @@ func TestHasPreviousCommitSha256(t *testing.T) {
 }
 
 func TestGetCommitFileStatusMergesSha256(t *testing.T) {
+	testhelper.Setup(t)
 	skipIfSHA256NotSupported(t)
 
 	bareRepo1Path := filepath.Join(testReposDir, "repo6_merge_sha256")

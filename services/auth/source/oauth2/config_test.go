@@ -16,6 +16,7 @@ import (
 
 // regressions: Components used even if OAuth2 disabled
 func TestOAuth2Disabled(t *testing.T) {
+	testhelper.Setup(t)
 	cfg, _ := setting.NewConfigProviderFromData(`
 [oauth2]
 ENABLED=false

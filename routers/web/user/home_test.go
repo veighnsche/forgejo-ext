@@ -21,6 +21,7 @@ import (
 )
 
 func TestArchivedIssues(t *testing.T) {
+	testhelper.Setup(t)
 	// Arrange
 	setting.UI.IssuePagingNum = 1
 	require.NoError(t, unittest.LoadFixtures())
@@ -54,6 +55,7 @@ func TestArchivedIssues(t *testing.T) {
 }
 
 func TestIssues(t *testing.T) {
+	testhelper.Setup(t)
 	setting.UI.IssuePagingNum = 1
 	require.NoError(t, unittest.LoadFixtures())
 
@@ -68,6 +70,7 @@ func TestIssues(t *testing.T) {
 }
 
 func TestPulls(t *testing.T) {
+	testhelper.Setup(t)
 	setting.UI.IssuePagingNum = 20
 	require.NoError(t, unittest.LoadFixtures())
 
@@ -82,6 +85,7 @@ func TestPulls(t *testing.T) {
 }
 
 func TestMilestones(t *testing.T) {
+	testhelper.Setup(t)
 	setting.UI.IssuePagingNum = 1
 	require.NoError(t, unittest.LoadFixtures())
 
@@ -103,6 +107,7 @@ func TestMilestones(t *testing.T) {
 }
 
 func TestMilestonesForSpecificRepo(t *testing.T) {
+	testhelper.Setup(t)
 	setting.UI.IssuePagingNum = 1
 	require.NoError(t, unittest.LoadFixtures())
 
@@ -123,6 +128,7 @@ func TestMilestonesForSpecificRepo(t *testing.T) {
 }
 
 func TestDashboardPagination(t *testing.T) {
+	testhelper.Setup(t)
 	ctx, _ := contexttest.MockContext(t, "/", contexttest.MockContextOption{Render: templates.HTMLRenderer()})
 	page := context.NewPagination(10, 3, 1, 3)
 
@@ -138,6 +144,7 @@ func TestDashboardPagination(t *testing.T) {
 }
 
 func TestOrgLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 
 	ctx, _ := contexttest.MockContext(t, "org/org3/issues")

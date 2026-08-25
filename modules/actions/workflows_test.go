@@ -20,6 +20,7 @@ import (
 )
 
 func TestDetectedWorkflowGetWorkflowPath(t *testing.T) {
+	testhelper.Setup(t)
 	buildWorkflow := DetectedWorkflow{EntryDirectory: ".github/workflows", EntryName: "build.yaml"}
 	testWorkflow := DetectedWorkflow{EntryDirectory: ".forgejo/workflows", EntryName: "test.yaml"}
 
@@ -28,6 +29,7 @@ func TestDetectedWorkflowGetWorkflowPath(t *testing.T) {
 }
 
 func TestActionsWorkflowsDetectMatched(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		desc           string
 		commit         *git.Commit
@@ -194,6 +196,7 @@ func TestActionsWorkflowsDetectMatched(t *testing.T) {
 }
 
 func TestActionsWorkflowsListWorkflowsReturnsNoWorkflowsIfThereAreNone(t *testing.T) {
+	testhelper.Setup(t)
 	t.Cleanup(test.MockVariableValue(&setting.Git.HomePath, t.TempDir()))
 	require.NoError(t, git.InitSimple(t.Context()))
 
@@ -231,6 +234,7 @@ func TestActionsWorkflowsListWorkflowsReturnsNoWorkflowsIfThereAreNone(t *testin
 }
 
 func TestActionsWorkflowsListWorkflowsIgnoresNonWorkflowFiles(t *testing.T) {
+	testhelper.Setup(t)
 	t.Cleanup(test.MockVariableValue(&setting.Git.HomePath, t.TempDir()))
 	require.NoError(t, git.InitSimple(t.Context()))
 
@@ -283,6 +287,7 @@ jobs:
 }
 
 func TestActionsWorkflowsListWorkflowsReturnsForgejoWorkflowsOnly(t *testing.T) {
+	testhelper.Setup(t)
 	t.Cleanup(test.MockVariableValue(&setting.Git.HomePath, t.TempDir()))
 	require.NoError(t, git.InitSimple(t.Context()))
 
@@ -345,6 +350,7 @@ jobs:
 }
 
 func TestActionsWorkflowsListWorkflowsReturnsGitHubWorkflowsIfForgejoWorkflowsAbsent(t *testing.T) {
+	testhelper.Setup(t)
 	t.Cleanup(test.MockVariableValue(&setting.Git.HomePath, t.TempDir()))
 	require.NoError(t, git.InitSimple(t.Context()))
 

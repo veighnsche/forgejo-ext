@@ -10,6 +10,7 @@ import (
 )
 
 func Test_UserEmailValidate(t *testing.T) {
+	testhelper.Setup(t)
 	sut := "ab@cd.ef"
 	if err := validation.ValidateEmail(sut); err != nil {
 		t.Errorf("sut should be valid, %v, %v", sut, err)

@@ -19,6 +19,7 @@ import (
 )
 
 func TestDiscordPayload(t *testing.T) {
+	testhelper.Setup(t)
 	dc := discordConvertor{}
 
 	t.Run("Create", func(t *testing.T) {
@@ -328,6 +329,7 @@ func TestDiscordPayload(t *testing.T) {
 }
 
 func TestDiscordJSONPayload(t *testing.T) {
+	testhelper.Setup(t)
 	p := pushTestPayload()
 	data, err := p.JSONPayload()
 	require.NoError(t, err)
@@ -448,6 +450,7 @@ var escapedMarkdownTests = map[string]struct {
 }
 
 func TestEscapeMarkdownChar(t *testing.T) {
+	testhelper.Setup(t)
 	for name, test := range escapedMarkdownTests {
 		t.Run(name, func(t *testing.T) {
 			assert.Equal(t, test.expected, escapeMarkdown(test.input))

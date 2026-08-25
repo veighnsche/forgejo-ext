@@ -17,6 +17,7 @@ import (
 )
 
 func TestActionRunJob_ItRunsOn(t *testing.T) {
+	testhelper.Setup(t)
 	actionJob := ActionRunJob{RunsOn: []string{"ubuntu"}}
 	agentLabels := []string{"ubuntu", "node-20"}
 
@@ -37,6 +38,7 @@ func TestActionRunJob_ItRunsOn(t *testing.T) {
 }
 
 func TestActionRunJob_HTMLURL(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	tests := []struct {
@@ -75,6 +77,7 @@ func TestActionRunJob_HTMLURL(t *testing.T) {
 }
 
 func TestActionRunJob_HasIncompleteMatrix(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name         string
 		job          ActionRunJob
@@ -115,6 +118,7 @@ func TestActionRunJob_HasIncompleteMatrix(t *testing.T) {
 }
 
 func TestActionRunJob_HasIncompleteRunsOn(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name         string
 		job          ActionRunJob
@@ -163,6 +167,7 @@ func TestActionRunJob_HasIncompleteRunsOn(t *testing.T) {
 }
 
 func TestActionRunJob_IsWorkflowCallOuterJob(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name                   string
 		job                    ActionRunJob
@@ -200,6 +205,7 @@ func TestActionRunJob_IsWorkflowCallOuterJob(t *testing.T) {
 }
 
 func TestActionRunJob_IsWorkflowCallInnerJob(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name                   string
 		job                    ActionRunJob
@@ -237,6 +243,7 @@ func TestActionRunJob_IsWorkflowCallInnerJob(t *testing.T) {
 }
 
 func TestActionRunJob_HasIncompleteWith(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name         string
 		job          ActionRunJob
@@ -285,6 +292,7 @@ func TestActionRunJob_HasIncompleteWith(t *testing.T) {
 }
 
 func TestRunHasOtherJobs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	jobs, err := GetRunJobsByRunID(t.Context(), 791)
@@ -305,6 +313,7 @@ func TestRunHasOtherJobs(t *testing.T) {
 }
 
 func TestActionRunJobPrepareNextAttempt(t *testing.T) {
+	testhelper.Setup(t)
 	lastHandle := "original-handle"
 	job := ActionRunJob{ID: 46, Handle: lastHandle}
 
@@ -351,6 +360,7 @@ func TestActionRunJobPrepareNextAttempt(t *testing.T) {
 }
 
 func TestIsRequestedByRunner(t *testing.T) {
+	testhelper.Setup(t)
 	sameHandle := "4a1ca0be-4470-486d-8504-89b4a5ac00cf"
 	differentHandle := "88423da3-67af-4f2d-9a92-a0db822697e9"
 	emptyHandle := ""
@@ -372,6 +382,7 @@ func TestIsRequestedByRunner(t *testing.T) {
 }
 
 func TestAllNeedsExist(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name               string
 		job                ActionRunJob
@@ -427,6 +438,7 @@ func TestAllNeedsExist(t *testing.T) {
 }
 
 func TestActionRunJob_CanBeRerun(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name          string
 		job           ActionRunJob
@@ -504,6 +516,7 @@ func TestActionRunJob_CanBeRerun(t *testing.T) {
 }
 
 func TestActionTask_GetAllAttempts(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	job2 := unittest.AssertExistsAndLoadBean(t, &ActionRunJob{ID: 192})

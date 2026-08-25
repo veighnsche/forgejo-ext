@@ -33,6 +33,7 @@ func addReaction(t *testing.T, doerID, issueID, commentID int64, content string)
 }
 
 func TestIssueAddReaction(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -45,6 +46,7 @@ func TestIssueAddReaction(t *testing.T) {
 }
 
 func TestIssueAddDuplicateReaction(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -66,6 +68,7 @@ func TestIssueAddDuplicateReaction(t *testing.T) {
 }
 
 func TestIssueDeleteReaction(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -83,6 +86,7 @@ func TestIssueDeleteReaction(t *testing.T) {
 }
 
 func TestIssueReactionCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	setting.UI.ReactionMaxUserNum = 2
@@ -125,6 +129,7 @@ func TestIssueReactionCount(t *testing.T) {
 }
 
 func TestIssueCommentAddReaction(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -138,6 +143,7 @@ func TestIssueCommentAddReaction(t *testing.T) {
 }
 
 func TestIssueCommentDeleteReaction(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -166,6 +172,7 @@ func TestIssueCommentDeleteReaction(t *testing.T) {
 }
 
 func TestIssueCommentReactionCount(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})

@@ -17,6 +17,7 @@ import (
 )
 
 func TestExtractErrorLine(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		code   string
 		line   int
@@ -55,6 +56,7 @@ foo bar foo bar
 }
 
 func TestHandleError(t *testing.T) {
+	testhelper.Setup(t)
 	dir := t.TempDir()
 
 	p := &templateErrorPrettier{assets: assetfs.Layered(assetfs.Local("tmp", dir))}

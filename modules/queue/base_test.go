@@ -119,6 +119,7 @@ func testQueueBasic(t *testing.T, newFn func(cfg *BaseConfig) (baseQueue, error)
 }
 
 func TestBaseDummy(t *testing.T) {
+	testhelper.Setup(t)
 	q, err := newBaseDummy(&BaseConfig{}, true)
 	require.NoError(t, err)
 

@@ -17,6 +17,7 @@ import (
 )
 
 func TestTeam(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	owners := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 1})
@@ -46,6 +47,7 @@ func TestTeam(t *testing.T) {
 }
 
 func TestTeam_IsMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 1})
@@ -60,6 +62,7 @@ func TestTeam_IsMember(t *testing.T) {
 }
 
 func TestTeam_GetRepositories(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	test := func(teamID int64) {
@@ -75,6 +78,7 @@ func TestTeam_GetRepositories(t *testing.T) {
 }
 
 func TestTeam_GetMembers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	test := func(teamID int64) {
@@ -90,6 +94,7 @@ func TestTeam_GetMembers(t *testing.T) {
 }
 
 func TestGetTeam(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(orgID int64, name string) {
@@ -108,6 +113,7 @@ func TestGetTeam(t *testing.T) {
 }
 
 func TestGetTeamByID(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(teamID int64) {
@@ -125,6 +131,7 @@ func TestGetTeamByID(t *testing.T) {
 }
 
 func TestIsTeamMember(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	test := func(orgID, teamID, userID int64, expected bool) {
 		isMember, err := organization.IsTeamMember(db.DefaultContext, orgID, teamID, userID)
@@ -144,6 +151,7 @@ func TestIsTeamMember(t *testing.T) {
 }
 
 func TestGetTeamMembers(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	test := func(teamID int64) {
@@ -162,6 +170,7 @@ func TestGetTeamMembers(t *testing.T) {
 }
 
 func TestGetUserTeams(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	test := func(userID int64) {
 		teams, _, err := organization.SearchTeam(db.DefaultContext, &organization.SearchTeamOptions{UserID: userID})
@@ -176,6 +185,7 @@ func TestGetUserTeams(t *testing.T) {
 }
 
 func TestGetUserOrgTeams(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	test := func(orgID, userID int64) {
 		teams, err := organization.GetUserOrgTeams(db.DefaultContext, orgID, userID)
@@ -191,6 +201,7 @@ func TestGetUserOrgTeams(t *testing.T) {
 }
 
 func TestHasTeamRepo(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	test := func(teamID, repoID int64, expected bool) {
@@ -207,6 +218,7 @@ func TestHasTeamRepo(t *testing.T) {
 }
 
 func TestInconsistentOwnerTeam(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/organization/TestInconsistentOwnerTeam")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

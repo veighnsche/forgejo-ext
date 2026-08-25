@@ -19,6 +19,7 @@ import (
 )
 
 func TestInTransaction(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	assert.False(t, db.InTransaction(db.DefaultContext))
 	require.NoError(t, db.WithTx(db.DefaultContext, func(ctx context.Context) error {
@@ -37,6 +38,7 @@ func TestInTransaction(t *testing.T) {
 }
 
 func TestTxContext(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	{ // create new transaction
@@ -103,6 +105,7 @@ func TestTxContext(t *testing.T) {
 }
 
 func TestAfterTx(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		executionMode string
 		rollback      bool
@@ -224,6 +227,7 @@ func TestAfterTx(t *testing.T) {
 }
 
 func TestRetryTx(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("success", func(t *testing.T) {
 		err := db.RetryTx(t.Context(), db.RetryConfig{AttemptCount: 1}, func(ctx context.Context) error {
 			assert.True(t, db.InTransaction(ctx))
@@ -324,6 +328,7 @@ func TestRetryTx(t *testing.T) {
 }
 
 func TestWithTxOpts(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("nil config", func(t *testing.T) {
 		var called bool
 		err := db.WithTxOpts(t.Context(), nil, func(ctx context.Context) error {

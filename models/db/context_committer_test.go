@@ -36,6 +36,7 @@ func (c *MockCommitter) Assert(t *testing.T) {
 }
 
 func Test_halfCommitter(t *testing.T) {
+	testhelper.Setup(t)
 	/*
 		Do something like:
 

@@ -31,6 +31,7 @@ func lines(s string) (out []template.HTML) {
 }
 
 func TestFile(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name      string
 		code      string
@@ -146,6 +147,7 @@ c=2
 }
 
 func TestPlainText(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string
 		code string

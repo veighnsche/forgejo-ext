@@ -16,6 +16,7 @@ import (
 )
 
 func TestUpdateRepositoryVisibilityChanged(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// Get sample repo and change visibility
@@ -36,6 +37,7 @@ func TestUpdateRepositoryVisibilityChanged(t *testing.T) {
 }
 
 func TestGetDirectorySize(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo, err := repo_model.GetRepositoryByID(db.DefaultContext, 1)
 	require.NoError(t, err)

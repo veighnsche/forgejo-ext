@@ -14,6 +14,7 @@ func testGeneric[T any](log *LoggerImpl, t T) {
 }
 
 func TestLog(t *testing.T) {
+	testhelper.Setup(t)
 	bufferWriter := NewEventWriterBuffer("test-buffer", WriterMode{
 		Level: INFO,
 	})
@@ -23,5 +24,5 @@ func TestLog(t *testing.T) {
 	testGeneric(logger, "I'm the generic value!")
 	logger.Close()
 
-	assert.Contains(t, bufferWriter.(EventWriterBuffer).GetString(), ".../logger_impl_test.go:13:testGeneric() [I] Just testing the logging of a generic function I'm the generic value!")
+	assert.Contains(t, bufferWriter.(EventWriterBuffer).GetString(), ".../logger_impl_test.go:15:testGeneric() [I] Just testing the logging of a generic function I'm the generic value!")
 }

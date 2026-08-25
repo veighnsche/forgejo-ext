@@ -15,6 +15,7 @@ import (
 )
 
 func Test_loadIsRefDeleted(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	runs, total, err := db.FindAndCount[actions_model.ActionRun](db.DefaultContext,

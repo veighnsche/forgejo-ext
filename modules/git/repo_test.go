@@ -20,6 +20,7 @@ import (
 )
 
 func TestRepoIsEmpty(t *testing.T) {
+	testhelper.Setup(t)
 	emptyRepo2Path := filepath.Join(testReposDir, "repo2_empty")
 	repo, err := openRepositoryWithDefaultContext(emptyRepo2Path)
 	require.NoError(t, err)
@@ -30,6 +31,7 @@ func TestRepoIsEmpty(t *testing.T) {
 }
 
 func TestRepoGetDivergingCommits(t *testing.T) {
+	testhelper.Setup(t)
 	bareRepo1Path := filepath.Join(testReposDir, "repo1_bare")
 	do, err := GetDivergingCommits(t.Context(), bareRepo1Path, "master", "branch2", nil)
 	require.NoError(t, err)
@@ -54,6 +56,7 @@ func TestRepoGetDivergingCommits(t *testing.T) {
 }
 
 func TestCloneCredentials(t *testing.T) {
+	testhelper.Setup(t)
 	calledWithoutPassword := false
 	credentialsFile := ""
 
@@ -119,6 +122,7 @@ func TestCloneCredentials(t *testing.T) {
 }
 
 func TestInitRepositoryWithNoTemplates(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name string // description of this test case
 		// Named input parameters for target function.

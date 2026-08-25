@@ -15,6 +15,7 @@ import (
 )
 
 func TestRouteMock(t *testing.T) {
+	testhelper.Setup(t)
 	setting.IsInTesting = true
 
 	r := NewRoute()

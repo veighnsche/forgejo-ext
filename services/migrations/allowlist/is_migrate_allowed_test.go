@@ -18,6 +18,7 @@ import (
 )
 
 func TestMigrateWhiteBlocklist(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	adminUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -110,6 +111,7 @@ func TestMigrateWhiteBlocklist(t *testing.T) {
 }
 
 func TestAllowBlockList(t *testing.T) {
+	testhelper.Setup(t)
 	init := func(allow, block string, local bool) {
 		setting.Migrations.AllowedDomains = allow
 		setting.Migrations.BlockedDomains = block
@@ -149,6 +151,7 @@ func TestAllowBlockList(t *testing.T) {
 }
 
 func TestURLAllowedSSH(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user2"})

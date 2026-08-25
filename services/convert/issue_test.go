@@ -20,6 +20,7 @@ import (
 )
 
 func TestLabel_ToLabel(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	label := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 1})
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: label.RepoID})
@@ -33,6 +34,7 @@ func TestLabel_ToLabel(t *testing.T) {
 }
 
 func TestMilestone_APIFormat(t *testing.T) {
+	testhelper.Setup(t)
 	milestone := &issues_model.Milestone{
 		ID:              3,
 		RepoID:          4,

@@ -22,6 +22,7 @@ import (
 )
 
 func TestCreateMigrateTask(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -61,6 +62,7 @@ func TestCreateMigrateTask(t *testing.T) {
 }
 
 func TestRetryMigrateTask(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("services/task/fixtures/TestRetryMigrateTask/")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

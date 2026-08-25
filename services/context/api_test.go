@@ -21,6 +21,7 @@ import (
 )
 
 func TestGenAPILinks(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppURL, "http://localhost:3000/")()
 	kases := map[string][]string{
 		"api/v1/repos/jerrykan/example-repo/issues?state=all": {
@@ -57,6 +58,7 @@ func TestGenAPILinks(t *testing.T) {
 }
 
 func TestAcceptsGithubResponse(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Normal", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
 		resp := httptest.NewRecorder()
@@ -80,6 +82,7 @@ func TestAcceptsGithubResponse(t *testing.T) {
 }
 
 func TestIsUserSiteAdmin(t *testing.T) {
+	testhelper.Setup(t)
 	makeCtx := func(t *testing.T, reducer authz.AuthorizationReducer) *APIContext {
 		req := httptest.NewRequest("GET", "/", nil)
 		resp := httptest.NewRecorder()
@@ -121,6 +124,7 @@ func TestIsUserSiteAdmin(t *testing.T) {
 }
 
 func TestIsUserRepoAdmin(t *testing.T) {
+	testhelper.Setup(t)
 	makeCtx := func(t *testing.T, reducer authz.AuthorizationReducer) *APIContext {
 		req := httptest.NewRequest("GET", "/", nil)
 		resp := httptest.NewRecorder()

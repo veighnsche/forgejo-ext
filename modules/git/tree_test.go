@@ -12,6 +12,7 @@ import (
 )
 
 func TestSubTree_Issue29101(t *testing.T) {
+	testhelper.Setup(t)
 	repo, err := openRepositoryWithDefaultContext(filepath.Join(testReposDir, "repo1_bare"))
 	require.NoError(t, err)
 	defer repo.Close()
@@ -28,6 +29,7 @@ func TestSubTree_Issue29101(t *testing.T) {
 }
 
 func Test_GetTreePathLatestCommit(t *testing.T) {
+	testhelper.Setup(t)
 	repo, err := openRepositoryWithDefaultContext(filepath.Join(testReposDir, "repo6_blame"))
 	require.NoError(t, err)
 	defer repo.Close()

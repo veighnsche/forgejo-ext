@@ -10,6 +10,7 @@ import (
 )
 
 func TestFaultInjector(t *testing.T) {
+	testhelper.Setup(t)
 	faultInjector := faultInjectorHook{}
 	c := &contexts.ContextHook{
 		Ctx: t.Context(),

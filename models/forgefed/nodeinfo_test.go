@@ -13,6 +13,7 @@ import (
 )
 
 func Test_NodeInfoWellKnownUnmarshalJSON(t *testing.T) {
+	testhelper.Setup(t)
 	type testPair struct {
 		item    []byte
 		want    NodeInfoWellKnown
@@ -47,6 +48,7 @@ func Test_NodeInfoWellKnownUnmarshalJSON(t *testing.T) {
 }
 
 func Test_NodeInfoWellKnownValidate(t *testing.T) {
+	testhelper.Setup(t)
 	sut := NodeInfoWellKnown{Href: "https://federated-repo.prod.meissa.de/api/v1/nodeinfo"}
 	if b, err := validation.IsValid(sut); !b {
 		t.Errorf("sut should be valid, %v, %v", sut, err)
@@ -66,6 +68,7 @@ func Test_NodeInfoWellKnownValidate(t *testing.T) {
 }
 
 func Test_NewNodeInfoWellKnown(t *testing.T) {
+	testhelper.Setup(t)
 	sut, _ := NewNodeInfoWellKnown([]byte(`{"links":[{"href":"https://federated-repo.prod.meissa.de/api/v1/nodeinfo","rel":"http://nodeinfo.diaspora.software/ns/schema/2.1"}]}`))
 	expected := NodeInfoWellKnown{Href: "https://federated-repo.prod.meissa.de/api/v1/nodeinfo"}
 	if sut != expected {
@@ -79,6 +82,7 @@ func Test_NewNodeInfoWellKnown(t *testing.T) {
 }
 
 func Test_NewNodeInfo(t *testing.T) {
+	testhelper.Setup(t)
 	sut, _ := NewNodeInfo([]byte(`{"version":"2.1","software":{"name":"gitea","version":"1.20.0+dev-2539-g5840cc6d3","repository":"https://github.com/go-gitea/gitea.git","homepage":"https://gitea.io/"},"protocols":["activitypub"],"services":{"inbound":[],"outbound":["rss2.0"]},"openRegistrations":true,"usage":{"users":{"total":13,"activeHalfyear":1,"activeMonth":1}},"metadata":{}}`))
 	expected := NodeInfo{SoftwareName: "gitea"}
 	if sut != expected {

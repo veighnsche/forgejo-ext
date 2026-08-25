@@ -12,6 +12,7 @@ import (
 )
 
 func Test_installSignals(t *testing.T) {
+	testhelper.Setup(t)
 	if runtime.GOOS == "windows" {
 		t.Skipf("Windows does not terminate in an awaitable manner")
 		return

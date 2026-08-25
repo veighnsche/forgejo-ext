@@ -26,6 +26,7 @@ func runWorkerPoolQueue[T any](q *WorkerPoolQueue[T]) func() {
 }
 
 func TestWorkerPoolQueueUnhandled(t *testing.T) {
+	testhelper.Setup(t)
 	oldUnhandledItemRequeueDuration := unhandledItemRequeueDuration.Load()
 	unhandledItemRequeueDuration.Store(0)
 	defer unhandledItemRequeueDuration.Store(oldUnhandledItemRequeueDuration)
@@ -95,6 +96,7 @@ func TestWorkerPoolQueueUnhandled(t *testing.T) {
 }
 
 func TestWorkerPoolQueuePersistence(t *testing.T) {
+	testhelper.Setup(t)
 	runCount := 2 // we can run these tests even hundreds times to see its stability
 	t.Run("1/1", func(t *testing.T) {
 		for range runCount {
@@ -178,6 +180,7 @@ func testWorkerPoolQueuePersistence(t *testing.T, queueSetting setting.QueueSett
 }
 
 func TestWorkerPoolQueueActiveWorkers(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&workerIdleDuration, 300*time.Millisecond)()
 
 	handler := func(items ...int) (unhandled []int) {
@@ -219,6 +222,7 @@ func TestWorkerPoolQueueActiveWorkers(t *testing.T) {
 }
 
 func TestWorkerPoolQueueShutdown(t *testing.T) {
+	testhelper.Setup(t)
 	oldUnhandledItemRequeueDuration := unhandledItemRequeueDuration.Load()
 	unhandledItemRequeueDuration.Store(int64(100 * time.Millisecond))
 	defer unhandledItemRequeueDuration.Store(oldUnhandledItemRequeueDuration)
@@ -251,6 +255,7 @@ func TestWorkerPoolQueueShutdown(t *testing.T) {
 }
 
 func TestWorkerPoolQueueWorkerIdleReset(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&workerIdleDuration, 1*time.Millisecond)()
 
 	chGoroutineIDs := make(chan string)

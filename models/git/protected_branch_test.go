@@ -10,6 +10,7 @@ import (
 )
 
 func TestBranchRuleMatch(t *testing.T) {
+	testhelper.Setup(t)
 	kases := []struct {
 		Rule          string
 		BranchName    string

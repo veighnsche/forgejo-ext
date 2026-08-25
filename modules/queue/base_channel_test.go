@@ -6,6 +6,7 @@ package queue
 import "testing"
 
 func TestBaseChannel(t *testing.T) {
+	testhelper.Setup(t)
 	testQueueBasic(t, newBaseChannelSimple, &BaseConfig{ManagedName: "baseChannel", Length: 10}, false)
 	testQueueBasic(t, newBaseChannelUnique, &BaseConfig{ManagedName: "baseChannel", Length: 10}, true)
 }
