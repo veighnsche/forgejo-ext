@@ -122,6 +122,36 @@ SLOW_FLUSH = 5S ; 5s is the default value
 GITEA_SLOW_TEST_TIME="10s" GITEA_SLOW_FLUSH_TIME="5s" make test-sqlite
 ```
 
+## Federation tests
+
+Forgejo includes integration test suites and multi-node harnesses for ActivityPub / ForgeFed federation:
+
+### Running federation integration tests
+
+For SQLite:
+
+```bash
+make "test-sqlite#TestActivityPub"
+```
+
+For MySQL or PostgreSQL:
+
+```bash
+# MySQL 8.4
+TEST_MYSQL_HOST=localhost:3306 TEST_MYSQL_DBNAME='test?multiStatements=true' TEST_MYSQL_USERNAME=root TEST_MYSQL_PASSWORD='' make "test-mysql#TestActivityPub"
+
+# PostgreSQL 16
+TEST_STORAGE_TYPE=local TEST_PGSQL_HOST=localhost:5432 TEST_PGSQL_DBNAME=test TEST_PGSQL_USERNAME=postgres TEST_PGSQL_PASSWORD=postgres make "test-pgsql#TestActivityPub"
+```
+
+### Multi-node cross-instance Docker E2E test
+
+A self-contained multi-instance test harness lives in `tests/federation/e2e/`. It spins up two Forgejo instances on a shared Docker network and verifies user discovery, collaborator token auth, and Git Smart HTTP cloning end-to-end:
+
+```bash
+bash tests/federation/e2e/run-e2e.sh
+```
+
 ## Tips and tricks
 
 If you know noteworthy tests that can act as an inspiration for new tests,

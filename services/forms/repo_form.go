@@ -91,6 +91,17 @@ func (f *MigrateRepoForm) Validate(req *http.Request, errs binding.Errors) bindi
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }
 
+// FederatedMirrorForm is the form for mirroring a remote federated repository
+// (identified by its ForgeFed repository actor URI) as a local pull mirror.
+type FederatedMirrorForm struct {
+	UID            int64  `json:"uid" binding:"Required"`
+	RemoteActorURI string `json:"remote_actor_uri" binding:"Required"`
+	RepoName       string `json:"repo_name" binding:"Required;AlphaDashDot;MaxSize(100)"`
+	Private        bool   `json:"private"`
+	Description    string `json:"description" binding:"MaxSize(2048)"`
+	MirrorInterval string `json:"mirror_interval"`
+}
+
 // scpRegex matches the SCP-like addresses used by Git to access repositories over SSH.
 var scpRegex = regexp.MustCompile(`^([a-zA-Z0-9_]+)@([a-zA-Z0-9._-]+):(.*)$`)
 

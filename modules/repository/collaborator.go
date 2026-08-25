@@ -31,10 +31,17 @@ func AddCollaborator(ctx context.Context, repo *repo_model.Repository, u *user_m
 			return nil
 		}
 
+		mode := perm.AccessModeWrite
+		if u.IsActivityPub() {
+			// Federated users authenticate through HTTP signatures only and have
+			// read-only access for now: write federation (push, PRs) is not
+			// implemented yet.
+			mode = perm.AccessModeRead
+		}
 		if err = db.Insert(ctx, &repo_model.Collaboration{
 			RepoID: repo.ID,
 			UserID: u.ID,
-			Mode:   perm.AccessModeWrite,
+			Mode:   mode,
 		}); err != nil {
 			return err
 		}

@@ -119,6 +119,33 @@
         }
       }
     },
+    "/activitypub/repository-id/{repository-id}/followers": {
+      "get": {
+        "produces": [
+          "application/ld+json"
+        ],
+        "tags": [
+          "activitypub"
+        ],
+        "summary": "Returns the followers collection of a Repository actor",
+        "operationId": "activitypubRepositoryFollowers",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID of the repository",
+            "name": "repository-id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ActivityPub"
+          }
+        }
+      }
+    },
     "/activitypub/repository-id/{repository-id}/inbox": {
       "post": {
         "produces": [
@@ -262,6 +289,33 @@
             "type": "integer",
             "description": "activity ID of the sought activity",
             "name": "activity-id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ActivityPub"
+          }
+        }
+      }
+    },
+    "/activitypub/user-id/{user-id}/followers": {
+      "get": {
+        "produces": [
+          "application/ld+json"
+        ],
+        "tags": [
+          "activitypub"
+        ],
+        "summary": "Returns the followers collection of a Person actor",
+        "operationId": "activitypubPersonFollowers",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "user ID of the user",
+            "name": "user-id",
             "in": "path",
             "required": true
           }
@@ -650,6 +704,48 @@
           },
           "403": {
             "$ref": "#/responses/forbidden"
+          }
+        }
+      }
+    },
+    "/admin/federation/hosts/{id}/block": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "admin"
+        ],
+        "summary": "Block or unblock a federation host",
+        "operationId": "adminSetFederationHostBlocked",
+        "parameters": [
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "id of the federation host",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "blocked": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/responses/empty"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
           }
         }
       }
@@ -5136,6 +5232,47 @@
         }
       }
     },
+    "/repos/federated-mirror": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Mirror a remote federated repository (pull mirror)",
+        "operationId": "repoCreateFederatedMirror",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/FederatedMirrorOption"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/Repository"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "409": {
+            "$ref": "#/responses/conflict"
+          },
+          "413": {
+            "$ref": "#/responses/quotaExceeded"
+          },
+          "422": {
+            "$ref": "#/responses/validationError"
+          }
+        }
+      }
+    },
     "/repos/issues/search": {
       "get": {
         "produces": [
@@ -8218,6 +8355,52 @@
         }
       }
     },
+    "/repos/{owner}/{repo}/collaborators/{collaborator}/token": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Create a read-only token for a federated collaborator",
+        "operationId": "repoCreateFederatedCollaboratorToken",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "owner of the repo",
+            "name": "owner",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repo",
+            "name": "repo",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "username of the federated collaborator",
+            "name": "collaborator",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/AccessToken"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/repos/{owner}/{repo}/commits": {
       "get": {
         "produces": [
@@ -9042,6 +9225,55 @@
           },
           "404": {
             "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/repos/{owner}/{repo}/federated-push-mirror": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Mirror a local repository to a remote federated repository (push mirror)",
+        "operationId": "repoCreateFederatedPushMirror",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "owner of the repo",
+            "name": "owner",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repo",
+            "name": "repo",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/FederatedPushMirrorOption"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/PushMirror"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "422": {
+            "$ref": "#/responses/validationError"
           }
         }
       }
@@ -20564,6 +20796,70 @@
         }
       }
     },
+    "/user/activitypub/follow-repository": {
+      "post": {
+        "tags": [
+          "user"
+        ],
+        "summary": "Follow a remote activitypub repository",
+        "operationId": "userCurrentActivityPubFollowRepository",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/APRemoteFollowOption"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/responses/empty"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/user/activitypub/unfollow": {
+      "post": {
+        "tags": [
+          "user"
+        ],
+        "summary": "Unfollow a remote activitypub account",
+        "operationId": "userCurrentActivityPubUnfollow",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/APRemoteFollowOption"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/responses/empty"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/user/applications/oauth2": {
       "get": {
         "produces": [
@@ -27084,6 +27380,80 @@
           "description": "URL of external wiki.",
           "type": "string",
           "x-go-name": "ExternalWikiURL"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
+    "FederatedMirrorOption": {
+      "description": "FederatedMirrorOption options when creating a federated pull mirror of a\nremote repository (identified by its ForgeFed repository actor URI).",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Description of the local mirror repository.",
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "mirror_interval": {
+          "description": "MirrorInterval is the scheduled sync interval (e.g. \"8h\"). Empty disables scheduled syncs.",
+          "type": "string",
+          "x-go-name": "MirrorInterval"
+        },
+        "private": {
+          "description": "Private makes the local mirror repository private.",
+          "type": "boolean",
+          "x-go-name": "Private"
+        },
+        "remote_actor_uri": {
+          "description": "RemoteActorURI is the ForgeFed actor URI of the remote repository to mirror.",
+          "type": "string",
+          "x-go-name": "RemoteActorURI"
+        },
+        "repo_name": {
+          "description": "RepoName is the name of the local mirror repository. Defaults to the remote repository name.",
+          "type": "string",
+          "x-go-name": "RepoName"
+        },
+        "repo_owner": {
+          "description": "RepoOwner is the name of the local user or organization that will own the mirror.",
+          "type": "string",
+          "x-go-name": "RepoOwner"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
+    "FederatedPushMirrorOption": {
+      "description": "a local repository pushes its changes to a remote federated repository\n(identified by its ForgeFed repository actor URI).",
+      "type": "object",
+      "title": "FederatedPushMirrorOption options when creating a federated push mirror:",
+      "properties": {
+        "branch_filter": {
+          "description": "BranchFilter restricts which branches are pushed.",
+          "type": "string",
+          "x-go-name": "BranchFilter"
+        },
+        "interval": {
+          "description": "Interval is the scheduled push interval (e.g. \"8h\"). Empty means sync on commit.",
+          "type": "string",
+          "x-go-name": "Interval"
+        },
+        "remote_actor_uri": {
+          "description": "RemoteActorURI is the ForgeFed actor URI of the remote repository to push to.",
+          "type": "string",
+          "x-go-name": "RemoteActorURI"
+        },
+        "remote_password": {
+          "type": "string",
+          "x-go-name": "RemotePassword"
+        },
+        "remote_username": {
+          "description": "RemoteUsername/RemotePassword authenticate the git push to the remote.",
+          "type": "string",
+          "x-go-name": "RemoteUsername"
+        },
+        "sync_on_commit": {
+          "description": "SyncOnCommit pushes to the remote on every commit.",
+          "type": "boolean",
+          "x-go-name": "SyncOnCommit"
         }
       },
       "x-go-package": "forgejo.org/modules/structs"

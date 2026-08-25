@@ -265,6 +265,7 @@ func setMigrationContextData(ctx *context.Context, serviceType structs.GitServic
 	// Plain git should be first
 	ctx.Data["Services"] = append([]structs.GitServiceType{structs.PlainGitService}, structs.SupportedFullGitService...)
 	ctx.Data["service"] = serviceType
+	ctx.Data["FederationEnabled"] = setting.Federation.Enabled
 }
 
 func MigrateRetryPost(ctx *context.Context) {

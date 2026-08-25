@@ -67,6 +67,22 @@
 						{{end}}
 					{{end}}
 				{{else}}
+					{{if .ContextUser.IsActivityPub}}
+						<div class="ui info message tw-mb-4">
+							<div class="header">{{svg "octicon-globe"}} {{ctx.Locale.Tr "user.federated_user_title"}}</div>
+							<p>{{ctx.Locale.Tr "user.federated_user_description"}}</p>
+							<div class="tw-mt-2">
+								<a class="ui primary button" href="{{AppSubUrl}}/repo/federated-mirror">
+									{{svg "octicon-mirror"}} {{ctx.Locale.Tr "repo.migrate.federated.title"}}
+								</a>
+								{{if and .FederatedUser .FederatedUser.NormalizedOriginalURL}}
+									<a class="ui basic button" target="_blank" rel="noopener noreferrer" href="{{.FederatedUser.NormalizedOriginalURL}}">
+										{{svg "octicon-link-external"}} {{ctx.Locale.Tr "user.view_home_profile"}}
+									</a>
+								{{end}}
+							</div>
+						</div>
+					{{end}}
 					{{template "shared/repo_search" .}}
 					{{template "explore/repo_list" .}}
 					{{template "base/paginate" .}}

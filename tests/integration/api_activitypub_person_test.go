@@ -81,13 +81,14 @@ func TestActivityPubPerson(t *testing.T) {
 func TestActivityPubMissingPerson(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
-	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, false)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
 
+	// Signature verification runs before the user lookup: unsigned requests
+	// are rejected without revealing whether the user exists.
 	req := NewRequest(t, "GET", "/api/v1/activitypub/user-id/999999999")
-	resp := MakeRequest(t, req, http.StatusNotFound)
-	assert.Contains(t, resp.Body.String(), "user does not exist")
+	resp := MakeRequest(t, req, http.StatusBadRequest)
+	assert.Contains(t, resp.Body.String(), "request signature verification failed")
 }
 
 func TestActivityPubPersonInbox(t *testing.T) {
@@ -107,10 +108,11 @@ func TestActivityPubPersonInbox(t *testing.T) {
 		c, err := cf.WithKeys(ctx, user1, user1url, nil)
 		require.NoError(t, err)
 
-		// invalid request is rejected
+		// invalid request is rejected: the payload has no actor, so it fails
+		// the actor binding check before being processed
 		resp, err := c.Post([]byte{}, user2inboxurl)
 		require.NoError(t, err)
-		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
 }
 

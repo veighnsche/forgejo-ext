@@ -12,7 +12,10 @@ import (
 )
 
 func processPersonInboxAccept(activity *ap.Activity) (ServiceResult, error) {
-	if activity.Object.GetType() != ap.FollowType {
+	// Accept(Follow) completes the follow handshake; Accept(Offer) completes
+	// a federated pull request handshake. Both are acknowledged and dropped,
+	// since Forgejo does not track pending outbound requests locally.
+	if activity.Object.GetType() != ap.FollowType && activity.Object.GetType() != ap.OfferType {
 		log.Error("Invalid object type for Accept activity: %v", activity.Object.GetType())
 		return ServiceResult{}, NewErrNotAcceptablef("invalid object type for Accept activity: %v", activity.Object.GetType())
 	}

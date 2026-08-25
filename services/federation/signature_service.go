@@ -16,13 +16,63 @@ import (
 	"forgejo.org/models/forgefed"
 	"forgejo.org/models/user"
 	"forgejo.org/modules/activitypub"
+	forgefed_module "forgejo.org/modules/forgefed"
 	"forgejo.org/modules/log"
+	app_context "forgejo.org/services/context"
 
 	ap "github.com/go-ap/activitypub"
 )
 
+// ResolveFederationPrincipal maps a verified HTTP signature key id to the
+// identity that owns the key: a federated user (Person key), a federation
+// host (Application key), or — for keys that are not cached, e.g. remote
+// Repository actors exposing their owner's key — the actor URI derived by
+// stripping the key id fragment. It must only be called after the signature
+// has been verified against the key.
+func ResolveFederationPrincipal(ctx context.Context, keyID string) (*app_context.FederationPrincipal, error) {
+	keyURL, err := url.Parse(keyID)
+	if err != nil {
+		return nil, err
+	}
+	if keyURL.Host == "" {
+		return nil, fmt.Errorf("invalid federation key id %q", keyID)
+	}
+	host := keyURL.Host
+
+	keyUser, federatedUser, err := user.FindFederatedUserByKeyID(ctx, keyURL.String())
+	if err == nil {
+		return &app_context.FederationPrincipal{
+			KeyID:    keyID,
+			ActorURI: federatedUser.NormalizedOriginalURL,
+			Host:     host,
+			User:     keyUser,
+		}, nil
+	}
+	if !user.IsErrFederatedUserNotExists(err) {
+		return nil, err
+	}
+
+	if _, err := forgefed.FindFederationHostByKeyID(ctx, keyURL.String()); err == nil {
+		// Instance-level (Application actor) key: there is no user-mapped URI.
+		return &app_context.FederationPrincipal{KeyID: keyID, Host: host}, nil
+	} else if !forgefed.IsErrFederationHostNotFound(err) {
+		return nil, err
+	}
+
+	// The key is not cached: remote repository actors sign with their owner's
+	// key and are not cached locally. Convention places the key id on the
+	// actor URI (typically "...#main-key"), so the fragment-stripped key id
+	// is the actor URI of the signer.
+	actorURI := *keyURL
+	actorURI.Fragment = ""
+	return &app_context.FederationPrincipal{
+		KeyID:    keyID,
+		ActorURI: actorURI.String(),
+		Host:     host,
+	}, nil
+}
+
 func FindOrCreateActorKey(ctx context.Context, keyID string) (pubKey any, err error) {
-	log.Trace("KeyID: %v", keyID)
 	keyURL, err := url.Parse(keyID)
 	if err != nil {
 		return nil, err
@@ -102,6 +152,11 @@ func FindOrCreateActorKey(ctx context.Context, keyID string) (pubKey any, err er
 		if err != nil {
 			return nil, err
 		}
+	case forgefed_module.RepositoryType:
+		// Repository actors expose their owner's key as their publicKey;
+		// there is no dedicated local cache, the fetched key is returned
+		// directly and verification succeeds.
+		return pubKey, nil
 	default:
 		return nil, fmt.Errorf("Fetched actortype (%s) is unhandled", actor.Type)
 	}

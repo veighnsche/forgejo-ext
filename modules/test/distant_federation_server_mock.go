@@ -4,20 +4,14 @@
 package test
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 
 	"forgejo.org/modules/util"
-
-	ap "github.com/go-ap/activitypub"
-	"github.com/go-ap/jsonld"
-	"github.com/google/uuid"
 )
 
 type ApActorMock struct {
@@ -34,6 +28,13 @@ type FederationServerMockPerson struct {
 
 type FederationServerMockRepository struct {
 	ID int64
+	// CloneURI is the native git clone endpoint advertised by the repository
+	// actor (ForgeFed cloneUri). Empty means the actor does not expose one.
+	CloneURI string
+	// PushURI is the git push endpoint advertised by the actor (ForgeFed pushUri).
+	PushURI string
+	PrivKey string
+	PubKey  string
 }
 
 type FederationServerMock struct {
@@ -101,8 +102,11 @@ func (p FederationServerMockPerson) marshal(host string) string {
 }
 
 func NewFederationServerMockRepository(id int64) FederationServerMockRepository {
+	priv, pub, _ := util.GenerateKeyPair(3072)
 	return FederationServerMockRepository{
-		ID: id,
+		ID:      id,
+		PrivKey: priv,
+		PubKey:  pub,
 	}
 }
 
@@ -127,26 +131,6 @@ func (mock *FederationServerMock) recordLastPost(t *testing.T, req *http.Request
 		t.Errorf("Error reading body: %q", err)
 	}
 	mock.LastPost = strings.ReplaceAll(buf.String(), req.Host, "DISTANT_FEDERATION_HOST")
-}
-
-func (mock *FederationServerMock) FollowActorUnsigned(host string, localID int64, uri, inboxURL url.URL) error {
-	apID := fmt.Sprintf("%s/api/v1/activitypub/user-id/%d", host, localID)
-
-	activity := ap.Follow{}
-	activity.Type = ap.FollowType
-	activity.ID = ap.IRI(apID + "/follows/" + uuid.New().String())
-	activity.Actor = ap.IRI(apID)
-	activity.Object = ap.IRI(uri.String())
-
-	payload, err := jsonld.WithContext(jsonld.IRI(ap.ActivityBaseURI)).Marshal(activity)
-	if err != nil {
-		return err
-	}
-
-	reader := bytes.NewReader(payload)
-	_, err = http.Post(inboxURL.String(), "application/activity+json", reader)
-
-	return err
 }
 
 func (mock *FederationServerMock) DistantServer(t *testing.T) *httptest.Server {
@@ -183,7 +167,12 @@ func (mock *FederationServerMock) DistantServer(t *testing.T) *httptest.Server {
 			})
 	}
 
-	for _, repository := range mock.Repositories {
+	for i := range mock.Repositories {
+		repository := &mock.Repositories[i]
+		federatedRoutes.HandleFunc(fmt.Sprintf("/api/v1/activitypub/repository-id/%v", repository.ID),
+			func(res http.ResponseWriter, req *http.Request) {
+				fmt.Fprint(res, repository.marshal(req.Host))
+			})
 		federatedRoutes.HandleFunc(fmt.Sprintf("POST /api/v1/activitypub/repository-id/%v/inbox", repository.ID),
 			func(res http.ResponseWriter, req *http.Request) {
 				mock.recordLastPost(t, req)
@@ -203,4 +192,28 @@ func (mock *FederationServerMock) DistantServer(t *testing.T) *httptest.Server {
 	federatedSrv := httptest.NewServer(federatedRoutes)
 
 	return federatedSrv
+}
+
+func (r FederationServerMockRepository) KeyID(host string) string {
+	return fmt.Sprintf("%s/api/v1/activitypub/repository-id/%d#main-key", host, r.ID)
+}
+
+func (r FederationServerMockRepository) marshal(host string) string {
+	baseID := fmt.Sprintf("http://%s/api/v1/activitypub/repository-id/%d", host, r.ID)
+	key := ""
+	if r.PubKey != "" {
+		key = fmt.Sprintf(`,"publicKey":{"id":"%s#main-key","owner":"%s","publicKeyPem":%q}`, baseID, baseID, r.PubKey)
+	}
+	if r.CloneURI == "" && r.PushURI == "" {
+		return fmt.Sprintf(`{"@context":["https://www.w3.org/ns/activitystreams"],`+
+			`"id":"%[1]v",`+
+			`"type":"Repository","name":"mock-repo-%[2]v",`+
+			`"inbox":"%[1]v/inbox"%[3]v}`, baseID, r.ID, key)
+	}
+	return fmt.Sprintf(`{"@context":["https://www.w3.org/ns/activitystreams"],`+
+		`"id":"%[1]v",`+
+		`"type":"Repository","name":"mock-repo-%[2]v",`+
+		`"cloneUri":%[4]q,`+
+		`"pushUri":%[5]q,`+
+		`"inbox":"%[1]v/inbox"%[3]v}`, baseID, r.ID, key, r.CloneURI, r.PushURI)
 }

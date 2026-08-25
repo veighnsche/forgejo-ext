@@ -180,6 +180,29 @@ func ActionToForgeUserActivity(ctx context.Context, action *activities_model.Act
 			renderIssue(action.Comment.Issue),
 			renderedComment,
 		)
+	case activities_model.ActionPublishRelease:
+		return makeUserActivity("published release %s at %s", action.GetTag(), renderRepo())
+	case activities_model.ActionMirrorSyncPush:
+		return makeUserActivity("mirrored pushes to %s", renderRepo())
+	case activities_model.ActionMirrorSyncCreate:
+		return makeUserActivity("created repository %s via mirror", renderRepo())
+	case activities_model.ActionMirrorSyncDelete:
+		return makeUserActivity("deleted repository %s via mirror", renderRepo())
+	case activities_model.ActionPullReviewDismissed:
+		if err := action.LoadIssue(ctx); err != nil {
+			return fm.ForgeUserActivity{}, err
+		}
+		return makeUserActivity("dismissed a review on pull request %s", renderIssue(action.Issue))
+	case activities_model.ActionPullRequestReadyForReview:
+		if err := action.LoadIssue(ctx); err != nil {
+			return fm.ForgeUserActivity{}, err
+		}
+		return makeUserActivity("marked pull request %s ready for review", renderIssue(action.Issue))
+	case activities_model.ActionAutoMergePullRequest:
+		if err := action.LoadIssue(ctx); err != nil {
+			return fm.ForgeUserActivity{}, err
+		}
+		return makeUserActivity("auto-merged pull request %s", renderIssue(action.Issue))
 	}
 
 	return makeUserActivity("performed an unrecognised action: %s", action.OpType.String())

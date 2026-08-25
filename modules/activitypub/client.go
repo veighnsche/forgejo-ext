@@ -120,12 +120,13 @@ func (cf *ClientFactory) setHostMatcher(hosts []*url.URL) error {
 	hostsNil := len(hosts) == 0
 	for _, host := range hosts {
 		hostsNil = hostsNil || host == nil
+		if host != nil && !setting.FederationHostAllowed(host.Host) {
+			return fmt.Errorf("federation host %q is not allowed by the host policy", host.Host)
+		}
 	}
-
 	if hostsNil && !setting.Federation.InsecureAllowInvalidHosts {
 		return errors.New("nil client host(s)")
 	}
-
 	var hostMatchAllow, hostMatchBlock string
 	if setting.Federation.InsecureAllowInvalidHosts {
 		hostMatchAllow = fmt.Sprintf("%s, %s", hostmatcher.MatchBuiltinPrivate, hostmatcher.MatchBuiltinLoopback)

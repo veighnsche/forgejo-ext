@@ -18,6 +18,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/context"
+	"forgejo.org/services/federation"
 	"forgejo.org/services/mailer"
 	org_service "forgejo.org/services/org"
 	repo_service "forgejo.org/services/repository"
@@ -59,6 +60,10 @@ func CollaborationPost(ctx *context.Context) {
 	}
 
 	u, err := user_model.GetUserByName(ctx, name)
+	if err != nil && user_model.IsErrUserNotExist(err) && setting.Federation.Enabled &&
+		(strings.Contains(name, "@") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://")) {
+		u, err = federation.ResolveRemoteUserHandle(ctx, name)
+	}
 	if err != nil {
 		if user_model.IsErrUserNotExist(err) {
 			ctx.Flash.Error(ctx.Tr("form.user_not_exist"))
@@ -69,7 +74,10 @@ func CollaborationPost(ctx *context.Context) {
 		return
 	}
 
-	if !u.IsActive {
+	// Federated users (UserTypeActivityPubUser) are permanently inactive by
+	// design (they cannot log in; they authenticate through HTTP signatures
+	// only) but may be added as read-only collaborators.
+	if !u.IsActive && !u.IsActivityPub() {
 		ctx.Flash.Error(ctx.Tr("repo.settings.add_collaborator_inactive_user"))
 		ctx.Redirect(setting.AppSubURL + ctx.Req.URL.EscapedPath())
 		return

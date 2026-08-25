@@ -118,12 +118,17 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.APIC
 				return
 			}
 			if !ctx.Doer().IsActive || ctx.Doer().ProhibitLogin {
-				log.Info("Failed authentication attempt for %s from %s", ctx.Doer().Name, ctx.RemoteAddr())
-				ctx.Data["Title"] = ctx.Tr("auth.prohibit_login")
-				ctx.JSON(http.StatusForbidden, map[string]string{
-					"message": "This account is prohibited from signing in, please contact your site administrator.",
-				})
-				return
+				// Federated (ActivityPub) users are permanently inactive by design:
+				// they authenticate via HTTP signatures or scoped access tokens,
+				// never via password.
+				if !(ctx.Doer().IsActivityPub() && !ctx.Authentication().IsPasswordAuthentication()) {
+					log.Info("Failed authentication attempt for %s from %s", ctx.Doer().Name, ctx.RemoteAddr())
+					ctx.Data["Title"] = ctx.Tr("auth.prohibit_login")
+					ctx.JSON(http.StatusForbidden, map[string]string{
+						"message": "This account is prohibited from signing in, please contact your site administrator.",
+					})
+					return
+				}
 			}
 
 			if ctx.Doer().MustChangePassword {

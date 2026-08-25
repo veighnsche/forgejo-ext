@@ -94,3 +94,20 @@ func UpdateFederationHost(ctx context.Context, host *FederationHost) error {
 	_, err := db.GetEngine(ctx).ID(host.ID).Update(host)
 	return err
 }
+
+// SetFederationHostBlocked marks the host as blocked or unblocked.
+func SetFederationHostBlocked(ctx context.Context, id int64, blocked bool) error {
+	_, err := db.GetEngine(ctx).ID(id).Cols("blocked").Update(&FederationHost{Blocked: blocked})
+	return err
+}
+
+// IsFederationHostBlocked reports whether the host with the given fqdn is
+// blocked. A blocked host must not be contacted for federation.
+func IsFederationHostBlocked(ctx context.Context, fqdn string) (bool, error) {
+	host := new(FederationHost)
+	has, err := db.GetEngine(ctx).Where("host_fqdn=? AND blocked=?", fqdn, true).Get(host)
+	if err != nil {
+		return false, err
+	}
+	return has, nil
+}

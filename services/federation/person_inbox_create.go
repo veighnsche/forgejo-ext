@@ -23,6 +23,15 @@ func processPersonInboxCreate(ctx context.Context, user *user.User, activity *ap
 	}
 
 	actorURI := createAct.Actor.GetLink().String()
+	// Verify the note is attributed to the sender of the Create activity when
+	// the sender declares an attribution, so a malicious peer cannot
+	// impersonate other actors. Senders that omit attributedTo (legacy) are
+	// still accepted with the outer actor taken as the author.
+	if createAct.Note.AttributedTo != nil && createAct.Note.AttributedTo.GetLink().String() != actorURI {
+		log.Error("Note not attributed to activity actor (%s): %v", actorURI, createAct.Note.AttributedTo)
+		return ServiceResult{}, NewErrNotAcceptablef("note is not attributed to the activity actor")
+	}
+
 	federatedBaseUser, _, err := findFederatedUser(ctx, actorURI)
 	if err != nil {
 		log.Error("Federated user not found (%s): %v", actorURI, err)

@@ -1,0 +1,34 @@
+services:
+  forgejoA:
+    build:
+      context: ../../..
+      dockerfile: tests/federation/e2e/Dockerfile
+    image: forgejo-fed-e2e:latest
+    container_name: forgejo-fed-e2e-A
+    networks: [federation]
+    environment:
+      INSTANCE: A
+      ROOT_URL: "http://forgejoA:3000/"
+      ADMIN_USER: alice
+      PEER_HOSTS: "forgejoB"
+    ports:
+      - "4001:3000"
+
+  forgejoB:
+    build:
+      context: ../../..
+      dockerfile: tests/federation/e2e/Dockerfile
+    image: forgejo-fed-e2e:latest
+    container_name: forgejo-fed-e2e-B
+    networks: [federation]
+    environment:
+      INSTANCE: B
+      ROOT_URL: "http://forgejoB:3000/"
+      ADMIN_USER: bob
+      PEER_HOSTS: "forgejoA"
+    ports:
+      - "4002:3000"
+
+networks:
+  federation:
+    driver: bridge

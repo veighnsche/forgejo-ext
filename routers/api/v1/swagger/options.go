@@ -23,6 +23,12 @@ type swaggerParameterBodies struct {
 	APRemoteFollowOption api.APRemoteFollowOption `json:"body"`
 
 	// in:body
+	FederatedMirrorOption api.FederatedMirrorOption
+
+	// in:body
+	FederatedPushMirrorOption api.FederatedPushMirrorOption
+
+	// in:body
 	AddCollaboratorOption api.AddCollaboratorOption
 
 	// in:body

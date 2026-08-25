@@ -245,3 +245,22 @@ func TestActivityValidationUndo(t *testing.T) {
 		t.Error(*err)
 	}
 }
+
+func Test_ForgeUndoLikeIsNewer(t *testing.T) {
+	base, _ := time.Parse("2006-Jan-02", "2024-Mar-27")
+
+	sut, err := forgefed.NewForgeUndoLike("https://example.com/ap/1", "https://example.com/repo/1", base)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// A newer timestamp is considered newer than the comparison base.
+	if !sut.IsNewer(base.Add(-time.Hour)) {
+		t.Error("expected activity to be newer than a timestamp in the past")
+	}
+
+	// An older timestamp is not newer than the comparison base.
+	if sut.IsNewer(base.Add(time.Hour)) {
+		t.Error("expected activity not to be newer than a timestamp in the future")
+	}
+}

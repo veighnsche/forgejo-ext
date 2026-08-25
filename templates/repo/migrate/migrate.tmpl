@@ -1,7 +1,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new migrate">
 	<div class="ui container">
-		<h2 class="tw-mt-4">{{ctx.Locale.Tr "migrate.select.title"}}</h1>
+		<h2 class="tw-mt-4">{{ctx.Locale.Tr "migrate.select.title"}}</h2>
 		{{template "repo/migrate/helper" .}}
 		<div class="migrate-entries">
 			{{range .Services}}
@@ -18,6 +18,15 @@
 						<div class="description">
 							{{ctx.Locale.Tr (printf "migrate.%s.description" .Name)}}
 						</div>
+					</div>
+				</a>
+			{{end}}
+			{{if .FederationEnabled}}
+				<a class="migrate-entry tw-items-center" href="{{AppSubUrl}}/repo/federated-mirror">
+					{{svg "octicon-mirror" 184}}
+					<div class="content">
+						<h3>{{ctx.Locale.Tr "migrate.federated.title"}}</h3>
+						<div class="description">{{ctx.Locale.Tr "migrate.federated.description"}}</div>
 					</div>
 				</a>
 			{{end}}

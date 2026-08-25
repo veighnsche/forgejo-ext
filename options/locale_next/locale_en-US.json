@@ -124,6 +124,8 @@
 	"repo.view.gitmodules_too_large": "The .gitmodules file is too large and will be ignored (on API calls for instance)",
 	"repo.packages.visibility_warning": "This repository is private, but linked packages are public (owner %s is public).",
 	"migrate.select.title": "Migrate repository",
+	"migrate.federated.title": "Mirror a federated repository",
+	"migrate.federated.description": "Clone a repository from another federated (ActivityPub) forge as a pull mirror that stays in sync with the remote.",
 	"migrate.form.error.url_credentials": "The URL contains credentials, put them in the username and password fields respectively",
 	"migrate.github.description": "Migrate data from github.com or GitHub Enterprise server.",
 	"migrate.git.description": "Migrate a repository only from any Git service.",

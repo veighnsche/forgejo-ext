@@ -80,7 +80,7 @@ func Test_NewNodeInfoWellKnown(t *testing.T) {
 
 func Test_NewNodeInfo(t *testing.T) {
 	sut, _ := NewNodeInfo([]byte(`{"version":"2.1","software":{"name":"gitea","version":"1.20.0+dev-2539-g5840cc6d3","repository":"https://github.com/go-gitea/gitea.git","homepage":"https://gitea.io/"},"protocols":["activitypub"],"services":{"inbound":[],"outbound":["rss2.0"]},"openRegistrations":true,"usage":{"users":{"total":13,"activeHalfyear":1,"activeMonth":1}},"metadata":{}}`))
-	expected := NodeInfo{SoftwareName: "gitea"}
+	expected := NodeInfo{SoftwareName: "gitea", Version: "1.20.0+dev-2539-g5840cc6d3"}
 	if sut != expected {
 		t.Errorf("expected was: %v but was: %v", expected, sut)
 	}
@@ -88,5 +88,45 @@ func Test_NewNodeInfo(t *testing.T) {
 	_, err := NewNodeInfo([]byte(`invalid`))
 	if err == nil {
 		t.Error("error was expected here")
+	}
+}
+
+func Test_NodeInfoCapabilities(t *testing.T) {
+	tests := map[string]struct {
+		nodeInfo         NodeInfo
+		isForge          bool
+		supportsRepoActs bool
+	}{
+		"forgejo": {
+			nodeInfo:         NodeInfo{SoftwareName: ForgejoSourceType, Version: "9.0.0"},
+			isForge:          true,
+			supportsRepoActs: true,
+		},
+		"gitea": {
+			nodeInfo:         NodeInfo{SoftwareName: GiteaSourceType, Version: "1.22.0"},
+			isForge:          true,
+			supportsRepoActs: true,
+		},
+		"mastodon": {
+			nodeInfo:         NodeInfo{SoftwareName: MastodonSourceType, Version: "4.2.0"},
+			isForge:          false,
+			supportsRepoActs: false,
+		},
+		"gotosocial": {
+			nodeInfo:         NodeInfo{SoftwareName: GoToSocialSourceType, Version: "0.16.0"},
+			isForge:          false,
+			supportsRepoActs: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := tt.nodeInfo.IsForge(); got != tt.isForge {
+				t.Errorf("IsForge() = %v, want %v", got, tt.isForge)
+			}
+			if got := tt.nodeInfo.SupportsRepositoryActivities(); got != tt.supportsRepoActs {
+				t.Errorf("SupportsRepositoryActivities() = %v, want %v", got, tt.supportsRepoActs)
+			}
+		})
 	}
 }

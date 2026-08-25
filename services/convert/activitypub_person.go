@@ -48,6 +48,7 @@ func ToActivityPubPerson(ctx context.Context, user *user_model.User) (*ap.Person
 
 	person.Inbox = ap.IRI(link + "/inbox")
 	person.Outbox = ap.IRI(link + "/outbox")
+	person.Followers = ap.IRI(link + "/followers")
 
 	person.PublicKey.ID = ap.IRI(link + "#main-key")
 	person.PublicKey.Owner = ap.IRI(link)

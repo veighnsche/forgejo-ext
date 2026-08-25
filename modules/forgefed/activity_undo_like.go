@@ -1,6 +1,7 @@
 // Copyright 2023, 2024 The Forgejo Authors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
+//nolint:dupl
 package forgefed
 
 import (
@@ -38,6 +39,14 @@ func NewForgeUndoLike(actorIRI, objectIRI string, startTime time.Time) (ForgeUnd
 
 func (undo *ForgeUndoLike) UnmarshalJSON(data []byte) error {
 	return undo.Activity.UnmarshalJSON(data)
+}
+
+func (undo ForgeUndoLike) MarshalJSON() ([]byte, error) {
+	return undo.Activity.MarshalJSON()
+}
+
+func (undo ForgeUndoLike) IsNewer(compareTo time.Time) bool {
+	return undo.StartTime.After(compareTo)
 }
 
 func (undo ForgeUndoLike) Validate() []string {

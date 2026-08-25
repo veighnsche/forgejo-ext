@@ -30,6 +30,7 @@ import (
 	"forgejo.org/routers/web/org"
 	shared_user "forgejo.org/routers/web/shared/user"
 	"forgejo.org/services/context"
+	"forgejo.org/services/federation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -399,8 +400,21 @@ func Action(ctx *context.Context) {
 	switch action {
 	case "follow":
 		err = user_model.FollowUser(ctx, ctx.Doer.ID, ctx.ContextUser.ID)
+		// Federated follow: also deliver a Follow activity to a remote user's
+		// inbox so the relationship is established across instances.
+		if err == nil && ctx.ContextUser.Type == user_model.UserTypeActivityPubUser {
+			if federationErr := federation.FollowRemoteActor(ctx.Base, ctx.Doer, remoteActorURI(ctx)); federationErr != nil {
+				log.Warn("Failed to federate follow of remote user %s: %v", ctx.ContextUser.Name, federationErr)
+			}
+		}
 	case "unfollow":
 		err = user_model.UnfollowUser(ctx, ctx.Doer.ID, ctx.ContextUser.ID)
+		// Federated unfollow: notify the remote user's instance.
+		if err == nil && ctx.ContextUser.Type == user_model.UserTypeActivityPubUser {
+			if federationErr := federation.UnfollowRemoteActor(ctx.Base, ctx.Doer, remoteActorURI(ctx)); federationErr != nil {
+				log.Warn("Failed to federate unfollow of remote user %s: %v", ctx.ContextUser.Name, federationErr)
+			}
+		}
 	case "block":
 		err = user_service.BlockUser(ctx, ctx.Doer.ID, ctx.ContextUser.ID)
 	case "unblock":
@@ -421,7 +435,8 @@ func Action(ctx *context.Context) {
 		}
 	}
 
-	if ctx.ContextUser.IsIndividual() {
+	// Federated (ActivityPub) users render their profile like individual users.
+	if ctx.ContextUser.IsIndividual() || ctx.ContextUser.IsActivityPub() {
 		shared_user.PrepareContextForProfileBigAvatar(ctx)
 		ctx.Data["IsHTMX"] = true
 		ctx.HTML(http.StatusOK, tplProfileBigAvatar)
@@ -432,6 +447,19 @@ func Action(ctx *context.Context) {
 		ctx.HTML(http.StatusOK, tplFollowUnfollow)
 		return
 	}
-	log.Error("Failed to apply action %q: unsupported context user type: %s", ctx.FormString("action"), ctx.ContextUser.Type)
 	ctx.Error(http.StatusBadRequest, fmt.Sprintf("Action %q failed", ctx.FormString("action")))
+}
+
+// remoteActorURI returns the remote ActivityPub actor URI for the context
+// user. For a federated user the materialised local user's APActorID is a
+// local URL; the actual remote identity is stored in the federated_user
+// record (NormalizedOriginalURL).
+func remoteActorURI(ctx *context.Context) string {
+	if ctx.ContextUser.IsActivityPub() {
+		_, federatedUser, err := user_model.GetFederatedUserByUserID(ctx.Base, ctx.ContextUser.ID)
+		if err == nil && federatedUser.NormalizedOriginalURL != "" {
+			return federatedUser.NormalizedOriginalURL
+		}
+	}
+	return ctx.ContextUser.APActorID()
 }

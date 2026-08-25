@@ -28,8 +28,8 @@ func TestHostOrIPMatchesList(t *testing.T) {
 	}
 
 	cases := []tc{
-		{"", net.IPv4zero, false},
-		{"", net.IPv6zero, false},
+		{"", net.IPv4zero, true},
+		{"", net.IPv6zero, true},
 
 		{"", net.ParseIP("127.0.0.1"), false},
 		{"127.0.0.1", nil, false},
@@ -46,14 +46,14 @@ func TestHostOrIPMatchesList(t *testing.T) {
 		{"", net.ParseIP("8.8.8.8"), true},
 		{"", net.ParseIP("1001::1"), true},
 
-		{"mydomain.com", net.IPv4zero, false},
+		{"mydomain.com", net.IPv4zero, true},
 		{"sub.mydomain.com", net.IPv4zero, true},
 		{"sub.mydomain.com:8080", net.IPv4zero, true},
 
 		{"", net.ParseIP("169.254.1.1"), true},
 		{"169.254.1.1", nil, true},
-		{"", net.ParseIP("169.254.2.2"), false},
-		{"169.254.2.2", nil, false},
+		{"", net.ParseIP("169.254.2.2"), true},
+		{"169.254.2.2", nil, true},
 	}
 	test(cases)
 
@@ -75,7 +75,7 @@ func TestHostOrIPMatchesList(t *testing.T) {
 
 	hl = ParseHostMatchList("", "private")
 	cases = []tc{
-		{"", net.IPv4zero, false},
+		{"", net.IPv4zero, true},
 		{"", net.ParseIP("127.0.0.1"), false},
 		{"", net.ParseIP("10.0.1.1"), true},
 		{"", net.ParseIP("192.168.1.1"), true},
@@ -91,7 +91,7 @@ func TestHostOrIPMatchesList(t *testing.T) {
 		{"", net.ParseIP("100.127.255.255"), true},
 		{"", net.ParseIP("100.128.0.0"), false},
 
-		{"mydomain.com", net.IPv4zero, false},
+		{"mydomain.com", net.IPv4zero, true},
 	}
 	test(cases)
 
@@ -170,4 +170,56 @@ func TestHostOrIPMatchesList(t *testing.T) {
 		{"external", nil, false},
 	}
 	test(cases)
+}
+
+func TestIsPrivateBlocksSpecialRanges(t *testing.T) {
+	blocked := []string{
+		// RFC 1918 / RFC 4193
+		"10.0.0.1", "172.16.0.1", "192.168.1.1", "fd00::1",
+		// CGNAT (RFC 6598)
+		// CGNAT (RFC 6598)
+		"100.64.0.1", "100.127.255.255",
+		// IPv4 link-local incl. cloud metadata
+		"169.254.169.254", "169.254.0.1",
+		// Azure WireServer metadata endpoint
+		"168.63.129.16",
+		// IPv6 link-local
+		"fe80::1",
+		// NAT64 embedding the AWS metadata address
+		"64:ff9b::a9fe:a9fe",
+		// Teredo and 6to4 tunneling
+		"2001:0000:4136:e378:8000:63bf:3fff:fdd2", "2002:c000:0201::1",
+		// benchmarking range
+		"198.18.0.1", "198.19.255.255",
+		// unspecified and broadcast
+		"0.0.0.0", "255.255.255.255", "::",
+		// multicast
+		"224.0.0.1", "ff02::1",
+	}
+	for _, s := range blocked {
+		ip := net.ParseIP(s)
+		if ip == nil {
+			t.Fatalf("invalid IP literal %q", s)
+		}
+		assert.Truef(t, isPrivate(ip), "expected %s to be matched as private", s)
+	}
+}
+
+func TestIsPrivateAllowsPublicAddresses(t *testing.T) {
+	allowed := []string{
+		"1.1.1.1", "8.8.8.8", "93.184.216.34",
+		"172.32.0.1", "172.15.255.255", // directly outside RFC 1918
+		"100.128.0.1",   // directly outside CGNAT
+		"168.63.129.17", // directly outside Azure WireServer
+		"2606:4700:4700::1111",
+		"2001:db8::1", // documentation range is not blocked by the matcher
+		"203.0.113.1",
+	}
+	for _, s := range allowed {
+		ip := net.ParseIP(s)
+		if ip == nil {
+			t.Fatalf("invalid IP literal %q", s)
+		}
+		assert.Falsef(t, isPrivate(ip), "expected %s not to be matched as private", s)
+	}
 }

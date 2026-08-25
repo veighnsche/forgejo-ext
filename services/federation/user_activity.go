@@ -8,6 +8,7 @@ import (
 
 	activities_model "forgejo.org/models/activities"
 	"forgejo.org/models/forgefed"
+	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/user"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
@@ -18,11 +19,6 @@ import (
 )
 
 func SendUserActivity(ctx context.Context, doer *user.User, activity *activities_model.Action) error {
-	followers, err := user.GetFollowersForUser(ctx, doer)
-	if err != nil {
-		return err
-	}
-
 	userActivity, err := convert.ActionToForgeUserActivity(ctx, activity)
 	if err != nil {
 		return err
@@ -35,28 +31,54 @@ func SendUserActivity(ctx context.Context, doer *user.User, activity *activities
 		return err
 	}
 
+	// 1. Deliver to the actor's federated followers.
+	followers, err := user.GetFollowersForUser(ctx, doer)
+	if err != nil {
+		return err
+	}
 	for _, follower := range followers {
-		_, federatedUserFollower, err := user.GetFederatedUserByUserID(ctx, follower.FollowingUserID)
-		if err != nil {
-			return err
-		}
-
-		federationHost, err := forgefed.GetFederationHost(ctx, federatedUserFollower.FederationHostID)
-		if err != nil {
-			return err
-		}
-
-		hostURL := federationHost.AsURL()
-		if err := deliveryQueue.Push(deliveryQueueItem{
-			InboxURL: hostURL.JoinPath(federatedUserFollower.InboxPath).String(),
-			Doer:     doer,
-			Payload:  payload,
-		}); err != nil {
+		if err := deliverToFederatedUser(ctx, doer, payload, follower.FollowingUserID); err != nil {
 			return err
 		}
 	}
 
+	// 2. Deliver to the repository's federated followers (the "Following for
+	// Repositories" feature): followers of the repository receive the same
+	// activity note.
+	if activity.Repo != nil {
+		repoFollowers, err := repo_model.GetFederatedRepoFollowersByRepoID(ctx, activity.Repo.ID)
+		if err != nil {
+			return err
+		}
+		for _, repoFollower := range repoFollowers {
+			if err := deliverToFederatedUser(ctx, doer, payload, repoFollower.UserID); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
+}
+
+// deliverToFederatedUser queues the payload to the inbox of the given local
+// user record (which must be the materialisation of a remote federated user).
+func deliverToFederatedUser(ctx context.Context, doer *user.User, payload []byte, userID int64) error {
+	_, federatedUser, err := user.GetFederatedUserByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	federationHost, err := forgefed.GetFederationHost(ctx, federatedUser.FederationHostID)
+	if err != nil {
+		return err
+	}
+
+	hostURL := federationHost.AsURL()
+	return deliveryQueue.Push(deliveryQueueItem{
+		InboxURL: hostURL.JoinPath(federatedUser.InboxPath).String(),
+		Doer:     doer,
+		Payload:  payload,
+	})
 }
 
 func NotifyActivityPubFollowers(ctx context.Context, actions []activities_model.Action) error {

@@ -6,6 +6,7 @@ package explore
 import (
 	"bytes"
 	"net/http"
+	"strings"
 
 	"forgejo.org/models/db"
 	user_model "forgejo.org/models/user"
@@ -17,6 +18,7 @@ import (
 	"forgejo.org/modules/sitemap"
 	"forgejo.org/modules/structs"
 	"forgejo.org/services/context"
+	"forgejo.org/services/federation"
 )
 
 const (
@@ -79,6 +81,12 @@ func RenderUserSearch(ctx *context.Context, opts *user_model.SearchUserOptions, 
 		if err != nil {
 			ctx.ServerError("SearchUsers", err)
 			return
+		}
+		if count == 0 && setting.Federation.Enabled && (strings.Contains(opts.Keyword, "@") || strings.HasPrefix(opts.Keyword, "http://") || strings.HasPrefix(opts.Keyword, "https://")) {
+			if remoteUser, resolveErr := federation.ResolveRemoteUserHandle(ctx, opts.Keyword); resolveErr == nil && remoteUser != nil {
+				users = []*user_model.User{remoteUser}
+				count = 1
+			}
 		}
 	}
 	if isSitemap {

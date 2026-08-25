@@ -257,10 +257,15 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.Cont
 				return
 			}
 			if !ctx.Doer.IsActive || ctx.Doer.ProhibitLogin {
-				log.Info("Failed authentication attempt for %s from %s", ctx.Doer.Name, ctx.RemoteAddr())
-				ctx.Data["Title"] = ctx.Tr("auth.prohibit_login")
-				ctx.HTML(http.StatusOK, "user/auth/prohibit_login")
-				return
+				// Federated (ActivityPub) users are permanently inactive by design:
+				// they authenticate via HTTP signatures or scoped access tokens,
+				// never via password.
+				if !(ctx.Doer.IsActivityPub() && !ctx.Authentication.IsPasswordAuthentication()) {
+					log.Info("Failed authentication attempt for %s from %s", ctx.Doer.Name, ctx.RemoteAddr())
+					ctx.Data["Title"] = ctx.Tr("auth.prohibit_login")
+					ctx.HTML(http.StatusOK, "user/auth/prohibit_login")
+					return
+				}
 			}
 
 			if ctx.Doer.MustChangePassword {
@@ -1189,6 +1194,10 @@ func registerRoutes(m *web.Route) {
 		m.Post("/create", web.Bind(forms.CreateRepoForm{}), repo.CreatePost)
 		m.Get("/migrate", repo.Migrate)
 		m.Post("/migrate", web.Bind(forms.MigrateRepoForm{}), repo.MigratePost)
+		if setting.Federation.Enabled {
+			m.Get("/federated-mirror", repo.FederatedMirror)
+			m.Post("/federated-mirror", web.Bind(forms.FederatedMirrorForm{}), repo.FederatedMirrorPost)
+		}
 		if !setting.Repository.DisableForks {
 			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), reqRepoCodeReader, repo.ForkByID)
 		}

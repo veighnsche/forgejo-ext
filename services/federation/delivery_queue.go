@@ -8,12 +8,14 @@ import (
 	"io"
 	"net/url"
 
+	"forgejo.org/models/forgefed"
 	"forgejo.org/models/user"
 	"forgejo.org/modules/activitypub"
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/process"
 	"forgejo.org/modules/queue"
+	"forgejo.org/modules/setting"
 )
 
 type deliveryQueueItem struct {
@@ -59,6 +61,16 @@ func deliverToInbox(item deliveryQueueItem) error {
 	inboxURL, err := url.Parse(item.InboxURL)
 	if err != nil {
 		return fmt.Errorf("invalid delivery item inbox URL: %w", err)
+	}
+	if !setting.FederationHostAllowed(inboxURL.Host) {
+		return fmt.Errorf("delivery target host %q is not allowed by the federation host policy", inboxURL.Host)
+	}
+
+	// Operator-blocked hosts never receive deliveries.
+	if blocked, err := forgefed.IsFederationHostBlocked(ctx, inboxURL.Hostname()); err != nil {
+		return err
+	} else if blocked {
+		return fmt.Errorf("delivery target host %q is blocked", inboxURL.Host)
 	}
 
 	apclient, err := clientFactory.WithKeys(ctx, item.Doer, item.Doer.APActorID()+"#main-key", []*url.URL{inboxURL})

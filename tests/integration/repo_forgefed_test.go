@@ -120,7 +120,6 @@ func TestForgefedRepositoryCreateUserInvalid(t *testing.T) {
 
 func TestForgefedRepositoryFindHostsAndUsers(t *testing.T) {
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
-	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, false)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
 
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {

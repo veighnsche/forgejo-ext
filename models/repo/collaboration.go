@@ -5,6 +5,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"forgejo.org/models/db"
@@ -15,6 +16,10 @@ import (
 
 	"xorm.io/builder"
 )
+
+// ErrCollaboratorReadOnly is returned when attempting to grant write access
+// to a federated collaborator, which is read-only for now.
+var ErrCollaboratorReadOnly = errors.New("federated collaborators are read-only")
 
 // Collaboration represent the relation between an individual and a repository.
 type Collaboration struct {
@@ -103,6 +108,14 @@ func ChangeCollaborationAccessMode(ctx context.Context, repo *Repository, uid in
 	// collaboration, at most it is a repository admin.
 	if mode <= perm.AccessModeNone || mode >= perm.AccessModeOwner {
 		return nil
+	}
+
+	// Federated collaborators are read-only: they authenticate through HTTP
+	// signatures only and write federation (push, PRs) is not implemented yet.
+	if mode > perm.AccessModeRead {
+		if collaborator, err := user_model.GetUserByID(ctx, uid); err == nil && collaborator.IsActivityPub() {
+			return ErrCollaboratorReadOnly
+		}
 	}
 
 	return db.WithTx(ctx, func(ctx context.Context) error {

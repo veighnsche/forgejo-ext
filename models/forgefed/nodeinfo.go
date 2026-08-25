@@ -89,6 +89,7 @@ func (node NodeInfoWellKnown) Validate() []string {
 // swagger:model
 type NodeInfo struct {
 	SoftwareName SoftwareNameType
+	Version      string
 }
 
 func NodeInfoUnmarshalJSON(data []byte) (NodeInfo, error) {
@@ -98,8 +99,10 @@ func NodeInfoUnmarshalJSON(data []byte) (NodeInfo, error) {
 		return NodeInfo{}, err
 	}
 	source := string(val.GetStringBytes("software", "name"))
+	version := string(val.GetStringBytes("software", "version"))
 	result := NodeInfo{}
 	result.SoftwareName = SoftwareNameType(source)
+	result.Version = version
 	return result, nil
 }
 
@@ -122,4 +125,25 @@ func (node NodeInfo) Validate() []string {
 	result = append(result, validation.ValidateOneOf(node.SoftwareName, KnownSourceTypes, "node.SoftwareName")...)
 
 	return result
+}
+
+// IsForge returns true when the remote instance is a forge speaking the
+// ForgeFed vocabulary (Forgejo or Gitea) and can therefore process
+// repository-level activities such as Like (star) or repository follows.
+func (node NodeInfo) IsForge() bool {
+	return node.SoftwareName == ForgejoSourceType || node.SoftwareName == GiteaSourceType
+}
+
+// IsForgejo returns true when the remote instance is a Forgejo instance.
+func (node NodeInfo) IsForgejo() bool {
+	return node.SoftwareName == ForgejoSourceType
+}
+
+// SupportsRepositoryActivities reports whether repository-scoped ForgeFed
+// activities should be sent to the remote host. Mastodon, GoToSocial and
+// other microblogging servers do not understand the ForgeFed vocabulary, so
+// repository-level activities are only emitted for forge peers. Person-level
+// activities (follows, notes) remain interoperable across the whole fediverse.
+func (node NodeInfo) SupportsRepositoryActivities() bool {
+	return node.IsForge()
 }

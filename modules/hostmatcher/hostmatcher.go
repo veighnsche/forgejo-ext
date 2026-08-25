@@ -26,7 +26,8 @@ type HostMatchList struct {
 // MatchBuiltinExternal A valid non-private unicast IP, all hosts on public internet are matched
 const MatchBuiltinExternal = "external"
 
-// MatchBuiltinPrivate RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), RFC 4193 (FC00::/7), and RFC 6598 (100.64.0.0/10). Also called LAN/Intranet.
+// MatchBuiltinPrivate RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), RFC 4193 (FC00::/7), RFC 6598 (CGNAT 100.64.0.0/10),
+// link-local ranges, cloud metadata and tunneling ranges. Also called LAN/Intranet.
 const MatchBuiltinPrivate = "private"
 
 // MatchBuiltinLoopback 127.0.0.0/8 for IPv4 and ::1/128 for IPv6, localhost is included.
@@ -36,6 +37,33 @@ const MatchBuiltinLoopback = "loopback"
 var cgNAT = net.IPNet{
 	IP:   net.IPv4(100, 64, 0, 0),
 	Mask: net.IPv4Mask(255, 192, 0, 0),
+}
+
+// azureWireServer is the Azure fabric metadata endpoint, 168.63.129.16/32,
+// reachable from every Azure VM.
+var azureWireServer = net.IPNet{
+	IP:   net.IPv4(168, 63, 129, 16),
+	Mask: net.IPv4Mask(255, 255, 255, 255),
+}
+
+var (
+	// NAT64 well-known prefix 64:ff9b::/96 (RFC 6052): embeds arbitrary
+	// IPv4 addresses, including internal ones such as cloud metadata endpoints.
+	nat64 = mustParseCIDR("64:ff9b::/96")
+	// Teredo tunneling prefix 2001::/32 (RFC 4380).
+	teredo = mustParseCIDR("2001::/32")
+	// 6to4 tunneling prefix 2002::/16 (RFC 3056): embeds arbitrary IPv4 addresses.
+	sixToFour = mustParseCIDR("2002::/16")
+	// Benchmarking range 198.18.0.0/15 (RFC 2544), sometimes used by internal gear.
+	benchmarking = mustParseCIDR("198.18.0.0/15")
+)
+
+func mustParseCIDR(s string) *net.IPNet {
+	_, ipNet, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(err)
+	}
+	return ipNet
 }
 
 func isBuiltin(s string) bool {
@@ -133,7 +161,11 @@ func (hl *HostMatchList) checkIP(ip net.IP) bool {
 }
 
 func isPrivate(ip net.IP) bool {
-	return ip.IsPrivate() || cgNAT.Contains(ip)
+	return ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsMulticast() || ip.IsUnspecified() || ip.Equal(net.IPv4bcast) ||
+		cgNAT.Contains(ip) || azureWireServer.Contains(ip) ||
+		nat64.Contains(ip) || teredo.Contains(ip) || sixToFour.Contains(ip) ||
+		benchmarking.Contains(ip)
 }
 
 // MatchHostName checks if the host matches an allow/deny(block) list

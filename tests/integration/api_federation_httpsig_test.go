@@ -87,13 +87,12 @@ func TestFederationHttpSigValidation(t *testing.T) {
 			assert.True(t, user.PublicKey.Valid)
 		})
 
-		// Disable signature validation
-		defer test.MockVariableValue(&setting.Federation.SignatureEnforced, false)()
-
-		// Unsigned request
-		t.Run("SignatureValidationDisabled", func(t *testing.T) {
+		// Signature validation is always enforced: unsigned requests are
+		// rejected even when they target public actors.
+		t.Run("SignatureValidationAlwaysEnforced", func(t *testing.T) {
 			req := NewRequest(t, "GET", userURL)
-			MakeRequest(t, req, http.StatusOK)
+			resp := MakeRequest(t, req, http.StatusBadRequest)
+			assert.Contains(t, resp.Body.String(), "request signature verification failed")
 		})
 	})
 }

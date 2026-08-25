@@ -154,6 +154,8 @@ func httpBase(ctx *context.Context) *serviceHandler {
 		}
 
 		context.CheckRepoScopedToken(ctx, repo, auth_model.GetScopeLevelFromAccessMode(accessMode))
+
+		context.CheckRepoScopedToken(ctx, repo, auth_model.GetScopeLevelFromAccessMode(accessMode))
 		if ctx.Written() {
 			return nil
 		}
@@ -171,8 +173,18 @@ func httpBase(ctx *context.Context) *serviceHandler {
 		}
 
 		if !ctx.Doer.IsActive || ctx.Doer.ProhibitLogin {
-			ctx.PlainText(http.StatusForbidden, "Your account is disabled.")
-			return nil
+			// Federated (ActivityPub) users are permanently inactive by design:
+			// they never use a password, but may clone read-only private
+			// repositories using a scoped access token (see the federated
+			// collaborator token endpoint).
+			if !ctx.Doer.IsActivityPub() {
+				ctx.PlainText(http.StatusForbidden, "Your account is disabled.")
+				return nil
+			}
+			if ctx.Authentication.IsPasswordAuthentication() {
+				ctx.PlainText(http.StatusForbidden, "Federated accounts can only be used with an access token.")
+				return nil
+			}
 		}
 
 		environ = []string{
@@ -210,6 +222,10 @@ func httpBase(ctx *context.Context) *serviceHandler {
 				environ = append(environ, fmt.Sprintf("%s=%d", repo_module.EnvActionPerm, p.AccessMode))
 			} else {
 				p, err := access_model.GetUserRepoPermission(ctx, repo, ctx.Doer)
+				if err != nil {
+					ctx.ServerError("GetUserRepoPermission", err)
+					return nil
+				}
 				if err != nil {
 					ctx.ServerError("GetUserRepoPermission", err)
 					return nil

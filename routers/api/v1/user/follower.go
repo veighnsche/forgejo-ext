@@ -304,8 +304,70 @@ func ActivityPubFollow(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*api.APRemoteFollowOption)
 
-	if err := federation.FollowRemoteActor(ctx, ctx.Doer(), form.Target); err != nil {
+	if err := federation.FollowRemoteActor(ctx.Base, ctx.Doer(), form.Target); err != nil {
 		ctx.Error(http.StatusInternalServerError, "federation.FollowRemoteActor", err)
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// ActivityPubUnfollow unfollows a remote activitypub account by sending an
+// Undo(Follow) activity to its inbox. Mirror of ActivityPubFollow.
+func ActivityPubUnfollow(ctx *context.APIContext) {
+	// swagger:operation POST /user/activitypub/unfollow user userCurrentActivityPubUnfollow
+	// ---
+	// summary: Unfollow a remote activitypub account
+	// parameters:
+	// - name: body
+	//   in: body
+	//   schema:
+	//     "$ref": "#/definitions/APRemoteFollowOption"
+	// responses:
+	//   "204":
+	//     "$ref": "#/responses/empty"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+
+	form := web.GetForm(ctx).(*api.APRemoteFollowOption)
+
+	if err := federation.UnfollowRemoteActor(ctx.Base, ctx.Doer(), form.Target); err != nil {
+		ctx.Error(http.StatusInternalServerError, "federation.UnfollowRemoteActor", err)
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// ActivityPubFollowRepository follows a remote repository actor by sending a
+// Follow activity to its inbox.
+func ActivityPubFollowRepository(ctx *context.APIContext) {
+	// swagger:operation POST /user/activitypub/follow-repository user userCurrentActivityPubFollowRepository
+	// ---
+	// summary: Follow a remote activitypub repository
+	// parameters:
+	// - name: body
+	//   in: body
+	//   schema:
+	//     "$ref": "#/definitions/APRemoteFollowOption"
+	// responses:
+	//   "204":
+	//     "$ref": "#/responses/empty"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+
+	form := web.GetForm(ctx).(*api.APRemoteFollowOption)
+
+	if err := federation.FollowRemoteRepository(ctx, ctx.Doer(), form.Target); err != nil {
+		ctx.Error(http.StatusInternalServerError, "federation.FollowRemoteRepository", err)
 		return
 	}
 

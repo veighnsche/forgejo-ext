@@ -4,7 +4,6 @@
 package integration
 
 import (
-	"io"
 	"net/http"
 	"testing"
 
@@ -16,7 +15,6 @@ import (
 	ap "github.com/go-ap/activitypub"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/valyala/fastjson"
 )
 
 func TestActivityPubActor(t *testing.T) {
@@ -49,28 +47,10 @@ func TestActivityPubActor(t *testing.T) {
 	assert.NotNil(t, pubKeyPem)
 	assert.Regexp(t, "^-----BEGIN PUBLIC KEY-----", pubKeyPem)
 
-	t.Run("ActorOutboxEmpty", func(t *testing.T) {
+	t.Run("ActorOutboxUnsignedRejected", func(t *testing.T) {
 		// /inbox and /outbox routes also require signature checks
-		defer test.MockVariableValue(&setting.Federation.SignatureEnforced, false)()
-
 		req := NewRequest(t, "GET", actor.Outbox.GetID().String())
-		resp := MakeRequest(t, req, http.StatusOK)
-
-		body, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
-
-		jsonResp, err := fastjson.ParseBytes(body)
-		require.NoError(t, err)
-
-		outbox := ap.JSONUnmarshalToItem(jsonResp)
-		require.NoError(t, err)
-
-		assert.Equal(t, ap.OrderedCollectionType, outbox.GetType())
-		outboxCollection, ok := outbox.(*ap.OrderedCollection)
-		require.True(t, ok)
-
-		assert.Equal(t, uint(0), outboxCollection.TotalItems)
-		assert.Nil(t, outboxCollection.First)
-		assert.Nil(t, outboxCollection.Last)
+		resp := MakeRequest(t, req, http.StatusBadRequest)
+		assert.Contains(t, resp.Body.String(), "request signature verification failed")
 	})
 }

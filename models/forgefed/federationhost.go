@@ -23,6 +23,7 @@ type FederationHost struct {
 	NodeInfo       NodeInfo               `xorm:"extends NOT NULL"`
 	HostSchema     string                 `xorm:"NOT NULL DEFAULT 'https'"`
 	LatestActivity time.Time              `xorm:"NOT NULL"`
+	Blocked        bool                   `xorm:"NOT NULL DEFAULT FALSE"`
 	KeyID          sql.NullString         `xorm:"key_id UNIQUE"`
 	PublicKey      sql.Null[sql.RawBytes] `xorm:"BLOB"`
 	Created        timeutil.TimeStamp     `xorm:"created"`

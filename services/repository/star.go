@@ -17,8 +17,19 @@ func StarRepoAndSendLikeActivities(ctx context.Context, doer user.User, repoID i
 		return err
 	}
 
-	if star && setting.Federation.Enabled {
+	if !setting.Federation.Enabled {
+		return nil
+	}
+
+	// When a repository is starred we announce it with a Like activity;
+	// when it is unstarred we send an Undo(Like) activity so distant
+	// instances can keep their star count consistent.
+	if star {
 		if err := federation.SendLikeActivities(ctx, doer, repoID); err != nil {
+			return err
+		}
+	} else {
+		if err := federation.SendUndoLikeActivities(ctx, doer, repoID); err != nil {
 			return err
 		}
 	}

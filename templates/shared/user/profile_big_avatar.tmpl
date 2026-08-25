@@ -47,6 +47,18 @@
 	{{end}}
 	<div class="extra content tw-break-anywhere">
 		<ul>
+			{{if .ContextUser.IsActivityPub}}
+				<li>
+					{{svg "octicon-globe"}}
+					<span class="tw-flex-1">
+						{{if and .FederatedUser .FederatedUser.NormalizedOriginalURL}}
+							<a target="_blank" rel="noopener noreferrer me" href="{{.FederatedUser.NormalizedOriginalURL}}">{{.FederatedUser.NormalizedOriginalURL}}</a>
+						{{else}}
+							<span>{{.ContextUser.APActorID}}</span>
+						{{end}}
+					</span>
+				</li>
+			{{end}}
 			{{if .ContextUser.Location}}
 				<li>
 					{{svg "octicon-location"}}

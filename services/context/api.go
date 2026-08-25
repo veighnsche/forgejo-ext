@@ -60,6 +60,11 @@ type APIContext struct {
 	reducer    authz.AuthorizationReducer
 
 	requiredScopeCategories []auth_model.AccessTokenScopeCategory
+
+	// federationPrincipal is the remote identity verified via ActivityPub
+	// HTTP signatures. It is set by ReqHTTPSignature and read via
+	// FederationPrincipal().
+	federationPrincipal *FederationPrincipal
 }
 
 func init() {

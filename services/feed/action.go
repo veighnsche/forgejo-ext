@@ -446,6 +446,13 @@ func (a *actionNotifier) PushCommits(ctx context.Context, pusher *user_model.Use
 		RefName:   opts.RefFullName.String(),
 		IsPrivate: repo.IsPrivate,
 	})
+
+	// Federate the push: publish a ForgeFed Push activity (authored by the
+	// repository actor) to the repository's federated followers so remote pull
+	// mirrors can sync immediately instead of waiting for the next schedule.
+	if err := federation_service.SendRepositoryPushActivity(ctx, pusher, repo, opts, commits); err != nil {
+		log.Warn("Unable to federate push of %s to %s: %v", opts.RefFullName, repo.FullName(), err)
+	}
 }
 
 func (a *actionNotifier) CreateRef(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, refFullName git.RefName, refID string) {

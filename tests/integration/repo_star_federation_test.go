@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"forgejo.org/models/forgefed"
 	repo_model "forgejo.org/models/repo"
@@ -17,15 +18,20 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/validation"
+	"forgejo.org/services/federation"
 	"forgejo.org/tests"
 
 	ap "github.com/go-ap/activitypub"
+	"github.com/stretchr/testify/require"
 )
 
 func TestActivityPubRepoFollowing(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
+	mockFederationAllowAllHosts(t)
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
+
+	federation.Init()
 
 	mock := test.NewFederationServerMock()
 	federatedSrv := mock.DistantServer(t)
@@ -61,21 +67,18 @@ func TestActivityPubRepoFollowing(t *testing.T) {
 
 		session.MakeRequest(t, req, http.StatusOK)
 
-		// Verify distant server received a like activity
-		like := fm.ForgeLike{}
-		err := like.UnmarshalJSON([]byte(mock.LastPost))
-		if err != nil {
-			t.Errorf("Error unmarshalling ForgeLike: %q", err)
-		}
-		if isValid, err := validation.IsValid(like); !isValid {
-			t.Errorf("ForgeLike is not valid: %q", err)
-		}
-		activityType := like.Type
-		object := like.Object.GetLink().String()
-		isLikeType := activityType == ap.LikeType
-		isCorrectObject := strings.HasSuffix(object, "/api/v1/activitypub/repository-id/1")
-		if !isLikeType || !isCorrectObject {
-			t.Error("Activity is not a like for this repo")
-		}
+		// Delivery is asynchronous via the delivery queue: wait for the
+		// distant server to receive the Like activity.
+		require.Eventually(t, func() bool {
+			like := fm.ForgeLike{}
+			if err := like.UnmarshalJSON([]byte(mock.LastPost)); err != nil {
+				return false
+			}
+			if isValid, _ := validation.IsValid(like); !isValid {
+				return false
+			}
+			return like.Type == ap.LikeType &&
+				strings.HasSuffix(like.Object.GetLink().String(), "/api/v1/activitypub/repository-id/1")
+		}, 5*time.Second, 100*time.Millisecond, "distant server did not receive a Like activity")
 	})
 }

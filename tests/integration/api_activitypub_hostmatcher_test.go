@@ -22,7 +22,7 @@ import (
 
 func TestActivityPubHostMatcher(t *testing.T) {
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
-	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, true)()
+	mockFederationAllowAllHosts(t)
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, false)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
 

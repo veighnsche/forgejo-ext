@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"forgejo.org/models/activities"
+	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/activitypub"
 	"forgejo.org/modules/forgefed"
 	"forgejo.org/modules/log"
@@ -22,6 +23,10 @@ import (
 
 // Person function returns the Person actor for a user
 func Person(ctx *context.APIContext) {
+	if !requirePersonAPVisibility(ctx) {
+		return
+	}
+
 	// swagger:operation GET /activitypub/user-id/{user-id} activitypub activitypubPerson
 	// ---
 	// summary: Returns the Person actor for a user
@@ -58,6 +63,9 @@ func Person(ctx *context.APIContext) {
 
 // PersonInbox function handles the incoming data for a user inbox
 func PersonInbox(ctx *context.APIContext) {
+	if !requirePersonAPVisibility(ctx) {
+		return
+	}
 	// swagger:operation POST /activitypub/user-id/{user-id}/inbox activitypub activitypubPersonInbox
 	// ---
 	// summary: Send to the inbox
@@ -76,6 +84,11 @@ func PersonInbox(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx)
 	activity := form.(*ap.Activity)
+	if err := federation.VerifyPersonActivityActor(ctx, ctx.FederationPrincipal(), activity); err != nil {
+		log.Warn("PersonInbox: %v", err)
+		ctx.Error(http.StatusForbidden, "PersonInbox", "activity actor does not match the verified signature")
+		return
+	}
 	result, err := federation.ProcessPersonInbox(ctx, ctx.User(), activity)
 	if err != nil {
 		ctx.Error(federation.HTTPStatus(err), "PersonInbox", err)
@@ -86,6 +99,9 @@ func PersonInbox(ctx *context.APIContext) {
 
 // PersonFeed returns the recorded activities in the user's feed
 func PersonFeed(ctx *context.APIContext) {
+	if !requirePersonAPVisibility(ctx) {
+		return
+	}
 	// swagger:operation GET /activitypub/user-id/{user-id}/outbox activitypub activitypubPersonFeed
 	// ---
 	// summary: List the user's recorded activity
@@ -124,6 +140,63 @@ func PersonFeed(ctx *context.APIContext) {
 	}
 
 	binary, err := jsonld.WithContext(jsonld.IRI(ap.ActivityBaseURI), jsonld.IRI(ap.SecurityContextURI)).Marshal(feed)
+	if err != nil {
+		ctx.ServerError("MarshalJSON", err)
+		return
+	}
+
+	ctx.Resp.Header().Add("Content-Type", activitypub.ActivityStreamsContentType)
+	ctx.Resp.WriteHeader(http.StatusOK)
+	if _, err = ctx.Resp.Write(binary); err != nil {
+		log.Error("write to resp err: %v", err)
+	}
+	if _, err = ctx.Resp.Write(binary); err != nil {
+		log.Error("write to resp err: %v", err)
+	}
+}
+
+// PersonFollowers returns the OrderedCollection of remote actors following
+// this local user (federated followers).
+func PersonFollowers(ctx *context.APIContext) {
+	if !requirePersonAPVisibility(ctx) {
+		return
+	}
+	// swagger:operation GET /activitypub/user-id/{user-id}/followers activitypub activitypubPersonFollowers
+	// ---
+	// summary: Returns the followers collection of a Person actor
+	// produces:
+	// - application/ld+json
+	// parameters:
+	// - name: user-id
+	//   in: path
+	//   description: user ID of the user
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/ActivityPub"
+
+	followers, err := user_model.GetFollowersForUser(ctx, ctx.User())
+	if err != nil {
+		ctx.ServerError("GetFollowersForUser", err)
+		return
+	}
+
+	collection := ap.OrderedCollectionNew(ap.IRI(ctx.User().APActorID() + "/followers"))
+	collection.TotalItems = uint(len(followers))
+	for _, follower := range followers {
+		_, federatedUser, err := user_model.GetFederatedUserByUserID(ctx, follower.FollowingUserID)
+		if err != nil {
+			log.Warn("Unable to resolve federated follower %d: %v", follower.FollowingUserID, err)
+			continue
+		}
+		if err := collection.OrderedItems.Append(ap.IRI(federatedUser.NormalizedOriginalURL)); err != nil {
+			ctx.ServerError("OrderedItems.Append", err)
+			return
+		}
+	}
+	binary, err := jsonld.WithContext(jsonld.IRI(ap.ActivityBaseURI)).Marshal(collection)
 	if err != nil {
 		ctx.ServerError("MarshalJSON", err)
 		return
@@ -176,6 +249,9 @@ func getActivity(ctx *context.APIContext, id int64) (*forgefed.ForgeUserActivity
 
 // PersonActivity returns a user's given activity
 func PersonActivity(ctx *context.APIContext) {
+	if !requirePersonAPVisibility(ctx) {
+		return
+	}
 	// swagger:operation GET /activitypub/user-id/{user-id}/activities/{activity-id}/activity activitypub activitypubPersonActivity
 	// ---
 	// summary: Get a specific activity of the user
@@ -216,6 +292,9 @@ func PersonActivity(ctx *context.APIContext) {
 
 // PersonActivity returns the Object part of a user's given activity
 func PersonActivityNote(ctx *context.APIContext) {
+	if !requirePersonAPVisibility(ctx) {
+		return
+	}
 	// swagger:operation GET /activitypub/user-id/{user-id}/activities/{activity-id} activitypub activitypubPersonActivityNote
 	// ---
 	// summary: Get a specific activity object of the user
@@ -252,4 +331,22 @@ func PersonActivityNote(ctx *context.APIContext) {
 	if _, err = ctx.Resp.Write(binary); err != nil {
 		log.Error("write to resp err: %v", err)
 	}
+}
+
+// requirePersonAPVisibility enforces the profile visibility of the user on
+// the person ActivityPub endpoints: public profiles are served to any
+// verified federation peer, limited/private profiles only to viewers who may
+// see them (signed-in local users and verified federation principals are
+// treated as viewers). Users the requester cannot see are reported as not
+// found, to avoid leaking their existence.
+func requirePersonAPVisibility(ctx *context.APIContext) bool {
+	viewer := ctx.Doer()
+	if principal := ctx.FederationPrincipal(); principal != nil && principal.User != nil {
+		viewer = principal.User
+	}
+	if user_model.IsUserVisibleToViewer(ctx, ctx.User(), viewer) {
+		return true
+	}
+	ctx.NotFound()
+	return false
 }

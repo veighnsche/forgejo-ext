@@ -53,7 +53,7 @@ func WebfingerQuery(ctx *context.Context) {
 			ctx.Error(http.StatusBadRequest)
 			return
 		}
-		if parts[1] != appURL.Host {
+		if !strings.EqualFold(parts[1], appURL.Host) && !strings.EqualFold(parts[1], appURL.Hostname()) {
 			ctx.Error(http.StatusBadRequest)
 			return
 		}
@@ -90,7 +90,7 @@ func WebfingerQuery(ctx *context.Context) {
 			err = user_model.ErrUserNotExist{}
 		}
 	case "https", "http":
-		if resource.Host != appURL.Host {
+		if !strings.EqualFold(resource.Host, appURL.Host) && !strings.EqualFold(resource.Host, appURL.Hostname()) {
 			ctx.Error(http.StatusBadRequest)
 			return
 		}

@@ -538,6 +538,7 @@ func Routes() *web.Route {
 						m.Get("", activitypub.Person)
 						m.Post("/inbox", bind(ap.Activity{}), activitypub.PersonInbox)
 						m.Get("/outbox", activitypub.PersonFeed)
+						m.Get("/followers", activitypub.PersonFollowers)
 						m.Group("/activities/{activity-id}", func() {
 							m.Get("", activitypub.PersonActivityNote)
 							m.Get("/activity", activitypub.PersonActivity)
@@ -547,6 +548,7 @@ func Routes() *web.Route {
 						m.Get("", activitypub.Repository)
 						m.Post("/inbox", bind(ap.Activity{}), activitypub.RepositoryInbox)
 						m.Get("/outbox", activitypub.RepositoryOutbox)
+						m.Get("/followers", activitypub.RepositoryFollowers)
 					}, context.RepositoryIDAssignmentAPI())
 				}, activitypub.ReqHTTPSignature())
 			}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryActivityPub))
@@ -691,9 +693,10 @@ func Routes() *web.Route {
 			if setting.Federation.Enabled {
 				m.Group("/activitypub", func() {
 					m.Post("/follow", bind(api.APRemoteFollowOption{}), user.ActivityPubFollow)
+					m.Post("/unfollow", bind(api.APRemoteFollowOption{}), user.ActivityPubUnfollow)
+					m.Post("/follow-repository", bind(api.APRemoteFollowOption{}), user.ActivityPubFollowRepository)
 				})
 			}
-
 			// (admin:public_key scope)
 			m.Group("/keys", func() {
 				m.Combo("").Get(user.ListMyPublicKeys).
@@ -787,6 +790,10 @@ func Routes() *web.Route {
 			// (repo scope)
 			m.Post("/migrate", reqToken(), bind(api.MigrateRepoOptions{}), repo.Migrate)
 
+			if setting.Federation.Enabled {
+				m.Post("/federated-mirror", reqToken(), bind(api.FederatedMirrorOption{}), repo.CreateFederatedMirror)
+			}
+
 			m.Group("/{username}/{reponame}", func() {
 				m.Get("/compare/*", reqRepoReader(unit.TypeCode), context.ReferencesGitRepo(true), repo.CompareDiff)
 
@@ -830,6 +837,7 @@ func Routes() *web.Route {
 							Put(reqAdmin(), bind(api.AddCollaboratorOption{}), repo.AddCollaborator).
 							Delete(reqAdmin(), repo.DeleteCollaborator)
 						m.Get("/permission", repo.GetRepoPermissions)
+						m.Post("/token", reqAdmin(), repo.CreateFederatedCollaboratorToken)
 					})
 				}, reqToken())
 				if setting.Repository.EnableFlags {
@@ -975,6 +983,9 @@ func Routes() *web.Route {
 				}, reqRepoReader(unit.TypeReleases))
 				m.Post("/mirror-sync", reqToken(), reqRepoWriter(unit.TypeCode), mustNotBeArchived(), context.EnforceQuotaAPI(quota_model.LimitSubjectSizeGitAll, context.QuotaTargetRepo), repo.MirrorSync)
 				m.Post("/push_mirrors-sync", reqAdmin(), reqToken(), mustNotBeArchived(), repo.PushMirrorSync)
+				if setting.Federation.Enabled {
+					m.Post("/federated-push-mirror", reqAdmin(), reqToken(), mustNotBeArchived(), bind(api.FederatedPushMirrorOption{}), repo.CreateFederatedPushMirror)
+				}
 				m.Group("/push_mirrors", func() {
 					m.Combo("").Get(repo.ListPushMirrors).
 						Post(mustNotBeArchived(), bind(api.CreatePushMirrorOption{}), repo.AddPushMirror)
@@ -1334,6 +1345,13 @@ func Routes() *web.Route {
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryOrganization), orgTeamAssignment, reqToken(), reqTeamMembership(), checkTokenPublicOnly())
 
 		m.Group("/admin", func() {
+			m.Group("/cron", func() {
+				m.Get("", admin.ListCronTasks)
+				m.Post("/{task}", admin.PostCronTask)
+			})
+			// Federation host moderation: operators can block a host so it is
+			// never contacted, inbound or outbound.
+			m.Post("/federation/hosts/{id}/block", admin.SetFederationHostBlocked)
 			m.Group("/cron", func() {
 				m.Get("", admin.ListCronTasks)
 				m.Post("/{task}", admin.PostCronTask)

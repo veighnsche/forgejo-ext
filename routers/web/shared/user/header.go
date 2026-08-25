@@ -42,6 +42,11 @@ func PrepareContextForProfileBigAvatar(ctx *context.Context) {
 	ctx.Data["IsModerationEnabled"] = setting.Moderation.Enabled
 	ctx.Data["IsBlocked"] = ctx.Doer != nil && user_model.IsBlocked(ctx, ctx.Doer.ID, ctx.ContextUser.ID)
 	ctx.Data["IsFollowing"] = ctx.Doer != nil && user_model.IsFollowing(ctx, ctx.Doer.ID, ctx.ContextUser.ID)
+	if ctx.ContextUser.IsActivityPub() {
+		if _, federatedUser, err := user_model.GetFederatedUserByUserID(ctx, ctx.ContextUser.ID); err == nil {
+			ctx.Data["FederatedUser"] = federatedUser
+		}
+	}
 	ctx.Data["ShowUserEmail"] = setting.UI.ShowUserEmail && ctx.ContextUser.Email != "" && ctx.IsSigned && !ctx.ContextUser.KeepEmailPrivate
 	if setting.Service.UserLocationMapURL != "" {
 		ctx.Data["ContextUserLocationMapURL"] = setting.Service.UserLocationMapURL + url.QueryEscape(ctx.ContextUser.Location)

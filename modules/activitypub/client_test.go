@@ -171,14 +171,15 @@ func TestActivityPubSignedPost(t *testing.T) {
 }
 
 func TestActivityPubRedirect(t *testing.T) {
+	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
 	require.NoError(t, unittest.PrepareTestDatabase())
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 	pubID := "https://example.com/pubID"
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		statusCode, _ := strconv.ParseInt(r.URL.Query()["code"][0], 10, 32)
-		w.WriteHeader(int(statusCode))
 		w.Header().Add("Location", "/evil-redirect")
+		w.WriteHeader(int(statusCode))
 		w.Write([]byte("/evil-redirect"))
 	}))
 
@@ -191,7 +192,7 @@ func TestActivityPubRedirect(t *testing.T) {
 
 	// try each HTTP status code (encoded in a query param for convenience)
 	// to ensure all redirects result in an error
-	for _, code := range []int{http.StatusMovedPermanently, http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect, http.StatusMultipleChoices, http.StatusNotModified} {
+	for _, code := range []int{http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
 		_, err = c.Get(fmt.Sprintf("%s?code=%d", srv.URL, code))
 		require.Error(t, err)
 	}

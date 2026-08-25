@@ -6,8 +6,10 @@ package repo
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
+	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
@@ -179,8 +181,16 @@ func AddCollaborator(ctx *context.APIContext) {
 		return
 	}
 
-	if !collaborator.IsActive {
+	if !collaborator.IsActive && !collaborator.IsActivityPub() {
 		ctx.Error(http.StatusInternalServerError, "InactiveCollaborator", errors.New("collaborator's account is inactive"))
+		return
+	}
+
+	// Federated collaborators are read-only for now: they authenticate
+	// through HTTP signatures only, and write federation (push, PRs) is not
+	// implemented yet.
+	if collaborator.IsActivityPub() && form.Permission != nil && perm.ParseAccessMode(*form.Permission) > perm.AccessModeRead {
+		ctx.Error(http.StatusUnprocessableEntity, "FederatedCollaboratorWrite", errors.New("federated collaborators are read-only"))
 		return
 	}
 
@@ -377,4 +387,94 @@ func GetAssignees(ctx *context.APIContext) {
 		return
 	}
 	ctx.JSON(http.StatusOK, convert.ToUsers(ctx, ctx.Doer(), assignees))
+}
+
+// CreateFederatedCollaboratorToken creates a read-only access token for a
+// federated (ActivityPub) collaborator of a repository. The token can be used
+// for git clone over HTTPS; it is shown only once, in the response. Federated
+// users cannot log in, so this is the only way they can access repository
+// content over the native git protocol.
+func CreateFederatedCollaboratorToken(ctx *context.APIContext) {
+	// swagger:operation POST /repos/{owner}/{repo}/collaborators/{collaborator}/token repository repoCreateFederatedCollaboratorToken
+	// ---
+	// summary: Create a read-only token for a federated collaborator
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: owner
+	//   in: path
+	//   description: owner of the repo
+	//   type: string
+	//   required: true
+	// - name: repo
+	//   in: path
+	//   description: name of the repo
+	//   type: string
+	//   required: true
+	// - name: collaborator
+	//   in: path
+	//   description: username of the federated collaborator
+	//   type: string
+	//   required: true
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/AccessToken"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	collaborator, err := user_model.GetUserByName(ctx, ctx.Params(":collaborator"))
+	if err != nil {
+		if user_model.IsErrUserNotExist(err) {
+			ctx.Error(http.StatusUnprocessableEntity, "", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
+		}
+		return
+	}
+
+	if !collaborator.IsActivityPub() {
+		ctx.Error(http.StatusUnprocessableEntity, "NotAFederatedCollaborator", "token endpoint is only for federated collaborators")
+		return
+	}
+
+	isCollaborator, err := repo_model.IsCollaborator(ctx, ctx.Repo().Repository.ID, collaborator.ID)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "IsCollaborator", err)
+		return
+	}
+	if !isCollaborator {
+		ctx.Error(http.StatusUnprocessableEntity, "NotACollaborator", "user is not a collaborator of this repository")
+		return
+	}
+
+	// A single, well-named read-only repository-scoped token.
+	t := &auth_model.AccessToken{
+		UID:              collaborator.ID,
+		Name:             fmt.Sprintf("federated-collaborator-%s", ctx.Repo().Repository.Name),
+		Scope:            auth_model.AccessTokenScopeReadRepository,
+		ResourceAllRepos: true,
+	}
+	exist, err := auth_model.AccessTokenByNameExists(ctx, t)
+	if err != nil {
+		ctx.InternalServerError(err)
+		return
+	}
+	if exist {
+		ctx.Error(http.StatusConflict, "AccessTokenByNameExists", "a token for this federated collaborator already exists; delete it first")
+		return
+	}
+
+	if err := auth_model.NewAccessToken(ctx, t); err != nil {
+		ctx.Error(http.StatusInternalServerError, "NewAccessToken", err)
+		return
+	}
+
+	// The token is only returned once.
+	ctx.JSON(http.StatusCreated, map[string]string{
+		"name":  t.Name,
+		"token": t.Token,
+		"sha1":  t.Token,
+	})
 }
