@@ -182,10 +182,53 @@ func TestUpload(t *testing.T) {
 	})
 
 	t.Run("CommentReplies", func(t *testing.T) {
-		// A reply carries its parent's foreign index in Meta["ReplyTo"]: a quote-reply
-		// header linking to the parent gets prepended, whether the parent belongs to the
-		// same batch or was inserted by an earlier one.
-		parent := &base.Comment{
+		find := func(issueIndex int64, suffix string) *issues_model.Comment {
+			comments, err := issues_model.FindComments(db.DefaultContext, &issues_model.FindCommentsOptions{
+				IssueID: uploader.issues[issueIndex].ID,
+				Type:    issues_model.CommentTypeComment,
+			})
+			require.NoError(t, err)
+			for _, comment := range comments {
+				if strings.HasSuffix(comment.Content, suffix) {
+					return comment
+				}
+			}
+			require.FailNowf(t, "comment not found", "no comment of issue %d ends with %q", issueIndex, suffix)
+			return nil
+		}
+
+		// Until EnableCommentReplyTo is called, Meta["ReplyTo"] is ignored: replies are
+		// inserted untouched and no comment is tracked for later resolution.
+		rawParent := &base.Comment{
+			IssueIndex:  1,
+			Index:       20,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 13, 58, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 13, 58, 0, 0, time.UTC),
+			Content:     "Raw parent",
+		}
+		rawReply := &base.Comment{
+			IssueIndex:  1,
+			Index:       21,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 13, 59, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 13, 59, 0, 0, time.UTC),
+			Content:     "Raw reply",
+			Meta:        map[string]any{"ReplyTo": int64(20)},
+		}
+		require.NoError(t, uploader.CreateComments(rawParent, rawReply))
+		assert.Equal(t, "Raw reply", find(1, "Raw reply").Content)
+		assert.Nil(t, uploader.commentMap)
+
+		uploader.EnableCommentReplyTo()
+
+		// Once enabled, each reply gets a quote-reply header pointing to its own parent,
+		// whether same or earlier batch; comments inserted before enabling stay untracked.
+		parentA := &base.Comment{
 			IssueIndex:  0,
 			Index:       10,
 			CommentType: "comment",
@@ -206,7 +249,7 @@ func TestUpload(t *testing.T) {
 			Content:     "Same batch reply",
 			Meta:        map[string]any{"ReplyTo": int64(10)},
 		}
-		crossBatchReply := &base.Comment{
+		parentB := &base.Comment{
 			IssueIndex:  1,
 			Index:       12,
 			CommentType: "comment",
@@ -214,36 +257,103 @@ func TestUpload(t *testing.T) {
 			PosterName:  "PatDyn",
 			Created:     time.Date(2025, 8, 7, 14, 2, 0, 0, time.UTC),
 			Updated:     time.Date(2025, 8, 7, 14, 2, 0, 0, time.UTC),
+			Content:     "Cross batch parent",
+		}
+		require.NoError(t, uploader.CreateComments(parentA, sameBatchReply, parentB))
+
+		crossBatchReply := &base.Comment{
+			IssueIndex:  1,
+			Index:       13,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 14, 3, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 3, 0, 0, time.UTC),
 			Content:     "Cross batch reply",
-			Meta:        map[string]any{"ReplyTo": int64(1)}, // "Second Mock Comment" of the previous batch
+			Meta:        map[string]any{"ReplyTo": int64(12)}, // "Cross batch parent", inserted by the previous batch
 		}
-		require.NoError(t, uploader.CreateComments(parent, sameBatchReply, crossBatchReply))
-
-		find := func(issueIndex int64, suffix string) *issues_model.Comment {
-			comments, err := issues_model.FindComments(db.DefaultContext, &issues_model.FindCommentsOptions{
-				IssueID: uploader.issues[issueIndex].ID,
-				Type:    issues_model.CommentTypeComment,
-			})
-			require.NoError(t, err)
-			for _, comment := range comments {
-				if strings.HasSuffix(comment.Content, suffix) {
-					return comment
-				}
-			}
-			require.FailNowf(t, "comment not found", "no comment of issue %d ends with %q", issueIndex, suffix)
-			return nil
+		lateReply := &base.Comment{
+			IssueIndex:  1,
+			Index:       14,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 14, 4, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 4, 0, 0, time.UTC),
+			Content:     "Late reply",
+			Meta:        map[string]any{"ReplyTo": int64(20)}, // "Raw parent", inserted before enabling, untracked
 		}
+		require.NoError(t, uploader.CreateComments(crossBatchReply, lateReply))
 
-		parentComment := find(0, "Same batch parent")
-		assert.Equal(t, "Same batch parent", parentComment.Content)
+		parentCommentA := find(0, "Same batch parent")
+		assert.Equal(t, "Same batch parent", parentCommentA.Content)
 		assert.Equal(t,
-			fmt.Sprintf("@PatDyn wrote in %s/issues/%d#issuecomment-%d:\n> Same batch parent\n\nSame batch reply", repo.HTMLURL(), uploader.issues[0].Index, parentComment.ID),
+			fmt.Sprintf("@PatDyn wrote in %s/issues/%d#issuecomment-%d:\n> Same batch parent\n\nSame batch reply", repo.HTMLURL(), uploader.issues[0].Index, parentCommentA.ID),
 			find(0, "Same batch reply").Content)
 
-		crossBatchParent := find(1, "Second Mock Comment")
+		parentCommentB := find(1, "Cross batch parent")
+		assert.Equal(t, "Cross batch parent", parentCommentB.Content)
 		assert.Equal(t,
-			fmt.Sprintf("@PatDyn wrote in %s/issues/%d#issuecomment-%d:\n> Second Mock Comment\n\nCross batch reply", repo.HTMLURL(), uploader.issues[1].Index, crossBatchParent.ID),
+			fmt.Sprintf("@PatDyn wrote in %s/issues/%d#issuecomment-%d:\n> Cross batch parent\n\nCross batch reply", repo.HTMLURL(), uploader.issues[1].Index, parentCommentB.ID),
 			find(1, "Cross batch reply").Content)
+
+		assert.Equal(t, "Late reply", find(1, "Late reply").Content)
+
+		// A parent posted by a linked user (no OriginalAuthor) is attributed via its local
+		// account; a mapping to a since-deleted user falls back to the Ghost user.
+		uploader.userMap[601] = 2
+		uploader.userMap[602] = unittest.NonexistentID
+		linkedParent := &base.Comment{
+			IssueIndex:  0,
+			Index:       15,
+			CommentType: "comment",
+			PosterID:    601,
+			PosterName:  "linked.user",
+			Created:     time.Date(2025, 8, 7, 14, 5, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 5, 0, 0, time.UTC),
+			Content:     "Linked parent",
+		}
+		ghostParent := &base.Comment{
+			IssueIndex:  0,
+			Index:       16,
+			CommentType: "comment",
+			PosterID:    602,
+			PosterName:  "vanished.user",
+			Created:     time.Date(2025, 8, 7, 14, 6, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 6, 0, 0, time.UTC),
+			Content:     "Ghost parent",
+		}
+		linkedReply := &base.Comment{
+			IssueIndex:  0,
+			Index:       17,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 14, 7, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 7, 0, 0, time.UTC),
+			Content:     "Linked reply",
+			Meta:        map[string]any{"ReplyTo": int64(15)},
+		}
+		ghostReply := &base.Comment{
+			IssueIndex:  0,
+			Index:       18,
+			CommentType: "comment",
+			PosterID:    37243484,
+			PosterName:  "PatDyn",
+			Created:     time.Date(2025, 8, 7, 14, 8, 0, 0, time.UTC),
+			Updated:     time.Date(2025, 8, 7, 14, 8, 0, 0, time.UTC),
+			Content:     "Ghost reply",
+			Meta:        map[string]any{"ReplyTo": int64(16)},
+		}
+		require.NoError(t, uploader.CreateComments(linkedParent, ghostParent, linkedReply, ghostReply))
+
+		linkedUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+		assert.Equal(t,
+			fmt.Sprintf("@%s wrote in %s/issues/%d#issuecomment-%d:\n> Linked parent\n\nLinked reply", linkedUser.Name, repo.HTMLURL(), uploader.issues[0].Index, find(0, "Linked parent").ID),
+			find(0, "Linked reply").Content)
+		assert.Equal(t,
+			fmt.Sprintf("@%s wrote in %s/issues/%d#issuecomment-%d:\n> Ghost parent\n\nGhost reply", user_model.GhostUserName, repo.HTMLURL(), uploader.issues[0].Index, find(0, "Ghost parent").ID),
+			find(0, "Ghost reply").Content)
 	})
 
 	// The mock server does not serve a clonable repository, so the migrated repository is

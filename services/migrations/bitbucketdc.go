@@ -561,6 +561,11 @@ func (d *BitbucketDataCenterDownloader) GetComments(commentable base.Commentable
 	return prCtx.comments, true, nil
 }
 
+// SupportCommentReplyTo return true: replies carry their parent id in Meta["ReplyTo"].
+func (d *BitbucketDataCenterDownloader) SupportCommentReplyTo() bool {
+	return true
+}
+
 // GetReviews returns the reviews (approvals, change requests and inline comments) of a
 // pull request, collected with its activities.
 func (d *BitbucketDataCenterDownloader) GetReviews(reviewable base.Reviewable) ([]*base.Review, error) {

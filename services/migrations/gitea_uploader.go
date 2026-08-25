@@ -72,8 +72,13 @@ func NewGiteaLocalUploader(ctx context.Context, doer *user_model.User, repoOwner
 		prHeadCache: make(map[string]string),
 		userMap:     make(map[int64]int64),
 		prCache:     make(map[int64]*issues_model.PullRequest),
-		commentMap:  make(map[commentKey]migratedComment),
 	}
+}
+
+// EnableCommentReplyTo allocates commentMap, enabling resolveReplyLinks: replies are only
+// resolved when the downloader announces comments carrying Meta["ReplyTo"].
+func (g *GiteaLocalUploader) EnableCommentReplyTo() {
+	g.commentMap = make(map[commentKey]migratedComment)
 }
 
 // commentKey identifies a migrated comment by the issue it belongs to and its index on the
@@ -568,6 +573,9 @@ func (g *GiteaLocalUploader) CreateComments(comments ...*base.Comment) error {
 // header the quote-reply button produces. Parent ids only exist once inserted, hence the
 // content update after the fact; commentMap spans batches to find earlier-inserted parents.
 func (g *GiteaLocalUploader) resolveReplyLinks(comments []*base.Comment, cms []*issues_model.Comment) error {
+	if g.commentMap == nil {
+		return nil
+	}
 	for i, cm := range cms {
 		g.commentMap[commentKey{cm.IssueID, comments[i].Index}] = migratedComment{
 			id:             cm.ID,

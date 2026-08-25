@@ -63,7 +63,7 @@ type ReviewComment struct {
 	ExtraLinesCount int64  `yaml:"extra_lines_count"`
 	CommitID        string `yaml:"commit_id"`
 	PosterID        int64  `yaml:"poster_id"`
-	// PosterName is the author of this specific comment; when set it overrides the review author for attribution
+	// PosterName is the author of this specific comment; when set it overrides the review comment author for attribution
 	PosterName string `yaml:"poster_name"`
 	Reactions  []*Reaction
 	CreatedAt  time.Time `yaml:"created_at"`

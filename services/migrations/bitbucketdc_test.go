@@ -82,6 +82,29 @@ func TestBitbucketDataCenterDownloaderBlocksLocalhost(t *testing.T) {
 	assert.Contains(t, err.Error(), "can only call allowed HTTP servers")
 }
 
+// TestBitbucketDataCenterAuthorizationHeader pins the exact Authorization header sent to the REST API.
+func TestBitbucketDataCenterAuthorizationHeader(t *testing.T) {
+	t.Cleanup(test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) }))
+
+	var gotAuthorization string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuthorization = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(`{"slug":"test-repo","links":{"clone":[{"name":"http","href":"http://bitbucket.example.com/scm/migr/test-repo.git"}]}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	factory := &BitbucketDataCenterDownloaderFactory{}
+	downloader, err := factory.New(t.Context(), base.MigrateOptions{
+		CloneAddr: server.URL + "/scm/migr/test-repo.git",
+		AuthToken: "sometoken",
+	})
+	require.NoError(t, err)
+
+	_, err = downloader.GetRepoInfo()
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer sometoken", gotAuthorization)
+}
+
 // newBitbucketDataCenterFixtureDownloader returns a downloader backed by the fixtures of testdata/bitbucketdc
 func newBitbucketDataCenterFixtureDownloader(t *testing.T) (base.Downloader, string) {
 	t.Cleanup(test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) }))
@@ -113,6 +136,8 @@ func newBitbucketDataCenterFixtureDownloader(t *testing.T) (base.Downloader, str
 
 func TestBitbucketDataCenterDownloadRepo(t *testing.T) {
 	downloader, serverURL := newBitbucketDataCenterFixtureDownloader(t)
+
+	assert.True(t, downloader.SupportCommentReplyTo())
 
 	repo, err := downloader.GetRepoInfo()
 	require.NoError(t, err)
