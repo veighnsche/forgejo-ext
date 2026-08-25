@@ -607,85 +607,44 @@ func TestProjectAPIProjects(t *testing.T) {
 
 	// template: templates/projects/list.tmpl
 	user2 := loginUser(t, "user2")
+	testProjectListLength := func(t *testing.T, name string, url string, expectLength int) {
+		// get list of projects from url and check number of projects in list
+		t.Run(name, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			projectList := doc.Find(".milestone-list li")
+			assert.Equal(t, expectLength, projectList.Length())
+		})
+	}
 	t.Run("User", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		projectsURL := "/user2/-/projects"
 
 		// no closed project
-		t.Run("get open", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
-			assert.Equal(t, 3, projectList.Length())
-		})
-
-		t.Run("get closed", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL+"?state=closed"), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
-			assert.Equal(t, 0, projectList.Length())
-		})
+		testProjectListLength(t, "get open", projectsURL, 3)
+		testProjectListLength(t, "get closed", projectsURL+"?state=closed", 0)
 
 		// one closed project
 		user2.MakeRequest(t, NewRequest(t, "POST", projectsURL+"/4/close"), http.StatusOK)
-		t.Run("get open, one closed", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
-			assert.Equal(t, 2, projectList.Length())
-		})
-
-		t.Run("get closed, one close", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL+"?state=closed"), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
-			assert.Equal(t, 1, projectList.Length())
-		})
+		testProjectListLength(t, "get open, one closed", projectsURL, 2)
+		testProjectListLength(t, "get closed, one close", projectsURL+"?state=closed", 1)
 	})
 
 	t.Run("Organization", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		projectsURL := "/org3/-/projects"
 
-		t.Run("get open", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
-			assert.Equal(t, 1, projectList.Length())
-		})
-
-		t.Run("get closed", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL+"?state=closed"), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
-			assert.Equal(t, 0, projectList.Length())
-		})
+		testProjectListLength(t, "get open", projectsURL, 1)
+		testProjectListLength(t, "get closed", projectsURL+"?state=closed", 0)
 	})
 
 	t.Run("Repository", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		projectsURL := "/user2/repo1/projects"
 
-		t.Run("get open", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
-			assert.Equal(t, 1, projectList.Length())
-		})
-		t.Run("get closed", func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectsURL+"?state=closed"), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
-			assert.Equal(t, 0, projectList.Length())
-		})
+		testProjectListLength(t, "get open", projectsURL, 1)
+		testProjectListLength(t, "get closed", projectsURL+"?state=closed", 0)
 	})
 }
 
