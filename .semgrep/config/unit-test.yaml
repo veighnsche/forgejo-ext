@@ -1,0 +1,34 @@
+rules:
+  - id: unit-test-missing-setup-function
+    patterns:
+      - pattern: |
+          func $F(t *testing.T) {
+            ...
+          }
+      - pattern-not: |
+          func $F(t *testing.T) {
+            ...
+            testhelper.Setup(t, ...)
+            ...
+          }
+      - metavariable-regex:
+          metavariable: $F
+          regex: '(Test\w+)'
+
+    paths:
+      include:
+        - /cmd/**/*_test.go
+        - /models/**/*_test.go
+        - /modules/**/*_test.go
+        - /routers/**/*_test.go
+        - /services/**/*_test.go
+    # do not use, it breaks code
+    #fix: |
+    #  func $F(t *testing.T) {
+    #    testhelper.Setup(t)
+    #    $...BODY
+    #  }
+    languages:
+      - go
+    message: All unit test must call testhelper.Setup(t)
+    severity: ERROR
