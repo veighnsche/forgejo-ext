@@ -467,21 +467,27 @@ func ListPageRevisions(ctx *context.APIContext) {
 }
 
 // findEntryForFile finds the tree entry for a target filepath.
-func findEntryForFile(commit *git.Commit, target string) (*git.TreeEntry, error) {
+// It also returns the full path of the entry that was matched, which may
+// differ from the target when falling back to the unescaped alternative.
+func findEntryForFile(commit *git.Commit, target string) (*git.TreeEntry, string, error) {
 	entry, err := commit.GetTreeEntryByPath(target)
 	if err != nil && !git.IsErrNotExist(err) {
-		return nil, err
+		return nil, "", err
 	}
 	if entry != nil {
-		return entry, nil
+		return entry, target, nil
 	}
 
 	// Then the unescaped, shortest alternative
 	var unescapedTarget string
 	if unescapedTarget, err = url.QueryUnescape(target); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return commit.GetTreeEntryByPath(unescapedTarget)
+	entry, err = commit.GetTreeEntryByPath(unescapedTarget)
+	if err != nil {
+		return nil, "", err
+	}
+	return entry, unescapedTarget, nil
 }
 
 // findWikiRepoCommit opens the wiki repo and returns the latest commit, writing to context on error.
@@ -525,7 +531,7 @@ func wikiContentsByEntry(ctx *context.APIContext, entry *git.TreeEntry) string {
 // indicating whether the page exists. Writes to ctx if an error occurs.
 func wikiContentsByName(ctx *context.APIContext, commit *git.Commit, wikiName wiki_service.WebPath, isSidebarOrFooter bool) (string, string) {
 	gitFilename := wiki_service.WebPathToGitPath(wikiName)
-	entry, err := findEntryForFile(commit, gitFilename)
+	entry, resolvedPath, err := findEntryForFile(commit, gitFilename)
 	if err != nil {
 		if git.IsErrNotExist(err) {
 			if !isSidebarOrFooter {
@@ -536,8 +542,8 @@ func wikiContentsByName(ctx *context.APIContext, commit *git.Commit, wikiName wi
 		}
 		return "", ""
 	}
-	// Return the name of the file the entry was found in rather than
+	// Return the path of the file the entry was found in rather than
 	// gitFilename. findEntryForFile falls back to unescaped names and
-	// callers use the returned name to look up commits
-	return wikiContentsByEntry(ctx, entry), entry.Name()
+	// callers use the returned path to look up commits
+	return wikiContentsByEntry(ctx, entry), resolvedPath
 }
