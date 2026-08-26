@@ -114,7 +114,7 @@ func fixtureCreateOrg(t *testing.T, org *org_model.Organization, owner *user_mod
 		return existing
 	}
 	owner = fixtureCreateUser(t, owner)
-	require.NoError(t, org_model.CreateOrganization(t.Context(), org, owner), fmt.Sprintf("owner: %+v", owner))
+	require.NoError(t, org_model.CreateOrganization(t.Context(), org, owner), "owner: %+v", owner)
 	return org
 }
 
