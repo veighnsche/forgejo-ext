@@ -64,7 +64,7 @@ for (const run of [
       await expect(syntaxModal).toBeHidden();
     });
 
-    test('info modal disappears on Cancel button', async ({page, isMobile}) => {
+    test('info modal disappears on Close button', async ({page, isMobile}) => {
       const response = await page.goto('/user2/repo1/issues', {waitUntil: 'domcontentloaded'});
       expect(response?.status()).toBe(200);
 
@@ -76,7 +76,7 @@ for (const run of [
       await search.locator('button[command="show-modal"]').click();
       await expect(syntaxModal).toBeVisible();
 
-      await syntaxModal.getByText('Cancel').click({force: isMobile}); // dl intercepts pointer events on mobile somehow
+      await syntaxModal.locator('button[command="close"]').click({force: isMobile}); // dl intercepts pointer events on mobile somehow
       await expect(syntaxModal).toBeHidden();
     });
 
