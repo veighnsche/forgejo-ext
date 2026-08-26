@@ -190,6 +190,9 @@ func GetFundingFromDefaultBranch(ctx context.Context, r *repo_model.Repository) 
 
 	commit, err := gitRepo.GetBranchCommit(r.DefaultBranch)
 	if err != nil {
+		if git.IsErrNotExist(err) {
+			return nil, ErrFundingNotExist{Repo: r}
+		}
 		return nil, err
 	}
 
