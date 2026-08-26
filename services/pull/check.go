@@ -39,7 +39,7 @@ var (
 	ErrIsChecking            = errors.New("cannot merge while conflict checking is in progress")
 	ErrNotMergeableState     = errors.New("not in mergeable state")
 	ErrDependenciesLeft      = errors.New("is blocked by an open dependency")
-	ErrNothingToMerge        = errors.New("repo.pulls.nothing_to_compare")
+	ErrNothingToMerge        = errors.New("branches are equal. no need to create a pull request.")
 )
 
 // AddToTaskQueue adds itself to pull request test task queue.
