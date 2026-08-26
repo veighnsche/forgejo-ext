@@ -8,6 +8,17 @@
 
 import {type Locator, expect} from '@playwright/test';
 import {test} from './utils_e2e.ts';
+import {accessibilityCheck} from './shared/accessibility.ts';
+
+test('Issue search: accessibility', async ({page}) => {
+  const response = await page.goto('/user2/repo1/issues', {waitUntil: 'domcontentloaded'});
+  expect(response?.status()).toBe(200);
+
+  const search = page.locator('form.issue-list-search');
+  await expect(search).toBeVisible();
+
+  await accessibilityCheck({page}, ['form.issue-list-search'], [], []);
+});
 
 for (const run of [
   {title: 'JS off', useJs: false},
