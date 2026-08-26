@@ -4,9 +4,9 @@
 	<h1>Modals</h1>
 
 	<div class="button-sequence">
-		<button class="secondary button" command="show-modal" commandfor="short-modal">Short</button>
-		<button class="secondary button" command="show-modal" commandfor="medium-modal">Medium</button>
-		<button class="secondary button" command="show-modal" commandfor="long-modal">Long</button>
+		<button type="button" class="secondary button" command="show-modal" commandfor="short-modal">Short</button>
+		<button type="button" class="secondary button" command="show-modal" commandfor="medium-modal">Medium</button>
+		<button type="button" class="secondary button" command="show-modal" commandfor="long-modal">Long</button>
 	</div>
 
 	<dialog id="short-modal" closedby="any">
@@ -14,7 +14,7 @@
 			<header>Short modal</header>
 			<div class="content">🐈</div>
 			<footer class="actions">
-				<button class="secondary button" command="close" commandfor="short-modal">{{ctx.Locale.Tr "settings.cancel"}}</button>
+				<button type="button" class="secondary button" command="close" commandfor="short-modal">{{ctx.Locale.Tr "settings.cancel"}}</button>
 			</footer>
 		</article>
 	</dialog>
@@ -23,7 +23,7 @@
 			<header>Medium modal</header>
 			<div class="content">aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</div>
 			<footer class="actions">
-				<button class="secondary button" command="close" commandfor="medium-modal">{{ctx.Locale.Tr "settings.cancel"}}</button>
+				<button type="button" class="secondary button" command="close" commandfor="medium-modal">{{ctx.Locale.Tr "settings.cancel"}}</button>
 			</footer>
 		</article>
 	</dialog>
@@ -32,7 +32,7 @@
 			<header>Long modal</header>
 			<div class="content">aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</div>
 			<footer class="actions">
-				<button class="secondary button" command="close" commandfor="long-modal">{{ctx.Locale.Tr "settings.cancel"}}</button>
+				<button type="button" class="secondary button" command="close" commandfor="long-modal">{{ctx.Locale.Tr "settings.cancel"}}</button>
 			</footer>
 		</article>
 	</dialog>
