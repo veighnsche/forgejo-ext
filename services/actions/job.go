@@ -11,11 +11,106 @@ import (
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	"forgejo.org/modules/log"
-	"forgejo.org/modules/util"
+	notify_service "forgejo.org/services/notify"
 
 	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
 	gouuid "github.com/google/uuid"
+	"xorm.io/builder"
 )
+
+func InitiateNextJobAttempt(ctx context.Context, job *actions_model.ActionRunJob, initialStatus actions_model.Status) error {
+	oldStatus := job.Status
+
+	if err := job.PrepareNextAttempt(initialStatus); err != nil {
+		return err
+	}
+
+	// The columns have to be specified here to work around a xorm quirk: It won't update columns that are set to their
+	// zero value without AllCols().
+	if _, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, builder.Eq{"status": oldStatus}, "handle", "attempt", "task_id", "status", "started", "stopped"); err != nil {
+		return err
+	}
+
+	if err := PropagateNextJobAttempt(ctx, job.ID); err != nil {
+		return err
+	}
+
+	CreateCommitStatus(ctx, job)
+
+	return nil
+}
+
+// PropagateNextJobAttempt notifies observers that a new execution attempt of the job with the given
+// ID has started. Therefore, it is also suitable for newly created jobs. PropagateNextJobAttempt
+// expects that the job has been persisted right before it is being invoked. Otherwise, subscribers
+// might receive a copy referencing outdated data. PropagateNextJobAttempt will not trigger
+// notifications for jobs that are incomplete.
+func PropagateNextJobAttempt(ctx context.Context, jobID int64) error {
+	// Fetch a new copy from the database. That is necessary to ensure that we have a deep copy of
+	// the job that cannot be altered by the code that invoked this function.
+	job, err := actions_model.GetRunJobByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("could not load job %d: %w", jobID, err)
+	}
+
+	// Suppress notifications for jobs that are incomplete, because they will be replaced by 0 or
+	// more different jobs. Sending notifications for them would be confusing.
+	if incomplete, err := job.IsIncomplete(); err != nil {
+		return fmt.Errorf("failed to determine whether job %d is incomplete: %w", job.ID, err)
+	} else if incomplete {
+		log.Debug("Suppressing job notification for job %d because it is incomplete", job.ID)
+		return nil
+	}
+
+	// Notifications expect an ActionRunJob with all its attributes loaded.
+	if err := job.LoadAttributes(ctx); err != nil {
+		return fmt.Errorf("failed to load attributes of job %d: %w", job.ID, err)
+	}
+
+	notify_service.NewWorkflowJobAttempt(ctx, job)
+
+	return nil
+}
+
+// PropagateJobStatus notifies observers that the status of the job with the given ID has changed.
+// It will not do anything if priorStatus and the job's status are the same. PropagateJobStatus
+// expects that the job has been persisted right before it is being invoked. Otherwise, subscribers
+// might receive a copy referencing outdated data. PropagateJobStatus will not trigger
+// notifications for jobs that are incomplete.
+func PropagateJobStatus(ctx context.Context, jobID int64, priorStatus actions_model.Status) error {
+	// Fetch a new copy from the database. That is necessary to ensure that we have a deep copy of
+	// the job that cannot be altered by the code that invoked this function.
+	job, err := actions_model.GetRunJobByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("could not load job %d: %w", jobID, err)
+	}
+
+	if job.Status == priorStatus {
+		return nil
+	}
+
+	// Suppress notifications for jobs that are incomplete, because they will be replaced by 0 or
+	// more different jobs. Sending notifications for them would be confusing.
+	if incomplete, err := job.IsIncomplete(); err != nil {
+		return fmt.Errorf("failed to determine whether job %d is incomplete: %w", job.ID, err)
+	} else if incomplete {
+		log.Debug("Suppressing job notification for job %d because it is incomplete", job.ID)
+		return nil
+	}
+
+	// Notifications expect an ActionRunJob with all its attributes loaded.
+	if err := job.LoadAttributes(ctx); err != nil {
+		return fmt.Errorf("failed to load attributes of job %d: %w", job.ID, err)
+	}
+
+	if !job.Status.IsDone() {
+		notify_service.WorkflowJobStatusChanged(ctx, job, priorStatus)
+	} else {
+		notify_service.WorkflowJobCompleted(ctx, job, priorStatus)
+	}
+
+	return nil
+}
 
 // deleteJobsOfRun removes all jobs that belong to the given run, including its associated tasks. Each job has to be
 // completed for the operation to succeed.
@@ -81,7 +176,7 @@ func convertSingleWorkflowToJobs(run *actions_model.ActionRun, jobs []*jobparser
 				status = actions_model.StatusWaiting
 			}
 
-			name, _ = util.SplitStringAtByteN(job.Name, 255)
+			name = job.Name
 			runsOn = job.RunsOn()
 		}
 

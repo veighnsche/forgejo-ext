@@ -32,6 +32,12 @@ func InsertRun(ctx context.Context, run *actions_model.ActionRun, sw []*jobparse
 			return fmt.Errorf("InsertRunWithoutNotification: %w", err)
 		}
 
+		for _, job := range jobs {
+			if err = PropagateNextJobAttempt(ctx, job.ID); err != nil {
+				return fmt.Errorf("failed to propagate new attempt of job %d: %w", job.ID, err)
+			}
+		}
+
 		// WorkflowRunEvent expects a fully loaded run.
 		if err := run.LoadAttributes(ctx); err != nil {
 			return fmt.Errorf("could not load attributes of run %d: %w", run.ID, err)
@@ -108,10 +114,17 @@ func ApproveRun(ctx context.Context, run *actions_model.ActionRun, doerID int64)
 		}
 		for _, job := range jobs {
 			if len(job.Needs) == 0 && job.Status.IsBlocked() {
+				// Capture the current status because it is required for sending notifications.
+				priorStatus := job.Status
+
 				job.Status = actions_model.StatusWaiting
 				_, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, nil, "status")
 				if err != nil {
-					return err
+					return fmt.Errorf("could not update job %d: %w", job.ID, err)
+				}
+
+				if err := PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
+					return fmt.Errorf("could not propagate the status of job %d: %w", job.ID, err)
 				}
 			}
 		}
@@ -132,14 +145,15 @@ func FailRunPreExecutionError(ctx context.Context, run *actions_model.ActionRun,
 	}
 
 	return db.WithTx(ctx, func(ctx context.Context) error {
-		run.Status = actions_model.StatusFailure
+		// The run cannot be marked as failed without marking its job as failed because the run's
+		// status is a product of the statuses of its jobs. killRun() will take care of it.
 		run.PreExecutionErrorCode = errorCode
 		run.PreExecutionErrorDetails = details
-		if err := actions_model.UpdateRun(ctx, run, []string{"pre_execution_error_code", "pre_execution_error_details", "status"}...); err != nil {
+		if err := actions_model.UpdateRun(ctx, run, []string{"pre_execution_error_code", "pre_execution_error_details"}...); err != nil {
 			return err
 		}
 
-		// Also mark every pending job as Failed so nothing remains in a waiting/blocked state.
+		// Mark the run and every pending job as failed so nothing remains in a waiting/blocked state.
 		return killRun(ctx, run, actions_model.StatusFailure)
 	})
 }

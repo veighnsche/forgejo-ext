@@ -371,6 +371,9 @@ func TestInsertRunJobs(t *testing.T) {
 
 	require.NoError(t, InsertRunJobs(t.Context(), actionRun, jobs))
 
+	assert.NotZero(t, jobs[0].ID)
+	assert.NotZero(t, jobs[1].ID)
+
 	insertedJobs, err := db.Find[ActionRunJob](t.Context(), FindRunJobOptions{RunID: actionRun.ID})
 	require.NoError(t, err)
 	require.Len(t, insertedJobs, 2)

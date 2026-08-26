@@ -457,18 +457,23 @@ func InsertRunJobs(ctx context.Context, run *ActionRun, jobs []*ActionRunJob) er
 		}
 	}
 
-	if err := db.Insert(ctx, jobs); err != nil {
-		return err
-	}
-
-	// if there is a job in the waiting status, increase tasks version.
-	if hasWaiting {
-		if err := IncreaseTaskVersion(ctx, run.OwnerID, run.RepoID); err != nil {
-			return err
+	return db.WithTx(ctx, func(ctx context.Context) error {
+		// We have to insert every job individually. Otherwise, xorm won't populate the ID field.
+		for _, job := range jobs {
+			if err := db.Insert(ctx, job); err != nil {
+				return err
+			}
 		}
-	}
 
-	return nil
+		// if there is a job in the waiting status, increase tasks version.
+		if hasWaiting {
+			if err := IncreaseTaskVersion(ctx, run.OwnerID, run.RepoID); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func GetLatestRun(ctx context.Context, repoID int64) (*ActionRun, error) {

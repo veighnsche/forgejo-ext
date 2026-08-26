@@ -223,7 +223,7 @@ func findTaskNeeds(ctx context.Context, taskJob *actions_model.ActionRunJob) (ma
 
 func stopTask(ctx context.Context, taskID int64, status actions_model.Status) error {
 	if !status.IsDone() {
-		return fmt.Errorf("cannot stop task with status %v", status)
+		return fmt.Errorf("new task status %v is not acceptable", status)
 	}
 
 	task, err := actions_model.GetTaskByID(ctx, taskID)
@@ -268,7 +268,7 @@ func stopTask(ctx context.Context, taskID int64, status actions_model.Status) er
 
 func StopTask(ctx context.Context, taskID int64, status actions_model.Status) error {
 	if !status.IsDone() {
-		return fmt.Errorf("cannot stop task with status %v", status)
+		return fmt.Errorf("new task status %v is not acceptable", status)
 	}
 
 	if err := stopTask(ctx, taskID, status); err != nil {
@@ -285,11 +285,16 @@ func StopTask(ctx context.Context, taskID int64, status actions_model.Status) er
 		return fmt.Errorf("could not load job %d: %w", task.JobID, err)
 	}
 
+	priorStatus := job.Status
 	job.Status = task.Status
 	job.Stopped = task.Stopped
 
 	if _, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, nil); err != nil {
 		return fmt.Errorf("failed to update job %d: %w", job.ID, err)
+	}
+
+	if err = PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
+		return fmt.Errorf("could not propagate changed status of job %d: %w", job.ID, err)
 	}
 
 	run, err := actions_model.GetRunByID(ctx, job.RunID)
@@ -347,11 +352,16 @@ func UpdateTaskByState(ctx context.Context, runnerID int64, state *runnerv1.Task
 			return nil, fmt.Errorf("could not load job %d: %w", task.JobID, err)
 		}
 
+		priorStatus := job.Status
 		job.Status = task.Status
 		job.Stopped = task.Stopped
 
 		if _, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, nil); err != nil {
 			return nil, fmt.Errorf("failed to update job %d: %w", job.ID, err)
+		}
+
+		if err = PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
+			return nil, fmt.Errorf("could not propagate changed status of job %d: %w", job.ID, err)
 		}
 
 		run, err := actions_model.GetRunByID(ctx, job.RunID)
@@ -538,12 +548,17 @@ func CreateTaskForRunner(ctx context.Context, runner *actions_model.ActionRunner
 	// that just the same and return the `ErrNoJobUpdated` error code. An alternative would be to use READ COMMITTED
 	// transaction isolation level, but models/db doesn't currently expose that, and it would cause transaction nesting
 	// difficulties.
+	priorStatus := job.Status
 	if n, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, builder.Eq{"task_id": 0}); err != nil && errors.Is(err, xorm.ErrDeadlock) {
 		return nil, actions_model.ErrNoJobUpdated
 	} else if err != nil {
 		return nil, err
 	} else if n != 1 {
 		return nil, actions_model.ErrNoJobUpdated
+	}
+
+	if err = PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
+		return nil, fmt.Errorf("could not propagate changed status of job %d: %w", job.ID, err)
 	}
 
 	task.Job = job
