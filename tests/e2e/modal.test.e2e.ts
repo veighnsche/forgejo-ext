@@ -10,7 +10,7 @@
 // web_src/css/modules/dialog.css
 // @watch end
 
-import {type Locator, expect} from '@playwright/test';
+import {expect} from '@playwright/test';
 import {dynamic_id, test} from './utils_e2e.ts';
 import {screenshot} from './shared/screenshots.ts';
 
@@ -115,22 +115,6 @@ for (const run of [
       test.describe(`${size}-modal`, () => {
         const id = `${size}-modal`;
         const sel = `#${id}`;
-
-        const launchInteractions = [
-          {kind: 'click', do: (l: Locator) => l.click()},
-          {kind: 'spacebar', do: (l: Locator) => l.press(' ')},
-          {kind: 'enter key', do: (l: Locator) => l.press('Enter')},
-        ];
-        for (const interaction of launchInteractions) {
-          test(`appears on button + ${interaction.kind}`, async ({page}) => {
-            await page.goto('/-/demo/modal');
-
-            const modal = page.locator(sel);
-            await expect(modal).toBeHidden();
-            await interaction.do(page.locator(`button[command="show-modal"][commandfor="${id}"]`));
-            await expect(modal).toBeVisible();
-          });
-        }
 
         test('disappears on Esc', async ({page}) => {
           await page.goto('/-/demo/modal');

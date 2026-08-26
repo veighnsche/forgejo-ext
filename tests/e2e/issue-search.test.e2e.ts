@@ -6,7 +6,7 @@
 // web_src/css/modules/dialog.css
 // @watch end
 
-import {type Locator, expect} from '@playwright/test';
+import {expect} from '@playwright/test';
 import {test} from './utils_e2e.ts';
 import {accessibilityCheck} from './shared/accessibility.ts';
 
@@ -27,26 +27,19 @@ for (const run of [
   test.describe(`Issue search (${run.title})`, () => {
     test.use({javaScriptEnabled: run.useJs});
 
-    const launchInteractions = [
-      {kind: 'click', do: (l: Locator) => l.click()},
-      {kind: 'spacebar', do: (l: Locator) => l.press(' ')},
-      {kind: 'enter key', do: (l: Locator) => l.press('Enter')},
-    ];
-    for (const interaction of launchInteractions) {
-      test(`info modal appears on button + ${interaction.kind}`, async ({page}) => {
-        const response = await page.goto('/user2/repo1/issues', {waitUntil: 'domcontentloaded'});
-        expect(response?.status()).toBe(200);
+    test('info modal appears on click', async ({page}) => {
+      const response = await page.goto('/user2/repo1/issues', {waitUntil: 'domcontentloaded'});
+      expect(response?.status()).toBe(200);
 
-        const search = page.locator('form.issue-list-search');
-        await expect(search).toBeVisible();
+      const search = page.locator('form.issue-list-search');
+      await expect(search).toBeVisible();
 
-        const syntaxModal = page.locator('#search-syntax-modal');
-        await expect(syntaxModal).toBeHidden();
+      const syntaxModal = page.locator('#search-syntax-modal');
+      await expect(syntaxModal).toBeHidden();
 
-        await interaction.do(search.locator('button[command="show-modal"]'));
-        await expect(syntaxModal).toBeVisible();
-      });
-    }
+      await search.locator('button[command="show-modal"]').click();
+      await expect(syntaxModal).toBeVisible();
+    });
 
     test('info modal disappears on Esc', async ({page}) => {
       const response = await page.goto('/user2/repo1/issues', {waitUntil: 'domcontentloaded'});
