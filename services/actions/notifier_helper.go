@@ -172,7 +172,7 @@ var Notify = func(ctx context.Context, input *NotifyInput) error {
 	}
 	defer gitRepo.Close()
 
-	logger.Debug("Triggering workflow detection and workflows for commit %q (input Git ref: %q), event %s",
+	logger.Info("Triggering workflow detection and workflows for commit %q (input Git ref: %q), event %s",
 		commit.ID, input.Ref, input.Event)
 
 	if skipWorkflows(input, commit) {
@@ -188,6 +188,9 @@ var Notify = func(ctx context.Context, input *NotifyInput) error {
 	if err != nil {
 		return err
 	}
+
+	logger.Info("Detected %d workflows and %d schedules for commit %q",
+		len(detectedWorkflows), len(schedules), commit.ID)
 
 	if shouldDetectSchedules {
 		if err := handleSchedules(ctx, schedules, commit, input); err != nil {
@@ -368,6 +371,8 @@ func handleWorkflows(
 	}
 
 	for _, dwf := range detectedWorkflows {
+		logger.Info("Processing workflow %q for commit %q", dwf.EntryName, commit.ID)
+
 		run := &actions_model.ActionRun{
 			Title:             strings.SplitN(commit.CommitMessage, "\n", 2)[0],
 			RepoID:            input.Repo.ID,
@@ -498,7 +503,12 @@ func handleWorkflows(
 			log.Error("SanityCheckRun: %v", err)
 			continue
 		}
+
+		logger.Info("Processing of workflow %q for commit %q completed", dwf.EntryName, commit.ID)
 	}
+
+	logger.Info("All workflows for commit %q have been processed", commit.ID)
+
 	return nil
 }
 
