@@ -17,5 +17,5 @@ func TestActionJobList_GetJobIDs(t *testing.T) {
 		&ActionRunJob{JobID: "job 2"},
 	}
 
-	assert.Equal(t, container.SetOf("job 2", "job 1"), jobs.GetJobIDs())
+	assert.Equal(t, container.SetOf[JobIdentifier]("job 2", "job 1"), jobs.GetJobIDs())
 }

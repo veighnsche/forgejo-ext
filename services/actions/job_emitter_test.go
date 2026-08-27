@@ -32,18 +32,18 @@ func Test_jobStatusResolver_Resolve(t *testing.T) {
 		{
 			name: "no blocked",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusWaiting, Needs: []string{}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusWaiting, Needs: []string{}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusWaiting, Needs: []string{}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusWaiting, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusWaiting, Needs: []actions_model.JobIdentifier{}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusWaiting, Needs: []actions_model.JobIdentifier{}},
 			},
 			want: map[int64]actions_model.Status{},
 		},
 		{
 			name: "single blocked",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusWaiting, Needs: []string{}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"1"}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusWaiting, Needs: []actions_model.JobIdentifier{}},
 			},
 			want: map[int64]actions_model.Status{
 				2: actions_model.StatusWaiting,
@@ -52,9 +52,9 @@ func Test_jobStatusResolver_Resolve(t *testing.T) {
 		{
 			name: "multiple blocked",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"1"}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"1"}},
 			},
 			want: map[int64]actions_model.Status{
 				2: actions_model.StatusWaiting,
@@ -64,9 +64,9 @@ func Test_jobStatusResolver_Resolve(t *testing.T) {
 		{
 			name: "chain blocked",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []string{"2"}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusFailure, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"1"}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"2"}},
 			},
 			want: map[int64]actions_model.Status{
 				// Resolve() does only one update pass and does not update jobs recursively. Therefore, job 3, which
@@ -77,17 +77,17 @@ func Test_jobStatusResolver_Resolve(t *testing.T) {
 		{
 			name: "loop need",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusBlocked, Needs: []string{"3"}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []string{"2"}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"3"}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"1"}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"2"}},
 			},
 			want: map[int64]actions_model.Status{},
 		},
 		{
 			name: "`if` is not empty and all jobs in `needs` completed successfully",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []string{"job1"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job1"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -106,8 +106,8 @@ jobs:
 		{
 			name: "`if` is not empty and not all jobs in `needs` completed successfully",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []string{"job1"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1", Status: actions_model.StatusFailure, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job1"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -126,8 +126,8 @@ jobs:
 		{
 			name: "`if` is empty and not all jobs in `needs` completed successfully",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []string{"job1"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1", Status: actions_model.StatusFailure, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job1"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -147,9 +147,9 @@ jobs:
 		{
 			name: "unblocked workflow call outer job with success",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -169,9 +169,9 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job with success and skip",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSkipped, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSkipped, Needs: []actions_model.JobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -191,9 +191,9 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job with only skip",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSkipped, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSkipped, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSkipped, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSkipped, Needs: []actions_model.JobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -213,8 +213,8 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job, incomplete `with`",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job0", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job0"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job0", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job0"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -240,8 +240,8 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job, incomplete `strategy.matrix`",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job0", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job0"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job0", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job0"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -267,9 +267,9 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job with internal failure",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusFailure, Needs: []actions_model.JobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -289,9 +289,9 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job with internal failure",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSkipped, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSkipped, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusFailure, Needs: []actions_model.JobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -311,16 +311,16 @@ __metadata:
 		{
 			name: "blocked if needs are unknown",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "build", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "test", Status: actions_model.StatusBlocked, Needs: []string{"build", "unknown"}},
+				{ID: 1, JobID: "build", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 2, JobID: "test", Status: actions_model.StatusBlocked, Needs: []actions_model.JobIdentifier{"build", "unknown"}},
 			},
 			want: map[int64]actions_model.Status{},
 		},
 		{
 			name: "blocked if needs are unknown despite always()",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "build", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 45, JobID: "test", Needs: []string{"build", "unknown"}, Status: actions_model.StatusBlocked, WorkflowPayload: []byte(`
+				{ID: 1, JobID: "build", Status: actions_model.StatusSuccess, Needs: []actions_model.JobIdentifier{}},
+				{ID: 45, JobID: "test", Needs: []actions_model.JobIdentifier{"build", "unknown"}, Status: actions_model.StatusBlocked, WorkflowPayload: []byte(`
 on: push
 jobs:
   test:
@@ -408,7 +408,7 @@ func Test_prepareJobForEmitting(t *testing.T) {
 		preExecutionError             actions_model.PreExecutionError
 		preExecutionErrorDetails      []any
 		runsOn                        map[string][]string
-		needs                         map[string][]string
+		needs                         map[string][]actions_model.JobIdentifier
 		expectIncompleteJob           []string
 		localReusableWorkflowCallArgs *localReusableWorkflowCallArgs
 		actionRunStatusChange         actions_model.Status
@@ -419,7 +419,7 @@ func Test_prepareJobForEmitting(t *testing.T) {
 			runJobID:    601,
 			consumed:    true,
 			runJobNames: []string{"define-matrix", "produce-artifacts (blue)", "produce-artifacts (green)", "produce-artifacts (red)"},
-			needs: map[string][]string{
+			needs: map[string][]actions_model.JobIdentifier{
 				"define-matrix":             nil,
 				"produce-artifacts (blue)":  {"define-matrix"},
 				"produce-artifacts (green)": {"define-matrix"},
@@ -587,7 +587,7 @@ func Test_prepareJobForEmitting(t *testing.T) {
 				"inner my-workflow-input",
 				"perform-workflow-call",
 			},
-			needs: map[string][]string{
+			needs: map[string][]actions_model.JobIdentifier{
 				"define-workflow-call":    nil,
 				"inner my-workflow-input": {"define-workflow-call"},
 				"perform-workflow-call":   {"define-workflow-call", "perform-workflow-call.inner_job"},
@@ -612,7 +612,7 @@ func Test_prepareJobForEmitting(t *testing.T) {
 				"inner define-runs-on my-workflow-input": {"docker"},
 				"inner incomplete-job my-workflow-input": {"${{ needs[format('{0}.{1}', 'perform-workflow-call', 'define-runs-on')].outputs.scalar-value }}"},
 			},
-			needs: map[string][]string{
+			needs: map[string][]actions_model.JobIdentifier{
 				"define-workflow-call":                   nil,
 				"inner define-runs-on my-workflow-input": {"define-workflow-call"},
 				"inner incomplete-job my-workflow-input": {"define-workflow-call", "perform-workflow-call.define-runs-on"},
@@ -959,19 +959,19 @@ jobs:
 	require.NoError(t, err)
 	assert.Len(t, jobs, 5)
 
-	assert.Equal(t, "a", jobs[0].JobID)
+	assert.Equal(t, actions_model.JobIdentifier("a"), jobs[0].JobID)
 	assert.Equal(t, actions_model.StatusSuccess, jobs[0].Status)
 
-	assert.Equal(t, "b", jobs[1].JobID)
+	assert.Equal(t, actions_model.JobIdentifier("b"), jobs[1].JobID)
 	assert.Equal(t, actions_model.StatusSuccess, jobs[1].Status)
 
-	assert.Equal(t, "b.reusable", jobs[2].JobID)
+	assert.Equal(t, actions_model.JobIdentifier("b.reusable"), jobs[2].JobID)
 	assert.Equal(t, actions_model.StatusSuccess, jobs[2].Status)
 
-	assert.Equal(t, "c", jobs[3].JobID)
+	assert.Equal(t, actions_model.JobIdentifier("c"), jobs[3].JobID)
 	assert.Equal(t, actions_model.StatusBlocked, jobs[3].Status)
 
-	assert.Equal(t, "c.reusable", jobs[4].JobID)
+	assert.Equal(t, actions_model.JobIdentifier("c.reusable"), jobs[4].JobID)
 	assert.Equal(t, actions_model.StatusWaiting, jobs[4].Status)
 
 	notifier.AssertNumberOfCalls(t, "NewWorkflowJobAttempt", 2)

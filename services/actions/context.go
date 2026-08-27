@@ -120,7 +120,7 @@ func GenerateGiteaContext(run *actions_model.ActionRun, job *actions_model.Actio
 	gitContext["forgejo_server_version"] = setting.AppVer
 
 	if job != nil {
-		gitContext["job"] = job.JobID
+		gitContext["job"] = string(job.JobID)
 		gitContext["run_id"] = fmt.Sprint(job.RunID)
 		gitContext["run_attempt"] = fmt.Sprint(job.Attempt)
 	}
@@ -149,9 +149,9 @@ type TaskNeed struct {
 }
 
 // FindTaskNeeds finds the `needs` for the task by the task's job
-func FindTaskNeeds(ctx context.Context, job *actions_model.ActionRunJob) (map[string]*TaskNeed, error) {
+func FindTaskNeeds(ctx context.Context, job *actions_model.ActionRunJob) (map[actions_model.JobIdentifier]*TaskNeed, error) {
 	if len(job.Needs) == 0 {
-		return make(map[string]*TaskNeed), nil
+		return make(map[actions_model.JobIdentifier]*TaskNeed), nil
 	}
 	needs := container.SetOf(job.Needs...)
 
@@ -160,12 +160,12 @@ func FindTaskNeeds(ctx context.Context, job *actions_model.ActionRunJob) (map[st
 		return nil, fmt.Errorf("FindRunJobs: %w", err)
 	}
 
-	jobIDJobs := make(map[string][]*actions_model.ActionRunJob)
+	jobIDJobs := make(map[actions_model.JobIdentifier][]*actions_model.ActionRunJob)
 	for _, job := range jobs {
 		jobIDJobs[job.JobID] = append(jobIDJobs[job.JobID], job)
 	}
 
-	ret := make(map[string]*TaskNeed, len(needs))
+	ret := make(map[actions_model.JobIdentifier]*TaskNeed, len(needs))
 	for jobID, jobsWithSameID := range jobIDJobs {
 		if !needs.Contains(jobID) {
 			continue

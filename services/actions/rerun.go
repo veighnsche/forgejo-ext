@@ -33,7 +33,7 @@ var (
 // GetAllRerunJobs get all jobs that need to be rerun when job should be rerun
 func GetAllRerunJobs(job *actions_model.ActionRunJob, allJobs []*actions_model.ActionRunJob) []*actions_model.ActionRunJob {
 	rerunJobs := []*actions_model.ActionRunJob{job}
-	rerunJobsIDSet := make(container.Set[string])
+	rerunJobsIDSet := make(container.Set[actions_model.JobIdentifier])
 	rerunJobsIDSet.Add(job.JobID)
 
 	for _, j := range allJobs {

@@ -20,6 +20,11 @@ import (
 	"xorm.io/builder"
 )
 
+// When an Actions job is defined in YAML as `jobs: { release: { runs-on: ... }}`, the mapping string `release` is
+// considered its "job identifier".  It is unique within the scope of the workflow and can be referenced by other jobs
+// with `needs: [ release ]`, and `${{ needs.release.[...] }}`
+type JobIdentifier string
+
 // ActionRunJob represents a job of a run
 type ActionRunJob struct {
 	ID                int64
@@ -33,11 +38,11 @@ type ActionRunJob struct {
 	Attempt           int64
 	Handle            string `xorm:"unique"`
 	WorkflowPayload   []byte
-	JobID             string   `xorm:"VARCHAR(255)"` // job id in workflow, not job's id
-	Needs             []string `xorm:"JSON TEXT"`
-	RunsOn            []string `xorm:"JSON TEXT"`
-	TaskID            int64    // the latest task of the job
-	Status            Status   `xorm:"index"`
+	RunsOn            []string        `xorm:"JSON TEXT"`
+	TaskID            int64           // the latest task of the job
+	Status            Status          `xorm:"index"`
+	JobID             JobIdentifier   `xorm:"VARCHAR(255)"` // job id in workflow, not job's id
+	Needs             []JobIdentifier `xorm:"JSON TEXT"`
 	Started           timeutil.TimeStamp
 	Stopped           timeutil.TimeStamp
 	Created           timeutil.TimeStamp `xorm:"created"`
@@ -367,8 +372,8 @@ func (job *ActionRunJob) EnableOpenIDConnect() (bool, error) {
 // AllNeedsExist checks whether this ActionRunJob's Needs can theoretically be met by comparing them with the supplied
 // list of all job IDs that part of a particular workflow run. Returns the list of unknown job IDs found in Needs
 // alongside an indicator whether the check was successful.
-func (job *ActionRunJob) AllNeedsExist(allExistingJobIDs container.Set[string]) ([]string, bool) {
-	unknownJobIDs := []string{}
+func (job *ActionRunJob) AllNeedsExist(allExistingJobIDs container.Set[JobIdentifier]) ([]JobIdentifier, bool) {
+	unknownJobIDs := []JobIdentifier{}
 	for _, need := range job.Needs {
 		if !allExistingJobIDs.Contains(need) {
 			unknownJobIDs = append(unknownJobIDs, need)

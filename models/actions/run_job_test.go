@@ -375,43 +375,43 @@ func TestAllNeedsExist(t *testing.T) {
 	testCases := []struct {
 		name               string
 		job                ActionRunJob
-		existingJobIDs     container.Set[string]
-		expectedUnknownIDs []string
+		existingJobIDs     container.Set[JobIdentifier]
+		expectedUnknownIDs []JobIdentifier
 		ok                 bool
 	}{
 		{
 			name:               "no needs",
 			job:                ActionRunJob{Needs: nil},
-			existingJobIDs:     container.Set[string]{},
-			expectedUnknownIDs: []string{},
+			existingJobIDs:     container.Set[JobIdentifier]{},
+			expectedUnknownIDs: []JobIdentifier{},
 			ok:                 true,
 		},
 		{
 			name:               "empty needs",
-			job:                ActionRunJob{Needs: []string{}},
-			existingJobIDs:     container.Set[string]{},
-			expectedUnknownIDs: []string{},
+			job:                ActionRunJob{Needs: []JobIdentifier{}},
+			existingJobIDs:     container.Set[JobIdentifier]{},
+			expectedUnknownIDs: []JobIdentifier{},
 			ok:                 true,
 		},
 		{
 			name:               "satisfied needs",
-			job:                ActionRunJob{Needs: []string{"job1", "job2"}},
-			existingJobIDs:     container.SetOf("job2", "job1"),
-			expectedUnknownIDs: []string{},
+			job:                ActionRunJob{Needs: []JobIdentifier{"job1", "job2"}},
+			existingJobIDs:     container.SetOf(JobIdentifier("job2"), JobIdentifier("job1")),
+			expectedUnknownIDs: []JobIdentifier{},
 			ok:                 true,
 		},
 		{
 			name:               "unsatisfied needs",
-			job:                ActionRunJob{Needs: []string{"unknown", "job2"}},
-			existingJobIDs:     container.SetOf("job2", "job1"),
-			expectedUnknownIDs: []string{"unknown"},
+			job:                ActionRunJob{Needs: []JobIdentifier{"unknown", "job2"}},
+			existingJobIDs:     container.SetOf(JobIdentifier("job2"), JobIdentifier("job1")),
+			expectedUnknownIDs: []JobIdentifier{"unknown"},
 			ok:                 false,
 		},
 		{
 			name:               "comparison is case-sensitive",
-			job:                ActionRunJob{Needs: []string{"Job1", "job2"}},
-			existingJobIDs:     container.SetOf("job2", "job1"),
-			expectedUnknownIDs: []string{"Job1"},
+			job:                ActionRunJob{Needs: []JobIdentifier{"Job1", "job2"}},
+			existingJobIDs:     container.SetOf(JobIdentifier("job2"), JobIdentifier("job1")),
+			expectedUnknownIDs: []JobIdentifier{"Job1"},
 			ok:                 false,
 		},
 	}

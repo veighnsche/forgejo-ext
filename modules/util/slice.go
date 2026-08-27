@@ -63,3 +63,11 @@ func KeysOfMap[K comparable, V any](m map[K]V) []K {
 	}
 	return keys
 }
+
+func ConvertSlice[T, U ~string](in []T) []U {
+	out := make([]U, len(in))
+	for i, v := range in {
+		out[i] = U(v)
+	}
+	return out
+}

@@ -18,6 +18,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/queue"
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/util"
 
 	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
 	"xorm.io/builder"
@@ -162,7 +163,7 @@ type jobStatusResolver struct {
 var unknownJobID int64 = -1
 
 func newJobStatusResolver(jobs actions_model.ActionJobList) *jobStatusResolver {
-	idToJobs := make(map[string][]*actions_model.ActionRunJob, len(jobs))
+	idToJobs := make(map[actions_model.JobIdentifier][]*actions_model.ActionRunJob, len(jobs))
 	jobMap := make(map[int64]*actions_model.ActionRunJob)
 	for _, job := range jobs {
 		idToJobs[job.JobID] = append(idToJobs[job.JobID], job)
@@ -318,8 +319,8 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 		for _, v := range outputs {
 			outputsMap[v.OutputKey] = v.OutputValue
 		}
-		jobOutputs[job.JobID] = outputsMap
-		jobResults[job.JobID] = job.Status.String()
+		jobOutputs[string(job.JobID)] = outputsMap
+		jobResults[string(job.JobID)] = job.Status.String()
 	}
 
 	vars, err := actions_model.GetVariablesOfRun(ctx, blockedJob.Run)
@@ -334,7 +335,7 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 	newJobWorkflows, err := jobparser.Parse(blockedJob.WorkflowPayload, false,
 		jobparser.WithJobOutputs(jobOutputs),
 		jobparser.WithJobResults(jobResults),
-		jobparser.WithWorkflowNeeds(blockedJob.Needs),
+		jobparser.WithWorkflowNeeds(util.ConvertSlice[actions_model.JobIdentifier, string](blockedJob.Needs)),
 		jobparser.SupportIncompleteRunsOn(),
 		jobparser.ExpandLocalReusableWorkflows(expandLocalReusableWorkflow),
 		jobparser.ExpandInstanceReusableWorkflows(expandInstanceReusableWorkflows(ctx)),
@@ -393,7 +394,7 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 		// re-evaluated job has a different job ID, then it's likely an expanded job -- such as from a reusable workflow
 		// -- which could have it's own `needs` that allows it to expand into a correct job in the future.
 		jobID, job := swf.Job()
-		if jobID == blockedJob.JobID {
+		if actions_model.JobIdentifier(jobID) == blockedJob.JobID {
 			if swf.IncompleteMatrix {
 				if cascadeSkip(swf.IncompleteMatrixNeeds, jobResults) {
 					// This job has an incomplete matrix.  It is incomplete because it has `${{ needs.x... }}` where x
@@ -440,7 +441,7 @@ func prepareJobForEmitting(ctx context.Context, blockedJob *actions_model.Action
 		// evaluate any ${{ needs.... }} reference that is required for expansion, this job could still have other
 		// reasons to require acccess to those needs variables.  We need to reinsert those `needs` into the new job so
 		// that those job's outputs and results are made available to this new job.
-		newNeeds := append(job.Needs(), blockedJob.Needs...)
+		newNeeds := append(job.Needs(), util.ConvertSlice[actions_model.JobIdentifier, string](blockedJob.Needs)...)
 		err := job.RawNeeds.Encode(newNeeds)
 		if err != nil {
 			return behaviourError, fmt.Errorf("failure to encode newNeeds: %w", err)
@@ -531,7 +532,7 @@ func persistentIncompleteMatrixError(job *actions_model.ActionRunJob, incomplete
 			errorDetails = []any{
 				job.JobID,
 				jobRef,
-				strings.Join(job.Needs, ", "),
+				strings.Join(util.ConvertSlice[actions_model.JobIdentifier, string](job.Needs), ", "),
 			}
 		}
 		return errorCode, errorDetails
@@ -543,6 +544,7 @@ func persistentIncompleteMatrixError(job *actions_model.ActionRunJob, incomplete
 	return errorCode, errorDetails
 }
 
+//nolint:dupl
 func persistentIncompleteRunsOnError(job *actions_model.ActionRunJob, incompleteNeeds *jobparser.IncompleteNeeds, incompleteMatrix *jobparser.IncompleteMatrix) (actions_model.PreExecutionError, []any) {
 	var errorCode actions_model.PreExecutionError
 	var errorDetails []any
@@ -574,7 +576,7 @@ func persistentIncompleteRunsOnError(job *actions_model.ActionRunJob, incomplete
 			errorDetails = []any{
 				job.JobID,
 				jobRef,
-				strings.Join(job.Needs, ", "),
+				strings.Join(util.ConvertSlice[actions_model.JobIdentifier, string](job.Needs), ", "),
 			}
 		}
 		return errorCode, errorDetails
@@ -586,6 +588,7 @@ func persistentIncompleteRunsOnError(job *actions_model.ActionRunJob, incomplete
 	return errorCode, errorDetails
 }
 
+//nolint:dupl
 func persistentIncompleteWithError(job *actions_model.ActionRunJob, incompleteNeeds *jobparser.IncompleteNeeds, incompleteMatrix *jobparser.IncompleteMatrix) (actions_model.PreExecutionError, []any) {
 	var errorCode actions_model.PreExecutionError
 	var errorDetails []any
@@ -617,7 +620,7 @@ func persistentIncompleteWithError(job *actions_model.ActionRunJob, incompleteNe
 			errorDetails = []any{
 				job.JobID,
 				jobRef,
-				strings.Join(job.Needs, ", "),
+				strings.Join(util.ConvertSlice[actions_model.JobIdentifier, string](job.Needs), ", "),
 			}
 		}
 		return errorCode, errorDetails
@@ -663,13 +666,13 @@ func tryHandleWorkflowCallOuterJob(ctx context.Context, job *actions_model.Actio
 	if err != nil {
 		return nil, fmt.Errorf("failure to 'needs' for job: %w", err)
 	}
-	needs := make([]string, 0, len(taskNeeds))
+	needs := make([]actions_model.JobIdentifier, 0, len(taskNeeds))
 	jobResults := make(map[string]string, len(taskNeeds))
 	jobOutputs := make(map[string]map[string]string, len(taskNeeds))
 	for jobID, n := range taskNeeds {
 		needs = append(needs, jobID)
-		jobResults[jobID] = n.Result.String()
-		jobOutputs[jobID] = n.Outputs
+		jobResults[string(jobID)] = n.Result.String()
+		jobOutputs[string(jobID)] = n.Outputs
 	}
 	vars, err := actions_model.GetVariablesOfRun(ctx, job.Run)
 	if err != nil {
@@ -681,7 +684,7 @@ func tryHandleWorkflowCallOuterJob(ctx context.Context, job *actions_model.Actio
 		singleWorkflow,
 		githubContext,
 		vars,
-		needs,
+		util.ConvertSlice[actions_model.JobIdentifier, string](needs),
 		jobResults,
 		jobOutputs,
 	)
