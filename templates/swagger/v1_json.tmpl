@@ -21482,6 +21482,32 @@
         }
       }
     },
+    "/user/key_token": {
+      "get": {
+        "produces": [
+          "text/plain"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Get a token to verify an SSH key",
+        "operationId": "userCurrentGetKeyVerificationToken",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/string"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/user/key_verify": {
       "post": {
         "consumes": [
@@ -21500,7 +21526,7 @@
             "name": "body",
             "in": "body",
             "schema": {
-              "$ref": "#/definitions/PublicKey"
+              "$ref": "#/definitions/VerifySSHKeyOption"
             }
           }
         ],
@@ -29110,10 +29136,6 @@
           "type": "boolean",
           "x-go-name": "ReadOnly"
         },
-        "signature": {
-          "type": "string",
-          "x-go-name": "Signature"
-        },
         "title": {
           "type": "string",
           "x-go-name": "Title"
@@ -31422,6 +31444,27 @@
           "description": "An Signature for a GPG key token",
           "type": "string",
           "x-go-name": "KeyID"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
+    "VerifySSHKeyOption": {
+      "description": "VerifySSHKeyOption options for verifying a user SSH key",
+      "type": "object",
+      "required": [
+        "fingerprint",
+        "signature"
+      ],
+      "properties": {
+        "fingerprint": {
+          "description": "Fingerprint of the SSH key to verify",
+          "type": "string",
+          "x-go-name": "Fingerprint"
+        },
+        "signature": {
+          "description": "SSH signature of the verification token",
+          "type": "string",
+          "x-go-name": "Signature"
         }
       },
       "x-go-package": "forgejo.org/modules/structs"

@@ -317,6 +317,37 @@ func DeletePublicKey(ctx *context.APIContext) {
 	ctx.Status(http.StatusNoContent)
 }
 
+// GetSSHVerificationToken returns the current token to be signed for SSH key verification.
+func GetSSHVerificationToken(ctx *context.APIContext) {
+	// swagger:operation GET /user/key_token user userCurrentGetKeyVerificationToken
+	// ---
+	// summary: Get a token to verify an SSH key
+	// produces:
+	// - text/plain
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/string"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	if user_model.IsFeatureDisabledWithLoginType(ctx.Doer(), setting.UserFeatureManageSSHKeys) {
+		ctx.NotFound("Not Found", errors.New("ssh keys setting is not allowed to be visited"))
+		return
+	}
+
+	ctx.PlainText(http.StatusOK, asymkey_model.VerificationToken(ctx.Doer(), 1))
+}
+
+// swagger:parameters userCurrentPostKeyVerify
+type swaggerUserCurrentPostKeyVerify struct {
+	// in:body
+	Form api.VerifySSHKeyOption
+}
+
 // VerifyPublicKey verifies the public key
 func VerifyPublicKey(ctx *context.APIContext) {
 	// swagger:operation POST /user/key_verify user userCurrentPostKeyVerify
@@ -330,7 +361,7 @@ func VerifyPublicKey(ctx *context.APIContext) {
 	// - name: body
 	//   in: body
 	//   schema:
-	//     "$ref": "#/definitions/PublicKey"
+	//     "$ref": "#/definitions/VerifySSHKeyOption"
 	// responses:
 	//   "200":
 	//     "$ref": "#/responses/PublicKey"
@@ -343,39 +374,50 @@ func VerifyPublicKey(ctx *context.APIContext) {
 	//   "422":
 	//     "$ref": "#/responses/validationError"
 
-	if user_model.IsFeatureDisabledWithLoginType(ctx.Doer, setting.UserFeatureManageSSHKeys) {
+	if user_model.IsFeatureDisabledWithLoginType(ctx.Doer(), setting.UserFeatureManageSSHKeys) {
 		ctx.NotFound("Not Found", errors.New("ssh keys setting is not allowed to be visited"))
 		return
 	}
 
-	form := web.GetForm(ctx).(*api.PublicKey)
+	form := web.GetForm(ctx).(*api.VerifySSHKeyOption)
 
-	// First check if the key exists
-	_, err := asymkey_model.GetPublicKeyByID(ctx, form.ID)
-	if err != nil {
-		if asymkey_model.IsErrKeyNotExist(err) {
-			ctx.NotFound()
-		} else {
-			ctx.Error(http.StatusInternalServerError, "error while GetPublicKeyByID", err)
-		}
-		return
-	}
+	token := asymkey_model.VerificationToken(ctx.Doer(), 1)
+	lastToken := asymkey_model.VerificationToken(ctx.Doer(), 0)
 
-	token := asymkey_model.VerificationToken(ctx.Doer, 1)
-	lastToken := asymkey_model.VerificationToken(ctx.Doer, 0)
-
-	_, err = asymkey_model.VerifySSHKey(ctx, ctx.Doer.ID, form.Fingerprint, token, form.Signature)
+	fingerprint, err := asymkey_model.VerifySSHKey(ctx, ctx.Doer().ID, form.Fingerprint, token, form.Signature)
 	if err != nil && asymkey_model.IsErrSSHInvalidTokenSignature(err) {
-		_, err = asymkey_model.VerifySSHKey(ctx, ctx.Doer.ID, form.Fingerprint, lastToken, form.Signature)
+		fingerprint, err = asymkey_model.VerifySSHKey(ctx, ctx.Doer().ID, form.Fingerprint, lastToken, form.Signature)
 	}
 	if err != nil {
 		switch {
 		case asymkey_model.IsErrSSHInvalidTokenSignature(err):
-			ctx.Error(http.StatusUnprocessableEntity, "Invalid token Signature", err)
+			ctx.Error(http.StatusUnprocessableEntity, "SSHInvalidSignature", "The provided SSH key, signature and token do not match or the token is out of date. Provide a valid signature for the token: "+token)
+		case asymkey_model.IsErrKeyNotExist(err):
+			ctx.NotFound()
 		default:
-			ctx.Error(http.StatusInternalServerError, "VerVerifyPublicKey", err)
+			ctx.Error(http.StatusInternalServerError, "VerifyPublicKey", err)
 		}
+		return
 	}
 
-	ctx.JSON(http.StatusOK, form)
+	keys, err := db.Find[asymkey_model.PublicKey](ctx, asymkey_model.FindPublicKeyOptions{
+		OwnerID:     ctx.Doer().ID,
+		Fingerprint: fingerprint,
+	})
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "FindPublicKey", err)
+		return
+	}
+	if len(keys) == 0 {
+		ctx.NotFound()
+		return
+	}
+
+	apiKey := convert.ToPublicKey(composePublicKeysAPILink(), keys[0])
+	apiKey, err = appendPrivateInformation(ctx, apiKey, keys[0], ctx.Doer())
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "appendPrivateInformation", err)
+		return
+	}
+	ctx.JSON(http.StatusOK, apiKey)
 }

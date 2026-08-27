@@ -14,7 +14,6 @@ type PublicKey struct {
 	URL         string `json:"url,omitempty"`
 	Title       string `json:"title,omitempty"`
 	Fingerprint string `json:"fingerprint,omitempty"`
-	Signature   string `json:"signature,omitempty"`
 	// swagger:strfmt date-time
 	Created  time.Time `json:"created_at"`
 	Owner    *User     `json:"user,omitempty"`
@@ -23,4 +22,16 @@ type PublicKey struct {
 	// swagger:strfmt date-time
 	Updated  time.Time `json:"updated_at,omitzero"`
 	Verified bool      `json:"verified"`
+}
+
+// VerifySSHKeyOption options for verifying a user SSH key
+type VerifySSHKeyOption struct {
+	// Fingerprint of the SSH key to verify
+	//
+	// required: true
+	Fingerprint string `json:"fingerprint" binding:"Required"`
+	// SSH signature of the verification token
+	//
+	// required: true
+	Signature string `json:"signature" binding:"Required"`
 }

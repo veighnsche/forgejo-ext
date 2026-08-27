@@ -619,7 +619,6 @@ func Routes() *web.Route {
 			m.Group("/{username}", func() {
 				m.Get("/keys", user.ListPublicKeys)
 				m.Get("/gpg_keys", user.ListGPGKeys)
-				m.Post("/key_verify", user.VerifyPublicKey)
 
 				m.Get("/followers", user.ListFollowers)
 				m.Group("/following", func() {
@@ -706,6 +705,8 @@ func Routes() *web.Route {
 				m.Combo("/{id}").Get(user.GetPublicKey).
 					Delete(user.DeletePublicKey)
 			})
+			m.Get("/key_token", user.GetSSHVerificationToken)
+			m.Post("/key_verify", bind(api.VerifySSHKeyOption{}), user.VerifyPublicKey)
 
 			// (admin:application scope)
 			m.Group("/applications", func() {

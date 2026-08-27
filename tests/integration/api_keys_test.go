@@ -4,6 +4,7 @@
 package integration
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,9 +16,12 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/util"
 	"forgejo.org/tests"
 
+	"github.com/42wim/sshsig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -221,10 +225,43 @@ func TestCreateUserKey(t *testing.T) {
 	DecodeJSON(t, resp, &respPublicKeys)
 	assert.False(t, respPublicKeys[0].Verified)
 	assert.Equal(t, respPublicKeys[0].Created, newPublicKey.Updated)
+}
 
-	// Ideally we would flip the verified bit here, but this currently would require:
-	// a) (i) having the private key to hand to generate a signature AND (ii) hitting the web UI (no API to verify)
-	// OR
-	// b) or adding code to flip the bool in the db. This requires bypassing the current
-	// cryptographic validation guarding that update), which weakens the codebase doesn't add much value.
+func TestVerifyUserKey(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
+
+	session := loginUser(t, user.Name)
+	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteUser)
+	publicKey, privateKey, err := util.GenerateSSHKeypair()
+	require.NoError(t, err)
+
+	req := NewRequestWithJSON(t, "POST", "/api/v1/user/keys", api.CreateKeyOption{
+		Title: "test-verify-key",
+		Key:   string(publicKey),
+	}).AddTokenAuth(token)
+	resp := MakeRequest(t, req, http.StatusCreated)
+	var newPublicKey api.PublicKey
+	DecodeJSON(t, resp, &newPublicKey)
+
+	req = NewRequest(t, "GET", "/api/v1/user/key_token").AddTokenAuth(token)
+	resp = MakeRequest(t, req, http.StatusOK)
+	signature, err := sshsig.Sign(privateKey, bytes.NewBuffer(resp.Body.Bytes()), setting.Domain)
+	require.NoError(t, err)
+
+	req = NewRequestWithJSON(t, "POST", "/api/v1/user/key_verify", api.VerifySSHKeyOption{
+		Fingerprint: newPublicKey.Fingerprint,
+		Signature:   string(signature),
+	}).AddTokenAuth(token)
+	resp = MakeRequest(t, req, http.StatusOK)
+
+	var verifiedPublicKey api.PublicKey
+	DecodeJSON(t, resp, &verifiedPublicKey)
+	assert.Equal(t, newPublicKey.ID, verifiedPublicKey.ID)
+	assert.True(t, verifiedPublicKey.Verified)
+	unittest.AssertExistsAndLoadBean(t, &asymkey_model.PublicKey{
+		ID:       newPublicKey.ID,
+		OwnerID:  user.ID,
+		Verified: true,
+	})
 }
