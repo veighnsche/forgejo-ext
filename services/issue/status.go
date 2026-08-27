@@ -30,7 +30,7 @@ func ChangeStatus(ctx context.Context, issue *issues_model.Issue, doer *user_mod
 		}
 	}
 
-	notify_service.IssueChangeStatus(ctx, doer, prInfo.MergedCommitID, issue, comment, closed)
+	notify_service.IssueChangeStatus(ctx, doer, prInfo, issue, comment, closed)
 
 	return nil
 }
