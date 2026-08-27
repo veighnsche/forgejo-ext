@@ -602,7 +602,7 @@ func TestProjectPermissionsAndConsistency(t *testing.T) {
 	})
 }
 
-func TestProjectAPIProjects(t *testing.T) {
+func TestProjectWebProjects(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
 	// template: templates/projects/list.tmpl
@@ -657,7 +657,7 @@ func TestProjectAPIProjects(t *testing.T) {
 	})
 }
 
-func TestProjectAPIRenderNewProject(t *testing.T) {
+func TestProjectWebRenderNewProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
 	// template: templates/projects/new.tmpl
@@ -682,7 +682,7 @@ func TestProjectAPIRenderNewProject(t *testing.T) {
 	}
 }
 
-func TestProjectAPICreateProject(t *testing.T) {
+func TestProjectWebCreateProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 	for testName, projectURL := range map[string]string{
@@ -703,7 +703,7 @@ func TestProjectAPICreateProject(t *testing.T) {
 	}
 }
 
-func TestProjectAPIDeleteProject(t *testing.T) {
+func TestProjectWebDeleteProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
@@ -744,7 +744,7 @@ func TestProjectAPIDeleteProject(t *testing.T) {
 	}
 }
 
-func TestProjectAPIRenderEditProject(t *testing.T) {
+func TestProjectWebRenderEditProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
@@ -781,7 +781,7 @@ func TestProjectAPIRenderEditProject(t *testing.T) {
 	}
 }
 
-func TestProjectAPIEditProjectPost(t *testing.T) {
+func TestProjectWebEditProjectPost(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
@@ -816,7 +816,7 @@ func TestProjectAPIEditProjectPost(t *testing.T) {
 	}
 }
 
-func TestProjectAPIDeleteProjectColumn(t *testing.T) {
+func TestProjectWebDeleteProjectColumn(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
@@ -874,7 +874,7 @@ func TestProjectAPIDeleteProjectColumn(t *testing.T) {
 	}
 }
 
-func TestProjectAPICreateColumnInProject(t *testing.T) {
+func TestProjectWebCreateColumnInProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
@@ -938,7 +938,7 @@ func TestProjectAPICreateColumnInProject(t *testing.T) {
 	}
 }
 
-func TestProjectAPIEditProjectColumn(t *testing.T) {
+func TestProjectWebEditProjectColumn(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
@@ -1014,7 +1014,7 @@ func TestProjectAPIEditProjectColumn(t *testing.T) {
 	}
 }
 
-func TestProjectAPISetDefaultProjectColumn(t *testing.T) {
+func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
@@ -1067,7 +1067,7 @@ func TestProjectAPISetDefaultProjectColumn(t *testing.T) {
 	}
 }
 
-func TestProjectAPIMoveIssues(t *testing.T) {
+func TestProjectWebMoveIssues(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
@@ -1123,7 +1123,7 @@ func TestProjectAPIMoveIssues(t *testing.T) {
 }
 
 // Test creation/getting/updating/deleting project for user
-func TestProjectAPICRUD(t *testing.T) {
+func TestProjectWebCRUD(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
 	// User and auth
