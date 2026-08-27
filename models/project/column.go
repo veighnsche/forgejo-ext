@@ -74,7 +74,7 @@ type ErrProjectColumnNotExist struct {
 
 // IsErrProjectColumnNotExist checks if an error is a ErrProjectColumnNotExist
 func IsErrProjectColumnNotExist(err error) bool {
-	_, ok := err.(ErrProjectColumnNotExist)
+	_, ok := errors.AsType[ErrProjectColumnNotExist](err)
 	return ok
 }
 
