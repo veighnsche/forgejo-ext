@@ -416,6 +416,14 @@ func orgAssignment(ctx *context.APIContext) {
 	}
 }
 
+func orgRepoAssignment(repoNameParam string) func(ctx *context.APIContext) {
+	return func(ctx *context.APIContext) {
+		repoName := ctx.Params(repoNameParam)
+
+		repoAssignment(ctx, ctx.Org().Organization.AsUser(), repoName)
+	}
+}
+
 func orgTeamAssignment(ctx *context.APIContext) {
 	if ctx.Org() == nil {
 		ctx.SetOrg(new(context.APIOrganization))
@@ -1319,7 +1327,7 @@ func Routes() *web.Route {
 			})
 			m.Group("/repos", func() {
 				m.Get("", reqToken(), org.GetTeamRepos)
-				m.Combo("/{org}/{reponame}").
+				m.Combo("/{org}/{reponame}", orgAssignment, orgRepoAssignment("reponame")).
 					Put(reqToken(), org.AddTeamRepository).
 					Delete(reqToken(), org.RemoveTeamRepository).
 					Get(reqToken(), org.GetTeamRepo)

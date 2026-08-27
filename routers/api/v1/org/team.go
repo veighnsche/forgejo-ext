@@ -13,7 +13,6 @@ import (
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
-	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/modules/log"
 	api "forgejo.org/modules/structs"
@@ -629,10 +628,7 @@ func GetTeamRepo(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	repo := getRepositoryByParams(ctx)
-	if ctx.Written() {
-		return
-	}
+	repo := ctx.Repo().Repository
 
 	if !organization.HasTeamRepo(ctx, ctx.Org().Team.OrgID, ctx.Org().Team.ID, repo.ID) {
 		ctx.NotFound()
@@ -650,20 +646,6 @@ func GetTeamRepo(ctx *context.APIContext) {
 	}
 
 	ctx.JSON(http.StatusOK, convert.ToRepo(ctx, repo, permission))
-}
-
-// getRepositoryByParams get repository by a team's organization ID and repo name
-func getRepositoryByParams(ctx *context.APIContext) *repo_model.Repository {
-	repo, err := repo_model.GetRepositoryByName(ctx, ctx.Org().Team.OrgID, ctx.Params(":reponame"))
-	if err != nil {
-		if repo_model.IsErrRepoNotExist(err) {
-			ctx.NotFound()
-		} else {
-			ctx.Error(http.StatusInternalServerError, "GetRepositoryByName", err)
-		}
-		return nil
-	}
-	return repo
 }
 
 // AddTeamRepository api for adding a repository to a team
@@ -698,10 +680,8 @@ func AddTeamRepository(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	repo := getRepositoryByParams(ctx)
-	if ctx.Written() {
-		return
-	}
+	repo := ctx.Repo().Repository
+
 	if access, err := access_model.AccessLevel(ctx, ctx.Doer(), repo); err != nil {
 		ctx.Error(http.StatusInternalServerError, "AccessLevel", err)
 		return
@@ -750,10 +730,8 @@ func RemoveTeamRepository(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	repo := getRepositoryByParams(ctx)
-	if ctx.Written() {
-		return
-	}
+	repo := ctx.Repo().Repository
+
 	if access, err := access_model.AccessLevel(ctx, ctx.Doer(), repo); err != nil {
 		ctx.Error(http.StatusInternalServerError, "AccessLevel", err)
 		return
