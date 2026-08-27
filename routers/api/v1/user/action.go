@@ -38,6 +38,8 @@ func ListActionsSecrets(ctx *context.APIContext) {
 	// responses:
 	//   "200":
 	//     "$ref": "#/responses/SecretList"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
