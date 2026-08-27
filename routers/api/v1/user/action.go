@@ -9,6 +9,7 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
+	secret_model "forgejo.org/models/secret"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
@@ -17,6 +18,51 @@ import (
 	"forgejo.org/services/context"
 	secrets_service "forgejo.org/services/secrets"
 )
+
+// ListActionsSecrets lists actions secrets of the current user
+func ListActionsSecrets(ctx *context.APIContext) {
+	// swagger:operation GET /user/actions/secrets user userListActionsSecrets
+	// ---
+	// summary: List actions secrets of the current user
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: page
+	//   in: query
+	//   description: page number of results to return (1-based)
+	//   type: integer
+	// - name: limit
+	//   in: query
+	//   description: page size of results
+	//   type: integer
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/SecretList"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	opts := &secret_model.FindSecretsOptions{
+		OwnerID:     ctx.Doer().ID,
+		ListOptions: utils.GetListOptions(ctx),
+	}
+
+	secrets, count, err := db.FindAndCount[secret_model.Secret](ctx, opts)
+	if err != nil {
+		ctx.InternalServerError(err)
+		return
+	}
+
+	apiSecrets := make([]*api.Secret, len(secrets))
+	for k, v := range secrets {
+		apiSecrets[k] = &api.Secret{
+			Name:    v.Name,
+			Created: v.CreatedUnix.AsTime(),
+		}
+	}
+
+	ctx.SetTotalCountHeader(count)
+	ctx.JSON(http.StatusOK, apiSecrets)
+}
 
 // create or update one secret of the user scope
 func CreateOrUpdateSecret(ctx *context.APIContext) {
