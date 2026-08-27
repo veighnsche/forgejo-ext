@@ -2326,6 +2326,38 @@ func newPullRequestCommentPlacementTester(t *testing.T) *PullRequestCommentPlace
 	}
 }
 
+// newSuggestionTester is like newPullRequestCommentPlacementTester but owns its repo with a
+// freshly created user, so suggestion tests (which commit and toggle quota) share no state.
+func newSuggestionTester(t *testing.T) *PullRequestCommentPlacementTester {
+	owner := forgery.CreateUser(t, nil)
+	token := getUserToken(t, owner.Name, auth_model.AccessTokenScopeWriteRepository, auth_model.AccessTokenScopeWriteIssue)
+	session := loginUser(t, owner.Name)
+
+	var content strings.Builder
+	for i := range 100 {
+		fmt.Fprintf(&content, "Line %d\n", i+1)
+	}
+
+	var initialSHA string
+	repo := forgery.CreateRepository(t, owner, &forgery.CreateRepositoryOptions{
+		Files: forgery.MapFS{
+			"file1.md": forgery.MapFile(content.String()),
+			"file2.md": forgery.MapFile(content.String()),
+		},
+		LatestSha: &initialSHA,
+	})
+
+	return &PullRequestCommentPlacementTester{
+		t:           t,
+		user:        owner,
+		session:     session,
+		apiToken:    token,
+		fileContent: content.String(),
+		repo:        repo,
+		initialSHA:  initialSHA,
+	}
+}
+
 func (tester *PullRequestCommentPlacementTester) changeFileOnBranch(sourceBranch, targetBranch string, targetBranchIsNew bool, filename, newContent string) string {
 	req := NewRequest(tester.t,
 		"GET",
@@ -2816,7 +2848,7 @@ func TestPullReviewSuggestionRender(t *testing.T) {
 
 		t.Run("single line", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 
@@ -2843,14 +2875,14 @@ func TestPullReviewSuggestionRender(t *testing.T) {
 			assert.Contains(t, body, `data-modal="#apply-suggestion-modal"`)
 
 			// a user without head-branch write still sees the suggestion diff but no Apply button
-			otherBody := loginUser(t, "user4").MakeRequest(t, NewRequest(t, "GET", convURL), http.StatusOK).Body.String()
+			otherBody := loginUser(t, forgery.CreateUser(t, nil).Name).MakeRequest(t, NewRequest(t, "GET", convURL), http.StatusOK).Body.String()
 			assert.Contains(t, otherBody, suggestionContainer(comment))
 			assert.NotContains(t, otherBody, `data-modal="#apply-suggestion-modal"`)
 		})
 
 		t.Run("multi-line range", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := tester.fileContent
 			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
 			content = strings.Replace(content, "Line 51\n", "Line 51--modified\n", 1)
@@ -2867,7 +2899,7 @@ func TestPullReviewSuggestionRender(t *testing.T) {
 
 		t.Run("previous side renders as plain code", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 
@@ -2886,7 +2918,7 @@ func TestPullReviewSuggestionRender(t *testing.T) {
 
 		t.Run("rejects a comment with more than one suggestion", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 
@@ -2917,7 +2949,7 @@ func TestPullReviewSuggestionRender(t *testing.T) {
 
 		t.Run("rejects editing a code comment to add a second suggestion (API)", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 
@@ -2963,7 +2995,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("single line", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 			_, branch := tester.branch.Get()
@@ -2988,7 +3020,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("multi-line range", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := tester.fileContent
 			content = strings.Replace(content, "Line 49\n", "Line 49--modified\n", 1)
 			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
@@ -3007,7 +3039,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("empty suggestion deletes the range", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 			_, branch := tester.branch.Get()
@@ -3022,7 +3054,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("outdated suggestion is rejected", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1)
 			tester.changeFile("file1.md", content)
 			tester.createPR()
@@ -3041,7 +3073,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("pending suggestion is rejected", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 			_, branch := tester.branch.Get()
@@ -3055,7 +3087,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("oversized file is rejected", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 			_, branch := tester.branch.Get()
@@ -3076,13 +3108,13 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("a user without head-branch write cannot apply", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 
 			comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
 
-			otherSession := loginUser(t, "user4") // no write access to user2's repo
+			otherSession := loginUser(t, forgery.CreateUser(t, nil).Name) // no write access to the base repo
 			req := NewRequestWithJSON(t, "POST",
 				fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", tester.repo.OwnerName, tester.repo.Name, tester.pr.Index),
 				map[string]any{"comment_ids": []int64{comment.ID}})
@@ -3091,7 +3123,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("apply a suggestion posted as a reply", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := tester.fileContent
 			content = strings.Replace(content, "Line 49\n", "Line 49--modified\n", 1)
 			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
@@ -3117,7 +3149,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("custom commit message", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 			_, branch := tester.branch.Get()
@@ -3144,7 +3176,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("wrong URL pull index is rejected", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 
@@ -3159,7 +3191,7 @@ func TestPullReviewApplySuggestion(t *testing.T) {
 
 		t.Run("closed PR is inert", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 
@@ -3235,7 +3267,7 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 
 		t.Run("multiple files in one commit", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.changeFile("file2.md", strings.Replace(tester.fileContent, "Line 60\n", "Line 60--modified\n", 1))
 			tester.createPR()
@@ -3258,7 +3290,7 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 
 		t.Run("multiple suggestions in one file applied bottom-up", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := tester.fileContent
 			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
 			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
@@ -3280,7 +3312,7 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 
 		t.Run("overlapping suggestions are rejected", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := tester.fileContent
 			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
 			content = strings.Replace(content, "Line 21\n", "Line 21--modified\n", 1)
@@ -3308,7 +3340,7 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 
 		t.Run("one ineligible edit rejects the whole batch", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := tester.fileContent
 			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
 			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
@@ -3334,7 +3366,7 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 
 		t.Run("different authors get co-authored-by trailers", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := tester.fileContent
 			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
 			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
@@ -3343,10 +3375,10 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 			_, branch := tester.branch.Get()
 
 			mine := tester.suggestionComment("file1.md", "proposed", 20, 0, "```suggestion\nLine 20--by-applier\n```")
-			other := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+			other := forgery.CreateUser(t, nil)
 			theirs := postSuggestionAs(tester, loginUser(t, other.Name), "file1.md", 50, "```suggestion\nLine 50--by-other\n```")
 
-			// user2 (the applier) commits a batch mixing its own suggestion and user1's
+			// the applier commits a batch mixing its own suggestion and another user's
 			applyBatch(tester, []int64{mine.ID, theirs.ID}, http.StatusOK)
 
 			list := branchCommits(tester, branch)
@@ -3360,7 +3392,7 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 
 		t.Run("batch larger than the configured limit is rejected", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			content := tester.fileContent
 			content = strings.Replace(content, "Line 20\n", "Line 20--modified\n", 1)
 			content = strings.Replace(content, "Line 50\n", "Line 50--modified\n", 1)
@@ -3384,7 +3416,7 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 
 		t.Run("duplicate comment ids are applied once", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			tester := newPullRequestCommentPlacementTester(t)
+			tester := newSuggestionTester(t)
 			tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 			tester.createPR()
 			_, branch := tester.branch.Get()
@@ -3404,19 +3436,19 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 func TestPullReviewApplySuggestionOnFork(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer tests.PrintCurrentTest(t)()
-		tester := newPullRequestCommentPlacementTester(t) // base repo owned by user2
+		tester := newSuggestionTester(t)
 		baseOwner, repoName, defaultBranch := tester.repo.OwnerName, tester.repo.Name, tester.repo.DefaultBranch
 
-		forkUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user4"})
+		forkUser := forgery.CreateUser(t, nil)
 		forkSession := loginUser(t, forkUser.Name)
 		forkToken := getUserToken(t, forkUser.Name, auth_model.AccessTokenScopeWriteRepository)
 
-		// user4 forks user2's repo
+		// forkUser forks the base repo
 		req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/forks", baseOwner, repoName), &api.CreateForkOption{}).AddTokenAuth(forkToken)
 		var fork api.Repository
 		DecodeJSON(t, MakeRequest(t, req, http.StatusAccepted), &fork)
 
-		// user4 creates a branch on the fork that modifies line 50
+		// forkUser creates a branch on the fork that modifies line 50
 		req = NewRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/%s/contents/file1.md?ref=%s", fork.Owner.UserName, fork.Name, defaultBranch)).AddTokenAuth(forkToken)
 		var existing api.ContentsResponse
 		DecodeJSON(t, MakeRequest(t, req, http.StatusOK), &existing)
@@ -3431,7 +3463,7 @@ func TestPullReviewApplySuggestionOnFork(t *testing.T) {
 		}).AddTokenAuth(forkToken)
 		MakeRequest(t, req, http.StatusOK)
 
-		// open a cross-fork PR (user4:fork-branch -> user2:main)
+		// open a cross-fork PR (fork:fork-branch -> base:main)
 		req = NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/pulls", baseOwner, repoName), &api.CreatePullRequestOption{
 			Head:  fmt.Sprintf("%s:%s", forkUser.Name, forkBranch),
 			Base:  defaultBranch,
@@ -3441,10 +3473,10 @@ func TestPullReviewApplySuggestionOnFork(t *testing.T) {
 		DecodeJSON(t, MakeRequest(t, req, http.StatusCreated), &pr)
 		tester.pr = &pr
 
-		// user2 (base reviewer) leaves a suggestion on line 50
+		// the base owner (reviewer) leaves a suggestion on line 50
 		comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
 
-		// user4 (fork owner) applies it — the commit must land on the FORK's branch
+		// forkUser (fork owner) applies it — the commit must land on the FORK's branch
 		req = NewRequestWithJSON(t, "POST", fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", baseOwner, repoName, pr.Index),
 			map[string]any{"comment_ids": []int64{comment.ID}})
 		forkSession.MakeRequest(t, req, http.StatusOK)
@@ -3459,7 +3491,7 @@ func TestPullReviewApplySuggestionOnFork(t *testing.T) {
 		assert.Contains(t, string(decoded), "Line 50--suggested")
 		assert.NotContains(t, string(decoded), "Line 50--modified")
 
-		// attribution: author = the suggestion's author (user2), committer = the applier (user4)
+		// attribution: author = the suggestion's author (base owner), committer = the applier (forkUser)
 		req = NewRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/%s/commits?sha=%s&limit=1", fork.Owner.UserName, fork.Name, forkBranch)).AddTokenAuth(forkToken)
 		var commits []api.Commit
 		DecodeJSON(t, MakeRequest(t, req, http.StatusOK), &commits)
@@ -3476,13 +3508,13 @@ func TestPullReviewApplySuggestionQuota(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer tests.PrintCurrentTest(t)()
 		defer test.MockVariableValue(&setting.Quota.Enabled, true)()
-		tester := newPullRequestCommentPlacementTester(t)
+		tester := newSuggestionTester(t)
 		tester.changeFile("file1.md", strings.Replace(tester.fileContent, "Line 50\n", "Line 50--modified\n", 1))
 		tester.createPR()
 
 		comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
 
-		// Put the head-repo owner (user2, same-repo PR) over quota: a 0-byte limit on everything.
+		// Put the head-repo owner (same-repo PR) over quota: a 0-byte limit on everything.
 		groupName := "block-" + tester.repo.Name
 		group, err := quota_model.CreateGroup(db.DefaultContext, groupName)
 		require.NoError(t, err)
@@ -3504,19 +3536,19 @@ func TestPullReviewApplySuggestionQuotaOnFork(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer tests.PrintCurrentTest(t)()
 		defer test.MockVariableValue(&setting.Quota.Enabled, true)()
-		tester := newPullRequestCommentPlacementTester(t) // base repo owned by user2
+		tester := newSuggestionTester(t)
 		baseOwner, repoName, defaultBranch := tester.repo.OwnerName, tester.repo.Name, tester.repo.DefaultBranch
 
-		forkUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user4"})
+		forkUser := forgery.CreateUser(t, nil)
 		forkSession := loginUser(t, forkUser.Name)
 		forkToken := getUserToken(t, forkUser.Name, auth_model.AccessTokenScopeWriteRepository)
 
-		// user4 forks user2's repo
+		// forkUser forks the base repo
 		req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/forks", baseOwner, repoName), &api.CreateForkOption{}).AddTokenAuth(forkToken)
 		var fork api.Repository
 		DecodeJSON(t, MakeRequest(t, req, http.StatusAccepted), &fork)
 
-		// user4 creates a branch on the fork that modifies line 50
+		// forkUser creates a branch on the fork that modifies line 50
 		req = NewRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/%s/contents/file1.md?ref=%s", fork.Owner.UserName, fork.Name, defaultBranch)).AddTokenAuth(forkToken)
 		var existing api.ContentsResponse
 		DecodeJSON(t, MakeRequest(t, req, http.StatusOK), &existing)
@@ -3531,7 +3563,7 @@ func TestPullReviewApplySuggestionQuotaOnFork(t *testing.T) {
 		}).AddTokenAuth(forkToken)
 		MakeRequest(t, req, http.StatusOK)
 
-		// open a cross-fork PR (user4:fork-branch -> user2:main)
+		// open a cross-fork PR (fork:fork-branch -> base:main)
 		req = NewRequestWithJSON(t, "POST", fmt.Sprintf("/api/v1/repos/%s/%s/pulls", baseOwner, repoName), &api.CreatePullRequestOption{
 			Head:  fmt.Sprintf("%s:%s", forkUser.Name, forkBranch),
 			Base:  defaultBranch,
@@ -3541,10 +3573,10 @@ func TestPullReviewApplySuggestionQuotaOnFork(t *testing.T) {
 		DecodeJSON(t, MakeRequest(t, req, http.StatusCreated), &pr)
 		tester.pr = &pr
 
-		// user2 (base reviewer) leaves a suggestion on line 50
+		// the base owner (reviewer) leaves a suggestion on line 50
 		comment := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--suggested\n```")
 
-		// Put ONLY the fork (head) owner over quota; the base owner (user2) stays within quota. A 413 then
+		// Put ONLY the fork (head) owner over quota; the base owner stays within quota. A 413 then
 		// proves the head owner is the one charged (a regression to the base owner would wrongly succeed).
 		groupName := "block-fork-" + fork.Name
 		group, err := quota_model.CreateGroup(db.DefaultContext, groupName)
@@ -3554,7 +3586,7 @@ func TestPullReviewApplySuggestionQuotaOnFork(t *testing.T) {
 		require.NoError(t, group.AddRuleByName(db.DefaultContext, rule.Name))
 		require.NoError(t, group.AddUserByID(db.DefaultContext, forkUser.ID))
 
-		// user4 (fork owner) applies → rejected because the fork owner is over quota
+		// forkUser (fork owner) applies → rejected because the fork owner is over quota
 		req = NewRequestWithJSON(t, "POST", fmt.Sprintf("/%s/%s/pulls/%d/files/reviews/apply_suggestion", baseOwner, repoName, pr.Index),
 			map[string]any{"comment_ids": []int64{comment.ID}})
 		forkSession.MakeRequest(t, req, http.StatusRequestEntityTooLarge)
