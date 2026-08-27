@@ -46,7 +46,7 @@ func parseSuggestion(t *testing.T, treePath string, startLine uint64, original, 
 	t.Helper()
 	patch := synthesizeSuggestionPatch(treePath, startLine, original, suggestion)
 	diff, err := ParsePatch(db.DefaultContext, setting.Git.MaxGitDiffLines,
-		setting.Git.MaxGitDiffLineCharacters, setting.Git.MaxGitDiffFiles, strings.NewReader(patch), "")
+		setting.Git.MaxGitDiffLineCharacters, strings.NewReader(patch))
 	require.NoError(t, err)
 	return diff
 }

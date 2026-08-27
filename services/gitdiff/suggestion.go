@@ -118,7 +118,7 @@ func SuggestionDiffs(ctx context.Context, comment *issues_model.Comment) []*Sugg
 	for i, suggestion := range suggestions {
 		patch := synthesizeSuggestionPatch(treePath, startLine, original, splitLines(suggestion))
 		diff, err := ParsePatch(ctx, setting.Git.MaxGitDiffLines,
-			setting.Git.MaxGitDiffLineCharacters, setting.Git.MaxGitDiffFiles, strings.NewReader(patch), "")
+			setting.Git.MaxGitDiffLineCharacters, strings.NewReader(patch))
 		if err != nil || len(diff.Files) == 0 {
 			log.Warn("SuggestionDiffs: ParsePatch for comment %d block %d: %v", comment.ID, i, err)
 			continue
