@@ -123,59 +123,61 @@ func sudo() func(ctx *context.APIContext) {
 	}
 }
 
-func repoAssignment(ctx *context.APIContext) {
+func repoAssignment(userNameParam, repoNameParam string) func(ctx *context.APIContext) {
 	apiv1_permissions_testhelpers.FollowedBy(repoAssignment, apiv1_permissions.RepoAccess)
-	userName := ctx.Params("username")
-	repoName := ctx.Params("reponame")
+	return func(ctx *context.APIContext) {
+		userName := ctx.Params(userNameParam)
+		repoName := ctx.Params(repoNameParam)
 
-	var (
-		owner *user_model.User
-		err   error
-	)
+		var (
+			owner *user_model.User
+			err   error
+		)
 
-	// Check if the user is the same as the repository owner.
-	if ctx.IsSigned() && ctx.Doer().LowerName == strings.ToLower(userName) {
-		owner = ctx.Doer()
-	} else {
-		owner, err = user_model.GetUserByName(ctx, userName)
-		if err != nil {
-			if user_model.IsErrUserNotExist(err) {
-				if redirectUserID, err := redirect_service.LookupUserRedirect(ctx, ctx.Doer(), userName); err == nil {
-					context.RedirectToUser(ctx.Base, userName, redirectUserID)
-				} else if user_model.IsErrUserRedirectNotExist(err) {
-					ctx.NotFound("GetUserByName", err)
+		// Check if the user is the same as the repository owner.
+		if ctx.IsSigned() && ctx.Doer().LowerName == strings.ToLower(userName) {
+			owner = ctx.Doer()
+		} else {
+			owner, err = user_model.GetUserByName(ctx, userName)
+			if err != nil {
+				if user_model.IsErrUserNotExist(err) {
+					if redirectUserID, err := redirect_service.LookupUserRedirect(ctx, ctx.Doer(), userName); err == nil {
+						context.RedirectToUser(ctx.Base, userName, redirectUserID)
+					} else if user_model.IsErrUserRedirectNotExist(err) {
+						ctx.NotFound("GetUserByName", err)
+					} else {
+						ctx.Error(http.StatusInternalServerError, "LookupRedirect", err)
+					}
 				} else {
-					ctx.Error(http.StatusInternalServerError, "LookupRedirect", err)
+					ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
+				}
+				return
+			}
+		}
+		ctx.Repo().Owner = owner
+		ctx.SetUser(owner)
+
+		// Get repository.
+		repo, err := repo_model.GetRepositoryByName(ctx, owner.ID, repoName)
+		if err != nil {
+			if repo_model.IsErrRepoNotExist(err) {
+				redirectRepoID, err := redirect_service.LookupRepoRedirect(ctx, ctx.Doer(), owner.ID, repoName)
+				if err == nil {
+					context.RedirectToRepo(ctx.Base, redirectRepoID)
+				} else if repo_model.IsErrRedirectNotExist(err) {
+					ctx.NotFound()
+				} else {
+					ctx.Error(http.StatusInternalServerError, "LookupRepoRedirect", err)
 				}
 			} else {
-				ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
+				ctx.Error(http.StatusInternalServerError, "GetRepositoryByName", err)
 			}
 			return
 		}
-	}
-	ctx.Repo().Owner = owner
-	ctx.SetUser(owner)
 
-	// Get repository.
-	repo, err := repo_model.GetRepositoryByName(ctx, owner.ID, repoName)
-	if err != nil {
-		if repo_model.IsErrRepoNotExist(err) {
-			redirectRepoID, err := redirect_service.LookupRepoRedirect(ctx, ctx.Doer(), owner.ID, repoName)
-			if err == nil {
-				context.RedirectToRepo(ctx.Base, redirectRepoID)
-			} else if repo_model.IsErrRedirectNotExist(err) {
-				ctx.NotFound()
-			} else {
-				ctx.Error(http.StatusInternalServerError, "LookupRepoRedirect", err)
-			}
-		} else {
-			ctx.Error(http.StatusInternalServerError, "GetRepositoryByName", err)
-		}
-		return
+		repo.Owner = owner
+		ctx.Repo().Repository = repo
 	}
-
-	repo.Owner = owner
-	ctx.Repo().Repository = repo
 }
 
 func repoAccess() func(ctx *context.APIContext) {
@@ -717,7 +719,7 @@ func Routes() *web.Route {
 						m.Get("", user.IsStarring)
 						m.Put("", user.Star)
 						m.Delete("", user.Unstar)
-					}, repoAssignment, repoAccess(), checkTokenPublicOnly())
+					}, repoAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 				}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryRepository))
 			}
 			m.Get("/times", repo.ListMyTrackedTimes)
@@ -760,7 +762,7 @@ func Routes() *web.Route {
 
 		// Needs to be extracted from the larger `/repos` group because deleting a repo isn't protected by
 		// `AccessTokenScopeCategoryRepository`; it's protected by either the User or Organization scope.
-		m.Delete("/repos/{username}/{reponame}", repoAssignment, repoAccess(), tokenRequiresRepoOwnerScope(), reqOwner(), repo.Delete)
+		m.Delete("/repos/{username}/{reponame}", repoAssignment("username", "reponame"), repoAccess(), tokenRequiresRepoOwnerScope(), reqOwner(), repo.Delete)
 
 		// Repos (requires repo scope)
 		m.Group("/repos", func() {
@@ -1076,7 +1078,7 @@ func Routes() *web.Route {
 				})
 
 				m.Get("/{ball_type:tarball|zipball|bundle}/*", reqRepoReader(unit.TypeCode), repo.DownloadArchive)
-			}, repoAssignment, repoAccess(), checkTokenPublicOnly())
+			}, repoAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryRepository))
 
 		// Notifications (requires notifications scope)
@@ -1085,7 +1087,7 @@ func Routes() *web.Route {
 				m.Combo("/notifications", reqToken()).
 					Get(notify.ListRepoNotifications).
 					Put(notify.ReadRepoNotifications)
-			}, repoAssignment, repoAccess(), checkTokenPublicOnly())
+			}, repoAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryNotification))
 
 		// Issue (requires issue scope)
@@ -1201,7 +1203,7 @@ func Routes() *web.Route {
 						Patch(reqToken(), reqRepoWriter(unit.TypeIssues, unit.TypePullRequests), bind(api.EditMilestoneOption{}), repo.EditMilestone).
 						Delete(reqToken(), reqRepoWriter(unit.TypeIssues, unit.TypePullRequests), repo.DeleteMilestone)
 				})
-			}, repoAssignment, repoAccess(), checkTokenPublicOnly())
+			}, repoAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryIssue))
 
 		// NOTE: these are Gitea package management API - see packages.CommonRoutes and packages.DockerContainerRoutes for endpoints that implement package manager APIs
