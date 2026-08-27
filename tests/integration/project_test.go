@@ -29,6 +29,7 @@ import (
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -686,19 +687,55 @@ func TestProjectWebCreateProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/new",
-		"Organization": "/org3/-/projects/new",
-		"Repository":   "/user2/repo1/projects/new",
+		"User":         "/user2/-/projects",
+		"Organization": "/org3/-/projects",
+		"Repository":   "/user2/repo1/projects",
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			projectOpts := forms_service.CreateProjectForm{
-				Title:        "Project 1",
-				Content:      "Test",
+				Title:        "TestProjectWebCreateProject Project 1",
+				Content:      "TestProjectWebCreateProject Test Content",
 				TemplateType: project_module.APITemplateTypeNone.String(),
 				CardType:     project_module.APICardTypeTextOnly.String(),
 			}
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &projectOpts), http.StatusSeeOther)
+
+			// create project
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL+"/new", &projectOpts), http.StatusSeeOther)
+
+			// check project was created
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+			// template: templates/projects/list.tmpl
+			// template lines:
+			// <div class="milestone-list">
+			//	{{range .Projects}}
+			//		<li class="milestone-card">
+			// 			<div class="milestone-header">
+			// [...]
+			// 					<a class="muted tw-break-anywhere" href="{{.Link ctx}}">{{.Title}}</a>
+			// [...]
+			//			</div>
+			// [...]
+			// 			{{if .Description}}
+			// 			<div class="content markup">
+			//				{{.RenderedContent}}
+			// 			</div>
+			// 			{{end}}
+			//		</li>
+			//	{{end}}
+			// [...]
+			// </div>
+			s := doc.Find(".milestone-list li .milestone-header .muted.tw-break-anywhere").
+				FilterFunction(func(i int, s *goquery.Selection) bool {
+					return s.Text() == projectOpts.Title
+				})
+			assert.Equal(t, 1, s.Length())
+			s = doc.Find(".milestone-list li .content.markup").
+				FilterFunction(func(i int, s *goquery.Selection) bool {
+					return strings.Contains(s.Text(), projectOpts.Content)
+				})
+			assert.Equal(t, 1, s.Length())
 		})
 	}
 }
