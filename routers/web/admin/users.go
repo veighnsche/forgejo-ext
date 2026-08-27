@@ -403,7 +403,7 @@ func EditUserPost(ctx *context.Context) {
 		authOpts.LoginSource = optional.Some(authSource)
 	}
 
-	if err := user_service.UpdateAuth(ctx, u, authOpts); err != nil {
+	if err := user_service.AdminUpdateAuth(ctx, u, authOpts); err != nil {
 		switch {
 		case errors.Is(err, password.ErrMinLength):
 			ctx.Data["Err_Password"] = true
