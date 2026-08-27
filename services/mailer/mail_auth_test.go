@@ -28,11 +28,32 @@ func TestPasswordChangeMail(t *testing.T) {
 		assert.Len(t, msgs, 1)
 		assert.Equal(t, user.EmailTo(), msgs[0].To)
 		assert.EqualValues(t, translation.NewLocale("en-US").Tr("mail.password_change.subject"), msgs[0].Subject)
-		mailer.AssertTranslatedLocale(t, msgs[0].Body, "mail.password_change.text_1", "mail.password_change.text_2", "mail.password_change.text_3")
+		assert.Contains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.account_security_caution.text_2")) // "caution! 😱"
+		assert.NotContains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 🤨"
+		mailer.AssertTranslatedLocale(t, msgs[0].Body, "mail.password_change.text_1", "mail.password_change.text_2", "mail.password_change.text_3", "mail.account_security_caution.text_1", "mail.account_security_caution.text_2", "mail.account_security_caution.text_3")
 		called = true
 	})()
 
 	require.NoError(t, user_service.UpdateAuth(db.DefaultContext, user, &user_service.UpdateAuthOptions{Password: optional.Some("NewPasswordYolo!")}))
+	assert.True(t, called)
+}
+
+func TestPasswordChangeByAdminMail(t *testing.T) {
+	defer require.NoError(t, unittest.PrepareTestDatabase())
+
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	called := false
+	defer mailer.MockMailSettings(func(msgs ...*mailer.Message) {
+		assert.Len(t, msgs, 1)
+		assert.Equal(t, user.EmailTo(), msgs[0].To)
+		assert.EqualValues(t, translation.NewLocale("en-US").Tr("mail.password_change.subject"), msgs[0].Subject)
+		assert.NotContains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.account_security_caution.text_2")) // "caution! 😱"
+		assert.Contains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 🤨"
+		mailer.AssertTranslatedLocale(t, msgs[0].Body, "mail.password_change_by_admin.text_1", "mail.password_change_by_admin.text_2", "mail.password_change_by_admin.text_3", "mail.admin_action_caution.text_1", "mail.admin_action_caution.text_2", "mail.admin_action_caution.text_3")
+		called = true
+	})()
+
+	require.NoError(t, user_service.AdminUpdateAuth(db.DefaultContext, user, &user_service.UpdateAuthOptions{Password: optional.Some("NewPasswordYolo!")}))
 	assert.True(t, called)
 }
 

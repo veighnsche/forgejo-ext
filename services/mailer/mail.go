@@ -36,15 +36,16 @@ import (
 )
 
 const (
-	mailAuthActivate           base.TplName = "auth/activate"
-	mailAuthActivateEmail      base.TplName = "auth/activate_email"
-	mailAuthResetPassword      base.TplName = "auth/reset_passwd"
-	mailAuthRegisterNotify     base.TplName = "auth/register_notify"
-	mailAuthPasswordChange     base.TplName = "auth/password_change"
-	mailAuthPrimaryMailChange  base.TplName = "auth/primary_mail_change"
-	mailAuth2faDisabled        base.TplName = "auth/2fa_disabled"
-	mailAuthRemovedSecurityKey base.TplName = "auth/removed_security_key"
-	mailAuthTOTPEnrolled       base.TplName = "auth/totp_enrolled"
+	mailAuthActivate              base.TplName = "auth/activate"
+	mailAuthActivateEmail         base.TplName = "auth/activate_email"
+	mailAuthResetPassword         base.TplName = "auth/reset_passwd"
+	mailAuthRegisterNotify        base.TplName = "auth/register_notify"
+	mailAuthPasswordChange        base.TplName = "auth/password_change"
+	mailAuthPasswordChangeByAdmin base.TplName = "auth/password_change_by_admin"
+	mailAuthPrimaryMailChange     base.TplName = "auth/primary_mail_change"
+	mailAuth2faDisabled           base.TplName = "auth/2fa_disabled"
+	mailAuthRemovedSecurityKey    base.TplName = "auth/removed_security_key"
+	mailAuthTOTPEnrolled          base.TplName = "auth/totp_enrolled"
 
 	mailNotifyCollaborator base.TplName = "notify/collaborator"
 
@@ -598,8 +599,10 @@ func fromDisplayName(u *user_model.User) string {
 }
 
 // SendPasswordChange informs the user on their primary email address that
-// their password was changed.
-func SendPasswordChange(u *user_model.User) error {
+// their password was changed. If `byAdmin` is true, the message is a bit
+// less scary, since the change does not constitute more of an "account
+// compromise" than normal admin access.
+func SendPasswordChange(byAdmin bool, u *user_model.User) error {
 	if setting.MailService == nil {
 		return nil
 	}
@@ -614,7 +617,11 @@ func SendPasswordChange(u *user_model.User) error {
 
 	var content bytes.Buffer
 
-	if err := bodyTemplates.ExecuteTemplate(&content, string(mailAuthPasswordChange), data); err != nil {
+	template := mailAuthPasswordChange
+	if byAdmin {
+		template = mailAuthPasswordChangeByAdmin
+	}
+	if err := bodyTemplates.ExecuteTemplate(&content, string(template), data); err != nil {
 		return err
 	}
 

@@ -156,7 +156,18 @@ type UpdateAuthOptions struct {
 	ProhibitLogin      optional.Option[bool]
 }
 
+// Updates the user's auth credentials
 func UpdateAuth(ctx context.Context, u *user_model.User, opts *UpdateAuthOptions) error {
+	return updateAuth(ctx, false, u, opts)
+}
+
+// Updates the user's auth credentials, indicating that a site admin performed
+// the action
+func AdminUpdateAuth(ctx context.Context, u *user_model.User, opts *UpdateAuthOptions) error {
+	return updateAuth(ctx, true, u, opts)
+}
+
+func updateAuth(ctx context.Context, byAdmin bool, u *user_model.User, opts *UpdateAuthOptions) error {
 	if has, value := opts.LoginSource.Get(); has {
 		source, err := auth_model.GetSourceByID(ctx, value)
 		if err != nil {
@@ -200,7 +211,7 @@ func UpdateAuth(ctx context.Context, u *user_model.User, opts *UpdateAuthOptions
 	}
 
 	if opts.Password.Has() {
-		return mailer.SendPasswordChange(u)
+		return mailer.SendPasswordChange(byAdmin, u)
 	}
 
 	return nil

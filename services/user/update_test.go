@@ -91,18 +91,18 @@ func TestUpdateUser(t *testing.T) {
 	assert.Equal(t, opts.EmailNotificationsPreference.ValueOrZeroValue(), user.EmailNotificationsPreference)
 }
 
-func TestUpdateAuth(t *testing.T) {
+func testUpdateAuth(t *testing.T, doUpdate func(u *user_model.User, o *UpdateAuthOptions) error) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 28})
 	userCopy := *user
 
-	require.NoError(t, UpdateAuth(db.DefaultContext, user, &UpdateAuthOptions{
+	require.NoError(t, doUpdate(user, &UpdateAuthOptions{
 		LoginName: optional.Some("new-login"),
 	}))
 	assert.Equal(t, "new-login", user.LoginName)
 
-	require.NoError(t, UpdateAuth(db.DefaultContext, user, &UpdateAuthOptions{
+	require.NoError(t, doUpdate(user, &UpdateAuthOptions{
 		Password:           optional.Some("%$DRZUVB576tfzgu"),
 		MustChangePassword: optional.Some(true),
 	}))
@@ -110,12 +110,24 @@ func TestUpdateAuth(t *testing.T) {
 	assert.NotEqual(t, userCopy.Passwd, user.Passwd)
 	assert.NotEqual(t, userCopy.Salt, user.Salt)
 
-	require.NoError(t, UpdateAuth(db.DefaultContext, user, &UpdateAuthOptions{
+	require.NoError(t, doUpdate(user, &UpdateAuthOptions{
 		ProhibitLogin: optional.Some(true),
 	}))
 	assert.True(t, user.ProhibitLogin)
 
-	require.ErrorIs(t, UpdateAuth(db.DefaultContext, user, &UpdateAuthOptions{
+	require.ErrorIs(t, doUpdate(user, &UpdateAuthOptions{
 		Password: optional.Some("aaaa"),
 	}), password_module.ErrMinLength)
+}
+
+func TestUpdateAuth(t *testing.T) {
+	testUpdateAuth(t, func(user *user_model.User, options *UpdateAuthOptions) error {
+		return UpdateAuth(db.DefaultContext, user, options)
+	})
+}
+
+func TestUpdateAuthByAdmin(t *testing.T) {
+	testUpdateAuth(t, func(user *user_model.User, options *UpdateAuthOptions) error {
+		return AdminUpdateAuth(db.DefaultContext, user, options)
+	})
 }
