@@ -1180,11 +1180,10 @@ func TestUserActivate(t *testing.T) {
 	})
 }
 
-func parseMailHelper(t *testing.T, expectedTo, expectedSubject string) (cleanup func(), codeRes *string, calledRes *bool) {
+func mailHelper(t *testing.T, expectedTo, expectedSubject string, bodyPredicate func(t *testing.T, b string)) (cleanup func(), calledRes *bool) {
 	t.Helper()
 
 	called := false
-	code := ""
 
 	cleanup = test.MockVariableValue(&mailer.SendAsync, func(msgs ...*mailer.Message) {
 		if called {
@@ -1196,54 +1195,104 @@ func parseMailHelper(t *testing.T, expectedTo, expectedSubject string) (cleanup 
 		assert.Equal(t, expectedTo, msgs[0].To)
 		assert.Equal(t, expectedSubject, msgs[0].Subject)
 
-		messageDoc := NewHTMLParser(t, bytes.NewBuffer([]byte(msgs[0].Body)))
+		bodyPredicate(t, msgs[0].Body)
+	})
+
+	return cleanup, &called
+}
+
+func parseMailHelperWithPredicate(t *testing.T, expectedTo, expectedSubject string, bodyPredicate func(t *testing.T, b string)) (cleanup func(), codeRes *string, calledRes *bool) {
+	t.Helper()
+
+	code := ""
+
+	cleanup, called := mailHelper(t, expectedTo, expectedSubject, func(t *testing.T, body string) {
+		messageDoc := NewHTMLParser(t, bytes.NewBuffer([]byte(body)))
 		link, ok := messageDoc.Find("a").Attr("href")
 		assert.True(t, ok)
 		u, err := url.Parse(link)
 		require.NoError(t, err)
 		code = u.Query()["code"][0]
+		bodyPredicate(t, body)
 	})
 
-	return cleanup, &code, &called
+	return cleanup, &code, called
+}
+
+func parseMailHelper(t *testing.T, expectedTo, expectedSubject string) (cleanup func(), codeRes *string, calledRes *bool) {
+	t.Helper()
+
+	return parseMailHelperWithPredicate(t, expectedTo, expectedSubject, func(t *testing.T, b string) {})
 }
 
 func TestUserPasswordReset(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
-	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	t.Run("user/forgot_password", func(t *testing.T) {
+		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
-	cleanup, code, called := parseMailHelper(t, user2.EmailTo(), string(translation.NewLocale("en-US").Tr("mail.reset_password")))
-	defer cleanup()
+		cleanup, code, called := parseMailHelperWithPredicate(t, user2.EmailTo(), string(translation.NewLocale("en-US").Tr("mail.reset_password")), func(t *testing.T, body string) {
+			// user does NOT get the nice admin-changed-your-password email
+			assert.NotContains(t, body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1"))
+		})
+		defer cleanup()
 
-	session := emptyTestSession(t)
-	req := NewRequestWithValues(t, "POST", "/user/forgot_password", map[string]string{
-		"email": user2.Email,
+		session := emptyTestSession(t)
+		req := NewRequestWithValues(t, "POST", "/user/forgot_password", map[string]string{
+			"email": user2.Email,
+		})
+		session.MakeRequest(t, req, http.StatusOK)
+		assert.True(t, *called, "email should have been sent")
+
+		queryCode, err := url.QueryUnescape(*code)
+		require.NoError(t, err)
+
+		lookupKey, validator, ok := strings.Cut(queryCode, ":")
+		assert.True(t, ok)
+
+		rawValidator, err := hex.DecodeString(validator)
+		require.NoError(t, err)
+
+		authToken, err := auth_model.FindAuthToken(db.DefaultContext, lookupKey, auth_model.PasswordReset)
+		require.NoError(t, err)
+		assert.False(t, authToken.IsExpired())
+		assert.Equal(t, authToken.HashedValidator, auth_model.HashValidator(rawValidator))
+
+		req = NewRequestWithValues(t, "POST", "/user/recover_account", map[string]string{
+			"code":     *code,
+			"password": "new_password",
+		})
+		session.MakeRequest(t, req, http.StatusSeeOther)
+
+		unittest.AssertNotExistsBean(t, &auth_model.AuthorizationToken{ID: authToken.ID})
+		assert.True(t, unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}).ValidatePassword(t.Context(), "new_password"))
 	})
-	session.MakeRequest(t, req, http.StatusOK)
-	assert.True(t, *called)
 
-	queryCode, err := url.QueryUnescape(*code)
-	require.NoError(t, err)
+	t.Run("admin/users/{username}", func(t *testing.T) {
+		user := forgery.CreateUser(t, nil)
+		adminUser := forgery.CreateUser(t, &forgery.CreateUserOptions{
+			IsAdmin: true,
+		})
+		adminToken := getUserToken(t, adminUser.Name, auth_model.AccessTokenScopeWriteAdmin)
 
-	lookupKey, validator, ok := strings.Cut(queryCode, ":")
-	assert.True(t, ok)
+		// for sanity
+		assert.False(t, unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: user.Name}).ValidatePassword(t.Context(), "new_password"), "password should not have changed yet")
 
-	rawValidator, err := hex.DecodeString(validator)
-	require.NoError(t, err)
+		cleanup, called := mailHelper(t, user.EmailTo(), string(translation.NewLocale("en-US").Tr("mail.password_change.subject")), func(t *testing.T, body string) {
+			// user gets the nice admin-changed-your-password email
+			assert.NotContains(t, body, translation.NewLocale("en-US").Tr("mail.account_security_caution.text_2")) // "caution! 😱"
+			assert.Contains(t, body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 😌"
+		})
+		defer cleanup()
 
-	authToken, err := auth_model.FindAuthToken(db.DefaultContext, lookupKey, auth_model.PasswordReset)
-	require.NoError(t, err)
-	assert.False(t, authToken.IsExpired())
-	assert.Equal(t, authToken.HashedValidator, auth_model.HashValidator(rawValidator))
+		req := NewRequestWithValues(t, "PATCH", "/api/v1/admin/users/"+user.Name, map[string]string{
+			"password": "new_password",
+		}).AddTokenAuth(adminToken)
+		MakeRequest(t, req, http.StatusOK)
+		assert.True(t, *called, "email should have been sent")
 
-	req = NewRequestWithValues(t, "POST", "/user/recover_account", map[string]string{
-		"code":     *code,
-		"password": "new_password",
+		assert.True(t, unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: user.Name}).ValidatePassword(t.Context(), "new_password"))
 	})
-	session.MakeRequest(t, req, http.StatusSeeOther)
-
-	unittest.AssertNotExistsBean(t, &auth_model.AuthorizationToken{ID: authToken.ID})
-	assert.True(t, unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}).ValidatePassword(t.Context(), "new_password"))
 }
 
 func TestUserPasswordResetOAuth2(t *testing.T) {

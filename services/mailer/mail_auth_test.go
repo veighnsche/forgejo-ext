@@ -29,7 +29,7 @@ func TestPasswordChangeMail(t *testing.T) {
 		assert.Equal(t, user.EmailTo(), msgs[0].To)
 		assert.EqualValues(t, translation.NewLocale("en-US").Tr("mail.password_change.subject"), msgs[0].Subject)
 		assert.Contains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.account_security_caution.text_2")) // "caution! 😱"
-		assert.NotContains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 🤨"
+		assert.NotContains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 😌"
 		mailer.AssertTranslatedLocale(t, msgs[0].Body, "mail.password_change.text_1", "mail.password_change.text_2", "mail.password_change.text_3", "mail.account_security_caution.text_1", "mail.account_security_caution.text_2", "mail.account_security_caution.text_3")
 		called = true
 	})()
@@ -48,7 +48,7 @@ func TestPasswordChangeByAdminMail(t *testing.T) {
 		assert.Equal(t, user.EmailTo(), msgs[0].To)
 		assert.EqualValues(t, translation.NewLocale("en-US").Tr("mail.password_change.subject"), msgs[0].Subject)
 		assert.NotContains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.account_security_caution.text_2")) // "caution! 😱"
-		assert.Contains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 🤨"
+		assert.Contains(t, msgs[0].Body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 😌"
 		mailer.AssertTranslatedLocale(t, msgs[0].Body, "mail.password_change_by_admin.text_1", "mail.password_change_by_admin.text_2", "mail.password_change_by_admin.text_3", "mail.admin_action_caution.text_1", "mail.admin_action_caution.text_2", "mail.admin_action_caution.text_3")
 		called = true
 	})()
