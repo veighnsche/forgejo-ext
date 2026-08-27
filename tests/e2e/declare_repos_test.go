@@ -291,8 +291,7 @@ func newRepo(t *testing.T, userID int64, repoName string, enabledUnits map[unit_
 	}
 
 	var lastCommitID string
-	commits := make([]string, commitCount)
-	n := 0
+	commits := make([]string, 0, commitCount)
 	for _, file := range fileChanges {
 		for i, version := range file.Versions {
 			operation := "update"
@@ -337,8 +336,7 @@ func newRepo(t *testing.T, userID int64, repoName string, enabledUnits map[unit_
 			assert.NotEmpty(t, resp)
 
 			lastCommitID = resp.Commit.SHA
-			commits[n] = lastCommitID
-			n++
+			commits = append(commits, lastCommitID)
 		}
 	}
 
