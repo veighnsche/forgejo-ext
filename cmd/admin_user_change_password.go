@@ -33,12 +33,14 @@ func microcmdUserChangePassword() *cli.Command {
 				Aliases: []string{"u"},
 				Value:   "",
 				Usage:   "The user to change password for",
+				// Required: true, // TODO: ?
 			},
 			&cli.StringFlag{
 				Name:    "password",
 				Aliases: []string{"p"},
 				Value:   "",
 				Usage:   "New password to set for user",
+				// Required: true, // TODO: ?
 			},
 			&cli.BoolFlag{
 				Name:  "must-change-password",
@@ -69,6 +71,7 @@ func runChangePassword(ctx context.Context, c *cli.Command) error {
 	ctx, cancel := installSignals(ctx)
 	defer cancel()
 
+	// FIXME: this call breaks unit tests 😭
 	if err := initDB(ctx); err != nil {
 		return err
 	}
@@ -111,7 +114,7 @@ func runChangePassword(ctx context.Context, c *cli.Command) error {
 		Password:           optional.Some(password),
 		MustChangePassword: optional.Some(c.Bool("must-change-password")),
 	}
-	if err := user_service.UpdateAuth(ctx, user, opts); err != nil {
+	if err := user_service.AdminUpdateAuth(ctx, user, opts); err != nil {
 		switch {
 		case errors.Is(err, auth_password.ErrMinLength):
 			return fmt.Errorf("password is not long enough, needs to be at least %d characters", setting.MinPasswordLength)
