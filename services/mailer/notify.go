@@ -70,7 +70,7 @@ func (m *mailNotifier) IssueChangeStatus(ctx context.Context, doer *user_model.U
 			if prInfo.MergedCommitID != "" {
 				// An issue being closed *and* a commitID being present means that the issue was closed by a PR or
 				// commit message that closed it by reference.
-				actionAdditionalData = ActionCloseIssueByCommit{CommitID: prInfo.MergedCommitID}
+				actionAdditionalData = ActionCloseIssueByCommit{CommitID: prInfo.MergedCommitID, Repo: prInfo.BaseRepo}
 			}
 		} else {
 			actionType = activities_model.ActionReopenIssue
