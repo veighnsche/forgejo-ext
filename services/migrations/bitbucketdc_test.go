@@ -65,6 +65,10 @@ func TestBitbucketDataCenterFormatCloneURL(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "https://jdoe:sometoken@bitbucket.example.com/scm/PROJ/myrepo.git", got)
 
+	got, err = d.FormatCloneURL(base.MigrateOptions{AuthUsername: "jdoe", AuthPassword: "secret"}, "https://bitbucket.example.com/scm/PROJ/myrepo.git")
+	require.NoError(t, err)
+	assert.Equal(t, "https://jdoe:secret@bitbucket.example.com/scm/PROJ/myrepo.git", got)
+
 	got, err = d.FormatCloneURL(base.MigrateOptions{}, "https://bitbucket.example.com/scm/PROJ/myrepo.git")
 	require.NoError(t, err)
 	assert.Equal(t, "https://bitbucket.example.com/scm/PROJ/myrepo.git", got)
