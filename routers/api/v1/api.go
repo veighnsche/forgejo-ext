@@ -417,6 +417,7 @@ func orgAssignment(ctx *context.APIContext) {
 }
 
 func orgRepoAssignment(repoNameParam string) func(ctx *context.APIContext) {
+	apiv1_permissions_testhelpers.FollowedBy(orgRepoAssignment, apiv1_permissions.RepoAccess)
 	return func(ctx *context.APIContext) {
 		repoName := ctx.Params(repoNameParam)
 
@@ -1327,9 +1328,9 @@ func Routes() *web.Route {
 			})
 			m.Group("/repos", func() {
 				m.Get("", reqToken(), org.GetTeamRepos)
-				m.Combo("/{org}/{reponame}", orgAssignment, orgRepoAssignment("reponame")).
-					Put(reqToken(), org.AddTeamRepository).
-					Delete(reqToken(), org.RemoveTeamRepository).
+				m.Combo("/{org}/{reponame}", orgAssignment, orgRepoAssignment("reponame"), repoAccess()).
+					Put(reqToken(), reqAdmin(), org.AddTeamRepository).
+					Delete(reqToken(), reqAdmin(), org.RemoveTeamRepository).
 					Get(reqToken(), org.GetTeamRepo)
 			})
 			m.Get("/activities/feeds", org.ListTeamActivityFeeds)

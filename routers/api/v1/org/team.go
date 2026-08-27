@@ -682,13 +682,6 @@ func AddTeamRepository(ctx *context.APIContext) {
 
 	repo := ctx.Repo().Repository
 
-	if access, err := access_model.AccessLevel(ctx, ctx.Doer(), repo); err != nil {
-		ctx.Error(http.StatusInternalServerError, "AccessLevel", err)
-		return
-	} else if access < perm.AccessModeAdmin {
-		ctx.Error(http.StatusForbidden, "", "Must have admin-level access to the repository")
-		return
-	}
 	if err := org_service.TeamAddRepository(ctx, ctx.Org().Team, repo); err != nil {
 		ctx.Error(http.StatusInternalServerError, "TeamAddRepository", err)
 		return
@@ -732,13 +725,6 @@ func RemoveTeamRepository(ctx *context.APIContext) {
 
 	repo := ctx.Repo().Repository
 
-	if access, err := access_model.AccessLevel(ctx, ctx.Doer(), repo); err != nil {
-		ctx.Error(http.StatusInternalServerError, "AccessLevel", err)
-		return
-	} else if access < perm.AccessModeAdmin {
-		ctx.Error(http.StatusForbidden, "", "Must have admin-level access to the repository")
-		return
-	}
 	if err := repo_service.RemoveRepositoryFromTeam(ctx, ctx.Org().Team, repo.ID); err != nil {
 		ctx.Error(http.StatusInternalServerError, "RemoveRepository", err)
 		return
