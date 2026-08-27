@@ -158,6 +158,13 @@ func ParseControlFile(r io.Reader) (*Package, error) {
 		if line[0] == ' ' || line[0] == '\t' {
 			switch key {
 			case "Description":
+				// From https://www.debian.org/doc/debian-policy/ch-controlfields.html#description
+				// Point 3, if the line is ' .', then interpret it as a blank line.
+				if line == " ." {
+					// The first newline is to end the current line, the second newline is
+					// to indicate the blank line.
+					line = "\n\n"
+				}
 				p.Metadata.Description += line
 			case "Depends":
 				depends.WriteString(trimmed)
