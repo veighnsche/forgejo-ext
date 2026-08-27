@@ -68,13 +68,13 @@ test('Create tag from commit', async ({page}) => {
 });
 
 test('Cherry-pick commit and then revert it', async ({page}) => {
-  const latestCommit = page.locator('#repo-files-table .commit-list .repo-files-table-latest-commit-cell .commit-summary .message-wrapper .default-link');
-  const modal = page.locator('#cherry-pick-modal');
-  const menu = page.locator('.js-branch-tag-selector .menu');
-
   // Navigate to the test repository.
   const response = await page.goto('/user2/cherry-picking/src/branch/main');
   expect(response?.status()).toBe(200);
+
+  const latestCommit = page.locator('#repo-files-table .commit-list .repo-files-table-latest-commit-cell .commit-summary .message-wrapper .default-link');
+  const modal = page.locator('#cherry-pick-modal');
+  const menu = page.locator('.js-branch-tag-selector .menu');
 
   // Open the commit we want to cherry-pick.
   await latestCommit.click();
