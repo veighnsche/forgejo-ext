@@ -6,6 +6,8 @@
 // Event listeners in this file provide more convenient options for that:
 // click iteration with anything on the page and pressing Escape.
 
+// ToDo: reimplement patch for web_src/js/features/clipboard.js for new dropdowns
+
 export function initDropdowns() {
   // Close open dropdown by clicking elsewhere on the page
   document.addEventListener('click', (event: MouseEvent) => {
