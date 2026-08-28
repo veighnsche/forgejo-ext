@@ -617,44 +617,70 @@ func TestProjectWebProjects(t *testing.T) {
 	// [...]
 	// </div>
 	user2 := loginUser(t, "user2")
-	testProjectListLength := func(t *testing.T, name, url string, expectLength int) {
+	testProjectListLength := func(t *testing.T, name, url, expectElement string, expectLength int) {
 		// get list of projects from url and check number of projects in list
 		t.Run(name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			resp := user2.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
-			projectList := doc.Find(".milestone-list li")
+			doc.AssertElement(t, expectElement, true)
+			projectList := doc.Find(".milestone-list li.milestone-card")
 			assert.Equal(t, expectLength, projectList.Length())
 		})
 	}
 	t.Run("User", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		projectsURL := "/user2/-/projects"
+		// template: templates/org/projects/list.tmpl
+		// template lines:
+		// {{if .ContextUser.IsOrganization}}
+		// [...]
+		// {{else}}
+		// 	<div role="main" aria-label="{{.Title}}" class="page-content user profile">
+		// [...]
+		// 	</div>
+		// {{end}}
+		expectElement := ".page-content.user.profile"
 
 		// no closed project
-		testProjectListLength(t, "get open", projectsURL, 3)
-		testProjectListLength(t, "get closed", projectsURL+"?state=closed", 0)
+		testProjectListLength(t, "get open", projectsURL, expectElement, 3)
+		testProjectListLength(t, "get closed", projectsURL+"?state=closed", expectElement, 0)
 
 		// one closed project
 		user2.MakeRequest(t, NewRequest(t, "POST", projectsURL+"/4/close"), http.StatusOK)
-		testProjectListLength(t, "get open, one closed", projectsURL, 2)
-		testProjectListLength(t, "get closed, one close", projectsURL+"?state=closed", 1)
+		testProjectListLength(t, "get open, one closed", projectsURL, expectElement, 2)
+		testProjectListLength(t, "get closed, one close", projectsURL+"?state=closed", expectElement, 1)
 	})
 
 	t.Run("Organization", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		projectsURL := "/org3/-/projects"
+		// template: templates/org/projects/list.tmpl
+		// {{if .ContextUser.IsOrganization}}
+		// 	<div role="main" aria-label="{{.Title}}" class="page-content organization projects">
+		// [...]
+		// 	</div>
+		// {{else}}
+		// [...]
+		// {{end}}
+		expectElement := ".page-content.organization.projects"
 
-		testProjectListLength(t, "get open", projectsURL, 1)
-		testProjectListLength(t, "get closed", projectsURL+"?state=closed", 0)
+		testProjectListLength(t, "get open", projectsURL, expectElement, 1)
+		testProjectListLength(t, "get closed", projectsURL+"?state=closed", expectElement, 0)
 	})
 
 	t.Run("Repository", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		projectsURL := "/user2/repo1/projects"
+		// template: templates/repo/projects/list.tmpl
+		// template lines:
+		// <div role="main" aria-label="{{.Title}}" class="page-content repository projects milestones">
+		// [...]
+		// </div>
+		expectElement := ".page-content.repository.projects.milestones"
 
-		testProjectListLength(t, "get open", projectsURL, 1)
-		testProjectListLength(t, "get closed", projectsURL+"?state=closed", 0)
+		testProjectListLength(t, "get open", projectsURL, expectElement, 1)
+		testProjectListLength(t, "get closed", projectsURL+"?state=closed", expectElement, 0)
 	})
 }
 
