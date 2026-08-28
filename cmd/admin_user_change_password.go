@@ -26,7 +26,7 @@ func microcmdUserChangePassword() *cli.Command {
 		Name:   "change-password",
 		Usage:  "Change a user's password",
 		Before: noDanglingArgs,
-		Action: runChangePassword,
+		Action: newAuthService().runChangePassword,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "username",
@@ -63,7 +63,7 @@ func readPassword(optReader optional.Option[*bufio.Reader]) (string, error) {
 	return pass, err
 }
 
-func runChangePassword(ctx context.Context, c *cli.Command) error {
+func (a *authService) runChangePassword(ctx context.Context, c *cli.Command) error {
 	if err := argsSet(c, "username"); err != nil {
 		return err
 	}
@@ -71,8 +71,7 @@ func runChangePassword(ctx context.Context, c *cli.Command) error {
 	ctx, cancel := installSignals(ctx)
 	defer cancel()
 
-	// FIXME: this call breaks unit tests 😭
-	if err := initDB(ctx); err != nil {
+	if err := a.initDB(ctx); err != nil {
 		return err
 	}
 

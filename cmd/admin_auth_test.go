@@ -13,7 +13,6 @@ import (
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/translation"
 	"forgejo.org/services/mailer"
-	"forgejo.org/tests/forgery"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -63,8 +62,8 @@ func TestAdminUserChangePassword(t *testing.T) {
 	// Mock cli functions to not exit on error
 	defer test.MockVariableValue(&cli.OsExiter, func(code int) {})()
 
-	unittest.InitSettings()
-	user := forgery.CreateUser(t, nil)
+	require.NoError(t, unittest.PrepareTestDatabase())
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
 	translation.InitLocales(t.Context())
 	cleanup, called := mailHelper(t, user.EmailTo(), string(translation.NewLocale("en-US").Tr("mail.password_change.subject")), func(t *testing.T, body string) {
@@ -79,9 +78,15 @@ func TestAdminUserChangePassword(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, u.ValidatePassword(t.Context(), "new_password"), "password should not have changed yet")
 
+	service := &authService{
+		initDB: func(context.Context) error {
+			return nil
+		},
+	}
+
 	app := cli.Command{}
 	app.Flags = microcmdUserChangePassword().Flags
-	app.Action = runChangePassword // FIXME: this seems to fail at the initDB call; this fn may require modification in order to be testable
+	app.Action = service.runChangePassword
 
 	args := []string{"change-password", "-u", user.Name, "-p", "new_password"}
 	err = app.Run(t.Context(), args)
