@@ -32,6 +32,7 @@
 			</div>
 		{{end}}
 		{{if .SearchResults}}
+			<div>{{ctx.Locale.Tr "admin.total" .Total}}</div>
 			{{template "shared/search/code/results" .}}
 		{{else if .Keyword}}
 			<div>{{ctx.Locale.Tr "search.no_results"}}</div>

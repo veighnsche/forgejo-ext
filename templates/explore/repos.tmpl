@@ -3,6 +3,7 @@
 	{{template "explore/navbar" .}}
 	<div class="ui container">
 		{{template "shared/repo_search" .}}
+		{{if .Total}}<div>{{ctx.Locale.Tr "admin.total" .Total}}</div>{{end}}
 		{{template "explore/repo_list" .}}
 		{{template "base/paginate" .}}
 	</div>
