@@ -28,6 +28,7 @@ import (
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/translation"
 	forms_service "forgejo.org/services/forms"
+	project_service "forgejo.org/services/project"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 
@@ -1059,7 +1060,7 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 	user2 := loginUser(t, "user2")
 
 	createOpts := forms_service.EditProjectColumnForm{
-		Title:   "Col1",
+		Title:   "TestProjectWebCreateColumnInProject Column1",
 		Sorting: 0,
 		Color:   "#ab1099",
 	}
@@ -1129,14 +1130,48 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 	}
 
 	// no error
-	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4",
-		"Organization": "/org3/-/projects/7",
-		"Repository":   "/user2/repo1/projects/1/",
+	for _, tt := range []struct {
+		name      string
+		url       string
+		projectID int64
+	}{
+		{"User", "/user2/-/projects", 4},
+		{"Organization", "/org3/-/projects", 7},
+		{"Repository", "/user2/repo1/projects", 1},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &createOpts), http.StatusOK)
+
+			containFunc := func(columns []*project_model.Column) bool {
+				// check if columns contain column identified
+				// by createOpts
+				for _, c := range columns {
+					if c.Title == createOpts.Title &&
+						c.Color == createOpts.Color {
+						return true
+					}
+				}
+				return false
+			}
+
+			// check current columns
+			preCols, _, err := project_service.ListProjectColumns(t.Context(), tt.projectID, db.ListOptionsAll)
+			require.NoError(t, err)
+			assert.Condition(t, func() bool {
+				return !containFunc(preCols)
+			}, "column list should not contain column")
+
+			// create new column
+			url := fmt.Sprintf("%s/%d", tt.url, tt.projectID)
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusOK)
+
+			// check if column was created
+			postCols, _, err := project_service.ListProjectColumns(t.Context(), tt.projectID, db.ListOptionsAll)
+			require.NoError(t, err)
+			assert.NotEqual(t, preCols, postCols)
+			assert.Condition(t, func() bool {
+				return containFunc(postCols)
+			}, "column list should contain column")
 		})
 	}
 }
