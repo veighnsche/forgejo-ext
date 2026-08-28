@@ -308,5 +308,8 @@ func generateContributorStats(done func(), cache cache.Cache, cacheKey string, r
 
 	// Store the data as an string, to make it uniform what data type is returned
 	// from caches.
-	_ = cache.Put(cacheKey, string(data), setting.CacheService.TTLSeconds())
+	if err := cache.Put(cacheKey, string(data), setting.CacheService.TTLSeconds()); err != nil {
+		log.Error("cache.Put[repo=%q revision=%q]: %v", repo.FullName(), revision, err)
+		return
+	}
 }
