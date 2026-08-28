@@ -30,19 +30,28 @@ export function initDropdowns() {
   // Close open dropdown when it is unfocused (e.g. when user pressed Tab or Shift+Tab),
   // but not when user lost focus completely (e.g. browser window became unfocused)
   document.addEventListener('focusout', (event: FocusEvent) => {
-    const dropdown = document.querySelector<HTMLDetailsElement>('details.dropdown[open]');
-    if (dropdown === null) {
-      // No open dropdowns on page, nothing to do
-      return;
+    const legacyDropdown = document.querySelector<HTMLDetailsElement>('details.dropdown[open]');
+    if (legacyDropdown !== null) {
+      const target = event.target as HTMLElement;
+      const newTarget = event.relatedTarget as HTMLElement;
+
+      if (newTarget !== null && legacyDropdown.contains(target) && !legacyDropdown.contains(newTarget)) {
+        // The previously focused element was within the open dropdown, but something
+        // else is now focused, so the dropdown should be closed
+        legacyDropdown.removeAttribute('open');
+      }
     }
 
-    const target = event.target as HTMLElement;
-    const newTarget = event.relatedTarget as HTMLElement;
+    const dropdown = document.querySelector<HTMLDialogElement>('.dialog-dropdown > dialog:popover-open');
+    if (dropdown !== null) {
+      const target = event.target as HTMLElement;
+      const newTarget = event.relatedTarget as HTMLElement;
 
-    if (newTarget !== null && dropdown.contains(target) && !dropdown.contains(newTarget)) {
-      // The previously focused element was within the open dropdown, but something
-      // else is now focused, so the dropdown should be closed
-      dropdown.removeAttribute('open');
+      if (newTarget !== null && dropdown.contains(target) && !dropdown.contains(newTarget)) {
+        // The previously focused element was within the open dropdown, but something
+        // else is now focused, so the dropdown should be closed
+        dropdown.hidePopover();
+      }
     }
   });
 
