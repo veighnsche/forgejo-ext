@@ -55,21 +55,25 @@
 								<span class="commit-summary {{if gt .ParentCount 1}} grey text{{end}}" title="{{.Summary}}">{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}</span>
 							{{end}}
 							</span>
-							{{if IsMultilineCommitMessage .Message}}
-							<button class="ui button js-toggle-commit-body ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}" aria-expanded="false">...</button>
-							{{end}}
-							{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
-							{{if $.CommitTagsMap}}
-								{{$tags := index $.CommitTagsMap .ID.String}}
-								{{if $tags}}
-									{{range $tags}}
-										{{- template "repo/tag/name" dict "RepoLink" $.Repository.Link "TagName" .TagName "IsRelease" (not .IsTag) -}}
+							<details class="commit-body-disclosure" {{if not (IsMultilineCommitMessage .Message)}}open{{end}}>
+								<summary>
+									{{if IsMultilineCommitMessage .Message}}
+									<span class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}">...</span>
 									{{end}}
+									{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
+									{{if $.CommitTagsMap}}
+										{{$tags := index $.CommitTagsMap .ID.String}}
+										{{if $tags}}
+											{{range $tags}}
+												{{- template "repo/tag/name" dict "RepoLink" $.Repository.Link "TagName" .TagName "IsRelease" (not .IsTag) -}}
+											{{end}}
+										{{end}}
+									{{end}}
+								</summary>
+								{{if IsMultilineCommitMessage .Message}}
+								<pre class="commit-body">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
 								{{end}}
-							{{end}}
-							{{if IsMultilineCommitMessage .Message}}
-							<pre class="commit-body tw-hidden">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
-							{{end}}
+							</details>
 						</td>
 						{{if .Committer}}
 							<td class="text right aligned">{{DateUtils.TimeSince .Committer.When}}</td>

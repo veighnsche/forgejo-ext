@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // @watch start
+// templates/repo/commits_list.tmpl
 // templates/repo/latest_commit.tmpl
 // templates/repo/pulls/commits_list.tmpl
 // web_src/css/repo.css
@@ -40,6 +41,35 @@ for (const run of [
       await expect(summary).toBeVisible();
       await expect(toggle).toBeVisible();
       await expect(body).toBeHidden();
+    });
+
+    test('Repo commits', async ({page, isMobile}) => {
+      const response = await page.goto('/user2/mentions-highlighted/commits/branch/main');
+      expect(response?.status()).toBe(200);
+
+      const summary = page.locator('.message-wrapper', {hasText: 'Another commit which mentions @user1 in the title'});
+      const toggle = summary.locator('+ details').getByLabel('Toggle full commit message');
+      const body = page.locator('.commit-body', {hasText: 'and @user2 in the text'})
+      const otherBody = page.locator('.commit-body', {hasText: 'and has some additional text which mentions @user1'})
+
+      await expect(summary).toBeVisible();
+      await expect(toggle).toBeVisible();
+      await expect(body).toBeHidden();
+      await expect(otherBody).toBeHidden();
+
+      await toggle.click({force: isMobile}); // open!
+      await expect(toggle).toBeVisible();
+      await expect(summary).toBeVisible();
+      await expect(body).toBeVisible();
+      await expect(otherBody).toBeHidden();
+
+      await toggle.click({force: isMobile}); // close!
+      await expect(summary).toBeVisible();
+      await expect(toggle).toBeVisible();
+      await expect(body).toBeHidden();
+      await expect(otherBody).toBeHidden();
+
+      // TODO: Ensure statuses and tags also work the same way
     });
   });
 }
