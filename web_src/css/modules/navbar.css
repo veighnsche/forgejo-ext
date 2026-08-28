@@ -101,7 +101,7 @@
       justify-content: start;
     }
     > dialog {
-      width: 100%;
+      width: anchor-size();
     }
   }
 
