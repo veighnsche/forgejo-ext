@@ -4,8 +4,6 @@
 package forgejo_migrations
 
 import (
-	"forgejo.org/modules/timeutil"
-
 	"code.forgejo.org/xorm/xorm"
 )
 
@@ -18,14 +16,12 @@ func init() {
 
 func addActionRunJobSummary(x *xorm.Engine) error {
 	type ActionRunJobSummary struct {
-		ID          int64 `xorm:"pk autoincr"`
-		JobID       int64 `xorm:"unique(job_attempt)"`
-		Attempt     int64 `xorm:"unique(job_attempt)"`
-		RunID       int64
-		RepoID      int64
-		Content     string             `xorm:"LONGTEXT"`
-		CreatedUnix timeutil.TimeStamp `xorm:"created"`
-		UpdatedUnix timeutil.TimeStamp `xorm:"updated"`
+		ID      int64  `xorm:"pk autoincr"`
+		JobID   int64  `xorm:"unique(job_attempt) NOT NULL REFERENCES(action_run_job, id)"`
+		Attempt int64  `xorm:"unique(job_attempt) NOT NULL"`
+		RunID   int64  `xorm:"NOT NULL REFERENCES(action_run, id)"`
+		RepoID  int64  `xorm:"NOT NULL REFERENCES(repository, id)"`
+		Content string `xorm:"LONGTEXT NOT NULL"`
 	}
 
 	_, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true}, new(ActionRunJobSummary))

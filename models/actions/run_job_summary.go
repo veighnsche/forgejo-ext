@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
-	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 )
 
@@ -17,14 +16,12 @@ const MaxJobSummarySize = 1024 * 1024
 
 // ActionRunJobSummary holds the GITHUB_STEP_SUMMARY markdown produced by one attempt of a single job.
 type ActionRunJobSummary struct {
-	ID          int64 `xorm:"pk autoincr"`
-	JobID       int64 `xorm:"unique(job_attempt)"`
-	Attempt     int64 `xorm:"unique(job_attempt)"`
-	RunID       int64
-	RepoID      int64
-	Content     string             `xorm:"LONGTEXT"`
-	CreatedUnix timeutil.TimeStamp `xorm:"created"`
-	UpdatedUnix timeutil.TimeStamp `xorm:"updated"`
+	ID      int64  `xorm:"pk autoincr"`
+	JobID   int64  `xorm:"unique(job_attempt) NOT NULL REFERENCES(action_run_job, id)"`
+	Attempt int64  `xorm:"unique(job_attempt) NOT NULL"`
+	RunID   int64  `xorm:"NOT NULL REFERENCES(action_run, id)"`
+	RepoID  int64  `xorm:"NOT NULL REFERENCES(repository, id)"`
+	Content string `xorm:"LONGTEXT NOT NULL"`
 }
 
 func init() {
@@ -45,19 +42,16 @@ func GetJobSummary(ctx context.Context, jobID, attempt int64) (*ActionRunJobSumm
 
 func SetJobSummary(ctx context.Context, summary *ActionRunJobSummary) error {
 	summary.Content, _ = util.SplitStringAtByteN(summary.Content, MaxJobSummarySize)
-	return db.WithTx(ctx, func(ctx context.Context) error {
-		existing, err := GetJobSummary(ctx, summary.JobID, summary.Attempt)
-		if err != nil && err != util.ErrNotExist {
-			return err
-		}
-		if err == util.ErrNotExist {
-			_, err := db.GetEngine(ctx).Insert(summary)
-			return err
-		}
-		summary.UpdatedUnix = timeutil.TimeStampNow()
-		_, err = db.GetEngine(ctx).ID(existing.ID).Cols("content", "updated_unix").Update(summary)
+	existing, err := GetJobSummary(ctx, summary.JobID, summary.Attempt)
+	if err != nil && err != util.ErrNotExist {
 		return err
-	})
+	}
+	if err == util.ErrNotExist {
+		_, err := db.GetEngine(ctx).Insert(summary)
+		return err
+	}
+	_, err = db.GetEngine(ctx).ID(existing.ID).Cols("content").Update(summary)
+	return err
 }
 
 func DeleteJobSummaries(ctx context.Context, jobID int64) error {

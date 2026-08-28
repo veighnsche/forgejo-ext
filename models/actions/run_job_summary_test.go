@@ -18,20 +18,20 @@ import (
 func TestJobSummary(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	const jobID, attempt = int64(1001), int64(1)
+	const jobID, attempt, runID, repoID = int64(192), int64(3), int64(791), int64(4)
 
 	_, err := GetJobSummary(t.Context(), jobID, attempt)
 	require.ErrorIs(t, err, util.ErrNotExist)
 
 	require.NoError(t, SetJobSummary(t.Context(), &ActionRunJobSummary{
-		JobID: jobID, Attempt: attempt, RunID: 1, RepoID: 1, Content: "## initial",
+		JobID: jobID, Attempt: attempt, RunID: runID, RepoID: repoID, Content: "## initial",
 	}))
 	got, err := GetJobSummary(t.Context(), jobID, attempt)
 	require.NoError(t, err)
 	assert.Equal(t, "## initial", got.Content)
 
 	require.NoError(t, SetJobSummary(t.Context(), &ActionRunJobSummary{
-		JobID: jobID, Attempt: attempt, RunID: 1, RepoID: 1, Content: "### updated",
+		JobID: jobID, Attempt: attempt, RunID: runID, RepoID: repoID, Content: "### updated",
 	}))
 	got, err = GetJobSummary(t.Context(), jobID, attempt)
 	require.NoError(t, err)
@@ -40,7 +40,7 @@ func TestJobSummary(t *testing.T) {
 	// The summary has to respect the apis upper body limit.
 	// Therefore we need to truncate it
 	require.NoError(t, SetJobSummary(t.Context(), &ActionRunJobSummary{
-		JobID: jobID, Attempt: attempt, RunID: 1, RepoID: 1, Content: strings.Repeat("😁", MaxJobSummarySize+42),
+		JobID: jobID, Attempt: attempt, RunID: runID, RepoID: repoID, Content: strings.Repeat("😁", MaxJobSummarySize+42),
 	}))
 	got, err = GetJobSummary(t.Context(), jobID, attempt)
 	require.NoError(t, err)
