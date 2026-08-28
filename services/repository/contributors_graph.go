@@ -21,6 +21,7 @@ import (
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/process"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/sync"
@@ -199,19 +200,18 @@ func getExtendedCommitStats(repo *git.Repository, revision string /*, limit int 
 }
 
 func generateContributorStats(done func(), cache cache.Cache, cacheKey string, repo *repo_model.Repository, revision string) {
+	desc := fmt.Sprintf("Generated contributor stats [%s]", cacheKey)
+	ctx, _, finished := process.GetManager().AddTypedContext(graceful.GetManager().HammerContext(), desc, process.NormalProcessType, true)
 	defer done()
+	defer finished()
 
-	ctx := graceful.GetManager().HammerContext()
-	gitRepo, closer, err := gitrepo.RepositoryFromContextOrOpen(ctx, repo)
+	gitRepo, err := gitrepo.OpenRepository(ctx, repo)
 	if err != nil {
 		log.Error("OpenRepository[repo=%q]: %v", repo.FullName(), err)
 		return
 	}
-	defer closer.Close()
+	defer gitRepo.Close()
 
-	if len(revision) == 0 {
-		revision = repo.DefaultBranch
-	}
 	extendedCommitStats, err := getExtendedCommitStats(gitRepo, revision)
 	if err != nil {
 		log.Error("getExtendedCommitStats[repo=%q revision=%q]: %v", repo.FullName(), revision, err)
