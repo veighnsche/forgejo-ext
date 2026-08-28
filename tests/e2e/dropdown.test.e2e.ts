@@ -76,8 +76,6 @@ test('JS enhanced interaction', async ({page}) => {
   // Navigate and close with Shift+Tab
   await opener.focus();
   await dropdown.press(`Enter`);
-  await expect(opener).toBeFocused();
-  await dropdown.press(`ArrowDown`);
   await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
   await dropdown.press('Shift+Tab');
   await expect(opener).toBeFocused();
