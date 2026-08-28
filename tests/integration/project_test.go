@@ -1181,7 +1181,7 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 	user2 := loginUser(t, "user2")
 
 	editOpts := forms_service.EditProjectColumnForm{
-		Title:   "Col1",
+		Title:   "TestProjectWebEditProjectColumn Column1",
 		Sorting: 0,
 		Color:   "#ab1099",
 	}
@@ -1286,14 +1286,34 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 	}
 
 	// no error
-	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4/4",
-		"Organization": "/org3/-/projects/7/10",
-		"Repository":   "/user2/repo1/projects/1/2",
+	for _, tt := range []struct {
+		name      string
+		url       string
+		projectID int64
+		columnID  int64
+	}{
+		{"User", "/user2/-/projects", 4, 4},
+		{"Organization", "/org3/-/projects", 7, 10},
+		{"Repository", "/user2/repo1/projects", 1, 2},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOpts), http.StatusOK)
+
+			// check that column settings differ
+			column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{
+				ID: tt.columnID, ProjectID: tt.projectID})
+			assert.NotEqual(t, editOpts.Title, column.Title)
+			assert.NotEqual(t, editOpts.Color, column.Color)
+
+			// change column settings
+			url := fmt.Sprintf("%s/%d/%d", tt.url, tt.projectID, tt.columnID)
+			user2.MakeRequest(t, NewRequestWithJSON(t, "PUT", url, &editOpts), http.StatusOK)
+
+			// check that column settings were changed
+			column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{
+				ID: tt.columnID, ProjectID: tt.projectID})
+			assert.Equal(t, editOpts.Title, column.Title)
+			assert.Equal(t, editOpts.Color, column.Color)
 		})
 	}
 }
