@@ -19,45 +19,45 @@ test('JS enhanced interaction', async ({page}) => {
   const nojsNotice = page.locator('body .full noscript');
   await expect(nojsNotice).toBeHidden();
 
-  // Open and close by clicking summary
+  // Open and close by clicking opener
   const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
   const dropdown = page.locator(selectorPrefix);
-  const dropdownSummary = page.locator(`${selectorPrefix} > .opener`);
+  >dropdown  const opener = page.locator(`${selectorPrefix} > .opener`);
   const dropdownContent = page.locator(`${selectorPrefix} > .content`);
   await expect(dropdownContent).toBeHidden();
-  await dropdownSummary.click();
+  await opener.click();
   await expect(dropdownContent).toBeVisible();
-  await dropdownSummary.click();
+  await opener.click();
   await expect(dropdownContent).toBeHidden();
 
   // Close by clicking elsewhere
   const elsewhere = page.locator('.username');
   await expect(dropdownContent).toBeHidden();
-  await dropdownSummary.click();
+  await opener.click();
   await expect(dropdownContent).toBeVisible();
   await elsewhere.click();
   await expect(dropdownContent).toBeHidden();
 
   // Open and close with keypressing
-  await dropdownSummary.focus();
+  await opener.focus();
   // Open with Enter, close with Space
-  await dropdownSummary.press(`Enter`);
+  await opener.press(`Enter`);
   await expect(dropdownContent).toBeVisible();
-  await dropdownSummary.press(`Space`);
+  await opener.press(`Space`);
   await expect(dropdownContent).toBeHidden();
   // Open with Space, close with Enter
-  await dropdownSummary.press(`Space`);
+  await opener.press(`Space`);
   await expect(dropdownContent).toBeVisible();
-  await dropdownSummary.press(`Enter`);
+  await opener.press(`Enter`);
   await expect(dropdownContent).toBeHidden();
   // Open with Enter, close with Enter
-  await dropdownSummary.press(`Enter`);
+  await opener.press(`Enter`);
   await expect(dropdownContent).toBeVisible();
-  await dropdownSummary.press(`Escape`);
+  await opener.press(`Escape`);
   await expect(dropdownContent).toBeHidden();
 
   // Open and navigate with ArrowDown, close with Tab
-  await dropdownSummary.focus();
+  await opener.focus();
   await dropdown.press(`ArrowDown`);
   await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
   await dropdown.press(`ArrowDown`);
@@ -74,33 +74,33 @@ test('JS enhanced interaction', async ({page}) => {
   await expect(dropdownContent).toBeHidden();
 
   // Navigate and close with Shift+Tab
-  await dropdownSummary.focus();
+  await opener.focus();
   await dropdown.press(`Enter`);
-  await expect(dropdownSummary).toBeFocused();
+  await expect(opener).toBeFocused();
   await dropdown.press(`ArrowDown`);
   await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
   await dropdown.press('Shift+Tab');
-  await expect(dropdownSummary).toBeFocused();
+  await expect(opener).toBeFocused();
   await dropdown.press('Shift+Tab');
   await expect(dropdownContent).toBeHidden();
 
   // Navigate with ArrowUp
-  await dropdownSummary.focus();
+  await opener.focus();
   await dropdown.press(`ArrowDown`);
   await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
   await dropdown.press(`ArrowDown`);
   await expect(page.locator(`a[href$=".atom"]`)).toBeFocused();
   await dropdown.press(`ArrowUp`);
   await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
-  // Pressing ArrowUp on first item will move us to summary, but no farther from here
+  // Pressing ArrowUp on first item will move us to opener, but no farther from here
   await dropdown.press(`ArrowUp`);
-  await expect(dropdownSummary).toBeFocused();
+  await expect(opener).toBeFocused();
   await dropdown.press(`Escape`);
   await expect(dropdownContent).toBeHidden();
 
   // Open and then close by opening a different dropdown
   const languageMenu = page.locator('.language-menu');
-  await dropdownSummary.click();
+  await opener.click();
   await expect(dropdownContent).toBeVisible();
   await expect(languageMenu).toBeHidden();
   await page.locator('.language.dropdown').click();
@@ -117,20 +117,20 @@ test('No JS interaction', async ({browser}) => {
   await expect(nojsNotice).toBeVisible();
   await expect(nojsPage.locator('body')).toContainClass('no-js');
 
-  // Open and close by clicking summary
+  // Open and close by clicking opener
   const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
-  const dropdownSummary = nojsPage.locator(`${selectorPrefix} > .opener`);
+  const opener = nojsPage.locator(`${selectorPrefix} > .opener`);
   const dropdownContent = nojsPage.locator(`${selectorPrefix} > .content`);
   await expect(dropdownContent).toBeHidden();
-  await dropdownSummary.click();
+  await opener.click();
   await expect(dropdownContent).toBeVisible();
-  await dropdownSummary.click();
+  await opener.click();
   await expect(dropdownContent).toBeHidden();
 
   // Close by clicking elsewhere (by hitting ::before with increased z-index)
   const elsewhere = nojsPage.locator('#navbar');
   await expect(dropdownContent).toBeHidden();
-  await dropdownSummary.click();
+  await opener.click();
   await expect(dropdownContent).toBeVisible();
   // eslint-disable-next-line playwright/no-force-option
   await elsewhere.click({force: true});
@@ -138,19 +138,19 @@ test('No JS interaction', async ({browser}) => {
 
   // Open and close with keypressing
   // Open with Enter, close with Space
-  await dropdownSummary.press(`Enter`);
+  await opener.press(`Enter`);
   await expect(dropdownContent).toBeVisible();
-  await dropdownSummary.press(`Space`);
+  await opener.press(`Space`);
   await expect(dropdownContent).toBeHidden();
   // Open with Space, close with Enter
-  await dropdownSummary.press(`Space`);
+  await opener.press(`Space`);
   await expect(dropdownContent).toBeVisible();
-  await dropdownSummary.press(`Enter`);
+  await opener.press(`Enter`);
   await expect(dropdownContent).toBeHidden();
   // Closing by Escape is not possible w/o JS enhancements
-  await dropdownSummary.press(`Enter`);
+  await opener.press(`Enter`);
   await expect(dropdownContent).toBeVisible();
-  await dropdownSummary.press(`Escape`);
+  await opener.press(`Escape`);
   await expect(dropdownContent).toBeVisible();
 });
 
@@ -178,20 +178,20 @@ test.describe(`Visual properties`, () => {
     // User profile has dropdown used as an ellipsis menu
     await page.goto('/user1');
     const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
-    const summary = page.locator(`${selectorPrefix} > .opener`);
+    const opener = page.locator(`${selectorPrefix} > .opener`);
 
     // Has `.border` and pretty small default `inline-padding:`
     // Note: `getComputedStyle` can return `border` as 1±0.1px when `Show browser` is enabled
-    expect(await summary.evaluate((el) => getComputedStyle(el).border)).toBe('1px solid rgba(0, 0, 0, 0.114)');
-    expect(await summary.evaluate((el) => getComputedStyle(el).paddingInline)).toBe('7px');
+    expect(await opener.evaluate((el) => getComputedStyle(el).border)).toBe('1px solid rgba(0, 0, 0, 0.114)');
+    expect(await opener.evaluate((el) => getComputedStyle(el).paddingInline)).toBe('7px');
 
     // Has a tooltip. Only translates into an aria-label w/ JS
-    await expect(summary).toHaveAttribute('data-tooltip-content', 'More actions');
+    await expect(opener).toHaveAttribute('data-tooltip-content', 'More actions');
 
     // Background
-    expect(await summary.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-    await summary.click();
-    expect(await summary.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(226, 226, 229)');
+    expect(await opener.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    await opener.click();
+    expect(await opener.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(226, 226, 229)');
 
     // Direction and item height
     if (isMobile) {
@@ -214,12 +214,12 @@ test.describe(`Visual properties`, () => {
     // `/explore/users` has dropdown used as a sort options menu with text in the opener
     await page.goto('/explore/users');
     const selectorPrefix = '.list-header .dialog-dropdown';
-    const summary = page.locator(`${selectorPrefix} > .opener`);
-    await summary.click();
+    const opener = page.locator(`${selectorPrefix} > .opener`);
+    await opener.click();
 
     // No `.border` and increased `inline-padding:` from `.options`
-    expect(await summary.evaluate((el) => getComputedStyle(el).borderWidth)).toBe('0px');
-    expect(await summary.evaluate((el) => getComputedStyle(el).paddingInline)).toBe('10.5px');
+    expect(await opener.evaluate((el) => getComputedStyle(el).borderWidth)).toBe('0px');
+    expect(await opener.evaluate((el) => getComputedStyle(el).paddingInline)).toBe('10.5px');
 
     // `<ul>`'s direction is reversed
     expect(await page.locator(`${selectorPrefix} > .content`).evaluate((el) => getComputedStyle(el).direction)).toBe('rtl');
