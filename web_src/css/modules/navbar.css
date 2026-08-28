@@ -125,10 +125,6 @@
   min-height: 38px;
 }
 
-#navbar .dialog-dropdown .dropdown-icon {
-  display: contents;
-}
-
 #navbar a.item .notification_count {
   color: var(--color-nav-bg);
   padding: 0 3.75px;

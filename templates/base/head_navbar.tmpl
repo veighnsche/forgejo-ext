@@ -60,7 +60,7 @@
 				<button class="opener" command="toggle-popover" commandfor="nav-user-limited-dropdown" data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
 					{{ctx.AvatarUtils.Avatar .SignedUser 24}}
 					<span class="only-mobile tw-ml-2">{{.SignedUser.Name}}</span>
-					<span class="not-mobile dropdown-icon">{{svg "octicon-triangle-down"}}</span>
+					{{svg "octicon-triangle-down" 16 "not-mobile"}}
 				</button>
 				<dialog popover id="nav-user-limited-dropdown" class="inline-flip">
 					<span class="header">
@@ -123,7 +123,7 @@
 			<div class="dialog-dropdown">
 				<button class="opener" command="toggle-popover" commandfor="nav-create-dropdown" data-tooltip-content="{{ctx.Locale.Tr "create_new"}}">
 					{{svg "octicon-plus"}}
-					<span class="not-mobile dropdown-icon">{{svg "octicon-triangle-down"}}</span>
+					{{svg "octicon-triangle-down" 16 "not-mobile"}}
 					<span class="only-mobile">{{ctx.Locale.Tr "create_new"}}</span>
 				</button>
 				<dialog popover id="nav-create-dropdown" class="inline-flip">
@@ -155,9 +155,9 @@
 				<button class="opener" command="toggle-popover" commandfor="nav-user-full-dropdown" data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
 					{{ctx.AvatarUtils.Avatar .SignedUser 24}}
 					<span class="only-mobile tw-ml-2">{{.SignedUser.Name}}</span>
-					<span class="not-mobile dropdown-icon">{{svg "octicon-triangle-down"}}</span>
+					{{svg "octicon-triangle-down" 16 "not-mobile"}}
 				</button>
-				<dialog popover id="nav-user-full-dropdown">
+				<dialog popover id="nav-user-full-dropdown" class="inline-flip">
 					<span class="header">
 						<span>{{ctx.Locale.Tr "signed_in_as"}} <strong>{{.SignedUser.Name}}</strong></span>
 					</span>
