@@ -824,13 +824,21 @@ func TestProjectWebDeleteProject(t *testing.T) {
 
 	// no errors
 	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4/delete",
-		"Organization": "/org3/-/projects/7/delete",
-		"Repository":   "/user2/repo1/projects/1/delete",
+		"User":         "/user2/-/projects/4",
+		"Organization": "/org3/-/projects/7",
+		"Repository":   "/user2/repo1/projects/1",
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusOK)
+
+			// check project exists
+			user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+
+			// delete project
+			user2.MakeRequest(t, NewRequest(t, "POST", projectURL+"/delete"), http.StatusOK)
+
+			// check project was deleted
+			user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusNotFound)
 		})
 	}
 }
