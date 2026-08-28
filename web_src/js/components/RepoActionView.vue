@@ -131,7 +131,7 @@ export default {
         // initial render (before `loadJob`'s first execution is complete) doesn't display "You are viewing an
         // out-of-date run..."
         allAttempts: [],
-        summary: '',
+        summaries: [],
       },
     };
   },
@@ -627,8 +627,10 @@ export default {
             </div>
           </div>
         </div>
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <div v-if="currentJob.summary" class="job-summary markup" v-html="currentJob.summary"/>
+        <div v-if="currentJob.summaries.length" class="job-summary markup">
+          <!-- eslint-disable-next-line vue/no-v-html -->
+          <div v-for="(stepSummary, index) in currentJob.summaries" :key="index" class="step-summary" v-html="stepSummary"/>
+        </div>
         <ActionJobStepList
           ref="stepList"
           :steps="currentJob.steps"
@@ -831,6 +833,10 @@ export default {
   border-radius: var(--border-radius);
   background: var(--color-box-body);
   color: var(--color-text);
+}
+
+.action-view-right .job-summary .step-summary + .step-summary {
+  margin-top: 16px;
 }
 
 /* begin fomantic button overrides */

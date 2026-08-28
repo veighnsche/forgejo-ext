@@ -410,12 +410,11 @@ func (*Service) UpdateLog(
 	return res, nil
 }
 
-// UpdateJobSummary stores the job summary (GITHUB_STEP_SUMMARY markdown) of the task.
-// The $GITHUB_STEP_SUMMARY contains the aggreation of all step summaries of one job
-func (*Service) UpdateJobSummary(
+// UpdateStepSummary stores the step summaries (GITHUB_STEP_SUMMARY markdown) of the task.
+func (*Service) UpdateStepSummary(
 	ctx context.Context,
-	req *connect.Request[runnerv1.UpdateJobSummaryRequest],
-) (*connect.Response[runnerv1.UpdateJobSummaryResponse], error) {
+	req *connect.Request[runnerv1.UpdateStepSummaryRequest],
+) (*connect.Response[runnerv1.UpdateStepSummaryResponse], error) {
 	runner := GetRunner(ctx)
 
 	task, err := actions_model.GetTaskByID(ctx, req.Msg.TaskId)
@@ -425,22 +424,37 @@ func (*Service) UpdateJobSummary(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("invalid runner for task"))
 	}
 
-	if err := task.LoadJob(ctx); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load job: %w", err))
+	if len(req.Msg.Summaries) == 0 {
+		return connect.NewResponse(&runnerv1.UpdateStepSummaryResponse{}), nil
 	}
 
-	summary := &actions_model.ActionRunJobSummary{
-		JobID:   task.Job.ID,
-		Attempt: task.Job.Attempt,
-		RunID:   task.Job.RunID,
-		RepoID:  task.RepoID,
-		Content: req.Msg.Summary,
+	steps, err := actions_model.GetTaskStepsByTaskID(ctx, task.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get task steps: %w", err))
 	}
-	if err := actions_model.SetJobSummary(ctx, summary); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("save job summary: %w", err))
+	stepsByIndex := make(map[int64]*actions_model.ActionTaskStep, len(steps))
+	for _, step := range steps {
+		stepsByIndex[step.Index] = step
 	}
 
-	return connect.NewResponse(&runnerv1.UpdateJobSummaryResponse{}), nil
+	summaries := make([]*actions_model.ActionTaskStepSummary, 0, len(req.Msg.Summaries))
+	for _, summary := range req.Msg.Summaries {
+		step, ok := stepsByIndex[summary.StepNumber]
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown step number %d for task %d", summary.StepNumber, task.ID))
+		}
+		summaries = append(summaries, &actions_model.ActionTaskStepSummary{
+			StepID:  step.ID,
+			TaskID:  task.ID,
+			RepoID:  task.RepoID,
+			Content: summary.Content,
+		})
+	}
+	if err := actions_model.SetTaskStepSummaries(ctx, summaries); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("save step summaries: %w", err))
+	}
+
+	return connect.NewResponse(&runnerv1.UpdateStepSummaryResponse{}), nil
 }
 
 func recoverTasks(ctx context.Context, runner *actions_model.ActionRunner, requestKey string) ([]*runnerv1.Task, error) {

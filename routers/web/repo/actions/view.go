@@ -188,10 +188,10 @@ type ViewRunInfo struct {
 }
 
 type ViewCurrentJob struct {
-	Title       string         `json:"title"`
-	Steps       []*ViewJobStep `json:"steps"`
-	AllAttempts []*TaskAttempt `json:"allAttempts"`
-	Summary     template.HTML  `json:"summary"`
+	Title       string          `json:"title"`
+	Steps       []*ViewJobStep  `json:"steps"`
+	AllAttempts []*TaskAttempt  `json:"allAttempts"`
+	Summaries   []template.HTML `json:"summaries"`
 }
 
 type ViewLogs struct {
@@ -391,10 +391,9 @@ func getViewResponse(ctx *app_context.Context, req *ViewRequest, runIndex, jobIn
 	}
 
 	resp.State.CurrentJob.Title = current.Name
-	resp.State.CurrentJob.Steps = make([]*ViewJobStep, 0) // marshal to '[]' instead of 'null' in json
+	resp.State.CurrentJob.Steps = make([]*ViewJobStep, 0)      // marshal to '[]' instead of 'null' in json
+	resp.State.CurrentJob.Summaries = make([]template.HTML, 0) // marshal to '[]' instead of 'null' in json
 	resp.State.CurrentJob.AllAttempts = allAttempts
-
-	resp.State.CurrentJob.Summary = renderedJobSummary(ctx, current, attemptNumber, metas)
 
 	var task *actions_model.ActionTask
 	// TaskID will be set only when the ActionRunJob has been picked by a runner, resulting in an ActionTask being
@@ -419,6 +418,8 @@ func getViewResponse(ctx *app_context.Context, req *ViewRequest, runIndex, jobIn
 	resp.Logs.StepsLog = make([]*ViewStepLog, 0) // marshal to '[]' instead of 'null' in json
 	// As noted above with TaskID; task will be nil when the job hasn't be picked yet...
 	if task != nil {
+		resp.State.CurrentJob.Summaries = renderedStepSummaries(ctx, task, metas)
+
 		steps := actions.FullSteps(task)
 		for _, v := range steps {
 			resp.State.CurrentJob.Steps = append(resp.State.CurrentJob.Steps, &ViewJobStep{
@@ -498,30 +499,38 @@ func getViewResponse(ctx *app_context.Context, req *ViewRequest, runIndex, jobIn
 	return resp
 }
 
-// renderedJobSummary loads the GITHUB_STEP_SUMMARY of the selected job's attempt and tries to render it into sanitized html.
-// It returns an empty value when no summary exists or rendering fails.
-func renderedJobSummary(ctx *app_context.Context, job *actions_model.ActionRunJob, attemptNumber int64, metas map[string]string) template.HTML {
-	attempt := attemptNumber
-	if attempt == 0 {
-		attempt = job.Attempt
-	}
-	summary, err := actions_model.GetJobSummary(ctx, job.ID, attempt)
+// renderedStepSummaries loads the GITHUB_STEP_SUMMARY content of the task's steps and renders them into sanitized html.
+// Each step's summary is rendered as its own markdown document, as to not break the layout with broken summaries.
+func renderedStepSummaries(ctx *app_context.Context, task *actions_model.ActionTask, metas map[string]string) []template.HTML {
+	rendered := make([]template.HTML, 0)
+	summaries, err := actions_model.GetTaskStepSummaries(ctx, task.ID)
 	if err != nil {
-		if err != util.ErrNotExist {
-			log.Error("Error loading job summary: %v", err)
+		log.Error("Error loading step summaries of task %d: %v", task.ID, err)
+		return rendered
+	}
+	if len(summaries) == 0 {
+		return rendered
+	}
+	summariesByStepID := make(map[int64]*actions_model.ActionTaskStepSummary, len(summaries))
+	for _, summary := range summaries {
+		summariesByStepID[summary.StepID] = summary
+	}
+	for _, step := range task.Steps {
+		summary, ok := summariesByStepID[step.ID]
+		if !ok {
+			continue
 		}
-		return ""
-	}
-	rendered, err := markdown.RenderString(&markup.RenderContext{
-		Links:   markup.Links{Base: ctx.Repo.RepoLink},
-		Metas:   metas,
-		GitRepo: ctx.Repo.GitRepo,
-		Ctx:     ctx,
-	}, summary.Content)
-	if err != nil {
-		// todo: Figure whether we need to display a human friendly error for that
-		log.Error("Error rendering job summary: %v", err)
-		return ""
+		html, err := markdown.RenderString(&markup.RenderContext{
+			Links:   markup.Links{Base: ctx.Repo.RepoLink},
+			Metas:   metas,
+			GitRepo: ctx.Repo.GitRepo,
+			Ctx:     ctx,
+		}, summary.Content)
+		if err != nil {
+			log.Error("Error rendering summary in step %d of task %d: %v", step.Index, task.ID, err)
+			continue
+		}
+		rendered = append(rendered, html)
 	}
 	return rendered
 }
