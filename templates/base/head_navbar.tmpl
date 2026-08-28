@@ -57,12 +57,12 @@
 		{{if and .IsSigned .HideNavbarLinks}}
 			{{/* Limited dropdown that for when account action is required, like change password or add 2FA */}}
 			<div class="dialog-dropdown">
-				<button class="opener" command="toggle-popover" commandfor="nav-user-options-dropdown" data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
+				<button class="opener" command="toggle-popover" commandfor="nav-user-limited-dropdown" data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
 					{{ctx.AvatarUtils.Avatar .SignedUser 24}}
 					<span class="only-mobile tw-ml-2">{{.SignedUser.Name}}</span>
 					<span class="not-mobile dropdown-icon">{{svg "octicon-triangle-down"}}</span>
 				</button>
-				<dialog popover id="nav-user-options-dropdown" class="inline-flip">
+				<dialog popover id="nav-user-limited-dropdown" class="inline-flip">
 					<span class="header">
 						<span>{{ctx.Locale.Tr "signed_in_as"}} <strong>{{.SignedUser.Name}}</strong></span>
 					</span>
@@ -120,13 +120,13 @@
 				</div>
 			</a>
 
-			<details class="dropdown dir-rtl">
-				<summary data-tooltip-content="{{ctx.Locale.Tr "create_new"}}">
+			<div class="dialog-dropdown">
+				<button class="opener" command="toggle-popover" commandfor="nav-create-dropdown" data-tooltip-content="{{ctx.Locale.Tr "create_new"}}">
 					{{svg "octicon-plus"}}
 					<span class="not-mobile dropdown-icon">{{svg "octicon-triangle-down"}}</span>
 					<span class="only-mobile">{{ctx.Locale.Tr "create_new"}}</span>
-				</summary>
-				<div class="content">
+				</button>
+				<dialog popover id="nav-create-dropdown" class="inline-flip">
 					<ul>
 						<li>
 							<a href="{{AppSubUrl}}/repo/create">
@@ -148,16 +148,16 @@
 							</li>
 						{{end}}
 					</ul>
-				</div>
-			</details>
+				</dialog>
+			</div>
 
-			<details class="dropdown dir-rtl">
-				<summary data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
+			<div class="dialog-dropdown">
+				<button class="opener" command="toggle-popover" commandfor="nav-user-full-dropdown" data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
 					{{ctx.AvatarUtils.Avatar .SignedUser 24}}
 					<span class="only-mobile tw-ml-2">{{.SignedUser.Name}}</span>
 					<span class="not-mobile dropdown-icon">{{svg "octicon-triangle-down"}}</span>
-				</summary>
-				<div class="content">
+				</button>
+				<dialog popover id="nav-user-full-dropdown">
 					<span class="header">
 						<span>{{ctx.Locale.Tr "signed_in_as"}} <strong>{{.SignedUser.Name}}</strong></span>
 					</span>
@@ -223,8 +223,8 @@
 							</a>
 						</li>
 					</ul>
-				</div>
-			</details>
+				</dialog>
+			</div>
 		{{else}}
 			{{if .ShowRegistrationButton}}
 				<a class="item{{if .PageIsSignUp}} active{{end}}" href="{{AppSubUrl}}/user/sign_up">
