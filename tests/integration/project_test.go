@@ -1336,7 +1336,30 @@ func TestProjectWebMoveIssues(t *testing.T) {
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusInternalServerError)
+			defer test.MockVariableValue(&setting.IsProd, false)()
+			resp := user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusInternalServerError)
+
+			// template: templates/status/500.tmpl
+			// template lines:
+			// <div role="main" class="page-content status-page-500">
+			// [...]
+			// 	<div class="ui container tw-my-8">
+			// 		{{if .ErrorMsg}}
+			// 			<p>{{ctx.Locale.Tr "error.occurred"}}:</p>
+			// 			<pre class="tw-whitespace-pre-wrap tw-break-all">{{.ErrorMsg}}</pre>
+			// 		{{end}}
+			// [...]
+			// 	</div>
+			// </div>
+			doc := NewHTMLParser(t, resp.Body)
+			assert.Contains(t,
+				doc.Find(".page-content.status-page-500 .ui.container.tw-my-8 p").Text(),
+				translation.NewLocale("en-US").Tr("error.occurred"),
+			)
+			assert.Contains(t,
+				doc.Find(".page-content.status-page-500 .ui.container.tw-my-8 pre.tw-whitespace-pre-wrap.tw-break-all").Text(),
+				"column ID must not be empty",
+			)
 		})
 	}
 
