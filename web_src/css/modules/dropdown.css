@@ -103,7 +103,7 @@ details.dropdown > summary:hover,
 }
 
 details.dropdown[open] > summary,
-.dialog-dropdown:has(dialog[open]) > .opener,
+.dialog-dropdown:has(dialog:popover-open) > .opener,
 :is(details.dropdown, .dialog-dropdown) > :is(.content, dialog) > ul > li:focus-within > :is(a, button) {
   background: var(--color-active);
 }
