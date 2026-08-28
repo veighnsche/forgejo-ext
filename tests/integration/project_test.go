@@ -838,20 +838,45 @@ func TestProjectWebRenderEditProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user2 := loginUser(t, "user2")
 
-	// template: templates/projects/new.tmpl
-	// template lines:
-	// {{range $element := .CardTypes}}
-	// 	<div class="item" data-id="{{$element.CardType}}" data-value="{{$element.CardType}}">{{ctx.Locale.Tr $element.Translation}}</div>
-	// {{end}}
-	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4/edit",
-		"Organization": "/org3/-/projects/7/edit",
-		"Repository":   "/user2/repo1/projects/1/edit",
+	for _, tt := range []struct {
+		name   string
+		url    string
+		expect string
+	}{
+		{"User", "/user2/-/projects/4/edit", ".page-content.organization.projects.edit-project.new"},
+		{"Organization", "/org3/-/projects/7/edit", ".page-content.organization.projects.edit-project.new"},
+		{"Repository", "/user2/repo1/projects/1/edit", ".page-content.repository.projects.edit-project.new.milestone"},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", tt.url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
+			// template: templates/org/projects/new.tmpl
+			// template lines:
+			// <div role="main" aria-label="{{.Title}}" class="page-content organization projects edit-project new">
+			// template: templates/repo/projects/new.tmpl
+			// template lines:
+			// <div role="main" aria-label="{{.Title}}" class="page-content repository projects edit-project new milestone">
+			doc.AssertElement(t, tt.expect, true)
+
+			// template: templates/projects/new.tmpl
+			// template lines:
+			// <h2 class="ui dividing header">
+			// 	{{if .PageIsEditProjects}}
+			// 		{{ctx.Locale.Tr "repo.projects.edit"}}
+			// 		<div class="sub header">{{ctx.Locale.Tr "repo.projects.edit_subheader"}}</div>
+			// 	{{else}}
+			// [...]
+			// 	{{end}}
+			// </h2>
+			assert.Contains(t, doc.Find(".ui.dividing.header").Text(), translation.NewLocale("en-US").Tr("repo.projects.edit"))
+			assert.Contains(t, doc.Find(".ui.dividing.header .sub.header").Text(), translation.NewLocale("en-US").Tr("repo.projects.edit_subheader"))
+
+			// template: templates/projects/new.tmpl
+			// template lines:
+			// {{range $element := .CardTypes}}
+			// 	<div class="item" data-id="{{$element.CardType}}" data-value="{{$element.CardType}}">{{ctx.Locale.Tr $element.Translation}}</div>
+			// {{end}}
 			for _, cc := range project_module.GetAPICardConfig() {
 				doc.AssertElement(t, fmt.Sprintf(".item[data-id='%s']", cc.CardType), true)
 			}
