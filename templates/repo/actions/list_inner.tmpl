@@ -70,7 +70,7 @@
 					<button class="opener border" command="toggle-popover" commandfor="workflow-options-dropdown" data-tooltip-content="{{ctx.Locale.Tr "profile.actions.tooltip"}}">
 						{{svg "octicon-kebab-horizontal"}}
 					</button>
-					<dialog popover id="workflow-options-dropdown" class="dir-flip">
+					<dialog popover id="workflow-options-dropdown" class="inline-flip">
 						<ul>
 							<li>
 								<a class="link-action" data-url="{{$.Link}}/{{if .CurWorkflowDisabled}}enable{{else}}disable{{end}}?workflow={{$.CurWorkflow}}&actor={{.CurActor}}&status={{$.CurStatus}}" href="#noscroll">

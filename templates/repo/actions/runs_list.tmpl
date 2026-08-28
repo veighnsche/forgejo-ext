@@ -48,7 +48,7 @@
 						<input type="hidden" name="status" value="{{$.CurStatus}}">
 						<input type="hidden" name="page" value="{{$.Page.Paginater.Current}}">
 					</form>
-					<dialog popover id="run-{{.Index}}-options-dropdown" class="dir-flip">
+					<dialog popover id="run-{{.Index}}-options-dropdown" class="inline-flip">
 						<ul>
 							<li>
 								<button form="de_prioritize_{{.Index}}" formaction="{{.Link}}/prioritize" {{if or (not ($.Permission.CanWrite $.UnitTypeActions)) .Prioritize .Status.IsDone}}disabled{{end}}>{{ctx.Locale.Tr "actions.runs.prioritize_run"}}</button>
