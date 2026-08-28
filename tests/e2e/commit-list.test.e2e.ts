@@ -27,7 +27,7 @@ for (const run of runs) {
 
       const summary = page.locator('.commit-summary', {hasText: 'Another commit which mentions @user1 in the title'});
       const toggle = summary.getByLabel('Toggle full commit message');
-      const body = page.locator('.commit-body', {hasText: 'and @user2 in the text'})
+      const body = page.locator('.commit-body', {hasText: 'and @user2 in the text'});
 
       await expect(summary).toBeVisible();
       await expect(toggle).toBeVisible();
@@ -50,8 +50,8 @@ for (const run of runs) {
 
       const summary = page.locator('.message-wrapper', {hasText: 'Another commit which mentions @user1 in the title'});
       const toggle = summary.locator('+ details').getByLabel('Toggle full commit message');
-      const body = page.locator('.commit-body', {hasText: 'and @user2 in the text'})
-      const otherBody = page.locator('.commit-body', {hasText: 'and has some additional text which mentions @user1'})
+      const body = page.locator('.commit-body', {hasText: 'and @user2 in the text'});
+      const otherBody = page.locator('.commit-body', {hasText: 'and has some additional text which mentions @user1'});
 
       await expect(summary).toBeVisible();
       await expect(toggle).toBeVisible();
@@ -188,7 +188,7 @@ test.describe('PR commits', () => {
 
       const summary = page.locator('.message-wrapper', {hasText: 'This commit message'});
       const toggle = summary.getByLabel('Toggle full commit message');
-      const body = page.locator('.commit-body', {hasText: 'contains multiple lines'})
+      const body = page.locator('.commit-body', {hasText: 'contains multiple lines'});
 
       await expect(summary).toBeVisible();
       await expect(toggle).toBeVisible();
