@@ -1,16 +1,4 @@
 import {createTippy} from '../modules/tippy.js';
-import {toggleElem} from '../utils/dom.js';
-
-export function initRepoEllipsisButton() {
-  for (const button of document.querySelectorAll('.js-toggle-commit-body')) {
-    button.addEventListener('click', function (e) {
-      e.preventDefault();
-      const expanded = this.getAttribute('aria-expanded') === 'true';
-      toggleElem(this.parentElement.querySelector('.commit-body'));
-      this.setAttribute('aria-expanded', String(!expanded));
-    });
-  }
-}
 
 export function initCommitStatuses() {
   for (const element of document.querySelectorAll('[data-tippy="commit-statuses"]')) {

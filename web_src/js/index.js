@@ -33,7 +33,7 @@ import {
   initArchivedLabelHandler,
 } from './features/repo-issue.js';
 import {initRepoIssueSidebarList} from './features/repo-issue-sidebar-list.ts';
-import {initRepoEllipsisButton, initCommitStatuses, initCommitNotes} from './features/repo-commit.js';
+import {initCommitStatuses, initCommitNotes} from './features/repo-commit.js';
 import {
   initFootLanguageMenu,
   initGlobalButtonClickOnEnter,
@@ -152,7 +152,6 @@ onDomReady(() => {
   initRepoBranchButton();
   initRepoCodeView();
   initRepoCommentForm();
-  initRepoEllipsisButton();
   initRepoDiffCommitBranchesAndTags();
   initRepoEditor();
   initAddOrgMemberButton();

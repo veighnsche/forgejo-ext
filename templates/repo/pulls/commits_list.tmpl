@@ -33,15 +33,19 @@
 			{{$commitLink := (printf "%s/pulls/%d/commits/%s" $commitRepoLink $.Issue.Index (PathEscape .ID.String))}}
 			<div class="message-wrapper">
 				{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}
-				{{if IsMultilineCommitMessage .Message}}
-					<button class="ui button js-toggle-commit-body ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}" aria-expanded="false">...</button>
-				{{end}}
-				<span class="ci-status">
-					{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
-				</span>
-				{{if IsMultilineCommitMessage .Message}}
-					<pre class="commit-body tw-hidden">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
-				{{end}}
+				<details class="commit-body-disclosure" {{if not (IsMultilineCommitMessage .Message)}}open{{end}}>
+					<summary>
+						{{if IsMultilineCommitMessage .Message}}
+						<span class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}">...</span>
+						{{end}}
+						<span class="ci-status">
+							{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
+						</span>
+					</summary>
+					{{if IsMultilineCommitMessage .Message}}
+					<pre class="commit-body">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
+					{{end}}
+				</details>
 			</div>
 		</div>
 

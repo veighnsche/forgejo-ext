@@ -13,10 +13,11 @@ import {expect} from '@playwright/test';
 import {test} from './utils_e2e.ts';
 import {screenshot} from './shared/screenshots.ts';
 
-for (const run of [
+const runs = [
   {title: 'JS off', useJs: false},
   {title: 'JS on', useJs: true},
-]) {
+] as const;
+for (const run of runs) {
   test.describe(`Commits list (${run.title})`, () => {
     test.use({javaScriptEnabled: run.useJs});
 
@@ -69,7 +70,7 @@ for (const run of [
       await expect(body).toBeHidden();
       await expect(otherBody).toBeHidden();
 
-      // TODO: Ensure statuses and tags also work the same way
+      // TODO: Ensure statuses and tags also work the same way; need a fixture with both statuses and a multiline message
     });
   });
 }
@@ -157,4 +158,53 @@ test.describe('PR commits', () => {
 
     await screenshot(page);
   });
+
+  for (const run of runs) {
+    test(`Multiline commit message (${run.title})`, async ({browser, page: jsPage, isMobile}) => {
+      let response = await jsPage.goto('/user2/mentions-highlighted/pulls/1');
+      if (response?.status() === 404) {
+        // start a new pull request
+        // FIXME: this would be better as a fixture of some kind
+        response = await jsPage.goto('/user2/mentions-highlighted/_edit/main/README.md');
+        expect(response?.status()).toBe(200);
+        await jsPage.locator('.cm-content').click();
+        await jsPage.keyboard.press('Control+a');
+        await jsPage.keyboard.insertText('test-commit-list-pr-multiline-messages');
+        await jsPage.locator('input[name="commit_summary"]').fill('This commit message');
+        await jsPage.locator('textarea[name="commit_message"]').fill('contains multiple lines.');
+        await jsPage.locator('input[type="radio"][value="commit-to-new-branch"]').click();
+        await jsPage.locator('.commit-form-wrapper button[type="submit"]').click();
+        await jsPage.waitForURL('/user2/mentions-highlighted/compare/main...user2-patch-1', {waitUntil: 'domcontentloaded'});
+        await jsPage.locator('button.show-form', {hasText: 'New pull request'}).click();
+        await jsPage.locator('button', {hasText: 'Create pull request'}).click();
+        await jsPage.waitForURL('/user2/mentions-highlighted/pulls/1', {waitUntil: 'domcontentloaded'});
+      }
+
+      // ensure multiline commits work in the PR view
+      const context = await browser.newContext({javaScriptEnabled: run.useJs});
+      const page = await context.newPage();
+      response = await page.goto('/user2/mentions-highlighted/pulls/1/commits');
+      expect(response?.status()).toBe(200);
+
+      const summary = page.locator('.message-wrapper', {hasText: 'This commit message'});
+      const toggle = summary.getByLabel('Toggle full commit message');
+      const body = page.locator('.commit-body', {hasText: 'contains multiple lines'})
+
+      await expect(summary).toBeVisible();
+      await expect(toggle).toBeVisible();
+      await expect(body).toBeHidden();
+
+      await toggle.click({force: isMobile}); // open!
+      await expect(toggle).toBeVisible();
+      await expect(summary).toBeVisible();
+      await expect(body).toBeVisible();
+
+      await toggle.click({force: isMobile}); // close!
+      await expect(summary).toBeVisible();
+      await expect(toggle).toBeVisible();
+      await expect(body).toBeHidden();
+
+      // TODO: Ensure statuses and tags also work the same way; need a fixture with both statuses and a multiline message
+    });
+  }
 });
