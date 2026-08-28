@@ -22,7 +22,7 @@ test('JS enhanced interaction', async ({page}) => {
   // Open and close by clicking opener
   const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
   const dropdown = page.locator(selectorPrefix);
-  >dropdown  const opener = page.locator(`${selectorPrefix} > .opener`);
+  const opener = page.locator(`${selectorPrefix} > .opener`);
   const dropdownContent = page.locator(`${selectorPrefix} > .content`);
   await expect(dropdownContent).toBeHidden();
   await opener.click();
