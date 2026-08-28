@@ -606,16 +606,6 @@ func TestProjectPermissionsAndConsistency(t *testing.T) {
 func TestProjectWebProjects(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
-	// template: templates/projects/list.tmpl
-	// template lines:
-	// <div class="milestone-list">
-	//	{{range .Projects}}
-	//		<li class="milestone-card">
-	// [...]
-	//		</li>
-	//	{{end}}
-	// [...]
-	// </div>
 	user2 := loginUser(t, "user2")
 	testProjectListLength := func(t *testing.T, name, url, expectElement string, expectLength int) {
 		// get list of projects from url and check number of projects in list
@@ -624,6 +614,16 @@ func TestProjectWebProjects(t *testing.T) {
 			resp := user2.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
 			doc.AssertElement(t, expectElement, true)
+			// template: templates/projects/list.tmpl
+			// template lines:
+			// <div class="milestone-list">
+			//	{{range .Projects}}
+			//		<li class="milestone-card">
+			// [...]
+			//		</li>
+			//	{{end}}
+			// [...]
+			// </div>
 			projectList := doc.Find(".milestone-list li.milestone-card")
 			assert.Equal(t, expectLength, projectList.Length())
 		})
