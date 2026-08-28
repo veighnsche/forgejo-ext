@@ -47,6 +47,11 @@
       /* Backdrop is unwanted for open dropdown */
       background-color: unset;
     }
+
+    &.dir-flip {
+      /* Make `dialog` face the inverse direction compared to the default when possible */
+      position-area: bottom span-left;
+    }
   }
 }
 
