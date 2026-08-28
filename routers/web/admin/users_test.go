@@ -260,7 +260,7 @@ func TestEditUserPost_Password(t *testing.T) {
 	cleanup, called := mailHelper(t, user.EmailTo(), string(translation.NewLocale("en-US").Tr("mail.password_change.subject")), func(t *testing.T, body string) {
 		// user gets the nice admin-changed-your-password email
 		assert.NotContains(t, body, translation.NewLocale("en-US").Tr("mail.account_security_caution.text_2")) // "caution! 😱"
-		assert.Contains(t, body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 😌"
+		assert.Contains(t, body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1"))    // "an admin did it 😌"
 	})
 	defer cleanup()
 
@@ -271,13 +271,13 @@ func TestEditUserPost_Password(t *testing.T) {
 
 	// try edit
 	form := forms.AdminEditUserForm{
-		LoginType:          user.LoginType.String(),
-		LoginName:          user.LoginName,
-		Password:           "new_password",
-		MaxRepoCreation:    -1,
-		Active:             true,
-		ProhibitLogin:      false,
-		Visibility:         user.Visibility,
+		LoginType:       user.LoginType.String(),
+		LoginName:       user.LoginName,
+		Password:        "new_password",
+		MaxRepoCreation: -1,
+		Active:          true,
+		ProhibitLogin:   false,
+		Visibility:      user.Visibility,
 	}
 	web.SetForm(ctx, &form)
 	EditUserPost(ctx)

@@ -1281,7 +1281,7 @@ func TestUserPasswordReset(t *testing.T) {
 		cleanup, called := mailHelper(t, user.EmailTo(), string(translation.NewLocale("en-US").Tr("mail.password_change.subject")), func(t *testing.T, body string) {
 			// user gets the nice admin-changed-your-password email
 			assert.NotContains(t, body, translation.NewLocale("en-US").Tr("mail.account_security_caution.text_2")) // "caution! 😱"
-			assert.Contains(t, body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1")) // "an admin did it 😌"
+			assert.Contains(t, body, translation.NewLocale("en-US").Tr("mail.password_change_by_admin.text_1"))    // "an admin did it 😌"
 		})
 		defer cleanup()
 
