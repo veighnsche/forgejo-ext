@@ -25,6 +25,7 @@ import (
 	project_module "forgejo.org/modules/project"
 	project_structs "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/translation"
 	forms_service "forgejo.org/services/forms"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
@@ -687,21 +688,47 @@ func TestProjectWebProjects(t *testing.T) {
 func TestProjectWebRenderNewProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
-	// template: templates/projects/new.tmpl
-	// template lines:
-	// {{range $element := .CardTypes}}
-	// 	<div class="item" data-id="{{$element.CardType}}" data-value="{{$element.CardType}}">{{ctx.Locale.Tr $element.Translation}}</div>
-	// {{end}}
 	user2 := loginUser(t, "user2")
-	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/new",
-		"Organization": "/org3/-/projects/new",
-		"Repository":   "/user2/repo1/projects/new",
+	for _, tt := range []struct {
+		name   string
+		url    string
+		expect string
+	}{
+		{"User", "/user2/-/projects/new", ".page-content.organization.projects.edit-project.new"},
+		{"Organization", "/org3/-/projects/new", ".page-content.organization.projects.edit-project.new"},
+		{"Repository", "/user2/repo1/projects/new", ".page-content.repository.projects.edit-project.new.milestone"},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+			resp := user2.MakeRequest(t, NewRequest(t, "GET", tt.url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
+
+			// template: templates/org/projects/new.tmpl
+			// template lines:
+			// <div role="main" aria-label="{{.Title}}" class="page-content organization projects edit-project new">
+			// template: templates/repo/projects/new.tmpl
+			// template lines:
+			// <div role="main" aria-label="{{.Title}}" class="page-content repository projects edit-project new milestone">
+			doc.AssertElement(t, tt.expect, true)
+
+			// template: templates/projects/new.tmpl
+			// template lines:
+			// <h2 class="ui dividing header">
+			// 	{{if .PageIsEditProjects}}
+			// [...]
+			// 	{{else}}
+			// 		{{ctx.Locale.Tr "repo.projects.new"}}
+			// 		<div class="sub header">{{ctx.Locale.Tr "repo.projects.new_subheader"}}</div>
+			// 	{{end}}
+			// </h2>
+			assert.Contains(t, doc.Find(".ui.dividing.header").Text(), translation.NewLocale("en-US").Tr("repo.projects.new"))
+			assert.Contains(t, doc.Find(".ui.dividing.header .sub.header").Text(), translation.NewLocale("en-US").Tr("repo.projects.new_subheader"))
+
+			// template: templates/projects/new.tmpl
+			// template lines:
+			// {{range $element := .CardTypes}}
+			// 	<div class="item" data-id="{{$element.CardType}}" data-value="{{$element.CardType}}">{{ctx.Locale.Tr $element.Translation}}</div>
+			// {{end}}
 			for _, cc := range project_module.GetAPICardConfig() {
 				doc.AssertElement(t, fmt.Sprintf(".item[data-id='%s']", cc.CardType), true)
 			}
