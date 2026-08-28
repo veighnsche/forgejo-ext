@@ -1382,14 +1382,37 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 	}
 
 	// no error
-	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4/4/default",
-		"Organization": "/org3/-/projects/7/10/default",
-		"Repository":   "/user2/repo1/projects/1/2/default",
+	column := &project_model.Column{
+		Title:     "TestProjectWebSetDefaultProjectColumn Column2",
+		ProjectID: 7,
+	}
+	require.NoError(t, project_model.CreateColumn(t.Context(), column))
+	for _, tt := range []struct {
+		name      string
+		url       string
+		projectID int64
+		columnID  int64
+	}{
+		{"User", "/user2/-/projects", 4, 4},
+		{"Organization", "/org3/-/projects", 7, column.ID},
+		{"Repository", "/user2/repo1/projects", 1, 2},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusOK)
+
+			// check that column is not default
+			column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{
+				ID: tt.columnID, ProjectID: tt.projectID})
+			assert.False(t, column.Default)
+
+			// set default column
+			url := fmt.Sprintf("%s/%d/%d/default", tt.url, tt.projectID, tt.columnID)
+			user2.MakeRequest(t, NewRequest(t, "POST", url), http.StatusOK)
+
+			// check that column is default now
+			column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{
+				ID: tt.columnID, ProjectID: tt.projectID})
+			assert.True(t, column.Default)
 		})
 	}
 }
