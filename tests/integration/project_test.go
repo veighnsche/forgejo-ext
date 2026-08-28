@@ -1042,7 +1042,8 @@ func TestProjectWebDeleteProjectColumn(t *testing.T) {
 
 			// check column exists
 			unittest.AssertExistsIf(t, true, &project_model.Column{
-				ID: tt.columnID, ProjectID: tt.projectID})
+				ID: tt.columnID, ProjectID: tt.projectID,
+			})
 
 			// delete column
 			url := fmt.Sprintf("%s/%d/%d", tt.url, tt.projectID, tt.columnID)
@@ -1050,7 +1051,8 @@ func TestProjectWebDeleteProjectColumn(t *testing.T) {
 
 			// check column does not exist
 			unittest.AssertNotExistsBean(t, &project_model.Column{
-				ID: tt.columnID, ProjectID: tt.projectID})
+				ID: tt.columnID, ProjectID: tt.projectID,
+			})
 		})
 	}
 }
@@ -1301,7 +1303,8 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 
 			// check that column settings differ
 			column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{
-				ID: tt.columnID, ProjectID: tt.projectID})
+				ID: tt.columnID, ProjectID: tt.projectID,
+			})
 			assert.NotEqual(t, editOpts.Title, column.Title)
 			assert.NotEqual(t, editOpts.Color, column.Color)
 
@@ -1311,7 +1314,8 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 
 			// check that column settings were changed
 			column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{
-				ID: tt.columnID, ProjectID: tt.projectID})
+				ID: tt.columnID, ProjectID: tt.projectID,
+			})
 			assert.Equal(t, editOpts.Title, column.Title)
 			assert.Equal(t, editOpts.Color, column.Color)
 		})
@@ -1402,7 +1406,8 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 
 			// check that column is not default
 			column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{
-				ID: tt.columnID, ProjectID: tt.projectID})
+				ID: tt.columnID, ProjectID: tt.projectID,
+			})
 			assert.False(t, column.Default)
 
 			// set default column
@@ -1411,7 +1416,8 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 
 			// check that column is default now
 			column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{
-				ID: tt.columnID, ProjectID: tt.projectID})
+				ID: tt.columnID, ProjectID: tt.projectID,
+			})
 			assert.True(t, column.Default)
 		})
 	}
