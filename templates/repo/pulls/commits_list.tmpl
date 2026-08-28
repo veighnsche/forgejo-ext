@@ -34,7 +34,7 @@
 			<div class="message-wrapper">
 				{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}
 				{{if IsMultilineCommitMessage .Message}}
-					<button class="ui button js-toggle-commit-body ellipsis-button" aria-expanded="false">...</button>
+					<button class="ui button js-toggle-commit-body ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}" aria-expanded="false">...</button>
 				{{end}}
 				<span class="ci-status">
 					{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
