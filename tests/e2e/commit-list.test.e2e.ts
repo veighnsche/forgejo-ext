@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // @watch start
+// templates/repo/latest_commit.tmpl
 // templates/repo/pulls/commits_list.tmpl
 // web_src/css/repo.css
 // web_src/css/repo/commit-list.css
@@ -11,7 +12,39 @@ import {expect} from '@playwright/test';
 import {test} from './utils_e2e.ts';
 import {screenshot} from './shared/screenshots.ts';
 
-test.describe(`PR commits`, () => {
+for (const run of [
+  {title: 'JS off', useJs: false},
+  {title: 'JS on', useJs: true},
+]) {
+  test.describe(`Commits list (${run.title})`, () => {
+    test.use({javaScriptEnabled: run.useJs});
+
+    test('Repo latest commit', async ({page, isMobile}) => {
+      const response = await page.goto('/user2/mentions-highlighted');
+      expect(response?.status()).toBe(200);
+
+      const summary = page.locator('.commit-summary', {hasText: 'Another commit which mentions @user1 in the title'});
+      const toggle = summary.getByLabel('Toggle full commit message');
+      const body = page.locator('.commit-body', {hasText: 'and @user2 in the text'})
+
+      await expect(summary).toBeVisible();
+      await expect(toggle).toBeVisible();
+      await expect(body).toBeHidden();
+
+      await toggle.click({force: isMobile}); // open!
+      await expect(toggle).toBeVisible();
+      await expect(summary).toBeVisible();
+      await expect(body).toBeVisible();
+
+      await toggle.click({force: isMobile}); // close!
+      await expect(summary).toBeVisible();
+      await expect(toggle).toBeVisible();
+      await expect(body).toBeHidden();
+    });
+  });
+}
+
+test.describe('PR commits', () => {
   test.use({user: 'user2'});
 
   test('Any layout', async ({page}) => {
