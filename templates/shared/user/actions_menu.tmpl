@@ -2,7 +2,7 @@
 	<button class="opener border" command="toggle-popover" commandfor="profile-actions-dropdown" data-tooltip-content="{{ctx.Locale.Tr "profile.actions.tooltip"}}">
 		{{svg "octicon-kebab-horizontal"}}
 	</button>
-	<dialog popover class="content" id="profile-actions-dropdown">
+	<dialog popover id="profile-actions-dropdown">
 		<ul>
 			{{if eq .SignedUserID .ContextUser.ID}}
 				<li>

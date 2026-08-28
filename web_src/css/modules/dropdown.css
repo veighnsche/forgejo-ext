@@ -98,17 +98,17 @@ details.dropdown > summary,
 
 details.dropdown > summary:hover,
 .dialog-dropdown > .opener:hover,
-:is(details.dropdown, .dialog-dropdown) > .content > ul > li > :is(a, button):hover {
+:is(details.dropdown, .dialog-dropdown) > :is(.content, dialog) > ul > li > :is(a, button):hover {
   background: var(--color-hover);
 }
 
 details.dropdown[open] > summary,
 .dialog-dropdown:has(dialog[open]) > .opener,
-:is(details.dropdown, .dialog-dropdown) > .content > ul > li:focus-within > :is(a, button) {
+:is(details.dropdown, .dialog-dropdown) > :is(.content, dialog) > ul > li:focus-within > :is(a, button) {
   background: var(--color-active);
 }
 
-:is(details.dropdown, .dialog-dropdown) > .content {
+:is(details.dropdown, .dialog-dropdown) > :is(.content, dialog) {
   z-index: 99;
   position: absolute;
   min-width: max-content;
@@ -126,14 +126,14 @@ details.dropdown[open] > summary,
   }
 }
 
-:is(details.dropdown, .dialog-dropdown) > .content > ul {
+:is(details.dropdown, .dialog-dropdown) > :is(.content, dialog) > ul {
   /* Suppress default styling of <ul> */
   margin: 0;
   padding: 0;
   list-style-type: none;
 
   /* Round first item of first list and last item of last list. Each of these
-   * selectors should only resolve to one element in any .content */
+   * selectors should only resolve to one element in any :is(.content, dialog) */
   &:first-child > li:first-child {
     border-radius: var(--border-radius) var(--border-radius) 0 0;
   }
@@ -146,7 +146,7 @@ details.dropdown[open] > summary,
 }
 
 /* General styling of list items */
-:is(details.dropdown, .dialog-dropdown) > .content > ul > li {
+:is(details.dropdown, .dialog-dropdown) > :is(.content, dialog) > ul > li {
   width: 100%;
 
   > :is(a, button) {
@@ -179,7 +179,7 @@ details.dropdown[open] > summary,
 
 /* Special styling for "headers" */
 /* A few dropdowns contain such headers, however, they are not semantically considered as headers */
-:is(details.dropdown, .dialog-dropdown) > .content > .header {
+:is(details.dropdown, .dialog-dropdown) > :is(.content, dialog) > .header {
   display: flex;
   padding-block: 0.5rem;
   padding-inline: var(--dropdown-padding-inline);
@@ -189,7 +189,7 @@ details.dropdown[open] > summary,
 }
 
 /* Decrease bottom padding if an <hr> follows, which adds it's own vertical padding */
-:is(details.dropdown, .dialog-dropdown) > .content > .header:has(+ hr) {
+:is(details.dropdown, .dialog-dropdown) > :is(.content, dialog) > .header:has(+ hr) {
   padding-bottom: 0.25rem;
 }
 
