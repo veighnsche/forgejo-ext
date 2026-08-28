@@ -1026,14 +1026,30 @@ func TestProjectWebDeleteProjectColumn(t *testing.T) {
 		ProjectID: 7,
 	}
 	require.NoError(t, project_model.CreateColumn(t.Context(), column))
-	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4/4",
-		"Organization": fmt.Sprintf("/org3/-/projects/7/%d", column.ID),
-		"Repository":   "/user2/repo1/projects/1/2",
+	for _, tt := range []struct {
+		name      string
+		url       string
+		projectID int64
+		columnID  int64
+	}{
+		{"User", "/user2/-/projects", 4, 4},
+		{"Organization", "/org3/-/projects", 7, column.ID},
+		{"Repository", "/user2/repo1/projects", 1, 2},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "DELETE", projectURL), http.StatusOK)
+
+			// check column exists
+			unittest.AssertExistsIf(t, true, &project_model.Column{
+				ID: tt.columnID, ProjectID: tt.projectID})
+
+			// delete column
+			url := fmt.Sprintf("%s/%d/%d", tt.url, tt.projectID, tt.columnID)
+			user2.MakeRequest(t, NewRequest(t, "DELETE", url), http.StatusOK)
+
+			// check column does not exist
+			unittest.AssertNotExistsBean(t, &project_model.Column{
+				ID: tt.columnID, ProjectID: tt.projectID})
 		})
 	}
 }
