@@ -42,12 +42,13 @@ export function initDropdowns() {
       }
     }
 
-    const dropdown = document.querySelector<HTMLDialogElement>('.dialog-dropdown > dialog:popover-open');
+    const dropdown = document.querySelector<HTMLDialogElement>('.dialog-dropdown dialog:popover-open');
     if (dropdown !== null) {
+      const parent = dropdown.parentElement as HTMLDivElement;
       const target = event.target as HTMLElement;
       const newTarget = event.relatedTarget as HTMLElement;
 
-      if (newTarget !== null && dropdown.contains(target) && !dropdown.contains(newTarget)) {
+      if (newTarget !== null && parent.contains(target) && !parent.contains(newTarget)) {
         // The previously focused element was within the open dropdown, but something
         // else is now focused, so the dropdown should be closed
         dropdown.hidePopover();
