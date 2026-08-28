@@ -910,20 +910,37 @@ func TestProjectWebEditProjectPost(t *testing.T) {
 	user2 := loginUser(t, "user2")
 
 	projectOpts := forms_service.CreateProjectForm{
-		Title:    "Project 1",
-		Content:  "Test",
+		Title:    "TestProjectWebEditProjectPost Project 1",
+		Content:  "TestProjectWebEditProjectPost Test Text",
 		CardType: project_module.APICardTypeTextOnly.String(),
 	}
 
 	// no errors
-	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4/edit",
-		"Organization": "/org3/-/projects/7/edit",
-		"Repository":   "/user2/repo1/projects/1/edit",
+	for _, tt := range []struct {
+		name string
+		url  string
+		id   int64
+	}{
+		{"User", "/user2/-/projects", 4},
+		{"Organization", "/org3/-/projects", 7},
+		{"Repository", "/user2/repo1/projects", 1},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &projectOpts), http.StatusSeeOther)
+
+			// check project settings do not match already
+			project := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.id})
+			assert.NotEqual(t, projectOpts.Title, project.Title)
+			assert.NotEqual(t, projectOpts.Content, project.Description)
+
+			// change project settings
+			url := fmt.Sprintf("%s/%d/edit", tt.url, tt.id)
+			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &projectOpts), http.StatusSeeOther)
+
+			// check project settings were changed
+			project = unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.id})
+			assert.Equal(t, projectOpts.Title, project.Title)
+			assert.Equal(t, projectOpts.Content, project.Description)
 		})
 	}
 
