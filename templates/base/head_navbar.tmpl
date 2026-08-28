@@ -52,16 +52,17 @@
 		{{end}}
 	</div>
 
-	<!-- the full dropdown menus -->
+	{{/* Various dropdowns on the left side of the navbar */}}
 	<div class="navbar-right ui secondary menu">
 		{{if and .IsSigned .HideNavbarLinks}}
-			<details class="dropdown dir-rtl">
-				<summary data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
+			{{/* Limited dropdown that for when account action is required, like change password or add 2FA */}}
+			<div class="dialog-dropdown">
+				<button class="opener" command="toggle-popover" commandfor="nav-user-options-dropdown" data-tooltip-content="{{ctx.Locale.Tr "user_profile_and_more"}}">
 					{{ctx.AvatarUtils.Avatar .SignedUser 24}}
 					<span class="only-mobile tw-ml-2">{{.SignedUser.Name}}</span>
 					<span class="not-mobile dropdown-icon">{{svg "octicon-triangle-down"}}</span>
-				</summary>
-				<div class="content">
+				</button>
+				<dialog popover id="nav-user-options-dropdown" class="inline-flip">
 					<span class="header">
 						<span>{{ctx.Locale.Tr "signed_in_as"}} <strong>{{.SignedUser.Name}}</strong></span>
 					</span>
@@ -74,8 +75,8 @@
 							</a>
 						</li>
 					</ul>
-				</div>
-			</details>
+				</dialog>
+			</div>
 		{{else if .IsSigned}}
 			{{if EnableTimetracking}}
 			<a class="active-stopwatch-trigger item tw-mx-0{{if not .ActiveStopwatch}} tw-hidden{{end}}" href="{{.ActiveStopwatch.IssueLink}}" data-tippy-content="{{ctx.Locale.Tr "active_stopwatch"}}" aria-label="{{ctx.Locale.Tr "active_stopwatch"}}">
