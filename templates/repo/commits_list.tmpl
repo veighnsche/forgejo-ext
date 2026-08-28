@@ -55,7 +55,7 @@
 								<span class="commit-summary {{if gt .ParentCount 1}} grey text{{end}}" title="{{.Summary}}">{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}</span>
 							{{end}}
 							</span>
-							<details class="commit-body-disclosure" {{if not (IsMultilineCommitMessage .Message)}}open{{end}}>
+							<details class="commit-body-toggle" {{if not (IsMultilineCommitMessage .Message)}}open{{end}}>
 								<summary>
 									{{if IsMultilineCommitMessage .Message}}
 									<span class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}">...</span>

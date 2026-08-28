@@ -24,7 +24,7 @@
 	{{$commitLink:= printf "%s/commit/%s" .RepoLink (PathEscape .LatestCommit.ID.String)}}
 	<span class="grey commit-summary" title="{{.LatestCommit.Summary}}"><span class="message-wrapper">{{RenderCommitMessageLinkSubject $.Context .LatestCommit.Message $commitLink ($.Repository.ComposeMetas ctx)}}</span>
 	{{if IsMultilineCommitMessage .LatestCommit.Message}}
-	<details class="commit-body-disclosure">
+	<details class="commit-body-toggle">
 		<summary class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}">...</summary>
 		<pre class="commit-body">{{RenderCommitBody $.Context .LatestCommit.Message ($.Repository.ComposeMetas ctx)}}</pre>
 	</details>
