@@ -187,10 +187,13 @@ func TestForgejoPayload(t *testing.T) {
 		assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
 		var body struct {
 			Ref string `json:"ref"`
+			CompareUrl string `json:"compare_url"`
+			CompareUrlCompat string `json:"compare"`
 		}
 		err = json.NewDecoder(req.Body).Decode(&body)
 		require.NoError(t, err)
 		assert.Equal(t, "refs/heads/test", body.Ref) // full ref
+		assert.Equal(t, body.CompareUrl, body.CompareUrlCompat)
 	})
 
 	t.Run("Delete", func(t *testing.T) {

@@ -150,7 +150,7 @@ func TestMSTeamsPayload(t *testing.T) {
 		// action button should point to compare
 		require.Len(t, pl.Actions, 1)
 		assert.Equal(t, "View in Forgejo", pl.Actions[0].Title)
-		assert.Equal(t, "http://localhost:3000/test/repo/src/test", pl.Actions[0].URL)
+		assert.Equal(t, "http://localhost:3000/test/repo/compare/2020558fe2e34debb818a514715839cabd25e777...2020558fe2e34debb818a514715839cabd25e778", pl.Actions[0].URL)
 	})
 
 	t.Run("Issue", func(t *testing.T) {

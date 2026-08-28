@@ -51,7 +51,7 @@ func TestSlackPayload(t *testing.T) {
 		pl, err := sc.Push(p)
 		require.NoError(t, err)
 
-		assert.Equal(t, "[test/repo:<http://localhost:3000/test/repo/src/branch/test|test>] 2 new commits pushed by `user1`", pl.Text)
+		assert.Equal(t, "[test/repo:<http://localhost:3000/test/repo/src/branch/test|test>] <http://localhost:3000/test/repo/compare/2020558fe2e34debb818a514715839cabd25e777...2020558fe2e34debb818a514715839cabd25e778|2 new commits> pushed by `user1`", pl.Text)
 	})
 
 	t.Run("Issue", func(t *testing.T) {
@@ -189,7 +189,7 @@ func TestSlackJSONPayload(t *testing.T) {
 	var body SlackPayload
 	err = json.NewDecoder(req.Body).Decode(&body)
 	require.NoError(t, err)
-	assert.Equal(t, "[test/repo:<http://localhost:3000/test/repo/src/branch/test|test>] 2 new commits pushed by `user1`", body.Text)
+	assert.Equal(t, "[test/repo:<http://localhost:3000/test/repo/src/branch/test|test>] <http://localhost:3000/test/repo/compare/2020558fe2e34debb818a514715839cabd25e777...2020558fe2e34debb818a514715839cabd25e778|2 new commits> pushed by `user1`", body.Text)
 }
 
 func TestIsValidSlackChannel(t *testing.T) {

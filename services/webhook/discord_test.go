@@ -75,7 +75,7 @@ func TestDiscordPayload(t *testing.T) {
 		assert.Len(t, pl.Embeds, 1)
 		assert.Equal(t, "[test/repo:test] 2 new commits", pl.Embeds[0].Title)
 		assert.Equal(t, "[`2020558`](http://localhost:3000/test/repo/commit/2020558fe2e34debb818a514715839cabd25e778) commit message \\- user1\n[`2020558`](http://localhost:3000/test/repo/commit/2020558fe2e34debb818a514715839cabd25e778) commit message \\- user1", pl.Embeds[0].Description)
-		assert.Equal(t, "http://localhost:3000/test/repo/src/test", pl.Embeds[0].URL)
+		assert.Equal(t, "http://localhost:3000/test/repo/compare/2020558fe2e34debb818a514715839cabd25e777...2020558fe2e34debb818a514715839cabd25e778", pl.Embeds[0].URL)
 		assert.Equal(t, p.Sender.UserName, pl.Embeds[0].Author.Name)
 		assert.Equal(t, setting.AppURL+p.Sender.UserName, pl.Embeds[0].Author.URL)
 		assert.Equal(t, p.Sender.AvatarURL, pl.Embeds[0].Author.IconURL)
