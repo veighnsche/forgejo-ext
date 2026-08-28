@@ -20,9 +20,9 @@ test('JS enhanced interaction', async ({page}) => {
   await expect(nojsNotice).toBeHidden();
 
   // Open and close by clicking summary
-  const selectorPrefix = '#profile-avatar-card details.dropdown';
+  const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
   const dropdown = page.locator(selectorPrefix);
-  const dropdownSummary = page.locator(`${selectorPrefix} > summary`);
+  const dropdownSummary = page.locator(`${selectorPrefix} > .opener`);
   const dropdownContent = page.locator(`${selectorPrefix} > .content`);
   await expect(dropdownContent).toBeHidden();
   await dropdownSummary.click();
@@ -118,8 +118,8 @@ test('No JS interaction', async ({browser}) => {
   await expect(nojsPage.locator('body')).toContainClass('no-js');
 
   // Open and close by clicking summary
-  const selectorPrefix = '#profile-avatar-card details.dropdown';
-  const dropdownSummary = nojsPage.locator(`${selectorPrefix} > summary`);
+  const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
+  const dropdownSummary = nojsPage.locator(`${selectorPrefix} > .opener`);
   const dropdownContent = nojsPage.locator(`${selectorPrefix} > .content`);
   await expect(dropdownContent).toBeHidden();
   await dropdownSummary.click();
@@ -177,8 +177,8 @@ test.describe(`Visual properties`, () => {
 
     // User profile has dropdown used as an ellipsis menu
     await page.goto('/user1');
-    const selectorPrefix = '#profile-avatar-card details.dropdown';
-    const summary = page.locator(`${selectorPrefix} > summary`);
+    const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
+    const summary = page.locator(`${selectorPrefix} > .opener`);
 
     // Has `.border` and pretty small default `inline-padding:`
     // Note: `getComputedStyle` can return `border` as 1±0.1px when `Show browser` is enabled
@@ -213,8 +213,8 @@ test.describe(`Visual properties`, () => {
 
     // `/explore/users` has dropdown used as a sort options menu with text in the opener
     await page.goto('/explore/users');
-    const selectorPrefix = '.list-header details.dropdown';
-    const summary = page.locator(`${selectorPrefix} > summary`);
+    const selectorPrefix = '.list-header .dialog-dropdown';
+    const summary = page.locator(`${selectorPrefix} > .opener`);
     await summary.click();
 
     // No `.border` and increased `inline-padding:` from `.options`
@@ -240,14 +240,14 @@ test.describe(`Visual properties`, () => {
     await page.goto('/-/demo/dropdown');
 
     // Dropdown with just 3 items and nothing special
-    await page.locator(`#dropdown-1 > summary`).click();
+    await page.locator(`#dropdown-1 > .opener`).click();
     expect(await page.locator(`#dd1_g1_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px 4px 0px 0px');
     expect(await page.locator(`#dd1_g1_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd1_g1_i3`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px 0px 4px 4px');
     await page.keyboard.press('Enter'); // Exit dropdown - page is in noJS mode
 
     // Dropdown with two groups of items separated with an <hr>
-    await page.locator(`#dropdown-2 > summary`).click();
+    await page.locator(`#dropdown-2 > .opener`).click();
     expect(await page.locator(`#dd2_g1_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px 4px 0px 0px');
     expect(await page.locator(`#dd2_g1_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd2_g1_i3`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
@@ -257,12 +257,12 @@ test.describe(`Visual properties`, () => {
     await page.keyboard.press('Enter'); // Exit dropdown - page is in noJS mode
 
     // Dropdown with only one item, which should be completely round
-    await page.locator(`#dropdown-3 > summary`).click();
+    await page.locator(`#dropdown-3 > .opener`).click();
     expect(await page.locator(`#dd3_g1_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
     await page.keyboard.press('Enter'); // Exit dropdown - page is in noJS mode
 
     // Dropdown with additional content and a HR - which the very first item should take into consideration
-    await page.locator(`#dropdown-5 > summary`).click();
+    await page.locator(`#dropdown-5 > .opener`).click();
     expect(await page.locator(`#dd5_g1_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd5_g1_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd5_g2_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
