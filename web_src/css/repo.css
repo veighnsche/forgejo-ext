@@ -2268,7 +2268,7 @@ details.commit-body-toggle summary:has(> .ellipsis-button):focus {
   outline: none;
 }
 
-details.commit-body-toggle summary:has(> .ellipsis-button):focus > .ellipsis-button {
+details.commit-body-toggle summary:has(> .ellipsis-button):focus-visible > .ellipsis-button {
   /* hack: since this element encompasses other trailing content, make so that only the "button"-looking part gets the focus highlight */
   outline: 1.5px dotted var(--color-text);
 }
