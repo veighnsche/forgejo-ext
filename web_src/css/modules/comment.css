@@ -67,6 +67,10 @@
   cursor: pointer;
 }
 
+.ui .author .pronouns {
+  font-size: small;
+}
+
 .ui.comments .comment .metadata {
   display: inline-block;
   margin-inline-start: 0.5em;

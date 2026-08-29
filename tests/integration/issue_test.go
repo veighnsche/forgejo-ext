@@ -1824,3 +1824,95 @@ func TestIssueProjectSidebarMissing(t *testing.T) {
 		htmlDoc.AssertElement(t, ".select-project.dropdown", false)
 	})
 }
+
+func assertPronouns(t *testing.T, user *user_model.User, issueURL string, shouldSignIn bool, expectedPronouns string) {
+	t.Helper()
+
+	session := loginUser(t, user.Name)
+	commentID := testIssueAddComment(t, session, issueURL, "Test comment", "")
+	commentSel := "#issuecomment-" + strconv.FormatInt(commentID, 10)
+
+	req := NewRequest(t, "GET", issueURL)
+	var resp *httptest.ResponseRecorder
+	if shouldSignIn {
+		resp = session.MakeRequest(t, req, http.StatusOK)
+	} else {
+		resp = MakeRequest(t, req, http.StatusOK)
+	}
+
+	htmlDoc := NewHTMLParser(t, resp.Body)
+	htmlDoc.AssertElementPredicate(t, commentSel+" .author .pronouns", func(el *goquery.Selection) {
+		if expectedPronouns == "" {
+			assert.Equal(t, 0, el.Length(), "pronouns should not be present for comment "+commentSel)
+		} else {
+			require.Equal(t, 1, el.Length(), "pronouns should be present for comment "+commentSel)
+			assert.Equal(t, "("+expectedPronouns+")", el.Text())
+		}
+	})
+}
+
+func TestIssueCommentsWithUserPronouns(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	session := loginUser(t, "user2")
+	issueURL := testNewIssue(t, session, "user2", "repo1", "Title", "Description")
+
+	cases := []struct {
+		name         string
+		shouldSignIn bool
+	}{
+		{name: "while not signed in", shouldSignIn: false},
+		{name: "while signed in", shouldSignIn: true},
+	}
+
+	t.Run("no pronouns if user doesn't have any", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		user := forgery.CreateUser(t, nil)
+
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				assertPronouns(t, user, issueURL, c.shouldSignIn, "")
+			})
+		}
+	})
+
+	t.Run("pronouns shown if user has them set", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		user := forgery.CreateUser(t, nil)
+		user_service.UpdateUser(t.Context(), user, &user_service.UpdateOptions{
+			Pronouns: optional.Some("she/her"),
+		})
+
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				assertPronouns(t, user, issueURL, c.shouldSignIn, "she/her")
+			})
+		}
+	})
+
+	t.Run("no pronouns if hidden and not signed in", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		user := forgery.CreateUser(t, nil)
+		user_service.UpdateUser(t.Context(), user, &user_service.UpdateOptions{
+			Pronouns:            optional.Some("she/her"),
+			KeepPronounsPrivate: optional.Some(true),
+		})
+
+		assertPronouns(t, user, issueURL, false, "")
+	})
+
+	t.Run("pronouns shown if hidden and signed in", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		user := forgery.CreateUser(t, nil)
+		user_service.UpdateUser(t.Context(), user, &user_service.UpdateOptions{
+			Pronouns:            optional.Some("she/her"),
+			KeepPronounsPrivate: optional.Some(true),
+		})
+
+		assertPronouns(t, user, issueURL, true, "she/her")
+	})
+}
