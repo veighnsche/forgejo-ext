@@ -20,7 +20,7 @@ import (
 )
 
 // ListActionsSecrets lists actions secrets of the current user
-func ListActionsSecrets(ctx *context.APIContext) {
+func (Action) ListActionsSecrets(ctx *context.APIContext) {
 	// swagger:operation GET /user/actions/secrets user userListActionsSecrets
 	// ---
 	// summary: List actions secrets of the current user
@@ -67,7 +67,7 @@ func ListActionsSecrets(ctx *context.APIContext) {
 }
 
 // create or update one secret of the user scope
-func CreateOrUpdateSecret(ctx *context.APIContext) {
+func (Action) CreateOrUpdateSecret(ctx *context.APIContext) {
 	// swagger:operation PUT /user/actions/secrets/{secretname} user updateUserSecret
 	// ---
 	// summary: Create or Update a secret value in a user scope
@@ -121,7 +121,7 @@ func CreateOrUpdateSecret(ctx *context.APIContext) {
 }
 
 // DeleteSecret delete one secret of the user scope
-func DeleteSecret(ctx *context.APIContext) {
+func (Action) DeleteSecret(ctx *context.APIContext) {
 	// swagger:operation DELETE /user/actions/secrets/{secretname} user deleteUserSecret
 	// ---
 	// summary: Delete a secret in a user scope
@@ -163,7 +163,7 @@ func DeleteSecret(ctx *context.APIContext) {
 }
 
 // CreateVariable create a user-level variable
-func CreateVariable(ctx *context.APIContext) {
+func (Action) CreateVariable(ctx *context.APIContext) {
 	// swagger:operation POST /user/actions/variables/{variablename} user createUserVariable
 	// ---
 	// summary: Create a user-level variable
@@ -226,7 +226,7 @@ func CreateVariable(ctx *context.APIContext) {
 }
 
 // UpdateVariable update a user-level variable which is created by current doer
-func UpdateVariable(ctx *context.APIContext) {
+func (Action) UpdateVariable(ctx *context.APIContext) {
 	// swagger:operation PUT /user/actions/variables/{variablename} user updateUserVariable
 	// ---
 	// summary: Update a user-level variable which is created by current doer
@@ -289,7 +289,7 @@ func UpdateVariable(ctx *context.APIContext) {
 }
 
 // DeleteVariable delete a user-level variable which is created by current doer
-func DeleteVariable(ctx *context.APIContext) {
+func (Action) DeleteVariable(ctx *context.APIContext) {
 	// swagger:operation DELETE /user/actions/variables/{variablename} user deleteUserVariable
 	// ---
 	// summary: Delete a user-level variable which is created by current doer
@@ -330,7 +330,7 @@ func DeleteVariable(ctx *context.APIContext) {
 }
 
 // GetVariable get a user-level variable which is created by current doer
-func GetVariable(ctx *context.APIContext) {
+func (Action) GetVariable(ctx *context.APIContext) {
 	// swagger:operation GET /user/actions/variables/{variablename} user getUserVariable
 	// ---
 	// summary: Get a user-level variable which is created by current doer
@@ -378,7 +378,7 @@ func GetVariable(ctx *context.APIContext) {
 }
 
 // ListVariables list user-level variables
-func ListVariables(ctx *context.APIContext) {
+func (Action) ListVariables(ctx *context.APIContext) {
 	// swagger:operation GET /user/actions/variables user getUserVariablesList
 	// ---
 	// summary: Get the user-level list of variables which is created by current doer
@@ -426,4 +426,14 @@ func ListVariables(ctx *context.APIContext) {
 
 	ctx.SetTotalCountHeader(count)
 	ctx.JSON(http.StatusOK, variables)
+}
+
+var _ actions_service.API = new(Action)
+
+// Action implements actions_service.API
+type Action struct{}
+
+// NewAction creates a new Action service
+func NewAction() actions_service.API {
+	return Action{}
 }
