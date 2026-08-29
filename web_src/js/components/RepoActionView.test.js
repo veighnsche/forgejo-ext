@@ -41,6 +41,7 @@ const minimalInitialJobData = {
       },
     },
     currentJob: {
+      summaries: [],
       steps: [
         {
           summary: 'Test Job',
@@ -111,6 +112,7 @@ test('load multiple steps on a finished action', async () => {
           },
         },
         currentJob: {
+          summaries: [],
           title: 'test',
           steps: [
             {
@@ -178,6 +180,7 @@ function configureForMultipleAttemptTests({viewHistorical}) {
       },
     },
     currentJob: {
+      summaries: [],
       title: 'test',
       steps: [
         {
@@ -359,6 +362,7 @@ test('run approval interaction', async () => {
             },
           },
           currentJob: {
+            summaries: [],
             steps: [
               {
                 summary: 'Test Job',
@@ -422,6 +426,7 @@ test('artifacts download links', async () => {
           },
         },
         currentJob: {
+          summaries: [],
           title: 'test',
           steps: [
             {
@@ -564,6 +569,7 @@ test('view non-picked action run job', async () => {
             ],
           },
           currentJob: {
+            summaries: [],
             title: 'check-1',
             steps: [],
             allAttempts: [{number: 1, time_since_started_html: '', status: 'Waiting', status_diagnostics: ['Waiting']}],

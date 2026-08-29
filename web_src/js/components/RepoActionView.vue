@@ -627,7 +627,7 @@ export default {
             </div>
           </div>
         </div>
-        <div v-if="currentJob.summaries.length" class="job-summary markup">
+        <div v-if="currentJob.summaries?.length" class="job-summary markup">
           <!-- eslint-disable-next-line vue/no-v-html -->
           <div v-for="(stepSummary, index) in currentJob.summaries" :key="index" class="step-summary" v-html="stepSummary"/>
         </div>
