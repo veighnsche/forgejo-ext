@@ -37,6 +37,7 @@
 								<option value="{{.}}"></option>
 							{{end}}
 						</datalist>
+						<span class="help">{{ctx.Locale.Tr "settings.profile.pronouns.hint" "https://forgejo.org/docs/latest/user/collaboration/profile/"}}</span>
 					</label>
 
 					<label {{if .Err_Biography}}class="field error"{{end}}>
