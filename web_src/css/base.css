@@ -1271,7 +1271,7 @@ table th[data-sortt-desc] .svg {
   vertical-align: middle !important;
 }
 
-.ellipsis-button:focus {
+.ellipsis-button:focus-visible {
   outline: 1.5px dotted var(--color-text);
 }
 
