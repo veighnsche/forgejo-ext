@@ -887,8 +887,26 @@ citation-information .tab:not(.active) {
   align-items: center;
 }
 
+.singular-commit .message-wrapper {
+  position: relative;
+  flex-grow: 1;
+}
+
+.singular-commit .message-wrapper .commit-summary {
+  display: inline-block;
+  width: calc(100% - 32px);
+  vertical-align: middle;
+}
+
+.singular-commit .commit-body-toggle > summary {
+  position: absolute;
+  top: 2.5px;
+  right: 0;
+}
+
 .singular-commit .badge {
   height: 30px !important;
+  flex-shrink: 0;
 }
 
 .singular-commit .shabox .sha.label {
