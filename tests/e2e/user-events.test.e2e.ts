@@ -6,17 +6,17 @@
 // @watch end
 
 import {expect} from '@playwright/test';
-import {test, dynamic_id, login_user, login_page} from './utils_e2e.ts';
+import {test, dynamic_id, login_user, login_as_user} from './utils_e2e.ts';
 
 test('Notifications', async ({browser}, workerInfo) => {
   await login_user(browser, workerInfo, 'user2');
 
-  const pageUser2 = await login_page(browser, workerInfo, 'user2');
+  const pageUser2 = await login_as_user(browser, workerInfo, 'user2');
   await pageUser2.goto(`/`);
   const originalNotifications = parseInt(await pageUser2.locator('.not-mobile .notification_count').textContent());
 
   await login_user(browser, workerInfo, 'user1');
-  const pageUser1 = await login_page(browser, workerInfo, 'user1');
+  const pageUser1 = await login_as_user(browser, workerInfo, 'user1');
   const response = await pageUser1.goto('/user2/mentions-highlighted/issues/new');
   expect(response?.status()).toBe(200);
   const issueTitle = dynamic_id();
