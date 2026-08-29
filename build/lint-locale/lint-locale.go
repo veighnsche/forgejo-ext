@@ -48,7 +48,7 @@ func initBlueMondayPolicy() {
 
 	// Only allow positional placeholder as class.
 	positionalPlaceholderRe := regexp.MustCompile(`^%\[\d\]s$`)
-	policy.AllowAttrs("class").Matching(positionalPlaceholderRe).OnElements("strong")
+	policy.AllowAttrs("class").Matching(positionalPlaceholderRe).OnElements("strong", "span")
 	policy.AllowAttrs("id").Matching(positionalPlaceholderRe).OnElements("code")
 
 	// Allowed elements with no attributes. Must be a recognized tagname.
