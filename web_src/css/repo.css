@@ -901,7 +901,7 @@ citation-information .tab:not(.active) {
 .singular-commit .commit-body-toggle > summary {
   position: absolute;
   top: 2.5px;
-  right: 0;
+  inset-inline-end: 0;
 }
 
 .singular-commit .badge {
