@@ -68,6 +68,7 @@ func MockContext(t *testing.T, reqPath string, opts ...MockContextOption) (*cont
 
 	ctx := context.NewWebContext(base, opt.Render, nil)
 	ctx.PageData = map[string]any{}
+	ctx.Data["IsSigned"] = false
 	ctx.Data["PageStartTime"] = time.Now()
 	chiCtx := chi.NewRouteContext()
 	ctx.AppendContextValue(chi.RouteCtxKey, chiCtx)
