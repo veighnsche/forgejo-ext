@@ -67,3 +67,8 @@ so when it is hovered, there are no ugly unpainted v/^ shapes between them */
 .switch > .item:is(.active, :hover) > .ui.label {
   background: var(--color-label-bg-alt, var(--color-label-bg));
 }
+
+/* Keep the focus outline from being occluded by siblings */
+.switch > .item:focus-visible {
+  z-index: 100;
+}

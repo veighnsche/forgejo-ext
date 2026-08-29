@@ -55,7 +55,8 @@
 .markup h3:hover .anchor .svg,
 .markup h4:hover .anchor .svg,
 .markup h5:hover .anchor .svg,
-.markup h6:hover .anchor .svg {
+.markup h6:hover .anchor .svg,
+.markup .anchor:focus-visible .svg {
   visibility: visible;
 }
 

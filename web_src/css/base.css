@@ -1226,6 +1226,7 @@ table th[data-sortt-desc] .svg {
 .ui.secondary.pointing.menu .item {
   padding: 11px 12px !important;
   color: var(--color-text-light-2);
+  outline-offset: -3px; /* tab menu items are too big for default overflow */
 }
 
 .ui.tabular.menu .item:hover,
@@ -1372,4 +1373,19 @@ table th[data-sortt-desc] .svg {
   align-items: center;
   gap: .25rem;
   min-width: 0;
+}
+
+:where(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"]),
+  .button,
+  .dropdown
+):focus-visible {
+  outline: 3px solid var(--color-text) !important;
 }

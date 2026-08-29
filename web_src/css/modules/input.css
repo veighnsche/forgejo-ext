@@ -192,3 +192,8 @@
 .ui.action.input:not([class*="left action"]) > input:focus {
   border-inline-end-color: var(--color-primary);
 }
+
+#topic-input-ts-control:focus {
+  /* The container already shows focus state */
+  outline: none !important;
+}

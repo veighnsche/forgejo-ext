@@ -148,6 +148,11 @@
   }
 }
 
+/* Keep siblings from occluding the focus outline */
+.repository .ui.action.input.clone-panel > button:focus-visible {
+  z-index: 100;
+}
+
 .repository .ui.action.input.clone-panel > button + button,
 .repository .ui.action.input.clone-panel > button + input {
   margin-inline-start: -1px; /* make the borders overlap to avoid double borders */
@@ -185,7 +190,6 @@
 .commit-summary {
   flex: 1;
   overflow-wrap: anywhere;
-  overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -207,7 +211,6 @@ td .commit-summary {
   display: flex;
   flex: 1;
   align-items: center;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
 
@@ -2189,7 +2192,6 @@ tbody.commit-list {
 
 .message-wrapper,
 .author-wrapper {
-  overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
   display: inline-block;
