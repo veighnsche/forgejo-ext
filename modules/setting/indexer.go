@@ -25,18 +25,18 @@ var Indexer = struct {
 	IssueIndexerName string
 	StartupTimeout   time.Duration
 
-	RepoIndexerEnabled     bool
+	RepoIndexerEnabled        bool
 	RepoIndexerDefaultEnabled bool
-	RepoIndexerRepoTypes   []string
-	RepoIndexerEnableFuzzy bool
-	RepoType               string
-	RepoPath               string
-	RepoConnStr            string
-	RepoIndexerName        string
-	MaxIndexerFileSize     int64
-	IncludePatterns        []Glob
-	ExcludePatterns        []Glob
-	ExcludeVendored        bool
+	RepoIndexerRepoTypes      []string
+	RepoIndexerEnableFuzzy    bool
+	RepoType                  string
+	RepoPath                  string
+	RepoConnStr               string
+	RepoIndexerName           string
+	MaxIndexerFileSize        int64
+	IncludePatterns           []Glob
+	ExcludePatterns           []Glob
+	ExcludeVendored           bool
 }{
 	IssueType:        "bleve",
 	IssuePath:        "indexers/issues.bleve",
@@ -44,16 +44,16 @@ var Indexer = struct {
 	IssueConnAuth:    "",
 	IssueIndexerName: "gitea_issues",
 
-	RepoIndexerEnabled:     false,
+	RepoIndexerEnabled:        false,
 	RepoIndexerDefaultEnabled: true,
-	RepoIndexerRepoTypes:   []string{"sources", "forks", "mirrors", "templates"},
-	RepoIndexerEnableFuzzy: false,
-	RepoType:               "bleve",
-	RepoPath:               "indexers/repos.bleve",
-	RepoConnStr:            "",
-	RepoIndexerName:        "gitea_codes",
-	MaxIndexerFileSize:     1024 * 1024,
-	ExcludeVendored:        true,
+	RepoIndexerRepoTypes:      []string{"sources", "forks", "mirrors", "templates"},
+	RepoIndexerEnableFuzzy:    false,
+	RepoType:                  "bleve",
+	RepoPath:                  "indexers/repos.bleve",
+	RepoConnStr:               "",
+	RepoIndexerName:           "gitea_codes",
+	MaxIndexerFileSize:        1024 * 1024,
+	ExcludeVendored:           true,
 }
 
 type Glob struct {
