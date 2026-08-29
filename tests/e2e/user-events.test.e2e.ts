@@ -1,7 +1,8 @@
 // @watch start
 // templates/base/head_navbar.tmpl
 // templates/base/head_script.tmpl
-// web_src/src/js/features/notification.js
+// web_src/js/features/notification.js
+// web_src/js/features/eventsource.sharedworker.js
 // @watch end
 
 import {expect} from '@playwright/test';
