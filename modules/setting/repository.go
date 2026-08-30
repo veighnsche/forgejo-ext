@@ -87,6 +87,7 @@ var (
 		PullRequest struct {
 			WorkInProgressPrefixes                   []string
 			CloseKeywords                            []string
+			ManualMergeKeywords                      []string
 			ReopenKeywords                           []string
 			DefaultMergeStyle                        string
 			DefaultMergeMessageCommitsLimit          int
@@ -217,6 +218,7 @@ var (
 		PullRequest: struct {
 			WorkInProgressPrefixes                   []string
 			CloseKeywords                            []string
+			ManualMergeKeywords                      []string
 			ReopenKeywords                           []string
 			DefaultMergeStyle                        string
 			DefaultMergeMessageCommitsLimit          int
@@ -232,6 +234,7 @@ var (
 			// Same as GitHub. See
 			// https://help.github.com/articles/closing-issues-via-commit-messages
 			CloseKeywords:                            strings.Split("close,closes,closed,fix,fixes,fixed,resolve,resolves,resolved", ","),
+			ManualMergeKeywords:                      strings.Split("merge,merges", ","),
 			ReopenKeywords:                           strings.Split("reopen,reopens,reopened", ","),
 			DefaultMergeStyle:                        "merge",
 			DefaultMergeMessageCommitsLimit:          50,

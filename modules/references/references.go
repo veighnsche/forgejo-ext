@@ -44,8 +44,8 @@ var (
 	// timeLogPattern matches string for time tracking
 	timeLogPattern = regexp.MustCompile(`(?:\s|^|\(|\[)(@([0-9]+([\.,][0-9]+)?(w|d|m|h))+)(?:\s|$|\)|\]|[:;,.?!]\s|[:;,.?!]$)`)
 
-	issueCloseKeywordsPat, issueReopenKeywordsPat *regexp.Regexp
-	issueKeywordsOnce                             sync.Once
+	issueCloseKeywordsPat, issueReopenKeywordsPat, pullMergeKeywordsPat *regexp.Regexp
+	issueKeywordsOnce                                                   sync.Once
 
 	giteaHostInit         sync.Once
 	giteaHost             string
@@ -56,6 +56,7 @@ var (
 		"closes",
 		"reopens",
 		"neutered",
+		"merges",
 	}
 )
 
@@ -71,6 +72,8 @@ const (
 	XRefActionReopens // 2
 	// XRefActionNeutered means the cross-reference will no longer affect the source
 	XRefActionNeutered // 3
+	// XRefActionMerges means the cross-reference should close a pull request if it is resolved
+	XRefActionMerges // 4
 )
 
 func (a XRefAction) String() string {
@@ -160,13 +163,14 @@ func parseKeywords(words []string) []string {
 func newKeywords() {
 	issueKeywordsOnce.Do(func() {
 		// Delay initialization until after the settings module is initialized
-		doNewKeywords(setting.Repository.PullRequest.CloseKeywords, setting.Repository.PullRequest.ReopenKeywords)
+		doNewKeywords(setting.Repository.PullRequest.CloseKeywords, setting.Repository.PullRequest.ReopenKeywords, setting.Repository.PullRequest.ManualMergeKeywords)
 	})
 }
 
-func doNewKeywords(close, reopen []string) {
+func doNewKeywords(close, reopen, merge []string) {
 	issueCloseKeywordsPat = makeKeywordsPat(close)
 	issueReopenKeywordsPat = makeKeywordsPat(reopen)
+	pullMergeKeywordsPat = makeKeywordsPat(merge)
 }
 
 // getGiteaHostName returns a normalized string with the local host name, with no scheme or port information
@@ -584,6 +588,12 @@ func findActionKeywords(content []byte, start int) (XRefAction, *RefSpan) {
 			return XRefActionReopens, &RefSpan{Start: m[2], End: m[3]}
 		}
 	}
+	if pullMergeKeywordsPat != nil {
+		m = pullMergeKeywordsPat.FindSubmatchIndex(content[:start])
+		if m != nil {
+			return XRefActionMerges, &RefSpan{Start: m[2], End: m[3]}
+		}
+	}
 	return XRefActionNone, nil
 }
 
@@ -593,5 +603,5 @@ func IsXrefActionable(ref *RenderizableReference, extTracker bool) bool {
 		// External issues cannot be automatically closed
 		return false
 	}
-	return ref.Action == XRefActionCloses || ref.Action == XRefActionReopens
+	return ref.Action == XRefActionCloses || ref.Action == XRefActionReopens || ref.Action == XRefActionMerges
 }
