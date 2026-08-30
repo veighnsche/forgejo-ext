@@ -121,6 +121,7 @@ func doRepoWikiGitOperation(t *testing.T, serverURL *url.URL, method RepoWikiMet
 	require.NoError(t, err)
 
 	if method == RepoWikiHTTP {
+		// nosemgrep: semgrep.config.forgejo-switch-empty-case
 		switch auth {
 		case RepoWikiAnonymous:
 			// no-op

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	llu "forgejo.org/build/lint-locale-usage"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,6 +39,7 @@ func HandleTemplateFileWrapped(t *testing.T, fname, src string) []string {
 }
 
 func TestUsagesParser(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("go, simple", func(t *testing.T) {
 		assert.Equal(t,
 			[]string{"what.an.example"},

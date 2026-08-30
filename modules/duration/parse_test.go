@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -82,6 +84,7 @@ var parseDurationTests = []struct {
 }
 
 func TestParseDuration(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tc := range parseDurationTests {
 		d, err := Parse(tc.in)
 		require.NoError(t, err)
@@ -118,6 +121,7 @@ var parseDurationErrorTests = []struct {
 }
 
 func TestParseDurationErrors(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tc := range parseDurationErrorTests {
 		_, err := Parse(tc.in)
 		require.ErrorContains(t, err, tc.expect, "input: %s", tc.in)

@@ -6,11 +6,14 @@ package codeformat
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestFormatImportsSimple(t *testing.T) {
+	testhelper.Setup(t)
 	formatted, err := formatGoImports([]byte(`
 package codeformat
 
@@ -35,6 +38,7 @@ import (
 }
 
 func TestFormatImportsGroup(t *testing.T) {
+	testhelper.Setup(t)
 	// gofmt/goimports won't group the packages, for example, they produce such code:
 	//     "bytes"
 	//     "image"
@@ -98,6 +102,7 @@ import (
 }
 
 func TestFormatImportsInvalidComment(t *testing.T) {
+	testhelper.Setup(t)
 	// why we shouldn't write comments between imports: it breaks the grouping of imports
 	// for example:
 	//    "pkg1"

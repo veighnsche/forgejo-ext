@@ -219,6 +219,7 @@ func TestMigrate(t *testing.T) {
 				ID   int64 `xorm:"pk autoincr"`
 				Name string
 			}
+			// nosemgrep: semgrep.config.xorm-sync-missing-ignore-drop-indices
 			return x.Sync(new(ForgejoMagicFunctionality))
 		},
 	})
@@ -234,6 +235,7 @@ func TestMigrate(t *testing.T) {
 			type ForgejoMagicFunctionality struct {
 				NewField string
 			}
+			// nosemgrep: semgrep.config.xorm-sync-missing-ignore-drop-indices
 			return x.Sync(new(ForgejoMagicFunctionality))
 		},
 	})
@@ -288,6 +290,7 @@ func TestMigrateFreshDB(t *testing.T) {
 				ID   int64 `xorm:"pk autoincr"`
 				Name string
 			}
+			// nosemgrep: semgrep.config.xorm-sync-missing-ignore-drop-indices
 			return x.Sync(new(ForgejoMagicFunctionality))
 		},
 	})
@@ -303,6 +306,7 @@ func TestMigrateFreshDB(t *testing.T) {
 			type ForgejoMagicFunctionality struct {
 				NewField string
 			}
+			// nosemgrep: semgrep.config.xorm-sync-missing-ignore-drop-indices
 			return x.Sync(new(ForgejoMagicFunctionality))
 		},
 	})

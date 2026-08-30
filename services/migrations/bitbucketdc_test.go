@@ -16,6 +16,7 @@ import (
 	base "forgejo.org/modules/migration"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/migrations/allowlist"
 
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,7 @@ import (
 )
 
 func TestParseBitbucketDataCenterURL(t *testing.T) {
+	testhelper.Setup(t)
 	cases := []struct {
 		url     string
 		base    string
@@ -55,6 +57,7 @@ func TestParseBitbucketDataCenterURL(t *testing.T) {
 }
 
 func TestBitbucketDataCenterFormatCloneURL(t *testing.T) {
+	testhelper.Setup(t)
 	d := &BitbucketDataCenterDownloader{}
 
 	got, err := d.FormatCloneURL(base.MigrateOptions{AuthToken: "sometoken"}, "https://bitbucket.example.com/scm/PROJ/myrepo.git")
@@ -75,6 +78,7 @@ func TestBitbucketDataCenterFormatCloneURL(t *testing.T) {
 }
 
 func TestBitbucketDataCenterDownloaderBlocksLocalhost(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, false, func() { require.NoError(t, allowlist.Init()) })()
 
 	factory := &BitbucketDataCenterDownloaderFactory{}
@@ -88,6 +92,7 @@ func TestBitbucketDataCenterDownloaderBlocksLocalhost(t *testing.T) {
 
 // TestBitbucketDataCenterAuthorizationHeader pins the exact Authorization header sent to the REST API.
 func TestBitbucketDataCenterAuthorizationHeader(t *testing.T) {
+	testhelper.Setup(t)
 	t.Cleanup(test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) }))
 
 	var gotAuthorization string
@@ -111,6 +116,7 @@ func TestBitbucketDataCenterAuthorizationHeader(t *testing.T) {
 
 // newBitbucketDataCenterFixtureDownloader returns a downloader backed by the fixtures of testdata/bitbucketdc
 func newBitbucketDataCenterFixtureDownloader(t *testing.T) (base.Downloader, string) {
+	testhelper.Setup(t)
 	t.Cleanup(test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) }))
 
 	liveURL := os.Getenv("BITBUCKET_DC_URL")
@@ -139,6 +145,7 @@ func newBitbucketDataCenterFixtureDownloader(t *testing.T) (base.Downloader, str
 }
 
 func TestBitbucketDataCenterDownloadRepo(t *testing.T) {
+	testhelper.Setup(t)
 	downloader, serverURL := newBitbucketDataCenterFixtureDownloader(t)
 
 	assert.True(t, downloader.SupportCommentReplyTo())
@@ -253,6 +260,7 @@ func TestBitbucketDataCenterDownloadRepo(t *testing.T) {
 // TestBitbucketDataCenterDownloadForkPullRequest replays the same fixtures and focuses on the
 // pull request opened from a fork in the author's personal project
 func TestBitbucketDataCenterDownloadForkPullRequest(t *testing.T) {
+	testhelper.Setup(t)
 	downloader, _ := newBitbucketDataCenterFixtureDownloader(t)
 
 	prs, _, err := downloader.GetPullRequests(1, 2)
@@ -284,6 +292,7 @@ func TestBitbucketDataCenterDownloadForkPullRequest(t *testing.T) {
 // recorded fixture cannot deterministically produce: a comment surfacing both as its own
 // activity and nested in the snapshot of its thread must be kept once.
 func TestBitbucketDataCenterActivityDeduplication(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	mux := http.NewServeMux()
@@ -382,6 +391,7 @@ func TestBitbucketDataCenterActivityDeduplication(t *testing.T) {
 }
 
 func TestBitbucketDataCenterGetRepoInfoWithoutHTTPCloneLink(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValueWithReset(&setting.Migrations.AllowLocalNetworks, true, func() { require.NoError(t, allowlist.Init()) })()
 
 	// When HTTP(S) SCM hosting is disabled, the API only exposes the ssh clone link.

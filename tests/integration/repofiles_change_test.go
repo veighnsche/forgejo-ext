@@ -337,6 +337,7 @@ func TestChangeRepoFiles(t *testing.T) {
 
 			// assert that the old file no longer exists in the last commit of the branch
 			fromEntry, err := commit.GetTreeEntryByPath(opts.Files[0].FromTreePath)
+			// nosemgrep: semgrep.config.forgejo-switch-empty-case
 			switch err.(type) {
 			case git.ErrNotExist:
 				// correct, continue

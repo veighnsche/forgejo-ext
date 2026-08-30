@@ -5,10 +5,13 @@ package main
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLocalizationPolicy(t *testing.T) {
+	testhelper.Setup(t)
 	initBlueMondayPolicy()
 	initRemoveTags()
 
@@ -66,6 +69,7 @@ func TestLocalizationPolicy(t *testing.T) {
 }
 
 func TestNextLocalizationPolicy(t *testing.T) {
+	testhelper.Setup(t)
 	initBlueMondayPolicy()
 	initRemoveTags()
 

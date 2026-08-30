@@ -80,6 +80,7 @@ func checkGlobMatch(t *testing.T, globstr string, list []indexerMatchList) {
 // Possible cases:
 // [http|https]://[[user]:pass@]host[:port][/[path]]
 func Test_indexerURLConstruction(t *testing.T) {
+	testhelper.Setup(t)
 	makeBaseConfig := func() (ConfigProvider, ConfigSection) {
 		cfg, _ := NewConfigProviderFromData("")
 		sec := cfg.Section("indexer")

@@ -187,6 +187,7 @@ func TestMustBytes(t *testing.T) {
 }
 
 func TestMustDuration(t *testing.T) {
+	testhelper.Setup(t)
 	test := func(value string, defaultValue time.Duration) (time.Duration, error) {
 		cfg, err := NewConfigProviderFromData("[test]")
 		require.NoError(t, err)
