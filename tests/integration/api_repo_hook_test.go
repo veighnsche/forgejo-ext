@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestAPICreateHook(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 37})

@@ -8,6 +8,8 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestAPIRepoLFSMigrateLocal(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	oldImportLocalPaths := setting.ImportLocalPaths

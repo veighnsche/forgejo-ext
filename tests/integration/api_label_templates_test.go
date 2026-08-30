@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/tests"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestAPIListLabelTemplates(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/api/v1/label/templates")
@@ -33,6 +36,7 @@ func TestAPIListLabelTemplates(t *testing.T) {
 }
 
 func TestAPIGetLabelTemplateInfo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// If Gitea has for some reason no Label templates, we need to skip this test

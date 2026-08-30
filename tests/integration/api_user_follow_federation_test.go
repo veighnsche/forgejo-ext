@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/forgefed"
 	"forgejo.org/models/unittest"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestActivityPubFollowFederated(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()

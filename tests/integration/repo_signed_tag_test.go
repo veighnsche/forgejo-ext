@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/modules/git"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestRepoSSHSignedTags(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Preparations

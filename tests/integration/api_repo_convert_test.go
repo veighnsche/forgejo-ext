@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestAPIConvert(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -68,6 +71,7 @@ func TestAPIConvert(t *testing.T) {
 // This test verifies that a repo-specific access token with `write:repository` scope is not a sufficient scope to edit
 // the settings of a repository that is within its repo-specific list.
 func TestAPIConvertAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo5 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 5})

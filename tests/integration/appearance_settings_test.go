@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/translation"
 	"forgejo.org/tests"
 
@@ -15,6 +17,7 @@ import (
 )
 
 func TestThemeChange(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	locale := translation.NewLocale("en-US")
@@ -40,6 +43,7 @@ func TestThemeChange(t *testing.T) {
 // Test UI fallback in case user's DB entry has a non-existent theme. This can
 // happen if a theme was removed from the instance config at some point
 func TestUserHasNonExistentTheme(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// user40 has a "frog" theme in the DB

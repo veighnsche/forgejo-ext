@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/tests"
@@ -15,6 +17,7 @@ import (
 )
 
 func TestAPIListEmails(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalUsername := "user2"
@@ -43,6 +46,7 @@ func TestAPIListEmails(t *testing.T) {
 }
 
 func TestAPIAddEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalUsername := "user2"
@@ -93,6 +97,7 @@ func TestAPIAddEmail(t *testing.T) {
 }
 
 func TestAPIDeleteEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalUsername := "user2"

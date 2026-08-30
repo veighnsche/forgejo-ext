@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestAdminViewUsers(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Admin user", func(t *testing.T) {
@@ -70,6 +73,7 @@ func TestAdminViewUsers(t *testing.T) {
 }
 
 func TestAdminViewUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -82,12 +86,14 @@ func TestAdminViewUser(t *testing.T) {
 }
 
 func TestAdminEditUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	testSuccessfulEdit(t, user_model.User{ID: 2, Name: "newusername", LoginName: "otherlogin", Email: "new@e-mail.gitea"})
 }
 
 func TestAdminEditUserHideEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -133,6 +139,7 @@ func TestAdminEditUserHideEmail(t *testing.T) {
 }
 
 func TestAdminEditUserWebsite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -210,6 +217,7 @@ func makeRequest(t *testing.T, formData user_model.User, headerCode int) {
 }
 
 func TestAdminDeleteUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAdminDeleteUser")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -229,6 +237,7 @@ func TestAdminDeleteUser(t *testing.T) {
 }
 
 func TestSourceId(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	testUser23 := &user_model.User{
@@ -279,6 +288,7 @@ func TestSourceId(t *testing.T) {
 }
 
 func TestAdminViewUsersSorted(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	createTimestamp := time.Now().Unix() - 1000
 	updateTimestamp := time.Now().Unix() - 500

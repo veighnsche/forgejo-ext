@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	secret_model "forgejo.org/models/secret"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestAPIUserSecrets(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})

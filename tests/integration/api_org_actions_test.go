@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestActionsAPISearchActionJobs_OrgRunner(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -53,6 +56,7 @@ func TestActionsAPISearchActionJobs_OrgRunner(t *testing.T) {
 }
 
 func TestActionsAPISearchActionJobs_OrgRunnerAllPendingJobsWithoutLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -72,6 +76,7 @@ func TestActionsAPISearchActionJobs_OrgRunnerAllPendingJobsWithoutLabels(t *test
 }
 
 func TestActionsAPISearchActionJobs_OrgRunnerAllPendingJobs(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -93,6 +98,7 @@ func TestActionsAPISearchActionJobs_OrgRunnerAllPendingJobs(t *testing.T) {
 }
 
 func TestAPIOrgActionsRunnerRegistrationTokenOperations(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIOrgActionsRunnerRegistrationTokenOperations")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -115,6 +121,7 @@ func TestAPIOrgActionsRunnerRegistrationTokenOperations(t *testing.T) {
 }
 
 func TestAPIOrgActionsRunnerOperations(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIOrgActionsRunnerOperations")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

@@ -6,6 +6,8 @@ package forgejo_migrations_legacy
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/models/secret"
 	"forgejo.org/modules/keying"
@@ -16,6 +18,7 @@ import (
 )
 
 func Test_MigrateActionSecretToKeying(t *testing.T) {
+	testhelper.Setup(t)
 	type Secret struct {
 		ID          int64
 		OwnerID     int64              `xorm:"INDEX UNIQUE(owner_repo_name) NOT NULL"`

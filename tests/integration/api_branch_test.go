@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	git_model "forgejo.org/models/git"
 	"forgejo.org/models/unittest"
@@ -93,6 +95,7 @@ func testAPIDeleteBranch(t *testing.T, branchName string, expectedHTTPStatus int
 }
 
 func TestAPIGetBranch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	for _, test := range []struct {
 		BranchName string
@@ -108,6 +111,7 @@ func TestAPIGetBranch(t *testing.T) {
 }
 
 func TestAPICreateBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testAPICreateBranches)
 }
 
@@ -189,6 +193,7 @@ func testAPICreateBranch(t testing.TB, session *TestSession, user, repo, oldBran
 }
 
 func TestAPIUpdateBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, _ *url.URL) {
 		t.Run("UpdateBranchWithEmptyRepo", func(t *testing.T) {
 			testAPIUpdateBranch(t, "user10", "repo6", "master", "test", http.StatusNotFound)
@@ -220,6 +225,7 @@ func testAPIUpdateBranch(t *testing.T, ownerName, repoName, from, to string, exp
 }
 
 func TestAPIBranchProtection(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Branch protection  on branch that not exist
@@ -265,6 +271,7 @@ func TestAPIBranchProtection(t *testing.T) {
 }
 
 func TestAPICreateBranchWithSyncBranches(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		unittest.AssertCount(t, &git_model.Branch{RepoID: 1}, 4)
 
@@ -281,6 +288,7 @@ func TestAPICreateBranchWithSyncBranches(t *testing.T) {
 }
 
 func TestAPIGetAllBranchesOfEmptyRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

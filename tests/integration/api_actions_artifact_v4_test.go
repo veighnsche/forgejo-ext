@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/storage"
@@ -89,12 +91,14 @@ func uploadArtifact(t *testing.T, body string) string {
 }
 
 func TestActionsArtifactV4UploadSingleFile(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 	body := strings.Repeat("A", 1024)
 	uploadArtifact(t, body)
 }
 
 func TestActionsArtifactV4UploadSingleFileWrongChecksum(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	task := &actions_model.ActionTask{
@@ -146,6 +150,7 @@ func TestActionsArtifactV4UploadSingleFileWrongChecksum(t *testing.T) {
 }
 
 func TestActionsArtifactV4UploadSingleFileWithRetentionDays(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	task := &actions_model.ActionTask{
@@ -201,6 +206,7 @@ func TestActionsArtifactV4UploadSingleFileWithRetentionDays(t *testing.T) {
 }
 
 func TestActionsArtifactV4UploadSingleFileWithPotentialHarmfulBlockID(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	task := &actions_model.ActionTask{
@@ -271,6 +277,7 @@ func TestActionsArtifactV4UploadSingleFileWithPotentialHarmfulBlockID(t *testing
 }
 
 func TestActionsArtifactV4UploadSingleFileWithChunksOutOfOrder(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	task := &actions_model.ActionTask{
@@ -343,6 +350,7 @@ func TestActionsArtifactV4UploadSingleFileWithChunksOutOfOrder(t *testing.T) {
 }
 
 func TestActionsArtifactV4DownloadSingle(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	task := &actions_model.ActionTask{
@@ -386,6 +394,7 @@ func TestActionsArtifactV4DownloadSingle(t *testing.T) {
 }
 
 func TestActionsArtifactV4DownloadRange(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	bstr := strings.Repeat("D", 100)
@@ -411,6 +420,7 @@ func TestActionsArtifactV4DownloadRange(t *testing.T) {
 }
 
 func TestActionsArtifactV4Delete(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	task := &actions_model.ActionTask{

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
@@ -30,6 +32,7 @@ import (
 )
 
 func TestAPILFSNotStarted(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.LFS.StartServer = false
@@ -50,6 +53,7 @@ func TestAPILFSNotStarted(t *testing.T) {
 }
 
 func TestAPILFSMediaType(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.LFS.StartServer = true
@@ -74,6 +78,7 @@ func createLFSTestRepository(t *testing.T, name string) *repo_model.Repository {
 }
 
 func TestAPILFSBatch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.LFS.StartServer = true
@@ -338,6 +343,7 @@ func TestAPILFSBatch(t *testing.T) {
 }
 
 func TestAPILFSUpload(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.LFS.StartServer = true
@@ -447,6 +453,7 @@ func TestAPILFSUpload(t *testing.T) {
 }
 
 func TestAPILFSVerify(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.LFS.StartServer = true
@@ -503,6 +510,7 @@ func TestAPILFSVerify(t *testing.T) {
 // Accessing git LFS resources uses CheckRepoScopedToken to validate a PAT; here we run that through all variations of
 // access token resource access to ensure it is accurately applied for LFS access.
 func TestAPILFSScopeAndResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	writeOperation := func(t *testing.T, repoFullName, token string, expectedStatus int) {

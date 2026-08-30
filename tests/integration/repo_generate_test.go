@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -127,6 +129,7 @@ Clone URL: %s%s/%s.git`,
 
 // test form elements before and after POST error response
 func TestRepoCreateForm(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	userName := "user1"
 	session := loginUser(t, userName)
@@ -144,6 +147,7 @@ func TestRepoCreateForm(t *testing.T) {
 }
 
 func TestRepoCreateFormRepoLimit(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	org := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "org3"})
 	userName := "user2"
@@ -201,6 +205,7 @@ func TestRepoCreateFormRepoLimit(t *testing.T) {
 }
 
 func TestRepoGenerate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	userName := "user1"
 	session := loginUser(t, userName)
@@ -210,6 +215,7 @@ func TestRepoGenerate(t *testing.T) {
 }
 
 func TestRepoGenerateToOrg(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	userName := "user2"
 	session := loginUser(t, userName)
@@ -220,6 +226,7 @@ func TestRepoGenerateToOrg(t *testing.T) {
 }
 
 func TestRepoCreateFormTrimSpace(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	session := loginUser(t, user.Name)
@@ -235,6 +242,7 @@ func TestRepoCreateFormTrimSpace(t *testing.T) {
 }
 
 func TestRepoGenerateTemplating(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		input := `# $REPO_NAME
 	This is a Repo By $REPO_OWNER
@@ -297,6 +305,7 @@ func TestRepoGenerateTemplating(t *testing.T) {
 }
 
 func TestRepoGenerateTemplatingSymlink(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, &forgery.CreateUserOptions{
 			IsAdmin: true, // required to see the detailed error message on the error response
@@ -391,6 +400,7 @@ func TestRepoGenerateTemplatingSymlink(t *testing.T) {
 }
 
 func TestRepoGenerateTemplatingSymlinkGlobFile(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, &forgery.CreateUserOptions{
 			IsAdmin: true, // required to see the detailed error message on the error response

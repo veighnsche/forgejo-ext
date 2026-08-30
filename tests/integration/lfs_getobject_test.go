@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
@@ -149,6 +151,7 @@ func checkResponseTestContentEncoding(t *testing.T, content *[]byte, resp *httpt
 }
 
 func TestGetLFSSmall(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	content := []byte("A very small file\n")
 
@@ -157,6 +160,7 @@ func TestGetLFSSmall(t *testing.T) {
 }
 
 func TestGetLFSSmallToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	content := []byte("A very small file\n")
 
@@ -165,6 +169,7 @@ func TestGetLFSSmallToken(t *testing.T) {
 }
 
 func TestGetLFSSmallTokenFail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	content := []byte("A very small file\n")
 
@@ -172,6 +177,7 @@ func TestGetLFSSmallTokenFail(t *testing.T) {
 }
 
 func TestGetLFSSmallOAuthToken(t *testing.T) {
+	testhelper.Setup(t)
 	for _, a := range []oauth2AuthMode{oauth2ViaBasic, oauth2ViaBearer} {
 		t.Run(string(a), func(t *testing.T) {
 			defer tests.PrepareTestEnv(t)()
@@ -184,6 +190,7 @@ func TestGetLFSSmallOAuthToken(t *testing.T) {
 }
 
 func TestGetLFSSmallOAuthTokenFail(t *testing.T) {
+	testhelper.Setup(t)
 	for _, a := range []oauth2AuthMode{oauth2ViaBasic, oauth2ViaBearer} {
 		t.Run(string(a), func(t *testing.T) {
 			defer tests.PrepareTestEnv(t)()
@@ -195,6 +202,7 @@ func TestGetLFSSmallOAuthTokenFail(t *testing.T) {
 }
 
 func TestGetLFSLarge(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	content := make([]byte, gzhttp.DefaultMinSize*10)
 	for i := range content {
@@ -206,6 +214,7 @@ func TestGetLFSLarge(t *testing.T) {
 }
 
 func TestGetLFSGzip(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	b := make([]byte, gzhttp.DefaultMinSize*10)
 	for i := range b {
@@ -222,6 +231,7 @@ func TestGetLFSGzip(t *testing.T) {
 }
 
 func TestGetLFSZip(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	b := make([]byte, gzhttp.DefaultMinSize*10)
 	for i := range b {
@@ -240,6 +250,7 @@ func TestGetLFSZip(t *testing.T) {
 }
 
 func TestGetLFSRangeNo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	content := []byte("123456789\n")
 
@@ -248,6 +259,7 @@ func TestGetLFSRangeNo(t *testing.T) {
 }
 
 func TestGetLFSRange(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	content := []byte("123456789\n")
 

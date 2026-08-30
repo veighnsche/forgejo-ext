@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/modules/git"
 	app_context "forgejo.org/services/context"
@@ -23,6 +25,7 @@ import (
 )
 
 func TestPullRemoveAutomerge(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		repo := forgery.CreateRepository(t, nil, &forgery.CreateRepositoryOptions{
 			Files: forgery.FilesInit{},

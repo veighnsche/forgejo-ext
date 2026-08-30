@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestActionsDownloadTaskLogs(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -165,6 +168,7 @@ jobs:
 }
 
 func TestActionsDownloadTaskRerunLogs(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestActionRunDeletion(t *testing.T) {
+	testhelper.Setup(t)
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1, OwnerID: user2.ID})
 	user5 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 5})
@@ -123,6 +126,7 @@ func TestActionRunDeletion(t *testing.T) {
 }
 
 func TestActionRunPrioritization(t *testing.T) {
+	testhelper.Setup(t)
 	fixtures := []*actions_model.ActionRun{
 		{ID: 535681, Index: 1, RepoID: 62, OwnerID: 2, Status: actions_model.StatusSuccess, Priority: actions_model.DefaultRunPriority},
 		{ID: 535682, Index: 2, RepoID: 62, OwnerID: 2, Status: actions_model.StatusWaiting, Priority: actions_model.DefaultRunPriority},
@@ -216,6 +220,7 @@ func TestActionRunPrioritization(t *testing.T) {
 }
 
 func TestActionRunDeprioritization(t *testing.T) {
+	testhelper.Setup(t)
 	fixtures := []*actions_model.ActionRun{
 		{ID: 535681, Index: 1, RepoID: 62, OwnerID: 2, Status: actions_model.StatusSuccess, Priority: actions_model.MaxRunPriority, Prioritize: true},
 		{ID: 535682, Index: 2, RepoID: 62, OwnerID: 2, Status: actions_model.StatusWaiting, Priority: actions_model.MaxRunPriority, Prioritize: true},

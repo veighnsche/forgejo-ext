@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/perm"
@@ -30,6 +32,7 @@ import (
 )
 
 func TestPrivateRepoProject(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// not logged in user
@@ -42,6 +45,7 @@ func TestPrivateRepoProject(t *testing.T) {
 }
 
 func TestMoveRepoProjectColumns(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo2 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
@@ -91,6 +95,7 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 }
 
 func TestChangeStatusProject(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user5 := loginUser(t, "user5")
@@ -172,6 +177,7 @@ func TestChangeStatusProject(t *testing.T) {
 }
 
 func TestProjectPermissionsAndConsistency(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	ctx := t.Context()

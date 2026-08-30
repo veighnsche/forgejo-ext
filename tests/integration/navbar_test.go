@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/translation"
@@ -18,6 +20,7 @@ import (
 
 /* TestNavbarItems asserts go tmpl logic of navbar */
 func TestNavbarItems(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// The navbar can be tested on any page, but preferably a lightweight one

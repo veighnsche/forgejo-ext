@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models"
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestTagViewWithoutRelease(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -86,6 +89,7 @@ func TestTagViewWithoutRelease(t *testing.T) {
 }
 
 func TestCreateNewTagProtected(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 		owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
@@ -155,6 +159,7 @@ func TestCreateNewTagProtected(t *testing.T) {
 }
 
 func TestSyncRepoTags(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 		owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
@@ -193,6 +198,7 @@ func TestSyncRepoTags(t *testing.T) {
 }
 
 func TestRepushTag(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 		owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})

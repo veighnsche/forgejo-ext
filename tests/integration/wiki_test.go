@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
@@ -75,6 +77,7 @@ const (
 )
 
 func TestRepoWikiGitOperation(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		for _, method := range []RepoWikiMethod{RepoWikiSSH, RepoWikiHTTP} {
 			for _, auth := range []RepoWikiAuth{RepoWikiAnonymous, RepoWikiAuthenticated, RepoWikiAuthenticatedNonOwnerUser} {
@@ -208,6 +211,7 @@ func doRepoWikiGitOperationInner(t *testing.T, gitURL *url.URL, dstPath string, 
 }
 
 func Test_RepoWikiPages(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	url := "/user2/repo1/wiki/?action=_pages"

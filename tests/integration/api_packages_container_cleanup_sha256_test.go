@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	packages_model "forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
@@ -30,6 +32,7 @@ import (
 )
 
 func TestPackageContainerCleanupSHA256(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t, 1)()
 	defer test.MockVariableValue(&setting.Packages.Storage.Type, setting.LocalStorageType)()
 	defer test.MockVariableValue(&packages_container.SHA256BatchSize, 1)()

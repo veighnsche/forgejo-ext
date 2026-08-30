@@ -17,10 +17,13 @@ import (
 	"syscall"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 )
 
 func TestDebugserver(t *testing.T) {
+	testhelper.Setup(t)
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 

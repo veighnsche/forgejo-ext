@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	unit_model "forgejo.org/models/unit"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestActionConcurrencyRunnerFiltering(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestActionConcurrencyRunnerFiltering")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -86,6 +89,7 @@ func TestActionConcurrencyRunnerFiltering(t *testing.T) {
 // These tests are a little more unit-testy than they are integration tests, but they're placed in the integration test
 // suite so that they're run on all database engines.
 func TestActionConcurrencyGroupQueue(t *testing.T) {
+	testhelper.Setup(t)
 	for _, tc := range []struct {
 		name            string
 		expectedRunIDs  []int64
@@ -210,6 +214,7 @@ func TestActionConcurrencyGroupQueue(t *testing.T) {
 }
 
 func TestActionConcurrencyGroupQueueFetchNext(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		// mock repo runner only supported on SQLite testing
 		t.Skip()

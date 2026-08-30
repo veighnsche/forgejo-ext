@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
@@ -45,6 +47,7 @@ func getOrgSettings(t *testing.T, token, orgName string) *api.Organization {
 }
 
 func TestOrgSettingsChangeEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	const orgName = "org3"
@@ -99,6 +102,7 @@ func TestOrgSettingsChangeEmail(t *testing.T) {
 }
 
 func TestOrgSettingsUpdateWebsite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	const orgName = "org3"

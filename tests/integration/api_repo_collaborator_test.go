@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestAPIRepoCollaboratorPermission(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		repo2 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
 		repo2Owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo2.OwnerID})

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/translation"
 
@@ -18,6 +20,7 @@ import (
 // This test verifies common elements that are visible on all pages but most
 // likely to be first seen on `/`
 func TestCommonNavigationElements(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	session := loginUser(t, "user1")

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -74,6 +76,7 @@ func testRepoForkLegacyRedirect(t *testing.T, session *TestSession, ownerName, r
 }
 
 func TestRepoFork(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user5 := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user5"})
 		session := loginUser(t, user5.Name)
@@ -212,6 +215,7 @@ func TestRepoFork(t *testing.T) {
 }
 
 func TestRepoForkToOrg(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user2")
 		org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "org3"})
@@ -243,6 +247,7 @@ func TestRepoForkToOrg(t *testing.T) {
 }
 
 func TestForkListPrivateRepo(t *testing.T) {
+	testhelper.Setup(t)
 	forkItemSelector := ".tw-flex.tw-items-center.tw-py-2"
 
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {

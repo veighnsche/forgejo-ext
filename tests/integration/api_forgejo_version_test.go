@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestAPIForgejoVersion(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Version", func(t *testing.T) {

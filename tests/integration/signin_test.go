@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -38,6 +40,7 @@ func testLoginFailed(t *testing.T, username, password, message string) {
 }
 
 func TestSignin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -65,6 +68,7 @@ func TestSignin(t *testing.T) {
 }
 
 func TestSigninWithRememberMe(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -98,6 +102,7 @@ func TestSigninWithRememberMe(t *testing.T) {
 }
 
 func TestProviderDisplayNameIsPathEscaped(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	testCases := []string{
@@ -128,6 +133,7 @@ func TestProviderDisplayNameIsPathEscaped(t *testing.T) {
 }
 
 func TestDisableSignin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// Mock alternative auth ways as enabled
 	defer test.MockVariableValue(&setting.Service.EnableOpenIDSignIn, true)()
@@ -174,6 +180,7 @@ func TestDisableSignin(t *testing.T) {
 }
 
 func TestGlobalTwoFactorRequirement(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	locale := translation.NewLocale("en-US")
@@ -305,6 +312,7 @@ func TestGlobalTwoFactorRequirement(t *testing.T) {
 }
 
 func TestTwoFactorWithPasswordChange(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/TestTwoFactorWithPasswordChange")()
 
 	normalUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})

@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestWindowConfig(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	resp := MakeRequest(t, NewRequest(t, "GET", "/"), http.StatusOK)

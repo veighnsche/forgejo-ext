@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	code_indexer "forgejo.org/modules/indexer/code"
@@ -45,10 +47,12 @@ func resultFilenames(t testing.TB, doc *HTMLDoc) []string {
 }
 
 func TestSearchRepoIndexer(t *testing.T) {
+	testhelper.Setup(t)
 	testSearchRepo(t, true)
 }
 
 func TestSearchRepoNoIndexer(t *testing.T) {
+	testhelper.Setup(t)
 	testSearchRepo(t, false)
 }
 

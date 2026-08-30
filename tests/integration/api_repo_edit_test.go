@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -137,6 +139,7 @@ func getNewRepoEditOption(opts *api.EditRepoOption) *api.EditRepoOption {
 }
 
 func TestAPIRepoEdit(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	bFalse, bTrue := false, true
 
@@ -398,6 +401,7 @@ func TestAPIRepoEdit(t *testing.T) {
 // This test verifies that a repo-specific access token with `write:repository` scope is not a sufficient scope to edit
 // the settings of a repository that is within its repo-specific list.
 func TestAPIRepoEditAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo2OnlyToken := createFineGrainedRepoAccessToken(t, "user2",

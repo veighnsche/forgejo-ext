@@ -6,6 +6,8 @@ package integration
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	"forgejo.org/models/unittest"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestGetLatestCommitStatusForPairs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Empty", func(t *testing.T) {
@@ -125,6 +128,7 @@ func TestGetLatestCommitStatusForPairs(t *testing.T) {
 }
 
 func TestGetLatestCommitStatusForRepoCommitIDs(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	t.Run("Empty", func(t *testing.T) {

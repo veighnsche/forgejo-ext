@@ -6,12 +6,15 @@ package forgejo_migrations_legacy
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/require"
 )
 
 func Test_SetTopicsAsEmptySlice(t *testing.T) {
+	testhelper.Setup(t)
 	type Repository struct {
 		ID     int64    `xorm:"pk autoincr"`
 		Topics []string `xorm:"TEXT JSON"`

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -30,6 +32,7 @@ import (
 )
 
 func TestPullRequestIcons(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		repo := forgery.CreateRepository(t, nil, &forgery.CreateRepositoryOptions{
 			Files: forgery.FilesInit{},

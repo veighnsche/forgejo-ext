@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
@@ -32,6 +34,7 @@ func GetWorkflowRunRedirectURI(t *testing.T, repoURL, workflow string) string {
 }
 
 func TestActionsWebRouteLatestWorkflowRun(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -120,6 +123,7 @@ func TestActionsWebRouteLatestWorkflowRun(t *testing.T) {
 }
 
 func TestActionsWebRouteLatestRun(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 

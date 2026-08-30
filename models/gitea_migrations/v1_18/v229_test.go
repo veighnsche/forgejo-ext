@@ -6,6 +6,8 @@ package v1_18
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/models/issues"
 
@@ -14,6 +16,7 @@ import (
 )
 
 func Test_UpdateOpenMilestoneCounts(t *testing.T) {
+	testhelper.Setup(t)
 	type ExpectedMilestone issues.Milestone
 
 	// Prepare and load the testing database

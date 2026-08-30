@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestActionsVariablesModification(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestActionVariablesModification")()
 	defer tests.PrepareTestEnv(t)()
 

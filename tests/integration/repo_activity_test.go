@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestRepoActivity(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		session := loginUser(t, "user1")
 
@@ -103,6 +106,7 @@ func TestRepoActivity(t *testing.T) {
 }
 
 func TestRepoActivityAllUnitsDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := forgery.CreateUser(t, nil)
 	session := loginUser(t, user.Name)
@@ -133,6 +137,7 @@ func TestRepoActivityAllUnitsDisabled(t *testing.T) {
 }
 
 func TestRepoActivityOnlyCodeUnitWithEmptyRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := forgery.CreateUser(t, nil)
 	session := loginUser(t, user.Name)
@@ -166,6 +171,7 @@ func TestRepoActivityOnlyCodeUnitWithEmptyRepo(t *testing.T) {
 }
 
 func TestRepoActivityOnlyCodeUnitWithNonEmptyRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := forgery.CreateUser(t, nil)
 	session := loginUser(t, user.Name)
@@ -192,6 +198,7 @@ func TestRepoActivityOnlyCodeUnitWithNonEmptyRepo(t *testing.T) {
 }
 
 func TestRepoActivityOnlyIssuesUnit(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := forgery.CreateUser(t, nil)
 	session := loginUser(t, user.Name)

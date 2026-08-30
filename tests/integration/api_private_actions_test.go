@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/actions"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/optional"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestGenerateActionsRunnerToken(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name          string
 		scope         string

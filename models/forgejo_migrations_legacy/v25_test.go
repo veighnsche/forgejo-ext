@@ -6,6 +6,8 @@ package forgejo_migrations_legacy
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/auth"
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/keying"
@@ -16,6 +18,7 @@ import (
 )
 
 func Test_MigrateTwoFactorToKeying(t *testing.T) {
+	testhelper.Setup(t)
 	type TwoFactor struct { //revive:disable-line:exported
 		ID               int64 `xorm:"pk autoincr"`
 		UID              int64 `xorm:"UNIQUE"`

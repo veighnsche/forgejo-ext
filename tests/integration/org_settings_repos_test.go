@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
@@ -21,6 +23,7 @@ import (
 // repositories with their git and LFS size columns and their state labels,
 // reachable only by owners.
 func TestOrgSettingsRepos(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := forgery.CreateUser(t, nil)
@@ -81,6 +84,7 @@ func TestOrgSettingsRepos(t *testing.T) {
 // TestOrgSettingsReposEmptyState verifies that an organization without any
 // repository renders the empty-state message instead of a list of rows.
 func TestOrgSettingsReposEmptyState(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := forgery.CreateUser(t, nil)

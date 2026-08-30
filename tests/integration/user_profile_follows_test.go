@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -20,6 +22,7 @@ import (
 // - Followers and Following lists have correct amounts of items
 // - %d followers and %following counters are always present and always have correct numbers and use correct plurals
 func TestUserProfileFollows(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// This test needs 3 users to check for all possible states

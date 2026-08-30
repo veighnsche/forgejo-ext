@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +17,7 @@ import (
 )
 
 func TestFeedRepo(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("RSS", func(t *testing.T) {
 		defer tests.PrepareTestEnv(t)()
 

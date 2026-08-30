@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -23,6 +25,7 @@ import (
 
 // check that files stored in LFS render properly in the web UI
 func TestLFSFileRender(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -188,6 +191,7 @@ func TestLFSFileRender(t *testing.T) {
 
 // TestLFSLockView tests the LFS lock view on settings page of repositories
 func TestLFSLockView(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})       // in org 3
@@ -255,6 +259,7 @@ func TestLFSLockView(t *testing.T) {
 }
 
 func TestLFSPointerAndFindCommitView(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

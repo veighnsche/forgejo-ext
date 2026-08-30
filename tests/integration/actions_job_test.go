@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
@@ -38,6 +40,7 @@ import (
 )
 
 func TestActionsJobWithNeeds(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -185,6 +188,7 @@ jobs:
 }
 
 func TestActionsJobNeedsMatrix(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -370,6 +374,7 @@ jobs:
 }
 
 func TestActionsGiteaContext(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -503,6 +508,7 @@ jobs:
 }
 
 func TestActionsRunsOnInputsWorkflowDispatch(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -560,6 +566,7 @@ jobs:
 }
 
 func TestActionsRunsOnVars(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -619,6 +626,7 @@ jobs:
 }
 
 func TestActionsEphemeral(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -803,6 +811,7 @@ func getTaskJobNameByTaskID(t *testing.T, authToken, ownerName, repoName string,
 }
 
 func TestActionsRunsEvaluateIf(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}

@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/activities"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -41,6 +43,7 @@ func BlockUser(t *testing.T, doer, blockedUser *user_model.User) {
 // TestBlockUser ensures that users can execute blocking related actions can
 // happen under the correct conditions.
 func TestBlockUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 8})
@@ -89,6 +92,7 @@ func TestBlockUser(t *testing.T) {
 
 // TestBlockUserFromOrganization ensures that an organisation can block and unblock an user.
 func TestBlockUserFromOrganization(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 15})
@@ -158,6 +162,7 @@ func TestBlockUserFromOrganization(t *testing.T) {
 // and as a blocked user and are handled cleanly after the blocking has taken
 // place.
 func TestBlockActions(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestBlockActions")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -418,6 +423,7 @@ func TestBlockActions(t *testing.T) {
 }
 
 func TestBlockedNotification(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestBlockedNotifications")()
 	defer tests.PrepareTestEnv(t)()
 

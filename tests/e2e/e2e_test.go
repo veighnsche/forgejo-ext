@@ -16,6 +16,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/log"
@@ -74,6 +76,7 @@ func TestMain(m *testing.M) {
 
 // TestE2e should be the only test e2e necessary. It will collect all "*.test.e2e.ts" files in this directory and build a test for each.
 func TestE2e(t *testing.T) {
+	testhelper.Setup(t)
 	// Find the paths of all e2e test files in test directory.
 	searchGlob := filepath.Join(setting.AppWorkPath, "tests", "e2e", "*.test.e2e.ts")
 	paths, err := filepath.Glob(searchGlob)

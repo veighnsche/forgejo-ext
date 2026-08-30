@@ -6,12 +6,15 @@ package v1_14
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_RemoveInvalidLabels(t *testing.T) {
+	testhelper.Setup(t)
 	// Models used by the migration
 	type Comment struct {
 		ID           int64 `xorm:"pk autoincr"`

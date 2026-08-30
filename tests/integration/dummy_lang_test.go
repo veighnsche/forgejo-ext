@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestKeyLocale(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues?lang=dummy")

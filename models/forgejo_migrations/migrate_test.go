@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/test"
 
@@ -27,6 +29,7 @@ func nilMigration() *Migration {
 }
 
 func TestRegisterMigration(t *testing.T) {
+	testhelper.Setup(t)
 	resetMigrations()
 
 	defer test.MockVariableValue(&getMigrationFilename, func() string {
@@ -68,6 +71,7 @@ func TestRegisterMigration(t *testing.T) {
 }
 
 func TestResolveMigrations(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("duplicate migration IDs", func(t *testing.T) {
 		resetMigrations()
 		defer test.MockVariableValue(&getMigrationFilename, func() string {
@@ -105,6 +109,7 @@ func TestResolveMigrations(t *testing.T) {
 }
 
 func TestGetInDBMigrationIDs(t *testing.T) {
+	testhelper.Setup(t)
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(ForgejoMigration))
 	defer deferable()
 	require.NotNil(t, x)
@@ -128,6 +133,7 @@ func TestGetInDBMigrationIDs(t *testing.T) {
 }
 
 func TestEnsureUpToDate(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		desc     string
 		inMemory []string
@@ -181,6 +187,7 @@ func TestEnsureUpToDate(t *testing.T) {
 }
 
 func TestMigrate(t *testing.T) {
+	testhelper.Setup(t)
 	resetMigrations()
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(ForgejoMigration))
 	defer deferable()
@@ -252,6 +259,7 @@ func TestMigrate(t *testing.T) {
 }
 
 func TestMigrateFreshDB(t *testing.T) {
+	testhelper.Setup(t)
 	resetMigrations()
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(ForgejoMigration))
 	defer deferable()

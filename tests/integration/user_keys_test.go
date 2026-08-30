@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/test"
 	"forgejo.org/tests"
 
@@ -17,6 +19,7 @@ import (
 )
 
 func TestVerifySSHkeyPage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// user2 has an SSH key in fixtures to test this on

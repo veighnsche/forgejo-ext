@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	unit_model "forgejo.org/models/unit"
@@ -80,6 +82,7 @@ func (m *mockNotifier) complete() {
 }
 
 func TestActionNowDoneNotification(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}

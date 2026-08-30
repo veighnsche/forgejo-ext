@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	quota_model "forgejo.org/models/quota"
@@ -291,6 +293,7 @@ func prepareQuotaEnv(t *testing.T, username string) *quotaEnv {
 }
 
 func TestAPIQuotaUserCleanSlate(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Quota.Enabled, true)()
 		defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -311,12 +314,14 @@ func TestAPIQuotaUserCleanSlate(t *testing.T) {
 }
 
 func TestAPIQuotaEnforcement(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		testAPIQuotaEnforcement(t)
 	})
 }
 
 func TestAPIQuotaCountsTowardsCorrectUser(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := prepareQuotaEnv(t, "quota-correct-user-test")
 		defer env.Cleanup()
@@ -353,6 +358,7 @@ func TestAPIQuotaCountsTowardsCorrectUser(t *testing.T) {
 }
 
 func TestAPIQuotaError(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := prepareQuotaEnv(t, "quota-enforcement")
 		defer env.Cleanup()
@@ -1447,6 +1453,7 @@ func testAPIQuotaEnforcement(t *testing.T) {
 }
 
 func TestAPIQuotaOrgQuotaQuery(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := prepareQuotaEnv(t, "quota-enforcement")
 		defer env.Cleanup()
@@ -1474,6 +1481,7 @@ func TestAPIQuotaOrgQuotaQuery(t *testing.T) {
 }
 
 func TestAPIQuotaUserBasics(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := prepareQuotaEnv(t, "quota-enforcement")
 		defer env.Cleanup()

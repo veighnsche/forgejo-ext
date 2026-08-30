@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests/forgery"
 
 	"github.com/PuerkitoBio/goquery"
@@ -18,6 +20,7 @@ import (
 
 // TestDataSizeTranslation is a test for usage of TrSize in file size display
 func TestDataSizeTranslation(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		noDigits := regexp.MustCompile("[0-9]+")
 		longString100 := `testRepoMigrate(t, session, "https://code.forgejo.org/forgejo/test_repo.git", testRepoName, struct)` + "\n"

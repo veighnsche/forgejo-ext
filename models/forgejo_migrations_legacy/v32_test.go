@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/models/packages"
 
@@ -32,6 +34,7 @@ func StringToReadSeekCloser(s string) io.ReadSeekCloser {
 }
 
 func Test_ChangeMavenArtifactConcatenation(t *testing.T) {
+	testhelper.Setup(t)
 	getPackage = func(ctx context.Context, pf *packages.PackageFile) (io.ReadSeekCloser, *url.URL, *packages.PackageFile, error) {
 		var data string
 

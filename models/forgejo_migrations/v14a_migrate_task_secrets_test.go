@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/keying"
@@ -19,6 +21,7 @@ import (
 )
 
 func Test_MigrateTaskSecretsToKeying(t *testing.T) {
+	testhelper.Setup(t)
 	type Task struct {
 		ID             int64
 		DoerID         int64 `xorm:"index"`

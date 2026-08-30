@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/routers"
@@ -27,6 +29,7 @@ func getLinks(t *testing.T, url string) []*html.Node {
 }
 
 func TestFederationBaseHead(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
 

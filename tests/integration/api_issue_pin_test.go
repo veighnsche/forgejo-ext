@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestAPIPinIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -46,6 +49,7 @@ func TestAPIPinIssue(t *testing.T) {
 }
 
 func TestAPIUnpinIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -82,6 +86,7 @@ func TestAPIUnpinIssue(t *testing.T) {
 }
 
 func TestAPIMoveIssuePin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -132,6 +137,7 @@ func TestAPIMoveIssuePin(t *testing.T) {
 }
 
 func TestAPIListPinnedIssues(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -159,6 +165,7 @@ func TestAPIListPinnedIssues(t *testing.T) {
 }
 
 func TestAPIListPinnedPullrequests(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -174,6 +181,7 @@ func TestAPIListPinnedPullrequests(t *testing.T) {
 }
 
 func TestAPINewPinAllowed(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})

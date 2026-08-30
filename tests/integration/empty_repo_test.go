@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -28,6 +30,7 @@ import (
 )
 
 func TestEmptyRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	subPaths := []string{
 		"commits/master",
@@ -45,6 +48,7 @@ func TestEmptyRepo(t *testing.T) {
 }
 
 func TestEmptyRepoAddFile(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user30")
 		req := NewRequest(t, "GET", "/user30/empty/_new/"+setting.Repository.DefaultBranch)
@@ -69,6 +73,7 @@ func TestEmptyRepoAddFile(t *testing.T) {
 }
 
 func TestEmptyRepoUploadFile(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user30")
 		req := NewRequest(t, "GET", "/user30/empty/_new/"+setting.Repository.DefaultBranch)
@@ -106,6 +111,7 @@ func TestEmptyRepoUploadFile(t *testing.T) {
 }
 
 func TestEmptyRepoAddFileByAPI(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, _ *url.URL) {
 		session := loginUser(t, "user30")
 		token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteRepository)
@@ -138,6 +144,7 @@ func TestEmptyRepoAddFileByAPI(t *testing.T) {
 }
 
 func TestEmptyRepoAPIRequestsReturn404(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user30")

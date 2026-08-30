@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/forgefed"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -23,6 +25,7 @@ import (
 )
 
 func TestActivityPubRepoFollowing(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()

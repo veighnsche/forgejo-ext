@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	org_model "forgejo.org/models/organization"
@@ -38,6 +40,7 @@ import (
 )
 
 func TestWebQuotaEnforcementRepoMigrate(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -51,6 +54,7 @@ func TestWebQuotaEnforcementRepoMigrate(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementRepoCreate(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -60,6 +64,7 @@ func TestWebQuotaEnforcementRepoCreate(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementRepoFork(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -72,6 +77,7 @@ func TestWebQuotaEnforcementRepoFork(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementIssueAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -97,6 +103,7 @@ func TestWebQuotaEnforcementIssueAttachment(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementMirrorSync(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -118,6 +125,7 @@ func TestWebQuotaEnforcementMirrorSync(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementRepoContentEditing(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -167,6 +175,7 @@ func TestWebQuotaEnforcementRepoContentEditing(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementRepoBranches(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -230,6 +239,7 @@ func TestWebQuotaEnforcementRepoBranches(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementRepoReleases(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -265,6 +275,7 @@ func TestWebQuotaEnforcementRepoReleases(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementRepoPulls(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -303,6 +314,7 @@ func TestWebQuotaEnforcementRepoPulls(t *testing.T) {
 }
 
 func TestWebQuotaEnforcementRepoTransfer(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -369,6 +381,7 @@ func TestWebQuotaEnforcementRepoTransfer(t *testing.T) {
 }
 
 func TestQuotaGitEnforcement(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()
@@ -552,6 +565,7 @@ func TestQuotaGitEnforcement(t *testing.T) {
 }
 
 func TestQuotaGitLfsEnforcement(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.LFS.StartServer, true)()
 
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
@@ -607,6 +621,7 @@ func TestQuotaGitLfsEnforcement(t *testing.T) {
 }
 
 func TestQuotaConfigDefault(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		env := createQuotaWebEnv(t)
 		defer env.Cleanup()

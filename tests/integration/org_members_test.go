@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
@@ -23,6 +25,7 @@ import (
 )
 
 func TestOrgMembersPage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	testPage := "/org/org3/members"
@@ -86,6 +89,7 @@ func TestOrgMembersPage(t *testing.T) {
 }
 
 func TestOrgAddMember(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
@@ -122,6 +126,7 @@ func TestOrgAddMember(t *testing.T) {
 }
 
 func TestOrgAddMemberToNoTeam(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
@@ -149,6 +154,7 @@ func TestOrgAddMemberToNoTeam(t *testing.T) {
 }
 
 func TestOrgAddMemberToForeignTeam(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
@@ -189,6 +195,7 @@ func TestOrgAddMemberToForeignTeam(t *testing.T) {
 }
 
 func TestOrgAddMemberWithoutProperRights(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
@@ -210,6 +217,7 @@ func TestOrgAddMemberWithoutProperRights(t *testing.T) {
 }
 
 func TestOrgAddExistingMemberFails(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: 3})
@@ -248,6 +256,7 @@ func TestOrgAddExistingMemberFails(t *testing.T) {
 }
 
 func TestOrgAddMemberGeneratesAnInvite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, true)()
 

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/util"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestManifestJson(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -37,6 +40,7 @@ func TestManifestJson(t *testing.T) {
 }
 
 func TestManifestJsonStandalone(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.PWA.Standalone, true)()
 
@@ -55,6 +59,7 @@ func TestManifestJsonStandalone(t *testing.T) {
 }
 
 func TestManifestJsonCustomFile(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, os.MkdirAll(util.FilePathJoinAbs(setting.CustomPath, "public"), 0o777))
 	manifestPath := util.FilePathJoinAbs(setting.CustomPath, "public/manifest.json")
 	file, err := os.OpenFile(manifestPath, os.O_CREATE|os.O_RDWR, 0o777)
@@ -80,6 +85,7 @@ func TestManifestJsonCustomFile(t *testing.T) {
 }
 
 func TestBaseTemplateTitle(t *testing.T) {
+	testhelper.Setup(t)
 	siteTitleText := "Forgejo: Beyond coding. We Forge."
 	defer tests.PrepareTestEnv(t)()
 

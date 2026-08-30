@@ -6,6 +6,8 @@ package forgejo_migrations
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/timeutil"
 
@@ -14,6 +16,7 @@ import (
 )
 
 func Test_removeIsDeletedColumnFromActivityActionTable(t *testing.T) {
+	testhelper.Setup(t)
 	type Action struct {
 		ID          int64 `xorm:"pk autoincr"`
 		UserID      int64 `xorm:"INDEX"` // Receiver user id.

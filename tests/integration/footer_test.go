@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/tests"
@@ -17,6 +19,7 @@ import (
 
 /* TestFooterContent asserts go tmpl logic of footer */
 func TestFooterContent(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// The footer can be tested on any page, but preferably a lightweight one

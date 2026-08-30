@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -48,6 +50,7 @@ import (
 )
 
 func TestActionsPullRequestCommitStatus(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of the base repo
 		session := loginUser(t, "user2")
@@ -359,6 +362,7 @@ jobs:
 }
 
 func TestActionsPullRequestWithInvalidWorkflow(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of the base repo
 		session := loginUser(t, "user2")
@@ -440,6 +444,7 @@ runs-on: docker
 }
 
 func TestActionsPullRequestTargetEvent(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of the base repo
 		org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 3})  // owner of the forked repo
@@ -597,6 +602,7 @@ func TestActionsPullRequestTargetEvent(t *testing.T) {
 }
 
 func TestActionsPullRequestTargetEventLocalReusable(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		t.Run("local reusable workflow is resolved from base when job is first queued", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
@@ -892,6 +898,7 @@ jobs:
 }
 
 func TestActionsSkipCI(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user2")
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -983,6 +990,7 @@ func TestActionsSkipCI(t *testing.T) {
 }
 
 func TestActionsCreateDeleteRefEvent(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -1099,6 +1107,7 @@ func TestActionsCreateDeleteRefEvent(t *testing.T) {
 }
 
 func TestActionsWorkflowDispatch(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name              string
 		workflowID        string
@@ -1179,6 +1188,7 @@ func TestActionsWorkflowDispatch(t *testing.T) {
 }
 
 func TestActionsWorkflowDispatchRejectsInputsThatExceedLimit(t *testing.T) {
+	testhelper.Setup(t)
 	workflow := `
 name: test
 on:
@@ -1261,6 +1271,7 @@ jobs:
 }
 
 func TestActionsWorkflowDispatchDynamicMatrix(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -1312,6 +1323,7 @@ func TestActionsWorkflowDispatchDynamicMatrix(t *testing.T) {
 // Early in the job parsing, dynamic matrices may need to access workflow inputs.  Boolean inputs need special handling
 // which is what this test case covers.
 func TestActionsWorkflowDispatchDynamicMatrixBooleanInput(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -1368,6 +1380,7 @@ func TestActionsWorkflowDispatchDynamicMatrixBooleanInput(t *testing.T) {
 }
 
 func TestActionsWorkflowDispatchReusableWorkflow(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -1439,6 +1452,7 @@ func TestActionsWorkflowDispatchReusableWorkflow(t *testing.T) {
 }
 
 func TestActionsWorkflowDispatchConcurrencyGroup(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -1497,6 +1511,7 @@ func TestActionsWorkflowDispatchConcurrencyGroup(t *testing.T) {
 }
 
 func TestActionsPullRequestWithPathsFilter(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		session := loginUser(t, "user2")
@@ -1601,6 +1616,7 @@ jobs:
 }
 
 func TestActionWorkflowTitle(t *testing.T) {
+	testhelper.Setup(t)
 	runName := "awesome title"
 	workflow := fmt.Sprintf(`
 run-name: "%s"
@@ -1677,6 +1693,7 @@ jobs:
 }
 
 func TestActionsWorkflowsAreTriggeredForOriginalCommit(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		t.Run("push", func(t *testing.T) {
 			workflow := `

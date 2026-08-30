@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -40,6 +42,7 @@ import (
 )
 
 func TestViewUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2")
@@ -55,6 +58,7 @@ func TestViewUser(t *testing.T) {
 }
 
 func TestRenameUsername(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -70,6 +74,7 @@ func TestRenameUsername(t *testing.T) {
 }
 
 func TestRenameInvalidUsername(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	invalidUsernames := []string{
@@ -117,6 +122,7 @@ func TestRenameInvalidUsername(t *testing.T) {
 }
 
 func TestRenameReservedUsername(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	reservedUsernames := []string{
@@ -171,6 +177,7 @@ func TestRenameReservedUsername(t *testing.T) {
 }
 
 func TestExportUserGPGKeys(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// Export empty key list
 	testExportUserGPGKeys(t, "user1", `-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -256,6 +263,7 @@ func testExportUserGPGKeys(t *testing.T, user, expected string) {
 }
 
 func TestAccessTokenRegenerate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -293,6 +301,7 @@ func TestAccessTokenRegenerate(t *testing.T) {
 }
 
 func TestAccessTokenResourceRepos(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	locale := translation.NewLocale("en-US")
@@ -349,6 +358,7 @@ func findLatestTokenID(t *testing.T, session *TestSession) (string, int) {
 }
 
 func TestGetUserRss(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Normal", func(t *testing.T) {
@@ -371,6 +381,7 @@ func TestGetUserRss(t *testing.T) {
 }
 
 func TestListStopWatches(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -394,6 +405,7 @@ func TestListStopWatches(t *testing.T) {
 }
 
 func TestUserLocationMapLink(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.UserLocationMapURL, "https://example/foo/")()
 
@@ -413,6 +425,7 @@ func TestUserLocationMapLink(t *testing.T) {
 }
 
 func TestUserHints(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user2"})
@@ -542,6 +555,7 @@ func TestUserHints(t *testing.T) {
 }
 
 func TestUserPronouns(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// user1 is admin, using user2 and user10 respectively instead.
@@ -751,6 +765,7 @@ func TestUserPronouns(t *testing.T) {
 }
 
 func TestUserEditWebsite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := forgery.CreateUser(t, nil)
@@ -810,6 +825,7 @@ func TestUserEditWebsite(t *testing.T) {
 }
 
 func TestUserTOTPMail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -858,6 +874,7 @@ func TestUserTOTPMail(t *testing.T) {
 }
 
 func TestUserSecurityKeyMail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -940,6 +957,7 @@ func TestUserSecurityKeyMail(t *testing.T) {
 }
 
 func TestUserTOTPEnrolled(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -984,6 +1002,7 @@ func TestUserTOTPEnrolled(t *testing.T) {
 }
 
 func TestUserTOTPReenroll(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
@@ -1014,6 +1033,7 @@ func TestUserTOTPReenroll(t *testing.T) {
 }
 
 func TestUserTOTPDisable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	runTest := func(t *testing.T, user *user_model.User, useTOTP, disableAllowed bool, status int, flashMessage string) {
@@ -1090,6 +1110,7 @@ func TestUserTOTPDisable(t *testing.T) {
 }
 
 func TestUserRepos(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	cases := map[string][]string{
@@ -1114,6 +1135,7 @@ func TestUserRepos(t *testing.T) {
 }
 
 func TestUserActivate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.RegisterEmailConfirm, true)()
 
@@ -1208,6 +1230,7 @@ func parseMailHelper(t *testing.T, expectedTo, expectedSubject string) (cleanup 
 }
 
 func TestUserPasswordReset(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1247,6 +1270,7 @@ func TestUserPasswordReset(t *testing.T) {
 }
 
 func TestUserPasswordResetOAuth2(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestUserPasswordResetOAuth2")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -1308,6 +1332,7 @@ func TestUserPasswordResetOAuth2(t *testing.T) {
 }
 
 func TestActivateEmailAddress(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.RegisterEmailConfirm, true)()
 
@@ -1348,6 +1373,7 @@ func TestActivateEmailAddress(t *testing.T) {
 }
 
 func TestExportUserSSHKeys(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("No exported keys", func(t *testing.T) {
@@ -1380,6 +1406,7 @@ func TestExportUserSSHKeys(t *testing.T) {
 }
 
 func TestAuthorizedIntegrationList(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	locale := translation.NewLocale("en-US")
@@ -1408,6 +1435,7 @@ func TestAuthorizedIntegrationList(t *testing.T) {
 }
 
 func TestAuthorizedIntegrationView(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	locale := translation.NewLocale("en-US")

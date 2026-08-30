@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -55,6 +57,7 @@ func testReportDetails(t *testing.T, htmlDoc *HTMLDoc, reportID, contentIcon, co
 }
 
 func TestAdminModerationViewReports(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAdminModerationViewReports")()
 	defer tests.PrepareTestEnv(t)()
 

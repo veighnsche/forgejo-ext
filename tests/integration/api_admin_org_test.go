@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestAPIAdminOrgCreate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
 	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteAdmin)
@@ -52,6 +55,7 @@ func TestAPIAdminOrgCreate(t *testing.T) {
 }
 
 func TestAPIAdminOrgCreateBadVisibility(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
 	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteAdmin)
@@ -70,6 +74,7 @@ func TestAPIAdminOrgCreateBadVisibility(t *testing.T) {
 }
 
 func TestAPIAdminOrgCreateNotAdmin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	nonAdminUsername := "user2"
 	session := loginUser(t, nonAdminUsername)

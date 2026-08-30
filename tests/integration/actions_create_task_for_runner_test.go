@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestCreateTaskForRunnerNoMatchingJobFound(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestCreateTaskForRunner")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -32,6 +35,7 @@ func TestCreateTaskForRunnerNoMatchingJobFound(t *testing.T) {
 // request that tries to update the job in the database (that was already updated by the first
 // request) then chokes and returns the error ErrNoJobUpdated.
 func TestCreateTaskForRunnerNoJobUpdated(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.Database.Type.IsSQLite3() {
 		// SQLite locks on the transaction and the desired race condition can't be achieved
 		t.Skip()

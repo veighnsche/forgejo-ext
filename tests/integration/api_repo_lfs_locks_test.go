@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestAPILFSLocksNotStarted(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	setting.LFS.StartServer = false
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -37,6 +40,7 @@ func TestAPILFSLocksNotStarted(t *testing.T) {
 }
 
 func TestAPILFSLocksNotLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	setting.LFS.StartServer = true
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -51,6 +55,7 @@ func TestAPILFSLocksNotLogin(t *testing.T) {
 }
 
 func TestAPILFSLocksLogged(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	setting.LFS.StartServer = true
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // in org 3

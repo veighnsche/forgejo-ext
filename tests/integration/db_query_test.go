@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	"forgejo.org/tests"
@@ -19,6 +21,7 @@ import (
 // supported database types.
 
 func TestDatabaseDefaultMaxInSize(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Ensure there are more than db.DefaultMaxInSize objects in a table:

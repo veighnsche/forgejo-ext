@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
@@ -38,6 +40,7 @@ func forEachObjectFormat(t *testing.T, f func(t *testing.T, objectFormat git.Obj
 }
 
 func TestGitPush(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testGitPush)
 }
 
@@ -205,6 +208,7 @@ func runTestGitPush(t *testing.T, u *url.URL, objectFormat git.ObjectFormat, git
 }
 
 func TestOptionsGitPush(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testOptionsGitPush)
 }
 
@@ -304,6 +308,7 @@ func testOptionsGitPush(t *testing.T, u *url.URL) {
 }
 
 func TestGitPushAllowMaintainerEditRestrictedHead(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		baseRepoOwner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
 

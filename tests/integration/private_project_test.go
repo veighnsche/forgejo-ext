@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	org_model "forgejo.org/models/organization"
 	project_model "forgejo.org/models/project"
 	"forgejo.org/models/unittest"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestPrivateIssueProject(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("models/fixtures/PrivateIssueProjects")()
 	defer tests.PrepareTestEnv(t)()
 

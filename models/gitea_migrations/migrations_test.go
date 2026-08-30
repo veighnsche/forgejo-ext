@@ -6,6 +6,8 @@ package gitea_migrations
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/test"
 
@@ -14,6 +16,7 @@ import (
 )
 
 func TestMigrations(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&preparedMigrations, []*migration{
 		{idNumber: 70},
 		{idNumber: 71},
@@ -29,6 +32,7 @@ func TestMigrations(t *testing.T) {
 }
 
 func TestMigrateFreshDB(t *testing.T) {
+	testhelper.Setup(t)
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(Version))
 	defer deferable()
 	require.NotNil(t, x)
@@ -46,6 +50,7 @@ func TestMigrateFreshDB(t *testing.T) {
 }
 
 func TestMigrateFailWithCorruption(t *testing.T) {
+	testhelper.Setup(t)
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(Version))
 	defer deferable()
 	require.NotNil(t, x)

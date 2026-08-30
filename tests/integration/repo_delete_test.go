@@ -6,6 +6,8 @@ package integration
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	repo_model "forgejo.org/models/repo"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestTeam_HasRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	test := func(teamID, repoID int64, expected bool) {
@@ -35,6 +38,7 @@ func TestTeam_HasRepository(t *testing.T) {
 }
 
 func TestTeam_RemoveRepository(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	testSuccess := func(teamID, repoID int64) {
@@ -49,6 +53,7 @@ func TestTeam_RemoveRepository(t *testing.T) {
 }
 
 func TestDeleteOwnerRepositoriesDirectly(t *testing.T) {
+	testhelper.Setup(t)
 	unittest.PrepareTestEnv(t)
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/forgefed"
 	"forgejo.org/modules/activitypub"
 	"forgejo.org/modules/setting"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestActivityPubHostMatcher(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, true)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, false)()
@@ -102,6 +105,7 @@ func TestActivityPubHostMatcher(t *testing.T) {
 }
 
 func TestActivityPubHostMatcherFederationHost(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, true)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()

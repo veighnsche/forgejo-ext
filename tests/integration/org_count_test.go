@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestOrgCounts(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testOrgCounts)
 }
 

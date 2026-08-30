@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	api "forgejo.org/modules/structs"
 	notify_service "forgejo.org/services/notify"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestAPIRepoActivityFeeds(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := forgery.CreateRepository(t, nil, nil)

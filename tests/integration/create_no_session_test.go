@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -41,6 +43,7 @@ func sessionFile(tmpDir, sessionID string) string {
 }
 
 func TestSessionFileCreation(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockProtect(&setting.SessionConfig.ProviderConfig)()
 	defer test.MockProtect(&testWebRoutes)()

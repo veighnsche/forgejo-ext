@@ -8,10 +8,13 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRepoMergeCommitRevert(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, _ *url.URL) {
 		session := loginUser(t, "user2")
 

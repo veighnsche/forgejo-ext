@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
@@ -43,6 +45,7 @@ func decodeXML(t testing.TB, resp *httptest.ResponseRecorder, v any) {
 }
 
 func TestPackageNuGet(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	type FeedEntryProperties struct {

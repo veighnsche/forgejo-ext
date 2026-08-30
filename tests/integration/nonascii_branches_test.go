@@ -9,6 +9,8 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -40,6 +42,7 @@ func setDefaultBranch(t *testing.T, session *TestSession, user, repo, branch str
 }
 
 func TestNonasciiBranches(t *testing.T) {
+	testhelper.Setup(t)
 	testRedirects := []struct {
 		from   string
 		to     string

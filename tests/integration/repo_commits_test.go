@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestRepoCommits(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -112,26 +115,32 @@ func testRepoCommitsWithStatus(t *testing.T, resp, respOne *httptest.ResponseRec
 }
 
 func TestRepoCommitsWithStatusPending(t *testing.T) {
+	testhelper.Setup(t)
 	doTestRepoCommitWithStatus(t, "pending", "octicon-dot-fill", "yellow")
 }
 
 func TestRepoCommitsWithStatusSuccess(t *testing.T) {
+	testhelper.Setup(t)
 	doTestRepoCommitWithStatus(t, "success", "octicon-check", "green")
 }
 
 func TestRepoCommitsWithStatusError(t *testing.T) {
+	testhelper.Setup(t)
 	doTestRepoCommitWithStatus(t, "error", "gitea-exclamation", "red")
 }
 
 func TestRepoCommitsWithStatusFailure(t *testing.T) {
+	testhelper.Setup(t)
 	doTestRepoCommitWithStatus(t, "failure", "octicon-x", "red")
 }
 
 func TestRepoCommitsWithStatusWarning(t *testing.T) {
+	testhelper.Setup(t)
 	doTestRepoCommitWithStatus(t, "warning", "gitea-exclamation", "yellow")
 }
 
 func TestRepoCommitsStatusParallel(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -167,6 +176,7 @@ func TestRepoCommitsStatusParallel(t *testing.T) {
 }
 
 func TestRepoCommitsStatusMultiple(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -207,6 +217,7 @@ func TestRepoCommitsStatusMultiple(t *testing.T) {
 }
 
 func TestCreateCommitStatusNonExistingSHA(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	ctx := NewAPITestContext(t, "user2", "repo1", auth_model.AccessTokenScopeWriteRepository)

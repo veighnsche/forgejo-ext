@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestAPIReleaseList(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -103,6 +106,7 @@ func createNewReleaseUsingAPI(t *testing.T, token string, owner *user_model.User
 }
 
 func TestAPIReleaseCreateAndUpdate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -160,6 +164,7 @@ func TestAPIReleaseCreateAndUpdate(t *testing.T) {
 }
 
 func TestAPIReleaseCreateProtectedTag(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -185,6 +190,7 @@ func TestAPIReleaseCreateProtectedTag(t *testing.T) {
 }
 
 func TestAPIReleaseCreateToDefaultBranch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -196,6 +202,7 @@ func TestAPIReleaseCreateToDefaultBranch(t *testing.T) {
 }
 
 func TestAPIReleaseCreateToDefaultBranchOnExistingTag(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -214,6 +221,7 @@ func TestAPIReleaseCreateToDefaultBranchOnExistingTag(t *testing.T) {
 }
 
 func TestAPIReleaseCreateGivenInvalidTarget(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -232,6 +240,7 @@ func TestAPIReleaseCreateGivenInvalidTarget(t *testing.T) {
 }
 
 func TestAPIReleaseGetLatest(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -247,6 +256,7 @@ func TestAPIReleaseGetLatest(t *testing.T) {
 }
 
 func TestAPIReleaseGetByTag(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -272,6 +282,7 @@ func TestAPIReleaseGetByTag(t *testing.T) {
 }
 
 func TestAPIReleaseGetDraftByTag(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -289,6 +300,7 @@ func TestAPIReleaseGetDraftByTag(t *testing.T) {
 }
 
 func TestAPIReleaseGet(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -339,6 +351,7 @@ func TestAPIReleaseGet(t *testing.T) {
 }
 
 func TestAPIReleaseGetAssets(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -389,6 +402,7 @@ func TestAPIReleaseGetAssets(t *testing.T) {
 }
 
 func TestAPIReleaseDraftAttachmentUnauthorizedAccess(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -435,6 +449,7 @@ func TestAPIReleaseDraftAttachmentUnauthorizedAccess(t *testing.T) {
 }
 
 func TestAPIReleaseDeleteByTagName(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -461,6 +476,7 @@ func TestAPIReleaseDeleteByTagName(t *testing.T) {
 }
 
 func TestAPIReleaseUploadAsset(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -525,6 +541,7 @@ func TestAPIReleaseUploadAsset(t *testing.T) {
 }
 
 func TestAPIReleaseGetArchiveDownloadCount(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -561,6 +578,7 @@ func TestAPIReleaseGetArchiveDownloadCount(t *testing.T) {
 }
 
 func TestAPIReleaseExternalAsset(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -584,6 +602,7 @@ func TestAPIReleaseExternalAsset(t *testing.T) {
 }
 
 func TestAPIReleaseAllowedAPIURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -608,6 +627,7 @@ func TestAPIReleaseAllowedAPIURL(t *testing.T) {
 }
 
 func TestAPIReleaseDuplicateAsset(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -629,6 +649,7 @@ func TestAPIReleaseDuplicateAsset(t *testing.T) {
 }
 
 func TestAPIReleaseMissingAsset(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -644,6 +665,7 @@ func TestAPIReleaseMissingAsset(t *testing.T) {
 }
 
 func TestAPIReleaseMissingTitle(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -666,6 +688,7 @@ func TestAPIReleaseMissingTitle(t *testing.T) {
 }
 
 func TestAPIReleaseGithubFormat(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})

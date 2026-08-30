@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
@@ -40,6 +42,7 @@ import (
 )
 
 func TestAuthorizeNoClientID(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/login/oauth/authorize")
 	ctx := loginUser(t, "user2")
@@ -48,6 +51,7 @@ func TestAuthorizeNoClientID(t *testing.T) {
 }
 
 func TestAuthorizeUnregisteredRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/login/oauth/authorize?client_id=da7da3ba-9a13-4167-856f-3899de0b0138&redirect_uri=UNREGISTERED&response_type=code&state=thestate")
 	ctx := loginUser(t, "user1")
@@ -56,6 +60,7 @@ func TestAuthorizeUnregisteredRedirect(t *testing.T) {
 }
 
 func TestAuthorizeUnsupportedResponseType(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/login/oauth/authorize?client_id=da7da3ba-9a13-4167-856f-3899de0b0138&redirect_uri=a&response_type=UNEXPECTED&state=thestate")
 	ctx := loginUser(t, "user1")
@@ -67,6 +72,7 @@ func TestAuthorizeUnsupportedResponseType(t *testing.T) {
 }
 
 func TestAuthorizeUnsupportedCodeChallengeMethod(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/login/oauth/authorize?client_id=da7da3ba-9a13-4167-856f-3899de0b0138&redirect_uri=a&response_type=code&state=thestate&code_challenge_method=UNEXPECTED")
 	ctx := loginUser(t, "user1")
@@ -78,12 +84,14 @@ func TestAuthorizeUnsupportedCodeChallengeMethod(t *testing.T) {
 }
 
 func TestAuthorizeLoginRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/login/oauth/authorize")
 	assert.Contains(t, MakeRequest(t, req, http.StatusSeeOther).Body.String(), "/user/login")
 }
 
 func TestAuthorizeShow(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/login/oauth/authorize?client_id=da7da3ba-9a13-4167-856f-3899de0b0138&redirect_uri=a&response_type=code&state=thestate")
 	ctx := loginUser(t, "user4")
@@ -94,6 +102,7 @@ func TestAuthorizeShow(t *testing.T) {
 }
 
 func TestOAuth_AuthorizeConfidentialTwice(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// da7da3ba-9a13-4167-856f-3899de0b0138 a confidential client in models/fixtures/oauth2_application.yml
@@ -124,6 +133,7 @@ func TestOAuth_AuthorizeConfidentialTwice(t *testing.T) {
 }
 
 func TestOAuth_AuthorizePublicTwice(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// ce5a1322-42a7-11ed-b878-0242ac120002 is a public client in models/fixtures/oauth2_application.yml
@@ -151,6 +161,7 @@ func TestOAuth_AuthorizePublicTwice(t *testing.T) {
 }
 
 func TestAuthorizeRedirectWithExistingGrant(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/login/oauth/authorize?client_id=da7da3ba-9a13-4167-856f-3899de0b0138&redirect_uri=https%3A%2F%2Fexample.com%2Fxyzzy&response_type=code&state=thestate")
 	ctx := loginUser(t, "user1")
@@ -164,6 +175,7 @@ func TestAuthorizeRedirectWithExistingGrant(t *testing.T) {
 }
 
 func TestAuthorizePKCERequiredForPublicClient(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/login/oauth/authorize?client_id=ce5a1322-42a7-11ed-b878-0242ac120002&redirect_uri=http%3A%2F%2F127.0.0.1&response_type=code&state=thestate")
 	ctx := loginUser(t, "user1")
@@ -175,6 +187,7 @@ func TestAuthorizePKCERequiredForPublicClient(t *testing.T) {
 }
 
 func TestAccessTokenExchange(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequestWithValues(t, "POST", "/login/oauth/access_token", map[string]string{
 		"grant_type":    "authorization_code",
@@ -199,6 +212,7 @@ func TestAccessTokenExchange(t *testing.T) {
 }
 
 func TestAccessTokenExchangeRedirectURIMismatch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// The auth code fixture has redirect_uri="a", but we send a different
@@ -232,6 +246,7 @@ func TestAccessTokenExchangeRedirectURIMismatch(t *testing.T) {
 }
 
 func TestAccessTokenExchangeWithPublicClient(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequestWithValues(t, "POST", "/login/oauth/access_token", map[string]string{
 		"grant_type":    "authorization_code",
@@ -255,6 +270,7 @@ func TestAccessTokenExchangeWithPublicClient(t *testing.T) {
 }
 
 func TestAccessTokenExchangeJSON(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequestWithJSON(t, "POST", "/login/oauth/access_token", map[string]string{
 		"grant_type":    "authorization_code",
@@ -279,6 +295,7 @@ func TestAccessTokenExchangeJSON(t *testing.T) {
 }
 
 func TestAccessTokenExchangeWithoutPKCE(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequestWithValues(t, "POST", "/login/oauth/access_token", map[string]string{
 		"grant_type":    "authorization_code",
@@ -295,6 +312,7 @@ func TestAccessTokenExchangeWithoutPKCE(t *testing.T) {
 }
 
 func TestAccessTokenExchangeWithInvalidCredentials(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// invalid client id
 	req := NewRequestWithValues(t, "POST", "/login/oauth/access_token", map[string]string{
@@ -369,6 +387,7 @@ func TestAccessTokenExchangeWithInvalidCredentials(t *testing.T) {
 }
 
 func TestAccessTokenExchangeWithBasicAuth(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequestWithValues(t, "POST", "/login/oauth/access_token", map[string]string{
 		"grant_type":    "authorization_code",
@@ -444,6 +463,7 @@ func TestAccessTokenExchangeWithBasicAuth(t *testing.T) {
 }
 
 func TestRefreshTokenInvalidation(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequestWithValues(t, "POST", "/login/oauth/access_token", map[string]string{
 		"grant_type":    "authorization_code",
@@ -535,6 +555,7 @@ func TestRefreshTokenInvalidation(t *testing.T) {
 }
 
 func TestRefreshTokenCrossClientUsage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Step 1: Obtain a refresh token via app 1 (confidential client)
@@ -585,6 +606,7 @@ func TestRefreshTokenCrossClientUsage(t *testing.T) {
 }
 
 func TestSignInOAuthCallbackSignIn(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	//
@@ -650,6 +672,7 @@ func loadLTAAuthToken(t *testing.T, cookieValue string) auth_model.Authorization
 }
 
 func TestSignInOAuthSSOLTACookie(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	gitlabName := "gitlab"
@@ -722,6 +745,7 @@ func TestSignInOAuthSSOLTACookie(t *testing.T) {
 }
 
 func TestSignInOAuthSSOLTACookie_MultipleLinkedSources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	gitlabName := "gitlab-multi"
@@ -771,6 +795,7 @@ func TestSignInOAuthSSOLTACookie_MultipleLinkedSources(t *testing.T) {
 }
 
 func TestSignInOAuthSSOLTACookie_With2FA(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	gitlabName := "gitlab-2fa"
@@ -817,6 +842,7 @@ func TestSignInOAuthSSOLTACookie_With2FA(t *testing.T) {
 }
 
 func TestSignInOAuthCallbackWithoutPKCEWhenUnsupported(t *testing.T) {
+	testhelper.Setup(t)
 	// https://codeberg.org/forgejo/forgejo/issues/4033
 	defer tests.PrepareTestEnv(t)()
 
@@ -861,6 +887,7 @@ func TestSignInOAuthCallbackWithoutPKCEWhenUnsupported(t *testing.T) {
 }
 
 func TestSignInOAuthCallbackPKCE(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Setup authentication source
 		sourceName := "oidc"
@@ -912,6 +939,7 @@ func TestSignInOAuthCallbackPKCE(t *testing.T) {
 }
 
 func TestSignInOAuthCallbackPKCENewProvider(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Setup authentication source
 		sourceName := "oidc"
@@ -967,6 +995,7 @@ func TestSignInOAuthCallbackPKCENewProvider(t *testing.T) {
 }
 
 func TestWellKnownOpenIDConfiguration(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Issuer does not end with a slash", func(t *testing.T) {
@@ -992,6 +1021,7 @@ func TestWellKnownOpenIDConfiguration(t *testing.T) {
 }
 
 func TestSignInOAuthCallbackRedirectToEscaping(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	//
@@ -1069,6 +1099,7 @@ func setupMockOIDCServer() *httptest.Server {
 }
 
 func TestSignInOauthCallbackSyncSSHKeys(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	mockServer := setupMockOIDCServer()
 	defer mockServer.Close()
@@ -1161,6 +1192,7 @@ func TestSignInOauthCallbackSyncSSHKeys(t *testing.T) {
 }
 
 func TestSignUpViaOAuthWithMissingFields(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// enable auto-creation of accounts via OAuth2
 	enableAutoRegistration := setting.OAuth2Client.EnableAutoRegistration
@@ -1188,6 +1220,7 @@ func TestSignUpViaOAuthWithMissingFields(t *testing.T) {
 }
 
 func TestOAuth_GrantApplicationOAuth(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/login/oauth/authorize?client_id=da7da3ba-9a13-4167-856f-3899de0b0138&redirect_uri=a&response_type=code&state=thestate")
@@ -1208,6 +1241,7 @@ func TestOAuth_GrantApplicationOAuth(t *testing.T) {
 }
 
 func TestOAuthIntrospection(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequestWithValues(t, "POST", "/login/oauth/access_token", map[string]string{
 		"grant_type":    "authorization_code",
@@ -1274,6 +1308,7 @@ func TestOAuthIntrospection(t *testing.T) {
 }
 
 func TestOAuth_GrantScopesReadUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1351,6 +1386,7 @@ func TestOAuth_GrantScopesReadUser(t *testing.T) {
 }
 
 func TestOAuth_GrantScopesFailReadRepository(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1426,6 +1462,7 @@ func TestOAuth_GrantScopesFailReadRepository(t *testing.T) {
 }
 
 func TestOAuth_GrantScopesReadRepository(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1502,6 +1539,7 @@ func TestOAuth_GrantScopesReadRepository(t *testing.T) {
 }
 
 func TestOAuth_GrantScopesReadPrivateGroups(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// setting.OAuth2.EnableAdditionalGrantScopes = true
@@ -1580,6 +1618,7 @@ func TestOAuth_GrantScopesReadPrivateGroups(t *testing.T) {
 }
 
 func TestOAuth_GrantScopesReadOnlyPublicGroups(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.OAuth2.EnableAdditionalGrantScopes = true
@@ -1672,6 +1711,7 @@ func TestOAuth_GrantScopesReadOnlyPublicGroups(t *testing.T) {
 }
 
 func TestOAuth_GrantScopesReadPublicGroupsWithTheReadScope(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.OAuth2.EnableAdditionalGrantScopes = true
@@ -1763,6 +1803,7 @@ func TestOAuth_GrantScopesReadPublicGroupsWithTheReadScope(t *testing.T) {
 }
 
 func TestSignUpViaOAuthDefaultRestricted(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
 	defer test.MockVariableValue(&setting.Service.DefaultUserIsRestricted, true)()
@@ -1788,6 +1829,7 @@ func TestSignUpViaOAuthDefaultRestricted(t *testing.T) {
 }
 
 func TestSignUpViaOAuthLinking2FA(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
 	defer test.MockVariableValue(&setting.OAuth2Client.AccountLinking, setting.OAuth2AccountLinkingAuto)()
@@ -1833,6 +1875,7 @@ func TestSignUpViaOAuthLinking2FA(t *testing.T) {
 }
 
 func TestSignUpViaOAuth2FA(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
 	defer test.MockVariableValue(&setting.OAuth2Client.AccountLinking, setting.OAuth2AccountLinkingAuto)()
@@ -1869,6 +1912,7 @@ func TestSignUpViaOAuth2FA(t *testing.T) {
 }
 
 func TestAccessTokenWithPKCE(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user4")
@@ -1996,6 +2040,7 @@ func TestAccessTokenWithPKCE(t *testing.T) {
 }
 
 func TestSignInOAuthCallbackGothUserFields(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// OAuth2 authentication source GitLab
@@ -2150,6 +2195,7 @@ func TestSignInOAuthCallbackGothUserFields(t *testing.T) {
 }
 
 func TestSignInOAuthCallbackSignInRetrieveError(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	gitlabName := "gitlab"
@@ -2185,6 +2231,7 @@ func TestSignInOAuthCallbackSignInRetrieveError(t *testing.T) {
 }
 
 func TestSignUpViaOAuthWithMissingNickname(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// enable auto-creation of accounts via OAuth2 with "nickname" username
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
@@ -2212,6 +2259,7 @@ func TestSignUpViaOAuthWithMissingNickname(t *testing.T) {
 }
 
 func TestSignUpViaOAuthWithMissingUsername(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// enable auto-creation of accounts via OAuth2 with "preferred_username" username
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
@@ -2237,6 +2285,7 @@ func TestSignUpViaOAuthWithMissingUsername(t *testing.T) {
 }
 
 func TestSignUpViaOAuthWithNicknameAsUsername(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// enable auto-creation of accounts via OAuth2 with "nickname" username
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
@@ -2267,6 +2316,7 @@ func TestSignUpViaOAuthWithNicknameAsUsername(t *testing.T) {
 }
 
 func TestSignUpViaOAuthWithUserIdAsUsername(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// enable auto-creation of accounts via OAuth2 with "userid" username
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
@@ -2297,6 +2347,7 @@ func TestSignUpViaOAuthWithUserIdAsUsername(t *testing.T) {
 }
 
 func TestSignUpViaOAuthWithEmailAsUsername(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// enable auto-creation of accounts via OAuth2 with "email" username
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
@@ -2327,6 +2378,7 @@ func TestSignUpViaOAuthWithEmailAsUsername(t *testing.T) {
 }
 
 func TestSignUpViaOAuthWithPreferredUsernameAsUsername(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// enable auto-creation of accounts via OAuth2 with "preferred_username" username
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()
@@ -2357,6 +2409,7 @@ func TestSignUpViaOAuthWithPreferredUsernameAsUsername(t *testing.T) {
 }
 
 func TestSignUpViaOAuthWithPreferredUsernameProcessesEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// enable auto-creation of accounts via OAuth2 with "preferred_username" username
 	defer test.MockVariableValue(&setting.OAuth2Client.EnableAutoRegistration, true)()

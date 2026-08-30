@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -49,6 +51,7 @@ import (
 )
 
 func TestPullView_ReviewerMissed(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
 
@@ -74,6 +77,7 @@ func TestPullView_ReviewerMissed(t *testing.T) {
 }
 
 func TestPullRequestParticipants(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestPullRequestParticipants")()
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
@@ -95,6 +99,7 @@ func loadComment(t *testing.T, commentID string) *issues_model.Comment {
 }
 
 func TestPullView_SelfReviewNotification(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		user1Session := loginUser(t, "user1")
 		user2Session := loginUser(t, "user2")
@@ -149,6 +154,7 @@ func TestPullView_SelfReviewNotification(t *testing.T) {
 }
 
 func TestPullView_ResolveInvalidatedReviewComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
 
@@ -357,6 +363,7 @@ func TestPullView_ResolveInvalidatedReviewComment(t *testing.T) {
 }
 
 func TestPullView_CodeOwner(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -454,6 +461,7 @@ func TestPullView_CodeOwner(t *testing.T) {
 }
 
 func TestPullView_GivenApproveOrRejectReviewOnClosedPR(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		user1Session := loginUser(t, "user1")
 		user2Session := loginUser(t, "user2")
@@ -524,6 +532,7 @@ func TestPullView_GivenApproveOrRejectReviewOnClosedPR(t *testing.T) {
 }
 
 func TestPullReview_OldLatestCommitId(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
 
@@ -580,6 +589,7 @@ func TestPullReview_OldLatestCommitId(t *testing.T) {
 // patch (e.g. migrated from GitHub against a commit later force-pushed away) does not 500 when the
 // diff hunk cannot be regenerated; the reply is stored without diff context instead.
 func TestPullReviewReplyToCommentWithoutPatch(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestPullReviewReplyToCommentWithoutPatch")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -609,6 +619,7 @@ func TestPullReviewReplyToCommentWithoutPatch(t *testing.T) {
 }
 
 func TestPullReviewInArchivedRepo(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		session := loginUser(t, "user2")
 
@@ -688,6 +699,7 @@ func getUserNotificationCount(t *testing.T, session *TestSession) string {
 }
 
 func TestPullRequestReplyMail(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestPullRequestReplyMail")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -843,6 +855,7 @@ func updateFileInBranch(user *user_model.User, repo *repo_model.Repository, tree
 }
 
 func TestPullRequestStaleReview(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		session := loginUser(t, user2.Name)
@@ -1098,6 +1111,7 @@ func TestPullRequestStaleReview(t *testing.T) {
 }
 
 func TestPullRequestCommentPlacement(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		t.Run("comment directly on change in PR", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()

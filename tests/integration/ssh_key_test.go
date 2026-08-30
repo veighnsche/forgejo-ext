@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
@@ -44,6 +46,7 @@ func doAddChangesToCheckout(dstPath, filename string) func(*testing.T) {
 }
 
 func TestPushDeployKeyOnEmptyRepo(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testPushDeployKeyOnEmptyRepo)
 }
 
@@ -88,6 +91,7 @@ func testPushDeployKeyOnEmptyRepo(t *testing.T, u *url.URL) {
 }
 
 func TestKeyOnlyOneType(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testKeyOnlyOneType)
 }
 

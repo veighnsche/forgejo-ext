@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -56,6 +58,7 @@ func getExpectedContentsResponseForContents(ref, refType, lastCommitSHA string) 
 }
 
 func TestAPIGetContents(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testAPIGetContents)
 }
 
@@ -171,6 +174,7 @@ func testAPIGetContents(t *testing.T, u *url.URL) {
 }
 
 func TestAPIGetContentsRefFormats(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		file := "README.md"
 		sha := "65f1bf27bc3bf70f64657658635e66094edbcb4d"

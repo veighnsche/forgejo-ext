@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/gitea_migrations"
 	migrate_base "forgejo.org/models/gitea_migrations/base"
@@ -309,6 +311,7 @@ func doMigrationTest(t *testing.T, version string) {
 }
 
 func TestMigrations(t *testing.T) {
+	testhelper.Setup(t)
 	defer initMigrationTest(t)()
 
 	dialect := setting.Database.Type

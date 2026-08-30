@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -46,6 +48,7 @@ import (
 )
 
 func TestMirrorPull(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
 
 	t.Run("Basic", func(t *testing.T) {
@@ -344,6 +347,7 @@ func TestMirrorPull(t *testing.T) {
 // Verifies that a pull mirror which was created while the remote address was permitted will fail to sync if the
 // AllowedDomains configuration later changes such that the remote URL is no longer permitted.
 func TestMirrorPullAddressCheck(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
 
 	// Allow localhost as a migration domain so the mirror can initially be created from the local test server. Not
@@ -641,6 +645,7 @@ func renamePullMirrorSourceRepo(t *testing.T, sourceRepo *repo_model.Repository)
 }
 
 func TestPullMirrorRedactCredentials(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestPullMirrorRedactCredentials")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -655,6 +660,7 @@ func TestPullMirrorRedactCredentials(t *testing.T) {
 }
 
 func TestMirrorPullLFS(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
 
 	// Not using MockVariableValue due to need to undo `migrations_allowlist.Init()`

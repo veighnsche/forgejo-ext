@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	user_model "forgejo.org/models/user"
 	"forgejo.org/routers/web/repo"
 	"forgejo.org/services/context"
@@ -45,6 +47,7 @@ func createRepoAndGetContext(t *testing.T, user *user_model.User, filenames ...s
 }
 
 func TestRepoView_FindReadme(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 		t.Run("PrioOneLocalizedMdReadme", func(t *testing.T) {
@@ -131,6 +134,7 @@ func TestRepoView_FindReadme(t *testing.T) {
 }
 
 func TestRepoViewFileLines(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, _ *url.URL) {
 		repo := forgery.CreateRepository(t, nil, &forgery.CreateRepositoryOptions{
 			Files: forgery.MapFS{

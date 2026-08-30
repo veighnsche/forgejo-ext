@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
@@ -31,6 +33,7 @@ import (
 )
 
 func TestActionViewsArtifactDeletion(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -70,6 +73,7 @@ func TestActionViewsArtifactDeletion(t *testing.T) {
 }
 
 func TestActionViewsArtifactDownload(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	assertDataAttrs := func(t *testing.T, body *bytes.Buffer, runID int64) {
@@ -134,6 +138,7 @@ func TestActionViewsArtifactDownload(t *testing.T) {
 }
 
 func TestActionViewsView(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestActionViewsView")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -234,6 +239,7 @@ func TestActionViewsView(t *testing.T) {
 // updated in the DB when jobs are picked up by runners.  This test is intended to ensure that a "future" attempt number
 // can still be loaded into the repo-action-view, which will handle waiting & polling for it to have data.
 func TestActionViewsViewAttemptOutOfRange(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// For this test to accurately reflect an attempt not yet picked, it needs to be accessing an ActionRunJob with
@@ -263,6 +269,7 @@ func TestActionViewsViewAttemptOutOfRange(t *testing.T) {
 }
 
 func TestActionTabAccessibleFromRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1")
@@ -286,6 +293,7 @@ func TestActionTabAccessibleFromRepo(t *testing.T) {
 }
 
 func TestActionViewRunDeletion(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestActionViewRunDeletion")()
 	defer tests.PrepareTestEnv(t)()
 

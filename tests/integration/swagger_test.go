@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/json"
 	"forgejo.org/tests"
 
@@ -83,6 +85,7 @@ func checkSwaggerRouteResponse(t *testing.T, paths map[string]swagger_spec.PathI
 }
 
 func TestSwaggerUserRoute(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	swagger := getSwagger(t)
@@ -92,6 +95,7 @@ func TestSwaggerUserRoute(t *testing.T) {
 }
 
 func TestSwaggerUsersRoute(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	swagger := getSwagger(t)

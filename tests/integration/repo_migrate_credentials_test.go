@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/admin"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestRepoMigrateWithCredentials(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()

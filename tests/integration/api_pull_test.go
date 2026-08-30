@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -31,6 +33,7 @@ import (
 )
 
 func TestAPIViewPulls(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -58,6 +61,7 @@ func TestAPIViewPulls(t *testing.T) {
 }
 
 func TestAPIPullsFiles(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -179,6 +183,7 @@ func TestAPIPullsFiles(t *testing.T) {
 }
 
 func TestAPIPullsFilesSkipTo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -220,6 +225,7 @@ func TestAPIPullsFilesSkipTo(t *testing.T) {
 }
 
 func TestAPIViewPullsFilterByBaseHead(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 
@@ -273,6 +279,7 @@ func TestAPIViewPullsFilterByBaseHead(t *testing.T) {
 }
 
 func TestAPIViewPullsByBaseHead(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
@@ -295,6 +302,7 @@ func TestAPIViewPullsByBaseHead(t *testing.T) {
 
 // TestAPIMergePullWIP ensures that we can't merge a WIP pull request
 func TestAPIMergePullWIP(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
@@ -318,6 +326,7 @@ func TestAPIMergePullWIP(t *testing.T) {
 }
 
 func TestAPICreatePullSuccess(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo10 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
 	// repo10 have code, pulls units.
@@ -344,6 +353,7 @@ func TestAPICreatePullSuccess(t *testing.T) {
 }
 
 func TestAPICreatePullSameRepoSuccess(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
@@ -366,6 +376,7 @@ func TestAPICreatePullSameRepoSuccess(t *testing.T) {
 }
 
 func TestAPICreatePullWithFieldsSuccess(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// repo10 have code, pulls units.
 	repo10 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -404,6 +415,7 @@ func TestAPICreatePullWithFieldsSuccess(t *testing.T) {
 }
 
 func TestAPICreatePullWithFieldsFailure(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// repo10 have code, pulls units.
 	repo10 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
@@ -439,6 +451,7 @@ func TestAPICreatePullWithFieldsFailure(t *testing.T) {
 }
 
 func TestAPIEditPull(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo10 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
 	owner10 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo10.OwnerID})
@@ -491,6 +504,7 @@ func TestAPIEditPull(t *testing.T) {
 }
 
 func TestAPIForkDifferentName(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Step 1: get a repo and a user that can fork this repo
@@ -514,6 +528,7 @@ func TestAPIForkDifferentName(t *testing.T) {
 }
 
 func TestAPIPullDeleteBranchPerms(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		user2Session := loginUser(t, "user2")
 		user4Session := loginUser(t, "user4")

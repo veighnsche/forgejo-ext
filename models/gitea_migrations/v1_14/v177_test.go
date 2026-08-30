@@ -6,6 +6,8 @@ package v1_14
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/timeutil"
 
@@ -14,6 +16,7 @@ import (
 )
 
 func Test_DeleteOrphanedIssueLabels(t *testing.T) {
+	testhelper.Setup(t)
 	// Create the models used in the migration
 	type IssueLabel struct {
 		ID      int64 `xorm:"pk autoincr"`

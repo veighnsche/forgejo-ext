@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestAPIGetIssueAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	attachment := unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: 1})
@@ -44,6 +47,7 @@ func TestAPIGetIssueAttachment(t *testing.T) {
 }
 
 func TestAPIListIssueAttachments(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	attachment := unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: 1})
@@ -64,6 +68,7 @@ func TestAPIListIssueAttachments(t *testing.T) {
 }
 
 func TestAPICreateIssueAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -92,6 +97,7 @@ func TestAPICreateIssueAttachment(t *testing.T) {
 }
 
 func TestAPICreateIssueAttachmentAutoDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -156,6 +162,7 @@ func TestAPICreateIssueAttachmentAutoDate(t *testing.T) {
 }
 
 func TestAPICreateIssueAttachmentWithUnallowedFile(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -183,6 +190,7 @@ func TestAPICreateIssueAttachmentWithUnallowedFile(t *testing.T) {
 }
 
 func TestAPIEditIssueAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	const newAttachmentName = "newAttachmentName"
@@ -207,6 +215,7 @@ func TestAPIEditIssueAttachment(t *testing.T) {
 }
 
 func TestAPIDeleteIssueAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	attachment := unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: 1})

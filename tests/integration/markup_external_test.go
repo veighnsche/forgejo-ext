@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestExternalMarkupRenderer(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
@@ -47,6 +50,7 @@ func TestExternalMarkupRenderer(t *testing.T) {
 }
 
 func TestExternalMarkupRendererWithCompoundFileExtensions(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		testCases := []struct {
 			path                      string

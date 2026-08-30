@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/log"
 	ft "forgejo.org/modules/test"
@@ -16,6 +18,7 @@ import (
 )
 
 func Test_FederatedUserActivityMigration(t *testing.T) {
+	testhelper.Setup(t)
 	lc, cl := ft.NewLogChecker(log.DEFAULT, log.WARN)
 	lc.Filter("migration[33]")
 	defer cl()

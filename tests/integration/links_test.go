@@ -9,6 +9,8 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestLinksNoLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	links := []string{
@@ -47,6 +50,7 @@ func TestLinksNoLogin(t *testing.T) {
 }
 
 func TestRedirectsNoLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	redirects := map[string]string{
@@ -65,6 +69,7 @@ func TestRedirectsNoLogin(t *testing.T) {
 }
 
 func TestNoLoginNotExist(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	links := []string{
@@ -187,12 +192,14 @@ func testLinksAsUser(userName string, t *testing.T) {
 }
 
 func TestLinksLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	testLinksAsUser("user2", t)
 }
 
 func TestRedirectsWebhooks(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	//
@@ -218,6 +225,7 @@ func TestRedirectsWebhooks(t *testing.T) {
 }
 
 func TestRepoLinks(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// repo1 has enabled almost features, so we can test most links

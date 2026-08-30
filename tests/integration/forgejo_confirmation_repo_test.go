@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/translation"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"
@@ -16,6 +18,7 @@ import (
 )
 
 func TestDangerZoneConfirmation(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	mustInvalidRepoName := func(resp *httptest.ResponseRecorder) {
 		t.Helper()

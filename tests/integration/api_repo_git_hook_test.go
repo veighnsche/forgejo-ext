@@ -10,6 +10,8 @@ import (
 	"slices"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -29,6 +31,7 @@ echo Hello, World!
 const repositoryIDWithPreReceiveHook = 37
 
 func TestAPIListGitHooks(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: repositoryIDWithPreReceiveHook})
@@ -54,6 +57,7 @@ func TestAPIListGitHooks(t *testing.T) {
 }
 
 func TestAPIGetGitHook(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: repositoryIDWithPreReceiveHook})
@@ -71,6 +75,7 @@ func TestAPIGetGitHook(t *testing.T) {
 }
 
 func TestAPIDeleteGitHook(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: repositoryIDWithPreReceiveHook})
@@ -99,6 +104,7 @@ func TestAPIDeleteGitHook(t *testing.T) {
 }
 
 func TestAPIGitHooksFromEmpty(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	admin := forgery.CreateUser(t, &forgery.CreateUserOptions{
@@ -175,6 +181,7 @@ func TestAPIGitHooksFromEmpty(t *testing.T) {
 }
 
 func TestAPIGitHookNoAccess(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := forgery.CreateRepository(t, nil, nil)

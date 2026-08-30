@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -24,6 +26,7 @@ type TestCollationTbl struct {
 }
 
 func TestDatabaseCollationSelfCheckUI(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	assertSelfCheckExists := func(exists bool) {
@@ -47,6 +50,7 @@ func TestDatabaseCollationSelfCheckUI(t *testing.T) {
 }
 
 func TestDatabaseCollation(t *testing.T) {
+	testhelper.Setup(t)
 	engine, err := db.GetMasterEngine(db.GetEngine(db.DefaultContext))
 	require.NoError(t, err)
 	x := engine

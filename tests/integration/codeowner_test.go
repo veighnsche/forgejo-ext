@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -203,6 +205,7 @@ type CodeownerTest struct {
 }
 
 func TestCodeOwner(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		tests := []CodeownerTest{
 			{Name: "root", Path: "CODEOWNERS"},

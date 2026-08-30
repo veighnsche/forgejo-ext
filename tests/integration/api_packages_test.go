@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	packages_model "forgejo.org/models/packages"
@@ -35,6 +37,7 @@ import (
 )
 
 func TestPackageAPI(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
@@ -195,6 +198,7 @@ func TestPackageAPI(t *testing.T) {
 }
 
 func TestPackageAccess(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	admin := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -460,6 +464,7 @@ func TestPackageAccess(t *testing.T) {
 }
 
 func TestPackageQuota(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	limitTotalOwnerCount, limitTotalOwnerSize := setting.Packages.LimitTotalOwnerCount, setting.Packages.LimitTotalOwnerSize
@@ -521,6 +526,7 @@ func TestPackageQuota(t *testing.T) {
 }
 
 func TestPackageCleanup(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -818,6 +824,7 @@ func TestPackageCleanup(t *testing.T) {
 }
 
 func TestPackageWithTwoFactor(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})

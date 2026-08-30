@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/tests"
@@ -16,6 +18,7 @@ import (
 )
 
 func TestAPIWatch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := "user1"
@@ -88,6 +91,7 @@ func TestAPIWatch(t *testing.T) {
 }
 
 func TestAPIWatchRepoAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var repos []api.Repository

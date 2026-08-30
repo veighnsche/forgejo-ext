@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/forgefed"
 	"forgejo.org/models/user"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestStoreFederationHost(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	t.Run("ExplicitNull", func(t *testing.T) {
 		federationHost := forgefed.FederationHost{
@@ -62,6 +65,7 @@ func TestStoreFederationHost(t *testing.T) {
 }
 
 func TestStoreFederatedUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	t.Run("ExplicitNull", func(t *testing.T) {
 		federatedUser := user.FederatedUser{

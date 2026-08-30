@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 )
 
 func TestEasyMDESwitch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	testEasyMDESwitch(t, session, "user2/glob/issues/1", false)

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
@@ -23,6 +25,7 @@ import (
 )
 
 func TestSettingShowUserEmailExplore(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	showUserEmail := setting.UI.ShowUserEmail
@@ -51,6 +54,7 @@ func TestSettingShowUserEmailExplore(t *testing.T) {
 }
 
 func TestSettingShowUserEmailProfile(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	showUserEmail := setting.UI.ShowUserEmail
@@ -100,6 +104,7 @@ func TestSettingShowUserEmailProfile(t *testing.T) {
 }
 
 func TestSettingLandingPage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockProtect(&setting.LandingPageURL)()
 
@@ -124,6 +129,7 @@ func TestSettingLandingPage(t *testing.T) {
 }
 
 func TestSettingSecurityAuthSource(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -159,6 +165,7 @@ func TestSettingSecurityAuthSource(t *testing.T) {
 }
 
 func TestSettingSecurityTwoFactorRequirement(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	locale := translation.NewLocale("en-US")
@@ -229,6 +236,7 @@ func TestSettingSecurityTwoFactorRequirement(t *testing.T) {
 }
 
 func TestUserAvatarSizeNotice(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -241,6 +249,7 @@ func TestUserAvatarSizeNotice(t *testing.T) {
 }
 
 func TestRepoAvatarSizeNotice(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -253,6 +262,7 @@ func TestRepoAvatarSizeNotice(t *testing.T) {
 }
 
 func TestOrgAvatarSizeNotice(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -265,6 +275,7 @@ func TestOrgAvatarSizeNotice(t *testing.T) {
 }
 
 func TestAdminAvatarSizeNotice(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -277,6 +288,7 @@ func TestAdminAvatarSizeNotice(t *testing.T) {
 }
 
 func TestSSHKeyManagementStatus(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	locale := translation.NewLocale("en-US")
 

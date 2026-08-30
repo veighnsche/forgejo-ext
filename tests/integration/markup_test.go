@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/tests"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestRenderAlertBlocks(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")

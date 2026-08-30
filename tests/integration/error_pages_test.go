@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/routers"
@@ -28,6 +30,7 @@ func enableDemoPages() func() {
 }
 
 func TestDemoErrorPages(t *testing.T) {
+	testhelper.Setup(t)
 	defer enableDemoPages()()
 
 	t.Run("Server error", func(t *testing.T) {

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	repo_model "forgejo.org/models/repo"
@@ -30,6 +32,7 @@ import (
 )
 
 func TestRepoSettingsUnits(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := forgery.CreateRepository(t, nil, nil)
 	session := loginUser(t, repo.Owner.Name)
@@ -39,6 +42,7 @@ func TestRepoSettingsUnits(t *testing.T) {
 }
 
 func TestRepoSettingsUpdateWebsite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo := forgery.CreateRepository(t, nil, nil)
 	session := loginUser(t, repo.Owner.Name)
@@ -89,6 +93,7 @@ func TestRepoSettingsUpdateWebsite(t *testing.T) {
 }
 
 func TestRepoSettingsAdminOptions(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := forgery.CreateUser(t, nil)
@@ -133,6 +138,7 @@ func TestRepoSettingsAdminOptions(t *testing.T) {
 }
 
 func TestRepoAddMoreUnitsHighlighting(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := forgery.CreateUser(t, nil)
 	session := loginUser(t, user.Name)
@@ -225,6 +231,7 @@ func TestRepoAddMoreUnitsHighlighting(t *testing.T) {
 }
 
 func TestRepoAddMoreUnits(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := forgery.CreateUser(t, nil)
 	session := loginUser(t, user.Name)
@@ -322,6 +329,7 @@ func TestRepoAddMoreUnits(t *testing.T) {
 }
 
 func TestProtectedBranch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := forgery.CreateUser(t, nil)
 	repo := forgery.CreateRepository(t, user, &forgery.CreateRepositoryOptions{

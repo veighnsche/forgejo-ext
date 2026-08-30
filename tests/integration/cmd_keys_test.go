@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
 
@@ -17,6 +19,7 @@ import (
 )
 
 func Test_CmdKeys(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		tests := []struct {
 			name           string

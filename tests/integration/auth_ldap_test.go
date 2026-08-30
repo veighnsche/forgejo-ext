@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -171,6 +173,7 @@ func addAuthSourceLDAP(t *testing.T, sshKeyAttribute, mailKeyAttribute, defaultD
 }
 
 func TestLDAPUserSignin(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -191,6 +194,7 @@ func TestLDAPUserSignin(t *testing.T) {
 }
 
 func TestLDAPAuthChange(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	addAuthSourceLDAP(t, "", "", "", "")
 
@@ -240,6 +244,7 @@ func TestLDAPAuthChange(t *testing.T) {
 }
 
 func TestLDAPUserSync(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -266,6 +271,7 @@ func TestLDAPUserSync(t *testing.T) {
 }
 
 func TestLDAPUserSyncWithEmptyUsernameAttribute(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -315,6 +321,7 @@ func TestLDAPUserSyncWithEmptyUsernameAttribute(t *testing.T) {
 }
 
 func TestLDAPUserSyncWithGroupFilter(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -374,6 +381,7 @@ func TestLDAPUserSyncWithGroupFilter(t *testing.T) {
 }
 
 func TestLDAPUserSigninFailed(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -386,6 +394,7 @@ func TestLDAPUserSigninFailed(t *testing.T) {
 }
 
 func TestLDAPUserSSHKeySync(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -419,6 +428,7 @@ func TestLDAPUserSSHKeySync(t *testing.T) {
 }
 
 func TestLDAPGroupTeamSyncAddMember(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -464,6 +474,7 @@ func TestLDAPGroupTeamSyncAddMember(t *testing.T) {
 }
 
 func TestLDAPGroupTeamSyncRemoveMember(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -499,6 +510,7 @@ func TestLDAPGroupTeamSyncRemoveMember(t *testing.T) {
 }
 
 func TestLDAPPreventInvalidGroupTeamMap(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -511,6 +523,7 @@ func TestLDAPPreventInvalidGroupTeamMap(t *testing.T) {
 }
 
 func TestLDAPUserSyncInvalidMail(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return
@@ -537,6 +550,7 @@ func TestLDAPUserSyncInvalidMail(t *testing.T) {
 }
 
 func TestLDAPUserSyncInvalidMailDefaultDomain(t *testing.T) {
+	testhelper.Setup(t)
 	if skipLDAPTests() {
 		t.Skip()
 		return

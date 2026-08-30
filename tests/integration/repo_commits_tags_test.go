@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/PuerkitoBio/goquery"
@@ -17,6 +19,7 @@ import (
 // TestRepoCommitsWithTags tests that tags are displayed inline with commit messages
 // in the commits list, and not in a separate column
 func TestRepoCommitsWithTags(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

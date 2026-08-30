@@ -6,6 +6,8 @@ package v1_22
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/models/project"
@@ -15,6 +17,7 @@ import (
 )
 
 func Test_CheckProjectColumnsConsistency(t *testing.T) {
+	testhelper.Setup(t)
 	// Prepare and load the testing database
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(project.Project), new(project.Column))
 	defer deferable()

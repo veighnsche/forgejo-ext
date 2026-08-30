@@ -12,6 +12,8 @@ import (
 	"image/png"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -53,6 +55,7 @@ func generateAvatar(objectID int64) []byte {
 }
 
 func TestRemoveUnusedUserAvatars(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t, 1)()
 	// make the maximum uncached image size small, so that our test image is bigger than that
 	defer test.MockVariableValue(&setting.Avatar.MaxOriginSize, 3)()
@@ -98,6 +101,7 @@ func TestRemoveUnusedUserAvatars(t *testing.T) {
 }
 
 func TestRemoveUnusedRepoAvatars(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t, 1)()
 	// make the maximum uncached image size small, so that our test image is bigger than that
 	defer test.MockVariableValue(&setting.Avatar.MaxOriginSize, 3)()

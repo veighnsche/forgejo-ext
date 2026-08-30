@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/tests"
@@ -15,6 +17,7 @@ import (
 )
 
 func TestFeedPlainTextTitles(t *testing.T) {
+	testhelper.Setup(t)
 	// This test verifies that items' titles in feeds are generated as plain text.
 	// See https://codeberg.org/forgejo/forgejo/pulls/1595
 	defer test.MockVariableValue(&setting.UI.DefaultShowFullName, true)()

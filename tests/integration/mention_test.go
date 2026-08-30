@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHeadMentionCSS(t *testing.T) {
+	testhelper.Setup(t)
 	userSession := loginUser(t, "user2")
 	resp := userSession.MakeRequest(t, NewRequest(t, "GET", "/"), http.StatusOK)
 	assert.Contains(t, resp.Body.String(), `.mention[href="/user2" i]`)

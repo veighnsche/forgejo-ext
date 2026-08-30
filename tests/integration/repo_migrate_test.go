@@ -10,6 +10,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/translation"
@@ -38,6 +40,7 @@ func testRepoMigrate(t testing.TB, session *TestSession, cloneAddr, repoName str
 }
 
 func TestRepoMigrate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	for _, s := range []struct {
@@ -56,6 +59,7 @@ func TestRepoMigrate(t *testing.T) {
 }
 
 func TestRepoMigrateCredentials(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

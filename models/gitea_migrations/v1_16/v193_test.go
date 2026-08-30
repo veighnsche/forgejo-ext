@@ -6,6 +6,8 @@ package v1_16
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +15,7 @@ import (
 )
 
 func Test_AddRepoIDForAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	type Attachment struct {
 		ID         int64  `xorm:"pk autoincr"`
 		UUID       string `xorm:"uuid UNIQUE"`

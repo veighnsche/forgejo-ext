@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/tests"
 
@@ -17,6 +19,7 @@ import (
 )
 
 func TestOpenGraphProperties(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	siteName := "Forgejo: Beyond coding. We Forge."
 
@@ -186,6 +189,7 @@ func TestOpenGraphProperties(t *testing.T) {
 }
 
 func TestOpenGraphSummaryCard(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	cases := []struct {

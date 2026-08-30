@@ -6,6 +6,8 @@ package v1_16
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/json"
 
@@ -27,6 +29,7 @@ func (ls *LoginSourceOriginalV189) TableName() string {
 }
 
 func Test_UnwrapLDAPSourceCfg(t *testing.T) {
+	testhelper.Setup(t)
 	// Prepare and load the testing database
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(LoginSourceOriginalV189))
 	if x == nil || t.Failed() {

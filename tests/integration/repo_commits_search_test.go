@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -28,6 +30,7 @@ func testRepoCommitsSearch(t *testing.T, query, commit string) {
 }
 
 func TestRepoCommitsSearch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	testRepoCommitsSearch(t, "e8eabd", "")
 	testRepoCommitsSearch(t, "38a9cb", "")

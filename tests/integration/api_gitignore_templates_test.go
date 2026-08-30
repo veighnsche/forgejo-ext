@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/options"
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestAPIListGitignoresTemplates(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/api/v1/gitignore/templates")
@@ -28,6 +31,7 @@ func TestAPIListGitignoresTemplates(t *testing.T) {
 }
 
 func TestAPIGetGitignoreTemplateInfo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// If Gitea has for some reason no Gitignore templates, we need to skip this test

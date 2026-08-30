@@ -6,12 +6,15 @@ package v1_22
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/require"
 )
 
 func Test_AddCombinedIndexToIssueUser(t *testing.T) {
+	testhelper.Setup(t)
 	type IssueUser struct { // old struct
 		ID          int64 `xorm:"pk autoincr"`
 		UID         int64 `xorm:"INDEX"` // User ID.

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/assert"
@@ -14,6 +16,7 @@ import (
 )
 
 func Test_AddPrimaryEmail2EmailAddress(t *testing.T) {
+	testhelper.Setup(t)
 	type User struct {
 		ID       int64
 		Email    string

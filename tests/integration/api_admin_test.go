@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	asymkey_model "forgejo.org/models/asymkey"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestAPIAdminCreateAndDeleteSSHKey(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// user1 is an admin user
 	session := loginUser(t, "user1")
@@ -54,6 +57,7 @@ func TestAPIAdminCreateAndDeleteSSHKey(t *testing.T) {
 }
 
 func TestAPIAdminDeleteMissingSSHKey(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// user1 is an admin user
@@ -64,6 +68,7 @@ func TestAPIAdminDeleteMissingSSHKey(t *testing.T) {
 }
 
 func TestAPIAdminDeleteUnauthorizedKey(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	normalUsername := "user2"
@@ -85,6 +90,7 @@ func TestAPIAdminDeleteUnauthorizedKey(t *testing.T) {
 }
 
 func TestAPISudoUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	normalUsername := "user2"
@@ -101,6 +107,7 @@ func TestAPISudoUser(t *testing.T) {
 
 // Variation of TestAPISudoUser which verifies the usability of `sudo` with various access token restrictions.
 func TestAPISudoUserAuthorizationReducer(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	normalUsername := "user2"
@@ -137,6 +144,7 @@ func TestAPISudoUserAuthorizationReducer(t *testing.T) {
 }
 
 func TestAPISudoUserForbidden(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	normalUsername := "user2"
@@ -148,6 +156,7 @@ func TestAPISudoUserForbidden(t *testing.T) {
 }
 
 func TestAPIListUsers(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	token := getUserToken(t, adminUsername, auth_model.AccessTokenScopeReadAdmin)
@@ -173,6 +182,7 @@ func TestAPIListUsers(t *testing.T) {
 }
 
 func TestAPIListUsersNo2FA(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUsername := "user1"
@@ -189,6 +199,7 @@ func TestAPIListUsersNo2FA(t *testing.T) {
 }
 
 func TestAPIListUsers2FA(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUsername := "user1"
@@ -205,12 +216,14 @@ func TestAPIListUsers2FA(t *testing.T) {
 }
 
 func TestAPIListUsersNotLoggedIn(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequest(t, "GET", "/api/v1/admin/users")
 	MakeRequest(t, req, http.StatusUnauthorized)
 }
 
 func TestAPIListUsersNonAdmin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	nonAdminUsername := "user2"
 	token := getUserToken(t, nonAdminUsername, auth_model.AccessTokenScopeReadAdmin)
@@ -220,6 +233,7 @@ func TestAPIListUsersNonAdmin(t *testing.T) {
 }
 
 func TestAPICreateUserInvalidEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	token := getUserToken(t, adminUsername, auth_model.AccessTokenScopeWriteAdmin)
@@ -237,6 +251,7 @@ func TestAPICreateUserInvalidEmail(t *testing.T) {
 }
 
 func TestAPICreateAndDeleteUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	token := getUserToken(t, adminUsername, auth_model.AccessTokenScopeWriteAdmin)
@@ -264,6 +279,7 @@ func TestAPICreateAndDeleteUser(t *testing.T) {
 }
 
 func TestAPIEditUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	token := getUserToken(t, adminUsername, auth_model.AccessTokenScopeWriteAdmin)
@@ -321,6 +337,7 @@ func TestAPIEditUser(t *testing.T) {
 }
 
 func TestAPIEditUserWithLoginName(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUsername := "user1"
@@ -360,6 +377,7 @@ func TestAPIEditUserWithLoginName(t *testing.T) {
 }
 
 func TestAPICreateRepoForUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	token := getUserToken(t, adminUsername, auth_model.AccessTokenScopeWriteAdmin)
@@ -376,6 +394,7 @@ func TestAPICreateRepoForUser(t *testing.T) {
 }
 
 func TestAPIRenameUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	token := getUserToken(t, adminUsername, auth_model.AccessTokenScopeWriteAdmin)
@@ -415,6 +434,7 @@ func TestAPIRenameUser(t *testing.T) {
 }
 
 func TestAPICron(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// user1 is an admin user
@@ -465,6 +485,7 @@ func TestAPICron(t *testing.T) {
 }
 
 func TestAPICreateUser_NotAllowedEmailDomain(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.Service.EmailDomainAllowList = []glob.Glob{glob.MustCompile("example.org")}
@@ -490,6 +511,7 @@ func TestAPICreateUser_NotAllowedEmailDomain(t *testing.T) {
 }
 
 func TestAPIEditUser_NotAllowedEmailDomain(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	setting.Service.EmailDomainAllowList = []glob.Glob{glob.MustCompile("example.org")}
@@ -516,6 +538,7 @@ func TestAPIEditUser_NotAllowedEmailDomain(t *testing.T) {
 }
 
 func TestAPIUser_Website(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -575,6 +598,7 @@ func TestAPIUser_Website(t *testing.T) {
 }
 
 func TestAPIAdminListUserEmails(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUsername := "user1"
@@ -597,6 +621,7 @@ func TestAPIAdminListUserEmails(t *testing.T) {
 }
 
 func TestAPIAdminDeleteUserEmails(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUsername := "user1"
@@ -624,6 +649,7 @@ func TestAPIAdminDeleteUserEmails(t *testing.T) {
 }
 
 func TestAPIAdminDeleteUserEmailsPrimary(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUsername := "user1"
@@ -643,6 +669,7 @@ func TestAPIAdminDeleteUserEmailsPrimary(t *testing.T) {
 }
 
 func TestAPIAdminDeleteUserEmailsMultiple(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUsername := "user1"
@@ -674,6 +701,7 @@ func TestAPIAdminDeleteUserEmailsMultiple(t *testing.T) {
 }
 
 func TestAPIAdminListHooksPagination(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeWriteAdmin)

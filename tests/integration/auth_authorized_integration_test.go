@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	api "forgejo.org/modules/structs"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestAPIAuthWithAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("all access authorized integration", func(t *testing.T) {

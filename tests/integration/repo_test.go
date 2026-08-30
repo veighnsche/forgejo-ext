@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -39,6 +41,7 @@ import (
 )
 
 func TestViewRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -120,6 +123,7 @@ func testViewRepo(t *testing.T) {
 }
 
 func TestViewRepo2(t *testing.T) {
+	testhelper.Setup(t)
 	// no last commit cache
 	testViewRepo(t)
 
@@ -134,6 +138,7 @@ func TestViewRepo2(t *testing.T) {
 }
 
 func TestViewRepo3(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/org3/repo3")
@@ -142,6 +147,7 @@ func TestViewRepo3(t *testing.T) {
 }
 
 func TestViewRepo1CloneLinkAnonymous(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1")
@@ -156,6 +162,7 @@ func TestViewRepo1CloneLinkAnonymous(t *testing.T) {
 }
 
 func TestViewRepo1CloneLinkAuthorized(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -174,6 +181,7 @@ func TestViewRepo1CloneLinkAuthorized(t *testing.T) {
 }
 
 func TestViewRepoWithSymlinks(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -198,6 +206,7 @@ func TestViewRepoWithSymlinks(t *testing.T) {
 
 // TestViewAsRepoAdmin tests PR #2167
 func TestViewAsRepoAdmin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	for _, user := range []string{"user2", "user4"} {
@@ -218,6 +227,7 @@ func TestViewAsRepoAdmin(t *testing.T) {
 }
 
 func TestRepoHTMLTitle(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Repository homepage", func(t *testing.T) {
@@ -323,6 +333,7 @@ func TestRepoHTMLTitle(t *testing.T) {
 
 // TestViewFileInRepo repo description, topics and summary should not be displayed when viewing a file
 func TestViewFileInRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -341,6 +352,7 @@ func TestViewFileInRepo(t *testing.T) {
 }
 
 func TestViewFileInRepoRSSFeed(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	hasFileRSSFeed := func(t *testing.T, ref string) bool {
@@ -375,6 +387,7 @@ func TestViewFileInRepoRSSFeed(t *testing.T) {
 }
 
 func TestBlameFileInRepo(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		t.Run("Assert", func(t *testing.T) {
 			// TestBlameFileInRepo repo description, topics and summary should not be displayed when running blame on a file
@@ -479,6 +492,7 @@ func TestBlameFileInRepo(t *testing.T) {
 
 // TestViewRepoDirectory repo description, topics and summary should not be displayed when within a directory
 func TestViewRepoDirectory(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -501,6 +515,7 @@ func TestViewRepoDirectory(t *testing.T) {
 
 // ensure that the all the different ways to find and render a README work
 func TestViewRepoDirectoryReadme(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// there are many combinations:
@@ -608,6 +623,7 @@ func TestViewRepoDirectoryReadme(t *testing.T) {
 }
 
 func TestRenamedFileHistory(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		t.Run("Renamed file", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
@@ -712,6 +728,7 @@ func TestRenamedFileHistory(t *testing.T) {
 }
 
 func TestMarkDownReadmeImage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -734,6 +751,7 @@ func TestMarkDownReadmeImage(t *testing.T) {
 }
 
 func TestMarkDownReadmeImageSubfolder(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -757,6 +775,7 @@ func TestMarkDownReadmeImageSubfolder(t *testing.T) {
 }
 
 func TestGeneratedSourceLink(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Rendered file", func(t *testing.T) {
@@ -793,6 +812,7 @@ func TestGeneratedSourceLink(t *testing.T) {
 }
 
 func TestViewCommit(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/commit/0123456789012345678901234567890123456789")
@@ -802,6 +822,7 @@ func TestViewCommit(t *testing.T) {
 }
 
 func TestViewCommitSignature(t *testing.T) {
+	testhelper.Setup(t)
 	t.Cleanup(func() {
 		// Cannot use t.Context(), it is in the done state.
 		require.NoError(t, git.InitFull(context.Background()))
@@ -875,6 +896,7 @@ func TestViewCommitSignature(t *testing.T) {
 }
 
 func TestCommitView(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Non-existent commit", func(t *testing.T) {
@@ -927,6 +949,7 @@ func TestCommitView(t *testing.T) {
 }
 
 func TestRepoHomeViewRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Code", func(t *testing.T) {
@@ -1025,6 +1048,7 @@ func TestRepoHomeViewRedirect(t *testing.T) {
 }
 
 func TestRepoFilesList(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -1056,6 +1080,7 @@ func TestRepoFilesList(t *testing.T) {
 }
 
 func TestRepoFollowSymlink(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 
@@ -1107,6 +1132,7 @@ func TestRepoFollowSymlink(t *testing.T) {
 }
 
 func TestViewRepoOpenWith(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	getOpenWith := func() []string {
@@ -1167,6 +1193,7 @@ func TestViewRepoOpenWith(t *testing.T) {
 }
 
 func TestRepoCodeSearchForm(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	testSearchForm := func(t *testing.T, indexer bool) {
@@ -1210,6 +1237,7 @@ func TestRepoCodeSearchForm(t *testing.T) {
 }
 
 func TestFileHistoryPager(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Normal page number", func(t *testing.T) {
@@ -1228,6 +1256,7 @@ func TestFileHistoryPager(t *testing.T) {
 }
 
 func TestRepoSubmoduleView(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		t.Run("FromGit", func(t *testing.T) {
@@ -1343,6 +1372,7 @@ func TestRepoSubmoduleView(t *testing.T) {
 }
 
 func TestBlameDirectory(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Ensure directory exists.
@@ -1355,6 +1385,7 @@ func TestBlameDirectory(t *testing.T) {
 }
 
 func TestInitInstructions(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1389,6 +1420,7 @@ git push -u origin main`, init, repo.Name), portMatcher.ReplaceAllString(htmlDoc
 }
 
 func TestViewRepoSize(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	checkSizeSpanOfRepo := func(repo string, t *testing.T) string {

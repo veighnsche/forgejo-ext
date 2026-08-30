@@ -7,12 +7,15 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	funding_tests "forgejo.org/services/funding/tests"
 )
 
 func TestFundingRetrieval(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.DefaultAllowCreateOrganization, true)()
 
 	onApplicationRun(t, func(t *testing.T, url *url.URL) {

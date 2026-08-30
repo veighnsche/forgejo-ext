@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
@@ -25,6 +27,7 @@ import (
 // - Profile visibility
 // - Public activity visibility
 func TestUserProfileAttributes(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.AppSubURL, "/sub")()
 	defer tests.PrepareTestEnv(t)()
 	// This test needs multiple users with different access statuses to check for all possible states

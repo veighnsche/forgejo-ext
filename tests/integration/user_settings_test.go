@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
@@ -25,6 +27,7 @@ import (
 // TestUserSettingsAccount tests the contents of a user's account settings
 // with(out) disabled user features.
 func TestUserSettingsAccount(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("all features enabled", func(t *testing.T) {
@@ -82,6 +85,7 @@ func TestUserSettingsAccount(t *testing.T) {
 // TestUserSettingsUpdatePassword tests updating a user's password with(out)
 // disabled user features.
 func TestUserSettingsUpdatePassword(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("password enabled", func(t *testing.T) {
@@ -118,6 +122,7 @@ func TestUserSettingsUpdatePassword(t *testing.T) {
 // TestUserSettingsDelete tests deleting a user with(out) disabled user
 // features.
 func TestUserSettingsDelete(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("deletion disabled", func(t *testing.T) {
@@ -135,6 +140,7 @@ func TestUserSettingsDelete(t *testing.T) {
 }
 
 func TestUserSettingsUpdateWebsite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 
@@ -177,6 +183,7 @@ func TestUserSettingsUpdateWebsite(t *testing.T) {
 }
 
 func TestUserRename(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestUserRename")()
 	defer tests.PrepareTestEnv(t)()
 

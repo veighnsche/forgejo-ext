@@ -10,6 +10,8 @@ import (
 	"slices"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestAPIUserBlock(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := "user4"
@@ -84,6 +87,7 @@ func TestAPIUserBlock(t *testing.T) {
 }
 
 func TestAPIOrgBlock(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := "user5"
@@ -194,6 +198,7 @@ func TestAPIOrgBlock(t *testing.T) {
 // TestAPIBlock_AddCollaborator ensures that the doer and blocked user cannot
 // add each others as collaborators via the API.
 func TestAPIBlock_AddCollaborator(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user1 := "user10"

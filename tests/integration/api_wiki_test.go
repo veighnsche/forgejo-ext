@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestAPIRenameWikiBranch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	username := "user2"
@@ -50,6 +53,7 @@ func TestAPIRenameWikiBranch(t *testing.T) {
 }
 
 func TestAPIGetWikiPage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	username := "user2"
@@ -95,6 +99,7 @@ func TestAPIGetWikiPage(t *testing.T) {
 }
 
 func TestAPIGetWikiPageUnescapedFilename(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	username := "user2"
@@ -141,6 +146,7 @@ func TestAPIGetWikiPageUnescapedFilename(t *testing.T) {
 }
 
 func TestAPIListWikiPages(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	username := "user2"
@@ -298,6 +304,7 @@ func TestAPIListWikiPages(t *testing.T) {
 }
 
 func TestAPINewWikiPage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	for _, title := range []string{
 		"New page",
@@ -319,6 +326,7 @@ func TestAPINewWikiPage(t *testing.T) {
 }
 
 func TestAPIEditWikiPage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	username := "user2"
 	session := loginUser(t, username)
@@ -335,6 +343,7 @@ func TestAPIEditWikiPage(t *testing.T) {
 }
 
 func TestAPIEditOtherWikiPage(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// (drive-by-user) user, session, and token for a drive-by wiki editor
@@ -382,6 +391,7 @@ func TestAPIEditOtherWikiPage(t *testing.T) {
 }
 
 func TestAPISetWikiGlobalEditability(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user2"})
 	session := loginUser(t, user.Name)
@@ -435,6 +445,7 @@ func TestAPISetWikiGlobalEditability(t *testing.T) {
 }
 
 func TestAPIListPageRevisions(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	username := "user2"
 
@@ -474,6 +485,7 @@ func TestAPIListPageRevisions(t *testing.T) {
 }
 
 func TestAPIWikiNonMasterBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, _ *url.URL) {
 		repo := forgery.CreateRepository(t, nil, nil)
 		forgery.InitWiki(t, repo, "main")

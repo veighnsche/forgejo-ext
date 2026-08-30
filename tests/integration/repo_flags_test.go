@@ -10,6 +10,8 @@ import (
 	"slices"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestRepositoryFlagsUIDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Repository.EnableFlags, false)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -46,6 +49,7 @@ func TestRepositoryFlagsUIDisabled(t *testing.T) {
 }
 
 func TestRepositoryFlagsAPI(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Repository.EnableFlags, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -192,6 +196,7 @@ func TestRepositoryFlagsAPI(t *testing.T) {
 }
 
 func TestRepositoryFlagsUI(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Repository.EnableFlags, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()

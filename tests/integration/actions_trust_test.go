@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	issues_model "forgejo.org/models/issues"
@@ -293,6 +295,7 @@ func actionsTrustTestModifyTitlePullRequest(t *testing.T, token string, pullRequ
 }
 
 func TestActionsPullRequestTrustPanelImplicit(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		ownerUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of the repo
 		ownerSession := loginUser(t, ownerUser.Name)
@@ -327,6 +330,7 @@ func TestActionsPullRequestTrustPanelImplicit(t *testing.T) {
 }
 
 func TestActionsPullRequestTrustPanelExplicit(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		ownerUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of the repo
 
@@ -461,6 +465,7 @@ func TestActionsPullRequestTrustPanelExplicit(t *testing.T) {
 }
 
 func TestActionsPullRequestTrustPanelWIPConflicts(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		ownerUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of the repo
 
@@ -505,6 +510,7 @@ func actionsTrustTestMergePullRequest(t *testing.T, token string, pullRequest *i
 }
 
 func TestActionsPullRequestTrustPanelMergedOrClosed(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		ownerUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of the repo
 
@@ -548,6 +554,7 @@ func actionsTrustTestClosePullRequest(t *testing.T, token string, pullRequest *i
 }
 
 func TestActionsPullRequestTrustPanelClosed(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		ownerUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of the repo
 
@@ -575,6 +582,7 @@ func TestActionsPullRequestTrustPanelClosed(t *testing.T) {
 }
 
 func TestActionsPullRequestTrustCancelOnClose(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		ownerUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -609,6 +617,7 @@ func TestActionsPullRequestTrustCancelOnClose(t *testing.T) {
 }
 
 func TestActionsPullRequestTrustPushCancel(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		ownerUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		ownerSession := loginUser(t, ownerUser.Name)

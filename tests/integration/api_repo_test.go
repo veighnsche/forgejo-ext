@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	access_model "forgejo.org/models/perm/access"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestAPIUserReposNotLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -45,6 +48,7 @@ func TestAPIUserReposNotLogin(t *testing.T) {
 }
 
 func TestAPIUserReposWithWrongToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	wrongToken := fmt.Sprintf("Bearer %s", "wrong_token")
@@ -56,6 +60,7 @@ func TestAPIUserReposWithWrongToken(t *testing.T) {
 }
 
 func TestAPIUserReposAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var repos []api.Repository
@@ -130,6 +135,7 @@ func TestAPIUserReposAccessTokenResources(t *testing.T) {
 }
 
 func TestAPISearchRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	const keyword = "test"
 
@@ -332,6 +338,7 @@ func TestAPISearchRepo(t *testing.T) {
 }
 
 func TestAPISearchRepoAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var searchResults *api.SearchResults
@@ -418,6 +425,7 @@ func getRepo(t *testing.T, repoID int64) *repo_model.Repository {
 }
 
 func TestAPIViewRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var repo api.Repository
@@ -450,6 +458,7 @@ func TestAPIViewRepo(t *testing.T) {
 // `/repos/{username}/{reponame}` uses repoAssignment() middleware -- this test runs that middleware through all
 // variations of access token resource access.
 func TestAPIViewRepoAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var repo api.Repository
@@ -526,6 +535,7 @@ func TestAPIViewRepoAccessTokenResources(t *testing.T) {
 
 // Validate that private information on the user profile isn't exposed by way of being an owner of a public repository.
 func TestAPIViewRepoOwnerSettings(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var repo api.Repository
@@ -558,6 +568,7 @@ func TestAPIViewRepoOwnerSettings(t *testing.T) {
 }
 
 func TestAPIOrgRepos(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -599,6 +610,7 @@ func TestAPIOrgRepos(t *testing.T) {
 
 // See issue #28483. Tests to make sure we consider more than just code unit-enabled repositories.
 func TestAPIOrgReposWithCodeUnitDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	repo21 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{Name: "repo21"})
 	org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo21.OwnerID})
@@ -629,6 +641,7 @@ func TestAPIOrgReposWithCodeUnitDisabled(t *testing.T) {
 }
 
 func TestAPIGetRepoByIDUnauthorized(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
 	session := loginUser(t, user.Name)
@@ -639,6 +652,7 @@ func TestAPIGetRepoByIDUnauthorized(t *testing.T) {
 }
 
 func TestAPIGetRepoByIDAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -690,6 +704,7 @@ func TestAPIGetRepoByIDAccessTokenResources(t *testing.T) {
 }
 
 func TestAPIRepoMigrate(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		ctxUserID, userID  int64
 		cloneURL, repoName string
@@ -721,6 +736,7 @@ func TestAPIRepoMigrate(t *testing.T) {
 }
 
 func TestAPIRepoMigrateConflict(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testAPIRepoMigrateConflict)
 }
 
@@ -759,6 +775,7 @@ func testAPIRepoMigrateConflict(t *testing.T, u *url.URL) {
 // mirror-sync must fail with "400 (Bad Request)" when an attempt is made to
 // sync a non-mirror repository.
 func TestAPIMirrorSyncNonMirrorRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -779,6 +796,7 @@ func TestAPIMirrorSyncNonMirrorRepo(t *testing.T) {
 }
 
 func TestAPIOrgRepoCreate(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		ctxUserID         int64
 		orgName, repoName string
@@ -804,6 +822,7 @@ func TestAPIOrgRepoCreate(t *testing.T) {
 }
 
 func TestAPIRepoCreateConflict(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testAPIRepoCreateConflict)
 }
 
@@ -832,6 +851,7 @@ func testAPIRepoCreateConflict(t *testing.T, u *url.URL) {
 }
 
 func TestAPIRepoCreateDenied(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// This test verifies that `write:repository` is not a sufficient scope to create a repository.  If it was, then
@@ -848,6 +868,7 @@ func TestAPIRepoCreateDenied(t *testing.T) {
 }
 
 func TestAPIRepoDelete(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("permitted to delete user repo w/ user scope", func(t *testing.T) {
 		defer tests.PrepareTestEnv(t)()
 		session := loginUser(t, "user2")
@@ -901,6 +922,7 @@ func TestAPIRepoDelete(t *testing.T) {
 }
 
 func TestAPIRepoTransfer(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		ctxUserID      int64
 		newOwner       string
@@ -963,6 +985,7 @@ func TestAPIRepoTransfer(t *testing.T) {
 // This test verifies that a repo-specific access token with `write:repository` scope is not a sufficient to transfer a
 // repository to another user.
 func TestAPIRepoTransferAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo2OnlyToken := createFineGrainedRepoAccessToken(t, "user2",
@@ -1005,6 +1028,7 @@ func transfer(t *testing.T) *repo_model.Repository {
 }
 
 func TestAPIAcceptTransfer(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := transfer(t)
@@ -1034,6 +1058,7 @@ func TestAPIAcceptTransfer(t *testing.T) {
 }
 
 func TestAPIRejectTransfer(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := transfer(t)
@@ -1063,6 +1088,7 @@ func TestAPIRejectTransfer(t *testing.T) {
 }
 
 func TestAPIGenerateRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	templateRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 44})
@@ -1155,6 +1181,7 @@ func TestAPIGenerateRepo(t *testing.T) {
 }
 
 func TestAPIRepoGetReviewers(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	session := loginUser(t, user.Name)
@@ -1172,6 +1199,7 @@ func TestAPIRepoGetReviewers(t *testing.T) {
 }
 
 func TestAPIRepoGetAssignees(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	session := loginUser(t, user.Name)
@@ -1187,6 +1215,7 @@ func TestAPIRepoGetAssignees(t *testing.T) {
 }
 
 func TestAPIViewRepoObjectFormat(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var repo api.Repository
@@ -1199,6 +1228,7 @@ func TestAPIViewRepoObjectFormat(t *testing.T) {
 
 // TestAPIViewRepoWikiGitInfo tests wiki git information
 func TestAPIViewRepoWikiGitInfo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	for _, test := range []struct {
@@ -1256,6 +1286,7 @@ func TestAPIViewRepoWikiGitInfo(t *testing.T) {
 }
 
 func TestAPIRepoCommitPull(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var pr api.PullRequest
@@ -1270,6 +1301,7 @@ func TestAPIRepoCommitPull(t *testing.T) {
 }
 
 func TestAPIListOwnRepoSorting(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1325,6 +1357,7 @@ func TestAPIListOwnRepoSorting(t *testing.T) {
 }
 
 func TestAPIListOwnRepoAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var repos []api.Repository

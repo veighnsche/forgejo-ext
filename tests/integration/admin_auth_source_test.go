@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/auth"
 	"forgejo.org/tests"
 
@@ -15,6 +17,7 @@ import (
 )
 
 func TestAdminAuthAllowUsernameChangeSetting(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -34,6 +37,7 @@ func TestAdminAuthAllowUsernameChangeSetting(t *testing.T) {
 }
 
 func TestAdminAuthTrimSpace(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")

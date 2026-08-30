@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestUserRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.UsernameCooldownPeriod, 1)()
 
@@ -168,6 +171,7 @@ func TestUserRedirect(t *testing.T) {
 
 // NOTE: This is a unit test but written in the integration test to ensure this runs on all databases.
 func TestLimitUserRedirects(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	_, err := db.GetEngine(db.DefaultContext).NoAutoTime().Insert(&user_model.Redirect{RedirectUserID: 1, LowerName: "legacy", CreatedUnix: 0},
@@ -193,6 +197,7 @@ func TestLimitUserRedirects(t *testing.T) {
 
 // NOTE: This is a unit test but written in the integration test to ensure this runs on all databases.
 func TestCanClaimUsername(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	_, err := db.GetEngine(db.DefaultContext).NoAutoTime().Insert(&user_model.Redirect{RedirectUserID: 1, LowerName: "legacy", CreatedUnix: 0},

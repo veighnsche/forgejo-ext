@@ -5,12 +5,15 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRepoModifyGitNotes(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		session := loginUser(t, "user2")
 
@@ -43,6 +46,7 @@ func TestRepoModifyGitNotes(t *testing.T) {
 }
 
 func TestRepoGitNotesButtonsVisible(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		t.Run("With Permission", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestAPIGetTrackedTimes(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -79,6 +82,7 @@ func TestAPIGetTrackedTimes(t *testing.T) {
 }
 
 func TestAPIDeleteTrackedTime(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	time6 := unittest.AssertExistsAndLoadBean(t, &issues_model.TrackedTime{ID: 6})
@@ -117,6 +121,7 @@ func TestAPIDeleteTrackedTime(t *testing.T) {
 }
 
 func TestAPIAddTrackedTimes(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issue2 := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 2})
@@ -148,6 +153,7 @@ func TestAPIAddTrackedTimes(t *testing.T) {
 // various access token restrictions, validating this API's implementation, but also validating that public-only and
 // repo-scoped access tokens don't have admin access.
 func TestAPIGetTrackedTimesAuthorizationReducer(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	normalUsername := "user2"

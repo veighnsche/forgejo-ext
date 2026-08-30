@@ -6,6 +6,8 @@ package integration
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/validation"
@@ -16,6 +18,7 @@ import (
 )
 
 func TestEmailBlocklist(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(
 		&setting.Service.EmailDomainBlockList,
 		[]glob.Glob{glob.MustCompile("evil")},
@@ -41,6 +44,7 @@ func TestEmailBlocklist(t *testing.T) {
 }
 
 func TestEmailAllowlist(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(
 		&setting.Service.EmailDomainAllowList,
 		[]glob.Glob{glob.MustCompile("pond")},

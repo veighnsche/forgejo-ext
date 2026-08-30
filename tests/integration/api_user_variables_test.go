@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestAPIUserVariablesCreateUserVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -97,6 +100,7 @@ func TestAPIUserVariablesCreateUserVariable(t *testing.T) {
 }
 
 func TestAPIUserVariablesUpdateUserVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -195,6 +199,7 @@ func TestAPIUserVariablesUpdateUserVariable(t *testing.T) {
 }
 
 func TestAPIUserVariablesDeleteUserVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -228,6 +233,7 @@ func TestAPIUserVariablesDeleteUserVariable(t *testing.T) {
 }
 
 func TestAPIUserVariablesGetSingleUserVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -259,6 +265,7 @@ func TestAPIUserVariablesGetSingleUserVariable(t *testing.T) {
 }
 
 func TestAPIUserVariablesGetAllUserVariables(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})

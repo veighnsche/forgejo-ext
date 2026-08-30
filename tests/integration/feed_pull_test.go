@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unittest"
 	"forgejo.org/tests"
 
@@ -16,6 +18,7 @@ import (
 )
 
 func TestFeedPull(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestFeed")()
 	defer tests.PrepareTestEnv(t)()
 

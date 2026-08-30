@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/perm"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestGitSmartHTTP(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testGitSmartHTTP)
 }
 
@@ -80,6 +83,7 @@ func testGitSmartHTTP(t *testing.T, u *url.URL) {
 
 // Test that the git http endpoints have the same authentication behavior irrespective of if it is a GET or a HEAD request.
 func TestGitHTTPSameStatusCodeForGetAndHeadRequests(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -206,6 +210,7 @@ func TestGitHTTPSameStatusCodeForGetAndHeadRequests(t *testing.T) {
 }
 
 func TestGitHTTPSends401(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Public repo

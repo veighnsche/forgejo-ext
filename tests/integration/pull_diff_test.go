@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	issues_model "forgejo.org/models/issues"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
@@ -26,10 +28,12 @@ import (
 )
 
 func TestPullDiff_CompletePRDiff(t *testing.T) {
+	testhelper.Setup(t)
 	doTestPRDiff(t, "/user2/commitsonpr/pulls/1/files", []string{"test1.txt", "test10.txt", "test2.txt", "test3.txt", "test4.txt", "test5.txt", "test6.txt", "test7.txt", "test8.txt", "test9.txt"}, true)
 }
 
 func TestPullDiff_PaginatesPRDiff(t *testing.T) {
+	testhelper.Setup(t)
 	defer func(old int) {
 		setting.UI.DiffPagingNum = old
 	}(setting.UI.DiffPagingNum)
@@ -50,14 +54,17 @@ func TestPullDiff_PaginatesPRDiff(t *testing.T) {
 }
 
 func TestPullDiff_SingleCommitPRDiff(t *testing.T) {
+	testhelper.Setup(t)
 	doTestPRDiff(t, "/user2/commitsonpr/pulls/1/commits/c5626fc9eff57eb1bb7b796b01d4d0f2f3f792a2", []string{"test3.txt"}, true)
 }
 
 func TestPullDiff_CommitRangePRDiff(t *testing.T) {
+	testhelper.Setup(t)
 	doTestPRDiff(t, "/user2/commitsonpr/pulls/1/files/4ca8bcaf27e28504df7bf996819665986b01c847..23576dd018294e476c06e569b6b0f170d0558705", []string{"test2.txt", "test3.txt", "test4.txt"}, true)
 }
 
 func TestPullDiff_StartingFromBaseToCommitPRDiff(t *testing.T) {
+	testhelper.Setup(t)
 	doTestPRDiff(t, "/user2/commitsonpr/pulls/1/files/c5626fc9eff57eb1bb7b796b01d4d0f2f3f792a2", []string{"test1.txt", "test2.txt", "test3.txt"}, true)
 }
 
@@ -92,6 +99,7 @@ func doTestPRDiff(t *testing.T, prDiffURL string, expectedFilenames []string, ed
 }
 
 func TestPullDiff_AGitNotEditable(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Create temporary repository.
 		repo := forgery.CreateRepository(t, nil, &forgery.CreateRepositoryOptions{

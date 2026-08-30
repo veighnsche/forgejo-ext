@@ -6,6 +6,8 @@ package forgejo_migrations
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/keying"
 	"forgejo.org/modules/timeutil"
@@ -16,6 +18,7 @@ import (
 )
 
 func Test_MigrateWebhookSecrets(t *testing.T) {
+	testhelper.Setup(t)
 	type HookContentType int
 	type Webhook struct {
 		ID              int64 `xorm:"pk autoincr"`

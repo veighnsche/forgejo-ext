@@ -11,6 +11,8 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestAPIUpdateRepoAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -71,6 +74,7 @@ func TestAPIUpdateRepoAvatar(t *testing.T) {
 }
 
 func TestAPIDeleteRepoAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})

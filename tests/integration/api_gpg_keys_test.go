@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
@@ -27,6 +29,7 @@ import (
 type makeRequestFunc func(testing.TB, *RequestWrapper, int) *httptest.ResponseRecorder
 
 func TestGPGKeys(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteRepository)
@@ -287,6 +290,7 @@ mIMMn8taHIaQO7v9ln2EVQYTzbNCmwTw9ovTM0j/Pbkg2EftfP1TCoxQHvBnsCED
 }
 
 func TestAPIGPGMultipleKeys(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Token used for verification is valid for each minute, to prevent

@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
@@ -15,6 +17,7 @@ import (
 )
 
 func TestRepoWatch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		// Test round-trip auto-watch
 		setting.Service.AutoWatchOnChanges = true

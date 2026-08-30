@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -54,6 +56,7 @@ func getExpectedContentsListResponseForContents(ref, refType, lastCommitSHA stri
 }
 
 func TestAPIGetContentsList(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testAPIGetContentsList)
 }
 

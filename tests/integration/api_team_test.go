@@ -9,6 +9,8 @@ import (
 	"sort"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
@@ -29,6 +31,7 @@ import (
 )
 
 func TestAPITeam(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	teamUser := unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{ID: 1})
@@ -284,6 +287,7 @@ type TeamSearchResults struct {
 }
 
 func TestAPITeamSearch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -310,6 +314,7 @@ func TestAPITeamSearch(t *testing.T) {
 }
 
 func TestAPIGetTeamReposAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIGetTeamReposAccessTokenResources")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -386,6 +391,7 @@ func TestAPIGetTeamReposAccessTokenResources(t *testing.T) {
 }
 
 func TestAPIGetTeamRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 15})
@@ -411,6 +417,7 @@ func TestAPIGetTeamRepo(t *testing.T) {
 }
 
 func TestAPIGetTeamRepoAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIGetTeamRepoAccessTokenResources")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -489,6 +496,7 @@ func TestAPIGetTeamRepoAccessTokenResources(t *testing.T) {
 }
 
 func TestAPIAddMemberDirectly(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, false)()
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeWriteOrganization)
@@ -506,6 +514,7 @@ func TestAPIAddMemberDirectly(t *testing.T) {
 }
 
 func TestAPIAddMemberGeneratesInvite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, true)()
 

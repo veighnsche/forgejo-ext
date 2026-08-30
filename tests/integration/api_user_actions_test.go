@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestActionsAPISearchActionJobs_UserRunner(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalUsername := "user2"
@@ -54,6 +57,7 @@ func TestActionsAPISearchActionJobs_UserRunner(t *testing.T) {
 }
 
 func TestActionsAPISearchActionJobs_UserRunnerAllPendingJobsWithoutLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalUsername := "user1"
@@ -73,6 +77,7 @@ func TestActionsAPISearchActionJobs_UserRunnerAllPendingJobsWithoutLabels(t *tes
 }
 
 func TestActionsAPISearchActionJobs_UserRunnerAllPendingJobs(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalUsername := "user2"
@@ -92,6 +97,7 @@ func TestActionsAPISearchActionJobs_UserRunnerAllPendingJobs(t *testing.T) {
 }
 
 func TestAPIUserActionsRunnerRegistrationTokenOperations(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIUserActionsRunnerRegistrationTokenOperations")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -114,6 +120,7 @@ func TestAPIUserActionsRunnerRegistrationTokenOperations(t *testing.T) {
 }
 
 func TestAPIUserActionsRunnerOperations(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIUserActionsRunnerOperations")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

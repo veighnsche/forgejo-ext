@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/organization"
 	access_model "forgejo.org/models/perm/access"
@@ -33,6 +35,7 @@ func assertUserDeleted(t *testing.T, userID int64, purged bool) {
 }
 
 func TestUserDeleteAccount(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user8")
@@ -45,6 +48,7 @@ func TestUserDeleteAccount(t *testing.T) {
 }
 
 func TestUserDeleteAccountStillOwnRepos(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

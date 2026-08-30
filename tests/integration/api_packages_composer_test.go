@@ -11,6 +11,8 @@ import (
 	neturl "net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	repo_model "forgejo.org/models/repo"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestPackageComposer(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

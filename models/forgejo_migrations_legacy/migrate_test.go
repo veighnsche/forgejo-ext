@@ -6,6 +6,8 @@ package forgejo_migrations_legacy
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/test"
 
@@ -16,6 +18,7 @@ import (
 
 // TestEnsureUpToDate tests the behavior of EnsureUpToDate.
 func TestEnsureUpToDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&forgejoMigrationsEnsureUpToDate, func(x *xorm.Engine) error {
 		return nil
 	})()
@@ -46,6 +49,7 @@ func TestEnsureUpToDate(t *testing.T) {
 }
 
 func TestMigrateFreshDB(t *testing.T) {
+	testhelper.Setup(t)
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(ForgejoVersion))
 	defer deferable()
 	require.NotNil(t, x)
@@ -63,6 +67,7 @@ func TestMigrateFreshDB(t *testing.T) {
 }
 
 func TestMigrateFailWithCorruption(t *testing.T) {
+	testhelper.Setup(t)
 	x, deferable := migration_tests.PrepareTestEnv(t, 0, new(ForgejoVersion))
 	defer deferable()
 	require.NotNil(t, x)

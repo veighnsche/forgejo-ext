@@ -12,6 +12,8 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -30,6 +32,7 @@ import (
 )
 
 func TestInstanceSigning(t *testing.T) {
+	testhelper.Setup(t)
 	t.Cleanup(func() {
 		// Cannot use t.Context(), it is in the done state.
 		require.NoError(t, git.InitFull(context.Background()))

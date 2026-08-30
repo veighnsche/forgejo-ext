@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	packages_model "forgejo.org/models/packages"
@@ -139,6 +141,7 @@ func (countTest *userCountTest) TestPage(t *testing.T, page string, orgLink bool
 }
 
 func TestFrontendHeaderCountUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	countTest := new(userCountTest)
@@ -153,6 +156,7 @@ func TestFrontendHeaderCountUser(t *testing.T) {
 }
 
 func TestFrontendHeaderCountOrg(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	countTest := new(userCountTest)

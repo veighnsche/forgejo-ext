@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 
@@ -20,6 +22,7 @@ import (
 )
 
 func TestRepoFundingConfigPrecedence(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 		checkFunding := func(t *testing.T, fundingConfigFilename, configKind string) {
@@ -66,6 +69,7 @@ func TestRepoFundingConfigPrecedence(t *testing.T) {
 }
 
 func TestRepoFundingModalLinksToFileViewOnError(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		t.Run("no errors", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
@@ -108,6 +112,7 @@ func TestRepoFundingModalLinksToFileViewOnError(t *testing.T) {
 }
 
 func TestRepoFundingErrorReadoutOnFileView(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		errors := [][4]any{
 			{
@@ -204,6 +209,7 @@ func TestRepoFundingErrorReadoutOnFileView(t *testing.T) {
 }
 
 func TestRepoFundingMitigatesXSS(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		config := `ko_fi: '"><script>alert(1);</script><a class="'
 liberapay: "text/other"

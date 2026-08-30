@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestPullRequestSynchronized(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// unmerged pull request of user2/repo1 from branch2 to master

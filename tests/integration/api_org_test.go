@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	org_model "forgejo.org/models/organization"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestAPIOrgCreate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeWriteOrganization)
 
@@ -101,6 +104,7 @@ func TestAPIOrgCreate(t *testing.T) {
 }
 
 func TestAPIOrgCreateWithWebsite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeWriteOrganization)
 
@@ -162,6 +166,7 @@ func TestAPIOrgCreateWithWebsite(t *testing.T) {
 }
 
 func TestAPIOrgRename(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeWriteOrganization)
 
@@ -185,6 +190,7 @@ func TestAPIOrgRename(t *testing.T) {
 }
 
 func TestAPIOrgEdit(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
 
@@ -212,6 +218,7 @@ func TestAPIOrgEdit(t *testing.T) {
 }
 
 func TestAPIOrgEditWebsite(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	const orgName = "org3"
 	urlStr := fmt.Sprintf("/api/v1/orgs/%s", orgName)
@@ -270,6 +277,7 @@ func TestAPIOrgEditWebsite(t *testing.T) {
 }
 
 func TestAPIOrgEditBadVisibility(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
 
@@ -287,6 +295,7 @@ func TestAPIOrgEditBadVisibility(t *testing.T) {
 }
 
 func TestAPIOrgDeny(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.RequireSignInView, true)()
 
@@ -302,6 +311,7 @@ func TestAPIOrgDeny(t *testing.T) {
 }
 
 func TestAPIGetAll(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeReadOrganization)
@@ -328,6 +338,7 @@ func TestAPIGetAll(t *testing.T) {
 }
 
 func TestAPIOrgSearchEmptyTeam(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeWriteOrganization)
 	orgName := "org_with_empty_team"
@@ -363,6 +374,7 @@ func TestAPIOrgSearchEmptyTeam(t *testing.T) {
 }
 
 func TestAPIOrgChangeEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")

@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/auth"
 	"forgejo.org/models/perm"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestAPIPrivateNoServ(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -46,6 +49,7 @@ func TestAPIPrivateNoServ(t *testing.T) {
 }
 
 func TestAPIPrivateServ(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -161,6 +165,7 @@ func TestAPIPrivateServ(t *testing.T) {
 }
 
 func TestAPIPrivateServAndNoServWithRequiredTwoFactor(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()

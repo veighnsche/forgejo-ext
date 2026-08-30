@@ -9,10 +9,13 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIssueSubscribe(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		session := emptyTestSession(t)
 		testIssueSubscribe(t, *session, true)

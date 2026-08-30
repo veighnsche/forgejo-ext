@@ -6,6 +6,8 @@ package forgejo_migrations
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/timeutil"
@@ -16,6 +18,7 @@ import (
 )
 
 func Test_setOIDCSubjectFormatLegacy15(t *testing.T) {
+	testhelper.Setup(t)
 	type Type int
 	type UnitAccessMode int
 	type RepoUnit struct { //revive:disable-line:exported

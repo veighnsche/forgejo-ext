@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -25,6 +27,7 @@ func compareCommitFiles(t *testing.T, expect []string, files []*api.CommitAffect
 }
 
 func TestAPIReposGitCommits(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -57,6 +60,7 @@ func TestAPIReposGitCommits(t *testing.T) {
 }
 
 func TestAPIReposGitCommitList(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -81,6 +85,7 @@ func TestAPIReposGitCommitList(t *testing.T) {
 }
 
 func TestAPIReposGitCommitListNotMaster(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -107,6 +112,7 @@ func TestAPIReposGitCommitListNotMaster(t *testing.T) {
 }
 
 func TestAPIReposGitCommitListPage2Empty(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -125,6 +131,7 @@ func TestAPIReposGitCommitListPage2Empty(t *testing.T) {
 }
 
 func TestAPIReposGitCommitListDifferentBranch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -145,6 +152,7 @@ func TestAPIReposGitCommitListDifferentBranch(t *testing.T) {
 }
 
 func TestAPIReposGitCommitListWithoutSelectFields(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -167,6 +175,7 @@ func TestAPIReposGitCommitListWithoutSelectFields(t *testing.T) {
 }
 
 func TestDownloadCommitDiffOrPatch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -191,6 +200,7 @@ func TestDownloadCommitDiffOrPatch(t *testing.T) {
 }
 
 func TestGetFileHistory(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -212,6 +222,7 @@ func TestGetFileHistory(t *testing.T) {
 }
 
 func TestGetFileHistoryNotOnMaster(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -233,6 +244,7 @@ func TestGetFileHistoryNotOnMaster(t *testing.T) {
 }
 
 func TestAPIReposGitCommit(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

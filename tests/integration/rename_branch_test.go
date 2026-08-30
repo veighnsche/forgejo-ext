@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	git_model "forgejo.org/models/git"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestRenameBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testRenameBranch)
 }
 

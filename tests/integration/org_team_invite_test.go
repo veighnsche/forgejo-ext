@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestOrgTeamEmailInvite(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return
@@ -97,6 +100,7 @@ func TestOrgTeamEmailInvite(t *testing.T) {
 }
 
 func TestOrgTeamEmailInviteWithHiddenMembership(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return
@@ -148,6 +152,7 @@ func TestOrgTeamEmailInviteWithHiddenMembership(t *testing.T) {
 
 // Check that users are redirected to accept the invitation correctly after login
 func TestOrgTeamEmailInviteRedirectsExistingUser(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return
@@ -219,6 +224,7 @@ func TestOrgTeamEmailInviteRedirectsExistingUser(t *testing.T) {
 
 // Check that newly signed up users are redirected to accept the invitation correctly
 func TestOrgTeamEmailInviteRedirectsNewUser(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return
@@ -291,6 +297,7 @@ func TestOrgTeamEmailInviteRedirectsNewUser(t *testing.T) {
 
 // Check that users are redirected correctly after confirming their email
 func TestOrgTeamEmailInviteRedirectsNewUserWithActivation(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return
@@ -377,6 +384,7 @@ func TestOrgTeamEmailInviteRedirectsNewUserWithActivation(t *testing.T) {
 // For example: an invite may have been created before the user account was created, but they may be
 // accepting the invite after having created an account separately
 func TestOrgTeamEmailInviteRedirectsExistingUserWithLogin(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return
@@ -431,6 +439,7 @@ func TestOrgTeamEmailInviteRedirectsExistingUserWithLogin(t *testing.T) {
 
 // Test that a user can accept a team invite linked to their existing account
 func TestOrgTeamEmailInviteExistingUser(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return
@@ -485,6 +494,7 @@ func TestOrgTeamEmailInviteExistingUser(t *testing.T) {
 
 // Test that a user cannot accept an invite if it was meant for another user
 func TestOrgTeamEmailInviteCannotBeAcceptedByOtherUser(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return
@@ -531,6 +541,7 @@ func TestOrgTeamEmailInviteCannotBeAcceptedByOtherUser(t *testing.T) {
 
 // Test that a user cannot accept an invite if it is expired
 func TestOrgTeamEmailInviteExpired(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.MailService == nil {
 		t.Skip()
 		return

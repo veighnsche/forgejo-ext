@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/forgefed"
 	"forgejo.org/models/unittest"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestForgefedRepositoryCreateHostValid(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Arrange
 		ctx := t.Context()
@@ -41,6 +44,7 @@ func TestForgefedRepositoryCreateHostValid(t *testing.T) {
 }
 
 func TestForgefedRepositoryCreateHostInvalid(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Arrange
 		ctx := t.Context()
@@ -57,6 +61,7 @@ func TestForgefedRepositoryCreateHostInvalid(t *testing.T) {
 }
 
 func TestForgefedRepositoryCreateUserValid(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Arrange
 		ctx := t.Context()
@@ -89,6 +94,7 @@ func TestForgefedRepositoryCreateUserValid(t *testing.T) {
 }
 
 func TestForgefedRepositoryCreateUserInvalid(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Arrange
 		ctx := t.Context()
@@ -119,6 +125,7 @@ func TestForgefedRepositoryCreateUserInvalid(t *testing.T) {
 }
 
 func TestForgefedRepositoryFindHostsAndUsers(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, false)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()

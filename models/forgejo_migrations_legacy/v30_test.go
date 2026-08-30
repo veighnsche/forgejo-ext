@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/timeutil"
 
@@ -15,6 +17,7 @@ import (
 )
 
 func Test_MigrateNormalizedFederatedURI(t *testing.T) {
+	testhelper.Setup(t)
 	// Old structs
 	type User struct {
 		ID                     int64 `xorm:"pk autoincr"`

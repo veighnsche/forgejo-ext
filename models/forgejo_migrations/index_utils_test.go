@@ -6,6 +6,8 @@ package forgejo_migrations
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +15,7 @@ import (
 )
 
 func TestDropIndexIfExists(t *testing.T) {
+	testhelper.Setup(t)
 	type Table struct {
 		ID      int64 `xorm:"pk"`
 		DoerID  int64 `xorm:"INDEX INDEX(s)"`

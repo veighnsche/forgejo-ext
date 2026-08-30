@@ -15,6 +15,8 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -32,6 +34,7 @@ import (
 )
 
 func TestCreateFileOnProtectedBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user2")
 
@@ -153,6 +156,7 @@ func testNewFileToNewBranch(t *testing.T, session *TestSession, user, repo, bran
 }
 
 func TestEditFile(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user2")
 		testEditFile(t, session, "user2", "repo1", "master", "README.md", "Hello, World (Edited)\n")
@@ -160,6 +164,7 @@ func TestEditFile(t *testing.T) {
 }
 
 func TestEditFileToNewBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user2")
 		testEditFileToNewBranch(t, session, "user2", "repo1", "master", "feature/test", "README.md", "Hello, World (Edited)\n")
@@ -167,6 +172,7 @@ func TestEditFileToNewBranch(t *testing.T) {
 }
 
 func TestEditorAddTranslation(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -180,6 +186,7 @@ func TestEditorAddTranslation(t *testing.T) {
 }
 
 func TestCommitMail(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, _ *url.URL) {
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		// Require that the user has KeepEmailPrivate enabled, because it needs
@@ -492,6 +499,7 @@ index 0000000000..4475433e27
 }
 
 func TestDiffPatchHooks(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 		token := getUserToken(t, user.Name, auth_model.AccessTokenScopeAll)

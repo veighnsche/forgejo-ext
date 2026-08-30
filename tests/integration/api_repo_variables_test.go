@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestAPIRepoVariablesTestCreateRepositoryVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -99,6 +102,7 @@ func TestAPIRepoVariablesTestCreateRepositoryVariable(t *testing.T) {
 }
 
 func TestAPIRepoVariablesUpdateRepositoryVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -197,6 +201,7 @@ func TestAPIRepoVariablesUpdateRepositoryVariable(t *testing.T) {
 }
 
 func TestAPIRepoVariablesDeleteRepositoryVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -230,6 +235,7 @@ func TestAPIRepoVariablesDeleteRepositoryVariable(t *testing.T) {
 }
 
 func TestAPIRepoVariablesGetSingleRepositoryVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -263,6 +269,7 @@ func TestAPIRepoVariablesGetSingleRepositoryVariable(t *testing.T) {
 }
 
 func TestAPIRepoVariablesGetAllRepositoryVariables(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -303,6 +310,7 @@ func TestAPIRepoVariablesGetAllRepositoryVariables(t *testing.T) {
 }
 
 func TestAPIRepoVariablesEndpointsDisabledIfActionsDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

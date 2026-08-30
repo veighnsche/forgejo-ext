@@ -6,6 +6,8 @@ package base
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migrations_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/timeutil"
 
@@ -13,6 +15,7 @@ import (
 )
 
 func Test_DropTableColumns(t *testing.T) {
+	testhelper.Setup(t)
 	x, deferable := migrations_tests.PrepareTestEnv(t, 0)
 	if x == nil || t.Failed() {
 		defer deferable()

@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestTopicSearch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	searchURL, _ := url.Parse("/explore/topics/search")
 	var topics struct {
@@ -52,6 +55,7 @@ func TestTopicSearch(t *testing.T) {
 }
 
 func TestTopicSearchPaging(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	var topics struct {
 		TopicNames []*api.TopicResponse `json:"topics"`

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -26,6 +28,7 @@ import (
 
 // TestAPICreateAndDeleteToken tests that token that was just created can be deleted
 func TestAPICreateAndDeleteToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 
@@ -37,6 +40,7 @@ func TestAPICreateAndDeleteToken(t *testing.T) {
 }
 
 func TestAPIGetTokens(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 
@@ -117,6 +121,7 @@ func TestAPIGetTokens(t *testing.T) {
 
 // TestAPIDeleteMissingToken ensures that error is thrown when token not found
 func TestAPIDeleteMissingToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 
@@ -127,6 +132,7 @@ func TestAPIDeleteMissingToken(t *testing.T) {
 
 // TestAPIGetTokensPermission ensures that only the admin can get tokens from other users
 func TestAPIGetTokensPermission(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// admin can get tokens for other users
@@ -150,6 +156,7 @@ func TestAPIGetTokensPermission(t *testing.T) {
 
 // TestAPIDeleteTokensPermission ensures that only the admin can delete tokens from other users
 func TestAPIDeleteTokensPermission(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	admin := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -193,6 +200,7 @@ func (c *requiredScopeTestCase) Name() string {
 // TestAPIDeniesPermissionBasedOnTokenScope tests that API routes forbid access
 // when the correct token scope is not included.
 func TestAPIDeniesPermissionBasedOnTokenScope(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// We'll assert that each endpoint, when fetched with a token with all
@@ -702,6 +710,7 @@ func createOAuth2Token(t *testing.T, session *TestSession, scopes []auth_model.A
 }
 
 func TestAPITokenCreation(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user4")
@@ -844,6 +853,7 @@ func TestAPITokenCreation(t *testing.T) {
 }
 
 func TestAPITokenDelete(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequestWithJSON(t, "POST", "/api/v1/users/user2/tokens", &api.CreateAccessTokenOption{

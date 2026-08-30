@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
@@ -55,6 +57,7 @@ func createDebianArchive(name, version, architecture, packageDescription string)
 }
 
 func TestPackageDebian(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -312,6 +315,7 @@ func TestPackageDebian(t *testing.T) {
 }
 
 func TestPackageDebianConcurrent(t *testing.T) {
+	testhelper.Setup(t)
 	if setting.Database.Type.IsSQLite3() {
 		// Concurrency test fails on SQLite w/ "database is locked"
 		t.Skip()

@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -36,6 +38,7 @@ func prepareTestEnvActionsIDToken(t *testing.T) func() {
 }
 
 func TestActionsIDToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsIDToken(t)()
 	task, err := actions_model.GetTaskByID(db.DefaultContext, 48)
 	if err != nil {

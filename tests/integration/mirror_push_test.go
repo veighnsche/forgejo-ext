@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	asymkey_model "forgejo.org/models/asymkey"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -45,6 +47,7 @@ import (
 )
 
 func TestPushMirrorRedactCredential(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Mirror.Enabled, true)()
 	defer tests.PrepareTestEnv(t)()
 
@@ -84,6 +87,7 @@ func TestPushMirrorRedactCredential(t *testing.T) {
 }
 
 func TestMirrorPush(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testMirrorPush)
 }
 
@@ -214,6 +218,7 @@ func doRemovePushMirror(ctx APITestContext, address, username, password string, 
 }
 
 func TestSSHPushMirror(t *testing.T) {
+	testhelper.Setup(t)
 	_, err := exec.LookPath("ssh")
 	if err != nil {
 		t.Skip("SSH executable not present")
@@ -387,6 +392,7 @@ func TestSSHPushMirror(t *testing.T) {
 }
 
 func TestPushMirrorBranchFilterWebUI(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -488,6 +494,7 @@ func TestPushMirrorBranchFilterWebUI(t *testing.T) {
 }
 
 func TestPushMirrorBranchFilterIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -578,6 +585,7 @@ func TestPushMirrorBranchFilterIntegration(t *testing.T) {
 }
 
 func TestPushMirrorSettings(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -650,6 +658,7 @@ func TestPushMirrorSettings(t *testing.T) {
 }
 
 func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -885,6 +894,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 }
 
 func TestPushMirrorWebUIToAPIIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -1103,6 +1113,7 @@ func TestPushMirrorWebUIToAPIIntegration(t *testing.T) {
 }
 
 func TestMirrorPushFailOnRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
 
 	// Not using MockVariableValue due to need to undo `migrations_allowlist.Init()`
@@ -1160,6 +1171,7 @@ func TestMirrorPushFailOnRedirect(t *testing.T) {
 // Verifies that a push mirror which was created while the remote address was permitted will fail to sync if the
 // AllowedDomains configuration later changes such that the remote URL is no longer permitted.
 func TestMirrorPushAddressCheck(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
 
 	// Not using MockVariableValue due to need to undo `migrations_allowlist.Init()`

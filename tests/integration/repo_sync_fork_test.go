@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -76,24 +78,28 @@ func syncForkTest(t *testing.T, forkName, branchName string, webSync bool) {
 }
 
 func TestAPIRepoSyncForkDefault(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		syncForkTest(t, "SyncForkDefault", "master", false)
 	})
 }
 
 func TestAPIRepoSyncForkBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		syncForkTest(t, "SyncForkBranch", "master", false)
 	})
 }
 
 func TestWebRepoSyncForkBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		syncForkTest(t, "SyncForkBranch", "master", true)
 	})
 }
 
 func TestWebRepoSyncForkHomepage(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		baseRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 		baseOwner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: baseRepo.OwnerID})

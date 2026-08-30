@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	api "forgejo.org/modules/structs"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestAPIOrgVariablesCreateOrganizationVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := forgery.CreateUser(t, nil)
@@ -96,6 +99,7 @@ func TestAPIOrgVariablesCreateOrganizationVariable(t *testing.T) {
 }
 
 func TestAPIOrgVariablesUpdateOrganizationVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := forgery.CreateUser(t, nil)
@@ -193,6 +197,7 @@ func TestAPIOrgVariablesUpdateOrganizationVariable(t *testing.T) {
 }
 
 func TestAPIOrgVariablesDeleteOrganizationVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := forgery.CreateUser(t, nil)
@@ -227,6 +232,7 @@ func TestAPIOrgVariablesDeleteOrganizationVariable(t *testing.T) {
 }
 
 func TestAPIOrgVariablesGetSingleOrganizationVariable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := forgery.CreateUser(t, nil)
@@ -260,6 +266,7 @@ func TestAPIOrgVariablesGetSingleOrganizationVariable(t *testing.T) {
 }
 
 func TestAPIOrgVariablesGetAllOrganizationVariables(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := forgery.CreateUser(t, nil)

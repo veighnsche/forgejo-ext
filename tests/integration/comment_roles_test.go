@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/translation"
 
 	"github.com/PuerkitoBio/goquery"
@@ -19,6 +21,7 @@ import (
 
 // TestCommentRoles is a test for role labels of normal users in comment headers in PRs and issues.
 func TestCommentRoles(t *testing.T) {
+	testhelper.Setup(t)
 	user := "user2"
 	repo := "repo1"
 

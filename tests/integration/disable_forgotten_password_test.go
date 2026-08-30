@@ -4,12 +4,15 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/tests"
 )
 
 func TestDisableForgottenPasswordFalse(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.EnableInternalSignIn, true)()
 
@@ -20,6 +23,7 @@ func TestDisableForgottenPasswordFalse(t *testing.T) {
 }
 
 func TestDisableForgottenPasswordTrue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.EnableInternalSignIn, false)()
 
@@ -30,6 +34,7 @@ func TestDisableForgottenPasswordTrue(t *testing.T) {
 }
 
 func TestDisableForgottenPasswordDefault(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user/login/")

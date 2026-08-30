@@ -10,6 +10,8 @@ import (
 	"image/png"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	cmd "forgejo.org/cmd"
 	"forgejo.org/models/db"
 	"forgejo.org/models/repo"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestPrecomputeUserAvatars(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t, 1)()
 	var err error
 
@@ -55,6 +58,7 @@ func TestPrecomputeUserAvatars(t *testing.T) {
 }
 
 func TestPrecomputeRepoAvatars(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t, 1)()
 	var err error
 	// make the maximum uncached image size small, so that our test image is bigger than that
@@ -88,6 +92,7 @@ func TestPrecomputeRepoAvatars(t *testing.T) {
 }
 
 func TestPrecomputeAvatarsWithoutArgument(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t, 1)()
 	var err error
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestActions_CmdForgejo_Actions(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		token, err := runMainApp("forgejo-cli", "actions", "generate-runner-token")
 		require.NoError(t, err)

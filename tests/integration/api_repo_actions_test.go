@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -32,6 +34,7 @@ import (
 )
 
 func TestActionsAPISearchActionJobs_RepoRunner(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -68,6 +71,7 @@ func TestActionsAPISearchActionJobs_RepoRunner(t *testing.T) {
 }
 
 func TestActionsAPISearchActionJobs_RepoRunnerAllPendingJobsWithoutLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -91,6 +95,7 @@ func TestActionsAPISearchActionJobs_RepoRunnerAllPendingJobsWithoutLabels(t *tes
 }
 
 func TestActionsAPISearchActionJobs_RepoRunnerAllPendingJobs(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -120,6 +125,7 @@ func TestActionsAPISearchActionJobs_RepoRunnerAllPendingJobs(t *testing.T) {
 }
 
 func TestActionsAPIWorkflowDispatchReturnInfo(t *testing.T) {
+	testhelper.Setup(t)
 	testCases := []struct {
 		name              string
 		workflowID        string
@@ -230,6 +236,7 @@ jobs:
 }
 
 func TestActionsAPIGetListActionRun(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	var (
 		runIDs = []int64{892, 893, 894}
@@ -318,6 +325,7 @@ func TestActionsAPIGetListActionRun(t *testing.T) {
 }
 
 func TestActionsAPIGetActionRun(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 63})
@@ -375,6 +383,7 @@ func TestActionsAPIGetActionRun(t *testing.T) {
 }
 
 func TestAPIRepoActionsRunnerRegistrationTokenOperations(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIRepoActionsRunnerRegistrationTokenOperations")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -397,6 +406,7 @@ func TestAPIRepoActionsRunnerRegistrationTokenOperations(t *testing.T) {
 }
 
 func TestAPIRepoActionsRunnerOperations(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIRepoActionsRunnerOperations")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -672,6 +682,7 @@ func TestAPIRepoActionsRunnerOperations(t *testing.T) {
 }
 
 func TestActionsAPIDeleteActionRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Run removed", func(t *testing.T) {
 		defer unittest.OverrideFixtures("tests/integration/fixtures/TestActionsAPIDeleteActionRun")()
 		defer tests.PrepareTestEnv(t)()
@@ -787,6 +798,7 @@ func TestActionsAPIDeleteActionRun(t *testing.T) {
 }
 
 func TestActionsAPICancelActionRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Run cancelled", func(t *testing.T) {
 		defer unittest.OverrideFixtures("tests/integration/fixtures/TestActionsAPICancelActionRun")()
 		defer tests.PrepareTestEnv(t)()
@@ -905,6 +917,7 @@ func TestActionsAPICancelActionRun(t *testing.T) {
 }
 
 func TestActionsAPIRerunActionRun(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Run rerun", func(t *testing.T) {
 		defer unittest.OverrideFixtures("tests/integration/fixtures/TestActionsAPIRerunActionRun")()
 		defer tests.PrepareTestEnv(t)()
@@ -1047,6 +1060,7 @@ func TestActionsAPIRerunActionRun(t *testing.T) {
 }
 
 func TestActionsAPIRerunActionJob(t *testing.T) {
+	testhelper.Setup(t)
 	t.Run("Job rerun", func(t *testing.T) {
 		defer unittest.OverrideFixtures("tests/integration/fixtures/TestActionsAPIRerunActionJob")()
 		defer tests.PrepareTestEnv(t)()
@@ -1189,6 +1203,7 @@ func TestActionsAPIRerunActionJob(t *testing.T) {
 }
 
 func TestActionsAPIListActionRunJobs(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Jobs", func(t *testing.T) {

@@ -6,6 +6,8 @@ package v1_19
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/secret"
@@ -17,6 +19,7 @@ import (
 )
 
 func Test_AddHeaderAuthorizationEncryptedColWebhook(t *testing.T) {
+	testhelper.Setup(t)
 	// Create Webhook table
 	type Webhook struct {
 		ID   int64                   `xorm:"pk autoincr"`

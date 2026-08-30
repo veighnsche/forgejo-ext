@@ -6,6 +6,8 @@ package v1_18
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +15,7 @@ import (
 )
 
 func Test_AddConfidentialClientColumnToOAuth2ApplicationTable(t *testing.T) {
+	testhelper.Setup(t)
 	// premigration
 	type oauth2Application struct {
 		ID int64

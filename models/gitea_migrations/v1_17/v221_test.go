@@ -7,6 +7,8 @@ import (
 	"encoding/base32"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/assert"
@@ -14,6 +16,7 @@ import (
 )
 
 func Test_StoreWebauthnCredentialIDAsBytes(t *testing.T) {
+	testhelper.Setup(t)
 	// Create webauthnCredential table
 	type WebauthnCredential struct {
 		ID              int64 `xorm:"pk autoincr"`

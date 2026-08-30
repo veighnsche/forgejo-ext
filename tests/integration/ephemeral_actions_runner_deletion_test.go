@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	org_model "forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
@@ -27,6 +29,7 @@ import (
 
 // Test that the ephemeral runner is deleted when the task is finished
 func TestEphemeralRunnerDeletionByTaskCompletion(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -72,6 +75,7 @@ func TestEphemeralRunnerDeletionByTaskCompletion(t *testing.T) {
 }
 
 func TestEphemeralRunnerDeletedByTaskZombieCleanup(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -101,6 +105,7 @@ func TestEphemeralRunnerDeletedByTaskZombieCleanup(t *testing.T) {
 }
 
 func TestEphemeralRunnerDeletionOnRepositoryDeletion(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -126,6 +131,7 @@ func TestEphemeralRunnerDeletionOnRepositoryDeletion(t *testing.T) {
 
 // Test that the ephemeral runner is deleted when a user is deleted
 func TestEphemeralRunnerDeletionOnUserDeletion(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}
@@ -148,6 +154,7 @@ func TestEphemeralRunnerDeletionOnUserDeletion(t *testing.T) {
 
 // Test that the ephemeral runner is deleted when an organization is deleted
 func TestEphemeralRunnerDeletionOnOrgDeletion(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip()
 	}

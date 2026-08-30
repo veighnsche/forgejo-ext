@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/timeutil"
 	webhook_module "forgejo.org/modules/webhook"
@@ -16,6 +18,7 @@ import (
 )
 
 func Test_AddPayloadVersionToHookTaskTable(t *testing.T) {
+	testhelper.Setup(t)
 	type HookTaskMigrated HookTask
 
 	// HookTask represents a hook task, as of before the migration

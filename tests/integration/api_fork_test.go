@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestAPIForkAsAdminIgnoringLimits(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Repository.AllowForkWithoutMaximumLimit, false)()
 	defer test.MockVariableValue(&setting.Repository.MaxCreationLimit, 0)()
@@ -82,12 +85,14 @@ func TestAPIForkAsAdminIgnoringLimits(t *testing.T) {
 }
 
 func TestCreateForkNoLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	req := NewRequestWithJSON(t, "POST", "/api/v1/repos/user2/repo1/forks", &api.CreateForkOption{})
 	MakeRequest(t, req, http.StatusUnauthorized)
 }
 
 func TestAPIForkOrgCanCreateOrgRepoRequired(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// user5 will be the regular org member without repo-creation permission.
@@ -151,6 +156,7 @@ func TestAPIForkOrgCanCreateOrgRepoRequired(t *testing.T) {
 }
 
 func TestAPIDisabledForkRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Repository.DisableForks, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
 	defer tests.PrepareTestEnv(t)()
@@ -174,6 +180,7 @@ func TestAPIDisabledForkRepo(t *testing.T) {
 }
 
 func TestAPIForkListPrivateRepo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user5")

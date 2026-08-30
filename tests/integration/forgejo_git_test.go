@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestActionsUserGit(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testActionsUserGit)
 }
 

@@ -6,6 +6,8 @@ package forgejo_migrations_legacy
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
@@ -14,6 +16,7 @@ import (
 )
 
 func Test_AddForeignKeysAccess(t *testing.T) {
+	testhelper.Setup(t)
 	type AccessMode int
 	type Access struct {
 		ID     int64 `xorm:"pk autoincr"`

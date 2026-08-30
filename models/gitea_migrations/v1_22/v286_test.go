@@ -6,6 +6,8 @@ package v1_22
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"code.forgejo.org/xorm/xorm"
@@ -79,6 +81,7 @@ func PrepareOldRepository(t *testing.T) (*xorm.Engine, func()) {
 }
 
 func Test_RepositoryFormat(t *testing.T) {
+	testhelper.Setup(t)
 	x, deferable := PrepareOldRepository(t)
 	defer deferable()
 

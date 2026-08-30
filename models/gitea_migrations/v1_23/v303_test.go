@@ -6,6 +6,8 @@ package v1_23
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"code.forgejo.org/xorm/xorm/schemas"
@@ -13,6 +15,7 @@ import (
 )
 
 func Test_GiteaLastDrop(t *testing.T) {
+	testhelper.Setup(t)
 	type Badge struct {
 		ID   int64 `xorm:"pk autoincr"`
 		Slug string

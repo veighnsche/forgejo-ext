@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
@@ -31,6 +33,7 @@ type SearchResults struct {
 }
 
 func TestAPIUserSearchLoggedIn(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	session := loginUser(t, adminUsername)
@@ -63,6 +66,7 @@ func TestAPIUserSearchLoggedIn(t *testing.T) {
 }
 
 func TestAPIUserSearchNotLoggedIn(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	query := "user2"
 	req := NewRequestf(t, "GET", "/api/v1/users/search?q=%s", query)
@@ -80,6 +84,7 @@ func TestAPIUserSearchNotLoggedIn(t *testing.T) {
 }
 
 func TestAPIUserSearchPaged(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.API.DefaultPagingNum, 5)()
 
@@ -99,6 +104,7 @@ func TestAPIUserSearchPaged(t *testing.T) {
 }
 
 func TestAPIUserSearchSystemUsers(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	for _, systemUser := range []*user_model.User{
 		user_model.NewGhostUser(),
@@ -121,6 +127,7 @@ func TestAPIUserSearchSystemUsers(t *testing.T) {
 }
 
 func TestAPIUserSearchAdminLoggedInUserHidden(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminUsername := "user1"
 	session := loginUser(t, adminUsername)
@@ -141,6 +148,7 @@ func TestAPIUserSearchAdminLoggedInUserHidden(t *testing.T) {
 }
 
 func TestAPIUserSearchNotLoggedInUserHidden(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	query := "user31"
 	req := NewRequestf(t, "GET", "/api/v1/users/search?q=%s", query)
@@ -152,6 +160,7 @@ func TestAPIUserSearchNotLoggedInUserHidden(t *testing.T) {
 }
 
 func TestAPIUserSearchByEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// admin can search user with private email
@@ -188,6 +197,7 @@ func TestAPIUserSearchByEmail(t *testing.T) {
 }
 
 func TestUsersSearchSorted(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	createTimestamp := time.Now().Unix() - 1000
 	updateTimestamp := time.Now().Unix() - 500

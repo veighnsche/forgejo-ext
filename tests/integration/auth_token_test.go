@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
@@ -53,6 +55,7 @@ func GetLTACookieValue(t *testing.T, sess *TestSession) string {
 
 // TestSessionCookie checks if the session cookie provides authentication.
 func TestSessionCookie(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	sess := loginUser(t, "user1")
@@ -65,6 +68,7 @@ func TestSessionCookie(t *testing.T) {
 // TestLTACookie checks if the LTA cookie that's returned is valid, exists in the database
 // and provides authentication of no session cookie is present.
 func TestLTACookie(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -95,6 +99,7 @@ func TestLTACookie(t *testing.T) {
 // TestLTAPasswordChange checks that LTA doesn't provide authentication when a
 // password change has happened and that the new LTA does provide authentication.
 func TestLTAPasswordChange(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -130,6 +135,7 @@ func TestLTAPasswordChange(t *testing.T) {
 
 // TestLTAExpiry tests that the LTA expiry works.
 func TestLTAExpiry(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})

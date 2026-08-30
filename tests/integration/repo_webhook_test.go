@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	app_context "forgejo.org/services/context"
 	"forgejo.org/services/webhook"
 	"forgejo.org/tests"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestNewWebHookLink(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 
@@ -83,6 +86,7 @@ func TestNewWebHookLink(t *testing.T) {
 }
 
 func TestWebhookForms(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")

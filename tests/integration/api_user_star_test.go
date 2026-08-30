@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestAPIStar(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := "user1"
@@ -120,6 +123,7 @@ func TestAPIStar(t *testing.T) {
 }
 
 func TestAPIStarRepoAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var repos []api.Repository

@@ -8,6 +8,8 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/test"
 	"forgejo.org/tests"
 
@@ -15,6 +17,7 @@ import (
 )
 
 func TestViewTimetrackingControls(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	testViewTimetrackingControls(t, session, "user2", "repo1", "1", true)
@@ -22,6 +25,7 @@ func TestViewTimetrackingControls(t *testing.T) {
 }
 
 func TestNotViewTimetrackingControls(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user5")
 	testViewTimetrackingControls(t, session, "user2", "repo1", "1", false)
@@ -29,6 +33,7 @@ func TestNotViewTimetrackingControls(t *testing.T) {
 }
 
 func TestViewTimetrackingControlsDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	testViewTimetrackingControls(t, session, "org3", "repo3", "1", false)

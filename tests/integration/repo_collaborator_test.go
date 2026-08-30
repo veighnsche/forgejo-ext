@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -16,6 +18,7 @@ import (
 // TestRepoCollaborators is a test for contents of Collaborators tab in the repo settings
 // It only covers a few elements and can be extended as needed
 func TestRepoCollaborators(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 
@@ -37,6 +40,7 @@ func TestRepoCollaborators(t *testing.T) {
 }
 
 func TestRepoCollaboratorAcessMode(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 

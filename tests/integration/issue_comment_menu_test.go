@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/tests"
@@ -37,6 +39,7 @@ func testIssueCommentContextMenuItems(t *testing.T, page *HTMLDoc, quoteReferenc
 // context menu items should and should not be available
 // Note: this test doesn't cover many cases and can be extended
 func TestIssueCommentContextMenu(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := loginUser(t, "user2")

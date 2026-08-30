@@ -1,5 +1,3 @@
 # https://github.com/semgrep/semgrep/blob/develop/.semgrepignore
 # ignores go test files but some rules apply to them
 .semgrep/**/*.go
-/models/*_migrations*/**/*_test.go
-/tests/**/*_test.go

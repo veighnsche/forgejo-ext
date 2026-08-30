@@ -10,6 +10,8 @@ import (
 	"path"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestAPIUpdateUserAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalUsername := "user2"
@@ -67,6 +70,7 @@ func TestAPIUpdateUserAvatar(t *testing.T) {
 }
 
 func TestAPIDeleteUserAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalUsername := "user2"

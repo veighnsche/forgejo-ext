@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestOrgRepos(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var (
@@ -56,6 +59,7 @@ func TestOrgRepos(t *testing.T) {
 }
 
 func TestPublicOrgHome(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Verify that in org pages, default theme get properly assigned to guest users
@@ -64,6 +68,7 @@ func TestPublicOrgHome(t *testing.T) {
 }
 
 func TestLimitedOrg(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// not logged in user
@@ -94,6 +99,7 @@ func TestLimitedOrg(t *testing.T) {
 }
 
 func TestPrivateOrg(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// not logged in user
@@ -133,6 +139,7 @@ func TestPrivateOrg(t *testing.T) {
 }
 
 func TestOrgMembers(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// not logged in user
@@ -151,6 +158,7 @@ func TestOrgMembers(t *testing.T) {
 }
 
 func TestOrgRestrictedUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// privated_org is a private org who has id 23
@@ -211,6 +219,7 @@ func TestOrgRestrictedUser(t *testing.T) {
 }
 
 func TestTeamSearch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 15})
@@ -235,6 +244,7 @@ func TestTeamSearch(t *testing.T) {
 }
 
 func TestOrgDashboardLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
@@ -260,6 +270,7 @@ func TestOrgDashboardLabels(t *testing.T) {
 }
 
 func TestOwnerTeamUnit(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -278,6 +289,7 @@ func TestOwnerTeamUnit(t *testing.T) {
 }
 
 func TestOrgNewMigrationButton(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	migrateSelector := `a[href^="/repo/migrate?org="]`
@@ -307,6 +319,7 @@ func TestOrgNewMigrationButton(t *testing.T) {
 }
 
 func TestTeamWithoutPermissionToShowTable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

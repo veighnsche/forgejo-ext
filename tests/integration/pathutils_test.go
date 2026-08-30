@@ -5,6 +5,8 @@ package integration
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/services/repository/files"
 
 	"github.com/stretchr/testify/assert"
@@ -12,6 +14,7 @@ import (
 )
 
 func TestSanitizePath(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name        string
 		input       string
@@ -178,6 +181,7 @@ func TestSanitizePath(t *testing.T) {
 
 // TestSanitizePathErrorMessages tests that error messages are informative
 func TestSanitizePathErrorMessages(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []struct {
 		name          string
 		input         string

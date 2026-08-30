@@ -9,6 +9,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
@@ -54,6 +56,7 @@ func createFetchTaskTestRepository(
 }
 
 func TestActionFetchTask_TaskCapacity(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		// mock repo runner only supported on SQLite testing
 		t.Skip()
@@ -113,6 +116,7 @@ jobs:
 }
 
 func TestActionFetchTask_Idempotent(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		// mock repo runner only supported on SQLite testing
 		t.Skip()
@@ -205,6 +209,7 @@ jobs:
 }
 
 func TestActionFetchTask_IdempotentConcurrent(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		// mock repo runner only supported on SQLite testing
 		t.Skip()
@@ -290,6 +295,7 @@ jobs:
 }
 
 func TestActionFetchTask_RequestedJob(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		// mock repo runner only supported on SQLite testing
 		t.Skip()
@@ -366,6 +372,7 @@ jobs:
 }
 
 func TestActionFetchTask_EphemeralRunnerAssignedAlready(t *testing.T) {
+	testhelper.Setup(t)
 	if !setting.Database.Type.IsSQLite3() {
 		// mock repo runner only supported on SQLite testing
 		t.Skip()

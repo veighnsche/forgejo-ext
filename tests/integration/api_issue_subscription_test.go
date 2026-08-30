@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestAPIIssueSubscriptions(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issue1 := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})

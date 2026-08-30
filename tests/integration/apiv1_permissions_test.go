@@ -6,6 +6,8 @@ package integration
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -14,6 +16,7 @@ import (
 )
 
 func TestAPIv1Permissions(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Service.DefaultAllowCreateOrganization, true)()
 	defer test.MockVariableValue(&setting.IsInTesting, true)()
 	defer test.MockVariableValue(&setting.DisableGitHooks, false)()

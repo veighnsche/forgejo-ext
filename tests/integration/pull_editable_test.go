@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	api "forgejo.org/modules/structs"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestPullEditable_ShowEditableLabel(t *testing.T) {
+	testhelper.Setup(t)
 	// This fixture loads a PR which is made from a different repository,
 	// and opened by the user who owns the fork (which is necessary for
 	// them to be allowed to set the PR as editable).

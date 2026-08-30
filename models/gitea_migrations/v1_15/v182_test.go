@@ -6,6 +6,8 @@ package v1_15
 import (
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +15,7 @@ import (
 )
 
 func Test_AddIssueResourceIndexTable(t *testing.T) {
+	testhelper.Setup(t)
 	// Create the models used in the migration
 	type Issue struct {
 		ID     int64 `xorm:"pk autoincr"`

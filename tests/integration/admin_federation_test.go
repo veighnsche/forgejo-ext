@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestAdminFederationViewHostsAndUsers(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAdminFederationViewHostsAndUsers")()
 	defer tests.PrepareTestEnv(t)()
 

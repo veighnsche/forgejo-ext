@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -31,6 +33,7 @@ import (
 )
 
 func TestAPIListIssues(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -125,6 +128,7 @@ func TestAPIListIssues(t *testing.T) {
 }
 
 func TestAPIListIssuesWithLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
@@ -153,6 +157,7 @@ func TestAPIListIssuesWithLabels(t *testing.T) {
 }
 
 func TestAPIListIssuesPublicOnly(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -181,6 +186,7 @@ func TestAPIListIssuesPublicOnly(t *testing.T) {
 }
 
 func TestAPICreateIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	const body, title = "apiTestBody", "apiTestTitle"
 
@@ -216,6 +222,7 @@ func TestAPICreateIssue(t *testing.T) {
 }
 
 func TestAPICreateIssueParallel(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	const body, title = "apiTestBody", "apiTestTitle"
 
@@ -259,6 +266,7 @@ func TestAPICreateIssueParallel(t *testing.T) {
 }
 
 func TestAPIEditIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issueBefore := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 10})
@@ -341,6 +349,7 @@ func TestAPIEditIssue(t *testing.T) {
 }
 
 func TestAPIEditIssueAutoDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issueBefore := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 13})
@@ -422,6 +431,7 @@ func TestAPIEditIssueAutoDate(t *testing.T) {
 }
 
 func TestAPIEditIssueMilestoneAutoDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issueBefore := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
@@ -495,6 +505,7 @@ func TestAPIEditIssueMilestoneAutoDate(t *testing.T) {
 }
 
 func TestAPISearchIssues(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// as this API was used in the frontend, it uses UI page size
@@ -599,6 +610,7 @@ func TestAPISearchIssues(t *testing.T) {
 }
 
 func TestAPISearchIssuesWithLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// as this API was used in the frontend, it uses UI page size
@@ -660,6 +672,7 @@ func TestAPISearchIssuesWithLabels(t *testing.T) {
 }
 
 func TestAPISearchIssuesAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	var issues []*api.Issue
@@ -751,6 +764,7 @@ func TestAPISearchIssuesAccessTokenResources(t *testing.T) {
 }
 
 func TestAPIInternalAndExternalIssueTracker(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repoOptions := &forgery.CreateRepositoryOptions{
@@ -926,6 +940,7 @@ func TestAPIInternalAndExternalIssueTracker(t *testing.T) {
 }
 
 func TestAPIIssueDependencyPermissions(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	actingUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
@@ -969,6 +984,7 @@ func TestAPIIssueDependencyPermissions(t *testing.T) {
 }
 
 func TestAPIIssueDependencyAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -1076,6 +1092,7 @@ func TestAPIIssueDependencyAccessTokenResources(t *testing.T) {
 }
 
 func TestAPIIssueBlocksAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -1193,6 +1210,7 @@ func TestAPIIssueBlocksAccessTokenResources(t *testing.T) {
 }
 
 func TestAPIIssueBlocksModificationAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

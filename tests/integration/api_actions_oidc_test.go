@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/tests"
 
@@ -34,6 +36,7 @@ func prepareTestEnvActionsOIDC(t *testing.T) func() {
 }
 
 func TestActionsOIDC(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsOIDC(t)()
 
 	// get config information

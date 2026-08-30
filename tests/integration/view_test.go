@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestRenderFileSVGIsInImgTag(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -34,6 +37,7 @@ func TestRenderFileSVGIsInImgTag(t *testing.T) {
 }
 
 func TestAmbiguousCharacterDetection(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 		session := loginUser(t, user.Name)
@@ -126,6 +130,7 @@ func TestAmbiguousCharacterDetection(t *testing.T) {
 }
 
 func TestCommitListActions(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 		session := loginUser(t, user.Name)
@@ -187,12 +192,14 @@ func TestCommitListActions(t *testing.T) {
 }
 
 func TestTitleDisplayName(t *testing.T) {
+	testhelper.Setup(t)
 	session := emptyTestSession(t)
 	title := GetHTMLTitle(t, session, "/")
 	assert.Equal(t, "Forgejo: Beyond coding. We Forge.", title)
 }
 
 func TestHomeDisplayName(t *testing.T) {
+	testhelper.Setup(t)
 	session := emptyTestSession(t)
 	req := NewRequest(t, "GET", "/")
 	resp := session.MakeRequest(t, req, http.StatusOK)
@@ -201,6 +208,7 @@ func TestHomeDisplayName(t *testing.T) {
 }
 
 func TestOpenGraphDisplayName(t *testing.T) {
+	testhelper.Setup(t)
 	session := emptyTestSession(t)
 	req := NewRequest(t, "GET", "/")
 	resp := session.MakeRequest(t, req, http.StatusOK)

@@ -12,6 +12,8 @@ import (
 	neturl "net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	repo_model "forgejo.org/models/repo"
@@ -31,6 +33,7 @@ import (
 )
 
 func TestPackageCargo(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testPackageCargo)
 }
 
@@ -392,6 +395,7 @@ func testPackageCargo(t *testing.T, _ *neturl.URL) {
 }
 
 func TestRebuildCargo(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *neturl.URL) {
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		session := loginUser(t, user.Name)

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -19,6 +21,7 @@ import (
 // As it is not possible to do actions as system users, the tests are done using fixtures.
 
 func TestSystemCommentRoles(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestSystemCommentRoles")()
 	defer tests.PrepareTestEnv(t)()
 

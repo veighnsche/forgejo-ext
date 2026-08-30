@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	packages_model "forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
@@ -28,6 +30,7 @@ import (
 )
 
 func TestDoctorPackagesNuget(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t, 1)()
 	// use local storage for tests because minio is too flaky
 	defer test.MockVariableValue(&setting.Packages.Storage.Type, setting.LocalStorageType)()

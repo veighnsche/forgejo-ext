@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestAPIGetRawFileOrLFS(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		t.Run("Empty repository (normal path)", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()

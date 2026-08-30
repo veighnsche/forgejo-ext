@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	code_indexer "forgejo.org/modules/indexer/code"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -14,6 +16,7 @@ import (
 )
 
 func TestExploreCodeSearchIndexer(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Indexer.RepoIndexerEnabled, true)()
 

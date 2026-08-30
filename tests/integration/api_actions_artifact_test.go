@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -31,6 +33,7 @@ func prepareTestEnvActionsArtifacts(t *testing.T) func() {
 }
 
 func TestActionsArtifactUploadSingleFile(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	// acquire artifact upload url
@@ -65,6 +68,7 @@ func TestActionsArtifactUploadSingleFile(t *testing.T) {
 }
 
 func TestActionsArtifactUploadInvalidHash(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	// artifact id 54321 not exist
@@ -80,6 +84,7 @@ func TestActionsArtifactUploadInvalidHash(t *testing.T) {
 }
 
 func TestActionsArtifactConfirmUploadWithoutName(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	req := NewRequest(t, "PATCH", "/api/actions_pipeline/_apis/pipelines/workflows/791/artifacts").
@@ -89,6 +94,7 @@ func TestActionsArtifactConfirmUploadWithoutName(t *testing.T) {
 }
 
 func TestActionsArtifactUploadWithoutToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	req := NewRequestWithJSON(t, "POST", "/api/actions_pipeline/_apis/pipelines/workflows/1/artifacts", nil)
@@ -115,6 +121,7 @@ type (
 )
 
 func TestActionsArtifactDownload(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	req := NewRequest(t, "GET", "/api/actions_pipeline/_apis/pipelines/workflows/791/artifacts").
@@ -159,6 +166,7 @@ func TestActionsArtifactDownload(t *testing.T) {
 }
 
 func TestActionsArtifactUploadMultipleFile(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	const testArtifactName = "multi-files"
@@ -215,6 +223,7 @@ func TestActionsArtifactUploadMultipleFile(t *testing.T) {
 }
 
 func TestActionsArtifactDownloadMultiFiles(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	const testArtifactName = "multi-file-download"
@@ -270,6 +279,7 @@ func TestActionsArtifactDownloadMultiFiles(t *testing.T) {
 }
 
 func TestActionsArtifactUploadWithRetentionDays(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	// acquire artifact upload url
@@ -306,6 +316,7 @@ func TestActionsArtifactUploadWithRetentionDays(t *testing.T) {
 }
 
 func TestActionsArtifactOverwrite(t *testing.T) {
+	testhelper.Setup(t)
 	defer prepareTestEnvActionsArtifacts(t)()
 
 	{

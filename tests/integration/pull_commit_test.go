@@ -12,6 +12,8 @@ import (
 	"os"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestListPullCommits(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user5")
 	req := NewRequest(t, "GET", "/user2/repo1/pulls/3/commits/list")
@@ -46,6 +49,7 @@ func TestListPullCommits(t *testing.T) {
 }
 
 func TestPullCommitLinks(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/pulls/3/commits")
@@ -63,6 +67,7 @@ func TestPullCommitLinks(t *testing.T) {
 }
 
 func TestPullCommitLinksSHA256(t *testing.T) {
+	testhelper.Setup(t)
 	if !git.SupportHashSha256 {
 		t.Skip("skipping because installed Git version doesn't support SHA256")
 		return
@@ -90,6 +95,7 @@ func TestPullCommitLinksSHA256(t *testing.T) {
 }
 
 func TestPullCommitSignature(t *testing.T) {
+	testhelper.Setup(t)
 	t.Cleanup(func() {
 		// Cannot use t.Context(), it is in the done state.
 		require.NoError(t, git.InitFull(context.Background()))

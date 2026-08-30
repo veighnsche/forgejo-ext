@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/test"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"
@@ -15,6 +17,7 @@ import (
 )
 
 func TestAdminConfig(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -24,6 +27,7 @@ func TestAdminConfig(t *testing.T) {
 }
 
 func TestAdminConfigCacheTest(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")

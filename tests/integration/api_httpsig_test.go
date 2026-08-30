@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
@@ -51,6 +53,7 @@ fhTNAzWwZoQ91aHdAAAAFHUwMDIyMTQ2QGljdHMtcC1ueC03AQIDBAUG
 )
 
 func TestHTTPSigPubKey(t *testing.T) {
+	testhelper.Setup(t)
 	// Add our public key to user1
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.SSH.MinimumKeySizeCheck, false)()
@@ -91,6 +94,7 @@ func TestHTTPSigPubKey(t *testing.T) {
 }
 
 func TestHTTPSigCert(t *testing.T) {
+	testhelper.Setup(t)
 	// Add our public key to user1
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")

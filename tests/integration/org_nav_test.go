@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/translation"
 	"forgejo.org/tests"
 
@@ -21,6 +23,7 @@ import (
 // the organization dashboard. That function is covered by a test and is supposed to be true for the
 // owners/admins/members of the organization.
 func TestOrgNavigationDashboard(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	locale := translation.NewLocale("en-US")

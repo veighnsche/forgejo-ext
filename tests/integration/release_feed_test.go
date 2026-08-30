@@ -9,12 +9,15 @@ import (
 	"regexp"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReleaseFeed(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	normalize := func(body string) string {

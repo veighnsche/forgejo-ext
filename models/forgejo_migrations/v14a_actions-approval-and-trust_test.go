@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/timeutil"
@@ -17,6 +19,7 @@ import (
 )
 
 func Test_v14ActionsApprovalAndTrustPopulateTableActionUser(t *testing.T) {
+	testhelper.Setup(t)
 	type ConcurrencyMode int
 	type Status int
 

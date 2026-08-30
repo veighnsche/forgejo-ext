@@ -7,6 +7,8 @@ import (
 	"slices"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"code.forgejo.org/xorm/xorm/schemas"
@@ -15,6 +17,7 @@ import (
 )
 
 func Test_AddUniqueIndexForProjectIssue(t *testing.T) {
+	testhelper.Setup(t)
 	type ProjectIssue struct { //revive:disable-line:exported
 		ID        int64 `xorm:"pk autoincr"`
 		IssueID   int64 `xorm:"INDEX"`

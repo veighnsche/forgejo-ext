@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/translation"
 	"forgejo.org/tests/forgery"
 
@@ -17,6 +19,7 @@ import (
 )
 
 func TestArchiveText(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		tr := translation.NewLocale("en-US")
 

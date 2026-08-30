@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestAPIRepoBranchesPlain(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		repo3 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
 		user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -90,6 +93,7 @@ func TestAPIRepoBranchesPlain(t *testing.T) {
 }
 
 func TestAPIRepoBranchesMirror(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo5 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 5})

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	quota_model "forgejo.org/models/quota"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestAPIQuotaDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, false)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -58,6 +61,7 @@ func apiCreateUser(t *testing.T, username string) func() {
 }
 
 func TestAPIQuotaCreateGroupWithRules(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -154,6 +158,7 @@ func TestAPIQuotaCreateGroupWithRules(t *testing.T) {
 }
 
 func TestAPIQuotaEmptyState(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -265,6 +270,7 @@ func createQuotaGroup(t *testing.T, name string) func() {
 }
 
 func TestAPIQuotaAdminRoutesRules(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -434,6 +440,7 @@ func TestAPIQuotaAdminRoutesRules(t *testing.T) {
 }
 
 func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -787,6 +794,7 @@ func TestAPIQuotaAdminRoutesGroups(t *testing.T) {
 }
 
 func TestAPIQuotaUserRoutes(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Quota.Enabled, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()

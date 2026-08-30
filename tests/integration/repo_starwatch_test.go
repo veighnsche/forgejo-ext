@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/routers"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestRepoStarUnstarUI(t *testing.T) {
+	testhelper.Setup(t)
 	t.Helper()
 
 	defer tests.PrepareTestEnv(t)()
@@ -83,6 +86,7 @@ func TestRepoStarUnstarUI(t *testing.T) {
 }
 
 func TestRepoWatchUnwatchUI(t *testing.T) {
+	testhelper.Setup(t)
 	t.Helper()
 
 	defer tests.PrepareTestEnv(t)()
@@ -145,6 +149,7 @@ func TestRepoWatchUnwatchUI(t *testing.T) {
 }
 
 func TestDisabledStars(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Repository.DisableStars, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()

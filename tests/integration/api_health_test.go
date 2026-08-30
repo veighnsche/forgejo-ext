@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/routers/web/healthcheck"
 	"forgejo.org/tests"
@@ -12,6 +14,7 @@ import (
 )
 
 func TestApiHeatlhCheck(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/api/healthz")

@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	asymkey_model "forgejo.org/models/asymkey"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -40,6 +42,7 @@ import (
 )
 
 func TestAPIPushMirror(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testAPIPushMirror)
 }
 
@@ -145,6 +148,7 @@ func testAPIPushMirror(t *testing.T, u *url.URL) {
 }
 
 func TestAPIPushMirrorBranchFilter(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testAPIPushMirrorBranchFilter)
 }
 
@@ -299,6 +303,7 @@ func testAPIPushMirrorBranchFilter(t *testing.T, u *url.URL) {
 }
 
 func TestAPIPushMirrorSSH(t *testing.T) {
+	testhelper.Setup(t)
 	_, err := exec.LookPath("ssh")
 	if err != nil {
 		t.Skip("SSH executable not present")

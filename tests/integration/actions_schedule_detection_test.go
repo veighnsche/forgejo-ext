@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -36,6 +38,7 @@ import (
 )
 
 func TestActionsScheduleDetection_WorkflowDirectories(t *testing.T) {
+	testhelper.Setup(t)
 	type expectedSpec struct {
 		cron     string
 		timeZone optional.Option[string]
@@ -152,6 +155,7 @@ jobs:
 }
 
 func TestActionsScheduleDetection_PullRequest(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -216,6 +220,7 @@ jobs:
 }
 
 func TestActionsScheduleDetection_ActionsUnit(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -254,6 +259,7 @@ jobs:
 }
 
 func TestActionsScheduleDetection_Archive(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
@@ -294,6 +300,7 @@ jobs:
 }
 
 func TestActionsScheduleDetection_DefaultBranchChange(t *testing.T) {
+	testhelper.Setup(t)
 	type expectedSpec struct {
 		cron     string
 		timeZone optional.Option[string]
@@ -424,6 +431,7 @@ jobs:
 }
 
 func TestActionsScheduleDetection_MirrorSync(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 

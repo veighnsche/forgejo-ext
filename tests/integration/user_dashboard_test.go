@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/issues"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/gitrepo"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestUserDashboardFeedWelcome(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// User2 has some activity in feed
@@ -41,6 +44,7 @@ func testUserDashboardFeedType(t *testing.T, page *HTMLDoc, isEmpty bool) {
 }
 
 func TestDashboardTitleRendering(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 		sess := loginUser(t, user.Name)
@@ -84,6 +88,7 @@ func TestDashboardTitleRendering(t *testing.T) {
 }
 
 func TestDashboardActionEscaping(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 		sess := loginUser(t, user.Name)
@@ -117,6 +122,7 @@ func TestDashboardActionEscaping(t *testing.T) {
 }
 
 func TestDashboardReviewWorkflows(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 		sess := loginUser(t, user.Name)

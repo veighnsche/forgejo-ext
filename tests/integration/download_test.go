@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/setting"
 	"forgejo.org/tests"
@@ -15,6 +17,7 @@ import (
 )
 
 func TestDownloadByID(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 
@@ -26,6 +29,7 @@ func TestDownloadByID(t *testing.T) {
 }
 
 func TestDownloadByIDForSVGUsesSecureHeaders(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -40,6 +44,7 @@ func TestDownloadByIDForSVGUsesSecureHeaders(t *testing.T) {
 }
 
 func TestDownloadByIDMedia(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -52,6 +57,7 @@ func TestDownloadByIDMedia(t *testing.T) {
 }
 
 func TestDownloadByIDMediaForSVGUsesSecureHeaders(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -66,6 +72,7 @@ func TestDownloadByIDMediaForSVGUsesSecureHeaders(t *testing.T) {
 }
 
 func TestDownloadRawTextFileWithoutMimeTypeMapping(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -77,6 +84,7 @@ func TestDownloadRawTextFileWithoutMimeTypeMapping(t *testing.T) {
 }
 
 func TestDownloadRawTextFileWithMimeTypeMapping(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	setting.MimeTypeMap.Map[".xml"] = "text/xml"
 	setting.MimeTypeMap.Enabled = true
@@ -96,6 +104,7 @@ func TestDownloadRawTextFileWithMimeTypeMapping(t *testing.T) {
 // correct resource scopes to permit access, though.  The below series of tests covers the middleware combinations on
 // the entire `/user/repo/raw/*` URL tree as they use a common middleware implementation.
 func TestDownloadAccessViaAPITokens(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("no read:repository scope", func(t *testing.T) {
@@ -200,6 +209,7 @@ func TestDownloadAccessViaAPITokens(t *testing.T) {
 }
 
 func TestDownloadAccessViaAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	ait := newAITester(t, func(ai *auth_model.AuthorizedIntegration) {
 		ai.Scope = auth_model.AccessTokenScopeReadRepository

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -31,6 +33,7 @@ import (
 )
 
 func TestWebhookPayloadRef(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		w := unittest.AssertExistsAndLoadBean(t, &webhook_model.Webhook{ID: 1})
 		w.HookEvent = &webhook_module.HookEvent{
@@ -79,6 +82,7 @@ func TestWebhookPayloadRef(t *testing.T) {
 }
 
 func TestWebhookReleaseEvents(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -190,6 +194,7 @@ func checkHookTasks(t *testing.T, expectedActions map[webhook_module.HookEventTy
 }
 
 func TestWebHooksDelivery(t *testing.T) {
+	testhelper.Setup(t)
 	requests := make(chan *http.Request, 5)
 	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// the body can't be read when the handler returns

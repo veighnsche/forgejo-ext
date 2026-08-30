@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/tests"
 
@@ -15,6 +17,7 @@ import (
 )
 
 func TestGoGet(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/blah/glah/plah?go-get=1")
@@ -35,6 +38,7 @@ func TestGoGet(t *testing.T) {
 }
 
 func TestGoGetForSSH(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	old := setting.Repository.GoGetCloneURLProtocol

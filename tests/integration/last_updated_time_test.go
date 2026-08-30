@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/tests"
 
 	"github.com/PuerkitoBio/goquery"
@@ -13,6 +15,7 @@ import (
 )
 
 func TestRepoLastUpdatedTime(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := "user2"
 	session := loginUser(t, user)
@@ -32,6 +35,7 @@ func TestRepoLastUpdatedTime(t *testing.T) {
 }
 
 func TestBranchLastUpdatedTime(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := "user2"
 	repo := "repo1"

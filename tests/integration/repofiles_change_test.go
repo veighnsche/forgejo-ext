@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/asymkey"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -250,6 +252,7 @@ func getExpectedFileResponseForRepofilesUpdate(commitID, filename, lastCommitSHA
 }
 
 func TestChangeRepoFiles(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -413,6 +416,7 @@ func TestChangeRepoFiles(t *testing.T) {
 }
 
 func TestChangeRepoFilesErrors(t *testing.T) {
+	testhelper.Setup(t)
 	// setup
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestActionsAutomerge(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Actions.Enabled, true)()
 
@@ -52,6 +55,7 @@ func TestActionsAutomerge(t *testing.T) {
 }
 
 func TestActionsForcePushCommitStatus(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestForcePushCommitStatus/")()
 	defer tests.PrepareTestEnv(t)()
 

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	repo_model "forgejo.org/models/repo"
 	secret_model "forgejo.org/models/secret"
 	"forgejo.org/models/unittest"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestActionsSecretsCreateSecret(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -77,6 +80,7 @@ func TestActionsSecretsCreateSecret(t *testing.T) {
 }
 
 func TestActionsSecretsCreateSecretRejectsNameMatchingExistingSecret(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -149,6 +153,7 @@ func TestActionsSecretsCreateSecretRejectsNameMatchingExistingSecret(t *testing.
 }
 
 func TestActionsSecretsEditSecret(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -218,6 +223,7 @@ func TestActionsSecretsEditSecret(t *testing.T) {
 }
 
 func TestActionsSecretsEditSecretWithoutChangingItsValue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -287,6 +293,7 @@ func TestActionsSecretsEditSecretWithoutChangingItsValue(t *testing.T) {
 }
 
 func TestActionsSecretsEditSecretRejectsInvalidName(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -345,6 +352,7 @@ func TestActionsSecretsEditSecretRejectsInvalidName(t *testing.T) {
 }
 
 func TestActionsSecretsRemoveSecret(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	org_model "forgejo.org/models/organization"
@@ -80,6 +82,7 @@ func testIssueCommentChangeEvent(t *testing.T, htmlDoc *HTMLDoc, commentID, badg
 }
 
 func TestIssueCommentChangeMilestone(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -136,6 +139,7 @@ func TestIssueCommentChangeMilestone(t *testing.T) {
 }
 
 func TestIssueCommentChangeProject(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestIssueCommentChangeProject")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -193,6 +197,7 @@ func TestIssueCommentChangeProject(t *testing.T) {
 }
 
 func TestIssueCommentChangeLabel(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -234,6 +239,7 @@ func TestIssueCommentChangeLabel(t *testing.T) {
 }
 
 func TestIssueCommentChangeAssignee(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -266,6 +272,7 @@ func TestIssueCommentChangeAssignee(t *testing.T) {
 }
 
 func TestIssueCommentChangeReviewRequest(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	pull := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 6})
@@ -336,6 +343,7 @@ func TestIssueCommentChangeReviewRequest(t *testing.T) {
 }
 
 func TestIssueCommentChangeReviewRequestAggregated(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	pull := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 6})
@@ -441,6 +449,7 @@ func TestIssueCommentChangeReviewRequestAggregated(t *testing.T) {
 }
 
 func TestIssueCommentChangeLock(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -473,6 +482,7 @@ func TestIssueCommentChangeLock(t *testing.T) {
 }
 
 func TestIssueCommentChangePin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -493,6 +503,7 @@ func TestIssueCommentChangePin(t *testing.T) {
 }
 
 func TestIssueCommentChangeOpen(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -529,6 +540,7 @@ func TestIssueCommentChangeOpen(t *testing.T) {
 }
 
 func TestIssueCommentChangeIssueReference(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -561,6 +573,7 @@ func TestIssueCommentChangeIssueReference(t *testing.T) {
 }
 
 func TestIssueCommentChangePullReference(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/pulls/2")

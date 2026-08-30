@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestAPIAdminActionsGetJobs(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	job196 := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunJob{ID: 196})
@@ -94,6 +97,7 @@ func TestAPIAdminActionsGetJobs(t *testing.T) {
 }
 
 func TestAPIAdminActionsSearchJobs(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	job196 := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunJob{ID: 196})
@@ -153,6 +157,7 @@ func TestAPIAdminActionsSearchJobs(t *testing.T) {
 }
 
 func TestAPIAdminActionsRegistrationTokenOperations(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIGlobalActionsRunnerRegistrationTokenOperations")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -188,6 +193,7 @@ func TestAPIAdminActionsRegistrationTokenOperations(t *testing.T) {
 }
 
 func TestAPIAdminActionsRunnerOperations(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIGlobalActionsRunnerOperations")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 

@@ -1,5 +1,5 @@
 rules:
-  - id: unit-test-missing-setup-function
+  - id: test-missing-setup-function
     patterns:
       - pattern: |
           func $F(t *testing.T) {
@@ -7,7 +7,6 @@ rules:
           }
       - pattern-not: |
           func $F(t *testing.T) {
-            ...
             testhelper.Setup(t, ...)
             ...
           }
@@ -17,12 +16,8 @@ rules:
 
     paths:
       include:
-        - /cmd/**/*_test.go
-        - /models/**/*_test.go
-        - /modules/**/*_test.go
-        - /routers/**/*_test.go
-        - /services/**/*_test.go
-    # do not use, it breaks code
+        - /**/*_test.go
+    # reminder to not try to implement autofix, it breaks Go code as of v1.175.0
     #fix: |
     #  func $F(t *testing.T) {
     #    testhelper.Setup(t)
@@ -30,5 +25,5 @@ rules:
     #  }
     languages:
       - go
-    message: All unit test must call testhelper.Setup(t)
+    message: All test must call first testhelper.Setup(t)
     severity: ERROR

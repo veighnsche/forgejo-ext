@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestAPIPullReviewCreateDeleteComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	pullIssue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 3})
 	require.NoError(t, pullIssue.LoadAttributes(db.DefaultContext))
@@ -153,6 +156,7 @@ func TestAPIPullReviewCreateDeleteComment(t *testing.T) {
 }
 
 func TestAPIPullReviewMultiLineComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	pullIssue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 3})
 	require.NoError(t, pullIssue.LoadAttributes(db.DefaultContext))
@@ -256,6 +260,7 @@ func TestAPIPullReviewMultiLineComment(t *testing.T) {
 }
 
 func TestAPIPullReview(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	pullIssue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 3})
 	require.NoError(t, pullIssue.LoadAttributes(db.DefaultContext))
@@ -466,6 +471,7 @@ func TestAPIPullReview(t *testing.T) {
 }
 
 func TestAPIPullReviewRequest(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	pullIssue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 3})
 	require.NoError(t, pullIssue.LoadAttributes(db.DefaultContext))
@@ -594,6 +600,7 @@ func TestAPIPullReviewRequest(t *testing.T) {
 }
 
 func TestAPIPullReviewRequestAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user2")
 		writeToken := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteIssue, auth_model.AccessTokenScopeWriteRepository)
@@ -689,6 +696,7 @@ func TestAPIPullReviewRequestAccessTokenResources(t *testing.T) {
 }
 
 func TestAPIPullReviewStayDismissed(t *testing.T) {
+	testhelper.Setup(t)
 	// This test against issue https://github.com/go-gitea/gitea/issues/28542
 	// where old reviews surface after a review request got dismissed.
 	defer tests.PrepareTestEnv(t)()

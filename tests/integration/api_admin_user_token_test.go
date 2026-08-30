@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestAPIAdminCreateUserAccessToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -111,6 +114,7 @@ func TestAPIAdminCreateUserAccessToken(t *testing.T) {
 }
 
 func TestAPIAdminListUserAccessTokens(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -162,6 +166,7 @@ func TestAPIAdminListUserAccessTokens(t *testing.T) {
 }
 
 func TestAPIAdminCreateRepoSpecificToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -248,6 +253,7 @@ func TestAPIAdminCreateRepoSpecificToken(t *testing.T) {
 }
 
 func TestAPIAdminDeleteUserAccessToken(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	adminUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})

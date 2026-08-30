@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -69,6 +71,7 @@ func assertMatch(t testing.TB, issue *issues_model.Issue, keyword string) {
 }
 
 func TestNoLoginViewIssues(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues")
@@ -76,6 +79,7 @@ func TestNoLoginViewIssues(t *testing.T) {
 }
 
 func TestViewIssues(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues")
@@ -88,6 +92,7 @@ func TestViewIssues(t *testing.T) {
 }
 
 func TestViewIssuesType(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -103,6 +108,7 @@ func TestViewIssuesType(t *testing.T) {
 }
 
 func TestViewIssuesSortByType(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -130,6 +136,7 @@ func TestViewIssuesSortByType(t *testing.T) {
 }
 
 func TestViewIssuesSortByUpdatedTime(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -160,6 +167,7 @@ func TestViewIssuesSortByUpdatedTime(t *testing.T) {
 }
 
 func TestViewIssuesKeyword(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -206,6 +214,7 @@ func TestViewIssuesKeyword(t *testing.T) {
 }
 
 func TestViewIssuesSearchOptions(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -266,6 +275,7 @@ func TestViewIssuesSearchOptions(t *testing.T) {
 }
 
 func TestNoLoginViewIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -273,6 +283,7 @@ func TestNoLoginViewIssue(t *testing.T) {
 }
 
 func TestViewIssueCommentBox(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	locale := translation.NewLocale("en-US")
@@ -432,12 +443,14 @@ func testIssueAddComment(t *testing.T, session *TestSession, issueURL, content, 
 }
 
 func TestNewIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	testNewIssue(t, session, "user2", "repo1", "Title", "Description")
 }
 
 func TestIssueCheckboxes(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	issueURL := testNewIssue(t, session, "user2", "repo1", "Title", `- [x] small x
@@ -482,6 +495,7 @@ Description`)
 }
 
 func TestIssueDependencies(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -566,6 +580,7 @@ func TestIssueDependencies(t *testing.T) {
 }
 
 func TestEditIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	issueURL := testNewIssue(t, session, "user2", "repo1", "Title", "Description")
@@ -591,6 +606,7 @@ func TestEditIssue(t *testing.T) {
 }
 
 func TestIssueCommentClose(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	issueURL := testNewIssue(t, session, "user2", "repo1", "Title", "Description")
@@ -607,6 +623,7 @@ func TestIssueCommentClose(t *testing.T) {
 }
 
 func TestIssueCommentDelete(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	issueURL := testNewIssue(t, session, "user2", "repo1", "Title", "Description")
@@ -624,6 +641,7 @@ func TestIssueCommentDelete(t *testing.T) {
 }
 
 func TestIssueCommentAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	const repoURL = "user2/repo1"
 	const content = "Test comment 4"
@@ -678,6 +696,7 @@ func TestIssueCommentAttachment(t *testing.T) {
 }
 
 func TestIssueCommentUpdate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	issueURL := testNewIssue(t, session, "user2", "repo1", "Title", "Description")
@@ -715,6 +734,7 @@ func TestIssueCommentUpdate(t *testing.T) {
 }
 
 func TestIssueCommentUpdateSimultaneously(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	issueURL := testNewIssue(t, session, "user2", "repo1", "Title", "Description")
@@ -750,6 +770,7 @@ func TestIssueCommentUpdateSimultaneously(t *testing.T) {
 }
 
 func TestIssueReaction(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	issueURL := testNewIssue(t, session, "user2", "repo1", "Title", "Description")
@@ -769,6 +790,7 @@ func TestIssueReaction(t *testing.T) {
 }
 
 func TestIssueCrossReference(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Issue that will be referenced
@@ -864,6 +886,7 @@ func testIssueChangeInfo(t *testing.T, user, issueURL, info, value string) {
 }
 
 func TestIssueRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 
@@ -884,6 +907,7 @@ func TestIssueRedirect(t *testing.T) {
 }
 
 func TestSearchIssues(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -1012,6 +1036,7 @@ func TestSearchIssues(t *testing.T) {
 }
 
 func TestSearchIssuesWithLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	expectedIssueCount := min(
@@ -1080,6 +1105,7 @@ func TestSearchIssuesWithLabels(t *testing.T) {
 }
 
 func TestGetIssueInfo(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 10})
@@ -1101,6 +1127,7 @@ func TestGetIssueInfo(t *testing.T) {
 }
 
 func TestIssuePinMove(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 	issueURL, issue := testIssueWithBean(t, "user2", 1, "Title", "Content")
@@ -1141,6 +1168,7 @@ func TestIssuePinMove(t *testing.T) {
 }
 
 func TestUpdateIssueDeadline(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issueBefore := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 10})
@@ -1167,6 +1195,7 @@ func TestUpdateIssueDeadline(t *testing.T) {
 }
 
 func TestUpdateIssueTitle(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issueBefore := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
@@ -1226,6 +1255,7 @@ func TestUpdateIssueTitle(t *testing.T) {
 }
 
 func TestIssueReferenceURL(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 
@@ -1245,6 +1275,7 @@ func TestIssueReferenceURL(t *testing.T) {
 }
 
 func TestGetContentHistory(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestGetContentHistory")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -1296,6 +1327,7 @@ func TestGetContentHistory(t *testing.T) {
 }
 
 func TestCommitRefComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestCommitRefComment")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -1323,6 +1355,7 @@ func TestCommitRefComment(t *testing.T) {
 }
 
 func TestIssueFilterNoFollow(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Check that every link in the filter list has rel="nofollow".
@@ -1356,6 +1389,7 @@ func TestIssueFilterNoFollow(t *testing.T) {
 }
 
 func TestIssueForm(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		session := loginUser(t, user2.Name)
@@ -1399,6 +1433,7 @@ body:
 }
 
 func TestIssueUnsubscription(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 		repo := forgery.CreateRepository(t, user, &forgery.CreateRepositoryOptions{})
@@ -1413,6 +1448,7 @@ func TestIssueUnsubscription(t *testing.T) {
 }
 
 func TestIssueLabelList(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// The label list should always be present. When no labels are selected, .no-select is visible, otherwise hidden.
 	labelListSelector := ".labels.list .labels-list"
@@ -1431,6 +1467,7 @@ func TestIssueLabelList(t *testing.T) {
 }
 
 func TestIssueNoLabel(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1456,6 +1493,7 @@ func TestIssueNoLabel(t *testing.T) {
 }
 
 func TestIssueUserDashboard(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -1473,6 +1511,7 @@ func TestIssueUserDashboard(t *testing.T) {
 }
 
 func TestIssueOrgDashboard(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -1490,6 +1529,7 @@ func TestIssueOrgDashboard(t *testing.T) {
 }
 
 func TestIssueDashboardProjects(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -1524,6 +1564,7 @@ func TestIssueDashboardProjects(t *testing.T) {
 }
 
 func TestIssueCount(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues")
@@ -1542,6 +1583,7 @@ func TestIssueCount(t *testing.T) {
 }
 
 func TestIssueDefaultValues(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	links := []string{"/user2/repo1/issues", "/user2/repo1/pulls"}
@@ -1583,6 +1625,7 @@ func TestIssueDefaultValues(t *testing.T) {
 }
 
 func TestIssuePostersSearch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	type userSearchInfo struct {
@@ -1631,6 +1674,7 @@ func TestIssuePostersSearch(t *testing.T) {
 }
 
 func TestIssueTimelineLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -1643,6 +1687,7 @@ func TestIssueTimelineLabels(t *testing.T) {
 }
 
 func TestIssueAndPullRedirect(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/issues/1")
@@ -1675,6 +1720,7 @@ func TestIssueAndPullRedirect(t *testing.T) {
 }
 
 func TestIssueUrlHandling(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Overview correct", func(t *testing.T) {
@@ -1715,6 +1761,7 @@ func TestIssueUrlHandling(t *testing.T) {
 }
 
 func TestIssueProjectSidebarMissing(t *testing.T) {
+	testhelper.Setup(t)
 	const (
 		repoID = 4
 		userID = 5

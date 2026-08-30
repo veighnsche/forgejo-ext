@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/cache"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestSignup(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.EnableCaptcha, false)()
 
@@ -43,6 +46,7 @@ func TestSignup(t *testing.T) {
 }
 
 func TestSignupAsRestricted(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.EnableCaptcha, false)()
 	defer test.MockVariableValue(&setting.Service.DefaultUserIsRestricted, true)()
@@ -64,6 +68,7 @@ func TestSignupAsRestricted(t *testing.T) {
 }
 
 func TestSignupEmail(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.EnableCaptcha, false)()
 
@@ -97,6 +102,7 @@ func TestSignupEmail(t *testing.T) {
 }
 
 func TestSignupEmailChangeForInactiveUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Disable the captcha & enable email confirmation for registrations
@@ -139,6 +145,7 @@ func TestSignupEmailChangeForInactiveUser(t *testing.T) {
 }
 
 func TestSignupEmailChangeForActiveUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Disable the captcha & enable email confirmation for registrations
@@ -172,6 +179,7 @@ func TestSignupEmailChangeForActiveUser(t *testing.T) {
 }
 
 func TestSignupImageCaptcha(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.RegisterEmailConfirm, false)()
 	defer test.MockVariableValue(&setting.Service.EnableCaptcha, true)()
@@ -211,6 +219,7 @@ func TestSignupImageCaptcha(t *testing.T) {
 }
 
 func TestSignupFormUI(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	t.Run("UI", func(t *testing.T) {
 		// Mock alternative auth ways as enabled

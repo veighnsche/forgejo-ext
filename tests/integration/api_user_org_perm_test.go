@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/tests"
@@ -23,6 +25,7 @@ type apiUserOrgPermTestCase struct {
 }
 
 func TestTokenNeeded(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/api/v1/users/user1/orgs/org6/permissions")
@@ -49,6 +52,7 @@ func sampleTest(t *testing.T, auoptc apiUserOrgPermTestCase) {
 }
 
 func TestWithOwnerUser(t *testing.T) {
+	testhelper.Setup(t)
 	sampleTest(t, apiUserOrgPermTestCase{
 		LoginUser:    "user2",
 		User:         "user2",
@@ -64,6 +68,7 @@ func TestWithOwnerUser(t *testing.T) {
 }
 
 func TestCanWriteUser(t *testing.T) {
+	testhelper.Setup(t)
 	sampleTest(t, apiUserOrgPermTestCase{
 		LoginUser:    "user4",
 		User:         "user4",
@@ -79,6 +84,7 @@ func TestCanWriteUser(t *testing.T) {
 }
 
 func TestAdminUser(t *testing.T) {
+	testhelper.Setup(t)
 	sampleTest(t, apiUserOrgPermTestCase{
 		LoginUser:    "user1",
 		User:         "user28",
@@ -94,6 +100,7 @@ func TestAdminUser(t *testing.T) {
 }
 
 func TestAdminCanNotCreateRepo(t *testing.T) {
+	testhelper.Setup(t)
 	sampleTest(t, apiUserOrgPermTestCase{
 		LoginUser:    "user1",
 		User:         "user28",
@@ -109,6 +116,7 @@ func TestAdminCanNotCreateRepo(t *testing.T) {
 }
 
 func TestCanReadUser(t *testing.T) {
+	testhelper.Setup(t)
 	sampleTest(t, apiUserOrgPermTestCase{
 		LoginUser:    "user1",
 		User:         "user24",
@@ -124,6 +132,7 @@ func TestCanReadUser(t *testing.T) {
 }
 
 func TestUnknownUser(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")
@@ -139,6 +148,7 @@ func TestUnknownUser(t *testing.T) {
 }
 
 func TestUnknownOrganization(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")

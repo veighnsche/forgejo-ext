@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestAPITwoFactor(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 16})
@@ -66,6 +69,7 @@ func TestAPITwoFactor(t *testing.T) {
 }
 
 func TestAPIWebAuthn(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 32})
@@ -87,6 +91,7 @@ func TestAPIWebAuthn(t *testing.T) {
 }
 
 func TestAPIWithRequiredTwoFactor(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	type userResponse struct {

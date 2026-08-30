@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/webhook"
 	"forgejo.org/tests"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestRepoSettingsHookHistory(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	_, err := db.GetEngine(t.Context()).ID(2).Cols("is_delivered").Update(&webhook.HookTask{IsDelivered: false})
 	require.NoError(t, err)

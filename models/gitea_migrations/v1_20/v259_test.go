@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 
 	"github.com/stretchr/testify/assert"
@@ -36,6 +38,7 @@ func createNewTokenScope(scopes ...AccessTokenScope) AccessTokenScope {
 }
 
 func Test_ConvertScopedAccessTokens(t *testing.T) {
+	testhelper.Setup(t)
 	tests := []testCase{
 		{
 			createOldTokenScope(OldAccessTokenScopeRepo, OldAccessTokenScopeUserFollow),

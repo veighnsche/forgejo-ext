@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -50,10 +52,12 @@ const (
 )
 
 func TestGit(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testGit)
 }
 
 func TestActionsTokenAuth(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		task := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionTask{ID: 47})
 		task.GenerateToken()
@@ -1195,6 +1199,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 }
 
 func TestDataAsync_Issue29101(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -1371,6 +1376,7 @@ func doTestPushMessages(ctx APITestContext, u *url.URL, objectFormat git.ObjectF
 // Cloning a git repo uses CheckRepoScopedToken to validate a PAT; here we run that through all variations of access
 // token resource access.
 func TestCloneAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		t.Run("all access token", func(t *testing.T) {
 			session := loginUser(t, "user2")
@@ -1510,6 +1516,7 @@ func doFsckConsistencyChecks(dstPath string) func(t *testing.T) {
 }
 
 func TestGitAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		ait := newAITester(t)
 		defer ait.close()

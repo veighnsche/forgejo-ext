@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
@@ -19,6 +21,7 @@ import (
 )
 
 func TestViewPulls(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/pulls")
@@ -31,6 +34,7 @@ func TestViewPulls(t *testing.T) {
 }
 
 func TestViewPullsType(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
@@ -46,6 +50,7 @@ func TestViewPullsType(t *testing.T) {
 }
 
 func TestPullViewConversation(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/commitsonpr/pulls/1")
@@ -83,6 +88,7 @@ func TestPullViewConversation(t *testing.T) {
 }
 
 func TestPullManuallyMergeWarning(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -119,6 +125,7 @@ func TestPullManuallyMergeWarning(t *testing.T) {
 }
 
 func TestPullCombinedReviewRequest(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestPullCombinedReviewRequest")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -152,6 +159,7 @@ func TestPullCombinedReviewRequest(t *testing.T) {
 }
 
 func TestShowMergeForManualMerge(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// Only allow manual merge strategy for this repository.
@@ -173,6 +181,7 @@ func TestShowMergeForManualMerge(t *testing.T) {
 }
 
 func TestPullUrlHandling(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Overview correct", func(t *testing.T) {

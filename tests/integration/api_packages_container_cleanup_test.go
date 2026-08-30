@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	packages_model "forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
 	packages_service "forgejo.org/services/packages"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestPackageContainerCleanup(t *testing.T) {
+	testhelper.Setup(t)
 	// Test fixture data contains three images; one that is a standard single-platform image (v2.0), and two that are a
 	// manifest multi-platform image (v1.0).
 	//

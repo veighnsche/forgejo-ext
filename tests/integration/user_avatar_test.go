@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -27,6 +29,7 @@ import (
 )
 
 func TestUserAvatar(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Avatar.Storage.Type, setting.LocalStorageType)()
 	// make the maximum uncached image size small, so that our test image is bigger than that
@@ -119,6 +122,7 @@ func TestUserAvatar(t *testing.T) {
 }
 
 func TestAvatarAnchorDestination(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// If the user is logged in, and looking at their own profile,

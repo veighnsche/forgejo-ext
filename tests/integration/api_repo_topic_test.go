@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestAPITopicSearchPaging(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	var topics struct {
 		TopicNames []*api.TopicResponse `json:"topics"`
@@ -50,6 +53,7 @@ func TestAPITopicSearchPaging(t *testing.T) {
 }
 
 func TestAPITopicSearch(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	searchURL, _ := url.Parse("/api/v1/topics/search")
 	var topics struct {
@@ -82,6 +86,7 @@ func TestAPITopicSearch(t *testing.T) {
 }
 
 func TestAPIRepoTopic(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2}) // owner of repo2
 	org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 3})  // owner of repo3

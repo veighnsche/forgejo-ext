@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -33,6 +35,7 @@ import (
 )
 
 func TestMigrateLocalPath(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	adminUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{Name: "user1"})
@@ -60,6 +63,7 @@ func TestMigrateLocalPath(t *testing.T) {
 }
 
 func TestMigrate(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -116,6 +120,7 @@ func TestMigrate(t *testing.T) {
 }
 
 func TestMigrateWithIssueComments(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -193,6 +198,7 @@ func TestMigrateWithIssueComments(t *testing.T) {
 }
 
 func TestMigrateWithWiki(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -250,6 +256,7 @@ func TestMigrateWithWiki(t *testing.T) {
 }
 
 func TestMigrateWithReleases(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Migrations.AllowUnencrypted, true)()
@@ -306,6 +313,7 @@ func TestMigrateWithReleases(t *testing.T) {
 }
 
 func Test_UpdateCommentsMigrationsByType(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	err := issues_model.UpdateCommentsMigrationsByType(db.DefaultContext, structs.GithubService, "1", 1)
@@ -315,6 +323,7 @@ func Test_UpdateCommentsMigrationsByType(t *testing.T) {
 // TestMigrateBitbucketDataCenterForm renders the Bitbucket Data Center migration pages, to
 // catch template mistakes such as a missing localization key or a renamed form field.
 func TestMigrateBitbucketDataCenterForm(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user2")
 

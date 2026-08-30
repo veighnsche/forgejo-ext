@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -28,6 +30,7 @@ import (
 const IssueIDNotExist = 10000
 
 func TestAPIListRepoComments(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{},
@@ -73,6 +76,7 @@ func TestAPIListRepoComments(t *testing.T) {
 }
 
 func TestAPIListIssueComments(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{},
@@ -98,6 +102,7 @@ func TestAPIListIssueComments(t *testing.T) {
 }
 
 func TestAPICreateComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	const commentBody = "Comment body"
 
@@ -127,6 +132,7 @@ func TestAPICreateComment(t *testing.T) {
 }
 
 func TestAPICreateCommentAutoDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{})
@@ -179,6 +185,7 @@ func TestAPICreateCommentAutoDate(t *testing.T) {
 }
 
 func TestAPICommentXRefAutoDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
@@ -277,6 +284,7 @@ func TestAPICommentXRefAutoDate(t *testing.T) {
 }
 
 func TestAPIGetComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: 2})
@@ -312,6 +320,7 @@ func TestAPIGetComment(t *testing.T) {
 }
 
 func TestAPIGetSystemUserComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{})
@@ -349,6 +358,7 @@ func TestAPIGetSystemUserComment(t *testing.T) {
 }
 
 func TestAPIEditComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	const newCommentBody = "This is the new comment body"
 
@@ -387,6 +397,7 @@ func TestAPIEditComment(t *testing.T) {
 }
 
 func TestAPIEditCommentWithDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{},
@@ -441,6 +452,7 @@ func TestAPIEditCommentWithDate(t *testing.T) {
 }
 
 func TestAPIDeleteComment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: 8},
@@ -468,6 +480,7 @@ func TestAPIDeleteComment(t *testing.T) {
 }
 
 func TestAPIListIssueTimeline(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// load comment
@@ -491,6 +504,7 @@ func TestAPIListIssueTimeline(t *testing.T) {
 }
 
 func TestAPIListIssueTimelineAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

@@ -8,11 +8,14 @@ import (
 	"slices"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/tests"
 )
 
 func TestOrgProjectAccess(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	disabledRepoUnits := unit_model.DisabledRepoUnitsGet()

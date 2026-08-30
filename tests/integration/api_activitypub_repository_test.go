@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/forgefed"
 	"forgejo.org/models/unittest"
 	"forgejo.org/models/user"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestActivityPubRepository(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
@@ -59,6 +62,7 @@ func TestActivityPubRepository(t *testing.T) {
 }
 
 func TestActivityPubMissingRepository(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, false)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
@@ -71,6 +75,7 @@ func TestActivityPubMissingRepository(t *testing.T) {
 }
 
 func TestActivityPubRepositoryInboxValid(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, true)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
@@ -156,6 +161,7 @@ func TestActivityPubRepositoryInboxValid(t *testing.T) {
 }
 
 func TestActivityPubRepositoryInboxInvalid(t *testing.T) {
+	testhelper.Setup(t)
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, false)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()

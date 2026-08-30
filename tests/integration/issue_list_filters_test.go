@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/translation"
 	"forgejo.org/tests"
 
@@ -19,6 +21,7 @@ import (
 // Tests for contents of pages .../issues and .../pulls
 
 func TestIssueFilterLabels(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Exclusion tooltips", func(t *testing.T) {
@@ -33,6 +36,7 @@ func TestIssueFilterLabels(t *testing.T) {
 }
 
 func TestIssueSorting(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("Dropdown content", func(t *testing.T) {
@@ -81,6 +85,7 @@ func TestIssueSorting(t *testing.T) {
 }
 
 func TestIssueFilterLinks(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("No filters", func(t *testing.T) {

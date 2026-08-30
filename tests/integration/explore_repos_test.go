@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/tests"
 
@@ -31,6 +33,7 @@ func testExploreStarForkCounters(t *testing.T, repoQuery, expectedStars, expecte
 }
 
 func TestExploreRepos(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/explore/repos")

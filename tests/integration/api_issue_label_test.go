@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	issues_model "forgejo.org/models/issues"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestAPIModifyLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
@@ -96,6 +99,7 @@ func TestAPIModifyLabels(t *testing.T) {
 }
 
 func TestAPIAddIssueLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -119,6 +123,7 @@ func TestAPIAddIssueLabels(t *testing.T) {
 }
 
 func TestAPIAddIssueLabelsWithLabelNames(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
@@ -151,6 +156,7 @@ func TestAPIAddIssueLabelsWithLabelNames(t *testing.T) {
 }
 
 func TestAPIRemoveIssueLabel(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -173,6 +179,7 @@ func TestAPIRemoveIssueLabel(t *testing.T) {
 }
 
 func TestAPIRemoveIssueLabelByName(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIRemoveIssueLabelByName")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -208,6 +215,7 @@ func TestAPIRemoveIssueLabelByName(t *testing.T) {
 }
 
 func TestAPIAddIssueLabelsAutoDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	issueBefore := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 3})
@@ -251,6 +259,7 @@ func TestAPIAddIssueLabelsAutoDate(t *testing.T) {
 }
 
 func TestAPIReplaceIssueLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -277,6 +286,7 @@ func TestAPIReplaceIssueLabels(t *testing.T) {
 }
 
 func TestAPIReplaceIssueLabelsWithLabelNames(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -300,6 +310,7 @@ func TestAPIReplaceIssueLabelsWithLabelNames(t *testing.T) {
 }
 
 func TestAPIModifyOrgLabels(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
@@ -373,6 +384,7 @@ func TestAPIModifyOrgLabels(t *testing.T) {
 }
 
 func TestAPIReplaceIssueLabelsActionsToken(t *testing.T) {
+	testhelper.Setup(t)
 	require.NoError(t, unittest.LoadFixtures())
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})

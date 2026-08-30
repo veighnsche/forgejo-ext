@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/test"
@@ -18,6 +20,7 @@ import (
 )
 
 func TestForgotPassword(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	test := func(t *testing.T, user *user_model.User, email *user_model.EmailAddress) {

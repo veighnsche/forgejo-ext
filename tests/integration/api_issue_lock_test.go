@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestAPILockIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -48,6 +51,7 @@ func TestAPILockIssue(t *testing.T) {
 }
 
 func TestAPILockIssueReasonRequired(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -66,6 +70,7 @@ func TestAPILockIssueReasonRequired(t *testing.T) {
 }
 
 func TestAPIDoubleLockIssueNotProcessable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -99,6 +104,7 @@ func TestAPIDoubleLockIssueNotProcessable(t *testing.T) {
 }
 
 func TestAPIUnlockIssue(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -137,6 +143,7 @@ func TestAPIUnlockIssue(t *testing.T) {
 }
 
 func TestAPIDoubleUnlockIssueUnprocessable(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())
@@ -155,6 +162,7 @@ func TestAPIDoubleUnlockIssueUnprocessable(t *testing.T) {
 }
 
 func TestAPILockAndUnlockRequireWritePermission(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	require.NoError(t, unittest.LoadFixtures())

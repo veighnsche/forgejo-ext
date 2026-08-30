@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/modules/git"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestBadges(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		user := forgery.CreateUser(t, nil)
 

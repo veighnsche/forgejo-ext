@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestAPIListActionArtifacts(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -95,6 +98,7 @@ func TestAPIListActionArtifacts(t *testing.T) {
 }
 
 func TestAPIGetActionArtifact(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -180,6 +184,7 @@ func TestAPIGetActionArtifact(t *testing.T) {
 }
 
 func TestAPIActionArtifactsRequireRepoScope(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
@@ -206,6 +211,7 @@ func TestAPIActionArtifactsRequireRepoScope(t *testing.T) {
 }
 
 func TestAPIDownloadActionArtifact(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	tests.PrepareArtifactsStorage(t)
 
@@ -243,6 +249,7 @@ func TestAPIDownloadActionArtifact(t *testing.T) {
 }
 
 func TestAPIDeleteActionArtifact(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})

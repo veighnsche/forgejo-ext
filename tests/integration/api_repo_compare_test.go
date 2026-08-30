@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -24,6 +26,7 @@ import (
 )
 
 func TestAPICompareCommits(t *testing.T) {
+	testhelper.Setup(t)
 	forEachObjectFormat(t, testAPICompareCommits)
 }
 
@@ -272,6 +275,7 @@ func testAPICompareCommits(t *testing.T, objectFormat git.ObjectFormat) {
 }
 
 func TestAPICompareCommitsAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")

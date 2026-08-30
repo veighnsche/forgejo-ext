@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
@@ -20,6 +22,7 @@ import (
 )
 
 func Test_Cmd_AdminUser(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		for i, testCase := range []struct {
 			name               string
@@ -76,6 +79,7 @@ func Test_Cmd_AdminUser(t *testing.T) {
 }
 
 func Test_Cmd_AdminFirstUser(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		for _, testCase := range []struct {
 			name               string
@@ -152,6 +156,7 @@ func Test_Cmd_AdminFirstUser(t *testing.T) {
 }
 
 func Test_Cmd_AdminUserResetMFA(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		name := "testuser"
 

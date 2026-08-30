@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestAPIGetCommentAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: 2})
@@ -72,6 +75,7 @@ func TestAPIGetCommentAttachment(t *testing.T) {
 }
 
 func TestAPIListCommentAttachments(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: 2})
@@ -94,6 +98,7 @@ func TestAPIListCommentAttachments(t *testing.T) {
 }
 
 func TestAPICreateCommentAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: 3})
@@ -125,6 +130,7 @@ func TestAPICreateCommentAttachment(t *testing.T) {
 }
 
 func TestAPICreateCommentAttachmentAutoDate(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: 2})
@@ -189,6 +195,7 @@ func TestAPICreateCommentAttachmentAutoDate(t *testing.T) {
 }
 
 func TestAPIEditCommentAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	const newAttachmentName = "newAttachmentName"
@@ -214,6 +221,7 @@ func TestAPIEditCommentAttachment(t *testing.T) {
 }
 
 func TestAPIDeleteCommentAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	attachment := unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: 6})
@@ -233,6 +241,7 @@ func TestAPIDeleteCommentAttachment(t *testing.T) {
 }
 
 func TestAPICreateCommentAttachmentWithUnallowedFile(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	comment := unittest.AssertExistsAndLoadBean(t, &issues_model.Comment{ID: 2})

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -98,6 +100,7 @@ func testPullCreateDirectly(t *testing.T, session *TestSession, baseRepoOwner, b
 }
 
 func TestPullCreate(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
 		testRepoFork(t, session, "user2", "repo1", "user1", "repo1")
@@ -132,6 +135,7 @@ func TestPullCreate(t *testing.T) {
 }
 
 func TestPullCreateWithPullTemplate(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		baseUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 		forkUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -227,6 +231,7 @@ func TestPullCreateWithPullTemplate(t *testing.T) {
 }
 
 func TestPullCreate_TitleEscape(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
 		testRepoFork(t, session, "user2", "repo1", "user1", "repo1")
@@ -280,6 +285,7 @@ func testDeleteRepository(t *testing.T, session *TestSession, ownerName, repoNam
 }
 
 func TestPullBranchDelete(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
 		testRepoFork(t, session, "user2", "repo1", "user1", "repo1")
@@ -306,6 +312,7 @@ func TestPullBranchDelete(t *testing.T) {
 }
 
 func TestRecentlyPushed(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
 		testRepoFork(t, session, "user2", "repo1", "user1", "repo1")
@@ -568,6 +575,7 @@ Test checks:
 Check if pull request can be created from base to the fork repository.
 */
 func TestPullCreatePrFromBaseToFork(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		sessionFork := loginUser(t, "user1")
 		testRepoFork(t, sessionFork, "user2", "repo1", "user1", "repo1")
@@ -585,6 +593,7 @@ func TestPullCreatePrFromBaseToFork(t *testing.T) {
 }
 
 func TestPullCreatePrFromForkToFork(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		sessionFork1 := loginUser(t, "user1")
 		testRepoFork(t, sessionFork1, "user2", "repo1", "user1", "repo1")

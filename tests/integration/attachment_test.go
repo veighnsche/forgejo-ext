@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
@@ -59,12 +61,14 @@ func createAttachment(t *testing.T, session *TestSession, repoURL, filename stri
 }
 
 func TestCreateAnonymousAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := emptyTestSession(t)
 	createAttachment(t, session, "user2/repo1", "image.png", generateImg(), http.StatusSeeOther)
 }
 
 func TestCreateIssueAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	const repoURL = "user2/repo1"
 	session := loginUser(t, "user2")
@@ -96,6 +100,7 @@ func TestCreateIssueAttachment(t *testing.T) {
 }
 
 func TestGetAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	adminSession := loginUser(t, "user1")
 	user2Session := loginUser(t, "user2")
@@ -139,6 +144,7 @@ func TestGetAttachment(t *testing.T) {
 // Access under `/attachments/{uuid}` and `/{user}/{repo}/attachments/{uuid}` is permitted for API tokens.  Those API
 // tokens then need to have the read:issue or read:repository and the correct resource scopes to permit access, though.
 func TestGetAttachmentViaAPITokens(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestGetAttachmentViaAPITokens")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -360,6 +366,7 @@ func TestGetAttachmentViaAPITokens(t *testing.T) {
 }
 
 func TestGetAttachmentViaAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestGetAttachmentViaAPITokens")()
 	defer tests.PrepareTestEnv(t)()
 

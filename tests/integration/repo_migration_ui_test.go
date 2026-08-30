@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/translation"
 	"forgejo.org/tests"
 
@@ -19,6 +21,7 @@ import (
 // TestRepoMigrationUI is used to test various form properties of different
 // migration types on /repo/migrate?service_type=%d
 func TestRepoMigrationUI(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	session := loginUser(t, "user1")
 	// Note: nothing is tested in plain Git migration form right now
@@ -110,6 +113,7 @@ func testRepoMigrationFormItems(t *testing.T, items *goquery.Selection, expected
 // TestRepoMigrationTypeSelect is a simple content test for page /repo/migrate
 // where migration source type is selected
 func TestRepoMigrationTypeSelect(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user1")

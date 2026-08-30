@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -20,6 +22,7 @@ import (
 )
 
 func TestAPIRepoTags(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -88,6 +91,7 @@ func createNewTagUsingAPI(t *testing.T, token, ownerName, repoName, name, target
 }
 
 func TestAPIGetTagArchiveDownloadCount(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -124,6 +128,7 @@ func TestAPIGetTagArchiveDownloadCount(t *testing.T) {
 }
 
 func TestAPIGetTagsPaginated(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.
@@ -157,6 +162,7 @@ func TestAPIGetTagsPaginated(t *testing.T) {
 }
 
 func TestAPIRepoTagDeleteProtection(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	// Login as User2.

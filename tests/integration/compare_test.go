@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
@@ -28,6 +30,7 @@ import (
 )
 
 func TestCompareTag(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -45,6 +48,7 @@ func TestCompareTag(t *testing.T) {
 
 // Compare with inferred default branch (master)
 func TestCompareDefault(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -68,6 +72,7 @@ func inspectCompare(t *testing.T, htmlDoc *HTMLDoc, diffCount int, diffChanges [
 }
 
 func TestComparePatchAndDiffMenuEntries(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -93,6 +98,7 @@ func TestComparePatchAndDiffMenuEntries(t *testing.T) {
 }
 
 func TestComparePatchDownload(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -150,6 +156,7 @@ index 6dfe48a..bc7068d 100644
 }
 
 func TestCompareDiffDownload(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -184,6 +191,7 @@ index 0000000..e69de29
 // * 808038d (HEAD -> master, origin/master, origin/HEAD) Added test links
 
 func TestCompareBranches(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -251,6 +259,7 @@ func TestCompareBranches(t *testing.T) {
 }
 
 func TestCompareBranchesPaginatesDiff(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer func(old int) {
 		setting.UI.DiffPagingNum = old
@@ -294,6 +303,7 @@ func TestCompareBranchesPaginatesDiff(t *testing.T) {
 }
 
 func TestCompareWithPRsDisabled(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
 		testRepoFork(t, session, "user2", "repo1", "user1", "repo1")
@@ -355,6 +365,7 @@ func TestCompareWithPRsDisabled(t *testing.T) {
 }
 
 func TestCompareCrossRepo(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
 		testRepoFork(t, session, "user2", "repo1", "user1", "repo1-copy")
@@ -384,6 +395,7 @@ func TestCompareCrossRepo(t *testing.T) {
 }
 
 func TestCompareCodeExpand(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		// Create a new repository, with a file that has many lines
 		repo := forgery.CreateRepository(t, nil, &forgery.CreateRepositoryOptions{
@@ -451,6 +463,7 @@ func TestCompareCodeExpand(t *testing.T) {
 }
 
 func TestCompareSignedIn(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		// Setup the test with a connected user
 		session := loginUser(t, "user1")

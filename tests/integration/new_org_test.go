@@ -9,12 +9,15 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/translation"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewOrganizationForm(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		session := loginUser(t, "user1")
 		locale := translation.NewLocale("en-US")

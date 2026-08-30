@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/routers"
@@ -16,6 +18,7 @@ import (
 )
 
 func TestCORS(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	t.Run("CORS enabled", func(t *testing.T) {
 		defer test.MockVariableValue(&setting.CORSConfig.Enabled, true)()

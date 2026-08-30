@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -29,6 +31,7 @@ import (
 )
 
 func TestRepoDownloadArchive(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.EnableGzip, true)()
 	defer test.MockVariableValue(&web.GzipMinSize, 10)()
@@ -48,6 +51,7 @@ func TestRepoDownloadArchive(t *testing.T) {
 }
 
 func TestRepoDownloadArchiveSubdir(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(*testing.T, *url.URL) {
 		defer test.MockVariableValue(&setting.EnableGzip, true)()
 		defer test.MockVariableValue(&web.GzipMinSize, 10)()
@@ -95,6 +99,7 @@ func TestRepoDownloadArchiveSubdir(t *testing.T) {
 // Access under `/{username}/{repo}/archive/*` is permitted for API tokens.  Those API tokens then need to have the
 // read:repository and the correct resource scopes to permit access, though.
 func TestRepoDownloadArchiveViaAPITokens(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("no read:repository scope", func(t *testing.T) {
@@ -199,6 +204,7 @@ func TestRepoDownloadArchiveViaAPITokens(t *testing.T) {
 }
 
 func TestRepoDownloadArchiveViaAuthorizedIntegration(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	ait := newAITester(t, func(ai *auth_model.AuthorizedIntegration) {
 		ai.Scope = auth_model.AccessTokenScopeReadRepository

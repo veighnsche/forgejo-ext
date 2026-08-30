@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	repo_model "forgejo.org/models/repo"
@@ -38,6 +40,7 @@ func testCreateBranch(t testing.TB, session *TestSession, user, repo, oldRefSubU
 }
 
 func TestCreateBranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, testCreateBranches)
 }
 
@@ -142,6 +145,7 @@ func testCreateBranches(t *testing.T, giteaURL *url.URL) {
 }
 
 func TestDatabaseMissingABranch(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, URL *url.URL) {
 		session := loginUser(t, "user2")
 
@@ -187,6 +191,7 @@ func TestDatabaseMissingABranch(t *testing.T) {
 }
 
 func TestSwitchDefaultBranchButtonVisibility(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user5")
 
@@ -212,6 +217,7 @@ func TestSwitchDefaultBranchButtonVisibility(t *testing.T) {
 }
 
 func TestCreateBranchButtonVisibility(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
 

@@ -7,6 +7,8 @@ import (
 	"context"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/timeutil"
@@ -66,6 +68,7 @@ func GetWatch(ctx context.Context, userID, repoID int64) (Watch, error) {
 }
 
 func Test_addGranularWatchColumnsAndDropModeColumn(t *testing.T) {
+	testhelper.Setup(t)
 	// copy of old code //
 	type WatchMode uint8
 	type Watch struct {

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -21,6 +23,7 @@ import (
 )
 
 func TestRunnerModification(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestRunnerModification")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -134,6 +137,7 @@ func TestRunnerModification(t *testing.T) {
 }
 
 func TestRunnerVisibility(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestRunnerVisibility")()
 	defer tests.PrepareTestEnv(t)()
 

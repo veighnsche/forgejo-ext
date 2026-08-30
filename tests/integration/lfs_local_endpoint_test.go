@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/modules/lfs"
 	"forgejo.org/tests"
 
@@ -22,6 +24,7 @@ func str2url(raw string) *url.URL {
 }
 
 func TestDetermineLocalEndpoint(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	root := t.TempDir()

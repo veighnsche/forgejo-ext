@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -17,6 +19,7 @@ import (
 )
 
 func TestXSSUserFullName(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	const fullName = `name & <script class="evil">alert('Oh no!');</script>`
@@ -40,6 +43,7 @@ func TestXSSUserFullName(t *testing.T) {
 }
 
 func TestXSSReviewDismissed(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestXSSReviewDismissed")()
 	defer tests.PrepareTestEnv(t)()
 

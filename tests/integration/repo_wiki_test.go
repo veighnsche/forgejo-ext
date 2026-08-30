@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestWikiSearchContent(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/wiki/search?q=This")
@@ -39,6 +42,7 @@ func TestWikiSearchContent(t *testing.T) {
 }
 
 func TestWikiBranchNormalize(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	username := "user2"
@@ -91,6 +95,7 @@ func TestWikiBranchNormalize(t *testing.T) {
 }
 
 func TestWikiTOC(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	username := "user2"
@@ -146,6 +151,7 @@ func canEditWiki(t *testing.T, username, url string, canEdit bool) {
 }
 
 func TestWikiPermissions(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	t.Run("default settings", func(t *testing.T) {

@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -89,6 +91,7 @@ func checkLatestReleaseAndCount(t *testing.T, session *TestSession, repoURL, ver
 }
 
 func TestViewReleases(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -97,6 +100,7 @@ func TestViewReleases(t *testing.T) {
 }
 
 func TestViewReleasesNoLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo1/releases")
@@ -104,6 +108,7 @@ func TestViewReleasesNoLogin(t *testing.T) {
 }
 
 func TestCreateRelease(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -113,6 +118,7 @@ func TestCreateRelease(t *testing.T) {
 }
 
 func TestDeleteRelease(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 57, OwnerName: "user2", LowerName: "repo-release"})
@@ -171,6 +177,7 @@ func TestDeleteRelease(t *testing.T) {
 }
 
 func TestCreateReleasePreRelease(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -180,6 +187,7 @@ func TestCreateReleasePreRelease(t *testing.T) {
 }
 
 func TestCreateReleaseDraft(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -189,6 +197,7 @@ func TestCreateReleaseDraft(t *testing.T) {
 }
 
 func TestEditRelease(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -205,6 +214,7 @@ func TestEditRelease(t *testing.T) {
 }
 
 func TestEditReleaseDraft(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -221,6 +231,7 @@ func TestEditReleaseDraft(t *testing.T) {
 }
 
 func TestCreateReleasePaging(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	oldAPIDefaultNum := setting.API.DefaultPagingNum
@@ -245,6 +256,7 @@ func TestCreateReleasePaging(t *testing.T) {
 }
 
 func TestViewReleaseListNoLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 57, OwnerName: "user2", LowerName: "repo-release"})
@@ -287,6 +299,7 @@ func TestViewReleaseListNoLogin(t *testing.T) {
 }
 
 func TestViewSingleReleaseNoLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "/user2/repo-release/releases/tag/v1.0")
@@ -300,6 +313,7 @@ func TestViewSingleReleaseNoLogin(t *testing.T) {
 }
 
 func TestViewReleaseListLogin(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -331,6 +345,7 @@ func TestViewReleaseListLogin(t *testing.T) {
 }
 
 func TestViewReleaseListKeyword(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -360,6 +375,7 @@ func TestViewReleaseListKeyword(t *testing.T) {
 }
 
 func TestViewReleaseListKeywordNoPagination(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -378,6 +394,7 @@ func TestViewReleaseListKeywordNoPagination(t *testing.T) {
 }
 
 func TestReleaseOnCommit(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
@@ -387,6 +404,7 @@ func TestReleaseOnCommit(t *testing.T) {
 }
 
 func TestViewTagsList(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -410,6 +428,7 @@ func TestViewTagsList(t *testing.T) {
 }
 
 func TestAttachmentTimestamp(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	req := NewRequest(t, "GET", "user2/repo1/releases")
@@ -433,6 +452,7 @@ func TestAttachmentTimestamp(t *testing.T) {
 }
 
 func TestDownloadReleaseAttachment(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	tests.PrepareAttachmentsStorage(t)
@@ -452,6 +472,7 @@ func TestDownloadReleaseAttachment(t *testing.T) {
 }
 
 func TestReleaseAttachmentDownload(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	tests.PrepareAttachmentsStorage(t)
 
@@ -463,6 +484,7 @@ func TestReleaseAttachmentDownload(t *testing.T) {
 }
 
 func TestReleaseAttachmentDownloadCounter(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	tests.PrepareAttachmentsStorage(t)
 
@@ -493,6 +515,7 @@ func TestReleaseAttachmentDownloadCounter(t *testing.T) {
 }
 
 func TestReleaseHideArchiveLinksUI(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	release := unittest.AssertExistsAndLoadBean(t, &repo_model.Release{TagName: "v2.0"})

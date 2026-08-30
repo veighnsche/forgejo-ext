@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"forgejo.org/modules/testhelper"
+
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -32,6 +34,7 @@ import (
 )
 
 func TestAPIPullUpdate(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		// Create PR to test
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -61,6 +64,7 @@ func TestAPIPullUpdate(t *testing.T) {
 }
 
 func TestAPIPullUpdateAccessTokenResources(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user2")
 		writeToken := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteIssue, auth_model.AccessTokenScopeWriteRepository)
@@ -154,6 +158,7 @@ func TestAPIPullUpdateAccessTokenResources(t *testing.T) {
 }
 
 func TestAPIPullUpdateByRebase(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		// Create PR to test
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -183,6 +188,7 @@ func TestAPIPullUpdateByRebase(t *testing.T) {
 }
 
 func TestAPIPullUpdateBranchProtection(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		baseRepoOwner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
@@ -226,6 +232,7 @@ func TestAPIPullUpdateBranchProtection(t *testing.T) {
 }
 
 func TestAPIPullAllowMaintainerEditRestrictedHead(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		realBaseRepo := forgery.CreateRepository(t, nil, &forgery.CreateRepositoryOptions{
 			Files: forgery.FilesInit{}, // ensure an initial commit is present
@@ -326,6 +333,7 @@ func TestAPIPullAllowMaintainerEditRestrictedHead(t *testing.T) {
 }
 
 func TestAPIViewUpdateSettings(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		// Create PR to test
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
@@ -360,12 +368,14 @@ func TestAPIViewUpdateSettings(t *testing.T) {
 }
 
 func TestViewPullUpdateByMerge(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		testViewPullUpdate(t, "merge")
 	})
 }
 
 func TestViewPullUpdateByRebase(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		testViewPullUpdate(t, "rebase")
 	})
@@ -518,6 +528,7 @@ func createOutdatedPR(t *testing.T, actor, forkOrg *user_model.User, baseRepoOwn
 }
 
 func TestStatusDuringUpdate(t *testing.T) {
+	testhelper.Setup(t)
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user2")
 

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forgejo.org/modules/testhelper"
+
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestVisibility(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 
 	// not logged in user
@@ -55,6 +58,7 @@ func TestVisibility(t *testing.T) {
 }
 
 func TestPaginatedMembers(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// To make sure that pagination kicks in even though the test team has few members
 	defer test.MockVariableValue(&setting.UI.MembersPagingNum, 2)()
@@ -81,6 +85,7 @@ func TestPaginatedMembers(t *testing.T) {
 }
 
 func TestPaginatedRepos(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	// To make sure that pagination kicks in even though the test team has few repos
 	defer test.MockVariableValue(&setting.UI.User.RepoPagingNum, 2)()
@@ -107,6 +112,7 @@ func TestPaginatedRepos(t *testing.T) {
 }
 
 func TestDisplayInvites(t *testing.T) {
+	testhelper.Setup(t)
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestDisplayInvites")()
 	defer tests.PrepareTestEnv(t)()
 
@@ -133,6 +139,7 @@ func TestDisplayInvites(t *testing.T) {
 }
 
 func TestAddMembersByInvitations(t *testing.T) {
+	testhelper.Setup(t)
 	defer tests.PrepareTestEnv(t)()
 	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, true)()
 
