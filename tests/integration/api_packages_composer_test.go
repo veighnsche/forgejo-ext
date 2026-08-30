@@ -11,8 +11,6 @@ import (
 	neturl "net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	repo_model "forgejo.org/models/repo"
@@ -20,6 +18,7 @@ import (
 	user_model "forgejo.org/models/user"
 	composer_module "forgejo.org/modules/packages/composer"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers/api/packages/composer"
 	"forgejo.org/tests"
 

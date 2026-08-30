@@ -7,11 +7,10 @@ import (
 	"database/sql"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/forgefed"
 	"forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

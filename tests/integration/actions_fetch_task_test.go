@@ -9,8 +9,6 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
@@ -18,6 +16,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 	"forgejo.org/tests/forgery"
 

@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	code_indexer "forgejo.org/modules/indexer/code"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/PuerkitoBio/goquery"

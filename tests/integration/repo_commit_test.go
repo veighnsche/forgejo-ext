@@ -9,11 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

@@ -12,10 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/testhelper"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"

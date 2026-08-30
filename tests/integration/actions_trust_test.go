@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	issues_model "forgejo.org/models/issues"
@@ -23,6 +21,7 @@ import (
 	actions_module "forgejo.org/modules/actions"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	actions_service "forgejo.org/services/actions"
 	pull_service "forgejo.org/services/pull"

@@ -12,8 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -22,6 +20,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/webhook"
 	"forgejo.org/routers/api/v1/shared"
 	repo_service "forgejo.org/services/repository"

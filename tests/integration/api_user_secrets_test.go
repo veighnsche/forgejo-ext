@@ -9,14 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	secret_model "forgejo.org/models/secret"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

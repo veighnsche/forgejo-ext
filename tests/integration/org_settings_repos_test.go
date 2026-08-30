@@ -8,9 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	repo_model "forgejo.org/models/repo"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 

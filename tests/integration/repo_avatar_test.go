@@ -11,12 +11,11 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/avatar"
+	"forgejo.org/modules/testhelper"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"
 

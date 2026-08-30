@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
@@ -18,6 +16,7 @@ import (
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

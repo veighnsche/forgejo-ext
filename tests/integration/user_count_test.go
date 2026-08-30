@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	packages_model "forgejo.org/models/packages"
@@ -19,6 +17,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/PuerkitoBio/goquery"

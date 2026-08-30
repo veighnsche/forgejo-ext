@@ -8,12 +8,11 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	repo_model "forgejo.org/models/repo"
 	secret_model "forgejo.org/models/secret"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"
 

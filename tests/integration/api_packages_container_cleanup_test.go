@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	packages_model "forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
+	"forgejo.org/modules/testhelper"
 	packages_service "forgejo.org/services/packages"
 	packages_cleanup "forgejo.org/services/packages/cleanup"
 	"forgejo.org/tests"

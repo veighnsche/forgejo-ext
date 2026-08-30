@@ -10,10 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

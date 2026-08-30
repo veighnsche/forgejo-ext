@@ -7,11 +7,10 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"
 

@@ -6,9 +6,8 @@ package forgejo_migrations
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	migration_tests "forgejo.org/models/gitea_migrations/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 
 	"code.forgejo.org/xorm/xorm/schemas"

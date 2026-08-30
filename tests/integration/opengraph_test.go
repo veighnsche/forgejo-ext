@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/PuerkitoBio/goquery"

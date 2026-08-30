@@ -9,11 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	repo_service "forgejo.org/services/repository"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"

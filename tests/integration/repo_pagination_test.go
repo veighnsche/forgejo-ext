@@ -8,12 +8,11 @@ import (
 	"path"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

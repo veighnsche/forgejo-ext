@@ -9,14 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	"forgejo.org/services/auth"
 	"forgejo.org/services/auth/source/ldap"

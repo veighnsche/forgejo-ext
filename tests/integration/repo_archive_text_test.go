@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/translation"
 	"forgejo.org/tests/forgery"
 

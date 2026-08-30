@@ -10,14 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/activitypub"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers"
 	"forgejo.org/services/contexttest"
 	"forgejo.org/services/federation"

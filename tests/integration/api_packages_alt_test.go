@@ -16,8 +16,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
@@ -25,6 +23,7 @@ import (
 	packages_module "forgejo.org/modules/packages"
 	rpm_module "forgejo.org/modules/packages/rpm"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 	"forgejo.org/tests"
 

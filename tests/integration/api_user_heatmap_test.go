@@ -9,10 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	activities_model "forgejo.org/models/activities"
 	auth_model "forgejo.org/models/auth"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/tests"
 

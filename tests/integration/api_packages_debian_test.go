@@ -14,8 +14,6 @@ import (
 	"sync"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
@@ -23,6 +21,7 @@ import (
 	"forgejo.org/modules/base"
 	debian_module "forgejo.org/modules/packages/debian"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/blakesmith/ar"

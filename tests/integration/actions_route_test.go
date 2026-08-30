@@ -11,12 +11,11 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/tests"
 

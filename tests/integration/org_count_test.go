@@ -8,14 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

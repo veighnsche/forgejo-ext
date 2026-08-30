@@ -12,13 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	issues_model "forgejo.org/models/issues"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 

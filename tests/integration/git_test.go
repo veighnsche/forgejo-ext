@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -37,6 +35,7 @@ import (
 	"forgejo.org/modules/lfs"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	app_context "forgejo.org/services/context"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/tests"

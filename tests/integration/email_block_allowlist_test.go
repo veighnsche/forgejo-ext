@@ -6,10 +6,9 @@ package integration
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/validation"
 	"forgejo.org/tests"
 

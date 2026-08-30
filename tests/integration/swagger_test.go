@@ -8,9 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	swagger_spec "github.com/go-openapi/spec"

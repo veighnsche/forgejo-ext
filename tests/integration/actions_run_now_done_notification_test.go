@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	unit_model "forgejo.org/models/unit"
@@ -19,6 +17,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	actions_service "forgejo.org/services/actions"
 	notify_service "forgejo.org/services/notify"
 	files_service "forgejo.org/services/repository/files"

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/tests"
 )
 

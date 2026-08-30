@@ -7,12 +7,11 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/actions"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/private"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

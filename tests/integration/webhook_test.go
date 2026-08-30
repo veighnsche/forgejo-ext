@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -23,6 +21,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/testhelper"
 	webhook_module "forgejo.org/modules/webhook"
 	"forgejo.org/services/release"
 	"forgejo.org/tests"

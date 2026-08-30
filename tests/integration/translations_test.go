@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/tests/forgery"
 
 	"github.com/PuerkitoBio/goquery"

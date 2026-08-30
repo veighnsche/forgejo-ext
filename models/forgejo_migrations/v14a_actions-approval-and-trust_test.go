@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	migration_tests "forgejo.org/models/gitea_migrations/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	webhook_module "forgejo.org/modules/webhook"
 

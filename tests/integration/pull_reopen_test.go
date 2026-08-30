@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
@@ -21,6 +19,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	app_context "forgejo.org/services/context"
 	issue_service "forgejo.org/services/issue"

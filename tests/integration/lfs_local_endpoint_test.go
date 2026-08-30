@@ -10,9 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/lfs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

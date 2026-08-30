@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -24,6 +22,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 

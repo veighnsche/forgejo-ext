@@ -8,14 +8,13 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/organization"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 )
 

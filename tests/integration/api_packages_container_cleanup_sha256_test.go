@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	packages_model "forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
@@ -22,6 +20,7 @@ import (
 	packages_module "forgejo.org/modules/packages"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	packages_cleanup "forgejo.org/services/packages/cleanup"
 	packages_container "forgejo.org/services/packages/container"
 	"forgejo.org/tests"

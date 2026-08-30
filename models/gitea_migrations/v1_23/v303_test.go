@@ -6,9 +6,8 @@ package v1_23
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	migration_tests "forgejo.org/models/gitea_migrations/test"
+	"forgejo.org/modules/testhelper"
 
 	"code.forgejo.org/xorm/xorm/schemas"
 	"github.com/stretchr/testify/require"

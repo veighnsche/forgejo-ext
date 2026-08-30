@@ -15,14 +15,13 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"

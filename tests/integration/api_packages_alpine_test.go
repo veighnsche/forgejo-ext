@@ -14,13 +14,12 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	alpine_module "forgejo.org/modules/packages/alpine"
+	"forgejo.org/modules/testhelper"
 	alpine_service "forgejo.org/services/packages/alpine"
 	"forgejo.org/tests"
 

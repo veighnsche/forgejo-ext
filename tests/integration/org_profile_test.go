@@ -10,13 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	org_model "forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"

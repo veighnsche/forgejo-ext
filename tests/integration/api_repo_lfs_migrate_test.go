@@ -8,14 +8,13 @@ import (
 	"path"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/lfs"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
 	"forgejo.org/tests"
 

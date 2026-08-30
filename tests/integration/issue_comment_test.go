@@ -10,13 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	org_model "forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/PuerkitoBio/goquery"

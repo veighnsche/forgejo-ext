@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/forgefed"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -18,6 +16,7 @@ import (
 	fm "forgejo.org/modules/forgefed"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/validation"
 	"forgejo.org/tests"
 

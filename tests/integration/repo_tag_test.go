@@ -11,8 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models"
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
@@ -21,6 +19,7 @@ import (
 	"forgejo.org/modules/git"
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/release"
 	"forgejo.org/tests"
 

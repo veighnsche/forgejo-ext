@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	asymkey_model "forgejo.org/models/asymkey"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -32,6 +30,7 @@ import (
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	app_context "forgejo.org/services/context"
 	doctor "forgejo.org/services/doctor"

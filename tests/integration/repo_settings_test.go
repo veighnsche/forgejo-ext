@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	repo_model "forgejo.org/models/repo"
@@ -20,6 +18,7 @@ import (
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	app_context "forgejo.org/services/context"
 	repo_service "forgejo.org/services/repository"
 	user_service "forgejo.org/services/user"

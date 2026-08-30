@@ -13,14 +13,13 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/storage"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	repo_service "forgejo.org/services/repository"
 	"forgejo.org/tests"
 

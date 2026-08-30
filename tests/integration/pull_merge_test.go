@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -43,6 +41,7 @@ import (
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	"forgejo.org/services/automerge"
 	app_context "forgejo.org/services/context"

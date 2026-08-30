@@ -13,14 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	pull_service "forgejo.org/services/pull"
 	shared_automerge "forgejo.org/services/shared/automerge"
 	"forgejo.org/tests"

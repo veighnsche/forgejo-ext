@@ -6,12 +6,11 @@ package integration
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

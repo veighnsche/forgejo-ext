@@ -13,14 +13,13 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	swift_module "forgejo.org/modules/packages/swift"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	swift_router "forgejo.org/routers/api/packages/swift"
 	"forgejo.org/tests"
 

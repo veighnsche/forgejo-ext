@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
@@ -22,6 +20,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/packages/npm"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/tests"
 

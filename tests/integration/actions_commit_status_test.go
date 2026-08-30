@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -18,6 +16,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/actions"
 	"forgejo.org/services/automerge"
 	"forgejo.org/tests"

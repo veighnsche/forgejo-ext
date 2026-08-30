@@ -13,14 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"github.com/stretchr/testify/assert"

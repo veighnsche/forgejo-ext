@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/activities"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/unittest"
@@ -20,6 +18,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers"
 	"forgejo.org/services/contexttest"
 	"forgejo.org/services/federation"

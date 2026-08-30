@@ -7,10 +7,9 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	funding_tests "forgejo.org/services/funding/tests"
 )
 

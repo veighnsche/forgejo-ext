@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
@@ -20,6 +18,7 @@ import (
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"github.com/stretchr/testify/assert"

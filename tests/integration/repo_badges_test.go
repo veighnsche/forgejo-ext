@@ -11,13 +11,12 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers"
 	"forgejo.org/services/release"
 	"forgejo.org/tests"

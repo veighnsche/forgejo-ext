@@ -9,13 +9,12 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 )

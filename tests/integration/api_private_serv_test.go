@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/auth"
 	"forgejo.org/models/perm"
@@ -19,6 +17,7 @@ import (
 	"forgejo.org/modules/private"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests/forgery"
 
 	"github.com/stretchr/testify/assert"

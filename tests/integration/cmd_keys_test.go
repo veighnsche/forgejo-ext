@@ -9,9 +9,8 @@ import (
 	"os/exec"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/util"
 
 	"github.com/stretchr/testify/assert"

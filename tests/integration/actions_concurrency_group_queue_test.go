@@ -8,8 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	unit_model "forgejo.org/models/unit"
@@ -18,6 +16,7 @@ import (
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	actions_service "forgejo.org/services/actions"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/tests"

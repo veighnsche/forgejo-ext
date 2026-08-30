@@ -12,14 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	helm_module "forgejo.org/modules/packages/helm"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

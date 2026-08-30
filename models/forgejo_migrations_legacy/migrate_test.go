@@ -6,10 +6,9 @@ package forgejo_migrations_legacy
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 
 	"code.forgejo.org/xorm/xorm"
 	"github.com/stretchr/testify/assert"

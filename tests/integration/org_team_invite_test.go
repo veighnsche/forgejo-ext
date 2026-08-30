@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
@@ -20,6 +18,7 @@ import (
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/services/mailer"
 	"forgejo.org/tests"

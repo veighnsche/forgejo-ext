@@ -11,13 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	code_indexer "forgejo.org/modules/indexer/code"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	"forgejo.org/routers"
 	"forgejo.org/tests"

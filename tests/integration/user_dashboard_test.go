@@ -9,11 +9,10 @@ import (
 	"strconv"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/issues"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/gitrepo"
+	"forgejo.org/modules/testhelper"
 	issue_service "forgejo.org/services/issue"
 	pull_service "forgejo.org/services/pull"
 	"forgejo.org/tests/forgery"

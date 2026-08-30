@@ -14,11 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/storage"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers/api/actions"
 	actions_service "forgejo.org/services/actions"
 	"forgejo.org/tests"

@@ -12,8 +12,6 @@ import (
 	neturl "net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	repo_model "forgejo.org/models/repo"
@@ -23,6 +21,7 @@ import (
 	"forgejo.org/modules/json"
 	cargo_module "forgejo.org/modules/packages/cargo"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	cargo_router "forgejo.org/routers/api/packages/cargo"
 	app_context "forgejo.org/services/context"
 	cargo_service "forgejo.org/services/packages/cargo"

@@ -6,9 +6,8 @@ package base
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	migrations_tests "forgejo.org/models/gitea_migrations/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 
 	"code.forgejo.org/xorm/xorm/names"

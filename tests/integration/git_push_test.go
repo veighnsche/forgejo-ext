@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
@@ -18,6 +16,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	repo_module "forgejo.org/modules/repository"
+	"forgejo.org/modules/testhelper"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
 	"forgejo.org/tests"

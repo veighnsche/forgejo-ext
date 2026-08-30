@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/forgefed"
 	"forgejo.org/models/unittest"
 	"forgejo.org/models/user"
@@ -19,6 +17,7 @@ import (
 	forgefed_modules "forgejo.org/modules/forgefed"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers"
 	"forgejo.org/services/contexttest"
 

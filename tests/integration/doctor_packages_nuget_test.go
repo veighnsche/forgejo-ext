@@ -11,8 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	packages_model "forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
@@ -21,6 +19,7 @@ import (
 	packages_module "forgejo.org/modules/packages"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	doctor "forgejo.org/services/doctor"
 	packages_service "forgejo.org/services/packages"
 	"forgejo.org/tests"

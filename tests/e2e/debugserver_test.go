@@ -17,9 +17,8 @@ import (
 	"syscall"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 )
 
 func TestDebugserver(t *testing.T) {

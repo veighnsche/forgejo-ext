@@ -12,8 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	repo_model "forgejo.org/models/repo"
@@ -21,6 +19,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	repo_service "forgejo.org/services/repository"
 

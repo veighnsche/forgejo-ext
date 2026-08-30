@@ -6,14 +6,13 @@ package integration
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	webhook_model "forgejo.org/models/webhook"
+	"forgejo.org/modules/testhelper"
 	repo_service "forgejo.org/services/repository"
 
 	"github.com/stretchr/testify/assert"

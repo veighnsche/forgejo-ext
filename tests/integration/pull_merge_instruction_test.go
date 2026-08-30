@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -18,6 +16,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/gitrepo"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

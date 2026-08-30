@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/unittest"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 
 	"github.com/stretchr/testify/assert"

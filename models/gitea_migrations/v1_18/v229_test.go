@@ -6,10 +6,9 @@ package v1_18
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/models/issues"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -10,8 +10,6 @@ import (
 	"os/exec"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/modules/git"
@@ -19,6 +17,7 @@ import (
 	"forgejo.org/modules/graceful"
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 

@@ -14,8 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
@@ -23,6 +21,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/tests"

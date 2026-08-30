@@ -9,9 +9,8 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers/web/repo"
 	"forgejo.org/services/context"
 	"forgejo.org/services/contexttest"

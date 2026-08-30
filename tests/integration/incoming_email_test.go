@@ -12,13 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/services/mailer/incoming"
 	incoming_payload "forgejo.org/services/mailer/incoming/payload"
 	token_service "forgejo.org/services/mailer/token"

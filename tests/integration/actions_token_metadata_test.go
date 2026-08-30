@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -22,6 +20,7 @@ import (
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	actions_service "forgejo.org/services/actions"
 	"forgejo.org/tests/forgery"
 

@@ -12,8 +12,6 @@ import (
 	"image/png"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -22,6 +20,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/storage"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	doctor "forgejo.org/services/doctor"
 	repo_service "forgejo.org/services/repository"
 	user_service "forgejo.org/services/user"

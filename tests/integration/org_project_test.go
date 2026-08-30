@@ -8,9 +8,8 @@ import (
 	"slices"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	unit_model "forgejo.org/models/unit"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 )
 

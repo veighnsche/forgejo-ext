@@ -4,9 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers/web/healthcheck"
 	"forgejo.org/tests"
 

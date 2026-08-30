@@ -20,8 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -35,6 +33,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	issue_service "forgejo.org/services/issue"
 	"forgejo.org/services/mailer"
 	pull_service "forgejo.org/services/pull"

@@ -25,14 +25,13 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	chef_module "forgejo.org/modules/packages/chef"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	chef_router "forgejo.org/routers/api/packages/chef"
 	auth_service "forgejo.org/services/auth"
 	"forgejo.org/tests"

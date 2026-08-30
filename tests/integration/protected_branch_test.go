@@ -10,11 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	git_model "forgejo.org/models/git"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

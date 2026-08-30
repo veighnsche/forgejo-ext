@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"
 

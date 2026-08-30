@@ -7,11 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/log"
 	ft "forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

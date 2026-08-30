@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
@@ -21,6 +19,7 @@ import (
 	user_model "forgejo.org/models/user"
 	conan_module "forgejo.org/modules/packages/conan"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	conan_router "forgejo.org/routers/api/packages/conan"
 	"forgejo.org/tests"
 

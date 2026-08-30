@@ -15,8 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -31,6 +29,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/services/forms"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"

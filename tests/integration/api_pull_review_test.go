@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -20,6 +18,7 @@ import (
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	issue_service "forgejo.org/services/issue"
 	"forgejo.org/tests"
 

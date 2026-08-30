@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	notify_service "forgejo.org/services/notify"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"

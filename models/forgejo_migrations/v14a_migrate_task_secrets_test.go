@@ -7,13 +7,12 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/keying"
 	"forgejo.org/modules/migration"
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 
 	"github.com/stretchr/testify/assert"

@@ -7,13 +7,12 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

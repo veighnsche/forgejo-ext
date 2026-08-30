@@ -6,11 +6,10 @@ package integration
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	apiv1 "forgejo.org/routers/api/v1"
 	apiv1_permissions_tests "forgejo.org/routers/api/v1/permissions/tests"
 )

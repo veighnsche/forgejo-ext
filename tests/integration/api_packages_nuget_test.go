@@ -17,8 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
@@ -27,6 +25,7 @@ import (
 	nuget_module "forgejo.org/modules/packages/nuget"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/routers/api/packages/nuget"
 	"forgejo.org/tests"
 

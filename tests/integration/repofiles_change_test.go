@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/asymkey"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
@@ -21,6 +19,7 @@ import (
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/testhelper"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/tests"
 

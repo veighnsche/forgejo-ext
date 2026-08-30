@@ -10,8 +10,6 @@ import (
 	"image/png"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	cmd "forgejo.org/cmd"
 	"forgejo.org/models/db"
 	"forgejo.org/models/repo"
@@ -20,6 +18,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/storage"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/require"

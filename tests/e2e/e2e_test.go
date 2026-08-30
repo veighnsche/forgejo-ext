@@ -16,13 +16,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/testlogger"
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"

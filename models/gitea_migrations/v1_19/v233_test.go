@@ -6,12 +6,11 @@ package v1_19
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/secret"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	webhook_module "forgejo.org/modules/webhook"
 
 	"github.com/stretchr/testify/assert"

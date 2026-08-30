@@ -11,14 +11,13 @@ import (
 	"strconv"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/activities"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/translation"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"

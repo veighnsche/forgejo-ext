@@ -12,8 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
@@ -21,6 +19,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/json"
 	vagrant_module "forgejo.org/modules/packages/vagrant"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"

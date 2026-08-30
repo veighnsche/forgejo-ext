@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -18,6 +16,7 @@ import (
 	"forgejo.org/modules/log"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/timeutil"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"

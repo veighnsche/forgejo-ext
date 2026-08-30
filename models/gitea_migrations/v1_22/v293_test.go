@@ -6,11 +6,10 @@ package v1_22
 import (
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	migration_tests "forgejo.org/models/gitea_migrations/test"
 	"forgejo.org/models/project"
+	"forgejo.org/modules/testhelper"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

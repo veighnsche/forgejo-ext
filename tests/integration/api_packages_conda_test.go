@@ -13,13 +13,12 @@ import (
 	"net/http"
 	"testing"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/db"
 	"forgejo.org/models/packages"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	conda_module "forgejo.org/modules/packages/conda"
+	"forgejo.org/modules/testhelper"
 	"forgejo.org/modules/zstd"
 	"forgejo.org/tests"
 

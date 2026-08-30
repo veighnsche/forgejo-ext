@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/modules/translation"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/tests"

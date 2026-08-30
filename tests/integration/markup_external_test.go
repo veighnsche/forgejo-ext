@@ -12,13 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"forgejo.org/modules/testhelper"
-
 	"forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/testhelper"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/tests"
 
