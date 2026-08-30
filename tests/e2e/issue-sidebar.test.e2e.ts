@@ -237,13 +237,13 @@ test('Issue: Milestone', async ({page}) => {
   await milestoneDropdown.click();
   await page.getByRole('option', {name: 'milestone1'}).click();
   await expect(selectedMilestone).toContainText('milestone1');
-  await expect(page.locator('.timeline-item.event').last()).toContainText('user2 added this to the milestone1 milestone');
+  await expect(page.locator('.timeline-item.event').last()).toContainText('user2 (he/him) added this to the milestone1 milestone');
 
   // Clear milestone.
   await milestoneDropdown.click();
   await page.getByText('Clear milestone', {exact: true}).click();
   await expect(selectedMilestone).toContainText('No milestone');
-  await expect(page.locator('.timeline-item.event').last()).toContainText('user2 removed this from the milestone1 milestone');
+  await expect(page.locator('.timeline-item.event').last()).toContainText('user2 (he/him) removed this from the milestone1 milestone');
 });
 
 test('New Issue: Milestone', async ({page}) => {
