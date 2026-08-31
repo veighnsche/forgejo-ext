@@ -247,6 +247,25 @@ func TestFindAllIssueReferences(t *testing.T) {
 				{102, "", "", "102", false, XRefActionCloses, &RefSpan{Start: 56, End: 60}, &RefSpan{Start: 50, End: 55}, "4h15m"},
 			},
 		},
+		{
+			"This merges !100 and closes #200",
+			[]testResult{
+				{100, "", "", "100", true, XRefActionMerges, &RefSpan{Start: 12, End: 16}, &RefSpan{Start: 5, End: 11}, ""},
+				{200, "", "", "200", false, XRefActionCloses, &RefSpan{Start: 28, End: 32}, &RefSpan{Start: 21, End: 27}, ""},
+			},
+		},
+		{
+			"This merges #100",
+			[]testResult{
+				{100, "", "", "100", false, XRefActionMerges, &RefSpan{Start: 12, End: 16}, &RefSpan{Start: 5, End: 11}, ""},
+			},
+		},
+		{
+			"This depends on !100",
+			[]testResult{
+				{100, "", "", "100", true, XRefActionNone, &RefSpan{Start: 16, End: 20}, nil, ""},
+			},
+		},
 	}
 
 	testFixtures(t, fixtures, "default")
