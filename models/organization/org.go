@@ -6,6 +6,7 @@ package organization
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -159,6 +160,15 @@ func (org *Organization) hasMemberWithUserID(ctx context.Context, userID int64) 
 // AvatarLink returns the full avatar link with http host
 func (org *Organization) AvatarLink(ctx context.Context) string {
 	return org.AsUser().AvatarLink(ctx)
+}
+
+// UploadedAvatarLink returns the organization's uploaded avatar link, or an empty string.
+func (org *Organization) UploadedAvatarLink(ctx context.Context) string {
+	// Uploaded avatars use SHA-256 hashes; generated identicons use MD5 hashes.
+	if !org.UseCustomAvatar || len(org.Avatar) != sha256.Size*2 {
+		return ""
+	}
+	return org.AvatarLink(ctx)
 }
 
 // HTMLURL returns the organization's full link.
