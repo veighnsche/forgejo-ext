@@ -4,14 +4,18 @@ import (
 	"context"
 	"slices"
 
+	"forgejo.org/models"
 	issues_model "forgejo.org/models/issues"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
+	"forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
-	"forgejo.org/modules/git"
+	"forgejo.org/modules/log"
 	"forgejo.org/modules/references"
 	repo_module "forgejo.org/modules/repository"
+	"forgejo.org/modules/timeutil"
+	notify_service "forgejo.org/services/notify"
 )
 
 // MergePullCommit checks if pull requests are closed by commit message with `merges #ID`
@@ -26,6 +30,10 @@ func MergePullCommit(ctx context.Context, doer *user_model.User, repo *repo_mode
 		var pr *issues_model.PullRequest
 		var err error
 		for _, ref := range references.FindAllIssueReferences(c.Message) {
+			if ref.Action != references.XRefActionMerges {
+				continue
+			}
+
 			if pr, err = getPullFromRef(ctx, repo, ref.Index); err != nil {
 				if issues_model.IsErrPullRequestNotExist(err) {
 					continue
@@ -38,28 +46,55 @@ func MergePullCommit(ctx context.Context, doer *user_model.User, repo *repo_mode
 				continue
 			}
 
+			if err := pr.LoadBaseRepo(ctx); err != nil {
+				return err
+			}
+
+			if pr.HasMerged {
+				continue
+			}
+
+			// Check if pull is targeting the correct branch
+			if pr.BaseBranch != branchName {
+				continue
+			}
+
+			prUnit, err := pr.BaseRepo.GetUnit(ctx, unit.TypePullRequests)
+			if err != nil {
+				return err
+			}
+			prConfig := prUnit.PullRequestsConfig()
+
+			// Check if merge style is correct and allowed
+			if !prConfig.IsMergeStyleAllowed(repo_model.MergeStyleManuallyMerged) {
+				return models.ErrInvalidMergeStyle{ID: pr.BaseRepo.ID, Style: repo_model.MergeStyleManuallyMerged}
+			}
+
 			perm, err := access_model.GetUserRepoPermission(ctx, repo, doer)
 			if err != nil {
 				return err
 			}
-
-			canmerge := perm.IsAdmin() || perm.IsOwner() || !perm.CanWriteIssuesOrPulls(true)
-
-			if !canmerge {
+			if !perm.IsAdmin() && !perm.IsOwner() && !perm.CanWriteIssuesOrPulls(true) {
 				continue
 			}
 
-			if ref.Action != references.XRefActionMerges {
-				continue
+			pr.MergedCommitID = c.Sha1
+			pr.MergedUnix = timeutil.TimeStamp(c.Timestamp.Unix())
+			pr.Status = issues_model.PullRequestStatusManuallyMerged
+			pr.Merger = doer
+			pr.MergerID = doer.ID
+
+			var merged bool
+			if merged, err = pr.SetMerged(ctx); err != nil {
+				return err
+			} else if !merged {
+				log.Info("manuallyMerged[%d]: Failed to mark as manually merged into %s/%s by commit id: %s", pr.ID, pr.BaseRepo.Name, pr.BaseBranch, c.Sha1)
 			}
 
-			baseGitRepo, err := git.OpenRepository(ctx, repo.RepoPath())
-			if err != nil {
-				return err
-			}
-			if err := MergedManually(ctx, pr, doer, baseGitRepo, c.Sha1); err != nil {
-				return err
-			}
+			notify_service.MergePullRequest(ctx, doer, pr)
+			log.Info("manuallyMerged[%d]: Marked as manually merged into %s/%s by commit id: %s", pr.ID, pr.BaseRepo.Name, pr.BaseBranch, c.Sha1)
+
+			return handleCloseCrossReferences(ctx, pr, doer)
 		}
 	}
 
