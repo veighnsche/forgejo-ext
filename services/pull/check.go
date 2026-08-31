@@ -152,6 +152,10 @@ func CheckPullMergeable(stdCtx context.Context, doer *user_model.User, perm *acc
 
 // isSignedIfRequired check if merge will be signed if required
 func isSignedIfRequired(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, mergeStyle repo_model.MergeStyle) (bool, error) {
+	return isSignedIfRequiredAtHeadCommit(ctx, pr, doer, mergeStyle, pr.GetGitRefName())
+}
+
+func isSignedIfRequiredAtHeadCommit(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, mergeStyle repo_model.MergeStyle, headCommit string) (bool, error) {
 	pb, err := git_model.GetFirstMatchProtectedBranchRule(ctx, pr.BaseRepoID, pr.BaseBranch)
 	if err != nil {
 		return false, err
@@ -165,7 +169,7 @@ func isSignedIfRequired(ctx context.Context, pr *issues_model.PullRequest, doer 
 		return true, nil
 	}
 
-	sign, _, _, err := asymkey_service.SignMerge(ctx, pr, doer, pr.BaseRepo.RepoPath(), pr.BaseBranch, pr.GetGitRefName())
+	sign, _, _, err := asymkey_service.SignMerge(ctx, pr, doer, pr.BaseRepo.RepoPath(), pr.BaseBranch, headCommit)
 
 	return sign, err
 }

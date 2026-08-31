@@ -90,6 +90,25 @@ func IsPullCommitStatusPass(ctx context.Context, pr *issues_model.PullRequest) (
 	return state.IsSuccess(), nil
 }
 
+// isPullCommitStatusPassForSHA returns whether the required status checks pass
+// for the specified commit. Callers that have pinned a pull request head must
+// use this rather than resolving the current head branch again.
+func isPullCommitStatusPassForSHA(ctx context.Context, pr *issues_model.PullRequest, sha string) (bool, error) {
+	pb, err := git_model.GetFirstMatchProtectedBranchRule(ctx, pr.BaseRepoID, pr.BaseBranch)
+	if err != nil {
+		return false, fmt.Errorf("GetFirstMatchProtectedBranchRule: %w", err)
+	}
+	if pb == nil || !pb.EnableStatusCheck {
+		return true, nil
+	}
+
+	state, err := getPullRequestCommitStatusStateForSHA(ctx, pr, sha)
+	if err != nil {
+		return false, err
+	}
+	return state.IsSuccess(), nil
+}
+
 // GetPullRequestCommitStatusState returns pull request merged commit status state
 func GetPullRequestCommitStatusState(ctx context.Context, pr *issues_model.PullRequest) (structs.CommitStatusState, error) {
 	// Ensure HeadRepo is loaded
@@ -121,6 +140,10 @@ func GetPullRequestCommitStatusState(ctx context.Context, pr *issues_model.PullR
 		return "", err
 	}
 
+	return getPullRequestCommitStatusStateForSHA(ctx, pr, sha)
+}
+
+func getPullRequestCommitStatusStateForSHA(ctx context.Context, pr *issues_model.PullRequest, sha string) (structs.CommitStatusState, error) {
 	if err := pr.LoadBaseRepo(ctx); err != nil {
 		return "", fmt.Errorf("LoadBaseRepo: %w", err)
 	}

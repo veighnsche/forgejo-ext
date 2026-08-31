@@ -164,14 +164,20 @@ func testPatch(ctx context.Context, pr *issues_model.PullRequest) (*testPatchCon
 	if err != nil {
 		return testPatchCtx, fmt.Errorf("getTestPatchCtx: %w", err)
 	}
+	return testPatchCtx, testPatchWithContext(ctx, pr, testPatchCtx)
+}
 
+// testPatchWithContext calculates a pull request's mergeability using an
+// already-created test patch context. The caller owns testPatchCtx.close.
+func testPatchWithContext(ctx context.Context, pr *issues_model.PullRequest, testPatchCtx *testPatchContext) error {
 	// 1. update merge base
+	var err error
 	pr.MergeBase, _, err = git.NewCommand(ctx, "merge-base").AddDashesAndList(testPatchCtx.baseRev, testPatchCtx.headRev).RunStdString(&git.RunOpts{Dir: testPatchCtx.gitRepo.Path, Env: testPatchCtx.env})
 	if err != nil {
 		var err2 error
 		pr.MergeBase, err2 = testPatchCtx.gitRepo.GetRefCommitID(testPatchCtx.baseRev)
 		if err2 != nil {
-			return testPatchCtx, fmt.Errorf("GetMergeBase: %v and can't find commit ID for base: %w", err, err2)
+			return fmt.Errorf("GetMergeBase: %v and can't find commit ID for base: %w", err, err2)
 		}
 	}
 	pr.MergeBase = strings.TrimSpace(pr.MergeBase)
@@ -180,7 +186,7 @@ func testPatch(ctx context.Context, pr *issues_model.PullRequest) (*testPatchCon
 		pr.HeadCommitID = testPatchCtx.headRev
 	} else {
 		if pr.HeadCommitID, err = testPatchCtx.gitRepo.GetRefCommitID(testPatchCtx.headRev); err != nil {
-			return testPatchCtx, fmt.Errorf("GetRefCommitID: can't find commit ID for head: %w", err)
+			return fmt.Errorf("GetRefCommitID: can't find commit ID for head: %w", err)
 		}
 	}
 
@@ -188,20 +194,20 @@ func testPatch(ctx context.Context, pr *issues_model.PullRequest) (*testPatchCon
 	// head commit is a parent of the base commit.
 	if pr.HeadCommitID == pr.MergeBase {
 		pr.Status = issues_model.PullRequestStatusAncestor
-		return testPatchCtx, nil
+		return nil
 	}
 
 	// 2. Check for conflicts
 	if conflicts, err := checkConflicts(ctx, pr, testPatchCtx); err != nil || conflicts || pr.Status == issues_model.PullRequestStatusEmpty {
 		if err != nil {
-			return testPatchCtx, fmt.Errorf("checkConflicts: %w", err)
+			return fmt.Errorf("checkConflicts: %w", err)
 		}
-		return testPatchCtx, nil
+		return nil
 	}
 
 	// 3. Check for protected files changes
 	if err = checkPullFilesProtection(ctx, pr, testPatchCtx); err != nil {
-		return testPatchCtx, fmt.Errorf("checkPullFilesProtection: %v", err)
+		return fmt.Errorf("checkPullFilesProtection: %v", err)
 	}
 
 	if len(pr.ChangedProtectedFiles) > 0 {
@@ -210,7 +216,7 @@ func testPatch(ctx context.Context, pr *issues_model.PullRequest) (*testPatchCon
 
 	pr.Status = issues_model.PullRequestStatusMergeable
 
-	return testPatchCtx, nil
+	return nil
 }
 
 type errMergeConflict struct {

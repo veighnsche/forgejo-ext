@@ -206,7 +206,13 @@ func GetDefaultMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr
 // Caller should check PR is ready to be merged (review and status checks)
 func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, baseGitRepo *git.Repository, mergeStyle repo_model.MergeStyle, expectedHeadCommitID, message string, wasAutoMerged bool) error {
 	defer pullWorkingPool.Lock(fmt.Sprint(pr.ID))()
+	return merge(ctx, pr, doer, baseGitRepo, mergeStyle, expectedHeadCommitID, "", "", message, wasAutoMerged)
+}
 
+// merge merges a pull request while its pullWorkingPool lock is held. When
+// expectedBaseBranch and expectedBaseCommitID are set, they must still match
+// the pull request target and fetched base commit before any merge work begins.
+func merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, baseGitRepo *git.Repository, mergeStyle repo_model.MergeStyle, expectedHeadCommitID, expectedBaseBranch, expectedBaseCommitID, message string, wasAutoMerged bool) error {
 	pr, err := issues_model.GetPullRequestByID(ctx, pr.ID)
 	if err != nil {
 		log.Error("Unable to load pull request itself: %v", err)
@@ -222,6 +228,9 @@ func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.U
 			HeadBranch: pr.HeadBranch,
 			BaseBranch: pr.BaseBranch,
 		}
+	}
+	if expectedBaseBranch != "" && pr.BaseBranch != expectedBaseBranch {
+		return ErrPullRequestBaseBranchChanged
 	}
 
 	if err := pr.LoadIssue(ctx); err != nil {
@@ -251,7 +260,7 @@ func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.U
 		AddTestPullRequestTask(ctx, doer, pr.BaseRepo.ID, pr.BaseBranch, false, "", "", 0)
 	}()
 
-	_, err = doMergeAndPush(ctx, pr, doer, mergeStyle, expectedHeadCommitID, message, repo_module.PushTriggerPRMergeToBase)
+	_, err = doMergeAndPushWithExpectedBase(ctx, pr, doer, mergeStyle, expectedHeadCommitID, expectedBaseBranch, expectedBaseCommitID, message, repo_module.PushTriggerPRMergeToBase)
 	if err != nil {
 		return err
 	}
@@ -315,12 +324,33 @@ func handleCloseCrossReferences(ctx context.Context, pr *issues_model.PullReques
 
 // doMergeAndPush performs the merge operation without changing any pull information in database and pushes it up to the base repository
 func doMergeAndPush(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, mergeStyle repo_model.MergeStyle, expectedHeadCommitID, message string, pushTrigger repo_module.PushTrigger) (string, error) { //nolint:unparam
+	return doMergeAndPushWithExpectedBase(ctx, pr, doer, mergeStyle, expectedHeadCommitID, "", "", message, pushTrigger)
+}
+
+// doMergeAndPushWithExpectedBase performs the merge operation and pushes it to
+// the base repository. When expected base values are set, the pull request
+// target and fetched base must still match the values checked before the merge.
+func doMergeAndPushWithExpectedBase(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, mergeStyle repo_model.MergeStyle, expectedHeadCommitID, expectedBaseBranch, expectedBaseCommitID, message string, pushTrigger repo_module.PushTrigger) (string, error) { //nolint:unparam
+	if err := checkExpectedBaseBranch(ctx, pr.ID, expectedBaseBranch); err != nil {
+		return "", err
+	}
+
 	// Clone base repo.
 	mergeCtx, cancel, err := createTemporaryRepoForMerge(ctx, pr, doer, expectedHeadCommitID)
 	if err != nil {
 		return "", err
 	}
 	defer cancel()
+
+	if expectedBaseCommitID != "" {
+		currentBaseCommitID, err := git.GetFullCommitID(ctx, mergeCtx.tmpBasePath, "original_"+baseBranch)
+		if err != nil {
+			return "", fmt.Errorf("get current base commit ID: %w", err)
+		}
+		if strings.TrimSpace(currentBaseCommitID) != expectedBaseCommitID {
+			return "", ErrPullRequestBaseCommitChanged
+		}
+	}
 
 	// Merge commits.
 	switch mergeStyle {
@@ -389,6 +419,9 @@ func doMergeAndPush(ctx context.Context, pr *issues_model.PullRequest, doer *use
 	)
 
 	mergeCtx.env = append(mergeCtx.env, repo_module.EnvPushTrigger+"="+string(pushTrigger))
+	if err := checkExpectedBaseBranch(ctx, pr.ID, expectedBaseBranch); err != nil {
+		return "", err
+	}
 	pushCmd := git.NewCommand(ctx, "push", "origin").AddDynamicArguments(baseBranch + ":" + git.BranchPrefix + pr.BaseBranch)
 
 	// Push back to upstream.
@@ -416,6 +449,20 @@ func doMergeAndPush(ctx context.Context, pr *issues_model.PullRequest, doer *use
 	mergeCtx.errbuf.Reset()
 
 	return mergeCommitID, nil
+}
+
+func checkExpectedBaseBranch(ctx context.Context, pullID int64, expectedBaseBranch string) error {
+	if expectedBaseBranch == "" {
+		return nil
+	}
+	pr, err := issues_model.GetPullRequestByID(ctx, pullID)
+	if err != nil {
+		return fmt.Errorf("get pull request while checking base branch: %w", err)
+	}
+	if pr.BaseBranch != expectedBaseBranch {
+		return ErrPullRequestBaseBranchChanged
+	}
+	return nil
 }
 
 func commitAndSignNoAuthor(ctx *mergeContext, message string) error {
