@@ -1752,6 +1752,7 @@ func registerRoutes(m *web.Route) {
 				}, reqSignIn, reqRepoCodeWriter)
 			})
 			m.Post("/merge", context.RepoMustNotBeArchived(), web.Bind(forms.MergePullRequestForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeGitAll, context.QuotaTargetRepo), repo.MergePullRequest)
+			m.Post("/merge-from-list", reqSignIn, context.RepoMustNotBeArchived(), reqRepoCodeReader, web.Bind(forms.MergePullRequestFromListForm{}), context.EnforceQuotaWeb(quota_model.LimitSubjectSizeGitAll, context.QuotaTargetRepo), repo.MergePullRequestFromList)
 			m.Post("/cancel_auto_merge", context.RepoMustNotBeArchived(), repo.CancelAutoMergePullRequest)
 			m.Post("/update", repo.UpdatePullRequest)
 			m.Post("/set_allow_maintainer_edit", web.Bind(forms.UpdateAllowEditsForm{}), repo.SetAllowEdits)

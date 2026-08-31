@@ -673,6 +673,13 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 		return
 	}
 	ctx.Data["Issues"] = issues
+	if unitType == unit.TypePullRequests {
+		ctx.Data["PullRequestMergeInfo"], err = pull_service.GetListMergeInfo(ctx, issues, ctx.Doer, ctx.Authentication.Reducer())
+		if err != nil {
+			ctx.ServerError("GetListMergeInfo", err)
+			return
+		}
+	}
 
 	approvalCounts, err := issues.GetApprovalCounts(ctx)
 	if err != nil {

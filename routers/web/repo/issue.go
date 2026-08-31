@@ -355,6 +355,13 @@ func issues(ctx *context.Context, milestoneID, projectID int64, isPullOption opt
 	}
 
 	ctx.Data["Issues"] = issues
+	if isPullOption.ValueOrZeroValue() {
+		ctx.Data["PullRequestMergeInfo"], err = pull_service.GetListMergeInfo(ctx, issues, ctx.Doer, ctx.Authentication.Reducer())
+		if err != nil {
+			ctx.ServerError("GetListMergeInfo", err)
+			return
+		}
+	}
 	ctx.Data["CommitLastStatus"] = lastStatus
 	ctx.Data["CommitStatuses"] = commitStatuses
 

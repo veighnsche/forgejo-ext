@@ -463,6 +463,19 @@ func (f *MergePullRequestForm) Validate(req *http.Request, errs binding.Errors) 
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }
 
+// MergePullRequestFromListForm deliberately excludes force and scheduled merges.
+type MergePullRequestFromListForm struct {
+	Do                     string `binding:"Required;In(default,merge,rebase,rebase-merge,squash,fast-forward-only)"`
+	HeadCommitID           string `binding:"Required" json:"head_commit_id"`
+	BaseBranch             string `binding:"Required" json:"base_branch"`
+	DeleteBranchAfterMerge bool   `json:"delete_branch_after_merge"`
+}
+
+func (f *MergePullRequestFromListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	ctx := context.GetValidateContext(req)
+	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
+}
+
 // CodeCommentForm form for adding code comments for PRs
 type CodeCommentForm struct {
 	Origin          string `binding:"Required;In(timeline,diff)"`
