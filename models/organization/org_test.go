@@ -7,6 +7,7 @@ import (
 	"sort"
 	"testing"
 
+	"forgejo.org/models/avatars"
 	"forgejo.org/models/db"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
@@ -14,11 +15,55 @@ import (
 	"forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/avatar"
+	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
+	"forgejo.org/modules/test"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestOrganizationUploadedAvatarLink(t *testing.T) {
+	defer test.MockVariableValue(&setting.AppURL, "https://localhost/")()
+	defer test.MockVariableValue(&setting.AppSubURL, "")()
+
+	uploadedHash := avatar.HashAvatar(1, []byte("uploaded avatar"))
+	for _, testCase := range []struct {
+		name            string
+		useCustomAvatar bool
+		avatar          string
+		expected        string
+	}{
+		{"disabled custom avatar", false, uploadedHash, ""},
+		{"empty avatar", true, "", ""},
+		{"generated avatar", true, avatars.HashEmail("org"), ""},
+		{"short avatar hash", true, uploadedHash[:len(uploadedHash)-1], ""},
+		{"long avatar hash", true, uploadedHash + "a", ""},
+		{"uploaded avatar", true, uploadedHash, "https://localhost/avatars/" + uploadedHash},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			org := &organization.Organization{
+				ID:              1,
+				UseCustomAvatar: testCase.useCustomAvatar,
+				Avatar:          testCase.avatar,
+			}
+			assert.Equal(t, testCase.expected, org.UploadedAvatarLink(db.DefaultContext))
+		})
+	}
+
+	t.Run("installation subpath", func(t *testing.T) {
+		defer test.MockVariableValue(&setting.AppURL, "https://localhost/sub-path/")()
+		defer test.MockVariableValue(&setting.AppSubURL, "/sub-path")()
+
+		org := &organization.Organization{
+			ID:              1,
+			UseCustomAvatar: true,
+			Avatar:          uploadedHash,
+		}
+		assert.Equal(t, "https://localhost/sub-path/avatars/"+uploadedHash, org.UploadedAvatarLink(db.DefaultContext))
+	})
+}
 
 func TestUser_IsOwnedBy(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
