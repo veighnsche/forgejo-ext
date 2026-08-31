@@ -842,14 +842,21 @@ func TestProjectWebRenderNewProject(t *testing.T) {
 
 func TestProjectWebCreateProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	user2 := loginUser(t, "user2")
+	unittest.LoadFixtures()
+
+	// create test user, organization, repository
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+
 	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects",
-		"Organization": "/org3/-/projects",
-		"Repository":   "/user2/repo1/projects",
+		"User":         fmt.Sprintf("/%s/-/projects", user.Name),
+		"Organization": fmt.Sprintf("/%s/-/projects", org.Name),
+		"Repository":   fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+			session := loginUser(t, user.Name)
 			projectOpts := forms_service.CreateProjectForm{
 				Title:        "TestProjectWebCreateProject Project 1",
 				Content:      "TestProjectWebCreateProject Test Content",
@@ -858,10 +865,10 @@ func TestProjectWebCreateProject(t *testing.T) {
 			}
 
 			// create project
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL+"/new", &projectOpts), http.StatusSeeOther)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL+"/new", &projectOpts), http.StatusSeeOther)
 
 			// check project was created
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+			resp := session.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
 			// template: templates/projects/list.tmpl
 			// template lines:
