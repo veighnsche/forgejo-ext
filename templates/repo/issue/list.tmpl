@@ -46,10 +46,18 @@
 				{{end}}
 			</div>
 			<div class="issue-list-toolbar-right">
-				{{template "repo/issue/filter_actions" .}}
+				{{if .PullRequestMergeInfo}}
+					{{template "shared/pull-list-merge-button" .}}
+				{{end}}
+				{{if .CanWriteIssuesOrPulls}}
+					{{template "repo/issue/filter_actions" .}}
+				{{end}}
 			</div>
 		</div>
 		{{template "shared/issuelist" dict "." . "listType" "repo"}}
+		{{if .PullRequestMergeInfo}}
+			{{template "shared/pull-list-merge" .}}
+		{{end}}
 	</div>
 </div>
 {{template "base/footer" .}}

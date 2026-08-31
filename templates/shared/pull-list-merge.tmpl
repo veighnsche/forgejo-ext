@@ -1,0 +1,51 @@
+<dialog id="pull-list-merge-dialog" aria-labelledby="pull-list-merge-title"
+	data-waiting="{{ctx.Locale.Tr "repo.pulls.bulk_merge_waiting"}}"
+	data-running="{{ctx.Locale.Tr "repo.pulls.bulk_merge_running"}}"
+	data-merged="{{ctx.Locale.Tr "repo.pulls.merged"}}"
+	data-skipped="{{ctx.Locale.Tr "repo.pulls.bulk_merge_skipped"}}"
+	data-stopped="{{ctx.Locale.Tr "repo.pulls.bulk_merge_stopped"}}"
+	data-unknown="{{ctx.Locale.Tr "repo.pulls.bulk_merge_unknown"}}"
+	data-request-failed="{{ctx.Locale.Tr "repo.pulls.bulk_merge_request_failed"}}"
+	data-summary="{{ctx.Locale.Tr "repo.pulls.bulk_merge_summary"}}"
+	data-close="{{ctx.Locale.Tr "modal.close"}}"
+	data-cancel="{{ctx.Locale.Tr "cancel"}}">
+	<article>
+		<header id="pull-list-merge-title">{{ctx.Locale.Tr "repo.pulls.bulk_merge_title"}}</header>
+		<div class="content">
+			<p>{{ctx.Locale.Tr "repo.pulls.bulk_merge_description"}}</p>
+			<form class="ui form ignore-dirty" id="pull-list-merge-options">
+				<div class="field">
+					<label for="pull-list-merge-style">{{ctx.Locale.Tr "repo.pulls.bulk_merge_method"}}</label>
+					<select id="pull-list-merge-style" name="do">
+						<option value="default">{{ctx.Locale.Tr "repo.pulls.bulk_merge_default"}}</option>
+						<option value="merge">{{ctx.Locale.Tr "repo.pulls.merge_pull_request"}}</option>
+						<option value="squash">{{ctx.Locale.Tr "repo.pulls.squash_merge_pull_request"}}</option>
+						<option value="rebase">{{ctx.Locale.Tr "repo.pulls.rebase_merge_pull_request"}}</option>
+						<option value="rebase-merge">{{ctx.Locale.Tr "repo.pulls.rebase_merge_commit_pull_request"}}</option>
+						<option value="fast-forward-only">{{ctx.Locale.Tr "repo.pulls.fast_forward_only_merge_pull_request"}}</option>
+					</select>
+				</div>
+				<div class="field">
+					<label class="tw-flex tw-items-center tw-gap-2">
+						<input type="checkbox" name="delete_branch_after_merge">
+						{{ctx.Locale.Tr "repo.pulls.bulk_merge_delete"}}
+					</label>
+				</div>
+				<div class="field">
+					<label class="tw-flex tw-items-center tw-gap-2">
+						<input type="checkbox" name="continue_on_failure">
+						{{ctx.Locale.Tr "repo.pulls.bulk_merge_continue"}}
+					</label>
+					<p class="help">{{ctx.Locale.Tr "repo.pulls.bulk_merge_stop_help"}}</p>
+				</div>
+			</form>
+			<ol class="pull-list-merge-results"></ol>
+			<p id="pull-list-merge-summary" role="status" aria-live="polite"></p>
+		</div>
+		<footer class="actions tw-flex-wrap">
+			<button type="button" class="ui basic button cancel">{{ctx.Locale.Tr "cancel"}}</button>
+			<button type="button" class="ui primary button ok"></button>
+			<button type="button" class="ui primary button tw-hidden reload">{{ctx.Locale.Tr "repo.pulls.bulk_merge_refresh"}}</button>
+		</footer>
+	</article>
+</dialog>

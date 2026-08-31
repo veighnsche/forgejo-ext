@@ -17,6 +17,34 @@
   flex-wrap: wrap;
 }
 
+#issue-actions .issue-list-toolbar-right,
+.pull-list-merge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#pull-list-merge-dialog {
+  width: 720px;
+}
+
+.pull-list-merge-results {
+  max-block-size: 22rem;
+  overflow-block: auto;
+  padding-inline-start: 1.5rem;
+}
+
+.pull-list-merge-results > li {
+  padding-block: 0.75rem;
+  border-block-end: 1px solid var(--color-secondary);
+  overflow-wrap: anywhere;
+}
+
+.pull-list-merge-results p {
+  margin-block: 0.25rem 0;
+}
+
 .issue-list-new.button {
   margin-inline-end: 0;
 }

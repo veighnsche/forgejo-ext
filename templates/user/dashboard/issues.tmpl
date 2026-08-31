@@ -114,7 +114,18 @@
 				</div>
 			</div>
 		</div>
+		{{if .PullRequestMergeInfo}}
+			<div class="issue-list-toolbar">
+				<div class="issue-list-toolbar-left">
+					<input type="checkbox" autocomplete="off" class="issue-checkbox-all tw-mr-4" aria-label="{{ctx.Locale.Tr "repo.issues.action_check_all"}}">
+					{{template "shared/pull-list-merge-button" .}}
+				</div>
+			</div>
+		{{end}}
 		{{template "shared/issuelist" dict "." . "listType" "dashboard"}}
+		{{if .PullRequestMergeInfo}}
+			{{template "shared/pull-list-merge" .}}
+		{{end}}
 	</div>
 </div>
 {{template "base/footer" .}}

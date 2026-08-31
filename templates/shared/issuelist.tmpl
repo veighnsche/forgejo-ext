@@ -4,8 +4,15 @@
 		<div class="flex-item">
 
 			<div class="flex-item-icon">
-				{{if $.CanWriteIssuesOrPulls}}
-				<input type="checkbox" autocomplete="off" class="issue-checkbox tw-mr-4" data-issue-id={{.ID}} aria-label="{{ctx.Locale.Tr "repo.issues.action_check"}} &quot;{{.Title}}&quot;">
+				{{$mergeInfo := and $.PullRequestMergeInfo (index $.PullRequestMergeInfo .ID)}}
+				{{if or $.CanWriteIssuesOrPulls $mergeInfo}}
+				<input type="checkbox" autocomplete="off" class="issue-checkbox tw-mr-4" data-issue-id="{{.ID}}" aria-label="{{ctx.Locale.Tr "repo.issues.action_check"}} &quot;{{.Title}}&quot;"
+					{{if $mergeInfo}}
+						data-pull-merge-url="{{.Link}}/merge-from-list"
+						data-head-commit-id="{{$mergeInfo.HeadCommitID}}"
+						data-base-branch="{{.PullRequest.BaseBranch}}"
+						data-pull-label="{{.Repo.FullName}}#{{.Index}}"
+					{{end}}>
 				{{end}}
 				{{template "shared/issueicon" .}}
 			</div>

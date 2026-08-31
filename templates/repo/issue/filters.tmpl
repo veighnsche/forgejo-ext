@@ -1,6 +1,6 @@
 <div id="issue-filters" class="issue-list-toolbar">
 	<div class="issue-list-toolbar-left">
-		{{if and $.CanWriteIssuesOrPulls .Issues}}
+		{{if and (or $.CanWriteIssuesOrPulls .PullRequestMergeInfo) .Issues}}
 			<input type="checkbox" autocomplete="off" class="issue-checkbox-all tw-mr-4" title="{{ctx.Locale.Tr "repo.issues.action_check_all"}}">
 		{{end}}
 		{{template "repo/issue/openclose" .}}
