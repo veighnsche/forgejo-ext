@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	actions_model "forgejo.org/models/actions"
+	"forgejo.org/models/avatars"
 	"forgejo.org/models/db"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
@@ -162,13 +163,14 @@ func (org *Organization) AvatarLink(ctx context.Context) string {
 	return org.AsUser().AvatarLink(ctx)
 }
 
-// UploadedAvatarLink returns the organization's uploaded avatar link, or an empty string.
-func (org *Organization) UploadedAvatarLink(ctx context.Context) string {
+// UploadedAvatarLink returns the organization's uploaded avatar link for the given display size,
+// or an empty string if no avatar was uploaded.
+func (org *Organization) UploadedAvatarLink(size int) string {
 	// Uploaded avatars use SHA-256 hashes; generated identicons use MD5 hashes.
 	if !org.UseCustomAvatar || len(org.Avatar) != sha256.Size*2 {
 		return ""
 	}
-	return org.AvatarLink(ctx)
+	return avatars.GenerateUserResizedAvatarLink(org.Avatar, size*setting.Avatar.RenderedSizeFactor)
 }
 
 // HTMLURL returns the organization's full link.

@@ -25,43 +25,52 @@ import (
 )
 
 func TestOrganizationUploadedAvatarLink(t *testing.T) {
-	defer test.MockVariableValue(&setting.AppURL, "https://localhost/")()
 	defer test.MockVariableValue(&setting.AppSubURL, "")()
+	defer test.MockVariableValue(&setting.Avatar.RenderedSizeFactor, 2)()
 
 	uploadedHash := avatar.HashAvatar(1, []byte("uploaded avatar"))
 	for _, testCase := range []struct {
 		name            string
 		useCustomAvatar bool
 		avatar          string
+		size            int
 		expected        string
 	}{
-		{"disabled custom avatar", false, uploadedHash, ""},
-		{"empty avatar", true, "", ""},
-		{"generated avatar", true, avatars.HashEmail("org"), ""},
-		{"short avatar hash", true, uploadedHash[:len(uploadedHash)-1], ""},
-		{"long avatar hash", true, uploadedHash + "a", ""},
-		{"uploaded avatar", true, uploadedHash, "https://localhost/avatars/" + uploadedHash},
+		{"disabled custom avatar", false, uploadedHash, 16, ""},
+		{"empty avatar", true, "", 16, ""},
+		{"generated avatar", true, avatars.HashEmail("org"), 16, ""},
+		{"short avatar hash", true, uploadedHash[:len(uploadedHash)-1], 16, ""},
+		{"long avatar hash", true, uploadedHash + "a", 16, ""},
+		{"uploaded avatar", true, uploadedHash, 16, "/avatars/" + uploadedHash + "?size=64"},
+		{"larger display size", true, uploadedHash, 64, "/avatars/" + uploadedHash + "?size=128"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			org := &organization.Organization{
-				ID:              1,
 				UseCustomAvatar: testCase.useCustomAvatar,
 				Avatar:          testCase.avatar,
 			}
-			assert.Equal(t, testCase.expected, org.UploadedAvatarLink(db.DefaultContext))
+			assert.Equal(t, testCase.expected, org.UploadedAvatarLink(testCase.size))
 		})
 	}
 
 	t.Run("installation subpath", func(t *testing.T) {
-		defer test.MockVariableValue(&setting.AppURL, "https://localhost/sub-path/")()
 		defer test.MockVariableValue(&setting.AppSubURL, "/sub-path")()
 
 		org := &organization.Organization{
-			ID:              1,
 			UseCustomAvatar: true,
 			Avatar:          uploadedHash,
 		}
-		assert.Equal(t, "https://localhost/sub-path/avatars/"+uploadedHash, org.UploadedAvatarLink(db.DefaultContext))
+		assert.Equal(t, "/sub-path/avatars/"+uploadedHash+"?size=64", org.UploadedAvatarLink(16))
+	})
+
+	t.Run("rendered size factor", func(t *testing.T) {
+		defer test.MockVariableValue(&setting.Avatar.RenderedSizeFactor, 5)()
+
+		org := &organization.Organization{
+			UseCustomAvatar: true,
+			Avatar:          uploadedHash,
+		}
+		assert.Equal(t, "/avatars/"+uploadedHash+"?size=128", org.UploadedAvatarLink(16))
 	})
 }
 
