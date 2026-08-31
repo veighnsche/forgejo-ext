@@ -6,6 +6,41 @@ const reIssueIndex = /^(\d+)$/; // eg: "123"
 const reIssueSharpIndex = /^#(\d+)$/; // eg: "#123"
 const reIssueOwnerRepoIndex = /^([-.\w]+)\/([-.\w]+)#(\d+)$/;  // eg: "{owner}/{repo}#{index}"
 
+// Repository metadata actions and dashboard merges share the same selection.
+export function initCommonIssueListSelection() {
+  const issueList = document.querySelector('#issue-list');
+  const selectAll = document.querySelector('.issue-checkbox-all');
+  if (!issueList || !selectAll) return;
+  const checkboxes = Array.from(issueList.querySelectorAll('.issue-checkbox'));
+  const filters = document.querySelector('#issue-filters');
+  const actions = document.querySelector('#issue-actions');
+
+  const sync = () => {
+    const available = checkboxes.filter((el) => !el.disabled);
+    const selected = available.filter((el) => el.checked);
+    selectAll.checked = selected.length > 0 && selected.length === available.length;
+    selectAll.indeterminate = selected.length > 0 && selected.length < available.length;
+    selectAll.disabled = available.length === 0;
+    if (filters && actions) {
+      toggleElem(filters, selected.length === 0);
+      toggleElem(actions, selected.length > 0);
+      const panel = selected.length > 0 ? actions : filters;
+      panel.querySelector('.issue-list-toolbar-left').prepend(selectAll);
+    }
+    issueList.dispatchEvent(new CustomEvent('issue-selection-change'));
+  };
+  for (const checkbox of checkboxes) {
+    checkbox.addEventListener('change', sync);
+  }
+  selectAll.addEventListener('change', () => {
+    for (const checkbox of checkboxes) {
+      if (!checkbox.disabled) checkbox.checked = selectAll.checked;
+    }
+    sync();
+  });
+  sync();
+}
+
 // if the searchText can be parsed to an "issue goto link", return the link, otherwise return empty string
 export function parseIssueListQuickGotoLink(repoLink, searchText) {
   searchText = searchText.trim();

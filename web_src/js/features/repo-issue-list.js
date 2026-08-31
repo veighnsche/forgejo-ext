@@ -1,6 +1,6 @@
 import $ from 'jquery';
 import {updateIssuesMeta} from './repo-issue.js';
-import {toggleElem, hideElem, isElemHidden} from '../utils/dom.js';
+import {hideElem} from '../utils/dom.js';
 import {htmlEscape} from 'escape-goat';
 import {showErrorToast} from '../modules/toast.js';
 import {createSortable} from '../modules/sortable.js';
@@ -8,47 +8,7 @@ import {DELETE, POST} from '../modules/fetch.js';
 import {parseDom} from '../utils.js';
 import {showModal} from '../modules/modal.ts';
 
-function initRepoIssueListCheckboxes() {
-  const issueSelectAll = document.querySelector('.issue-checkbox-all');
-  if (!issueSelectAll) return; // logged out state
-  const issueCheckboxes = document.querySelectorAll('.issue-checkbox');
-
-  const syncIssueSelectionState = () => {
-    const checkedCheckboxes = Array.from(issueCheckboxes).filter((el) => el.checked);
-    const anyChecked = Boolean(checkedCheckboxes.length);
-    const allChecked = anyChecked && checkedCheckboxes.length === issueCheckboxes.length;
-
-    if (allChecked) {
-      issueSelectAll.checked = true;
-      issueSelectAll.indeterminate = false;
-    } else if (anyChecked) {
-      issueSelectAll.checked = false;
-      issueSelectAll.indeterminate = true;
-    } else {
-      issueSelectAll.checked = false;
-      issueSelectAll.indeterminate = false;
-    }
-    // if any issue is selected, show the action panel, otherwise show the filter panel
-    toggleElem($('#issue-filters'), !anyChecked);
-    toggleElem($('#issue-actions'), anyChecked);
-    // there are two panels but only one select-all checkbox, so move the checkbox to the visible panel
-    const panels = document.querySelectorAll('#issue-filters, #issue-actions');
-    const visiblePanel = Array.from(panels).find((el) => !isElemHidden(el));
-    const toolbarLeft = visiblePanel.querySelector('.issue-list-toolbar-left');
-    toolbarLeft.prepend(issueSelectAll);
-  };
-
-  for (const el of issueCheckboxes) {
-    el.addEventListener('change', syncIssueSelectionState);
-  }
-
-  issueSelectAll.addEventListener('change', () => {
-    for (const el of issueCheckboxes) {
-      el.checked = issueSelectAll.checked;
-    }
-    syncIssueSelectionState();
-  });
-
+function initRepoIssueListActions() {
   $('.issue-action').on('click', async function (e) {
     e.preventDefault();
 
@@ -240,7 +200,7 @@ function initArchivedLabelFilter() {
 
 export function initRepoIssueList() {
   if (!document.querySelectorAll('.page-content.repository.issue-list, .page-content.repository.milestone-issue-list').length) return;
-  initRepoIssueListCheckboxes();
+  initRepoIssueListActions();
   initRepoIssueListAuthorDropdown();
   initIssuePinSort();
   initArchivedLabelFilter();

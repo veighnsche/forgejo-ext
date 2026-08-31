@@ -80,7 +80,8 @@ import {initDropdowns} from './modules/dropdown.ts';
 import {initGiteaFomantic} from './modules/fomantic.js';
 import {onDomReady} from './utils/dom.js';
 import {initRepoIssueList} from './features/repo-issue-list.js';
-import {initCommonIssueListQuickGoto} from './features/common-issue-list.js';
+import {initCommonIssueListQuickGoto, initCommonIssueListSelection} from './features/common-issue-list.js';
+import {initPullRequestListMerge} from './features/pull-list.js';
 import {initRepoContributors} from './features/contributors.js';
 import {initRepoCodeFrequency} from './features/code-frequency.js';
 import {initRepoRecentCommits} from './features/recent-commits.js';
@@ -112,6 +113,8 @@ onDomReady(() => {
 
   initCommonOrganization();
   initCommonIssueListQuickGoto();
+  initCommonIssueListSelection();
+  initPullRequestListMerge();
 
   initCompSearchUserBox();
   initCompWebHookEditor();
