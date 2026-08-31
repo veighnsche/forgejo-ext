@@ -8,67 +8,73 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"forgejo.org/models/db"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestTaskStepSummary(t *testing.T) {
+func TestSaveTaskStepSummaries(t *testing.T) {
+	t.Run("SaveAndUpdate", func(t *testing.T) {
+		require.NoError(t, unittest.PrepareTestDatabase())
+		const taskID, repoID = int64(47), int64(4)
+		stepOne := &ActionTaskStep{TaskID: taskID, Index: 0, RepoID: repoID}
+		stepTwo := &ActionTaskStep{TaskID: taskID, Index: 1, RepoID: repoID}
+		unittest.AssertSuccessfulInsert(t, stepOne, stepTwo)
+
+		require.NoError(t, SaveTaskStepSummaries(t.Context(),
+			&ActionTaskStepSummary{StepID: stepTwo.ID, TaskID: taskID, RepoID: repoID, Content: "## second"},
+			&ActionTaskStepSummary{StepID: stepOne.ID, TaskID: taskID, RepoID: repoID, Content: "## first"},
+		))
+		summaries, err := GetTaskStepSummaries(t.Context(), taskID)
+		require.NoError(t, err)
+		require.Len(t, summaries, 2)
+		// ordered by step regardless of the order they were saved in
+		assert.Equal(t, stepOne.ID, summaries[0].StepID)
+		assert.Equal(t, "## first", summaries[0].Content)
+		assert.Equal(t, stepTwo.ID, summaries[1].StepID)
+		assert.Equal(t, "## second", summaries[1].Content)
+
+		// resending the full content of a step does an update instead of duplicating it
+		require.NoError(t, SaveTaskStepSummaries(t.Context(),
+			&ActionTaskStepSummary{StepID: stepOne.ID, TaskID: taskID, RepoID: repoID, Content: "### updated"},
+		))
+		summaries, err = GetTaskStepSummaries(t.Context(), taskID)
+		require.NoError(t, err)
+		require.Len(t, summaries, 2)
+		assert.Equal(t, "### updated", summaries[0].Content)
+		assert.Equal(t, "## second", summaries[1].Content)
+	})
+
+	t.Run("TruncatesOversizedContent", func(t *testing.T) {
+		require.NoError(t, unittest.PrepareTestDatabase())
+		const taskID, repoID = int64(48), int64(4)
+		step := &ActionTaskStep{TaskID: taskID, Index: 0, RepoID: repoID}
+		unittest.AssertSuccessfulInsert(t, step)
+
+		require.NoError(t, SaveTaskStepSummaries(t.Context(),
+			&ActionTaskStepSummary{StepID: step.ID, TaskID: taskID, RepoID: repoID, Content: strings.Repeat("😁", MaxStepSummarySizeBytes+42)},
+		))
+		summaries, err := GetTaskStepSummaries(t.Context(), taskID)
+		require.NoError(t, err)
+		require.Len(t, summaries, 1)
+		assert.LessOrEqual(t, len(summaries[0].Content), MaxStepSummarySizeBytes)
+		assert.True(t, utf8.ValidString(summaries[0].Content))
+		assert.True(t, strings.HasSuffix(summaries[0].Content, "…"))
+	})
+}
+
+func TestDeleteTaskStepSummaries(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
-
-	const taskID, repoID = int64(47), int64(4)
-	stepOne := &ActionTaskStep{TaskID: taskID, Index: 0, RepoID: repoID}
-	stepTwo := &ActionTaskStep{TaskID: taskID, Index: 1, RepoID: repoID}
-	require.NoError(t, db.Insert(t.Context(), stepOne, stepTwo))
-
-	summaries, err := GetTaskStepSummaries(t.Context(), taskID)
-	require.NoError(t, err)
-	assert.Empty(t, summaries)
-
-	require.NoError(t, SetTaskStepSummaries(t.Context(), []*ActionTaskStepSummary{
-		{StepID: stepOne.ID, TaskID: taskID, RepoID: repoID, Content: "## first"},
-		{StepID: stepTwo.ID, TaskID: taskID, RepoID: repoID, Content: "## second"},
-	}))
-	summaries, err = GetTaskStepSummaries(t.Context(), taskID)
-	require.NoError(t, err)
-	require.Len(t, summaries, 2)
-	contents := map[int64]string{}
-	for _, summary := range summaries {
-		contents[summary.StepID] = summary.Content
-	}
-	assert.Equal(t, map[int64]string{stepOne.ID: "## first", stepTwo.ID: "## second"}, contents)
-
-	// resending the full content of a step does an update instaead of duplicating it
-	require.NoError(t, SetTaskStepSummaries(t.Context(), []*ActionTaskStepSummary{
-		{StepID: stepOne.ID, TaskID: taskID, RepoID: repoID, Content: "### updated"},
-	}))
-	summaries, err = GetTaskStepSummaries(t.Context(), taskID)
-	require.NoError(t, err)
-	require.Len(t, summaries, 2)
-	for _, summary := range summaries {
-		if summary.StepID == stepOne.ID {
-			assert.Equal(t, "### updated", summary.Content)
-		}
-	}
-
-	// content beyond the size limit is truncated without invalidating the UTF-8
-	require.NoError(t, SetTaskStepSummaries(t.Context(), []*ActionTaskStepSummary{
-		{StepID: stepOne.ID, TaskID: taskID, RepoID: repoID, Content: strings.Repeat("😁", MaxStepSummarySize+42)},
-	}))
-	summaries, err = GetTaskStepSummaries(t.Context(), taskID)
-	require.NoError(t, err)
-	for _, summary := range summaries {
-		if summary.StepID == stepOne.ID {
-			assert.LessOrEqual(t, len(summary.Content), MaxStepSummarySize)
-			assert.True(t, utf8.ValidString(summary.Content))
-			assert.True(t, strings.HasSuffix(summary.Content, "…"))
-		}
-	}
+	const taskID, repoID = int64(49), int64(4)
+	step := &ActionTaskStep{TaskID: taskID, Index: 0, RepoID: repoID}
+	unittest.AssertSuccessfulInsert(t, step)
+	require.NoError(t, SaveTaskStepSummaries(t.Context(),
+		&ActionTaskStepSummary{StepID: step.ID, TaskID: taskID, RepoID: repoID, Content: "## gone"},
+	))
 
 	require.NoError(t, DeleteTaskStepSummaries(t.Context(), taskID))
-	summaries, err = GetTaskStepSummaries(t.Context(), taskID)
+	summaries, err := GetTaskStepSummaries(t.Context(), taskID)
 	require.NoError(t, err)
 	assert.Empty(t, summaries)
 }

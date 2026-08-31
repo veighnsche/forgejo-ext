@@ -418,7 +418,12 @@ func getViewResponse(ctx *app_context.Context, req *ViewRequest, runIndex, jobIn
 	resp.Logs.StepsLog = make([]*ViewStepLog, 0) // marshal to '[]' instead of 'null' in json
 	// As noted above with TaskID; task will be nil when the job hasn't be picked yet...
 	if task != nil {
-		resp.State.CurrentJob.Summaries = renderedStepSummaries(ctx, task, metas)
+		summaries, err := renderStepSummaries(ctx, task, metas)
+		if err != nil {
+			ctx.Error(http.StatusInternalServerError, err.Error())
+			return nil
+		}
+		resp.State.CurrentJob.Summaries = summaries
 
 		steps := actions.FullSteps(task)
 		for _, v := range steps {
@@ -499,22 +504,14 @@ func getViewResponse(ctx *app_context.Context, req *ViewRequest, runIndex, jobIn
 	return resp
 }
 
-// renderedStepSummaries loads the GITHUB_STEP_SUMMARY content of the task's steps and renders them into sanitized html.
+// renderStepSummaries loads the ActionTaskStepSummary content of the task's steps and renders them into sanitized HTML.
 // Each step's summary is rendered as its own markdown document, as to not break the layout with broken summaries.
-func renderedStepSummaries(ctx *app_context.Context, task *actions_model.ActionTask, metas map[string]string) []template.HTML {
-	rendered := make([]template.HTML, 0)
-	summaries, err := actions_model.GetTaskStepSummaries(ctx, task.ID)
+func renderStepSummaries(ctx *app_context.Context, task *actions_model.ActionTask, metas map[string]string) ([]template.HTML, error) {
+	summariesByStepID, err := actions_model.GetTaskStepSummariesByStepID(ctx, task.ID)
 	if err != nil {
-		log.Error("Error loading step summaries of task %d: %v", task.ID, err)
-		return rendered
+		return nil, fmt.Errorf("load step summaries of task %d: %w", task.ID, err)
 	}
-	if len(summaries) == 0 {
-		return rendered
-	}
-	summariesByStepID := make(map[int64]*actions_model.ActionTaskStepSummary, len(summaries))
-	for _, summary := range summaries {
-		summariesByStepID[summary.StepID] = summary
-	}
+	rendered := make([]template.HTML, 0, len(summariesByStepID))
 	for _, step := range task.Steps {
 		summary, ok := summariesByStepID[step.ID]
 		if !ok {
@@ -527,12 +524,11 @@ func renderedStepSummaries(ctx *app_context.Context, task *actions_model.ActionT
 			Ctx:     ctx,
 		}, summary.Content)
 		if err != nil {
-			log.Error("Error rendering summary in step %d of task %d: %v", step.Index, task.ID, err)
-			continue
+			return nil, fmt.Errorf("rendering summary of step %d of task %d: %w", step.Index, task.ID, err)
 		}
 		rendered = append(rendered, html)
 	}
-	return rendered
+	return rendered, nil
 }
 
 // When used with the JS `linkAction` handler (typically a <button> with class="link-action" and a data-url), will cause

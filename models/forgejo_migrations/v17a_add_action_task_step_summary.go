@@ -18,8 +18,8 @@ func addActionTaskStepSummary(x *xorm.Engine) error {
 	type ActionTaskStepSummary struct {
 		ID      int64  `xorm:"pk autoincr"`
 		StepID  int64  `xorm:"UNIQUE NOT NULL REFERENCES(action_task_step, id)"`
-		TaskID  int64  `xorm:"INDEX NOT NULL"`
-		RepoID  int64  `xorm:"INDEX NOT NULL"`
+		TaskID  int64  `xorm:"INDEX NOT NULL REFERENCES(action_task, id)"`
+		RepoID  int64  `xorm:"INDEX NOT NULL REFERENCES(repository, id)"`
 		Content string `xorm:"MEDIUMTEXT NOT NULL"`
 	}
 

@@ -450,7 +450,7 @@ func (*Service) UpdateStepSummary(
 			Content: summary.Content,
 		})
 	}
-	if err := actions_model.SetTaskStepSummaries(ctx, summaries); err != nil {
+	if err := actions_model.SaveTaskStepSummaries(ctx, summaries...); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("save step summaries: %w", err))
 	}
 
