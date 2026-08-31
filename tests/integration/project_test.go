@@ -609,31 +609,61 @@ func TestProjectPermissionsAndConsistency(t *testing.T) {
 func TestProjectWebProjects(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
-	user2 := loginUser(t, "user2")
-	testProjectListLength := func(t *testing.T, name, url, expectElement string, expectLength int) {
-		// get list of projects from url and check number of projects in list
+	testProjectList := func(t *testing.T, name string,
+		session *TestSession, url, expectElement string, expectLinks []string,
+	) {
+		// get list of projects from url,
+		// check if expectElement exists in reply,
+		// check number of projects in list,
+		// check links of projects in list
 		t.Run(name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
+			resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
 			doc.AssertElement(t, expectElement, true)
+
 			// template: templates/projects/list.tmpl
 			// template lines:
 			// <div class="milestone-list">
 			//	{{range .Projects}}
 			//		<li class="milestone-card">
+			// 			<div class="milestone-header">
+			//				<h3>
+			// [...]
+			//					<a class="muted tw-break-anywhere" href="{{.Link ctx}}">{{.Title}}</a>
+			//				</h3>
+			//			</div>
 			// [...]
 			//		</li>
 			//	{{end}}
 			// [...]
 			// </div>
 			projectList := doc.Find(".milestone-list li.milestone-card")
-			assert.Equal(t, expectLength, projectList.Length())
+			assert.Equal(t, len(expectLinks), projectList.Length())
+			for _, link := range expectLinks {
+				doc.AssertElement(t,
+					fmt.Sprintf(".milestone-list li.milestone-card .milestone-header a[href='%s']",
+						link),
+					true,
+				)
+			}
 		})
 	}
 	t.Run("User", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
-		projectsURL := "/user2/-/projects"
+		unittest.LoadFixtures()
+		ctx := t.Context()
+
+		// create test projects
+		user := forgery.CreateUser(t, nil)
+		projectA := forgery.CreateProject(t, user, nil)
+		projectB := forgery.CreateProject(t, user, nil)
+		projectC := forgery.CreateProject(t, user, nil)
+
+		session := loginUser(t, user.Name)
+
+		projectsURL := fmt.Sprintf("/%s/-/projects", user.Name)
+
 		// template: templates/org/projects/list.tmpl
 		// template lines:
 		// {{if .ContextUser.IsOrganization}}
@@ -646,18 +676,47 @@ func TestProjectWebProjects(t *testing.T) {
 		expectElement := ".page-content.user.profile"
 
 		// no closed project
-		testProjectListLength(t, "get open", projectsURL, expectElement, 3)
-		testProjectListLength(t, "get closed", projectsURL+"?state=closed", expectElement, 0)
+		expectOpen := []string{projectA.Link(ctx), projectB.Link(ctx), projectC.Link(ctx)}
+		expectClosed := []string{}
+
+		testProjectList(t, "get open",
+			session, projectsURL, expectElement, expectOpen)
+		testProjectList(t, "get closed",
+			session, projectsURL+"?state=closed", expectElement, expectClosed)
 
 		// one closed project
-		user2.MakeRequest(t, NewRequest(t, "POST", projectsURL+"/4/close"), http.StatusOK)
-		testProjectListLength(t, "get open, one closed", projectsURL, expectElement, 2)
-		testProjectListLength(t, "get closed, one close", projectsURL+"?state=closed", expectElement, 1)
+		closeURL := fmt.Sprintf("%s/%d/close", projectsURL, projectA.ID)
+		session.MakeRequest(t, NewRequest(t, "POST", closeURL), http.StatusOK)
+
+		expectOpen = []string{projectB.Link(ctx), projectC.Link(ctx)}
+		expectClosed = []string{projectA.Link(ctx)}
+
+		testProjectList(t, "get open, one closed",
+			session, projectsURL, expectElement, expectOpen)
+		testProjectList(t, "get closed, one close",
+			session, projectsURL+"?state=closed", expectElement, expectClosed)
 	})
 
 	t.Run("Organization", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
-		projectsURL := "/org3/-/projects"
+		unittest.LoadFixtures()
+		ctx := t.Context()
+
+		// create test projects
+		user := forgery.CreateUser(t, nil)
+		org := forgery.CreateOrganisation(t, user)
+		projectA := forgery.CreateProject(t, org, nil)
+		projectB := forgery.CreateProject(t, org, nil)
+		projectC := forgery.CreateProject(t, org, nil)
+
+		session := loginUser(t, user.Name)
+
+		projectsURL := fmt.Sprintf("/%s/-/projects", org.Name)
+
+		// close one project
+		closeURL := fmt.Sprintf("%s/%d/close", projectsURL, projectA.ID)
+		session.MakeRequest(t, NewRequest(t, "POST", closeURL), http.StatusOK)
+
 		// template: templates/org/projects/list.tmpl
 		// {{if .ContextUser.IsOrganization}}
 		// 	<div role="main" aria-label="{{.Title}}" class="page-content organization projects">
@@ -667,23 +726,48 @@ func TestProjectWebProjects(t *testing.T) {
 		// [...]
 		// {{end}}
 		expectElement := ".page-content.organization.projects"
+		expectOpen := []string{projectB.Link(ctx), projectC.Link(ctx)}
+		expectClosed := []string{projectA.Link(ctx)}
 
-		testProjectListLength(t, "get open", projectsURL, expectElement, 1)
-		testProjectListLength(t, "get closed", projectsURL+"?state=closed", expectElement, 0)
+		testProjectList(t, "get open",
+			session, projectsURL, expectElement, expectOpen)
+		testProjectList(t, "get closed",
+			session, projectsURL+"?state=closed", expectElement, expectClosed)
 	})
 
 	t.Run("Repository", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
-		projectsURL := "/user2/repo1/projects"
+		unittest.LoadFixtures()
+		ctx := t.Context()
+
+		// create test projects
+		user := forgery.CreateUser(t, nil)
+		repo := forgery.CreateRepository(t, user, nil)
+		projectA := forgery.CreateProject(t, repo, nil)
+		projectB := forgery.CreateProject(t, repo, nil)
+		projectC := forgery.CreateProject(t, repo, nil)
+
+		session := loginUser(t, user.Name)
+
+		projectsURL := fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name)
+
+		// close one project
+		closeURL := fmt.Sprintf("%s/%d/close", projectsURL, projectA.ID)
+		session.MakeRequest(t, NewRequest(t, "POST", closeURL), http.StatusOK)
+
 		// template: templates/repo/projects/list.tmpl
 		// template lines:
 		// <div role="main" aria-label="{{.Title}}" class="page-content repository projects milestones">
 		// [...]
 		// </div>
 		expectElement := ".page-content.repository.projects.milestones"
+		expectOpen := []string{projectB.Link(ctx), projectC.Link(ctx)}
+		expectClosed := []string{projectA.Link(ctx)}
 
-		testProjectListLength(t, "get open", projectsURL, expectElement, 1)
-		testProjectListLength(t, "get closed", projectsURL+"?state=closed", expectElement, 0)
+		testProjectList(t, "get open",
+			session, projectsURL, expectElement, expectOpen)
+		testProjectList(t, "get closed",
+			session, projectsURL+"?state=closed", expectElement, expectClosed)
 	})
 }
 
