@@ -1050,7 +1050,15 @@ func TestProjectWebRenderEditProject(t *testing.T) {
 
 func TestProjectWebEditProjectPost(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	user2 := loginUser(t, "user2")
+	unittest.LoadFixtures()
+
+	// create test user, organization, repository and projects
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+	userProject := forgery.CreateProject(t, user, nil)
+	orgProject := forgery.CreateProject(t, org, nil)
+	repoProject := forgery.CreateProject(t, repo, nil)
 
 	projectOpts := forms_service.CreateProjectForm{
 		Title:    "TestProjectWebEditProjectPost Project 1",
@@ -1064,12 +1072,13 @@ func TestProjectWebEditProjectPost(t *testing.T) {
 		url  string
 		id   int64
 	}{
-		{"User", "/user2/-/projects", 4},
-		{"Organization", "/org3/-/projects", 7},
-		{"Repository", "/user2/repo1/projects", 1},
+		{"User", fmt.Sprintf("/%s/-/projects", user.Name), userProject.ID},
+		{"Organization", fmt.Sprintf("/%s/-/projects", org.Name), orgProject.ID},
+		{"Repository", fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name), repoProject.ID},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+			session := loginUser(t, user.Name)
 
 			// check project settings do not match already
 			project := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.id})
@@ -1078,7 +1087,7 @@ func TestProjectWebEditProjectPost(t *testing.T) {
 
 			// change project settings
 			url := fmt.Sprintf("%s/%d/edit", tt.url, tt.id)
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &projectOpts), http.StatusSeeOther)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &projectOpts), http.StatusSeeOther)
 
 			// check project settings were changed
 			project = unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.id})
@@ -1089,13 +1098,14 @@ func TestProjectWebEditProjectPost(t *testing.T) {
 
 	// wrong owners
 	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         "/org3/-/projects/4/edit",
-		"Organization, wrong owner": "/user2/-/projects/7/edit",
-		"Repository, wrong owner":   "/user2/-/projects/1/edit",
+		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/edit", org.Name, userProject.ID),
+		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, orgProject.ID),
+		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &projectOpts), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &projectOpts), http.StatusNotFound)
 		})
 	}
 }
