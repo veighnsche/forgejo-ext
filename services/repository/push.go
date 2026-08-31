@@ -231,6 +231,10 @@ func pushUpdates(optsList []*repo_module.PushUpdateOptions) error {
 					log.Error("updateIssuesCommit: %v", err)
 				}
 
+				if err := pull_service.MergePullCommit(ctx, pusher, repo, commits.Commits, refName); err != nil {
+					log.Error("mergePullCommit: %v", err)
+				}
+
 				oldCommitID := opts.OldCommitID
 				if oldCommitID == objectFormat.EmptyObjectID().String() && len(commits.Commits) > 0 {
 					oldCommit, err := gitRepo.GetCommit(commits.Commits[len(commits.Commits)-1].Sha1)
