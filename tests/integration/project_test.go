@@ -906,49 +906,60 @@ func TestProjectWebCreateProject(t *testing.T) {
 
 func TestProjectWebDeleteProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	user2 := loginUser(t, "user2")
+	unittest.LoadFixtures()
+
+	// create test user, organization, repository and projects
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+	userProject := forgery.CreateProject(t, user, nil)
+	orgProject := forgery.CreateProject(t, org, nil)
+	repoProject := forgery.CreateProject(t, repo, nil)
 
 	// not existing projects
 	for testName, projectURL := range map[string]string{
-		"User, not existing project":         "/user2/-/projects/1234567890/delete",
-		"Organization, not existing project": "/org3/-/projects/1234567890/delete",
-		"Repository, not existing project":   "/user2/repo1/projects/1234567890/delete",
+		"User, not existing project":         fmt.Sprintf("/%s/-/projects/1234567890/delete", user.Name),
+		"Organization, not existing project": fmt.Sprintf("/%s/-/projects/1234567890/delete", org.Name),
+		"Repository, not existing project":   fmt.Sprintf("/%s/%s/projects/1234567890/delete", user.Name, repo.Name),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
 		})
 	}
 
 	// wrong owners
 	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         "/org3/-/projects/4/delete",
-		"Organization, wrong owner": "/user2/-/projects/7/delete",
-		"Repository, wrong owner":   "/user2/-/projects/1/delete",
+		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/delete", org.Name, userProject.ID),
+		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/delete", user.Name, orgProject.ID),
+		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/delete", user.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
 		})
 	}
 
 	// no errors
 	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4",
-		"Organization": "/org3/-/projects/7",
-		"Repository":   "/user2/repo1/projects/1",
+		"User":         fmt.Sprintf("/%s/-/projects/%d", user.Name, userProject.ID),
+		"Organization": fmt.Sprintf("/%s/-/projects/%d", org.Name, orgProject.ID),
+		"Repository":   fmt.Sprintf("/%s/%s/projects/%d", user.Name, repo.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+			session := loginUser(t, user.Name)
 
 			// check project exists
-			user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+			session.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
 
 			// delete project
-			user2.MakeRequest(t, NewRequest(t, "POST", projectURL+"/delete"), http.StatusOK)
+			session.MakeRequest(t, NewRequest(t, "POST", projectURL+"/delete"), http.StatusOK)
 
 			// check project was deleted
-			user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusNotFound)
+			session.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusNotFound)
 		})
 	}
 }
