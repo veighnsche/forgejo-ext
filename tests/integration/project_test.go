@@ -773,20 +773,38 @@ func TestProjectWebProjects(t *testing.T) {
 
 func TestProjectWebRenderNewProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
+	unittest.LoadFixtures()
 
-	user2 := loginUser(t, "user2")
+	// create test user, organization, repository
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+
 	for _, tt := range []struct {
 		name   string
 		url    string
 		expect string
 	}{
-		{"User", "/user2/-/projects/new", ".page-content.organization.projects.edit-project.new"},
-		{"Organization", "/org3/-/projects/new", ".page-content.organization.projects.edit-project.new"},
-		{"Repository", "/user2/repo1/projects/new", ".page-content.repository.projects.edit-project.new.milestone"},
+		{
+			"User",
+			fmt.Sprintf("/%s/-/projects/new", user.Name),
+			".page-content.organization.projects.edit-project.new",
+		},
+		{
+			"Organization",
+			fmt.Sprintf("/%s/-/projects/new", org.Name),
+			".page-content.organization.projects.edit-project.new",
+		},
+		{
+			"Repository",
+			fmt.Sprintf("/%s/%s/projects/new", user.Name, repo.Name),
+			".page-content.repository.projects.edit-project.new.milestone",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", tt.url), http.StatusOK)
+			session := loginUser(t, user.Name)
+			resp := session.MakeRequest(t, NewRequest(t, "GET", tt.url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
 
 			// template: templates/org/projects/new.tmpl
