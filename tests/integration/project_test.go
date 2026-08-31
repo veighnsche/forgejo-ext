@@ -966,20 +966,41 @@ func TestProjectWebDeleteProject(t *testing.T) {
 
 func TestProjectWebRenderEditProject(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	user2 := loginUser(t, "user2")
+	unittest.LoadFixtures()
+
+	// create test user, organization, repository and projects
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+	userProject := forgery.CreateProject(t, user, nil)
+	orgProject := forgery.CreateProject(t, org, nil)
+	repoProject := forgery.CreateProject(t, repo, nil)
 
 	for _, tt := range []struct {
 		name   string
 		url    string
 		expect string
 	}{
-		{"User", "/user2/-/projects/4/edit", ".page-content.organization.projects.edit-project.new"},
-		{"Organization", "/org3/-/projects/7/edit", ".page-content.organization.projects.edit-project.new"},
-		{"Repository", "/user2/repo1/projects/1/edit", ".page-content.repository.projects.edit-project.new.milestone"},
+		{
+			"User",
+			fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, userProject.ID),
+			".page-content.organization.projects.edit-project.new",
+		},
+		{
+			"Organization",
+			fmt.Sprintf("/%s/-/projects/%d/edit", org.Name, orgProject.ID),
+			".page-content.organization.projects.edit-project.new",
+		},
+		{
+			"Repository",
+			fmt.Sprintf("/%s/%s/projects/%d/edit", user.Name, repo.Name, repoProject.ID),
+			".page-content.repository.projects.edit-project.new.milestone",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			resp := user2.MakeRequest(t, NewRequest(t, "GET", tt.url), http.StatusOK)
+			session := loginUser(t, user.Name)
+			resp := session.MakeRequest(t, NewRequest(t, "GET", tt.url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
 			// template: templates/org/projects/new.tmpl
 			// template lines:
@@ -1015,13 +1036,14 @@ func TestProjectWebRenderEditProject(t *testing.T) {
 
 	// wrong owners
 	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         "/org3/-/projects/4/edit",
-		"Organization, wrong owner": "/user2/-/projects/7/edit",
-		"Repository, wrong owner":   "/user2/-/projects/1/edit",
+		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/edit", org.Name, userProject.ID),
+		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, orgProject.ID),
+		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusNotFound)
 		})
 	}
 }
