@@ -147,7 +147,7 @@ func repoAssignment(ctx *context.APIContext, owner *user_model.User, repoName st
 	ctx.Repo().Owner = owner
 }
 
-func userAssignment(ctx *context.APIContext, userName string) *user_model.User {
+func userAssignment(ctx *context.APIContext, userName string) {
 	user, err := user_model.GetUserByName(ctx, userName)
 	if err != nil {
 		if user_model.IsErrUserNotExist(err) {
@@ -161,10 +161,9 @@ func userAssignment(ctx *context.APIContext, userName string) *user_model.User {
 		} else {
 			ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
 		}
-		return nil
+		return
 	}
 	ctx.SetUser(user)
-	return user
 }
 
 func repoAndOwnerAssignment(ownerNameParam, repoNameParam string) func(ctx *context.APIContext) {
@@ -180,10 +179,11 @@ func repoAndOwnerAssignment(ownerNameParam, repoNameParam string) func(ctx *cont
 			owner = ctx.Doer()
 			ctx.SetUser(owner)
 		} else {
-			owner = userAssignment(ctx, ownerName)
+			userAssignment(ctx, ownerName)
 			if ctx.Written() {
 				return
 			}
+			owner = ctx.User()
 		}
 
 		repoAssignment(ctx, owner, repoName)
