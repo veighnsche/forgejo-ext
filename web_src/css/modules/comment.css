@@ -69,6 +69,7 @@
 
 .ui .author .pronouns {
   font-size: small;
+  font-weight: normal;
 }
 
 .ui.comments .comment .metadata {
