@@ -1359,8 +1359,33 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 
 func TestProjectWebEditProjectColumn(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	user2 := loginUser(t, "user2")
 
+	// create test user, organization, repository and projects
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+	userProject := forgery.CreateProject(t, user, nil)
+	orgProject := forgery.CreateProject(t, org, nil)
+	repoProject := forgery.CreateProject(t, repo, nil)
+
+	// create test columns
+	userColumn := &project_model.Column{
+		Title:     "New User Project Column 1",
+		ProjectID: userProject.ID,
+	}
+	require.NoError(t, project_model.CreateColumn(t.Context(), userColumn))
+	orgColumn := &project_model.Column{
+		Title:     "New Organization Project Column 1",
+		ProjectID: orgProject.ID,
+	}
+	require.NoError(t, project_model.CreateColumn(t.Context(), orgColumn))
+	repoColumn := &project_model.Column{
+		Title:     "New Repository Project Column 1",
+		ProjectID: repoProject.ID,
+	}
+	require.NoError(t, project_model.CreateColumn(t.Context(), repoColumn))
+
+	// common edit options for tests
 	editOpts := forms_service.EditProjectColumnForm{
 		Title:   "TestProjectWebEditProjectColumn Column1",
 		Sorting: 0,
@@ -1369,38 +1394,41 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 
 	// invalid project
 	for testName, projectURL := range map[string]string{
-		"User, invalid project":         "/user2/-/projects/1234567890/0",
-		"Organization, invalid project": "/org3/-/projects/1234567890/0",
-		"Repository, invalid project":   "/user2/repo1/projects/1234567890/0",
+		"User, invalid project":         fmt.Sprintf("/%s/-/projects/1234567890/0", user.Name),
+		"Organization, invalid project": fmt.Sprintf("/%s/-/projects/1234567890/0", org.Name),
+		"Repository, invalid project":   fmt.Sprintf("/%s/%s/projects/1234567890/0", user.Name, repo.Name),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOpts), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOpts), http.StatusNotFound)
 		})
 	}
 
 	// wrong owner
 	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         "/org3/-/projects/4/0",
-		"Organization, wrong owner": "/user2/-/projects/7/0",
-		"Repository, wrong owner":   "/user2/-/projects/1/0",
+		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/0", org.Name, userProject.ID),
+		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/0", user.Name, orgProject.ID),
+		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/0", user.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOpts), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOpts), http.StatusNotFound)
 		})
 	}
 
 	// invalid column
 	for testName, projectURL := range map[string]string{
-		"User, invalid column":         "/user2/-/projects/4/0",
-		"Organization, invalid column": "/org3/-/projects/7/0",
-		"Repository, invalid column":   "/user2/repo1/projects/1/0",
+		"User, invalid column":         fmt.Sprintf("/%s/-/projects/%d/0", user.Name, userProject.ID),
+		"Organization, invalid column": fmt.Sprintf("/%s/-/projects/%d/0", org.Name, orgProject.ID),
+		"Repository, invalid column":   fmt.Sprintf("/%s/%s/projects/%d/0", user.Name, repo.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			defer test.MockVariableValue(&setting.IsProd, false)()
-			resp := user2.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOpts), http.StatusInternalServerError)
+			session := loginUser(t, user.Name)
+			resp := session.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOpts), http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1433,14 +1461,15 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 		Color:   "bad color",
 	}
 	for testName, projectURL := range map[string]string{
-		"User, bad color":         "/user2/-/projects/4/4",
-		"Organization, bad color": "/org3/-/projects/7/10",
-		"Repository, bad color":   "/user2/repo1/projects/1/2",
+		"User, bad color":         fmt.Sprintf("/%s/-/projects/%d/%d", user.Name, userProject.ID, userColumn.ID),
+		"Organization, bad color": fmt.Sprintf("/%s/-/projects/%d/%d", org.Name, orgProject.ID, orgColumn.ID),
+		"Repository, bad color":   fmt.Sprintf("/%s/%s/projects/%d/%d", user.Name, repo.Name, repoProject.ID, repoColumn.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			defer test.MockVariableValue(&setting.IsProd, false)()
-			resp := user2.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOptsBad), http.StatusInternalServerError)
+			session := loginUser(t, user.Name)
+			resp := session.MakeRequest(t, NewRequestWithJSON(t, "PUT", projectURL, &editOptsBad), http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1473,12 +1502,13 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 		projectID int64
 		columnID  int64
 	}{
-		{"User", "/user2/-/projects", 4, 4},
-		{"Organization", "/org3/-/projects", 7, 10},
-		{"Repository", "/user2/repo1/projects", 1, 2},
+		{"User", fmt.Sprintf("/%s/-/projects", user.Name), userProject.ID, userColumn.ID},
+		{"Organization", fmt.Sprintf("/%s/-/projects", org.Name), orgProject.ID, orgColumn.ID},
+		{"Repository", fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name), repoProject.ID, repoColumn.ID},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+			session := loginUser(t, user.Name)
 
 			// check that column settings differ
 			column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{
@@ -1489,7 +1519,7 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 
 			// change column settings
 			url := fmt.Sprintf("%s/%d/%d", tt.url, tt.projectID, tt.columnID)
-			user2.MakeRequest(t, NewRequestWithJSON(t, "PUT", url, &editOpts), http.StatusOK)
+			session.MakeRequest(t, NewRequestWithJSON(t, "PUT", url, &editOpts), http.StatusOK)
 
 			// check that column settings were changed
 			column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{
