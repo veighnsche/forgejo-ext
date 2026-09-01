@@ -88,10 +88,12 @@ jobs:
 		require.Len(t, summaries, 1)
 		assert.Contains(t, summaries[0], "heading of step one")
 
-		// the second step's summary inflates the list
-		// If its markdown is invalid we isolate it as to not corrupt the RepoActionView (we still want to see the first task's summary)
-		// Summaries are always uploaded fully as the server (probably) has no bookkeeping of what summaries are dirty
-		// The broken fence of the codeblock does not bleed into other steps and gets cloased by the parser
+		// The second step's summary grows the list. Each step's summary is rendered as its own markdown
+		// document, so the broken fence gets closed by the parser at the end of its own block and cannot
+		// bleed into the other summaries of the RepoActionView.
+		// Resending the unchanged first summary simulates a batched/retried flush: the runner only uploads
+		// summaries it considers dirty, but always with their full content, so a resend upserts the row
+		// instead of duplicating it.
 		uploadSummaries(t,
 			&runnerv1.StepSummary{StepNumber: 0, Content: "# heading of step one"},
 			&runnerv1.StepSummary{StepNumber: 1, Content: "```\nunclosed fence of step two"},
