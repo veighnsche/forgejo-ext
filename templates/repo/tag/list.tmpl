@@ -2,6 +2,7 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository tags">
 	{{template "repo/header" .}}
 	<div class="ui container">
+		<h1>{{ctx.Locale.Tr "repo.tags"}}</h1>
 		{{template "base/alert" .}}
 		{{template "repo/release_tag_header" .}}
 		<h4 class="ui top attached header">

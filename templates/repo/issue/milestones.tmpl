@@ -2,6 +2,11 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository milestones">
 	{{template "repo/header" .}}
 	<div class="ui container">
+		{{if eq .State "open"}}
+		<h1>{{ctx.Locale.Tr "repo.issues.filter_milestone_open"}}</h1>
+		{{else if eq .State "closed"}}
+		<h1>{{ctx.Locale.Tr "repo.issues.filter_milestone_closed"}}</h1>
+		{{end}}
 		{{template "base/alert" .}}
 
 		<div class="list-header list-header-issues">

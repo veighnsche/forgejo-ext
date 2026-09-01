@@ -2,6 +2,23 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository issue-list">
 	{{template "repo/header" .}}
 	<div class="ui container">
+	{{if .PageIsIssueList}}
+		{{if eq .State "open"}}
+		<h1>{{ctx.Locale.Tr "repo.issues.open.heading"}}</h1>
+		{{else if eq .State "closed"}}
+		<h1>{{ctx.Locale.Tr "repo.issues.closed.heading"}}</h1>
+		{{else if eq .State "all"}}
+		<h1>{{ctx.Locale.Tr "repo.issues.all.heading"}}</h1>
+		{{end}}
+	{{else if .PageIsPullList}}
+		{{if eq .State "open"}}
+		<h1>{{ctx.Locale.Tr "repo.pulls.open.heading"}}</h1>
+		{{else if eq .State "closed"}}
+		<h1>{{ctx.Locale.Tr "repo.pulls.closed.heading"}}</h1>
+		{{else if eq .State "all"}}
+		<h1>{{ctx.Locale.Tr "repo.pulls.all.heading"}}</h1>
+		{{end}}
+	{{end}}
 	{{template "base/alert" .}}
 
 	{{if .PinnedIssues}}
