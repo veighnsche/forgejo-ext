@@ -1533,42 +1533,52 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 
 func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	user2 := loginUser(t, "user2")
+
+	// create test user, organization, repository and projects
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+	userProject := forgery.CreateProject(t, user, nil)
+	orgProject := forgery.CreateProject(t, org, nil)
+	repoProject := forgery.CreateProject(t, repo, nil)
 
 	// invalid project
 	for testName, projectURL := range map[string]string{
-		"User, invalid project":         "/user2/-/projects/1234567890/0/default",
-		"Organization, invalid project": "/org3/-/projects/1234567890/0/default",
-		"Repository, invalid project":   "/user2/repo1/projects/1234567890/0/default",
+		"User, invalid project":         fmt.Sprintf("/%s/-/projects/1234567890/0/default", user.Name),
+		"Organization, invalid project": fmt.Sprintf("/%s/-/projects/1234567890/0/default", org.Name),
+		"Repository, invalid project":   fmt.Sprintf("/%s/%s/projects/1234567890/0/default", user.Name, repo.Name),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
 		})
 	}
 
 	// wrong owner
 	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         "/org3/-/projects/4/0/default",
-		"Organization, wrong owner": "/user2/-/projects/7/0/default",
-		"Repository, wrong owner":   "/user2/-/projects/1/0/default",
+		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/0/default", org.Name, userProject.ID),
+		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/0/default", user.Name, orgProject.ID),
+		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/0/default", user.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
 		})
 	}
 
 	// invalid column
 	for testName, projectURL := range map[string]string{
-		"User, invalid column":         "/user2/-/projects/4/0/default",
-		"Organization, invalid column": "/org3/-/projects/7/0/default",
-		"Repository, invalid column":   "/user2/repo1/projects/1/0/default",
+		"User, invalid column":         fmt.Sprintf("/%s/-/projects/%d/0/default", user.Name, userProject.ID),
+		"Organization, invalid column": fmt.Sprintf("/%s/-/projects/%d/0/default", org.Name, orgProject.ID),
+		"Repository, invalid column":   fmt.Sprintf("/%s/%s/projects/%d/0/default", user.Name, repo.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			defer test.MockVariableValue(&setting.IsProd, false)()
-			resp := user2.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusInternalServerError)
+			session := loginUser(t, user.Name)
+			resp := session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1595,37 +1605,43 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 	}
 
 	// no error
-	column := &project_model.Column{
-		Title:     "TestProjectWebSetDefaultProjectColumn Column2",
-		ProjectID: 7,
-	}
-	require.NoError(t, project_model.CreateColumn(t.Context(), column))
 	for _, tt := range []struct {
 		name      string
 		url       string
 		projectID int64
-		columnID  int64
 	}{
-		{"User", "/user2/-/projects", 4, 4},
-		{"Organization", "/org3/-/projects", 7, column.ID},
-		{"Repository", "/user2/repo1/projects", 1, 2},
+		{"User", fmt.Sprintf("/%s/-/projects", user.Name), userProject.ID},
+		{"Organization", fmt.Sprintf("/%s/-/projects", org.Name), orgProject.ID},
+		{"Repository", fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name), repoProject.ID},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
+			session := loginUser(t, user.Name)
+
+			// create test columns
+			columns := []*project_model.Column{}
+			for i := range 2 {
+				column := &project_model.Column{
+					Title:     fmt.Sprintf("New %s Project Column %d", tt.name, i),
+					ProjectID: tt.projectID,
+				}
+				require.NoError(t, project_model.CreateColumn(t.Context(), column))
+				columns = append(columns, column)
+			}
 
 			// check that column is not default
 			column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{
-				ID: tt.columnID, ProjectID: tt.projectID,
+				ID: columns[1].ID, ProjectID: tt.projectID,
 			})
 			assert.False(t, column.Default)
 
 			// set default column
-			url := fmt.Sprintf("%s/%d/%d/default", tt.url, tt.projectID, tt.columnID)
-			user2.MakeRequest(t, NewRequest(t, "POST", url), http.StatusOK)
+			url := fmt.Sprintf("%s/%d/%d/default", tt.url, tt.projectID, columns[1].ID)
+			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusOK)
 
 			// check that column is default now
 			column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{
-				ID: tt.columnID, ProjectID: tt.projectID,
+				ID: columns[1].ID, ProjectID: tt.projectID,
 			})
 			assert.True(t, column.Default)
 		})
