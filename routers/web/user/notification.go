@@ -361,6 +361,7 @@ func notificationSubscriptionPager(ctx *context.Context, page int, count int64) 
 	pager := context.NewPagination(int(count), setting.UI.IssuePagingNum, page, 5)
 	pager.AddParam(ctx, "sort", "SortType")
 	pager.AddParam(ctx, "state", "State")
+	pager.AddParam(ctx, "issueType", "IssueType")
 	return pager
 }
 
