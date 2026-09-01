@@ -1650,44 +1650,55 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 
 func TestProjectWebMoveIssues(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	user2 := loginUser(t, "user2")
+
+	// create test user, organization, repository and projects
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+	userProject := forgery.CreateProject(t, user, nil)
+	orgProject := forgery.CreateProject(t, org, nil)
+	repoProject := forgery.CreateProject(t, repo, nil)
+	orgRepo := forgery.CreateRepository(t, org.AsUser(), nil)
 
 	moveOpts := &project_structs.MovedIssuesOption{}
 
 	// invalid project
 	for testName, projectURL := range map[string]string{
-		"User, invalid project":         "/user2/-/projects/1234567890/0/move",
-		"Organization, invalid project": "/org3/-/projects/1234567890/0/move",
-		"Repository, invalid project":   "/user2/repo1/projects/1234567890/0/move",
+		"User, invalid project":         fmt.Sprintf("/%s/-/projects/1234567890/0/move", user.Name),
+		"Organization, invalid project": fmt.Sprintf("/%s/-/projects/1234567890/0/move", org.Name),
+		"Repository, invalid project":   fmt.Sprintf("/%s/%s/projects/1234567890/0/move", user.Name, repo.Name),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusNotFound)
 		})
 	}
 
 	// wrong owner
 	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         "/org3/-/projects/4/0/move",
-		"Organization, wrong owner": "/user2/-/projects/7/0/move",
-		"Repository, wrong owner":   "/user2/-/projects/1/0/move",
+		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/0/move", org.Name, userProject.ID),
+		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/0/move", user.Name, orgProject.ID),
+		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/0/move", user.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusNotFound)
+			session := loginUser(t, user.Name)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusNotFound)
 		})
 	}
 
 	// invalid column
 	for testName, projectURL := range map[string]string{
-		"User, invalid column":         "/user2/-/projects/4/0/move",
-		"Organization, invalid column": "/org3/-/projects/7/0/move",
-		"Repository, invalid column":   "/user2/repo1/projects/1/0/move",
+		"User, invalid column":         fmt.Sprintf("/%s/-/projects/%d/0/move", user.Name, userProject.ID),
+		"Organization, invalid column": fmt.Sprintf("/%s/-/projects/%d/0/move", org.Name, orgProject.ID),
+		"Repository, invalid column":   fmt.Sprintf("/%s/%s/projects/%d/0/move", user.Name, repo.Name, repoProject.ID),
 	} {
 		t.Run(testName, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			defer test.MockVariableValue(&setting.IsProd, false)()
-			resp := user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusInternalServerError)
+			session := loginUser(t, user.Name)
+			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1714,14 +1725,62 @@ func TestProjectWebMoveIssues(t *testing.T) {
 	}
 
 	// no error
-	for testName, projectURL := range map[string]string{
-		"User":         "/user2/-/projects/4/4/move",
-		"Organization": "/org3/-/projects/7/10/move",
-		"Repository":   "/user2/repo1/projects/1/2/move",
+	for _, tt := range []struct {
+		name      string
+		url       string
+		projectID int64
+		repo      *repo_model.Repository
+	}{
+		{"User", fmt.Sprintf("/%s/-/projects", user.Name), userProject.ID, repo},
+		{"Organization", fmt.Sprintf("/%s/-/projects", org.Name), orgProject.ID, orgRepo},
+		{"Repository", fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name), repoProject.ID, repo},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			user2.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusOK)
+			session := loginUser(t, user.Name)
+
+			// create test column
+			column := &project_model.Column{
+				Title:     fmt.Sprintf("New %s Project Column 1", tt.name),
+				ProjectID: tt.projectID,
+			}
+			require.NoError(t, project_model.CreateColumn(t.Context(), column))
+
+			// create test issues
+			for i := range 2 {
+				issue := &issues_model.Issue{
+					Title:  fmt.Sprintf("test issue %d", i),
+					RepoID: tt.repo.ID,
+				}
+				require.NoError(t, issues_model.NewIssue(t.Context(), tt.repo, issue, nil, nil))
+				require.NoError(t, issues_model.IssueAssignOrRemoveProject(
+					t.Context(), issue, user, tt.projectID, column.ID,
+				))
+			}
+
+			// get project issues in column
+			preIssues, count, err := column.GetIssues(t.Context(), db.ListOptionsAll)
+			require.NoError(t, err)
+			assert.Equal(t, int64(2), count)
+
+			// set new sorting in moveOpts
+			moveOpts.ProjectIssues = []struct {
+				IssueID int64 `json:"issueID"`
+				Sorting int64 `json:"sorting"`
+			}{
+				{preIssues[0].IssueID, preIssues[1].Sorting},
+				{preIssues[1].IssueID, preIssues[0].Sorting},
+			}
+
+			// change sorting
+			url := fmt.Sprintf("%s/%d/%d/move", tt.url, tt.projectID, column.ID)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusOK)
+
+			// check sorting has changed
+			postIssues, count, err := column.GetIssues(t.Context(), db.ListOptionsAll)
+			require.NoError(t, err)
+			assert.Equal(t, int64(2), count)
+			assert.NotEqual(t, preIssues, postIssues)
 		})
 	}
 }
