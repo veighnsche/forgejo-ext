@@ -12,7 +12,6 @@ const testLocale = {
   delete: 'Locale Delete',
   confirmDelete: '',
   artifactsTitle: 'artifactTitleHere',
-  areYouSure: '',
   confirmDeleteArtifact: '',
   rerun_all: '',
   showTimeStamps: '',

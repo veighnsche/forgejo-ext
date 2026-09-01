@@ -1,5 +1,4 @@
 import $ from 'jquery';
-import '../vendor/jquery.are-you-sure.js';
 import {clippie} from 'clippie';
 import {createDropzone} from './dropzone.js';
 import {showGlobalErrorMessage} from '../bootstrap.js';
@@ -14,16 +13,9 @@ import '../htmx.js';
 import {initTab} from '../modules/tab.ts';
 import {initGlobalShowModal} from './show-modal.ts';
 import {showModal} from '../modules/modal.ts';
+import {ATTR_DIRTY} from './leave-confirm.ts';
 
 const {appUrl, appSubUrl, i18n} = window.config;
-
-export function initGlobalFormDirtyLeaveConfirm() {
-  // Warn users that try to leave a page after entering data into a form.
-  // Except on sign-in pages, and for forms marked as 'ignore-dirty'.
-  if (!$('.user.signin').length) {
-    $('form:not(.ignore-dirty)').areYouSure();
-  }
-}
 
 export function initHeadNavbarContentToggle() {
   const navbar = document.getElementById('navbar');
@@ -86,7 +78,7 @@ async function fetchActionDoRequest(actionElem, url, opt) {
     if (resp.status === 200) {
       let {redirect} = await resp.json();
       redirect = redirect || actionElem.getAttribute('data-redirect');
-      actionElem.classList.remove('dirty'); // remove the areYouSure check before reloading
+      actionElem.removeAttribute(ATTR_DIRTY); // reloading here is intentional; no need to ask the user they're sure
       if (redirect) {
         fetchActionDoRedirect(redirect);
       } else {

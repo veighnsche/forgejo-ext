@@ -5,6 +5,7 @@ import {initRepoActivityTopAuthorsChart} from './features/repo-activity-top-auth
 import {initDashboardRepoList} from './features/dashboard-repo-list.ts';
 
 import {initGlobalCopyToClipboardListener} from './features/clipboard.js';
+import {initGlobalFormDirtyLeaveConfirm} from './features/leave-confirm.ts';
 import {initContextPopups} from './features/contextpopup.js';
 import {initRepoGraphGit} from './features/repo-graph.js';
 import {initHeatmap} from './features/heatmap.js';
@@ -42,7 +43,6 @@ import {
   initDisabledInputs,
   initGlobalDropzone,
   initGlobalEnterQuickSubmit,
-  initGlobalFormDirtyLeaveConfirm,
   initGlobalLinkActions,
   initHeadNavbarContentToggle,
 } from './features/common-global.js';

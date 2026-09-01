@@ -33,7 +33,6 @@ export async function initRepositoryActionView() {
       confirmDelete: el.getAttribute('data-locale-confirm-delete'),
       deleteError: el.getAttribute('data-locale-delete-error'),
       artifactsTitle: el.getAttribute('data-locale-artifacts-title'),
-      areYouSure: el.getAttribute('data-locale-are-you-sure'),
       confirmDeleteArtifact: el.getAttribute('data-locale-confirm-delete-artifact'),
       rerun_all: el.getAttribute('data-locale-rerun-all'),
       showTimeStamps: el.getAttribute('data-locale-show-timestamps'),

@@ -2,6 +2,7 @@ import $ from 'jquery';
 import {contrastColor} from '../utils/color.js';
 import {createSortable} from '../modules/sortable.js';
 import {POST, DELETE, PUT} from '../modules/fetch.js';
+import {ATTR_DIRTY} from './leave-confirm.ts';
 
 function updateIssueCount(cards) {
   const parent = cards.parentElement;
@@ -20,7 +21,7 @@ async function createNewColumn(url, columnTitle, projectColorInput) {
   } catch (error) {
     console.error(error);
   } finally {
-    columnTitle.closest('form').removeClass('dirty');
+    columnTitle.closest('form').removeAttr(ATTR_DIRTY); // user already submitted; no need to ask they're sure
     window.location.reload();
   }
 }
@@ -118,7 +119,7 @@ export function initRepoProject() {
         console.error(error);
       } finally {
         projectTitleLabel.textContent = projectTitleInput?.value;
-        projectTitleInput.closest('form')?.classList.remove('dirty');
+        projectTitleInput.closest('form')?.removeAttr(ATTR_DIRTY); // user just submitted; no need to ask they're sure
         const dividers = boardColumn.querySelectorAll(':scope > .divider');
         if (projectColorInput.value) {
           const color = contrastColor(projectColorInput.value);

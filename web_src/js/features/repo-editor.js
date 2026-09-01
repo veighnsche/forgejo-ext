@@ -5,6 +5,7 @@ import {initMarkupContent} from '../markup/content.js';
 import {attachRefIssueContextPopup} from './contextpopup.js';
 import {POST} from '../modules/fetch.js';
 import {initTab} from '../modules/tab.ts';
+import {EVENT_DIRTINESS_CHANGE, initLeaveConfirm} from './leave-confirm.ts';
 import {showModal} from '../modules/modal.ts';
 import {createCodeEditor} from './codeeditor.ts';
 
@@ -151,26 +152,25 @@ export function initRepoEditor() {
   (async () => {
     const editor = await createCodeEditor($editArea[0], $editFilename[0]);
 
-    // Using events from https://github.com/codedance/jquery.AreYouSure#advanced-usage
-    // to enable or disable the commit button
     const commitButton = document.getElementById('commit-button');
-    const $editForm = $('.ui.edit.form');
-    const dirtyFileClass = 'dirty-file';
+    const editForms = document.querySelectorAll('.ui.edit.form');
 
-    // Disabling the button at the start
-    if ($('input[name="page_has_posted"]').val() !== 'true') {
+    // Disabling the commit button at the start
+    if (document.querySelector('input[name="page_has_posted"]')?.value !== 'true') {
       commitButton.disabled = true;
     }
 
-    // Registering a custom listener for the file path and the file content
-    $editForm.areYouSure({
-      silent: true,
-      dirtyClass: dirtyFileClass,
-      fieldSelector: ':input:not(.commit-form-wrapper :input)',
-      change($form) {
-        const dirty = $form[0]?.classList.contains(dirtyFileClass);
-        commitButton.disabled = !dirty;
-      },
+    // file path and the file content are differently "dirty" from the commit metadata; commit button enables only when these are changed!
+    const dirtyFileMarker = 'data-dirty-file';
+    function checkDirtyFile() {
+      commitButton.disabled = !this.hasAttribute(dirtyFileMarker);
+    }
+    for (const form of editForms) {
+      form.addEventListener(EVENT_DIRTINESS_CHANGE, checkDirtyFile);
+    }
+    initLeaveConfirm(editForms, {
+      dirtyAttr: dirtyFileMarker,
+      inputSelector: ':where(input,textarea,select,button):not(.commit-form-wrapper :where(input,textarea,select,button))',
     });
 
     // Update the editor from query params, if available,

@@ -6,7 +6,7 @@
 // web_src/js/features/repo-**
 // templates/repo/issue/view_content/*
 // routers/web/repo/issue_content_history.go
-// web_src/js/vendor/jquery.are-you-sure.js
+// web_src/js/features/leave-confirm.ts
 // @watch end
 
 import {expect} from '@playwright/test';

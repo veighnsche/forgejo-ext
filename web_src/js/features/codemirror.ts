@@ -54,7 +54,7 @@ export async function createCodemirror(
   const onContentChange = editorOpts.onContentChange || ((update) => {
     if (update.docChanged) {
       textarea.value = update.state.doc.toString();
-        // Make jquery-are-you-sure happy.
+        // Make leave-confirm happy.
       textarea.dispatchEvent(new Event('change'));
     }
   });

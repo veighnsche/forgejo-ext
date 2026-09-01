@@ -3,6 +3,7 @@
 
 // @watch start
 // templates/repo/diff/new_review.tmpl
+// web_src/js/features/leave-confirm.ts
 // web_src/js/features/repo-diff.js
 // web_src/js/features/repo-issue.js
 // web_src/js/vendor/jquery.are-you-sure.js
