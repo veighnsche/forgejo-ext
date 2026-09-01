@@ -8,6 +8,7 @@ import {toAbsoluteUrl} from '../utils.js';
 import {initDropzone} from './common-global.js';
 import {POST, GET} from '../modules/fetch.js';
 import {showErrorToast} from '../modules/toast.js';
+import {initLeaveConfirm} from './leave-confirm.ts';
 
 const {appSubUrl} = window.config;
 
@@ -705,7 +706,7 @@ export function initRepoPullRequestReview() {
 
         await initDropzone($td.find('.dropzone')[0]);
         const editor = await initComboMarkdownEditor($td.find('.combo-markdown-editor'));
-        $('.conversation-holder form:not(.ignore-dirty)').areYouSure();
+        initLeaveConfirm($td.get(0).querySelectorAll('.conversation-holder form:not(.ignore-dirty)'));
         editor.focus();
       } catch (error) {
         console.error(error);

@@ -9,7 +9,6 @@
 // web_src/js/features/leave-confirm.ts
 // web_src/js/features/repo-editor.js
 // web_src/js/features/repo-settings.js
-// web_src/js/vendor/jquery.are-you-sure.js
 // @watch end
 
 import {expect, type Page} from '@playwright/test';

@@ -4,9 +4,9 @@
 // @watch start
 // templates/repo/editor/**
 // web_src/js/features/common-global.js
+// web_src/js/features/leave-confirm.ts
 // routers/web/web.go
 // services/repository/files/**
-// web_src/js/vendor/jquery.are-you-sure.js
 // @watch end
 
 import {type Page, expect} from '@playwright/test';
