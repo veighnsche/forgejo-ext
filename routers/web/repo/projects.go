@@ -578,7 +578,7 @@ func MoveIssues(ctx *context.Context) {
 
 	existingIssues, complete, err := project_service.GetIssues(ctx, form.GetIssueIDs())
 	if err != nil {
-		ctx.NotFoundOrServerError("GetIssues", issues_model.IsErrIssueNotExist, err)
+		ctx.ServerError("GetIssues", err)
 		return
 	}
 
