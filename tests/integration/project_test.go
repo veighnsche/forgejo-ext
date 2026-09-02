@@ -1297,28 +1297,39 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 	}
 
 	// invalid project
-	for testName, projectURL := range map[string]string{
-		"User, invalid project":         fmt.Sprintf("/%s/-/projects/1234567890", user.Name),
-		"Organization, invalid project": fmt.Sprintf("/%s/-/projects/1234567890", org.Name),
-		"Repository, invalid project":   fmt.Sprintf("/%s/%s/projects/1234567890", user.Name, repo.Name),
+	for _, tt := range []struct {
+		name  string
+		owner string
+		repo  string
+	}{
+		{"User, invalid project", user.Name, "-"},
+		{"Organization, invalid project", org.Name, "-"},
+		{"Repository, invalid project", user.Name, repo.Name},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &createOpts), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/1234567890", tt.owner, tt.repo)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusNotFound)
 		})
 	}
 
 	// wrong owner
-	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d", org.Name, userProject.ID),
-		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d", user.Name, orgProject.ID),
-		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d", user.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, wrong owner", org.Name, "-", userProject.ID},
+		{"Organization, wrong owner", user.Name, "-", orgProject.ID},
+		{"Repository, wrong owner", user.Name, "-", repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &createOpts), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/%d", tt.owner, tt.repo, tt.projectID)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusNotFound)
 		})
 	}
 
@@ -1328,16 +1339,22 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 		Sorting: 0,
 		Color:   "bad color",
 	}
-	for testName, projectURL := range map[string]string{
-		"User, bad color":         fmt.Sprintf("/%s/-/projects/%d", user.Name, userProject.ID),
-		"Organization, bad color": fmt.Sprintf("/%s/-/projects/%d", org.Name, orgProject.ID),
-		"Repository, bad color":   fmt.Sprintf("/%s/%s/projects/%d/", user.Name, repo.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, bad color", user.Name, "-", userProject.ID},
+		{"Organization, bad color", org.Name, "-", orgProject.ID},
+		{"Repository, bad color", user.Name, repo.Name, repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
-			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &createOptsBad), http.StatusInternalServerError)
+			url := fmt.Sprintf("/%s/%s/projects/%d/", tt.owner, tt.repo, tt.projectID)
+			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOptsBad), http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1366,16 +1383,18 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 	// no error
 	for _, tt := range []struct {
 		name      string
-		url       string
+		owner     string
+		repo      string
 		projectID int64
 	}{
-		{"User", fmt.Sprintf("/%s/-/projects", user.Name), userProject.ID},
-		{"Organization", fmt.Sprintf("/%s/-/projects", org.Name), orgProject.ID},
-		{"Repository", fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name), repoProject.ID},
+		{"User", user.Name, "-", userProject.ID},
+		{"Organization", org.Name, "-", orgProject.ID},
+		{"Repository", user.Name, repo.Name, repoProject.ID},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
+			url := fmt.Sprintf("/%s/%s/projects/%d", tt.owner, tt.repo, tt.projectID)
 
 			containFunc := func(columns []*project_model.Column) bool {
 				// check if columns contain column identified
@@ -1397,7 +1416,6 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			}, "column list should not contain column")
 
 			// create new column
-			url := fmt.Sprintf("%s/%d", tt.url, tt.projectID)
 			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusOK)
 
 			// check if column was created
