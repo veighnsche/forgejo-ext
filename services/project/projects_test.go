@@ -488,7 +488,7 @@ func TestGetProjectByIDForOwnerErrors(t *testing.T) {
 	})
 }
 
-func TestUpdateProjectErrors(t *testing.T) {
+func TestUpdateProject(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// prepare project
@@ -519,6 +519,25 @@ func TestUpdateProjectErrors(t *testing.T) {
 		err := UpdateProject(t.Context(), project, updated)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Field APIStatus")
+	})
+
+	t.Run("change status", func(t *testing.T) {
+		// close
+		updated := &project_structs.CreateProjectOptions{
+			Status: "closed",
+		}
+		assert.False(t, project.IsClosed)
+		err := UpdateProject(t.Context(), project, updated)
+		require.NoError(t, err)
+		assert.True(t, project.IsClosed)
+
+		// open
+		updated = &project_structs.CreateProjectOptions{
+			Status: "open",
+		}
+		err = UpdateProject(t.Context(), project, updated)
+		require.NoError(t, err)
+		assert.False(t, project.IsClosed)
 	})
 }
 
