@@ -998,30 +998,30 @@ func TestProjectWebRenderEditProject(t *testing.T) {
 	repoProject := forgery.CreateProject(t, repo, nil)
 
 	for _, tt := range []struct {
-		name   string
-		url    string
-		expect string
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+		expect    string
 	}{
 		{
-			"User",
-			fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, userProject.ID),
+			"User", user.Name, "-", userProject.ID,
 			".page-content.organization.projects.edit-project.new",
 		},
 		{
-			"Organization",
-			fmt.Sprintf("/%s/-/projects/%d/edit", org.Name, orgProject.ID),
+			"Organization", org.Name, "-", orgProject.ID,
 			".page-content.organization.projects.edit-project.new",
 		},
 		{
-			"Repository",
-			fmt.Sprintf("/%s/%s/projects/%d/edit", user.Name, repo.Name, repoProject.ID),
+			"Repository", user.Name, repo.Name, repoProject.ID,
 			".page-content.repository.projects.edit-project.new.milestone",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			resp := session.MakeRequest(t, NewRequest(t, "GET", tt.url), http.StatusOK)
+			url := fmt.Sprintf("/%s/%s/projects/%d/edit", tt.owner, tt.repo, tt.projectID)
+			resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
 			// template: templates/org/projects/new.tmpl
 			// template lines:
@@ -1056,15 +1056,21 @@ func TestProjectWebRenderEditProject(t *testing.T) {
 	}
 
 	// wrong owners
-	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/edit", org.Name, userProject.ID),
-		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, orgProject.ID),
-		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, wrong owner", org.Name, "-", userProject.ID},
+		{"Organization, wrong owner", user.Name, "-", orgProject.ID},
+		{"Repository, wrong owner", user.Name, "-", repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/%d/edit", tt.owner, tt.repo, tt.projectID)
+			session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusNotFound)
 		})
 	}
 }
