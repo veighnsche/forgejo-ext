@@ -921,49 +921,66 @@ func TestProjectWebDeleteProject(t *testing.T) {
 	repoProject := forgery.CreateProject(t, repo, nil)
 
 	// not existing projects
-	for testName, projectURL := range map[string]string{
-		"User, not existing project":         fmt.Sprintf("/%s/-/projects/1234567890/delete", user.Name),
-		"Organization, not existing project": fmt.Sprintf("/%s/-/projects/1234567890/delete", org.Name),
-		"Repository, not existing project":   fmt.Sprintf("/%s/%s/projects/1234567890/delete", user.Name, repo.Name),
+	for _, tt := range []struct {
+		name  string
+		owner string
+		repo  string
+	}{
+		{"User, not existing project", user.Name, "-"},
+		{"Organization, not existing project", org.Name, "-"},
+		{"Repository, not existing project", user.Name, repo.Name},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/1234567890/delete", tt.owner, tt.repo)
+			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusNotFound)
 		})
 	}
 
 	// wrong owners
-	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/delete", org.Name, userProject.ID),
-		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/delete", user.Name, orgProject.ID),
-		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/delete", user.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, wrong owner", org.Name, "-", userProject.ID},
+		{"Organization, wrong owner", user.Name, "-", orgProject.ID},
+		{"Repository, wrong owner", user.Name, "-", repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/%d/delete", tt.owner, tt.repo, tt.projectID)
+			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusNotFound)
 		})
 	}
 
 	// no errors
-	for testName, projectURL := range map[string]string{
-		"User":         fmt.Sprintf("/%s/-/projects/%d", user.Name, userProject.ID),
-		"Organization": fmt.Sprintf("/%s/-/projects/%d", org.Name, orgProject.ID),
-		"Repository":   fmt.Sprintf("/%s/%s/projects/%d", user.Name, repo.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User", user.Name, "-", userProject.ID},
+		{"Organization", org.Name, "-", orgProject.ID},
+		{"Repository", user.Name, repo.Name, repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
+			url := fmt.Sprintf("/%s/%s/projects/%d", tt.owner, tt.repo, tt.projectID)
 
 			// check project exists
-			session.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusOK)
+			session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
 
 			// delete project
-			session.MakeRequest(t, NewRequest(t, "POST", projectURL+"/delete"), http.StatusOK)
+			session.MakeRequest(t, NewRequest(t, "POST", url+"/delete"), http.StatusOK)
 
 			// check project was deleted
-			session.MakeRequest(t, NewRequest(t, "GET", projectURL), http.StatusNotFound)
+			session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusNotFound)
 		})
 	}
 }
