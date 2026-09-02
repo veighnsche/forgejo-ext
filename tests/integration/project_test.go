@@ -1640,42 +1640,59 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 	repoProject := forgery.CreateProject(t, repo, nil)
 
 	// invalid project
-	for testName, projectURL := range map[string]string{
-		"User, invalid project":         fmt.Sprintf("/%s/-/projects/1234567890/0/default", user.Name),
-		"Organization, invalid project": fmt.Sprintf("/%s/-/projects/1234567890/0/default", org.Name),
-		"Repository, invalid project":   fmt.Sprintf("/%s/%s/projects/1234567890/0/default", user.Name, repo.Name),
+	for _, tt := range []struct {
+		name  string
+		owner string
+		repo  string
+	}{
+		{"User, invalid project", user.Name, "-"},
+		{"Organization, invalid project", org.Name, "-"},
+		{"Repository, invalid project", user.Name, repo.Name},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/1234567890/0/default", tt.owner, tt.repo)
+			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusNotFound)
 		})
 	}
 
 	// wrong owner
-	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/0/default", org.Name, userProject.ID),
-		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/0/default", user.Name, orgProject.ID),
-		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/0/default", user.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, wrong owner", org.Name, "-", userProject.ID},
+		{"Organization, wrong owner", user.Name, "-", orgProject.ID},
+		{"Repository, wrong owner", user.Name, "-", repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/%d/0/default", tt.owner, tt.repo, tt.projectID)
+			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusNotFound)
 		})
 	}
 
 	// invalid column
-	for testName, projectURL := range map[string]string{
-		"User, invalid column":         fmt.Sprintf("/%s/-/projects/%d/0/default", user.Name, userProject.ID),
-		"Organization, invalid column": fmt.Sprintf("/%s/-/projects/%d/0/default", org.Name, orgProject.ID),
-		"Repository, invalid column":   fmt.Sprintf("/%s/%s/projects/%d/0/default", user.Name, repo.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, invalid column", user.Name, "-", userProject.ID},
+		{"Organization, invalid column", org.Name, "-", orgProject.ID},
+		{"Repository, invalid column", user.Name, repo.Name, repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
-			resp := session.MakeRequest(t, NewRequest(t, "POST", projectURL), http.StatusInternalServerError)
+			url := fmt.Sprintf("/%s/%s/projects/%d/0/default", tt.owner, tt.repo, tt.projectID)
+			resp := session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1704,12 +1721,13 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 	// no error
 	for _, tt := range []struct {
 		name      string
-		url       string
+		owner     string
+		repo      string
 		projectID int64
 	}{
-		{"User", fmt.Sprintf("/%s/-/projects", user.Name), userProject.ID},
-		{"Organization", fmt.Sprintf("/%s/-/projects", org.Name), orgProject.ID},
-		{"Repository", fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name), repoProject.ID},
+		{"User", user.Name, "-", userProject.ID},
+		{"Organization", org.Name, "-", orgProject.ID},
+		{"Repository", user.Name, repo.Name, repoProject.ID},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
@@ -1733,7 +1751,7 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 			assert.False(t, column.Default)
 
 			// set default column
-			url := fmt.Sprintf("%s/%d/%d/default", tt.url, tt.projectID, columns[1].ID)
+			url := fmt.Sprintf("/%s/%s/projects/%d/%d/default", tt.owner, tt.repo, tt.projectID, columns[1].ID)
 			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusOK)
 
 			// check that column is default now
