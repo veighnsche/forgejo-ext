@@ -1778,42 +1778,59 @@ func TestProjectWebMoveIssues(t *testing.T) {
 	moveOpts := &project_structs.MovedIssuesOption{}
 
 	// invalid project
-	for testName, projectURL := range map[string]string{
-		"User, invalid project":         fmt.Sprintf("/%s/-/projects/1234567890/0/move", user.Name),
-		"Organization, invalid project": fmt.Sprintf("/%s/-/projects/1234567890/0/move", org.Name),
-		"Repository, invalid project":   fmt.Sprintf("/%s/%s/projects/1234567890/0/move", user.Name, repo.Name),
+	for _, tt := range []struct {
+		name  string
+		owner string
+		repo  string
+	}{
+		{"User, invalid project", user.Name, "-"},
+		{"Organization, invalid project", org.Name, "-"},
+		{"Repository, invalid project", user.Name, repo.Name},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/1234567890/0/move", tt.owner, tt.repo)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusNotFound)
 		})
 	}
 
 	// wrong owner
-	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/0/move", org.Name, userProject.ID),
-		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/0/move", user.Name, orgProject.ID),
-		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/0/move", user.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, wrong owner", org.Name, "-", userProject.ID},
+		{"Organization, wrong owner", user.Name, "-", orgProject.ID},
+		{"Repository, wrong owner", user.Name, "-", repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/%d/0/move", tt.owner, tt.repo, tt.projectID)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusNotFound)
 		})
 	}
 
 	// invalid column
-	for testName, projectURL := range map[string]string{
-		"User, invalid column":         fmt.Sprintf("/%s/-/projects/%d/0/move", user.Name, userProject.ID),
-		"Organization, invalid column": fmt.Sprintf("/%s/-/projects/%d/0/move", org.Name, orgProject.ID),
-		"Repository, invalid column":   fmt.Sprintf("/%s/%s/projects/%d/0/move", user.Name, repo.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, invalid column", user.Name, "-", userProject.ID},
+		{"Organization, invalid column", org.Name, "-", orgProject.ID},
+		{"Repository, invalid column", user.Name, repo.Name, repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
-			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &moveOpts), http.StatusInternalServerError)
+			url := fmt.Sprintf("/%s/%s/projects/%d/0/move", tt.owner, tt.repo, tt.projectID)
+			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1842,13 +1859,14 @@ func TestProjectWebMoveIssues(t *testing.T) {
 	// no error
 	for _, tt := range []struct {
 		name      string
-		url       string
+		owner     string
+		repo      string
 		projectID int64
-		repo      *repo_model.Repository
+		issueRepo *repo_model.Repository
 	}{
-		{"User", fmt.Sprintf("/%s/-/projects", user.Name), userProject.ID, repo},
-		{"Organization", fmt.Sprintf("/%s/-/projects", org.Name), orgProject.ID, orgRepo},
-		{"Repository", fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name), repoProject.ID, repo},
+		{"User", user.Name, "-", userProject.ID, repo},
+		{"Organization", org.Name, "-", orgProject.ID, orgRepo},
+		{"Repository", user.Name, repo.Name, repoProject.ID, repo},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
@@ -1865,9 +1883,9 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			for i := range 2 {
 				issue := &issues_model.Issue{
 					Title:  fmt.Sprintf("test issue %d", i),
-					RepoID: tt.repo.ID,
+					RepoID: tt.issueRepo.ID,
 				}
-				require.NoError(t, issues_model.NewIssue(t.Context(), tt.repo, issue, nil, nil))
+				require.NoError(t, issues_model.NewIssue(t.Context(), tt.issueRepo, issue, nil, nil))
 				require.NoError(t, issues_model.IssueAssignOrRemoveProject(
 					t.Context(), issue, user, tt.projectID, column.ID,
 				))
@@ -1888,7 +1906,7 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			}
 
 			// change sorting
-			url := fmt.Sprintf("%s/%d/%d/move", tt.url, tt.projectID, column.ID)
+			url := fmt.Sprintf("/%s/%s/projects/%d/%d/move", tt.owner, tt.repo, tt.projectID, column.ID)
 			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusOK)
 
 			// check sorting has changed
