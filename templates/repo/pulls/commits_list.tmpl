@@ -60,10 +60,10 @@
 			</div>
 
 			<div class="dialog-dropdown">
-				<button class="opener border" aria-label="{{ctx.Locale.Tr "toggle_menu"}}" command="toggle-popover" commandfor="{{printf "commit-%s-dropdown" (PathEscape .ID.String)}}">
+				<button class="opener border" aria-label="{{ctx.Locale.Tr "toggle_menu"}}" command="toggle-popover" commandfor="{{printf "commit-%s-dropdown" .ID.String}}">
 					{{svg "octicon-kebab-horizontal"}}
 				</button>
-				<dialog popover class="inline-flip" id="{{printf "commit-%s-dropdown" (PathEscape .ID.String)}}">
+				<dialog popover class="inline-flip" id="{{printf "commit-%s-dropdown" .ID.String}}">
 					<ul>
 						{{if $.FileName}}
 							<li>
@@ -85,7 +85,7 @@
 						</li>
 					</ul>
 				</div>
-			</details>
+			</div>
 		</div>
 
 		<div class="date">
