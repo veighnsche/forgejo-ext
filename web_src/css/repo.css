@@ -884,7 +884,7 @@ citation-information .tab:not(.active) {
 
 .singular-commit {
   display: flex;
-  align-items: center;
+  align-items: first baseline;
 }
 
 .singular-commit .message-wrapper {
@@ -907,6 +907,8 @@ citation-information .tab:not(.active) {
 .singular-commit .badge {
   height: 30px !important;
   flex-shrink: 0;
+  position: relative;
+  top: 8px; /* align with first baseline */
 }
 
 .singular-commit .shabox .sha.label {
