@@ -782,29 +782,28 @@ func TestProjectWebRenderNewProject(t *testing.T) {
 
 	for _, tt := range []struct {
 		name   string
-		url    string
+		owner  string
+		repo   string
 		expect string
 	}{
 		{
-			"User",
-			fmt.Sprintf("/%s/-/projects/new", user.Name),
+			"User", user.Name, "-",
 			".page-content.organization.projects.edit-project.new",
 		},
 		{
-			"Organization",
-			fmt.Sprintf("/%s/-/projects/new", org.Name),
+			"Organization", org.Name, "-",
 			".page-content.organization.projects.edit-project.new",
 		},
 		{
-			"Repository",
-			fmt.Sprintf("/%s/%s/projects/new", user.Name, repo.Name),
+			"Repository", user.Name, repo.Name,
 			".page-content.repository.projects.edit-project.new.milestone",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			resp := session.MakeRequest(t, NewRequest(t, "GET", tt.url), http.StatusOK)
+			url := fmt.Sprintf("/%s/%s/projects/new", tt.owner, tt.repo)
+			resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
 
 			// template: templates/org/projects/new.tmpl
