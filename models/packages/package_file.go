@@ -258,11 +258,15 @@ func SearchFiles(ctx context.Context, opts *PackageFileSearchOptions) ([]*Packag
 }
 
 // CalculateFileSize sums up all blob sizes matching the search options.
-// It does NOT respect the deduplication of blobs.
+// It respects the deduplication of blobs.
 func CalculateFileSize(ctx context.Context, opts *PackageFileSearchOptions) (int64, error) {
+	in := builder.
+		Select("DISTINCT package_file.blob_id").
+		From("package_file").
+		Where(opts.toConds())
+
 	return db.GetEngine(ctx).
-		Table("package_file").
-		Where(opts.toConds()).
-		Join("INNER", "package_blob", "package_blob.id = package_file.blob_id").
+		Table("package_blob").
+		Where(builder.In("package_blob.id", in)).
 		SumInt(new(PackageBlob), "size")
 }
