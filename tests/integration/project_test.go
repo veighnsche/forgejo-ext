@@ -1095,44 +1095,52 @@ func TestProjectWebEditProjectPost(t *testing.T) {
 
 	// no errors
 	for _, tt := range []struct {
-		name string
-		url  string
-		id   int64
+		name      string
+		owner     string
+		repo      string
+		projectID int64
 	}{
-		{"User", fmt.Sprintf("/%s/-/projects", user.Name), userProject.ID},
-		{"Organization", fmt.Sprintf("/%s/-/projects", org.Name), orgProject.ID},
-		{"Repository", fmt.Sprintf("/%s/%s/projects", user.Name, repo.Name), repoProject.ID},
+		{"User", user.Name, "-", userProject.ID},
+		{"Organization", org.Name, "-", orgProject.ID},
+		{"Repository", user.Name, repo.Name, repoProject.ID},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
+			url := fmt.Sprintf("/%s/%s/projects", tt.owner, tt.repo)
 
 			// check project settings do not match already
-			project := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.id})
+			project := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.projectID})
 			assert.NotEqual(t, projectOpts.Title, project.Title)
 			assert.NotEqual(t, projectOpts.Content, project.Description)
 
 			// change project settings
-			url := fmt.Sprintf("%s/%d/edit", tt.url, tt.id)
+			url = fmt.Sprintf("%s/%d/edit", url, tt.projectID)
 			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &projectOpts), http.StatusSeeOther)
 
 			// check project settings were changed
-			project = unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.id})
+			project = unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.projectID})
 			assert.Equal(t, projectOpts.Title, project.Title)
 			assert.Equal(t, projectOpts.Content, project.Description)
 		})
 	}
 
 	// wrong owners
-	for testName, projectURL := range map[string]string{
-		"User, wrong owner":         fmt.Sprintf("/%s/-/projects/%d/edit", org.Name, userProject.ID),
-		"Organization, wrong owner": fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, orgProject.ID),
-		"Repository, wrong owner":   fmt.Sprintf("/%s/-/projects/%d/edit", user.Name, repoProject.ID),
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+	}{
+		{"User, wrong owner", org.Name, "-", userProject.ID},
+		{"Organization, wrong owner", user.Name, "-", orgProject.ID},
+		{"Repository, wrong owner", user.Name, "-", repoProject.ID},
 	} {
-		t.Run(testName, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", projectURL, &projectOpts), http.StatusNotFound)
+			url := fmt.Sprintf("/%s/%s/projects/%d/edit", tt.owner, tt.repo, tt.projectID)
+			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &projectOpts), http.StatusNotFound)
 		})
 	}
 }
