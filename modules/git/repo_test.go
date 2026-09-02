@@ -54,7 +54,7 @@ func TestRepoGetDivergingCommits(t *testing.T) {
 }
 
 func TestCloneCredentials(t *testing.T) {
-	calledWithoutPassword := false
+	calledWithEmptyPassword := false
 	credentialsFile := ""
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -76,13 +76,13 @@ func TestCloneCredentials(t *testing.T) {
 		user, password, ok := bytes.Cut(rawAuth, []byte{':'})
 		assert.True(t, ok)
 
-		// First time around Git must try without password (password was removed from the clone URL to not appear as argument).
+		// A username-only URL makes Git try an empty password before consulting
+		// the credential helper. Some hosts intentionally mask that failure as a
+		// 404 instead of issuing another authentication challenge.
 		if len(password) == 0 {
 			assert.EqualValues(t, "oauth2", user)
-			calledWithoutPassword = true
-
-			w.Header().Set("WWW-Authenticate", `Basic realm="Forgejo"`)
-			http.Error(w, "require credentials", http.StatusUnauthorized)
+			calledWithEmptyPassword = true
+			http.Error(w, "repository not found", http.StatusNotFound)
 			return
 		}
 
@@ -110,7 +110,7 @@ func TestCloneCredentials(t *testing.T) {
 
 	require.NoError(t, Clone(t.Context(), serverURL.String(), t.TempDir(), CloneRepoOptions{}))
 
-	assert.True(t, calledWithoutPassword)
+	assert.False(t, calledWithEmptyPassword)
 	assert.NotEmpty(t, credentialsFile)
 
 	// Check that the credential file is gone.

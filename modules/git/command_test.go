@@ -61,6 +61,22 @@ func TestCommandString(t *testing.T) {
 	assert.Equal(t, cmd.prog+` "url: https://sanitized-credential@c/"`, cmd.toString(true))
 }
 
+func TestAddAuthCredentialHelperForRemoteWithoutHTTPPassword(t *testing.T) {
+	for _, remoteURL := range []string{
+		"ssh://git@example.com/owner/repo.git",
+		"ssh://git:password@example.com/owner/repo.git",
+	} {
+		cmd := NewCommandContextNoGlobals(t.Context())
+
+		commandURL, cleanup, err := cmd.AddAuthCredentialHelperForRemote(remoteURL)
+		require.NoError(t, err)
+		cleanup()
+
+		assert.Equal(t, remoteURL, commandURL)
+		assert.Empty(t, cmd.args)
+	}
+}
+
 func TestGrepOnlyFunction(t *testing.T) {
 	cmd := NewCommand(t.Context(), "anything-but-grep")
 	assert.Panics(t, func() {

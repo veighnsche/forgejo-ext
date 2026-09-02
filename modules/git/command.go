@@ -459,7 +459,11 @@ func (c *Command) AddAuthCredentialHelperForRemote(remoteURL string) (commandURL
 	// to prevent credential leak in the process list.
 	// https://git-scm.com/docs/git-credential-store#_storage_format
 	// credential.helper adjustment must be set before the git subcommand
-	if strings.Contains(remoteURL, "://") && strings.Contains(remoteURL, "@") && parsedFromURL != nil {
+	if (parsedFromURL.Scheme == "http" || parsedFromURL.Scheme == "https") && parsedFromURL.User != nil {
+		if _, hasPassword := parsedFromURL.User.Password(); !hasPassword {
+			return remoteURL, func() {}, nil
+		}
+
 		credentialsFile, err := os.CreateTemp("", "forgejo-clone-credentials-")
 		if err != nil {
 			return "", nil, err
@@ -485,8 +489,11 @@ func (c *Command) AddAuthCredentialHelperForRemote(remoteURL string) (commandURL
 
 		c.AddArguments("-c").AddDynamicArguments("credential.helper=store --file=" + credentialsPath)
 
-		// remove the password from the URL argument
-		parsedFromURL.User = url.User(parsedFromURL.User.Username())
+		// Do not leave a username with an empty password in the URL. Git would
+		// try that empty password before consulting the credential helper, and
+		// servers that mask failed authentication as 404 prevent the helper from
+		// being used at all.
+		parsedFromURL.User = nil
 		commandURL = parsedFromURL.String()
 
 		return commandURL, cleanup, nil
