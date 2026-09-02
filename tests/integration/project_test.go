@@ -1856,6 +1856,64 @@ func TestProjectWebMoveIssues(t *testing.T) {
 		})
 	}
 
+	// missing issue
+	for _, tt := range []struct {
+		name      string
+		owner     string
+		repo      string
+		projectID int64
+		issueRepo *repo_model.Repository
+	}{
+		{"User", user.Name, "-", userProject.ID, repo},
+		{"Organization", org.Name, "-", orgProject.ID, orgRepo},
+		{"Repository", user.Name, repo.Name, repoProject.ID, repo},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			session := loginUser(t, user.Name)
+
+			// create test column
+			column := &project_model.Column{
+				Title:     fmt.Sprintf("New %s Project Column 1", tt.name),
+				ProjectID: tt.projectID,
+			}
+			require.NoError(t, project_model.CreateColumn(t.Context(), column))
+
+			url := fmt.Sprintf("/%s/%s/projects/%d/%d/move", tt.owner, tt.repo, tt.projectID, column.ID)
+			// move not existing issue
+			moveOpts.ProjectIssues = []struct {
+				IssueID int64 `json:"issueID"`
+				Sorting int64 `json:"sorting"`
+			}{
+				{1234567890, 123},
+			}
+			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusInternalServerError)
+
+			// template: templates/status/500.tmpl
+			// template lines:
+			// <div role="main" class="page-content status-page-500">
+			// 	<div class="ui container" >
+			// 		<style> .ui.message.flash-message { text-align: start; } </style>
+			// 		{{template "base/alert" .}}
+			// 	</div>
+			// [...]
+			// </div>
+			// template: templates/base/alert.tmpl
+			// template lines:
+			// {{if .Flash.WarningMsg}}
+			// 	<div id="flash-message" class="ui warning message flash-message flash-warning" hx-swap-oob="true">
+			// 		<p>{{.Flash.WarningMsg | SanitizeHTML}}</p>
+			// 	</div>
+			// {{end}}
+			doc := NewHTMLParser(t, resp.Body)
+			doc.AssertElement(t, ".ui.warning.message.flash-message.flash-warning", true)
+			assert.Contains(t,
+				doc.Find(".page-content.status-page-500 .ui.container .ui.warning.message.flash-message.flash-warning p").Text(),
+				translation.NewLocale("en-US").Tr("project.missing_issues_in_list"),
+			)
+		})
+	}
+
 	// no error
 	for _, tt := range []struct {
 		name      string
