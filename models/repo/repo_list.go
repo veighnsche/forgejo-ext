@@ -469,6 +469,11 @@ func SearchRepositoryCondition(opts *SearchRepoOptions) builder.Cond {
 	if has, value := opts.HasMilestones.Get(); has {
 		if value {
 			cond = cond.And(builder.Gt{"num_milestones": 0})
+			condIssueOrPull := builder.In("`repository`.id", builder.Select("`repo_unit`.repo_id").From("repo_unit").Where(builder.Or(
+				builder.Eq{"`repo_unit`.type": unit.TypeIssues},
+				builder.Eq{"`repo_unit`.type": unit.TypePullRequests},
+			)))
+			cond = cond.And(condIssueOrPull)
 		} else {
 			cond = cond.And(builder.Eq{"num_milestones": 0}.Or(builder.IsNull{"num_milestones"}))
 		}
