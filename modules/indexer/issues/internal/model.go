@@ -7,6 +7,8 @@ import (
 	"forgejo.org/models/db"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/timeutil"
+
+	"xorm.io/builder"
 )
 
 // IndexerData data stored in the issue indexer
@@ -75,6 +77,7 @@ type SearchResult struct {
 type SearchOptions struct {
 	Tokens []Token
 
+	RepoCond       builder.Cond           // database indexer exclusive: the condition that should be used to gather repository IDs which the issues belong to, if present then `repoIDs` has no effect.
 	RepoIDs        []int64                // repository IDs which the issues belong to
 	AllPublic      bool                   // if include all public repositories
 	PriorityRepoID optional.Option[int64] // issues from this repository will be prioritized when SortByScore

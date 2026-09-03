@@ -61,6 +61,7 @@ import (
 	repo_service "forgejo.org/services/repository"
 
 	"code.forgejo.org/go-chi/binding"
+	"xorm.io/builder"
 )
 
 const (
@@ -2685,6 +2686,7 @@ func SearchIssues(ctx *context.Context) {
 
 	var (
 		repoIDs   []int64
+		repoCond  builder.Cond
 		allPublic bool
 	)
 	{
@@ -2741,6 +2743,7 @@ func SearchIssues(ctx *context.Context) {
 			allPublic = true
 			opts.AllPublic = false // set it false to avoid returning too many repos, we could filter by indexer
 		}
+		repoCond = builder.In("repo_id", builder.Select("id").From("repository").Where(repo_model.SearchRepositoryCondition(opts)))
 		repoIDs, _, err = repo_model.SearchRepositoryIDs(ctx, opts)
 		if err != nil {
 			log.Error("SearchRepositoryIDs: %v", err)
@@ -2815,6 +2818,7 @@ func SearchIssues(ctx *context.Context) {
 			Page:     ctx.FormInt("page"),
 			PageSize: limit,
 		},
+		RepoCond:            repoCond,
 		RepoIDs:             repoIDs,
 		AllPublic:           allPublic,
 		IsPull:              isPull,

@@ -51,9 +51,7 @@ func ToDBOptions(ctx context.Context, options *internal.SearchOptions) (*issues_
 
 	opts := &issues_model.IssuesOptions{
 		Paginator:          options.Paginator,
-		RepoIDs:            options.RepoIDs,
 		AllPublic:          options.AllPublic,
-		RepoCond:           nil,
 		AssigneeID:         convertID(options.AssigneeID),
 		PosterID:           convertID(options.PosterID),
 		MentionedID:        convertID(options.MentionID),
@@ -81,6 +79,13 @@ func ToDBOptions(ctx context.Context, options *internal.SearchOptions) (*issues_
 	if has, value := options.PriorityRepoID.Get(); has {
 		opts.SortType = "priorityrepo"
 		opts.PriorityRepoID = value
+	}
+
+	// If RepoCond is present, prefer that over `RepoIDs`
+	if options.RepoCond != nil {
+		opts.RepoCond = options.RepoCond
+	} else {
+		opts.RepoIDs = options.RepoIDs
 	}
 
 	if len(options.MilestoneIDs) == 1 && options.MilestoneIDs[0] == 0 {

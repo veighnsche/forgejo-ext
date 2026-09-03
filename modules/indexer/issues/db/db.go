@@ -54,12 +54,21 @@ func (i *Indexer) Search(ctx context.Context, options *internal.SearchOptions) (
 
 	var priorityIssueIndex int64
 	if len(options.Tokens) != 0 {
-		repoCond := builder.In("repo_id", options.RepoIDs)
-		if len(options.RepoIDs) == 1 {
-			repoCond = builder.Eq{"repo_id": options.RepoIDs[0]}
+		// RepoCond and RepoIDs are mutually exclusive
+		if options.RepoCond != nil && len(options.RepoIDs) > 0 {
+			return nil, ErrRepoCondAndRepoID{}
 		}
-		subQuery := builder.Select("id").From("issue").Where(repoCond)
 
+		var repoCond builder.Cond
+		if options.RepoCond != nil {
+			repoCond = options.RepoCond
+		} else if len(options.RepoIDs) == 1 {
+			repoCond = builder.Eq{"repo_id": options.RepoIDs[0]}
+		} else {
+			repoCond = builder.In("repo_id", options.RepoIDs)
+		}
+
+		subQuery := builder.Select("id").From("issue").Where(repoCond)
 		for _, token := range options.Tokens {
 			cond = builder.Or(
 				db.BuildCaseInsensitiveLike("issue.name", token.Term),
