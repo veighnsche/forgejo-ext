@@ -359,8 +359,8 @@ test('Markdown insert table', async ({page}) => {
 
     if (isEditing) {
       // Preparations for evaluating comment editing
-      await area.locator('.comment-header-right.actions details.dropdown').click();
-      await area.locator('.comment-header-right.actions details.dropdown .edit-content').click();
+      await area.locator('.comment-header-right.actions .dialog-dropdown .opener').click();
+      await area.locator('.comment-header-right.actions .dialog-dropdown dialog .edit-content').click();
       expectedContent = `good work!${expectedContent}`;
     }
 
@@ -409,8 +409,8 @@ test('Markdown insert link', async ({page}) => {
 
     if (isEditing) {
       // Preparations for evaluating comment editing
-      await area.locator('.comment-header-right.actions details.dropdown').click();
-      await area.locator('.comment-header-right.actions details.dropdown .edit-content').click();
+      await area.locator('.comment-header-right.actions .dialog-dropdown .opener').click();
+      await area.locator('.comment-header-right.actions .dialog-dropdown dialog .edit-content').click();
       expectedContent = `good work!${expectedContent}`;
     }
 
@@ -479,12 +479,12 @@ test('Markdown insert link', async ({page}) => {
   await expect(async () => {
     await evaluateLinkInsertion(page, '#comment-form', false);
     await evaluateLinkInsertion(page, '#issuecomment-2', true);
-  }).toPass();
+  }).toPass({timeout: 3000});
 
   await expect(async () => {
     await evaluateLinkInsertionShortcut(page, '#comment-form');
     await evaluateLinkInsertionShortcut(page, '#issuecomment-2');
-  }).toPass();
+  }).toPass({timeout: 3000});
 });
 
 test('text expander has higher prio then prefix continuation', async ({page}) => {
@@ -750,8 +750,8 @@ test('Persistent monospace preference across multiple editors', async ({page}) =
 
   // Open a second editor (by clicking "Edit" in the context menu of a message)
   const openSecondEditor = async () => {
-    const contextMenu = page.locator('.timeline-item details:has(summary[aria-label="Comment menu"]):has(.edit-content)').first();
-    const editButton = contextMenu.locator('.content').getByText('Edit').first();
+    const contextMenu = page.locator('.timeline-item .dialog-dropdown:has(.opener[aria-label="Comment menu"]):has(.edit-content)').first();
+    const editButton = contextMenu.locator('dialog').getByText('Edit').first();
     await contextMenu.click();
     await editButton.click();
   };
