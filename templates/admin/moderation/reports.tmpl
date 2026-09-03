@@ -72,9 +72,11 @@
 								{{svg "octicon-x"}}
 							</button>
 							{{if .ContentReference}} {{/* the reference is missing when the content was already deleted */}}
-							<details class="dropdown item dir-rtl">
-								<summary class="tw-p-1" data-tooltip-content="{{ctx.Locale.Tr "profile.actions.tooltip"}}">{{svg "octicon-kebab-horizontal"}}</summary>
-								<div class="content">
+							<div class="dialog-dropdown">
+								<button class="opener border" command="toggle-popover" commandfor="{{$reportDivSelector}}-dropdown" data-tooltip-content="{{ctx.Locale.Tr "profile.actions.tooltip"}}">
+									{{svg "octicon-kebab-horizontal"}}
+								</button>
+								<dialog popover class="inline-flip" id="{{$reportDivSelector}}-dropdown">
 									<ul
 											hx-target="{{$reportDivSelector}}" hx-indicator="{{$reportDivSelector}}"
 											hx-vals='{"content_type": {{.ContentType}}, "content_id": {{.ContentID}}}'>
@@ -109,8 +111,8 @@
 										</li>
 										{{end}}
 									</ul>
-								</div>
-							</details>
+								</dialog>
+							</div>
 							{{end}}
 						</div>
 					</div>
