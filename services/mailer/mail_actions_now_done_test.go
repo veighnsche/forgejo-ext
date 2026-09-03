@@ -130,7 +130,9 @@ func TestActionRunNowDoneNotificationMail(t *testing.T) {
 		repo.OwnerID = owner.ID
 	}
 
-	notify_service.RegisterNotifier(NewNotifier())
+	notifier := NewNotifier()
+	notify_service.RegisterNotifier(notifier)
+	defer notify_service.UnregisterNotifier(notifier)
 
 	orgOwner := getActionsNowDoneTestUser(t, "org_owner", "org_owner@example.com", "disabled")
 	defer CleanUpUsers(ctx, []*user_model.User{orgOwner})
