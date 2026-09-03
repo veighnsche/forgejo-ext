@@ -505,3 +505,18 @@ test('Reference in a new issue', async ({page}) => {
   await page.keyboard.press('Escape');
   await expect(modal).toBeHidden();
 });
+
+test.describe('Mention includes pronouns', () => {
+  // no need to check logged-out state, since mentions are only available to comment inputs, which are only available to authenticated users.
+
+  test('participant', async ({page}) => {
+    await page.goto('/user2/repo1/issues/1');
+
+    // start writing mention
+    await page.getByPlaceholder('Leave a comment').fill('@user2');
+
+    // check expander content
+    const expansion = page.locator('text-expander li');
+    await expect(expansion).toHaveText('user2   < U<se>r Tw<o > ><  (he/him)');
+  });
+});
