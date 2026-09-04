@@ -415,10 +415,12 @@ func InsertTeamMember(ctx context.Context, team *organization.Team, userID int64
 		if err := team.LoadRepositories(ctx); err != nil {
 			return fmt.Errorf("load repositories: %w", err)
 		}
-		for _, repo := range team.Repos {
-			if err := access_model.RecalculateUserAccess(ctx, repo, userID); err != nil {
-				return fmt.Errorf("error recalculating user access: %w", err)
-			}
+		repoIDs := make([]int64, len(team.Repos))
+		for i, r := range team.Repos {
+			repoIDs[i] = r.ID
+		}
+		if err := access_model.RecalculateUserAccessForRepos(ctx, userID, repoIDs); err != nil {
+			return fmt.Errorf("error recalculating user access: %w", err)
 		}
 
 		return nil
