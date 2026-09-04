@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"forgejo.org/models"
 	"forgejo.org/models/db"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
@@ -82,4 +83,42 @@ func ChangeCollaborationAccessMode(ctx context.Context, repo *repo_model.Reposit
 
 		return nil
 	})
+}
+
+// DeleteCollaboration removes collaboration relation between the user and repository.
+func DeleteCollaboration(ctx context.Context, repo *repo_model.Repository, uid int64) (err error) {
+	collaboration := &repo_model.Collaboration{
+		RepoID: repo.ID,
+		UserID: uid,
+	}
+
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	if has, err := db.GetEngine(ctx).Delete(collaboration); err != nil {
+		return err
+	} else if has == 0 {
+		return committer.Commit()
+	}
+	if err = access_model.RecalculateAccesses(ctx, repo); err != nil {
+		return err
+	}
+
+	if err = repo_model.WatchRepoExplicitly(ctx, uid, repo.ID, repo_model.WatchNoneSelection); err != nil {
+		return err
+	}
+
+	if err = models.ReconsiderWatches(ctx, repo, uid); err != nil {
+		return err
+	}
+
+	// Unassign a user from any issue (s)he has been assigned to in the repository
+	if err := models.ReconsiderRepoIssuesAssignee(ctx, repo, uid); err != nil {
+		return err
+	}
+
+	return committer.Commit()
 }

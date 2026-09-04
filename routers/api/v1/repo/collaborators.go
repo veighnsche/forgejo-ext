@@ -19,7 +19,6 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	repo_service "forgejo.org/services/repository"
 )
 
 // ListCollaborators list a repository's collaborators
@@ -244,7 +243,7 @@ func DeleteCollaborator(ctx *context.APIContext) {
 		return
 	}
 
-	if err := repo_service.DeleteCollaboration(ctx, ctx.Repo().Repository, collaborator.ID); err != nil {
+	if err := repo_module.DeleteCollaboration(ctx, ctx.Repo().Repository, collaborator.ID); err != nil {
 		ctx.Error(http.StatusInternalServerError, "DeleteCollaboration", err)
 		return
 	}
