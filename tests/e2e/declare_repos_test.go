@@ -109,6 +109,16 @@ func DeclareGitRepos(t *testing.T) {
 			Versions:  []string{"file"},
 			CommitMsg: "A commit message\nwhich spans multiple lines",
 		},
+		{
+			Filename:  "file3.md",
+			Versions:  []string{"another file"},
+			CommitMsg: "a\nb",
+		},
+		{
+			Filename:  "file4.md",
+			Versions:  []string{"yet another file"},
+			CommitMsg: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed\n\ndo eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\nDolorem cupiditate deleniti illo quo vitae culpa totam blanditiis. Architecto molestias eveniet quibusdam voluptas saepe modi reprehenderit quos. Nobis qui ipsam id et delectus. Corrupti cupiditate occaecati eius. Voluptas voluptatibus culpa nostrum. Id temporibus minima quis voluptate. Et sit quos autem est natus saepe. Velit vitae eos sint magnam et magnam dolore. Aspernatur suscipit dolorem sint fugiat repudiandae provident dolorem voluptatem. Ullam ut unde aperiam. Aut occaecati sit placeat adipisci non. Animi tempore autem molestias numquam ut qui iste. Pariatur recusandae ipsam maxime nihil quia veniam. Doloremque voluptatibus voluptatum consequatur illum iure aperiam deleniti non. Quo quisquam eveniet nihil animi. Et unde in sint eligendi aut autem. Veniam voluptates debitis ullam doloremque. Debitis provident tempore ab fugiat aut distinctio omnis. Vel sapiente nulla id. Quia aliquam ab est. Consequatur voluptatem id blanditiis distinctio. Qui expedita quibusdam qui earum quis culpa. Iste laudantium fuga vero provident voluptatem laboriosam ullam et. Alias consequuntur earum dolor nemo molestiae non neque.",
+		},
 	}, func(user *user_model.User, repo *repo_model.Repository) {
 		// status on main branch
 		commitMainSha := commitNewFile(t, user, repo, "Another multiline commit message\nthis time with a status 🎉", "file2.md", "also a file")
