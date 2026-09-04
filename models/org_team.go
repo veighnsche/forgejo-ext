@@ -120,6 +120,14 @@ func RemoveAllRepositories(ctx context.Context, t *organization.Team) (err error
 // Note: Shall not be called if team includes all repositories
 func removeAllRepositories(ctx context.Context, t *organization.Team) (err error) {
 	e := db.GetEngine(ctx)
+
+	if err := t.LoadRepositories(ctx); err != nil {
+		return fmt.Errorf("load repositories failed: %w", err)
+	}
+	if err := t.LoadMembers(ctx); err != nil {
+		return fmt.Errorf("load repositories failed: %w", err)
+	}
+
 	// Delete all accesses.
 	for _, repo := range t.Repos {
 		if err := access_model.RecalculateTeamAccesses(ctx, repo, t.ID); err != nil {
