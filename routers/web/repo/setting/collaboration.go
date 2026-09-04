@@ -127,7 +127,7 @@ func CollaborationPost(ctx *context.Context) {
 
 // ChangeCollaborationAccessMode response for changing access of a collaboration
 func ChangeCollaborationAccessMode(ctx *context.Context) {
-	if err := repo_model.ChangeCollaborationAccessMode(
+	if err := repo_module.ChangeCollaborationAccessMode(
 		ctx,
 		ctx.Repo.Repository,
 		ctx.FormInt64("uid"),

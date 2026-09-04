@@ -194,7 +194,7 @@ func AddCollaborator(ctx *context.APIContext) {
 	}
 
 	if form.Permission != nil {
-		if err := repo_model.ChangeCollaborationAccessMode(ctx, ctx.Repo().Repository, collaborator.ID, perm.ParseAccessMode(*form.Permission)); err != nil {
+		if err := repo_module.ChangeCollaborationAccessMode(ctx, ctx.Repo().Repository, collaborator.ID, perm.ParseAccessMode(*form.Permission)); err != nil {
 			ctx.Error(http.StatusInternalServerError, "ChangeCollaborationAccessMode", err)
 			return
 		}

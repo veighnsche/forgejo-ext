@@ -139,7 +139,7 @@ func TestRepoPermissionPrivateNonOrgRepo(t *testing.T) {
 		assert.True(t, perm.CanWrite(unit.Type))
 	}
 
-	require.NoError(t, repo_model.ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeRead))
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeRead))
 	perm, err = access_model.GetUserRepoPermission(db.DefaultContext, repo, user)
 	require.NoError(t, err)
 	for _, unit := range repo.Units {
@@ -191,7 +191,7 @@ func TestRepoPermissionPublicOrgRepo(t *testing.T) {
 		assert.True(t, perm.CanWrite(unit.Type))
 	}
 
-	require.NoError(t, repo_model.ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeRead))
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeRead))
 	perm, err = access_model.GetUserRepoPermission(db.DefaultContext, repo, user)
 	require.NoError(t, err)
 	for _, unit := range repo.Units {
@@ -253,7 +253,7 @@ func TestRepoPermissionPrivateOrgRepo(t *testing.T) {
 		assert.True(t, perm.CanWrite(unit.Type))
 	}
 
-	require.NoError(t, repo_model.ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeRead))
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeRead))
 	perm, err = access_model.GetUserRepoPermission(db.DefaultContext, repo, user)
 	require.NoError(t, err)
 	for _, unit := range repo.Units {
@@ -304,4 +304,26 @@ func TestRepoPermissionPrivateOrgRepo(t *testing.T) {
 		assert.True(t, perm.CanRead(unit.Type))
 		assert.True(t, perm.CanWrite(unit.Type))
 	}
+}
+
+func TestRepository_ChangeCollaborationAccessMode(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm_model.AccessModeAdmin))
+
+	collaboration := unittest.AssertExistsAndLoadBean(t, &repo_model.Collaboration{RepoID: repo.ID, UserID: 4})
+	assert.Equal(t, perm_model.AccessModeAdmin, collaboration.Mode)
+
+	access := unittest.AssertExistsAndLoadBean(t, &access_model.Access{UserID: 4, RepoID: repo.ID})
+	assert.Equal(t, perm_model.AccessModeAdmin, access.Mode)
+
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm_model.AccessModeAdmin))
+
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, unittest.NonexistentID, perm_model.AccessModeAdmin))
+
+	// Disvard invalid input.
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm_model.AccessMode(unittest.NonexistentID)))
+
+	unittest.CheckConsistencyFor(t, &repo_model.Repository{ID: repo.ID})
 }

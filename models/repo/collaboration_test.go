@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"forgejo.org/models/db"
-	"forgejo.org/models/perm"
-	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -63,28 +61,6 @@ func TestRepository_IsCollaborator(t *testing.T) {
 	test(3, unittest.NonexistentID, false)
 	test(4, 2, false)
 	test(4, 4, true)
-}
-
-func TestRepository_ChangeCollaborationAccessMode(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
-	require.NoError(t, repo_model.ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm.AccessModeAdmin))
-
-	collaboration := unittest.AssertExistsAndLoadBean(t, &repo_model.Collaboration{RepoID: repo.ID, UserID: 4})
-	assert.Equal(t, perm.AccessModeAdmin, collaboration.Mode)
-
-	access := unittest.AssertExistsAndLoadBean(t, &access_model.Access{UserID: 4, RepoID: repo.ID})
-	assert.Equal(t, perm.AccessModeAdmin, access.Mode)
-
-	require.NoError(t, repo_model.ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm.AccessModeAdmin))
-
-	require.NoError(t, repo_model.ChangeCollaborationAccessMode(db.DefaultContext, repo, unittest.NonexistentID, perm.AccessModeAdmin))
-
-	// Disvard invalid input.
-	require.NoError(t, repo_model.ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm.AccessMode(unittest.NonexistentID)))
-
-	unittest.CheckConsistencyFor(t, &repo_model.Repository{ID: repo.ID})
 }
 
 func TestRepository_CountCollaborators(t *testing.T) {
