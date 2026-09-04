@@ -342,10 +342,8 @@ func DeleteTeam(ctx context.Context, t *organization.Team) error {
 		}
 	}
 
-	if !t.IncludesAllRepositories {
-		if err := removeAllRepositories(ctx, t); err != nil {
-			return err
-		}
+	if err := removeAllRepositories(ctx, t); err != nil {
+		return err
 	}
 
 	if err := db.DeleteBeans(ctx,
