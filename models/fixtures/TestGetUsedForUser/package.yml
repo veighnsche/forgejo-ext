@@ -29,7 +29,7 @@
   owner_id: 6
   repo_id: 0
   type: container
-  name: medium
-  lower_name: medium
+  name: medium1
+  lower_name: medium1
   semver_compatible: false
   is_internal: false
