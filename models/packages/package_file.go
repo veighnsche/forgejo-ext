@@ -259,6 +259,11 @@ func SearchFiles(ctx context.Context, opts *PackageFileSearchOptions) ([]*Packag
 
 // CalculateFileSize sums up all blob sizes matching the search options.
 // It respects the deduplication of blobs.
+//
+// Deduplication works as follows: we fetch all package_file entries matching
+// the search options, but take only unique blob_id values (the same blob can
+// be reused by multiple package_file entries), and then sum up the sizes of
+// these unique blobs.
 func CalculateFileSize(ctx context.Context, opts *PackageFileSearchOptions) (int64, error) {
 	in := builder.
 		Select("DISTINCT package_file.blob_id").
