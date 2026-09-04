@@ -123,24 +123,6 @@ func TestRepository_IsOwnerMemberCollaborator(t *testing.T) {
 	assert.True(t, actual)
 }
 
-func TestRepo_GetCollaboration(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
-
-	// Existing collaboration.
-	collab, err := repo_model.GetCollaboration(db.DefaultContext, repo.ID, 4)
-	require.NoError(t, err)
-	assert.NotNil(t, collab)
-	assert.EqualValues(t, 4, collab.UserID)
-	assert.EqualValues(t, 4, collab.RepoID)
-
-	// Non-existing collaboration.
-	collab, err = repo_model.GetCollaboration(db.DefaultContext, repo.ID, 1)
-	require.NoError(t, err)
-	assert.Nil(t, collab)
-}
-
 func TestGetCollaboratorWithUser(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 

@@ -70,19 +70,6 @@ func GetCollaborators(ctx context.Context, repoID int64, listOptions db.ListOpti
 	return collaborators, nil
 }
 
-// GetCollaboration get collaboration for a repository id with a user id
-func GetCollaboration(ctx context.Context, repoID, uid int64) (*Collaboration, error) {
-	collaboration := &Collaboration{
-		RepoID: repoID,
-		UserID: uid,
-	}
-	has, err := db.GetEngine(ctx).Get(collaboration)
-	if !has {
-		collaboration = nil
-	}
-	return collaboration, err
-}
-
 // IsCollaborator check if a user is a collaborator of a repository
 func IsCollaborator(ctx context.Context, repoID, userID int64) (bool, error) {
 	return db.GetEngine(ctx).Get(&Collaboration{RepoID: repoID, UserID: userID})
