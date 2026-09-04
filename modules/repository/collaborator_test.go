@@ -309,21 +309,49 @@ func TestRepoPermissionPrivateOrgRepo(t *testing.T) {
 func TestRepository_ChangeCollaborationAccessMode(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 4})
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
-	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm_model.AccessModeAdmin))
 
-	collaboration := unittest.AssertExistsAndLoadBean(t, &repo_model.Collaboration{RepoID: repo.ID, UserID: 4})
+	// Set to Admin
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeAdmin))
+	collaboration := unittest.AssertExistsAndLoadBean(t, &repo_model.Collaboration{RepoID: repo.ID, UserID: user.ID})
 	assert.Equal(t, perm_model.AccessModeAdmin, collaboration.Mode)
-
-	access := unittest.AssertExistsAndLoadBean(t, &access_model.Access{UserID: 4, RepoID: repo.ID})
+	access := unittest.AssertExistsAndLoadBean(t, &access_model.Access{UserID: user.ID, RepoID: repo.ID})
 	assert.Equal(t, perm_model.AccessModeAdmin, access.Mode)
 
-	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm_model.AccessModeAdmin))
+	// Repeat setting to the same value, ensure no errors
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeAdmin))
 
+	// Reduce collaborator to Read access, validate collaboration & access is updated
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessModeWrite))
+	collaboration = unittest.AssertExistsAndLoadBean(t, &repo_model.Collaboration{RepoID: repo.ID, UserID: user.ID})
+	assert.Equal(t, perm_model.AccessModeWrite, collaboration.Mode)
+	access = unittest.AssertExistsAndLoadBean(t, &access_model.Access{UserID: user.ID, RepoID: repo.ID})
+	assert.Equal(t, perm_model.AccessModeWrite, access.Mode)
+
+	// Ensure no error on invalid user ID.
 	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, unittest.NonexistentID, perm_model.AccessModeAdmin))
 
-	// Disvard invalid input.
-	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, 4, perm_model.AccessMode(unittest.NonexistentID)))
+	// Ensure discarded on invalid access mode.
+	require.NoError(t, ChangeCollaborationAccessMode(db.DefaultContext, repo, user.ID, perm_model.AccessMode(unittest.NonexistentID)))
+
+	// On an organization-owned repo, access can be granted through a team, or a collaborator.  The highest available
+	// access mode should win and be stored in the access table.  First set-up collaborator with Admin:
+	repo = unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
+	require.NoError(t, AddCollaborator(t.Context(), repo, user))
+	require.NoError(t, ChangeCollaborationAccessMode(t.Context(), repo, user.ID, perm_model.AccessModeAdmin))
+	collaboration = unittest.AssertExistsAndLoadBean(t, &repo_model.Collaboration{RepoID: repo.ID, UserID: user.ID})
+	assert.Equal(t, perm_model.AccessModeAdmin, collaboration.Mode)
+	access = unittest.AssertExistsAndLoadBean(t, &access_model.Access{UserID: user.ID, RepoID: repo.ID})
+	assert.Equal(t, perm_model.AccessModeAdmin, access.Mode)
+
+	// Drop the collaborator access to read.  While the collab record should drop to read, the access record should
+	// remain at write, a permission granted by team membership:
+	require.NoError(t, ChangeCollaborationAccessMode(t.Context(), repo, user.ID, perm_model.AccessModeRead))
+	collaboration = unittest.AssertExistsAndLoadBean(t, &repo_model.Collaboration{RepoID: repo.ID, UserID: user.ID})
+	assert.Equal(t, perm_model.AccessModeRead, collaboration.Mode)
+	access = unittest.AssertExistsAndLoadBean(t, &access_model.Access{UserID: user.ID, RepoID: repo.ID})
+	assert.Equal(t, perm_model.AccessModeWrite, access.Mode)
 
 	unittest.CheckConsistencyFor(t, &repo_model.Repository{ID: repo.ID})
 }

@@ -76,7 +76,7 @@ func ChangeCollaborationAccessMode(ctx context.Context, repo *repo_model.Reposit
 			Cols("mode").
 			Update(collaboration); err != nil {
 			return fmt.Errorf("update collaboration: %w", err)
-		} else if _, err = e.Exec("UPDATE access SET mode = ? WHERE user_id = ? AND repo_id = ?", mode, uid, repo.ID); err != nil {
+		} else if err = access_model.RecalculateUserAccess(ctx, repo, uid); err != nil {
 			return fmt.Errorf("update access table: %w", err)
 		}
 
