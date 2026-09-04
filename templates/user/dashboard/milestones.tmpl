@@ -7,7 +7,7 @@
 				<div class="ui secondary vertical filter menu tw-bg-transparent">
 					<div class="item">
 						{{ctx.Locale.Tr "home.issues.in_your_repos"}}
-						<strong>{{.Total}}</strong>
+						<strong data-testid="milestone_count">{{.Total}}</strong>
 					</div>
 					<div class="divider"></div>
 					{{range .Repos}}
