@@ -175,3 +175,72 @@ test.describe('repo collaboration settings', () => {
     await expect(page.getByText('There are no collaborators yet.')).toBeVisible();
   });
 });
+
+test.describe('Units', () => {
+  const user = 'user46';
+  const issueParams = {
+    checkboxText: 'Enable repository issue tracker',
+    buttonIdSuffix: 'issues',
+  };
+  const prParams = {
+    checkboxText: 'Enable repository pull requests',
+    buttonIdSuffix: 'pulls',
+  };
+
+  test.use({user});
+
+  async function toggleUnit(page, {checkboxText, buttonIdSuffix}) {
+    await page.goto(`/${user}/repo-dashboard-lists/settings/units`);
+    await page.getByRole('checkbox', {name: checkboxText}).click()
+    await page.getByTestId(`save_${buttonIdSuffix}`).click();
+    await expect(page.getByText('The repository settings have been updated.')).toBeVisible();
+  }
+
+  test.describe('Disable issues', () => {
+    // disable
+    test.beforeEach(async ({page}) => await toggleUnit(page, issueParams));
+
+    // assert
+    test('List of issues should be empty', async ({page}) => {
+      await page.goto(`/issues`);
+      await expect(page.getByRole('heading', {name: 'No results'})).toBeVisible();
+    });
+
+    // enable
+    test.afterEach(async ({page}) => await toggleUnit(page, issueParams));
+  });
+
+  test.describe('Disable PRs', () => {
+    // disable
+    test.beforeEach(async ({page}) => await toggleUnit(page, prParams));
+
+    // assert
+    test('List of PRs should be empty', async ({page}) => {
+      await page.goto(`/pulls`);
+      await expect(page.getByRole('heading', {name: 'No results'})).toBeVisible();
+    });
+
+    // enable
+    test.afterEach(async ({page}) => await toggleUnit(page, prParams));
+  });
+
+  test.describe('Disable issues and PRs', () => {
+    // disable
+    test.beforeEach(async ({page}) => {
+      await toggleUnit(page, issueParams);
+      await toggleUnit(page, prParams);
+    });
+
+    // assert
+    test('List of milestones should be empty', async ({page}) => {
+      await page.goto(`/milestones`);
+      await expect(page.getByTestId('milestone_count')).toHaveText('0');
+    });
+
+    // enable
+    test.afterEach(async ({page}) => {
+      await toggleUnit(page, issueParams);
+      await toggleUnit(page, prParams);
+    });
+  });
+});
