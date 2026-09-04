@@ -15,3 +15,12 @@
   hash_sha256: HASHSHA256_2
   hash_sha512: HASHSHA512_2
   created_unix: 946687980
+
+-
+  id: 3
+  size: 15
+  hash_md5: HASHMD5_3
+  hash_sha1: HASHSHA1_3
+  hash_sha256: HASHSHA256_3
+  hash_sha512: HASHSHA512_3
+  created_unix: 946687980
