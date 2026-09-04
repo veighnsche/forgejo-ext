@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
@@ -22,11 +24,14 @@ import (
 	"forgejo.org/modules/indexer/stats"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
+	actions_service "forgejo.org/services/actions"
 	issue_service "forgejo.org/services/issue"
+	pull_service "forgejo.org/services/pull"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/services/wiki"
 	"forgejo.org/tests/forgery"
 
+	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
 	"code.forgejo.org/xorm/xorm/convert"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,6 +62,26 @@ func DeclareGitRepos(t *testing.T) {
 		}
 		require.NoError(t, issue_service.NewIssue(db.DefaultContext, repo, issue, nil, nil, nil))
 	}
+	postPullRequest := func(repo *repo_model.Repository, branchName string, user *user_model.User, age int64, title, content string) {
+		issue := &issues_model.Issue{
+			RepoID:      repo.ID,
+			PosterID:    user.ID,
+			Poster:      user,
+			Title:       title,
+			Content:     content,
+			CreatedUnix: now.Add(-age),
+			IsPull:      true,
+		}
+		pr := &issues_model.PullRequest{
+			Issue:      issue,
+			HeadRepoID: issue.RepoID,
+			BaseRepoID: issue.RepoID,
+			HeadBranch: branchName,
+			BaseBranch: repo.DefaultBranch,
+			Status:     issues_model.PullRequestStatusMergeable,
+		}
+		require.NoError(t, pull_service.NewPullRequest(db.DefaultContext, repo, issue, []int64{}, []string{}, pr, []int64{}))
+	}
 
 	newRepo(t, 2, "diff-test", nil, []FileChanges{{
 		Filename: "testfile",
@@ -78,6 +103,22 @@ func DeclareGitRepos(t *testing.T) {
 			CommitMsg: "Another commit which mentions @user1 in the title\nand @user2 in the text",
 		},
 	}, nil)
+	newRepo(t, 2, "multiline-commit-messages", nil, []FileChanges{
+		{
+			Filename:  "file1.md",
+			Versions:  []string{"file"},
+			CommitMsg: "A commit message\nwhich spans multiple lines",
+		},
+	}, func(user *user_model.User, repo *repo_model.Repository) {
+		// status on main branch
+		commitMainSha := commitNewFile(t, user, repo, "Another multiline commit message\nthis time with a status 🎉", "file2.md", "also a file")
+		addCommitStatus(t, user, repo, repo.DefaultBranch, commitMainSha)
+
+		// status on PR
+		commitPrSha := addCommitWithMessageToBranch(t, user, repo, "main", "test-branch", "Yet another multiline commit message\nnow with a PR and status!", "file2.md", "", "still a file")
+		postPullRequest(repo, "test-branch", user, 455, "pullreq", "PR with multiline commits")
+		addCommitStatus(t, user, repo, "test-branch", commitPrSha)
+	})
 	newRepo(t, 2, "file-uploads", nil, []FileChanges{{
 		Filename: "UPLOAD_TEST.md",
 		Versions: []string{"# File upload test\nUse this repo to test various file upload features in new branches."},
@@ -318,13 +359,17 @@ func newRepo(t *testing.T, userID int64, repoName string, enabledUnits map[unit_
 }
 
 func addCommitToBranch(t *testing.T, user *user_model.User, repo *repo_model.Repository, oldBranch, newBranch, filename, lastSha, content string) string {
+	return addCommitWithMessageToBranch(t, user, repo, oldBranch, newBranch, "add commit to branch", filename, lastSha, content)
+}
+
+func addCommitWithMessageToBranch(t *testing.T, user *user_model.User, repo *repo_model.Repository, oldBranch, newBranch, commitMessage, filename, lastSha, content string) string {
 	resp, err := files_service.ChangeRepoFiles(git.DefaultContext, repo, user, &files_service.ChangeRepoFilesOptions{
 		Files: []*files_service.ChangeRepoFile{{
 			Operation:     "update",
 			TreePath:      filename,
 			ContentReader: strings.NewReader(content),
 		}},
-		Message:   "add commit to branch",
+		Message:   commitMessage,
 		OldBranch: oldBranch,
 		NewBranch: newBranch,
 		Author: &files_service.IdentityOptions{
@@ -344,4 +389,60 @@ func addCommitToBranch(t *testing.T, user *user_model.User, repo *repo_model.Rep
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp)
 	return resp.Commit.SHA
+}
+
+func commitNewFile(t *testing.T, user *user_model.User, repo *repo_model.Repository, commitMessage, filename, content string) string {
+	resp, err := files_service.ChangeRepoFiles(git.DefaultContext, repo, user, &files_service.ChangeRepoFilesOptions{
+		Files: []*files_service.ChangeRepoFile{{
+			Operation:     "create",
+			TreePath:      filename,
+			ContentReader: strings.NewReader(content),
+		}},
+		Message: commitMessage,
+		Author: &files_service.IdentityOptions{
+			Name:  user.Name,
+			Email: user.Email,
+		},
+		Committer: &files_service.IdentityOptions{
+			Name:  user.Name,
+			Email: user.Email,
+		},
+		Dates: &files_service.CommitDateOptions{
+			Author:    time.Now(),
+			Committer: time.Now(),
+		},
+	})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp)
+	return resp.Commit.SHA
+}
+
+func addCommitStatus(t *testing.T, user *user_model.User, repo *repo_model.Repository, branchName, commitSha string) {
+	run := &actions_model.ActionRun{
+		ID:                rand.Int63(),
+		Title:             "test action",
+		RepoID:            repo.ID,
+		OwnerID:           user.ID,
+		WorkflowID:        "",
+		WorkflowDirectory: "",
+		TriggerUserID:     user.ID,
+		Ref:               "refs/heads/" + branchName,
+		Event:             "push",
+		EventPayload:      `{"head_commit": {"id": "` + commitSha + `"}}`,
+		CommitSHA:         commitSha,
+		Status:            actions_model.StatusSuccess,
+	}
+	err := actions_service.InsertRun(db.DefaultContext, run, []*jobparser.SingleWorkflow{})
+	require.NoError(t, err)
+	job := &actions_model.ActionRunJob{
+		ID:                rand.Int63(),
+		RunID:             run.ID,
+		Attempt:           1,
+		Status:            actions_model.StatusSuccess,
+		RepoID:            run.RepoID,
+		OwnerID:           run.OwnerID,
+		CommitSHA:         commitSha,
+		IsForkPullRequest: false,
+	}
+	actions_service.CreateCommitStatus(db.DefaultContext, job)
 }
