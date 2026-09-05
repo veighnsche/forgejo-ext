@@ -95,6 +95,8 @@
 	"repo.issues.filter_modified.hint": "Filter by last modified date",
 	"repo.issues.filter_sort.hint_with_placeholder": "Sort by: %s",
 	"repo.issues.context.copy_markdown": "Copy Markdown",
+	"repo.milestones.closed.heading": "Closed milestones",
+	"repo.milestones.open.heading": "Open milestones",
 	"repo.signing.will_sign": "This commit will be signed with key \"%s\".",
 	"repo.signing.wont_sign.error": "There was an error while checking if the commit could be signed.",
 	"repo.signing.wont_sign.nokey": "This instance has no key to sign this commit with.",
