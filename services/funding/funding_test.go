@@ -412,6 +412,21 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		assertLiberapay(t, funding[3], "liberapay.com/example", "https://liberapay.com/example")
 		assertGithub(t, funding[4], "github.com/sponsors/example", "https://github.com/sponsors/example")
 	})
+
+	t.Run("Partially invalid (too many of all providers, up to 1)", func(t *testing.T) {
+		defer test.MockProtect(&setting.MaxFundingEntriesPerConfig)()
+		setting.MaxFundingEntriesPerConfig = 1
+
+		config := "ko_fi: [test]\n" +
+			"tidelift: npm/example\n"
+		funding, errs := getFundingFromBlob([]byte(config))
+
+		assert.Len(t, errs, 1)
+		assert.Equal(t, "Expected up to 1 funding provider", errs[0].Error()) // error message reflects config (singular)
+
+		assert.Len(t, funding, 1)
+		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
+	})
 }
 
 func TestFundingEntriesWithCustomSchemes(t *testing.T) {
