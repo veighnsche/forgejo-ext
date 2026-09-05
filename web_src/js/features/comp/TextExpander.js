@@ -125,7 +125,7 @@ export function initTextExpander(expander) {
         if (pronouns) {
           const pronounsSpan = document.createElement('span');
           pronounsSpan.classList.add('pronouns');
-          pronounsSpan.textContent = `(${pronouns})`; // TODO: not sure how to make parens translatable from frontend code :/
+          pronounsSpan.textContent = `(${pronouns})`; // TODO: see about translating/localizing these parens
           li.append(pronounsSpan);
         }
 
