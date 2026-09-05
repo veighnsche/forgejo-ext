@@ -388,3 +388,39 @@
   created_unix: 1764879458
   updated_unix: 1764879458
   is_locked: false
+
+-
+  id: 25
+  repo_id: 67
+  index: 1
+  poster_id: 46
+  original_author_id: 0
+  name: dashboard list PR
+  content: Should disappear from the PR list when we disable pull requests in repo-dashboard-lists.
+  milestone_id: 0
+  priority: 0
+  is_closed: false
+  is_pull: true
+  num_comments: 0
+  pin_order: 0
+  created_unix: 1788521515
+  updated_unix: 1788521634
+  is_locked: false
+
+-
+  id: 27
+  repo_id: 67
+  index: 2
+  poster_id: 46
+  original_author_id: 0
+  name: dashboard list issue
+  content: Should disappear from the issues list when we disable issues in repo-dashboard-lists.
+  milestone_id: 0
+  priority: 0
+  is_closed: false
+  is_pull: false
+  num_comments: 0
+  pin_order: 0
+  created_unix: 1788521583
+  updated_unix: 1788521583
+  is_locked: false

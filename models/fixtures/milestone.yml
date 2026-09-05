@@ -52,3 +52,16 @@
   num_closed_issues: 0
   completeness: 0
   deadline_unix: 253370764800
+
+-
+  id: 6
+  repo_id: 67
+  name: milestone01
+  content: This should disappear from the milestones list when we disable issues and pull requests in repo-dashboard-lists.
+  is_closed: false
+  num_issues: 0
+  num_closed_issues: 0
+  completeness: 0
+  created_unix: 1788521778
+  updated_unix: 1788521778
+  deadline_unix: 253402318799

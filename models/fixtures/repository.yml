@@ -1719,3 +1719,39 @@
   updated_unix: 1764879302
   topics: '[]'
   object_format_name: 'sha256'
+
+-
+  id: 67
+  owner_id: 46
+  owner_name: user46
+  lower_name: repo-dashboard-lists
+  name: repo-dashboard-lists
+  description: Made to test that switching issues and PR units affect the issues, PRs and milestones lists in the dashboard.
+  original_service_type: 0
+  default_branch: main
+  wiki_branch: main
+  num_watches: 0
+  num_stars: 0
+  num_forks: 0
+  num_milestones: 1
+  num_closed_milestones: 0
+  num_projects: 1
+  num_closed_projects: 0
+  is_private: false
+  is_empty: false
+  is_archived: false
+  is_mirror: false
+  status: 0
+  is_fork: false
+  fork_id: 0
+  is_template: false
+  template_id: 0
+  size: 1470
+  git_size: 1470
+  lfs_size: 0
+  is_fsck_enabled: true
+  close_issues_via_commit_in_any_branch: 0
+  topics: []
+  object_format_name: sha1
+  created_unix: 1788517496
+  updated_unix: 1788521400
