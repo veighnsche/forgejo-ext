@@ -506,9 +506,7 @@ test('Reference in a new issue', async ({page}) => {
   await expect(modal).toBeHidden();
 });
 
-test.describe('Mention includes pronouns', () => {
-  // no need to check logged-out state, since mentions are only available to comment inputs, which are only available to authenticated users.
-
+test.describe('Mention includes private pronouns when logged in', () => {
   test('participant', async ({page}) => {
     await page.goto('/user2/repo1/issues/1');
 
@@ -517,6 +515,18 @@ test.describe('Mention includes pronouns', () => {
 
     // check expander content
     const expansion = page.locator('text-expander li');
-    await expect(expansion).toHaveText('user2   < U<se>r Tw<o > ><  (he/him)');
+    await expect(expansion).toHaveText('user2   < U<se>r Tw<o > ><  (he/him)'); // includes user2's pronouns, which are marked for omission for logged-out users
+  });
+});
+
+test.describe('Mention omits private pronouns when logged out', () => {
+  test.use({user: null});
+
+  test('participant', async ({page}) => {
+    await page.goto('/user2/repo1/issues/1');
+
+    // check mentionValues data
+    const mentionValues = await page.evaluate(() => window.config['mentionValues']);
+    expect(mentionValues.some((e) => e.value === 'user2' && e.fullname === '   < U<se>r Tw<o > ><  ')).toBe(true); // user2 does not show pronouns, due to privacy setting
   });
 });
