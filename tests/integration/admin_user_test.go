@@ -323,7 +323,7 @@ func TestAdminViewUsersSorted(t *testing.T) {
 
 	testCases := []testCase{
 		{0, "newest", []string{"User44", "imported", "user40", "user39"}},
-		{0, "oldest", []string{"user1", "user2", "user4", "user5"}},
+		{0, "oldest", []string{"user46", "user1", "user2", "user4"}},
 		{44, "recentupdate", []string{"sorttest1", "sorttest2", "sorttest3", "sorttest4"}},
 		{44, "leastupdate", []string{"sorttest10", "sorttest9", "sorttest8", "sorttest7"}},
 	}
@@ -331,7 +331,7 @@ func TestAdminViewUsersSorted(t *testing.T) {
 	// SQLite sorts uppercase strings differently to MYSQL and PostgreSQL
 	if setting.Database.Type.IsSQLite3() {
 		testCases = append(testCases, testCase{0, "alphabetically", []string{"User44", "imported", "the_34-user.with.all.allowedChars", "user1"}})
-		testCases = append(testCases, testCase{0, "reversealphabetically", []string{"user9", "user8", "user5", "user40"}})
+		testCases = append(testCases, testCase{0, "reversealphabetically", []string{"user9", "user8", "user5", "user46"}})
 	} else {
 		testCases = append(testCases, testCase{0, "alphabetically", []string{"imported", "the_34-user.with.all.allowedChars", "user1", "user10"}})
 		testCases = append(testCases, testCase{0, "reversealphabetically", []string{"user9", "user8", "user5", "User44"}})

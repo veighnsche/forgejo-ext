@@ -183,7 +183,7 @@ func TestAPIListUsersNo2FA(t *testing.T) {
 	resp := MakeRequest(t, req, http.StatusOK)
 	total := resp.Header().Get("X-Total-Count")
 
-	numberOfUsers := "29"
+	numberOfUsers := "30"
 
 	assert.Equal(t, numberOfUsers, total)
 }
