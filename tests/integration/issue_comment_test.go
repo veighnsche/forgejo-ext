@@ -422,7 +422,7 @@ func TestIssueCommentChangeReviewRequestAggregated(t *testing.T) {
 	// Refuse review
 	testIssueCommentChangeEvent(t, htmlDoc, strconv.FormatInt(comment2.ID, 10),
 		"octicon-eye", "< U<se>r Tw<o > ><", "/user2",
-		[]string{"user2 (he/him) refused to review"},
+		[]string{"user2 refused to review"},
 		[]string{"/user2", "#issuecomment-" + strconv.FormatInt(comment2.ID, 10), "/org3/repo3/pulls?labels=1"})
 
 	// Request review from other and from team
@@ -435,7 +435,7 @@ func TestIssueCommentChangeReviewRequestAggregated(t *testing.T) {
 	// Remove and add request
 	testIssueCommentChangeEvent(t, htmlDoc, strconv.FormatInt(comment5.ID, 10),
 		"octicon-eye", "< U<se>r Tw<o > ><", "/user2",
-		[]string{"user2 (he/him) requested reviews from user1 and removed review requests for team1"},
+		[]string{"user2 requested reviews from user1 and removed review requests for team1"},
 		[]string{"/user2", "#issuecomment-" + strconv.FormatInt(comment5.ID, 10), "/org3/repo3/pulls?labels=1", "/user1", "/org/org3/teams/team1"})
 	assert.Empty(t, htmlDoc.Find("#issuecomment-"+strconv.FormatInt(comment6.ID, 10)+" .text").Text())
 }

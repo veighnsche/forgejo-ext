@@ -3,6 +3,10 @@
 		data-tooltip-content="{{ctx.Locale.Tr "user.ghost.tooltip"}}">Ghost</a>
 {{else}}
 	{{$pronouns := .GetPronouns ctx.Data.IsSigned}}
-	<a class="author text black tw-font-semibold muted"{{if gt .ID 0}} href="{{.HomeLink}}"{{end}}>{{if $pronouns}} {{ctx.Locale.Tr "name_with_pronouns" .GetDisplayName "pronouns" $pronouns}}{{else}}{{.GetDisplayName}}{{end}}</a>
+	{{if and (gt .ID 0) $pronouns}}
+	{{ctx.Locale.Tr "name_with_pronouns" "author text black tw-font-semibold muted" .HomeLink .GetDisplayName "pronouns" $pronouns}}
+	{{else}}
+	<a class="author text black tw-font-semibold muted"{{if gt .ID 0}} href="{{.HomeLink}}"{{end}}>{{.GetDisplayName}}</a>
+	{{end}}
 	{{if .IsBot}}<span class="ui basic label tw-p-1 tw-align-baseline">bot</span>{{end}}
 {{end}}

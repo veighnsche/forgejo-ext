@@ -89,7 +89,6 @@
   line-height: 1.3;
 }
 
-.ui .author .pronouns {
+.ui.comment-header a.author + .pronouns {
   font-size: small;
-  font-weight: var(--font-weight-normal);
 }

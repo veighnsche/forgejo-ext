@@ -1841,7 +1841,7 @@ func assertPronouns(t *testing.T, user *user_model.User, issueURL string, should
 	}
 
 	htmlDoc := NewHTMLParser(t, resp.Body)
-	htmlDoc.AssertElementPredicate(t, commentSel+" .author .pronouns", func(el *goquery.Selection) {
+	htmlDoc.AssertElementPredicate(t, commentSel+" .author + .pronouns", func(el *goquery.Selection) {
 		if expectedPronouns == "" {
 			assert.Equal(t, 0, el.Length(), "pronouns should not be present for comment "+commentSel)
 		} else {

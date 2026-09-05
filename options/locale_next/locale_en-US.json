@@ -1231,6 +1231,6 @@
 	"sync_fork.sync.button": "Sync",
 	"modal.close": "Close",
 	"project.missing_issues_in_list": "Could not find all issues in list. Check if they were deleted.",
-	"name_with_pronouns": "%[1]s <span class=\"%[2]s\">(%[3]s)</span>",
+	"name_with_pronouns": "<a class=\"%[1]s\" href=\"%[2]s\">%[3]s</a> <span class=\"%[4]s\">(%[5]s)</span>",
 	"meta.last_line": "Thank you for translating Forgejo! This line isn't seen by the users but it serves other purposes in the translation management. You can place a fun fact in the translation instead of translating it."
 }
