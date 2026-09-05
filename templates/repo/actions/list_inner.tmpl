@@ -100,5 +100,6 @@
 	</div>
 </div>
 {{else}}
+	<h1>{{ctx.Locale.Tr "actions.runs.all_workflows.heading"}}</h1>
 	{{template "repo/actions/no_workflows" .}}
 {{end}}
