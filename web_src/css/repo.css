@@ -80,6 +80,13 @@
   overflow-inline: auto;
 }
 
+.repository .filter.menu > h1 {
+  margin: 0;
+  margin-inline-end: auto;
+  flex-basis: min-content; /* heading should wrap before other flex items do */
+  flex-grow: 1;
+}
+
 .repository .filter.menu .label-filter .menu .info {
   display: inline-block;
   padding: 0.5rem 0;
