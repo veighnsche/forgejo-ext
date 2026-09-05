@@ -125,15 +125,10 @@ text-expander .suggestions li:hover {
   background: var(--color-hover);
 }
 
-text-expander .suggestions .fullname,
-text-expander .suggestions .pronouns {
+text-expander .suggestions .fullname {
   font-weight: var(--font-weight-normal);
   margin-inline-start: 4px;
   color: var(--color-text-light-1);
-}
-
-text-expander .suggestions .pronouns {
-  font-size: small;
 }
 
 text-expander .suggestions li[aria-selected="true"],

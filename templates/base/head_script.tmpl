@@ -20,10 +20,10 @@ If you introduce mistakes in it, Gitea JavaScript code wouldn't run correctly.
 		{{if or .Participants .Assignees .MentionableTeams}}
 		mentionValues: Array.from(new Map([
 			{{- range .Participants -}}
-				['{{.Name}}', {key: '{{.Name}} {{.FullName}}', value: '{{.Name}}', name: '{{.Name}}', fullname: '{{.FullName}}', pronouns: '{{.GetPronouns ctx.Data.IsSigned}}', avatar: '{{.AvatarLink $.Context}}'}],
+				{{template "base/mentionable_user" .}}
 			{{- end -}}
 			{{- range .Assignees -}}
-				['{{.Name}}', {key: '{{.Name}} {{.FullName}}', value: '{{.Name}}', name: '{{.Name}}', fullname: '{{.FullName}}', pronouns: '{{.GetPronouns ctx.Data.IsSigned}}', avatar: '{{.AvatarLink $.Context}}'}],
+				{{template "base/mentionable_user" .}}
 			{{- end -}}
 			{{- range .MentionableTeams -}}
 				['{{$.MentionableTeamsOrg}}/{{.Name}}', {key: '{{$.MentionableTeamsOrg}}/{{.Name}}', value: '{{$.MentionableTeamsOrg}}/{{.Name}}', name: '{{$.MentionableTeamsOrg}}/{{.Name}}', avatar: '{{$.MentionableTeamsOrgAvatar}}'}],

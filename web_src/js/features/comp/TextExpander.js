@@ -100,7 +100,7 @@ export function initTextExpander(expander) {
 
       const ul = document.createElement('ul');
       ul.classList.add('suggestions');
-      for (const {value, name, fullname, pronouns, avatar} of matches) {
+      for (const {value, name, fullname, avatar} of matches) {
         const li = document.createElement('li');
         li.setAttribute('id', `combobox-user-${name}`);
         li.setAttribute('role', 'option');
@@ -120,13 +120,6 @@ export function initTextExpander(expander) {
           fullnameSpan.classList.add('fullname');
           fullnameSpan.textContent = fullname;
           li.append(fullnameSpan);
-        }
-
-        if (pronouns) {
-          const pronounsSpan = document.createElement('span');
-          pronounsSpan.classList.add('pronouns');
-          pronounsSpan.textContent = `(${pronouns})`; // TODO: see about translating/localizing these parens
-          li.append(pronounsSpan);
         }
 
         ul.append(li);

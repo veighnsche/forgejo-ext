@@ -4,7 +4,7 @@
 {{else}}
 	{{$pronouns := .GetPronouns ctx.Data.IsSigned}}
 	{{if and (gt .ID 0) $pronouns}}
-	{{ctx.Locale.Tr "name_with_pronouns" "author text black tw-font-semibold muted" .HomeLink .GetDisplayName "pronouns" $pronouns}}
+	{{ctx.Locale.Tr "name_with_pronouns.link" "author text black tw-font-semibold muted" .HomeLink .GetDisplayName "pronouns" $pronouns}}
 	{{else}}
 	<a class="author text black tw-font-semibold muted"{{if gt .ID 0}} href="{{.HomeLink}}"{{end}}>{{.GetDisplayName}}</a>
 	{{end}}
