@@ -226,7 +226,7 @@ func (m *webhookNotifier) IssueChangeTitle(ctx context.Context, doer *user_model
 	}
 }
 
-func (m *webhookNotifier) IssueChangeStatus(ctx context.Context, doer *user_model.User, commitID string, issue *issues_model.Issue, actionComment *issues_model.Comment, isClosed bool) {
+func (m *webhookNotifier) IssueChangeStatus(ctx context.Context, doer *user_model.User, prInfo *issues_model.PRNotificationInfo, issue *issues_model.Issue, actionComment *issues_model.Comment, isClosed bool) {
 	permission, _ := access_model.GetUserRepoPermission(ctx, issue.Repo, issue.Poster)
 	var err error
 	if issue.IsPull {
@@ -240,7 +240,7 @@ func (m *webhookNotifier) IssueChangeStatus(ctx context.Context, doer *user_mode
 			PullRequest: convert.ToAPIPullRequest(ctx, issue.PullRequest, doer),
 			Repository:  convert.ToRepo(ctx, issue.Repo, permission),
 			Sender:      convert.ToUser(ctx, doer, nil),
-			CommitID:    commitID,
+			CommitID:    prInfo.MergedCommitID,
 		}
 		if isClosed {
 			apiPullRequest.Action = api.HookIssueClosed
@@ -254,7 +254,7 @@ func (m *webhookNotifier) IssueChangeStatus(ctx context.Context, doer *user_mode
 			Issue:      convert.ToAPIIssue(ctx, doer, issue),
 			Repository: convert.ToRepo(ctx, issue.Repo, permission),
 			Sender:     convert.ToUser(ctx, doer, nil),
-			CommitID:   commitID,
+			CommitID:   prInfo.MergedCommitID,
 		}
 		if isClosed {
 			apiIssue.Action = api.HookIssueClosed
@@ -921,19 +921,26 @@ func (m *webhookNotifier) ActionRunNowDone(ctx context.Context, run *actions_mod
 	}
 }
 
-func (m *webhookNotifier) WorkflowRunEvent(ctx context.Context, event actions_model.ActionRunEvent) {
-	log.Debug("Workflow run event: %#v", event)
+func (m *webhookNotifier) NewWorkflowRunAttempt(_ context.Context, run *actions_model.ActionRun) {
+	log.Debug("New attempt of workflow run %d started with status %v", run.ID, run.Status)
 
-	switch e := event.(type) {
-	case *actions_model.NewWorkflowRunAttempt:
-		// Do nothing
-		break
-	case *actions_model.WorkflowRunStatusChanged:
-		// Do nothing
-		break
-	case *actions_model.WorkflowRunCompleted:
-		m.ActionRunNowDone(ctx, e.GetRun(), e.GetPriorStatus())
-	}
+	// Do nothing.
+}
+
+func (m *webhookNotifier) WorkflowRunStatusChanged(
+	_ context.Context, run *actions_model.ActionRun, priorStatus actions_model.Status,
+) {
+	log.Debug("Status of workflow run %d changed from %v to %v", run.ID, priorStatus, run.Status)
+
+	// Do nothing.
+}
+
+func (m *webhookNotifier) WorkflowRunCompleted(
+	ctx context.Context, run *actions_model.ActionRun, priorStatus actions_model.Status,
+) {
+	log.Debug("Workflow run %d completed with status %v", run.ID, run.Status)
+
+	m.ActionRunNowDone(ctx, run, priorStatus)
 }
 
 func (m *webhookNotifier) NewWorkflowJobAttempt(_ context.Context, job *actions_model.ActionRunJob) {

@@ -2,7 +2,7 @@ module forgejo.org
 
 go 1.26.0
 
-toolchain go1.26.7
+toolchain go1.26.8
 
 require (
 	code.forgejo.org/forgejo-contrib/go-libravatar v0.0.0-20260301104140-add494e31dab
@@ -99,7 +99,7 @@ require (
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
 	gitlab.com/gitlab-org/api/client-go v1.46.0
 	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/image v0.45.0
 	golang.org/x/net v0.58.0
 	golang.org/x/oauth2 v0.36.0
