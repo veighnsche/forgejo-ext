@@ -33,6 +33,7 @@
   font-weight: var(--font-weight-medium);
 
   background: var(--button-background);
+  border: 1px solid var(--button-border-color);
   color: var(--button-color);
 
   &:hover,
@@ -48,7 +49,7 @@
 
 .button.primary {
   --button-background: var(--color-primary);
-  border: 1px solid var(--color-primary-dark-2);
+  --button-border-color: var(--color-primary-dark-2);
   --button-color: var(--color-primary-contrast);
 
   &:hover,
@@ -59,7 +60,7 @@
 
 .button.secondary {
   --button-background: var(--color-button);
-  border: 1px solid var(--color-light-border);
+  --button-border-color: var(--color-light-border);
   --button-color: var(--color-text-light);
 
   &:hover,
@@ -71,7 +72,7 @@
 .button.danger {
   /* Fallback is needed while --color-danger-bg is not supplied by all themes */
   --button-background: var(--color-danger-bg, var(--color-error-bg));
-  border: 1px solid var(--color-thin-red);
+  --button-border-color: var(--color-thin-red);
   --button-color: var(--color-thin-red);
 
   &:hover,
