@@ -406,7 +406,7 @@ export default {
               </strong>
               <strong v-if="contributor.total_additions" class="text green">{{ contributor.total_additions.toLocaleString() }}++ </strong>
               <strong v-if="contributor.total_deletions" class="text red">
-                {{ contributor.total_deletions.toLocaleString() }}--</strong>
+                {{ contributor.total_deletions.toLocaleString() }}−−</strong>
             </p>
           </div>
         </div>
