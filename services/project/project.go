@@ -50,7 +50,7 @@ func GetAPIOwnerType(isOrg, isRepo bool) project_module.APIOwnerType {
 
 // Returns a valid project or fails with validation error if invalid
 func NewProject(
-	form *project_structs.CreateProjectOptions,
+	form *project_structs.CreateOrUpdateProjectOptions,
 	owner *user_model.User,
 	repo *repo_model.Repository,
 	projectType project_module.APIOwnerType,
@@ -181,7 +181,7 @@ func CreateProject(ctx context.Context, project *project_model.Project) error {
 }
 
 // UpdateProject Updates a Project in DB
-func UpdateProject(ctx context.Context, project *project_model.Project, updated *project_structs.CreateProjectOptions) error {
+func UpdateProject(ctx context.Context, project *project_model.Project, updated *project_structs.CreateOrUpdateProjectOptions) error {
 	if updated.Title != "" {
 		project.Title = updated.Title
 	}

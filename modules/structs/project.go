@@ -3,7 +3,7 @@
 
 package structs
 
-type CreateProjectOptions struct {
+type CreateOrUpdateProjectOptions struct {
 	Title        string `json:"title"`
 	Description  string `json:"description"`
 	TemplateType string `json:"template_type"`

@@ -176,7 +176,7 @@ func CreateProject(ctx *context.Context) {
 		return
 	}
 
-	opt := &project_structs.CreateProjectOptions{
+	opt := &project_structs.CreateOrUpdateProjectOptions{
 		Title:        form.Title,
 		Description:  form.Content,
 		TemplateType: form.TemplateType,
@@ -283,7 +283,7 @@ func EditProjectPost(ctx *context.Context) {
 		return
 	}
 
-	opt := &project_structs.CreateProjectOptions{
+	opt := &project_structs.CreateOrUpdateProjectOptions{
 		Title:       form.Title,
 		Description: form.Content,
 		CardType:    form.CardType,

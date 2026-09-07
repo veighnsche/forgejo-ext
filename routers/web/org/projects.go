@@ -193,7 +193,7 @@ func CreateProject(ctx *context.Context) {
 	projectType := project_service.GetAPIOwnerType(ctx.ContextUser.IsOrganization(), false)
 	log.Trace("Got project type %v", projectType)
 
-	opt := &project_structs.CreateProjectOptions{
+	opt := &project_structs.CreateOrUpdateProjectOptions{
 		Title:        form.Title,
 		Description:  form.Content,
 		TemplateType: form.TemplateType,
@@ -310,7 +310,7 @@ func EditProjectPost(ctx *context.Context) {
 		return
 	}
 
-	updated := &project_structs.CreateProjectOptions{
+	updated := &project_structs.CreateOrUpdateProjectOptions{
 		Title:        form.Title,
 		Description:  form.Content,
 		TemplateType: form.TemplateType,

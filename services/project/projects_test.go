@@ -163,7 +163,7 @@ func TestNewProject(t *testing.T) {
 	var nilRepo *repo_model.Repository
 
 	t.Run("individual", func(t *testing.T) {
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -178,7 +178,7 @@ func TestNewProject(t *testing.T) {
 	})
 
 	t.Run("individual, owner is org", func(t *testing.T) {
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -191,7 +191,7 @@ func TestNewProject(t *testing.T) {
 	})
 
 	t.Run("individual, repo given", func(t *testing.T) {
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -204,7 +204,7 @@ func TestNewProject(t *testing.T) {
 	})
 
 	t.Run("organization", func(t *testing.T) {
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -219,7 +219,7 @@ func TestNewProject(t *testing.T) {
 	})
 
 	t.Run("organization, owner is individual", func(t *testing.T) {
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -232,7 +232,7 @@ func TestNewProject(t *testing.T) {
 	})
 
 	t.Run("organization, repo given", func(t *testing.T) {
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -245,7 +245,7 @@ func TestNewProject(t *testing.T) {
 	})
 
 	t.Run("repository", func(t *testing.T) {
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -260,7 +260,7 @@ func TestNewProject(t *testing.T) {
 	})
 
 	t.Run("repository, empty repo", func(t *testing.T) {
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -274,7 +274,7 @@ func TestNewProject(t *testing.T) {
 
 	t.Run("repository, invalid card type", func(t *testing.T) {
 		invalidCardType := project_module.APICardType("invalid")
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -288,7 +288,7 @@ func TestNewProject(t *testing.T) {
 
 	t.Run("repository, invalid template type", func(t *testing.T) {
 		invalidTemplateType := project_module.APITemplateType("invalid")
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: invalidTemplateType.String(),
@@ -302,7 +302,7 @@ func TestNewProject(t *testing.T) {
 
 	t.Run("invalid project type", func(t *testing.T) {
 		invalidProjectType := project_module.APIOwnerType("99")
-		opts := project_structs.CreateProjectOptions{
+		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
 			TemplateType: project_module.APITemplateTypeNone.String(),
@@ -504,7 +504,7 @@ func TestUpdateProject(t *testing.T) {
 	require.NoError(t, CreateProject(t.Context(), project))
 
 	t.Run("invalid card type", func(t *testing.T) {
-		updated := &project_structs.CreateProjectOptions{
+		updated := &project_structs.CreateOrUpdateProjectOptions{
 			CardType: "does not exist",
 		}
 		err := UpdateProject(t.Context(), project, updated)
@@ -513,7 +513,7 @@ func TestUpdateProject(t *testing.T) {
 	})
 
 	t.Run("invalid status", func(t *testing.T) {
-		updated := &project_structs.CreateProjectOptions{
+		updated := &project_structs.CreateOrUpdateProjectOptions{
 			Status: "does not exist",
 		}
 		err := UpdateProject(t.Context(), project, updated)
@@ -523,7 +523,7 @@ func TestUpdateProject(t *testing.T) {
 
 	t.Run("change status", func(t *testing.T) {
 		// close
-		updated := &project_structs.CreateProjectOptions{
+		updated := &project_structs.CreateOrUpdateProjectOptions{
 			Status: "closed",
 		}
 		assert.False(t, project.IsClosed)
@@ -532,7 +532,7 @@ func TestUpdateProject(t *testing.T) {
 		assert.True(t, project.IsClosed)
 
 		// open
-		updated = &project_structs.CreateProjectOptions{
+		updated = &project_structs.CreateOrUpdateProjectOptions{
 			Status: "open",
 		}
 		err = UpdateProject(t.Context(), project, updated)
@@ -565,7 +565,7 @@ func TestCRUDProject(t *testing.T) {
 	assert.Equal(t, wantProject.Title, projectTitle)
 
 	// update project
-	updated := &project_structs.CreateProjectOptions{
+	updated := &project_structs.CreateOrUpdateProjectOptions{
 		Title:       newTitle,
 		Description: newDescription,
 	}
