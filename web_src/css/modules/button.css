@@ -32,6 +32,8 @@
   border-radius: var(--border-radius);
   font-weight: var(--font-weight-medium);
 
+  background: var(--button-background);
+
   &:hover,
   &:focus {
     text-decoration: none;
@@ -44,17 +46,17 @@
 }
 
 .button.primary {
-  background: var(--color-primary);
+  --button-background: var(--color-primary);
   color: var(--color-primary-contrast);
 
   &:hover,
   &:focus {
-    background-color: var(--color-primary-hover);
+    --button-background: var(--color-primary-hover);
   }
 }
 
 .button.secondary {
-  background: var(--color-button);
+  --button-background: var(--color-button);
   border: 1px solid var(--color-light-border);
   color: var(--color-text-light);
 
@@ -66,7 +68,7 @@
 
 .button.danger {
   /* Fallback is needed while --color-danger-bg is not supplied by all themes */
-  background: var(--color-danger-bg, var(--color-error-bg));
+  --button-background: var(--color-danger-bg, var(--color-error-bg));
   border: 1px solid var(--color-thin-red);
   color: var(--color-thin-red);
 
