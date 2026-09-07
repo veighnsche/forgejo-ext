@@ -45,12 +45,19 @@
     opacity: var(--opacity-disabled);
     pointer-events: none;
   }
+
+  &:focus-visible {
+    /* Outline colors are defined by styles individually since there isn't a
+     * single consistent parameter to use as an anchor */
+    outline: 3px solid var(--button-outline-color);
+  }
 }
 
 .button.primary {
   --button-background: var(--color-primary);
   --button-border-color: var(--color-primary-dark-2);
   --button-color: var(--color-primary-contrast);
+  --button-outline-color: oklch(from var(--button-background) l c h / 0.3);
 
   &:hover,
   &:focus {
@@ -62,6 +69,7 @@
   --button-background: var(--color-button);
   --button-border-color: var(--color-light-border);
   --button-color: var(--color-text-light);
+  --button-outline-color: oklch(from var(--button-border-color) l c h / 0.1);
 
   &:hover,
   &:focus {
@@ -74,6 +82,7 @@
   --button-background: var(--color-danger-bg, var(--color-error-bg));
   --button-border-color: var(--color-thin-red);
   --button-color: var(--color-thin-red);
+  --button-outline-color: oklch(from var(--button-border-color) l c h / 0.3);
 
   &:hover,
   &:focus {
