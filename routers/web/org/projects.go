@@ -79,19 +79,19 @@ func Projects(ctx *context.Context) {
 		page,
 		setting.UI.IssuePagingNum,
 	)
-	log.Debug("Got OwnerSearch Opts for user %v and project type %v", ctx.ContextUser.Name, projectType)
+	log.Trace("Got OwnerSearch Opts for user %v and project type %v", ctx.ContextUser.Name, projectType)
 	projects, err := project_service.ListProjectsByOptions(*ctx, opts)
 	if err != nil {
 		ctx.ServerError("ListProjectsByOptions", err)
 		return
 	}
-	log.Debug("Found %v projects", len(projects))
+	log.Trace("Found %v projects", len(projects))
 	total, err := project_service.CountProjectsByOptions(*ctx, opts)
 	if err != nil {
 		ctx.ServerError("CountProjectsByOptions", err)
 		return
 	}
-	log.Debug("Counted %v projects", total)
+	log.Trace("Counted %v projects", total)
 	countOpts := project_service.GetSearchOpts(ctx.ContextUser.ID, !showClosed, "", "", projectType)
 	opTotal, err := project_service.CountProjectsByOptions(*ctx, countOpts)
 	if err != nil {
@@ -191,7 +191,7 @@ func CreateProject(ctx *context.Context) {
 	}
 
 	projectType := project_service.GetAPIOwnerType(ctx.ContextUser.IsOrganization(), false)
-	log.Debug("Got project type %v", projectType)
+	log.Trace("Got project type %v", projectType)
 
 	opt := &project_structs.CreateProjectOptions{
 		Title:        form.Title,
@@ -210,7 +210,7 @@ func CreateProject(ctx *context.Context) {
 		ctx.ServerError("CreateProject", err)
 		return
 	}
-	log.Debug("Created project with name %v", form.Title)
+	log.Trace("Created project with name %v", form.Title)
 
 	ctx.Flash.Success(ctx.Tr("repo.projects.create_success", form.Title))
 	ctx.Redirect(ctx.ContextUser.HomeLink() + "/-/projects")

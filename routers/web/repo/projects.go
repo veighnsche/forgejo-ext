@@ -96,13 +96,13 @@ func Projects(ctx *context.Context) {
 		page,
 		setting.UI.IssuePagingNum,
 	)
-	log.Debug("Got RepoSearchOpts for repo %v and project type %v", repo.Name, project_module.APIOwnerTypeRepository)
+	log.Trace("Got RepoSearchOpts for repo %v and project type %v", repo.Name, project_module.APIOwnerTypeRepository)
 	projects, err := project_service.ListProjectsByOptions(ctx, opts)
 	if err != nil {
 		ctx.ServerError("ListProjectsByOptions", err)
 		return
 	}
-	log.Debug("Found %v projects", len(projects))
+	log.Trace("Found %v projects", len(projects))
 	for i := range projects {
 		projects[i].RenderedContent, err = markdown.RenderString(&markup.RenderContext{
 			Links: markup.Links{
@@ -117,7 +117,7 @@ func Projects(ctx *context.Context) {
 			return
 		}
 	}
-	log.Debug("Counted %v projects", total)
+	log.Trace("Counted %v projects", total)
 	ctx.Data["Projects"] = projects
 
 	if showClosed {
@@ -193,7 +193,7 @@ func CreateProject(ctx *context.Context) {
 		ctx.ServerError("CreateProject", err)
 		return
 	}
-	log.Debug("Created project %v for repo %v", form.Title, ctx.Repo.Repository.Name)
+	log.Trace("Created project %v for repo %v", form.Title, ctx.Repo.Repository.Name)
 
 	ctx.Flash.Success(ctx.Tr("repo.projects.create_success", form.Title))
 	ctx.Redirect(ctx.Repo.RepoLink + "/projects")
