@@ -36,6 +36,7 @@ const minimalInitialJobData = {
   state: {
     run: {
       status: 'success',
+      estimatedOutcome: 'success',
       commit: {
         pusher: {},
       },
@@ -107,6 +108,7 @@ test('load multiple steps on a finished action', async () => {
       state: {
         run: {
           status: 'success',
+          estimatedOutcome: 'success',
           commit: {
             pusher: {},
           },
@@ -175,6 +177,7 @@ function configureForMultipleAttemptTests({viewHistorical}) {
       canRerun: true,
       canDelete: false,
       status: 'success',
+      estimatedOutcome: 'success',
       commit: {
         pusher: {},
       },
@@ -354,6 +357,7 @@ test('run approval interaction', async () => {
           run: {
             canApprove: true,
             status: 'waiting',
+            estimatedOutcome: 'unknown',
             commit: {
               pusher: {},
               branch: {
@@ -421,6 +425,7 @@ test('artifacts download links', async () => {
       state: {
         run: {
           status: 'success',
+          estimatedOutcome: 'success',
           commit: {
             pusher: {},
           },
@@ -541,6 +546,7 @@ test('view non-picked action run job', async () => {
           run: {
             done: false,
             status: 'waiting',
+            estimatedOutcome: 'unknown',
             commit: {
               pusher: {},
             },
