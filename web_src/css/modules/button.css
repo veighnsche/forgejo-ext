@@ -65,7 +65,7 @@
 }
 
 .button.danger {
-  /* Fallbacks are needed while -thin vars are not supplied by all themes */
+  /* Fallback is needed while --color-danger-bg is not supplied by all themes */
   background: var(--color-danger-bg, var(--color-error-bg));
   border: 1px solid var(--color-thin-red);
   color: var(--color-thin-red);
