@@ -602,6 +602,7 @@ func TestCRUDProject(t *testing.T) {
 		// try deleting default column
 		err = DeleteColumnInProject(t.Context(), column1.ID)
 		require.Error(t, err) // Can not delete default col
+		assert.Contains(t, err.Error(), "cannot delete default column")
 
 		// delete other column
 		err = DeleteColumnInProject(t.Context(), column2.ID)
