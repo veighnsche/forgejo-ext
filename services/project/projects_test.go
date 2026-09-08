@@ -34,9 +34,9 @@ const (
 	keyword            = "Title"
 	projectTitle       = "Project"
 	projectDescription = "Description"
-	projectType1       = project_module.APIOwnerTypeOrganization
-	projectType2       = project_module.TypeIndividual
-	projectType3       = project_module.APIOwnerTypeRepository
+	projectTypeOrg     = project_module.APIOwnerTypeOrganization
+	projectTypeUser    = project_module.TypeIndividual
+	projectTypeRepo    = project_module.APIOwnerTypeRepository
 	columnTitle1       = "Title 1"
 	columnTitle2       = "Title 2"
 	columnColor        = "#23adff"
@@ -69,7 +69,7 @@ func TestGetSearchOpts(t *testing.T) {
 		isShowClosed,
 		sortType,
 		keyword,
-		projectType1,
+		projectTypeOrg,
 		page,
 		pageSize,
 	)
@@ -77,7 +77,7 @@ func TestGetSearchOpts(t *testing.T) {
 	assert.Equal(t, ownerID, opts.OwnerID)
 	assert.Equal(t, optional.Some(isShowClosed), opts.IsClosed)
 	assert.Equal(t, keyword, opts.Title)
-	assert.Equal(t, projectType1, opts.Type.ToAPIOwnerType())
+	assert.Equal(t, projectTypeOrg, opts.Type.ToAPIOwnerType())
 	assert.NotNil(t, opts.ListOptions)
 
 	opts = GetSearchOpts(
@@ -85,7 +85,7 @@ func TestGetSearchOpts(t *testing.T) {
 		isShowClosed,
 		sortType,
 		keyword,
-		projectType3,
+		projectTypeRepo,
 		page,
 		pageSize,
 	)
@@ -93,7 +93,7 @@ func TestGetSearchOpts(t *testing.T) {
 	assert.Equal(t, repoID, opts.RepoID)
 	assert.Equal(t, optional.Some(isShowClosed), opts.IsClosed)
 	assert.Equal(t, keyword, opts.Title)
-	assert.Equal(t, projectType3, opts.Type.ToAPIOwnerType())
+	assert.Equal(t, projectTypeRepo, opts.Type.ToAPIOwnerType())
 	assert.NotNil(t, opts.ListOptions)
 
 	opts = GetSearchOpts(
@@ -101,21 +101,21 @@ func TestGetSearchOpts(t *testing.T) {
 		!isShowClosed,
 		"",
 		"",
-		projectType3,
+		projectTypeRepo,
 	)
 	require.NotNil(t, opts)
 	assert.Equal(t, repoID, opts.RepoID)
 	assert.Equal(t, optional.Some(!isShowClosed), opts.IsClosed)
 	assert.Equal(t, db.SearchOrderByNewest, opts.OrderBy)
 	assert.Empty(t, opts.Title)
-	assert.Equal(t, projectType3, opts.Type.ToAPIOwnerType())
+	assert.Equal(t, projectTypeRepo, opts.Type.ToAPIOwnerType())
 }
 
 func TestListProjectByOptions(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	opts := &project_model.SearchOptions{
 		OwnerID: 2,
-		Type:    projectType2,
+		Type:    projectTypeUser,
 	}
 	projects, err := ListProjectsByOptions(t.Context(), opts)
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func TestCountProjectsByOptions(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	opts := &project_model.SearchOptions{
 		OwnerID: 2,
-		Type:    projectType2,
+		Type:    projectTypeUser,
 	}
 	count, err := CountProjectsByOptions(t.Context(), opts)
 	require.NoError(t, err)
@@ -436,7 +436,7 @@ func TestGetProjectByIDForOwnerErrors(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
 		Title:        projectTitle,
-		Type:         projectType2,
+		Type:         projectTypeUser,
 		Description:  projectDescription,
 		CreatorID:    ownerID,
 		TemplateType: templateType,
@@ -445,7 +445,7 @@ func TestGetProjectByIDForOwnerErrors(t *testing.T) {
 	repoProject := &project_model.Project{
 		RepoID:       repoID,
 		Title:        projectTitle,
-		Type:         projectType3.ToOwnerType(),
+		Type:         projectTypeRepo.ToOwnerType(),
 		Description:  projectDescription,
 		CreatorID:    ownerID,
 		TemplateType: templateType,
@@ -454,7 +454,7 @@ func TestGetProjectByIDForOwnerErrors(t *testing.T) {
 	orgProject := &project_model.Project{
 		OwnerID:      orgOwnerID,
 		Title:        projectTitle,
-		Type:         projectType1.ToOwnerType(),
+		Type:         projectTypeOrg.ToOwnerType(),
 		Description:  projectDescription,
 		CreatorID:    ownerID,
 		TemplateType: templateType,
@@ -492,7 +492,7 @@ func TestUpdateProject(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
 		Title:        projectTitle,
-		Type:         projectType2,
+		Type:         projectTypeUser,
 		Description:  projectDescription,
 		CreatorID:    ownerID,
 		TemplateType: templateType,
@@ -544,7 +544,7 @@ func TestCRUDProject(t *testing.T) {
 	project := &project_model.Project{
 		OwnerID:      ownerID,
 		Title:        projectTitle,
-		Type:         projectType2,
+		Type:         projectTypeUser,
 		Description:  projectDescription,
 		CreatorID:    ownerID,
 		TemplateType: templateType,
