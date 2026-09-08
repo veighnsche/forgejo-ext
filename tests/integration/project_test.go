@@ -2027,18 +2027,3 @@ func TestProjectWebCRUD(t *testing.T) {
 		ID: project.ID,
 	})
 }
-
-func sessionJSONPOST(t *testing.T, session *TestSession, endpoint string, opts any) *httptest.ResponseRecorder {
-	req := NewRequestWithJSON(t, "POST", endpoint, &opts)
-	return session.MakeRequest(t, req, -1)
-}
-
-func sessionPOST(t *testing.T, session *TestSession, endpoint string) *httptest.ResponseRecorder {
-	req := NewRequest(t, "POST", endpoint)
-	return session.MakeRequest(t, req, -1)
-}
-
-func sessionGET(t *testing.T, session *TestSession, endpoint string) *httptest.ResponseRecorder {
-	req := NewRequest(t, "GET", endpoint)
-	return session.MakeRequest(t, req, -1)
-}

@@ -745,6 +745,21 @@ func getHTMLDoc(t testing.TB, session *TestSession, urlStr string, expectedStatu
 	return NewHTMLParser(t, resp.Body)
 }
 
+func sessionJSONPOST(t testing.TB, session *TestSession, endpoint string, opts any) *httptest.ResponseRecorder {
+	req := NewRequestWithJSON(t, "POST", endpoint, &opts)
+	return session.MakeRequest(t, req, NoExpectedStatus)
+}
+
+func sessionPOST(t testing.TB, session *TestSession, endpoint string) *httptest.ResponseRecorder {
+	req := NewRequest(t, "POST", endpoint)
+	return session.MakeRequest(t, req, NoExpectedStatus)
+}
+
+func sessionGET(t testing.TB, session *TestSession, endpoint string) *httptest.ResponseRecorder {
+	req := NewRequest(t, "GET", endpoint)
+	return session.MakeRequest(t, req, NoExpectedStatus)
+}
+
 func SortMailerMessages(msgs []*mailer.Message) {
 	slices.SortFunc(msgs, func(a, b *mailer.Message) int {
 		return strings.Compare(b.To, a.To)
