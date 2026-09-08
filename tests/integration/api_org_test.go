@@ -209,6 +209,19 @@ func TestAPIOrgEdit(t *testing.T) {
 	assert.Equal(t, org.Website, apiOrg.Website)
 	assert.Equal(t, org.Location, apiOrg.Location)
 	assert.Equal(t, org.Visibility, apiOrg.Visibility)
+
+	// reverting back to public should work
+	org2 := api.EditOrgOption{
+		Visibility: "public",
+	}
+	req2 := NewRequestWithJSON(t, "PATCH", "/api/v1/orgs/org3", &org2).
+		AddTokenAuth(token)
+	resp2 := MakeRequest(t, req2, http.StatusOK)
+
+	var apiOrg2 api.Organization
+	DecodeJSON(t, resp2, &apiOrg2)
+
+	assert.Equal(t, org2.Visibility, apiOrg2.Visibility)
 }
 
 func TestAPIOrgEditWebsite(t *testing.T) {
