@@ -161,7 +161,8 @@ jobs:
           RUN_ALL: ${{steps.run-all.all}}
       - name: Upload test artifacts on failure
         if: failure()
-        uses: https://data.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
+        # needed because the action does not work outside of the GitHub ecosystem
+        uses: https://data.forgejo.org/forgejo/upload-artifact@v5
         with:
           name: test-artifacts.zip
           path: tests/e2e/test-artifacts/
@@ -345,7 +346,8 @@ jobs:
           token: ${{ forgejo.TOKEN }}
       - if: forgejo.event_name != 'pull_request' && (steps.coverage-unit.outputs.cache-hit && steps.coverage-e2e.outputs.cache-hit && steps.coverage-sqlite.outputs.cache-hit)
         name: upload the converted coverage data (textfmt.out)
-        uses: https://data.forgejo.org/forgejo/upload-artifact@v4
+        # needed because the action does not work outside of the GitHub ecosystem
+        uses: https://data.forgejo.org/forgejo/upload-artifact@v5
         with:
           name: coverage
           path: coverage/textfmt.out
