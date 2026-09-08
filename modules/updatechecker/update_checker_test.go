@@ -80,7 +80,6 @@ func TestUpdateRemoteVersion(t *testing.T) {
 			cs, ok := item.(*CheckerState)
 			require.True(t, ok)
 			return cs.Name() == "update-checker" &&
-				cs.LatestVersion == "" &&
 				slices.Equal(cs.SupportedVersions, []string{"16.0.3", "15.0.7"})
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
@@ -104,27 +103,24 @@ func TestGetReleaseState(t *testing.T) {
 			return ok
 		})).Return(errors.New("something went wrong"))
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
-		retval := GetReleaseState(t.Context())
-		assert.Equal(t, MajorReleaseSupported, retval.MajorReleaseState)
-		assert.Equal(t, MinorReleaseCurrent, retval.MinorReleaseState)
-		assert.Empty(t, retval.RecommendedUpgrade.ValueOrZeroValue())
+		retval, err := GetReleaseState(t.Context())
+		require.ErrorContains(t, err, "retrieve update checker output: something went wrong")
+		assert.Nil(t, retval)
 	})
 
-	t.Run("AppState get had old single-LatestValue, major out-of-date", func(t *testing.T) {
+	t.Run("AppState get had no data, but no error", func(t *testing.T) {
 		state := system.NewMockStateStore(t)
 		state.On("Get", mock.Anything, mock.MatchedBy(func(item system.StateItem) bool {
-			state, ok := item.(*CheckerState)
-			if ok {
-				state.LatestVersion = "14.0.3"
-			}
+			_, ok := item.(*CheckerState)
 			return ok
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
 		defer test.MockVariableValue(&setting.AppVer, "13.0.0")()
-		retval := GetReleaseState(t.Context())
-		assert.Equal(t, MajorReleaseUnsupported, retval.MajorReleaseState)
-		assert.Equal(t, MinorReleaseOutOfDate, retval.MinorReleaseState)
-		assert.Equal(t, "14.0.3", retval.RecommendedUpgrade.ValueOrZeroValue())
+		retval, err := GetReleaseState(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, MajorReleaseSupported, retval.MajorReleaseState)
+		assert.Equal(t, MinorReleaseCurrent, retval.MinorReleaseState)
+		assert.Empty(t, retval.RecommendedUpgrade.ValueOrZeroValue())
 	})
 
 	t.Run("unparseable current version value ignored", func(t *testing.T) {
@@ -132,16 +128,15 @@ func TestGetReleaseState(t *testing.T) {
 		state.On("Get", mock.Anything, mock.MatchedBy(func(item system.StateItem) bool {
 			state, ok := item.(*CheckerState)
 			if ok {
-				state.LatestVersion = "14.0.3"
+				state.SupportedVersions = []string{"14.0.3"}
 			}
 			return ok
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
 		defer test.MockVariableValue(&setting.AppVer, "this is not a version")()
-		retval := GetReleaseState(t.Context())
-		assert.Equal(t, MajorReleaseSupported, retval.MajorReleaseState)
-		assert.Equal(t, MinorReleaseCurrent, retval.MinorReleaseState)
-		assert.Empty(t, retval.RecommendedUpgrade.ValueOrZeroValue())
+		retval, err := GetReleaseState(t.Context())
+		require.ErrorContains(t, err, "Malformed version: this is not a version")
+		assert.Nil(t, retval)
 	})
 
 	t.Run("unparseable available version ignored", func(t *testing.T) {
@@ -155,10 +150,9 @@ func TestGetReleaseState(t *testing.T) {
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
 		defer test.MockVariableValue(&setting.AppVer, "13.0.0")()
-		retval := GetReleaseState(t.Context())
-		assert.Equal(t, MajorReleaseSupported, retval.MajorReleaseState)
-		assert.Equal(t, MinorReleaseCurrent, retval.MinorReleaseState)
-		assert.Empty(t, retval.RecommendedUpgrade.ValueOrZeroValue())
+		retval, err := GetReleaseState(t.Context())
+		require.ErrorContains(t, err, "failure to parse remote version \"this is not a version\": Malformed version")
+		assert.Nil(t, retval)
 	})
 
 	t.Run("no upgrade if local prerelease", func(t *testing.T) {
@@ -172,7 +166,8 @@ func TestGetReleaseState(t *testing.T) {
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
 		defer test.MockVariableValue(&setting.AppVer, "17.0.0")()
-		retval := GetReleaseState(t.Context())
+		retval, err := GetReleaseState(t.Context())
+		require.NoError(t, err)
 		assert.Equal(t, MajorReleasePrerelease, retval.MajorReleaseState)
 		assert.Equal(t, MinorReleaseCurrent, retval.MinorReleaseState)
 		assert.Empty(t, retval.RecommendedUpgrade.ValueOrZeroValue())
@@ -192,7 +187,8 @@ func TestGetReleaseState(t *testing.T) {
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
 		defer test.MockVariableValue(&setting.AppVer, "13.0.0")()
-		retval := GetReleaseState(t.Context())
+		retval, err := GetReleaseState(t.Context())
+		require.NoError(t, err)
 		assert.Equal(t, MajorReleaseSupported, retval.MajorReleaseState)
 		assert.Equal(t, MinorReleaseOutOfDate, retval.MinorReleaseState)
 		assert.Equal(t, "13.0.5", retval.RecommendedUpgrade.ValueOrZeroValue())
@@ -213,7 +209,8 @@ func TestGetReleaseState(t *testing.T) {
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
 		defer test.MockVariableValue(&setting.AppVer, "13.0.0")()
-		retval := GetReleaseState(t.Context())
+		retval, err := GetReleaseState(t.Context())
+		require.NoError(t, err)
 		assert.Equal(t, MajorReleaseUnsupported, retval.MajorReleaseState)
 		assert.Equal(t, MinorReleaseOutOfDate, retval.MinorReleaseState)
 		assert.Equal(t, "15.0.2", retval.RecommendedUpgrade.ValueOrZeroValue())
@@ -233,7 +230,8 @@ func TestGetReleaseState(t *testing.T) {
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
 		defer test.MockVariableValue(&setting.AppVer, "13.0.0")()
-		retval := GetReleaseState(t.Context())
+		retval, err := GetReleaseState(t.Context())
+		require.NoError(t, err)
 		assert.Equal(t, MajorReleaseUnsupported, retval.MajorReleaseState)
 		assert.Equal(t, MinorReleaseOutOfDate, retval.MinorReleaseState)
 		assert.Equal(t, "17.0.1", retval.RecommendedUpgrade.ValueOrZeroValue())

@@ -6,6 +6,7 @@ package updatechecker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -23,7 +24,6 @@ import (
 
 // CheckerState stores the remote version from the JSON endpoint
 type CheckerState struct {
-	LatestVersion     string // legacy field that may be stored in appstate
 	SupportedVersions []string
 }
 
@@ -155,62 +155,61 @@ type ReleaseState struct {
 
 // Using the state stored from UpdateRemoteVersion, and the current version of this deployment, calculate a ReleaseState
 // structure.  In any error situation, a "no upgrade required" state will be returned and warnings may be logged.
-func GetReleaseState(ctx context.Context) *ReleaseState {
+func GetReleaseState(ctx context.Context) (*ReleaseState, error) {
 	item := new(CheckerState)
 	if err := system.AppState.Get(ctx, item); err != nil {
 		log.Warn("system appstate unable to retrieve update checker output: %s", err)
-		return &ReleaseState{} // zero-value indicates no upgrade necessary
-	}
-	// Upgrade legacy LatestVersion field, single value, to the new array SupportedVersions
-	if item.LatestVersion != "" && item.SupportedVersions == nil {
-		item.SupportedVersions = []string{item.LatestVersion}
-		item.LatestVersion = ""
+		return nil, fmt.Errorf("system appstate unable to retrieve update checker output: %w", err)
+	} else if item.SupportedVersions == nil {
+		// If the update checker hasn't yet been run, or has been disabled,  or hasn't been run since the format was
+		// changed from storing a single version to multiple versions, then we don't know available releases.
+		return &ReleaseState{}, nil // zero-value indicates no upgrade necessary
 	}
 
 	currentVersion, err := version.NewVersion(setting.AppVer)
 	if err != nil {
-		log.Warn("update checker unable to parse current version; update checker will be disabled: %s", err)
-		return &ReleaseState{} // zero-value indicates no upgrade necessary
+		log.Warn("update checker unable to parse current version; update notifications will be disabled: %s", err)
+		return nil, fmt.Errorf("update checker unable to parse current version: %w", err)
 	}
 
 	supportedVersions := []*version.Version{}
 	for _, v := range item.SupportedVersions {
 		parsed, err := version.NewVersion(v)
 		if err != nil {
-			// If a remote version couldn't be parsed, log a warning but otherwise make the best attempt we can to
-			// populate a ReleaseState ignoring that release:
-			log.Warn("failure to parse remote version %q: %s", v, err)
-			continue
+			// A remote version couldn't be parsed, which is a pretty strange situation.  Highlight it for admins with
+			// an error, as this situation shouldn't be silent (and maybe block needed notifications).
+			return nil, fmt.Errorf("failure to parse remote version %q: %w", v, err)
 		}
 		supportedVersions = append(supportedVersions, parsed)
 	}
 
 	if len(supportedVersions) == 0 {
-		// No versions indicated as current from remote, that we could parse.
-		log.Warn("update checker could not identify any supported versions")
-		return &ReleaseState{} // zero-value indicates no upgrade necessary
+		// Remote version fetch has run and succeeded, storing an empty array into item.SupportedVersions.  Highlight it
+		// for admins, as this situation is unexpected, and unexpected situations shouldn't be silent (and maybe block
+		// needed notifications).
+		return nil, errors.New("update checker could not identify any supported versions")
 	}
 
 	// Check if we're greater than all currently supported versions, indicating that we're running a pre-release build:
 	if preRelease := tryCheckPrerelease(currentVersion, supportedVersions); preRelease != nil {
-		return preRelease
+		return preRelease, nil
 	}
 
 	// Check if the major version we're currently running is supported, and if so, what the latest release of it is:
 	if minorReleaseTarget := tryGetMatchingMajorRelease(currentVersion, supportedVersions); minorReleaseTarget != nil {
-		return minorReleaseTarget
+		return minorReleaseTarget, nil
 	}
 
 	// Not currently on a support major release.  Recommend upgrading to the LTS, following the logic that if this
 	// release has fallen behind this much, the admins probably don't want to be on the bleeding edge which requires
 	// more frequent, riskier upgrades.
 	if ltsTarget := tryGetHighestLTSRelease(supportedVersions); ltsTarget != nil {
-		return ltsTarget
+		return ltsTarget, nil
 	}
 
 	// Couldn't find a supported LTS.  Choose the higest supported version.  Must be non-nil because an empty
 	// supportedVersions already exited earlier.
-	return getHighestRelease(supportedVersions)
+	return getHighestRelease(supportedVersions), nil
 }
 
 func tryCheckPrerelease(currentVersion *version.Version, supportedVersions []*version.Version) *ReleaseState {

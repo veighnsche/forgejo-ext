@@ -134,13 +134,16 @@ func Dashboard(ctx *context.Context) {
 	updateSystemStatus()
 	ctx.Data["SysStatus"] = sysStatus
 
-	update := updatechecker.GetReleaseState(ctx)
-	if update.MajorReleaseState == updatechecker.MajorReleaseUnsupported ||
-		update.MinorReleaseState == updatechecker.MinorReleaseOutOfDate {
-		ctx.Data["NeedUpdate"] = true
-		if hasRec, rec := update.RecommendedUpgrade.Get(); hasRec {
-			ctx.Data["RemoteVersion"] = rec
-		}
+	update, err := updatechecker.GetReleaseState(ctx)
+	if err != nil {
+		ctx.Data["UpdateCheckerError"] = err.Error()
+	} else if update.MajorReleaseState == updatechecker.MajorReleaseUnsupported {
+		ctx.Data["NeedMajorUpdate"] = true
+	} else if update.MinorReleaseState == updatechecker.MinorReleaseOutOfDate {
+		ctx.Data["NeedMinorUpdate"] = true
+	}
+	if hasRec, rec := update.RecommendedUpgrade.Get(); hasRec {
+		ctx.Data["RemoteVersion"] = rec
 	}
 
 	entries := []string{
