@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
+const (
 	ownerID            = int64(2)
 	orgOwnerID         = int64(3)
 	repoID             = int64(2)
