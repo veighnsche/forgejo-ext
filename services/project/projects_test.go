@@ -271,7 +271,7 @@ func TestNewProject(t *testing.T) {
 		assert.Contains(t, err.Error(), "Repo type given, but repo struct was empty")
 	})
 
-	t.Run("repository, invalid card type", func(t *testing.T) {
+	t.Run("invalid card type", func(t *testing.T) {
 		invalidCardType := project_module.APICardType("invalid")
 		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
@@ -285,7 +285,7 @@ func TestNewProject(t *testing.T) {
 		assert.Contains(t, err.Error(), "Field APICardType")
 	})
 
-	t.Run("repository, invalid template type", func(t *testing.T) {
+	t.Run("invalid template type", func(t *testing.T) {
 		invalidTemplateType := project_module.APITemplateType("invalid")
 		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
@@ -333,7 +333,7 @@ func TestGetValidProjectColumnByID(t *testing.T) {
 		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, nonExistingColumnID)
 		assert.Contains(t, err.Error(), notExistStr)
 	})
-	t.Run("Different Column ID", func(t *testing.T) {
+	t.Run("Column Does Not Belong To Project", func(t *testing.T) {
 		differentColID := int64(4)
 		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, differentColID)
 		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
