@@ -78,6 +78,7 @@ test('Button visuals', async ({browser}) => {
   const secondaryDisabled = await getButtonProperties(page, '.button.secondary.disabled');
   const dangerDisabled = await getButtonProperties(page, '.button.danger.disabled');
 
+  // Evaluate properties specific to disabled buttons
   for (const item of [primaryDisabled, secondaryDisabled, dangerDisabled]) {
     // Evaluate opacity
     expect(item.opacity).toBe('0.55');
@@ -87,5 +88,15 @@ test('Button visuals', async ({browser}) => {
     // Evaluate other properties of non-disabled buttons
     expect(item.backgroundColor).not.toBe(transparent);
     expect(item.fontWeight).toBe('500');
+  }
+
+  // Evaluate outline from `:focus-visible` appearing
+  for (const button of await page.locator('.page-content .button-sequence .button').all()) {
+    // First, get to the element with .focus(), then activate :focus-visible by keyboard
+    await button.focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+
+    expect(await button.evaluate((el) => getComputedStyle(el).outlineWidth)).toBe('3px');
   }
 });
