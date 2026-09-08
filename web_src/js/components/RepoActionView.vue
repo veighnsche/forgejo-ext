@@ -701,7 +701,7 @@ export default {
   top: 12px;
   max-height: 100vh;
   overflow-block: auto;
-  background: var(--color-body);
+  background: var(--color-page-background);
   z-index: 2; /* above .job-info-header */
 }
 

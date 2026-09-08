@@ -70,7 +70,7 @@ body {
   line-height: 20px;
   font-family: var(--fonts-regular);
   color: var(--color-text);
-  background-color: var(--color-body);
+  background-color: var(--color-page-background);
   tab-size: var(--tab-size);
   display: flex;
   flex-direction: column;
@@ -331,13 +331,13 @@ a.label,
 }
 
 .ui.search > .results {
-  background: var(--color-body);
+  background: var(--color-page-background);
   border-color: var(--color-secondary);
   overflow-wrap: anywhere; /* allow text to wrap as fomantic limits this to 18em width */
 }
 
 .ui.search > .results .result {
-  background: var(--color-body);
+  background: var(--color-page-background);
   border-color: var(--color-secondary);
   display: flex;
   align-items: center;
@@ -545,7 +545,7 @@ a.label,
 }
 
 .ui.menu .dropdown.item .menu {
-  background: var(--color-body);
+  background: var(--color-page-background);
 }
 
 .ui.menu .ui.dropdown .menu > .item {
@@ -983,7 +983,7 @@ strong.attention-caution, svg.attention-caution {
 }
 
 overflow-menu {
-  border-bottom: 1px solid var(--color-secondary) !important;
+  border-bottom: 1px solid var(--color-page-nav-border) !important;
   display: flex;
   overflow-inline: auto;
 }
@@ -1239,7 +1239,7 @@ table th[data-sortt-desc] .svg {
 
 .ui.tabular.menu .active.item,
 .ui.tabular.menu .active.item:hover {
-  background: var(--color-body);
+  background: var(--color-page-background);
   border-color: var(--color-secondary);
   color: var(--color-text);
 }

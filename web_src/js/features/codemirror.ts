@@ -87,7 +87,7 @@ export async function createCodemirror(
           backgroundColor: 'var(--color-primary-light-3)',
         },
       '.cm-panels': {
-        backgroundColor: 'var(--color-body)',
+        backgroundColor: 'var(--color-page-background)',
         borderColor: 'var(--color-secondary)',
       },
       '.cm-activeLine, .cm-activeLineGutter': {

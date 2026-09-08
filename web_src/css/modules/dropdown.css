@@ -80,7 +80,7 @@ details.dropdown > .content {
   position: absolute;
   min-width: max-content;
   border-radius: var(--border-radius);
-  background: var(--color-body);
+  background: var(--color-page-background);
   box-shadow: var(--dropdown-box-shadow);
   border: 1px solid var(--color-secondary);
   margin-top: 0.5rem;

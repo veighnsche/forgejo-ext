@@ -829,7 +829,7 @@ citation-information .tab:not(.active) {
 
 .repository.view.issue .comment-list .timeline-item .badge.badge-commit {
   border-color: transparent;
-  background: radial-gradient(var(--color-body) 40%, transparent 40%) no-repeat;
+  background: radial-gradient(var(--color-page-background) 40%, transparent 40%) no-repeat;
 }
 
 .repository.view.issue .comment-list .timeline-item .badge {
@@ -1390,7 +1390,7 @@ citation-information .tab:not(.active) {
   vertical-align: top;
   cursor: pointer;
   text-align: end;
-  background: var(--color-body);
+  background: var(--color-page-background);
   border: 0;
 }
 
@@ -1404,7 +1404,7 @@ citation-information .tab:not(.active) {
   padding: 7px 5px;
   margin: 0 -5px; /* negative margin so it covers active file shadow */
   height: 44px; /* this height should match sticky-2nd-row */
-  background: var(--color-body);
+  background: var(--color-page-background);
 }
 
 @media (max-width: 480px) {

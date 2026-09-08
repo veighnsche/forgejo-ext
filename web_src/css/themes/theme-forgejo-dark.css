@@ -214,7 +214,6 @@
   --color-danger-bg: oklch(var(--bg-lightness) var(--bg-chroma) 27deg);
 
   /* target-based colors */
-  --color-body: var(--steel-800);
   --color-box-header: var(--steel-700);
   --color-box-body: var(--steel-750);
   --color-box-body-highlight: var(--steel-650);
@@ -224,7 +223,6 @@
   --color-text-light-1: var(--steel-150);
   --color-text-light-2: var(--steel-200);
   --color-text-light-3: var(--steel-200);
-  --color-footer: var(--steel-900);
   --color-timeline: var(--steel-650);
   --color-input-text: var(--steel-100);
   --color-input-background: var(--steel-650);
@@ -262,9 +260,7 @@
   --color-reaction-hover-bg: var(--color-primary-alpha-40);
   --color-tooltip-text: #ffffff;
   --color-tooltip-bg: #000000f0;
-  --color-nav-bg: var(--steel-900);
   --color-nav-hover-bg: var(--steel-600);
-  --color-secondary-nav-bg: var(--color-body);
   --color-label-text: #fff;
   --color-label-bg: var(--steel-600);
   --color-label-hover-bg: var(--steel-550);
@@ -288,7 +284,23 @@
   --color-indicator-active-20: #2185d033;
   accent-color: var(--color-accent);
   color-scheme: dark;
+
+  --color-navbar-border: var(--color-secondary);
+  --color-navbar-background: var(--steel-900);
+  --color-page-nav-border: var(--color-secondary);
+  --color-page-nav-background: var(--steel-800);
+  --color-page-background: var(--steel-800);
+  --color-heatmap-background-1: var(--color-secondary-alpha-60);
+  --color-heatmap-background-2: var(--color-secondary-alpha-60);
+  --color-heatmap-background-3: var(--color-primary-light-4);
+  --color-heatmap-background-4: var(--color-primary-light-2);
+  --color-heatmap-background-5: var(--color-primary);
+  --color-heatmap-background-6: var(--color-primary-dark-2);
+  --color-heatmap-background-7: var(--color-primary-dark-4);
+  --color-footer-border: var(--color-secondary);
+  --color-footer-background: var(--steel-900);
 }
+
 /* invert emojis that are hard to read otherwise */
 .emoji[aria-label="check mark"],
 .emoji[aria-label="currency exchange"],

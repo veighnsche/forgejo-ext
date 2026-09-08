@@ -21,7 +21,7 @@
 
 .tippy-box {
   position: relative;
-  background-color: var(--color-body);
+  background-color: var(--color-page-background);
   color: var(--color-secondary-dark-6);
   border: 1px solid var(--color-secondary);
   border-radius: var(--border-radius);
@@ -177,7 +177,7 @@
 }
 
 .tippy-svg-arrow-inner {
-  fill: var(--color-body);
+  fill: var(--color-page-background);
 }
 
 /* Stopwatch popup needs extra help with overriding tippy's styling. */

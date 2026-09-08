@@ -179,7 +179,6 @@
   --color-orange-badge-bg: #f2711c1a;
   --color-orange-badge-hover-bg: #f2711c4d;
   /* target-based colors */
-  --color-body: #1c1f25;
   --color-box-header: #1a1d1f;
   --color-box-body: #14171a;
   --color-box-body-highlight: #1c2227;
@@ -189,7 +188,6 @@
   --color-text-light-1: #a8afb5;
   --color-text-light-2: #929ba2;
   --color-text-light-3: #7c8790;
-  --color-footer: var(--color-nav-bg);
   --color-timeline: #353c42;
   --color-input-text: var(--color-text-dark);
   --color-input-background: #151a1e;
@@ -222,9 +220,7 @@
   --color-reaction-active-bg: var(--color-primary-light-5);
   --color-tooltip-text: #fafafb;
   --color-tooltip-bg: #000017f0;
-  --color-nav-bg: #16191c;
   --color-nav-hover-bg: var(--color-secondary-light-1);
-  --color-secondary-nav-bg: #181c20;
   --color-label-text: var(--color-text);
   --color-label-bg: #73828e4b;
   --color-label-hover-bg: #73828ea0;
@@ -247,6 +243,21 @@
   --color-indicator-active-20: #2185d033;
   accent-color: var(--color-accent);
   color-scheme: dark;
+
+  --color-navbar-border: var(--color-secondary);
+  --color-navbar-background: #16191c;
+  --color-page-nav-border: var(--color-secondary);
+  --color-page-nav-background: #181c20;
+  --color-page-background: #1c1f25;
+  --color-heatmap-background-1: var(--color-secondary-alpha-60);
+  --color-heatmap-background-2: var(--color-secondary-alpha-60);
+  --color-heatmap-background-3: var(--color-primary-light-4);
+  --color-heatmap-background-4: var(--color-primary-light-2);
+  --color-heatmap-background-5: var(--color-primary);
+  --color-heatmap-background-6: var(--color-primary-dark-2);
+  --color-heatmap-background-7: var(--color-primary-dark-4);
+  --color-footer-border: var(--color-secondary);
+  --color-footer-background: var(--color-navbar-background);
 }
 
 /* invert emojis that are hard to read otherwise */

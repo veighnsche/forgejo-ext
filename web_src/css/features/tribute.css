@@ -7,7 +7,7 @@
 
 .tribute-container ul {
   margin-top: 0 !important;
-  background: var(--color-body) !important;
+  background: var(--color-page-background) !important;
 }
 
 .tribute-container li {

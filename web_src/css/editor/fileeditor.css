@@ -23,7 +23,7 @@
 }
 
 .editor-toolbar.fullscreen {
-  background: var(--color-body);
+  background: var(--color-page-background);
 }
 
 .editor-toolbar button {
@@ -59,7 +59,7 @@
 }
 
 .editor-preview {
-  background-color: var(--color-body);
+  background-color: var(--color-page-background);
 }
 
 .editor-preview-side {

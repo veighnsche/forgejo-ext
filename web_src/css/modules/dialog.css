@@ -8,7 +8,7 @@ dialog {
   position: fixed;
   text-align: start;
   border: none;
-  background: var(--color-body);
+  background: var(--color-page-background);
   box-shadow:
     1px 3px 3px 0 var(--color-shadow),
     1px 3px 15px 2px var(--color-shadow);
@@ -71,7 +71,7 @@ dialog article {
 
 dialog .content {
   padding: 1.5em;
-  background: var(--color-body);
+  background: var(--color-page-background);
   color: var(--color-text);
 }
 

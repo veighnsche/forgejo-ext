@@ -2,8 +2,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--color-nav-bg);
-  border-bottom: 1px solid var(--color-secondary);
+  background: var(--color-navbar-background);
+  border-bottom: 1px solid var(--color-navbar-border);
   margin: 0 !important;
   padding: 0 10px;
 }
@@ -134,7 +134,7 @@
 }
 
 #navbar a.item .notification_count {
-  color: var(--color-nav-bg);
+  color: var(--color-navbar-background);
   padding: 0 3.75px;
   font-size: 12px;
   line-height: 12px;
@@ -149,7 +149,7 @@
 #navbar a.item .notification_count,
 #navbar a.item .header-stopwatch-dot {
   background: var(--color-primary);
-  border: 2px solid var(--color-nav-bg);
+  border: 2px solid var(--color-navbar-background);
   position: absolute;
   inset-inline-start: 6px;
   top: -9px;
@@ -163,7 +163,7 @@
 }
 
 .secondary-nav {
-  background: var(--color-secondary-nav-bg) !important; /* important because of .ui.secondary.menu */
+  background: var(--color-page-nav-background) !important; /* important because of .ui.secondary.menu */
 }
 
 .issue-navbar {

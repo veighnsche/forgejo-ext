@@ -29,7 +29,7 @@ details.toggleable-item summary::after {
   mask-image: var(--octicon-chevron-right);
   -webkit-mask-image: var(--octicon-chevron-right);
   background: currentcolor;
-  border: 1px solid var(--color-body); /* workaround https://bugzilla.mozilla.org/show_bug.cgi?id=1671784 */
+  border: 1px solid var(--color-page-background); /* workaround https://bugzilla.mozilla.org/show_bug.cgi?id=1671784 */
 }
 
 details.toggleable-item[open] summary::after {
