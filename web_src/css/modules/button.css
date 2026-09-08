@@ -50,6 +50,8 @@
     /* Outline colors are defined by styles individually since there isn't a
      * single consistent parameter to use as an anchor */
     outline: 3px solid var(--button-outline-color);
+    /* Ensure outline shows over nearby elements */
+    z-index: 20;
   }
 }
 
