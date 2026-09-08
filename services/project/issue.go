@@ -13,8 +13,8 @@ import (
 	project_types "forgejo.org/modules/structs"
 )
 
-// ValidIssueID checks if the IDs of the given issue list are valid
-func ValidIssueID(ctx context.Context, ownerID int64, issues issues_model.IssueList) error {
+// ValidIssueIDs checks if the IDs of the given issue list are valid
+func ValidIssueIDs(ctx context.Context, ownerID int64, issues issues_model.IssueList) error {
 	if _, err := issues.LoadRepositories(ctx); err != nil {
 		return fmt.Errorf("Could not load issue repos: %w", err)
 	}

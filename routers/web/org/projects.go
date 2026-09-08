@@ -550,7 +550,7 @@ func MoveIssues(ctx *context.Context) {
 		ctx.Flash.Warning(ctx.Tr("project.missing_issues_in_list"), true)
 	}
 
-	if err = project_service.ValidIssueID(ctx, project.OwnerID, existingIssues); err != nil {
+	if err = project_service.ValidIssueIDs(ctx, project.OwnerID, existingIssues); err != nil {
 		ctx.ServerError("ValidIssueID", err)
 		return
 	}

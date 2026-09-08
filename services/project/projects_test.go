@@ -399,10 +399,10 @@ func TestValidIssueID(t *testing.T) {
 	list := issues_model.IssueList{issue1, issue2, issue3}
 
 	// valid owner ID
-	require.NoError(t, ValidIssueID(t.Context(), 2, list))
+	require.NoError(t, ValidIssueIDs(t.Context(), 2, list))
 
 	// invalid owner ID
-	require.Error(t, ValidIssueID(t.Context(), 1234567890, list))
+	require.Error(t, ValidIssueIDs(t.Context(), 1234567890, list))
 }
 
 func TestMoveIssuesOnProjectColumnErrors(t *testing.T) {
