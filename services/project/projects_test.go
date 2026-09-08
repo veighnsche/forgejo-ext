@@ -538,6 +538,8 @@ func TestUpdateProject(t *testing.T) {
 		assert.False(t, project.IsClosed)
 		err := UpdateProject(t.Context(), project, updated)
 		require.NoError(t, err)
+
+		project = unittest.AssertExistsAndLoadBean(t, project)
 		assert.True(t, project.IsClosed)
 
 		// open
@@ -546,6 +548,8 @@ func TestUpdateProject(t *testing.T) {
 		}
 		err = UpdateProject(t.Context(), project, updated)
 		require.NoError(t, err)
+
+		project = unittest.AssertExistsAndLoadBean(t, project)
 		assert.False(t, project.IsClosed)
 	})
 }
