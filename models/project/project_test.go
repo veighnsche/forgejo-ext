@@ -39,29 +39,57 @@ func TestCreateDeleteProject(t *testing.T) {
 
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 
-	project := &Project{
-		Title:        "Testproject",
-		Description:  "Test",
-		OwnerID:      user1.ID,
-		Owner:        user1,
-		RepoID:       0,
-		Repo:         &repo_model.Repository{},
-		CreatorID:    user1.ID,
-		IsClosed:     false,
-		TemplateType: project_module.TemplateTypeNone,
-		CardType:     project_module.CardTypeTextOnly,
-		Type:         project_module.TypeIndividual,
-	}
+	// wanted project settings
+	wantTitle := "Testproject"
+	wantDescription := "Test"
+	wantOwnerID := user1.ID
+	wantRepoID := int64(0)
+	wantIsClosed := false
+	wantTemplateType := project_module.TemplateTypeNone
+	wantCardType := project_module.CardTypeTextOnly
+	wantType := project_module.TypeIndividual
 
+	// create project
+	project := &Project{
+		Title:        wantTitle,
+		Description:  wantDescription,
+		OwnerID:      wantOwnerID,
+		Owner:        user1,
+		RepoID:       wantRepoID,
+		Repo:         &repo_model.Repository{},
+		CreatorID:    wantOwnerID,
+		IsClosed:     wantIsClosed,
+		TemplateType: wantTemplateType,
+		CardType:     wantCardType,
+		Type:         wantType,
+	}
 	err := CreateProject(t.Context(), project)
 	require.NoError(t, err)
 
-	// try and create duplicate project
+	// check project in db
+	projects, err := db.Find[Project](db.DefaultContext, SearchOptions{
+		OwnerID:  wantOwnerID,
+		RepoID:   wantRepoID,
+		IsClosed: optional.Some(wantIsClosed),
+		Type:     wantType,
+		Title:    wantTitle,
+	})
+	require.NoError(t, err)
+	assert.Len(t, projects, 1)
+	assert.Equal(t, project.ID, projects[0].ID)
+	assert.Equal(t, wantDescription, projects[0].Description)
+	assert.Equal(t, wantOwnerID, projects[0].CreatorID)
+	assert.Equal(t, wantTemplateType, projects[0].TemplateType)
+	assert.Equal(t, wantCardType, projects[0].CardType)
+
+	// try to create duplicate project
 	err = CreateProject(t.Context(), project)
 	assert.Contains(t, err.Error(), "unique constraint violation")
 
+	// delete project
 	err = DeleteProjectByID(t.Context(), project.ID, optional.None[int64]())
 	require.NoError(t, err)
+	unittest.AssertNotExistsBean(t, project)
 }
 
 func TestProjectsSort(t *testing.T) {
