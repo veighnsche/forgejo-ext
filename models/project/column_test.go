@@ -311,6 +311,7 @@ func TestDeleteColumnByID(t *testing.T) {
 	// delete existing column
 	err := DeleteColumnByID(t.Context(), column.ID)
 	require.NoError(t, err)
+	unittest.AssertNotExistsBean(t, column)
 
 	// delete not existing column
 	err = DeleteColumnByID(t.Context(), column.ID)
