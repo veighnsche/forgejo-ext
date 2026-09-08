@@ -137,7 +137,6 @@ func TestGetIssues(t *testing.T) {
 	assert.True(t, complete)
 
 	// Case 2: An issueID does not exist as issue in DB
-	// If DB holds an item that is not in the list, then this issue does not belong in that project or column
 	issueIDs = append(issueIDs, nonExistingIssueID)
 	_, complete, err = GetIssues(t.Context(), issueIDs)
 	require.NoError(t, err)
