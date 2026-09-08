@@ -43,6 +43,7 @@ test('Button visuals', async ({browser}) => {
         fontWeight: s.fontWeight,
         opacity: s.opacity,
         pointerEvents: s.pointerEvents,
+        borderWidth: s.borderWidth,
       };
     });
   }
@@ -65,6 +66,8 @@ test('Button visuals', async ({browser}) => {
     expect(item.fontWeight).toBe('500');
     // Evaluate opacity
     expect(item.opacity).toBe('1');
+    // Evaluate border width
+    expect(item.borderWidth).toBe('1px');
   }
 
   // Evaluate that background-colors are different
