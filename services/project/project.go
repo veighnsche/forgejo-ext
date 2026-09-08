@@ -58,6 +58,10 @@ func NewProject(
 	var err error
 
 	projectTemplateType := project_module.APITemplateType(form.TemplateType)
+	if projectTemplateType == "" {
+		// treat empty string as template type "none"
+		projectTemplateType = project_module.APITemplateTypeNone
+	}
 	valid, err := validation.IsValid(projectTemplateType)
 	if !valid {
 		return nil, err
