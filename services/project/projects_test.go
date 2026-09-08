@@ -408,23 +408,36 @@ func TestMoveIssuesOnProjectColumnErrors(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{ID: 1})
 
-	for _, v := range [][]project_structs.ProjectIssue{
+	for _, tt := range []struct {
+		name          string
+		projectIssues []project_structs.ProjectIssue
+		expectError   string
+	}{
 		{
-			// duplicate issue IDs
-			{IssueID: int64(1), Sorting: int64(2)},
-			{IssueID: int64(1), Sorting: int64(1)},
+			name: "Duplicate Issue IDs",
+			projectIssues: []project_structs.ProjectIssue{
+				{IssueID: int64(1), Sorting: int64(2)},
+				{IssueID: int64(1), Sorting: int64(1)},
+			},
+			expectError: "duplicate issue IDs",
 		},
 		{
-			// invalid issue ID
-			{IssueID: int64(1234567890), Sorting: int64(2)},
-			{IssueID: int64(1), Sorting: int64(1)},
+			name: "Invalid Issue ID",
+			projectIssues: []project_structs.ProjectIssue{
+				{IssueID: int64(1234567890), Sorting: int64(2)},
+				{IssueID: int64(1), Sorting: int64(1)},
+			},
+			expectError: "all issues must belong to the specified project",
 		},
 	} {
-		pIs := &project_structs.MovedIssuesOption{
-			ProjectIssues: v,
-		}
-		err := MoveIssuesOnProjectColumn(t.Context(), column, pIs)
-		require.Error(t, err)
+		t.Run(tt.name, func(t *testing.T) {
+			pIs := &project_structs.MovedIssuesOption{
+				ProjectIssues: tt.projectIssues,
+			}
+			err := MoveIssuesOnProjectColumn(t.Context(), column, pIs)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectError)
+		})
 	}
 }
 
