@@ -11,11 +11,13 @@ type CreateOrUpdateProjectOptions struct {
 	Status       string `json:"status"`
 }
 
+type ProjectIssue struct {
+	IssueID int64 `json:"issueID"`
+	Sorting int64 `json:"sorting"`
+}
+
 type MovedIssuesOption struct {
-	ProjectIssues []struct {
-		IssueID int64 `json:"issueID"`
-		Sorting int64 `json:"sorting"`
-	} `json:"issues"`
+	ProjectIssues []ProjectIssue `json:"issues"`
 }
 
 func (m *MovedIssuesOption) GetIssueIDs() []int64 {

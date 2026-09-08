@@ -1881,11 +1881,8 @@ func TestProjectWebMoveIssues(t *testing.T) {
 
 			url := fmt.Sprintf("/%s/%s/projects/%d/%d/move", tt.owner, tt.repo, tt.projectID, column.ID)
 			// move not existing issue
-			moveOpts.ProjectIssues = []struct {
-				IssueID int64 `json:"issueID"`
-				Sorting int64 `json:"sorting"`
-			}{
-				{1234567890, 123},
+			moveOpts.ProjectIssues = []project_structs.ProjectIssue{
+				{IssueID: 1234567890, Sorting: 123},
 			}
 			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusInternalServerError)
 
@@ -1955,12 +1952,9 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			assert.Equal(t, int64(2), count)
 
 			// set new sorting in moveOpts
-			moveOpts.ProjectIssues = []struct {
-				IssueID int64 `json:"issueID"`
-				Sorting int64 `json:"sorting"`
-			}{
-				{preIssues[0].IssueID, preIssues[1].Sorting},
-				{preIssues[1].IssueID, preIssues[0].Sorting},
+			moveOpts.ProjectIssues = []project_structs.ProjectIssue{
+				{IssueID: preIssues[0].IssueID, Sorting: preIssues[1].Sorting},
+				{IssueID: preIssues[1].IssueID, Sorting: preIssues[0].Sorting},
 			}
 
 			// change sorting

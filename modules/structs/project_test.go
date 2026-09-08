@@ -11,10 +11,7 @@ import (
 
 func TestMovedIssuesOptionGetIssueIDs(t *testing.T) {
 	m := &MovedIssuesOption{
-		ProjectIssues: []struct {
-			IssueID int64 `json:"issueID"`
-			Sorting int64 `json:"sorting"`
-		}{
+		ProjectIssues: []ProjectIssue{
 			{1, 1},
 			{2, 2},
 			{3, 3},
@@ -30,10 +27,7 @@ func TestMovedIssuesOptionGetIssueIDs(t *testing.T) {
 
 func TestMovedIssuesOptionGetSortingMap(t *testing.T) {
 	m := &MovedIssuesOption{
-		ProjectIssues: []struct {
-			IssueID int64 `json:"issueID"`
-			Sorting int64 `json:"sorting"`
-		}{
+		ProjectIssues: []ProjectIssue{
 			{1, 1},
 			{2, 2},
 			{3, 3},

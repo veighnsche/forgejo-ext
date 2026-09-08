@@ -409,10 +409,7 @@ func TestMoveIssuesOnProjectColumnErrors(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	column := unittest.AssertExistsAndLoadBean(t, &project_model.Column{ID: 1})
 
-	for _, v := range [][]struct {
-		IssueID int64 "json:\"issueID\""
-		Sorting int64 "json:\"sorting\""
-	}{
+	for _, v := range [][]project_structs.ProjectIssue{
 		{
 			// duplicate issue IDs
 			{IssueID: int64(1), Sorting: int64(2)},
@@ -623,10 +620,7 @@ func TestCRUDProject(t *testing.T) {
 
 		// move/sort issues
 		pIs := &project_structs.MovedIssuesOption{
-			ProjectIssues: []struct {
-				IssueID int64 "json:\"issueID\""
-				Sorting int64 "json:\"sorting\""
-			}{
+			ProjectIssues: []project_structs.ProjectIssue{
 				{
 					IssueID: pI1.IssueID,
 					Sorting: int64(2),
