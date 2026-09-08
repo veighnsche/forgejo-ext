@@ -101,19 +101,19 @@ func TestProjectsSort(t *testing.T) {
 	}{
 		{
 			sortType: "default",
-			wants:    []int64{8, 1, 3, 2, 7, 6, 5, 4},
+			wants:    []int64{1, 3, 2, 7, 6, 5, 4},
 		},
 		{
 			sortType: "oldest",
-			wants:    []int64{4, 5, 6, 7, 2, 3, 1, 8},
+			wants:    []int64{4, 5, 6, 7, 2, 3, 1},
 		},
 		{
 			sortType: "recentupdate",
-			wants:    []int64{8, 1, 3, 2, 7, 6, 5, 4},
+			wants:    []int64{1, 3, 2, 7, 6, 5, 4},
 		},
 		{
 			sortType: "leastupdate",
-			wants:    []int64{4, 5, 6, 7, 2, 3, 1, 8},
+			wants:    []int64{4, 5, 6, 7, 2, 3, 1},
 		},
 	}
 
@@ -122,8 +122,8 @@ func TestProjectsSort(t *testing.T) {
 			OrderBy: GetSearchOrderBySortType(tt.sortType),
 		})
 		require.NoError(t, err)
-		assert.Equal(t, int64(8), count)
-		if assert.Len(t, projects, 8) {
+		assert.Equal(t, int64(7), count)
+		if assert.Len(t, projects, 7) {
 			for i := range projects {
 				assert.Equal(t, tt.wants[i], projects[i].ID)
 			}

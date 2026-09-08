@@ -132,21 +132,3 @@
   merge_base: 004581b3bb63754502364664021404490ee747ce58e98d27c046f2e46f5f2f55
   has_merged: false
 
--
-  id: 14
-  type: 0
-  status: 2
-  commits_ahead: 1
-  commits_behind: 0
-  issue_id: 25
-  index: 1
-  head_repo_id: 67
-  base_repo_id: 67
-  head_branch: develop
-  base_branch: main
-  merge_base: 0592208e2ec388771a7ecaf65a8187c8cd99a7ba
-  allow_maintainer_edit: 0
-  has_merged: false
-  merger_id: 0
-  merged_unix: 1788521515
-  flow: 0

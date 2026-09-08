@@ -96,7 +96,6 @@ func createSessions(t testing.TB) {
 		"user18",
 		"user29",
 		"user40",
-		"user46",
 	}
 
 	authState := filepath.Join(setting.AppWorkPath, "tests", "e2e", ".auth")

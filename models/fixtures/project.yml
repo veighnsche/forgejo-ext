@@ -81,17 +81,3 @@
   type: 3
   created_unix: 1688973000
   updated_unix: 1688973000
-
--
-  id: 8
-  title: project-dashboard-lists
-  description: A project in which there is a milestone.
-  owner_id: 0
-  repo_id: 67
-  creator_id: 45
-  is_closed: false
-  board_type: 0
-  card_type: 1
-  type: 2
-  created_unix: 1788521714
-  updated_unix: 1788521714
