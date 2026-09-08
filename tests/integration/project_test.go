@@ -857,54 +857,120 @@ func TestProjectWebCreateProject(t *testing.T) {
 		{"Organization", org.Name, "-"},
 		{"Repository", user.Name, repo.Name},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			defer tests.PrintCurrentTest(t)()
-			session := loginUser(t, user.Name)
-			url := fmt.Sprintf("/%s/%s/projects", tt.owner, tt.repo)
-
-			// create project
-			projectOpts := forms_service.CreateProjectForm{
-				Title:        "TestProjectWebCreateProject Project 1",
-				Content:      "TestProjectWebCreateProject Test Content",
+		// test with varying options
+		for _, opts := range []forms_service.CreateProjectForm{
+			// tests with all settings
+			{
+				Title:        "Content, Template None, Card Text",
+				Content:      "Content, Template None, Card Text - Test Content",
 				TemplateType: project_module.APITemplateTypeNone.String(),
 				CardType:     project_module.APICardTypeTextOnly.String(),
-			}
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url+"/new", &projectOpts), http.StatusSeeOther)
+			},
+			{
+				Title:        "Content, Template None, Card Images",
+				Content:      "Content, Template None, Card Images - Test Content",
+				TemplateType: project_module.APITemplateTypeNone.String(),
+				CardType:     project_module.APICardTypeImagesAndText.String(),
+			},
+			// tests with no description
+			{
+				Title: "Template Kanban, Card Text",
+				// no description
+				TemplateType: project_module.APITemplateTypeBasicKanban.String(),
+				CardType:     project_module.APICardTypeTextOnly.String(),
+			},
+			{
+				Title: "Template Kanban, Card Images",
+				// no description
+				TemplateType: project_module.APITemplateTypeBasicKanban.String(),
+				CardType:     project_module.APICardTypeImagesAndText.String(),
+			},
+			{
+				Title: "Template Triage, Card Text",
+				// no description
+				TemplateType: project_module.APITemplateTypeBugTriage.String(),
+				CardType:     project_module.APICardTypeTextOnly.String(),
+			},
+			{
+				Title: "Template Triage, Card Images",
+				// no description
+				TemplateType: project_module.APITemplateTypeBugTriage.String(),
+				CardType:     project_module.APICardTypeImagesAndText.String(),
+			},
+			{
+				Title: "Template None, Card Text",
+				// no description
+				TemplateType: project_module.APITemplateTypeNone.String(),
+				CardType:     project_module.APICardTypeTextOnly.String(),
+			},
+			{
+				Title: "Template None, Card Images",
+				// no description
+				TemplateType: project_module.APITemplateTypeNone.String(),
+				CardType:     project_module.APICardTypeImagesAndText.String(),
+			},
+			// tests with no description and no template type
+			{
+				Title: "Card Text",
+				// no description
+				// no template type
+				CardType: project_module.APICardTypeTextOnly.String(),
+			},
+			{
+				Title: "Card Images",
+				// no description
+				// no template type
+				CardType: project_module.APICardTypeImagesAndText.String(),
+			},
+		} {
+			name := fmt.Sprintf("%s - %s", tt.name, opts.Title)
+			t.Run(name, func(t *testing.T) {
+				defer tests.PrintCurrentTest(t)()
+				session := loginUser(t, user.Name)
+				url := fmt.Sprintf("/%s/%s/projects", tt.owner, tt.repo)
 
-			// check project was created
-			resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
-			// template: templates/projects/list.tmpl
-			// template lines:
-			// <div class="milestone-list">
-			//	{{range .Projects}}
-			//		<li class="milestone-card">
-			// 			<div class="milestone-header">
-			// [...]
-			// 					<a class="muted tw-break-anywhere" href="{{.Link ctx}}">{{.Title}}</a>
-			// [...]
-			//			</div>
-			// [...]
-			// 			{{if .Description}}
-			// 			<div class="content markup">
-			//				{{.RenderedContent}}
-			// 			</div>
-			// 			{{end}}
-			//		</li>
-			//	{{end}}
-			// [...]
-			// </div>
-			s := doc.Find(".milestone-list li .milestone-header .muted.tw-break-anywhere").
-				FilterFunction(func(i int, s *goquery.Selection) bool {
-					return s.Text() == projectOpts.Title
-				})
-			assert.Equal(t, 1, s.Length())
-			s = doc.Find(".milestone-list li .content.markup").
-				FilterFunction(func(i int, s *goquery.Selection) bool {
-					return strings.Contains(s.Text(), projectOpts.Content)
-				})
-			assert.Equal(t, 1, s.Length())
-		})
+				// create project
+				session.MakeRequest(t, NewRequestWithJSON(t, "POST", url+"/new", &opts), http.StatusSeeOther)
+
+				// check project was created
+				resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
+				doc := NewHTMLParser(t, resp.Body)
+				// template: templates/projects/list.tmpl
+				// template lines:
+				// <div class="milestone-list">
+				//	{{range .Projects}}
+				//		<li class="milestone-card">
+				// 			<div class="milestone-header">
+				// [...]
+				// 					<a class="muted tw-break-anywhere" href="{{.Link ctx}}">{{.Title}}</a>
+				// [...]
+				//			</div>
+				// [...]
+				// 			{{if .Description}}
+				// 			<div class="content markup">
+				//				{{.RenderedContent}}
+				// 			</div>
+				// 			{{end}}
+				//		</li>
+				//	{{end}}
+				// [...]
+				// </div>
+				s := doc.Find(".milestone-list li .milestone-header .muted.tw-break-anywhere").
+					FilterFunction(func(i int, s *goquery.Selection) bool {
+						return s.Text() == opts.Title
+					})
+				assert.Equal(t, 1, s.Length())
+				s = doc.Find(".milestone-list li .content.markup").
+					FilterFunction(func(i int, s *goquery.Selection) bool {
+						return strings.Contains(s.Text(), opts.Content)
+					})
+				if opts.Content != "" {
+					assert.Equal(t, 1, s.Length())
+				} else {
+					assert.GreaterOrEqual(t, s.Length(), 1)
+				}
+			})
+		}
 	}
 }
 
