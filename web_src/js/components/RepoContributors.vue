@@ -80,6 +80,33 @@ export default {
     xAxisMin: null,
     xAxisMax: null,
   }),
+  computed: {
+    processedTitleHTML() {
+      if (typeof this.xAxisMin !== 'number' || this.xAxisMin <= 0) {
+        // a repo's contributions, if there are any, always have a known absolute min, so this not being the case is cause to bail early
+        return '';
+      }
+      const xAxisMin = new Date(this.xAxisMin);
+
+      if (typeof this.xAxisMax !== 'number' || this.xAxisMax <= 0) {
+        // the end date could very well be omittted; this implies a "since" situation
+        return this.locale.contributorsSinceTitle
+          .replace('{0}', this.relativeTimeHTML(xAxisMin));
+      }
+      const xAxisMax = new Date(this.xAxisMax);
+      const now = new Date();
+
+      if (xAxisMax > now) {
+        // contributions are unlikely to be from the future
+        return this.locale.contributorsSinceTitle
+          .replace('{0}', this.relativeTimeHTML(xAxisMin));
+      }
+
+      return this.locale.contributorsBetweenTitle
+        .replace('{0}', this.relativeTimeHTML(xAxisMin))
+        .replace('{1}', this.relativeTimeHTML(xAxisMax));
+    },
+  },
   mounted() {
     this.fetchGraphData();
 
@@ -92,39 +119,12 @@ export default {
       },
     });
   },
-  computed: {
-    processedTitleHTML() {
-      if (typeof this.xAxisMin !== 'number' || this.xAxisMin <= 0) {
-        // a repo's contributions, if there are any, always have a known absolute min, so this not being the case is cause to bail early
-        return '';
-      }
-      const xAxisMin = new Date(this.xAxisMin);
-
-      if (typeof this.xAxisMax !== 'number' || this.xAxisMax <= 0) {
-        // the end date could very well be omittted; this implies a "since" situation
-        return this.locale.contributorsSinceTitle
-          .replace('{0}', this.relativeTime(xAxisMin));
-      }
-      const xAxisMax = new Date(this.xAxisMax);
-      const now = new Date();
-
-      if (xAxisMax > now) {
-        // contributions are unlikely to be from the future
-        return this.locale.contributorsSinceTitle
-          .replace('{0}', this.relativeTime(xAxisMin));
-      }
-
-      return this.locale.contributorsBetweenTitle
-        .replace('{0}', this.relativeTime(xAxisMin))
-        .replace('{1}', this.relativeTime(xAxisMax));
-    }
-  },
   methods: {
     /**
      * Composes HTML of a `<relative-time>` element from the given date-time value.
      * @param {Date} datetime
      */
-    relativeTime(datetime) {
+    relativeTimeHTML(datetime) {
       if (!(datetime instanceof Date)) {
         // Defense-in-depth: until we have tsc checking this for us, we should take care not to allow interpolating untrusted text into HTML.
         // A Date instance always stringifies safely.
@@ -367,7 +367,9 @@ export default {
 <template>
   <div>
     <div class="tw-flex tw-items-center tw-justify-between">
-      <h1 v-if="isLoading || errorText" class="tw-m-0">{{ locale.contributorsTitle }}</h1>
+      <h1 v-if="isLoading || errorText" class="tw-m-0">
+        {{ locale.contributorsTitle }}
+      </h1>
       <h1 v-else class="tw-m-0" v-html="processedTitleHTML"/>
       <!-- Contribution type -->
       <div class="ui dropdown jump" id="repo-contributors">
@@ -390,8 +392,12 @@ export default {
     </div>
     <div class="tw-flex ui segment main-graph">
       <div v-if="isLoading || errorText !== ''" class="gt-tc tw-m-auto">
-        <h2 v-if="isLoading">{{ locale.loadingTitle }}</h2>
-        <h2 v-else-if="errorText">{{ locale.loadingTitleFailed }}</h2>
+        <h2 v-if="isLoading">
+          {{ locale.loadingTitle }}
+        </h2>
+        <h2 v-else-if="errorText">
+          {{ locale.loadingTitleFailed }}
+        </h2>
         <div v-if="isLoading" class="tw-flex tw-justify-center">
           <SvgIcon name="octicon-sync" class="tw-mr-2 job-status-rotate"/>
           {{ locale.loadingInfo }}

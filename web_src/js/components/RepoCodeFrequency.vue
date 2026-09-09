@@ -147,8 +147,12 @@ export default {
     <h1>{{ locale.codeFrequencyTitle.replace('{0}', repoLink.slice(1)) }}</h1>
     <div class="tw-flex ui segment main-graph">
       <div v-if="isLoading || errorText !== ''" class="gt-tc tw-m-auto">
-        <h2 v-if="isLoading">{{ locale.loadingTitle }}</h2>
-        <h2 v-else-if="errorText">{{ locale.loadingTitleFailed }}</h2>
+        <h2 v-if="isLoading">
+          {{ locale.loadingTitle }}
+        </h2>
+        <h2 v-else-if="errorText">
+          {{ locale.loadingTitleFailed }}
+        </h2>
         <div v-if="isLoading" class="tw-flex tw-justify-center">
           <SvgIcon name="octicon-sync" class="tw-mr-2 job-status-rotate"/>
           {{ locale.loadingInfo }}
