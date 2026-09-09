@@ -5,6 +5,7 @@
 // templates/repo/diff/new_review.tmpl
 // web_src/js/features/repo-diff.js
 // web_src/js/features/repo-issue.js
+// web_src/js/vendor/jquery.are-you-sure.js
 // @watch end
 
 import {expect} from '@playwright/test';
@@ -175,7 +176,7 @@ test('PR: Test mentions values', async ({page}) => {
   await expect(page.locator('.review-box-panel textarea#_combo_markdown_editor_0')).toHaveValue('@user1 ');
 });
 
-test('multi-commit commenting', async ({page, request}) => {
+test('PR: multi-commit commenting', async ({page, request}) => {
   const response = await page.goto('/user2/long-diff-test');
   expect(response?.status()).toBe(200);
 
@@ -225,4 +226,231 @@ test('multi-commit commenting', async ({page, request}) => {
       expect(delResp.ok()).toBeTruthy();
     }
   }
+});
+
+test.describe('PR: reload protection', () => {
+  test.describe('reply to existing single comment', () => {
+    // somewhere with an existing line comment
+    const url = '/user2/commitsonpr/pulls/1/files';
+
+    test('choose to stay', async ({page}) => {
+      await page.goto(url, {waitUntil: 'load'});
+
+      let didShowDialog = false;
+      page.on('dialog', async (dialog) => {
+        expect(dialog.type()).toBe('beforeunload');
+        await dialog.dismiss(); // "stay on page"
+        didShowDialog = true;
+      });
+
+      let didReload = false;
+      page.on('domcontentloaded', () => {
+        // 'domcontentloaded' happens before 'load', so this fn only happens after a ReLoad!
+        didReload = true;
+      });
+
+      const replyButton = page.getByRole('button', {name: 'Reply'}).first();
+      await replyButton.click();
+      const replyInput = page.getByRole('textbox', {name: 'Leave a comment'});
+      await expect(replyInput).toBeEmpty();
+      await replyInput.fill('i can\'t believe it\'s not jQuery!');
+
+      await page.evaluate(() => window.location.reload()); // navigation won't actually occur
+      await expect(() => expect(didShowDialog).toBe(true)).toPass();
+      await replyButton.click();
+      await expect(replyInput).toHaveValue('i can\'t believe it\'s not jQuery!'); // text content remains (we didn't reload!)
+      expect(didReload).toBe(false); // doing this last, to avoid race conditions
+    });
+
+    test('choose to leave', async ({page, browserName}) => {
+      await page.goto(url, {waitUntil: 'load'});
+
+      let didShowDialog = false;
+      page.on('dialog', async (dialog) => {
+        expect(dialog.type()).toBe('beforeunload');
+        await dialog.accept(); // "I'm sure. Reload!"
+        didShowDialog = true;
+      });
+
+      const replyButton = page.getByRole('button', {name: 'Reply'}).first();
+      const replyInput = page.getByRole('textbox', {name: 'Leave a comment'});
+      await replyButton.click();
+      await expect(replyInput).toBeEmpty();
+      await replyInput.fill('i can\'t believe it\'s not jQuery!');
+
+      await page.reload({waitUntil: 'domcontentloaded'});
+      await expect(() => expect(didShowDialog).toBe(true)).toPass();
+      await replyButton.click();
+      if (browserName === 'firefox') {
+        await expect(replyInput).toHaveValue('i can\'t believe it\'s not jQuery!'); // text is restored! (firefox-only behavior)
+      } else {
+        await expect(replyInput).toBeEmpty(); // text is gone!
+      }
+    });
+
+    test('choose to stay, remove all text, then leave without bother', async ({page}) => {
+      await page.goto(url, {waitUntil: 'load'});
+
+      let didShowDialog = false;
+      page.on('dialog', async (dialog) => {
+        expect(dialog.type()).toBe('beforeunload');
+        await dialog.dismiss(); // "stay on page"
+        didShowDialog = true;
+      });
+
+      let didReload = false;
+      page.on('domcontentloaded', () => {
+        didReload = true;
+      });
+
+      const replyButton = page.getByRole('button', {name: 'Reply'}).first();
+      await replyButton.click();
+      const replyInput = page.getByRole('textbox', {name: 'Leave a comment'});
+      await expect(replyInput).toBeEmpty();
+      await replyInput.fill('i can\'t believe it\'s not jQuery!');
+
+      await page.evaluate(() => window.location.reload()); // navigation won't actually occur
+      await expect(() => expect(didShowDialog).toBe(true)).toPass();
+      didShowDialog = false;
+      await replyButton.click();
+      await expect(replyInput).toHaveValue('i can\'t believe it\'s not jQuery!'); // text content remains (we didn't reload!)
+      expect(didReload).toBe(false);
+
+      // clear the text field (interactively, so that beforeunload runs)
+      for (const _ of 'i can\'t believe it\'s not jQuery!') {
+        await replyInput.press('Backspace');
+      }
+
+      await page.reload({waitUntil: 'domcontentloaded'});
+      expect(didShowDialog).toBe(false);
+      await expect(() => expect(didReload).toBe(true)).toPass();
+      await replyButton.click();
+      await expect(replyInput).toBeEmpty(); // text gone! (reload didn't resurrect it)
+    });
+
+    test('no edits, leave without bother', async ({page}) => {
+      await page.goto(url, {waitUntil: 'load'});
+      page.on('dialog', () => {
+        // wait until timeout :)
+      });
+
+      const replyButton = page.getByRole('button', {name: 'Reply'}).first();
+      const replyInput = page.getByRole('textbox', {name: 'Leave a comment'});
+      await replyButton.click();
+      await expect(replyInput).toBeVisible();
+      await expect(replyInput).toBeEmpty();
+
+      await page.reload({waitUntil: 'domcontentloaded'}); // this would freeze if the page is waiting on an "Are you sure?" dialog
+      await replyButton.click();
+      await expect(replyInput).toBeEmpty();
+    });
+  });
+
+  test.describe('new single comment', () => {
+    // somewhere with no line comments yet
+    const url = '/user2/repo1/pulls/5/files';
+
+    test('choose to stay', async ({page}) => {
+      await page.goto(url, {waitUntil: 'load'});
+
+      let didShowDialog = false;
+      page.on('dialog', async (dialog) => {
+        expect(dialog.type()).toBe('beforeunload');
+        await dialog.dismiss(); // "stay on page"
+        didShowDialog = true;
+      });
+
+      let didReload = false;
+      page.on('domcontentloaded', () => {
+        didReload = true;
+      });
+
+      await page.getByRole('button', {name: 'Add line comment'}).first().click();
+      const commentInput = page.getByRole('textbox', {name: 'Leave a comment'});
+      await expect(commentInput).toBeEmpty();
+      await commentInput.fill('i can\'t believe it\'s not jQuery!');
+
+      await page.evaluate(() => window.location.reload()); // navigation won't actually occur
+      await expect(() => expect(didShowDialog).toBe(true)).toPass();
+      await expect(commentInput).toHaveValue('i can\'t believe it\'s not jQuery!'); // text content remains (we didn't reload!)
+      expect(didReload).toBe(false); // doing this last, to avoid race conditions
+    });
+
+    test('choose to leave', async ({page}) => {
+      await page.goto(url, {waitUntil: 'load'});
+
+      let didShowDialog = false;
+      page.on('dialog', async (dialog) => {
+        expect(dialog.type()).toBe('beforeunload');
+        await dialog.accept(); // "I'm sure. Reload!"
+        didShowDialog = true;
+      });
+
+      const commentButton = page.getByRole('button', {name: 'Add line comment'}).first();
+      await commentButton.click();
+      const commentInput = page.getByRole('textbox', {name: 'Leave a comment'});
+      await expect(commentInput).toBeEmpty();
+      await commentInput.fill('i can\'t believe it\'s not jQuery!');
+
+      await page.reload({waitUntil: 'domcontentloaded'});
+      await expect(() => expect(didShowDialog).toBe(true)).toPass();
+      await commentButton.click();
+      await expect(commentInput).toBeEmpty(); // text is gone!
+    });
+
+    test('choose to stay, remove all text, then leave without bother', async ({page}) => {
+      await page.goto(url, {waitUntil: 'load'});
+
+      let didShowDialog = false;
+      page.on('dialog', async (dialog) => {
+        expect(dialog.type()).toBe('beforeunload');
+        await dialog.dismiss(); // "stay on page"
+        didShowDialog = true;
+      });
+
+      let didReload = false;
+      page.on('domcontentloaded', () => {
+        didReload = true;
+      });
+
+      const commentButton = page.getByRole('button', {name: 'Add line comment'}).first();
+      await commentButton.click();
+      const commentInput = page.getByRole('textbox', {name: 'Leave a comment'});
+      await expect(commentInput).toBeEmpty();
+      await commentInput.fill('i can\'t believe it\'s not jQuery!');
+
+      await page.evaluate(() => window.location.reload()); // navigation won't actually occur
+      await expect(() => expect(didShowDialog).toBe(true)).toPass();
+      didShowDialog = false;
+      await expect(commentInput).toHaveValue('i can\'t believe it\'s not jQuery!'); // text content remains (we didn't reload!)
+      expect(didReload).toBe(false);
+
+      // clear the text field (interactively, so that beforeunload runs)
+      for (const _ of 'i can\'t believe it\'s not jQuery!') {
+        await commentInput.press('Backspace');
+      }
+
+      await page.reload({waitUntil: 'domcontentloaded'});
+      expect(didShowDialog).toBe(false);
+      await expect(() => expect(didReload).toBe(true)).toPass();
+      await commentButton.click();
+      await expect(commentInput).toBeEmpty();
+    });
+
+    test('no edits, leave without bother', async ({page}) => {
+      await page.goto(url, {waitUntil: 'load'});
+      page.on('dialog', () => {
+        // wait until timeout :)
+      });
+
+      const commentButton = page.getByRole('button', {name: 'Add line comment'}).first();
+      await commentButton.click();
+      const commentInput = page.getByRole('textbox', {name: 'Leave a comment'});
+      await expect(commentInput).toBeEmpty();
+
+      await page.reload({waitUntil: 'domcontentloaded'}); // this would freeze if the page is waiting on an "Are you sure?" dialog
+      await commentButton.click();
+      await expect(commentInput).toBeEmpty();
+    });
+  });
 });

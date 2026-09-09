@@ -705,6 +705,7 @@ export function initRepoPullRequestReview() {
 
         await initDropzone($td.find('.dropzone')[0]);
         const editor = await initComboMarkdownEditor($td.find('.combo-markdown-editor'));
+        $('.conversation-holder form:not(.ignore-dirty)').areYouSure();
         editor.focus();
       } catch (error) {
         console.error(error);
