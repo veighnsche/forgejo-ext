@@ -160,6 +160,38 @@ func (repo *Repository) GetTagInfos(page, pageSize int) ([]*Tag, int, error) {
 	return tags, tagsTotal, nil
 }
 
+func (repo *Repository) GetLatestTag() (*Tag, error) {
+	tags, totalTags, err := repo.GetTagInfos(0, 0)
+	if err != nil {
+		return nil, err
+	}
+	if totalTags == 0 {
+		return nil, errors.New("no tags in the repository")
+	}
+
+	latestTagIndex := 0
+	commit, err := repo.GetCommit(tags[latestTagIndex].ID.String())
+	if err != nil {
+		return nil, err
+	}
+	latestTimestamp := commit.Committer.When
+
+	for index := range totalTags {
+		commit, err = repo.GetCommit(tags[index].ID.String())
+		if err != nil {
+			return nil, err
+		}
+		timestamp := commit.Committer.When
+
+		if timestamp.After(latestTimestamp) {
+			latestTimestamp = timestamp
+			latestTagIndex = index
+		}
+	}
+
+	return tags[latestTagIndex], nil
+}
+
 // parseTagRef parses a tag from a 'git for-each-ref'-produced reference.
 func parseTagRef(ref map[string]string) (tag *Tag, err error) {
 	tag = &Tag{
