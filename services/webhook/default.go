@@ -83,7 +83,7 @@ func (defaultHandler) NewRequest(ctx context.Context, w *webhook_model.Webhook, 
 	if w.Type == webhook_module.FORGEJO &&
 		(t.EventType == webhook_module.HookEventPush) {
 		// Add a compare field copying `compare_url` for compatability
-		payloadContent, err = addCompatCompareUrl(payloadContent)
+		payloadContent, err = addCompatCompareURL(payloadContent)
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not add compatability compare url: %w", err)
 		}
@@ -164,17 +164,17 @@ func substituteRefShortName(body string) (string, error) {
 	return string(buf), err
 }
 
-func addCompatCompareUrl(body string) (string, error) {
+func addCompatCompareURL(body string) (string, error) {
 	var m map[string]any
 	if err := json.Unmarshal([]byte(body), &m); err != nil {
 		return body, err
 	}
-	compare_url, ok := m["compare_url"].(string)
+	compareURL, ok := m["compare_url"].(string)
 	if !ok {
 		return body, fmt.Errorf("expected string 'compare_url', got %T", m["compare_url"])
 	}
 
-	m["compare"] = compare_url
+	m["compare"] = compareURL
 
 	buf, err := json.MarshalIndent(m, "", "  ")
 	return string(buf), err
