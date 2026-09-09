@@ -261,7 +261,7 @@ export async function initDropzone(dropzoneEl, zone = undefined) {
     inputPath.type = 'hidden';
     inputPath.value = htmlEscape(file.fullPath || file.name);
     dropzoneEl.querySelector('.files').append(input, inputPath);
-    dropzoneEl.closest('form').dispatchEvent(new Event('rescan')); // re-check form inputs (we just added one, so probably "dirty")
+    dropzoneEl.dispatchEvent(new Event('rescan', {bubbles: true})); // re-check form inputs (we just added one, so probably "dirty")
 
     // Create a "Copy Link" element, to conveniently copy the image
     // or file link as Markdown to the clipboard
@@ -306,7 +306,7 @@ export async function initDropzone(dropzoneEl, zone = undefined) {
       this.on('removedfile', async (file) => {
         document.getElementById(file.uuid)?.remove();
         document.querySelector(`input[name="files_fullpath[${file.uuid}]"]`)?.remove();
-        dropzoneEl.closest('form').dispatchEvent(new Event('checkform')); // re-check form inputs (is it still "dirty"? have we removed all file previews?)
+        dropzoneEl.dispatchEvent(new Event('checkform', {bubbles: true})); // re-check form inputs (is it still "dirty"? have we removed all file previews?)
         if (disableRemovedfileEvent) return;
         if (dropzoneEl.getAttribute('data-remove-url') && !fileUuidDict[file.uuid].submitted) {
           try {
