@@ -1077,8 +1077,18 @@ func renderHomeCode(ctx *context.Context) {
 		link := ctx.Link
 		if ctx.Req.URL.RawQuery != "" {
 			link += "?" + ctx.Req.URL.RawQuery
+			ctx.Redirect(link)
+			return
 		}
-		ctx.Redirect(link)
+
+		var tag *git.Tag
+		if tag, err = ctx.Repo.GitRepo.GetLatestTag(); err != nil {
+			ctx.ServerError("GetLatestTag", err)
+			return
+		}
+
+		log.Info("Tag with latest commit: \"%s\" - redirecting", tag.Name)
+		ctx.Redirect(ctx.Link + "/src/commit/" + tag.ID.String())
 		return
 	}
 
