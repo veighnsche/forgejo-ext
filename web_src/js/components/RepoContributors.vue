@@ -370,7 +370,10 @@ export default {
       <h1 v-if="isLoading || errorText" class="tw-m-0">
         {{ locale.contributorsTitle }}
       </h1>
+      <!-- v-html safety: the string interpolates checked Date instances into a locale template, never arbitrary user-provided strings. -->
+      <!-- eslint-disable-next-line vue/no-v-html -->
       <h1 v-else class="tw-m-0" v-html="processedTitleHTML"/>
+
       <!-- Contribution type -->
       <div class="ui dropdown jump" id="repo-contributors">
         <div class="ui basic compact button">
