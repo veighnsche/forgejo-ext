@@ -16,7 +16,9 @@ export async function initRepoContributors() {
           additions: el.getAttribute('data-locale-contribution-type-additions'),
           deletions: el.getAttribute('data-locale-contribution-type-deletions'),
         },
-
+        contributorsTitle: el.getAttribute('data-locale-contributors-title'),
+        contributorsBetweenTitle: el.getAttribute('data-locale-contributors-between-title'),
+        contributorsSinceTitle: el.getAttribute('data-locale-contributors-since-title'),
         loadingTitle: el.getAttribute('data-locale-loading-title'),
         loadingTitleFailed: el.getAttribute('data-locale-loading-title-failed'),
         loadingInfo: el.getAttribute('data-locale-loading-info'),

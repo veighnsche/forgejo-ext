@@ -1679,6 +1679,10 @@ details.repo-search-result summary::marker {
   flex-wrap: wrap;
 }
 
+.repository .activity-header > h1 {
+  margin: 0;
+}
+
 /* if the element is for a checkbox, then it should have a padding-left to align to the checkbox's text */
 .repository.settings.branches .branch-protection .ui.checkbox .help,
 .repository.settings.branches .branch-protection .checkbox-sub-item {

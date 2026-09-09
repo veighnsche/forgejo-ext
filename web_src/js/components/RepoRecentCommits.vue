@@ -121,12 +121,12 @@ export default {
 </script>
 <template>
   <div>
-    <div class="ui header tw-flex tw-items-center tw-justify-between">
-      {{ isLoading ? locale.loadingTitle : errorText ? locale.loadingTitleFailed : locale.recentCommitsTitle }}
-    </div>
+    <h1>{{ locale.recentCommitsTitle }}</h1>
     <div class="tw-flex ui segment main-graph">
       <div v-if="isLoading || errorText !== ''" class="gt-tc tw-m-auto">
-        <div v-if="isLoading">
+        <h2 v-if="isLoading">{{ locale.loadingTitle }}</h2>
+        <h2 v-else-if="errorText">{{ locale.loadingTitleFailed }}</h2>
+        <div v-if="isLoading" class="tw-flex tw-justify-center">
           <SvgIcon name="octicon-sync" class="tw-mr-2 job-status-rotate"/>
           {{ locale.loadingInfo }}
         </div>

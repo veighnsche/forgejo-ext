@@ -1,5 +1,6 @@
-<h2 class="ui header activity-header">
-	<span>{{DateUtils.AbsoluteLong .DateFrom}} - {{DateUtils.AbsoluteLong .DateUntil}}</span>
+<div class="ui header activity-header">
+	<h1>{{ctx.Locale.Tr "pulse.heading" (DateUtils.AbsoluteLong .DateFrom) (DateUtils.AbsoluteLong .DateUntil)}}</h1>
+
 	<!-- Period -->
 	<div class="ui floating dropdown jump filter">
 		<div class="ui basic compact button">
@@ -16,7 +17,7 @@
 			<a class="{{if eq .Period "yearly"}}active {{end}}item" href="{{$.RepoLink}}/activity/yearly">{{ctx.Locale.Tr "repo.activity.period.yearly"}}</a>
 		</div>
 	</div>
-</h2>
+</div>
 
 {{if (or (.Permission.CanRead $.UnitTypeIssues) (.Permission.CanRead $.UnitTypePullRequests))}}
 <h4 class="ui top attached header">{{ctx.Locale.Tr "repo.activity.overview"}}</h4>

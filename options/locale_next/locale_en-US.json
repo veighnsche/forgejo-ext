@@ -80,6 +80,9 @@
 	"relativetime.1week": "last week",
 	"relativetime.1month": "last month",
 	"relativetime.1year": "last year",
+	"repo.contributors.heading": "Contributors to this repository",
+	"repo.contributors_between.heading": "Contributors between {0} and {1}",
+	"repo.contributors_since.heading": "Contributors since {0}",
 	"repo.files.caption": "Repository files (latest commit first)",
 	"repo.files.filename": "Filename",
 	"repo.empty_commit_message": "Empty commit message",
@@ -1029,6 +1032,7 @@
 	"actions.secrets.mutation.failure_message": "The secret \"%s\" could not be updated.",
 	"actions.secrets.mutation.name_description": "The name of a secret can only contain letters, numbers, and underscores. It cannot start with FORGEJO_, GITEA_, GITHUB_, or a number. Forgejo will automatically convert it to uppercase.",
 	"actions.secrets.mutation.value_description": "The existing value will not be shown. Leave the field empty if you do not want to modify it. Special characters are retained. CRLF (Windows-style line breaks) is automatically converted to LF. Encode the value with Base64 if linebreaks should be retained.",
+	"pulse.heading": "Activity between %[1]s and %[2]s",
 	"pulse.n_active_issues": {
 		"one": "%s active issue",
 		"other": "%s active issues"
