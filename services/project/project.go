@@ -81,8 +81,6 @@ func NewProject(
 	res := &project_model.Project{
 		Title:        form.Title,
 		Description:  form.Description,
-		Owner:        owner,
-		OwnerID:      owner.ID,
 		TemplateType: projectTemplateType.ToTemplateType(),
 		CardType:     projectCardType.ToCardType(),
 		Type:         projectType.ToOwnerType(),
@@ -95,12 +93,18 @@ func NewProject(
 			errNotValid.Message = "Type was TypeIndividual, but owner was org"
 		} else if repo != nil {
 			errNotValid.Message = "Type was TypeIndividual, repo was given"
+		} else {
+			res.Owner = owner
+			res.OwnerID = owner.ID
 		}
 	case project_module.APIOwnerTypeOrganization:
 		if owner.IsIndividual() {
 			errNotValid.Message = "Type was TypeOrganization, but owner was individual"
 		} else if repo != nil {
 			errNotValid.Message = "Type was TypeOrganization, repo was given"
+		} else {
+			res.Owner = owner
+			res.OwnerID = owner.ID
 		}
 	case project_module.APIOwnerTypeRepository:
 		if repo != nil {
