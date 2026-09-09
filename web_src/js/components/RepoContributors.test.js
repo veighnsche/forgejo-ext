@@ -62,7 +62,9 @@ test('has commits from before 2001', async () => {
           additions: '',
           deletions: '',
         },
-
+        contributorsTitle: '',
+        contributorsBetweenTitle: '',
+        contributorsSinceTitle: '',
         loadingTitle: '',
         loadingTitleFailed: '',
         loadingInfo: '',
