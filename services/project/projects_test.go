@@ -171,9 +171,15 @@ func TestNewProject(t *testing.T) {
 
 		proj, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeIndividual)
 		require.NoError(t, err)
+
 		assert.Equal(t, opts.Title, proj.Title)
 		assert.Equal(t, opts.Description, proj.Description)
+
 		assert.Equal(t, project_module.TypeIndividual, proj.Type)
+		assert.Equal(t, user2.ID, proj.OwnerID)
+		assert.Equal(t, user2, proj.Owner)
+		assert.Zero(t, proj.RepoID)
+		assert.Nil(t, proj.Repo)
 	})
 
 	t.Run("individual, owner is org", func(t *testing.T) {
@@ -212,9 +218,15 @@ func TestNewProject(t *testing.T) {
 
 		proj, err := NewProject(&opts, org3, nilRepo, project_module.APIOwnerTypeOrganization)
 		require.NoError(t, err)
+
 		assert.Equal(t, opts.Title, proj.Title)
 		assert.Equal(t, opts.Description, proj.Description)
+
 		assert.Equal(t, project_module.TypeOrganization, proj.Type)
+		assert.Equal(t, org3.ID, proj.OwnerID)
+		assert.Equal(t, org3, proj.Owner)
+		assert.Zero(t, proj.RepoID)
+		assert.Nil(t, proj.Repo)
 	})
 
 	t.Run("organization, owner is individual", func(t *testing.T) {
@@ -253,9 +265,15 @@ func TestNewProject(t *testing.T) {
 
 		proj, err := NewProject(&opts, user2, repo2, project_module.APIOwnerTypeRepository)
 		require.NoError(t, err)
+
 		assert.Equal(t, opts.Title, proj.Title)
 		assert.Equal(t, opts.Description, proj.Description)
+
 		assert.Equal(t, project_module.TypeRepository, proj.Type)
+		assert.Zero(t, proj.OwnerID)
+		assert.Nil(t, proj.Owner)
+		assert.Equal(t, repo2.ID, proj.RepoID)
+		assert.Equal(t, repo2, proj.Repo)
 	})
 
 	t.Run("repository, empty repo", func(t *testing.T) {
