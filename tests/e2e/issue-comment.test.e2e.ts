@@ -6,6 +6,7 @@
 // web_src/js/features/repo-**
 // templates/repo/issue/view_content/*
 // routers/web/repo/issue_content_history.go
+// web_src/js/vendor/jquery.are-you-sure.js
 // @watch end
 
 import {expect} from '@playwright/test';
@@ -75,6 +76,107 @@ for (const run of [
     });
   });
 }
+
+test.describe('Reload protection', () => {
+  test('choose to stay', async ({page}) => {
+    await page.goto('/user2/repo1/issues/1', {waitUntil: 'load'});
+
+    let didShowDialog = false;
+    page.on('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.dismiss(); // "stay on page"
+      didShowDialog = true;
+    });
+
+    let didReload = false;
+    page.on('domcontentloaded', () => {
+      // 'domcontentloaded' happens before 'load', so this fn only happens after a ReLoad!
+      didReload = true;
+    });
+
+    const replyInput = page.getByRole('textbox', {name: 'Leave a comment'});
+    await expect(replyInput).toBeEmpty();
+    await replyInput.pressSequentially('i can\'t believe it\'s not jQuery!'); // .fill() doesn't count as user interaction on firefox, required for beforeunload to fire
+
+    await page.evaluate(() => window.location.reload()); // navigation won't actually occur
+    await expect(() => expect(didShowDialog).toBe(true)).toPass();
+    await expect(replyInput).toHaveValue('i can\'t believe it\'s not jQuery!'); // text content remains (we didn't reload!)
+    expect(didReload).toBe(false); // doing this last, to avoid race conditions
+  });
+
+  test('choose to leave', async ({page, browserName}) => {
+    await page.goto('/user2/repo1/issues/1', {waitUntil: 'load'});
+
+    let didShowDialog = false;
+    page.on('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.accept(); // "I'm sure. Reload!"
+      didShowDialog = true;
+    });
+
+    const replyInput = page.getByRole('textbox', {name: 'Leave a comment'});
+    await expect(replyInput).toBeEmpty();
+    await replyInput.pressSequentially('i can\'t believe it\'s not jQuery!');
+
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await expect(() => expect(didShowDialog).toBe(true)).toPass();
+    if (browserName === 'firefox') {
+      await expect(replyInput).toHaveValue('i can\'t believe it\'s not jQuery!'); // text is restored! (firefox-only behavior)
+    } else {
+      await expect(replyInput).toBeEmpty(); // text is gone!
+    }
+  });
+
+  test('choose to stay, remove all text, then leave without bother', async ({page}) => {
+    await page.goto('/user2/repo1/issues/1', {waitUntil: 'load'});
+
+    let didShowDialog = false;
+    page.on('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.dismiss(); // "stay on page"
+      didShowDialog = true;
+    });
+
+    let didReload = false;
+    page.on('domcontentloaded', () => {
+      didReload = true;
+    });
+
+    const replyInput = page.getByRole('textbox', {name: 'Leave a comment'});
+    await expect(replyInput).toBeEmpty();
+    await replyInput.pressSequentially('i can\'t believe it\'s not jQuery!');
+
+    await page.evaluate(() => window.location.reload()); // navigation won't actually occur
+    await expect(() => expect(didShowDialog).toBe(true)).toPass();
+    didShowDialog = false;
+    await expect(replyInput).toHaveValue('i can\'t believe it\'s not jQuery!'); // text content remains (we didn't reload!)
+    expect(didReload).toBe(false);
+
+    // clear the text field (interactively, so that beforeunload runs)
+    for (const _ of 'i can\'t believe it\'s not jQuery!') {
+      await replyInput.press('Backspace');
+    }
+
+    await page.reload({waitUntil: 'domcontentloaded'});
+    expect(didShowDialog).toBe(false);
+    await expect(() => expect(didReload).toBe(true)).toPass();
+    await expect(replyInput).toBeEmpty(); // text gone! (reload didn't resurrect it)
+  });
+
+  test('no edits, leave without bother', async ({page}) => {
+    await page.goto('/user2/repo1/issues/1', {waitUntil: 'load'});
+    page.on('dialog', () => {
+      // wait until timeout :)
+    });
+
+    const replyInput = page.getByRole('textbox', {name: 'Leave a comment'});
+    await expect(replyInput).toBeEmpty();
+
+    await page.locator('body').click(); // some interaction...
+    await page.reload({waitUntil: 'domcontentloaded'}); // this would freeze if the page is waiting on an "Are you sure?" dialog
+    await expect(replyInput).toBeEmpty();
+  });
+});
 
 test('Menu accessibility', async ({page}) => {
   await page.goto('/user2/repo1/issues/1');

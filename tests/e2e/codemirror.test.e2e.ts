@@ -8,6 +8,7 @@
 // web_src/js/features/codemirror*
 // web_src/js/features/repo-editor.js
 // web_src/js/features/repo-settings.js
+// web_src/js/vendor/jquery.are-you-sure.js
 // @watch end
 
 import {expect, type Page} from '@playwright/test';
@@ -198,4 +199,158 @@ test('Do not open search if search button not available', async ({page}) => {
 
   await page.keyboard.press('ControlOrMeta+F', {delay: 5});
   await expect(searchField).toHaveCount(0);
+});
+
+test.describe('JS off', () => {
+  test.use({javaScriptEnabled: false});
+
+  test('Commit button is enabled by default', async ({page}) => {
+    const response = await page.goto('/user2/repo1/_new/master', {waitUntil: 'domcontentloaded'});
+    expect(response?.status()).toBe(200);
+
+    const commitButton = page.getByRole('button', {name: 'Commit changes'});
+    await expect(commitButton).toBeVisible();
+    await expect(commitButton).toBeEnabled();
+  });
+});
+
+test.describe('JS on', () => {
+  test('Commit button is disabled by default', async ({page}) => {
+    const response = await page.goto('/user2/repo1/_new/master', {waitUntil: 'load'});
+    expect(response?.status()).toBe(200);
+
+    const commitButton = page.getByRole('button', {name: 'Commit changes'});
+    await expect(commitButton).toBeVisible();
+    await expect(commitButton).toBeDisabled();
+  });
+
+  test('Commit button still disabled on edit to main form', async ({page}) => {
+    const response = await page.goto('/user2/repo1/_new/master', {waitUntil: 'load'});
+    expect(response?.status()).toBe(200);
+
+    const commitButton = page.getByRole('button', {name: 'Commit changes'});
+    await expect(commitButton).toBeDisabled();
+    await page.getByRole('textbox', {name: 'Add "<filename>"'}).fill('test');
+    await expect(commitButton).toBeDisabled();
+  });
+
+  test('Commit button enabled on edit to file name', async ({page}) => {
+    const response = await page.goto('/user2/repo1/_new/master', {waitUntil: 'load'});
+    expect(response?.status()).toBe(200);
+
+    const commitButton = page.getByRole('button', {name: 'Commit changes'});
+    await expect(commitButton).toBeDisabled();
+    await enterFilename(page, 'test');
+    await expect(commitButton).toBeEnabled();
+  });
+
+  test('Commit button enabled on edit to file content', async ({page}) => {
+    const response = await page.goto('/user2/repo1/_new/master', {waitUntil: 'load'});
+    expect(response?.status()).toBe(200);
+
+    const commitButton = page.getByRole('button', {name: 'Commit changes'});
+    await expect(commitButton).toBeDisabled();
+    await page.locator('.cm-content').fill('test');
+    await expect(commitButton).toBeEnabled();
+  });
+});
+
+test.describe('Reload protection', () => {
+  test('choose to stay', async ({page}) => {
+    await page.goto('/user2/repo1/_new/master', {waitUntil: 'load'});
+
+    let didShowDialog = false;
+    page.on('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.dismiss(); // "stay on page"
+      didShowDialog = true;
+    });
+
+    let didReload = false;
+    page.on('domcontentloaded', () => {
+      // 'domcontentloaded' happens before 'load', so this fn only happens after a ReLoad!
+      didReload = true;
+    });
+
+    const codeInput = page.locator('.cm-content');
+    await codeInput.press('Control+a');
+    await codeInput.pressSequentially('test'); // .fill() doesn't count as user interaction on firefox, required for beforeunload to fire
+
+    await page.evaluate(() => window.location.reload()); // navigation won't actually occur
+    await expect(() => expect(didShowDialog).toBe(true)).toPass();
+    await expect(page.locator('.cm-line').first()).toHaveText('test'); // text content remains (we didn't reload!)
+    expect(didReload).toBe(false); // doing this last, to avoid race conditions
+  });
+
+  test('choose to leave', async ({page, browserName}) => {
+    await page.goto('/user2/repo1/_new/master', {waitUntil: 'load'});
+
+    let didShowDialog = false;
+    page.on('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.accept(); // "I'm sure. Reload!"
+      didShowDialog = true;
+    });
+
+    const codeInput = page.locator('.cm-content');
+    await codeInput.press('Control+a');
+    await codeInput.pressSequentially('test'); // .fill() doesn't count as user interaction on firefox, required for beforeunload to fire
+
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await expect(() => expect(didShowDialog).toBe(true)).toPass();
+    if (browserName === 'firefox') {
+      await expect(page.locator('.cm-line').first()).toHaveText('test'); // text is restored! (firefox-only behavior)
+    } else {
+      await expect(page.locator('.cm-line').first()).toBeEmpty(); // text is gone!
+    }
+  });
+
+  test('choose to stay, remove all text, then leave without bother', async ({page}) => {
+    await page.goto('/user2/repo1/_new/master', {waitUntil: 'load'});
+
+    let didShowDialog = false;
+    page.on('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('beforeunload');
+      await dialog.dismiss(); // "stay on page"
+      didShowDialog = true;
+    });
+
+    let didReload = false;
+    page.on('domcontentloaded', () => {
+      didReload = true;
+    });
+
+    const codeInput = page.locator('.cm-content');
+    await codeInput.press('Control+a');
+    await codeInput.pressSequentially('test');
+
+    await page.evaluate(() => window.location.reload()); // navigation won't actually occur
+    await expect(() => expect(didShowDialog).toBe(true)).toPass();
+    didShowDialog = false;
+    await expect(page.locator('.cm-line').first()).toHaveText('test');
+    expect(didReload).toBe(false);
+
+    // clear the text field (interactively, so that beforeunload runs)
+    for (const _ of 'test') {
+      await codeInput.press('Backspace');
+    }
+
+    await page.reload({waitUntil: 'domcontentloaded'});
+    expect(didShowDialog).toBe(false);
+    await expect(() => expect(didReload).toBe(true)).toPass();
+    await expect(page.locator('.cm-line').first()).toBeEmpty(); // text is gone! (reload didn't resurrect it)
+  });
+
+  test('no edits, leave without bother', async ({page}) => {
+    await page.goto('/user2/repo1/_new/master', {waitUntil: 'load'});
+    page.on('dialog', () => {
+      // wait until timeout :)
+    });
+
+    await expect(page.locator('.cm-line').first()).toBeEmpty();
+
+    await page.locator('body').click(); // some interaction...
+    await page.reload({waitUntil: 'domcontentloaded'}); // this would freeze if the page is waiting on an "Are you sure?" dialog
+    await expect(page.locator('.cm-line').first()).toBeEmpty();
+  });
 });
