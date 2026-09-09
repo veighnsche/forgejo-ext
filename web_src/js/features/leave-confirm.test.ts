@@ -1,3 +1,6 @@
+// Copyright 2026 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import {test, describe, expect, beforeEach} from 'vitest';
 import {_getValue, _onBeforeUnload, _storeOriginalValue, initGlobalFormDirtyLeaveConfirm, initLeaveConfirm} from './leave-confirm.ts';
 
@@ -121,7 +124,6 @@ describe('dirtiness', () => {
     expect(document.body.childNodes.length).toBe(1); // just us chickens!
   });
 
-  // TODO: the file LGTM up to this point here, so keep reviewing from this point on down. Maybe move the helpers up top tho.
   describe('init global', () => {
     test('initializes leave-confirm', () => {
       initGlobalFormDirtyLeaveConfirm();
