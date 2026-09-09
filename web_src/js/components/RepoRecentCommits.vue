@@ -134,8 +134,8 @@ export default {
           <SvgIcon name="octicon-sync" class="tw-mr-2 job-status-rotate"/>
           {{ locale.loadingInfo }}
         </div>
-        <div v-else class="text red">
-          <SvgIcon name="octicon-x-circle-fill"/>
+        <div v-else class="text red tw-flex tw-justify-center">
+          <SvgIcon name="octicon-x-circle-fill" class="tw-mr-2"/>
           {{ errorText }}
         </div>
       </div>
@@ -149,5 +149,9 @@ export default {
 <style scoped>
 .main-graph {
   height: 250px;
+}
+
+h2 {
+  text-align: center;
 }
 </style>
