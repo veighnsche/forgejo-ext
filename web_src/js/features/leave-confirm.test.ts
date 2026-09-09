@@ -1,5 +1,5 @@
 import {test, describe, expect, beforeEach} from 'vitest';
-import {_formParent, _getValue, _onBeforeUnload, _storeOriginalValue, initGlobalFormDirtyLeaveConfirm, initLeaveConfirm} from './leave-confirm.ts';
+import {_getValue, _onBeforeUnload, _storeOriginalValue, initGlobalFormDirtyLeaveConfirm, initLeaveConfirm} from './leave-confirm.ts';
 
 beforeEach(() => {
   document.body.textContent = ''; // clear the DOM!
@@ -550,48 +550,5 @@ describe('store original', () => {
     el.disabled = true;
     _storeOriginalValue(el);
     expect(el.getAttribute('data-dirtiness-orig')).toEqual(expect.stringContaining('-disabled')); // doesn't matter what the value is here, only that it compares differently against the same input element later if enabled
-  });
-});
-
-describe('form parent', () => {
-  test('a form is not its own parent', () => {
-    const f = document.createElement('form');
-    expect(_formParent(f)).toBe(null);
-  });
-
-  test('one level removed', () => {
-    const form = document.createElement('form');
-    const div = document.createElement('div');
-    form.append(div);
-    expect(_formParent(div)).toBe(form);
-  });
-
-  test('two levels removed', () => {
-    const form = document.createElement('form');
-    const div = document.createElement('div');
-    const input = document.createElement('input');
-    form.append(div);
-    div.append(input);
-    expect(_formParent(input)).toBe(form);
-  });
-
-  test('three levels removed', () => {
-    const form = document.createElement('form');
-    const main = document.createElement('main');
-    const div = document.createElement('div');
-    const input = document.createElement('input');
-    form.append(main);
-    main.append(div);
-    div.append(input);
-    expect(_formParent(input)).toBe(form);
-  });
-
-  test('two levels removed and still no form!', () => {
-    const body = document.createElement('body');
-    const div = document.createElement('div');
-    const input = document.createElement('input');
-    body.append(div);
-    div.append(input);
-    expect(_formParent(input)).toBe(null);
   });
 });

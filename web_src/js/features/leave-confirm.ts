@@ -124,11 +124,10 @@ export function initLeaveConfirm(els: NodeListOf<Element>, settings?: Settings) 
   // standard unload listener...
   window.addEventListener('beforeunload', _onBeforeUnload); // Note: this only checks against ATTR_DIRTY, not settings.dirtyAttr!
 
-  for (const el of els) {
-    if (el.tagName !== 'FORM') {
+  for (const form of els) {
+    if (!form.matches('form')) {
       continue;
     }
-    const form = el as HTMLFormElement;
 
     // watch for form-level events
     form.addEventListener('submit', onFormSubmit);
@@ -142,7 +141,7 @@ export function initLeaveConfirm(els: NodeListOf<Element>, settings?: Settings) 
       for (const eventType of CHECK_EVENTS) {
         input.addEventListener(eventType, checkForm);
       }
-      setFormDirty(form, false);
+      setFormDirty(form as HTMLFormElement, false); // .matches ensures `form` is always an HTMLFormElement, but for some reason tsc doesn't agree 😕
     }
   }
 
@@ -171,7 +170,7 @@ export function initLeaveConfirm(els: NodeListOf<Element>, settings?: Settings) 
 
   /** Check the form or the input's parent form for dirty input elements. */
   function checkForm(this: HTMLFormElement | InputElement) {
-    const form = this.tagName === 'FORM' ? this as HTMLFormElement : _formParent(this);
+    const form = this.closest('form');
     if (!form) {
       // an input with no form 😢 this is an unlikely case, perhaps impossible!
       for (const eventName of CHECK_EVENTS) {
@@ -231,21 +230,6 @@ function isInputDirty(el: InputElement): boolean {
     return false; // null implies some invalid state or element, so we assume not dirty
   }
   return _getValue(el) !== og;
-}
-
-/** Returns the element's nearest parent `<form>` element, if any. */
-export function _formParent(el: Element): HTMLFormElement | null {
-  let parent = el.parentElement;
-  if (parent?.tagName === 'FORM') {
-    return parent as HTMLFormElement;
-  }
-  while (parent?.parentElement) {
-    parent = parent.parentElement;
-    if (parent?.tagName === 'FORM') {
-      return parent as HTMLFormElement;
-    }
-  }
-  return null;
 }
 
 /** Tracks the element's current value, if it's a value that we can manage. */
