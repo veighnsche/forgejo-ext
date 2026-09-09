@@ -170,3 +170,24 @@ func TestChangeProjectStatus(t *testing.T) {
 		assert.Equal(t, repo.NumClosedProjects, repoAfter.NumClosedProjects)
 	})
 }
+
+func TestProjectLink(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 3})
+	repo2 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
+
+	for _, tt := range []struct {
+		name    string
+		project *Project
+		url     string
+	}{
+		{"User", &Project{OwnerID: user2.ID}, "/user2/-/projects/0"},
+		{"Org", &Project{OwnerID: org3.ID}, "/org3/-/projects/0"},
+		{"Repo", &Project{RepoID: repo2.ID}, "/user2/repo2/projects/0"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.url, tt.project.Link(t.Context()))
+		})
+	}
+}
