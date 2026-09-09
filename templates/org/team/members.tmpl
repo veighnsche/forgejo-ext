@@ -37,7 +37,7 @@
 									<div class="flex-item-title">
 										{{template "shared/user/name" .User}}
 									</div>
-									{{template "org/team/membership_provenance" .}}
+									{{template "org/team/membership_origin" .}}
 								</div>
 								<div class="flex-item-trailing">
 									{{if and $.IsOrganizationOwner (not (and ($.Team.IsOwnerTeam) (eq (len $.Team.Members) 1)))}}
