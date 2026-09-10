@@ -124,3 +124,48 @@ EMAIL_DOMAIN_BLOCKLIST = *.block.random
 
 	assert.Empty(t, Service.EmailDomainAllowList)
 }
+
+func TestAppVersionDocsURL(t *testing.T) {
+	cases := [][3]string{
+		{"next", "/", "https://forgejo.org/docs/next/"},
+		{"latest", "/", "https://forgejo.org/docs/latest/"},
+		// version ignores leading/trailing slashes:
+		{"/latest", "/", "https://forgejo.org/docs/latest/"},
+		{"/latest/", "/", "https://forgejo.org/docs/latest/"},
+		{"latest/", "/", "https://forgejo.org/docs/latest/"},
+		// version takes middle slashes verbatim:
+		{"lat/est", "", "https://forgejo.org/docs/lat/est/"},
+		{"/lat/est", "", "https://forgejo.org/docs/lat/est/"},
+		{"/lat/est/", "", "https://forgejo.org/docs/lat/est/"},
+		{"lat/est/", "", "https://forgejo.org/docs/lat/est/"},
+		{"lat/est/", "foo", "https://forgejo.org/docs/lat/est/foo"},
+		// empty path is acceptable:
+		{"latest", "", "https://forgejo.org/docs/latest/"},
+		{"latest", "//", "https://forgejo.org/docs/latest/"},
+		{"latest", "/user/", "https://forgejo.org/docs/latest/user/"},
+		// leading slash in path is optional:
+		{"latest", "user/", "https://forgejo.org/docs/latest/user/"},
+		// trailing slash in path is verbatim:
+		{"latest", "user", "https://forgejo.org/docs/latest/user"},
+		{"latest", "あ", "https://forgejo.org/docs/latest/%E3%81%82"},
+		{"latest", "/あ", "https://forgejo.org/docs/latest/%E3%81%82"},
+		{"latest", "/あ/", "https://forgejo.org/docs/latest/%E3%81%82/"},
+		{"latest", "あ/", "https://forgejo.org/docs/latest/%E3%81%82/"},
+		{"latest", "/user/#hash", "https://forgejo.org/docs/latest/user/#hash"},
+		{"latest", "/user/#hash-hash", "https://forgejo.org/docs/latest/user/#hash-hash"},
+		{"latest", "/user/#hash/hash", "https://forgejo.org/docs/latest/user/#hash/hash"},
+		{"latest", "/user", "https://forgejo.org/docs/latest/user"},
+		{"latest", "/user#hash", "https://forgejo.org/docs/latest/user#hash"},
+		{"latest", "/user#hash-hash", "https://forgejo.org/docs/latest/user#hash-hash"},
+		{"latest", "/user#hash/hash", "https://forgejo.org/docs/latest/user#hash/hash"},
+	}
+	for _, c := range cases {
+		version := c[0]
+		path := c[1]
+		expectedURL := c[2]
+
+		t.Run(version+", "+path, func(t *testing.T) {
+			assert.Equal(t, expectedURL, AppVersionDocsURL(version, path))
+		})
+	}
+}

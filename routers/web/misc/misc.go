@@ -58,8 +58,14 @@ func StaticRedirect(target string) func(w http.ResponseWriter, req *http.Request
 	}
 }
 
-var defaultRobotsTxt = []byte(`# The default Forgejo robots.txt
-# For more information: https://forgejo.org/docs/latest/admin/advanced/search-engines/
+var composedDefaultRobotsTxt []byte
+
+func defaultRobotsTxt() []byte {
+	if composedDefaultRobotsTxt != nil {
+		return composedDefaultRobotsTxt
+	}
+	composedDefaultRobotsTxt = []byte(`# The default Forgejo robots.txt
+# For more information: ` + setting.AppDocsURL("admin/advanced/search-engines/") + `
 
 User-agent: *
 Disallow: /api/
@@ -129,6 +135,8 @@ Disallow: /*q=*
 Disallow: /*sort=*
 Disallow: /*repo-search-archived=*
 `)
+	return composedDefaultRobotsTxt
+}
 
 func RobotsTxt(w http.ResponseWriter, req *http.Request) {
 	httpcache.SetCacheControlInHeader(w.Header(), setting.StaticCacheTime)
@@ -140,7 +148,7 @@ func RobotsTxt(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_, err := w.Write(defaultRobotsTxt)
+	_, err := w.Write(defaultRobotsTxt())
 	if err != nil {
 		log.Error("failed to write robots.txt: %v", err)
 	}

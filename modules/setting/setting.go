@@ -7,6 +7,7 @@ package setting
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -14,17 +15,18 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/user"
+	"forgejo.org/modules/util"
 )
 
 var ForgejoVersion = "1.0.0"
 
 // settings
 var (
-	// AppVer is the version of the current build of Gitea. It is set in main.go from main.Version.
+	// AppVer is the version of the current build of Forgejo. It is set in main.go from main.Version.
 	AppVer string
 	// AppBuiltWith represents a human-readable version go runtime build version and build tags. (See main.go formatBuiltWith().)
 	AppBuiltWith string
-	// AppStartTime store time gitea has started
+	// AppStartTime store time forgejo has started
 	AppStartTime time.Time
 
 	// Other global setting objects
@@ -46,6 +48,25 @@ func init() {
 
 	// By default set this logger at Info - we'll change it later, but we need to start with something.
 	log.SetConsoleLogger(log.DEFAULT, "console", log.INFO)
+}
+
+// Returns a URL string to forgejo docs for the current app version
+func AppDocsURL(path string) string {
+	return AppVersionDocsURL("latest", path)
+}
+
+// Returns a URL string to forgejo docs for the given app version
+func AppVersionDocsURL(version, path string) string {
+	path, hash, hasHash := strings.Cut(path, "#")
+	path = util.PathEscapeSegments(path)
+	if path == "" {
+		path = "/"
+	}
+	url, _ := url.JoinPath("https://forgejo.org/", "docs", version, path)
+	if hasHash {
+		return url + "#" + hash
+	}
+	return url
 }
 
 // IsRunUserMatchCurrentUser returns false if configured run user does not match
