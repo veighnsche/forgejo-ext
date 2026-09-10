@@ -2,15 +2,15 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository new release">
 	{{template "repo/header" .}}
 	<div class="ui container">
-		<h2 class="ui dividing header">
+		<div class="ui dividing header">
 			{{if .PageIsEditRelease}}
-				{{ctx.Locale.Tr "repo.release.edit_release"}}
-				<div class="sub header">{{ctx.Locale.Tr "repo.release.edit_subheader"}}</div>
+				<h1 class="tw-m-0">{{ctx.Locale.Tr "repo.release.edit_release"}}</h1>
+				<p class="sub header">{{ctx.Locale.Tr "repo.release.edit_subheader"}}</p>
 			{{else}}
-				{{ctx.Locale.Tr "repo.release.new_release"}}
-				<div class="sub header">{{ctx.Locale.Tr "repo.release.new_subheader"}}</div>
+				<h1 class="tw-m-0">{{ctx.Locale.Tr "repo.release.new_release"}}</h1>
+				<p class="sub header">{{ctx.Locale.Tr "repo.release.new_subheader"}}</p>
 			{{end}}
-		</h2>
+		</div>
 		{{template "base/alert" .}}
 		<form class="ui form" action="{{.Link}}" method="post">
 			<div class="ui seven wide target">
