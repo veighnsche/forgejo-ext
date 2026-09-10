@@ -200,7 +200,9 @@ func NumIssuesInProjects(ctx context.Context, pl []*project_model.Project, doer 
 // the doer can access.
 func NumIssuesInProject(ctx context.Context, p *project_model.Project, doer *user_model.User, org *org_model.Organization, isClosed optional.Option[bool]) (int, error) {
 	numIssuesInProject := int(0)
-	bs, _, err := project_model.GetColumns(ctx, p.ID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
+	bs, err := db.Find[project_model.Column](ctx, project_model.FindColumnOptions{
+		ListOptions: db.ListOptionsAll, ProjectID: p.ID,
+	})
 	if err != nil {
 		return 0, err
 	}

@@ -71,7 +71,9 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	columns, total, err := project_model.GetColumns(db.DefaultContext, project1.ID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
+	columns, total, err := db.FindAndCount[project_model.Column](db.DefaultContext, project_model.FindColumnOptions{
+		ListOptions: db.ListOptionsAll, ProjectID: project1.ID,
+	})
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
 	assert.EqualValues(t, 0, columns[0].Sorting)
@@ -89,7 +91,9 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 	})
 	sess.MakeRequest(t, req, http.StatusOK)
 
-	columnsAfter, total, err := project_model.GetColumns(db.DefaultContext, project1.ID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
+	columnsAfter, total, err := db.FindAndCount[project_model.Column](db.DefaultContext, project_model.FindColumnOptions{
+		ListOptions: db.ListOptionsAll, ProjectID: project1.ID,
+	})
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)

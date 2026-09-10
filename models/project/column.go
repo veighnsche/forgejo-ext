@@ -252,17 +252,6 @@ func UpdateColumn(ctx context.Context, column *Column) error {
 	return err
 }
 
-// GetColumns fetches all columns related to a project
-func GetColumns(ctx context.Context, projectID int64, opts FindColumnOptions) (ColumnList, int64, error) {
-	opts.ProjectID = projectID
-	columns, total, err := db.FindAndCount[Column](ctx, opts)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return columns, total, nil
-}
-
 // GetDefaultColumn return default column and ensure only one exists
 func (p *Project) GetDefaultColumn(ctx context.Context) (*Column, error) {
 	var column Column
@@ -351,7 +340,9 @@ func MoveColumnsOnProject(ctx context.Context, projectID int64, sortedColumnIDs 
 		}
 
 		// Validate all columns exist and belong to this project
-		allColumns, _, err := GetColumns(ctx, projectID, FindColumnOptions{ListOptions: db.ListOptionsAll})
+		allColumns, err := db.Find[Column](ctx, FindColumnOptions{
+			ListOptions: db.ListOptionsAll, ProjectID: projectID,
+		})
 		if err != nil {
 			return err
 		}
