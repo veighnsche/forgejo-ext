@@ -2,7 +2,11 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository projects milestones">
 	{{template "repo/header" .}}
 	<div class="ui container">
-		<h1>{{ctx.Locale.Tr "repo.projects"}}</h1>
+		{{if .IsShowClosed}}
+		<h1>{{ctx.Locale.Tr "repo.projects.closed.heading"}}</h1>
+		{{else}}
+		<h1>{{ctx.Locale.Tr "repo.projects.open.heading"}}</h1>
+		{{end}}
 		{{template "projects/list" .}}
 	</div>
 </div>

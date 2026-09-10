@@ -132,6 +132,8 @@
 	"issues.search.sort.leastcomment": "Least commented",
 	"issues.search.sort.nearduedate": "Nearest due date",
 	"issues.search.sort.farduedate": "Farthest due date",
+	"repo.projects.closed.heading": "Closed projects",
+	"repo.projects.open.heading": "Open projects",
 	"repo.pulls.all.heading": "All pull requests",
 	"repo.pulls.closed.heading": "Closed pull requests",
 	"repo.pulls.open.heading": "Open pull requests",
