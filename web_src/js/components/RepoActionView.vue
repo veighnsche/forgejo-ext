@@ -511,7 +511,7 @@ export default {
             :size="20"
           />
           <!-- eslint-disable-next-line vue/no-v-html -->
-          <h2 class="action-info-summary-title-text" v-html="run.titleHTML"/>
+          <h1 class="action-info-summary-title-text" v-html="run.titleHTML"/>
         </div>
         <button class="ui basic small compact button primary" @click="approveRun()" v-if="canApprove">
           {{ locale.approve }}
