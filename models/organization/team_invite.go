@@ -252,39 +252,28 @@ type SearchInvitesOptions struct {
 	InvitedID int64
 }
 
+func (opts SearchInvitesOptions) ToConds() builder.Cond {
+	cond := builder.NewCond()
+	if opts.TeamID > 0 {
+		cond = cond.And(builder.Eq{"team_id": opts.TeamID})
+	}
+	if opts.OrgID > 0 {
+		cond = cond.And(builder.Eq{"org_id": opts.OrgID})
+	}
+	if opts.InvitedID > 0 {
+		cond = cond.And(builder.Eq{"invited_id": opts.InvitedID})
+	}
+	return cond
+}
+
 // GetTeamInvites returns all invites matching the specified criteria
 func GetTeamInvites(ctx context.Context, opts *SearchInvitesOptions) ([]*TeamInvite, error) {
-	var invites []*TeamInvite
-	sess := selectTeamInvites(ctx, opts)
-	if err := sess.OrderBy("id DESC").Find(&invites); err != nil {
-		return nil, err
-	}
-	return invites, nil
+	return db.Find[TeamInvite](ctx, opts)
 }
 
 // CountTeamInvites returns the number of team invites matching the specified criteria
 func CountTeamInvites(ctx context.Context, opts *SearchInvitesOptions) (int64, error) {
-	return selectTeamInvites(ctx, opts).Count()
-}
-
-func selectTeamInvites(ctx context.Context, opts *SearchInvitesOptions) db.Engine {
-	sess := db.GetEngine(ctx).Table("team_invite")
-	if opts.TeamID > 0 {
-		sess = sess.
-			Where(builder.Eq{"team_id": opts.TeamID})
-	}
-	if opts.OrgID > 0 {
-		sess = sess.
-			Where(builder.Eq{"org_id": opts.OrgID})
-	}
-	if opts.InvitedID > 0 {
-		sess = sess.
-			Where(builder.Eq{"invited_id": opts.InvitedID})
-	}
-	if opts.PageSize > 0 && opts.Page > 0 {
-		sess = sess.Limit(opts.PageSize, (opts.Page-1)*opts.PageSize)
-	}
-	return sess
+	return db.Count[TeamInvite](ctx, opts)
 }
 
 func GetInvitesByTeamID(ctx context.Context, teamID int64) ([]*TeamInvite, error) {
