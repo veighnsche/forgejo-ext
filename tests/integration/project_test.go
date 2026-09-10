@@ -2019,7 +2019,8 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			}
 
 			// get project issues in column
-			preIssues, count, err := column.GetIssues(t.Context(), db.ListOptionsAll)
+			preIssues, count, err := column.GetIssues(t.Context(),
+				project_model.FindProjectIssueOptions{ListOptions: db.ListOptionsAll})
 			require.NoError(t, err)
 			assert.Equal(t, int64(2), count)
 
@@ -2034,7 +2035,8 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusOK)
 
 			// check sorting has changed
-			postIssues, count, err := column.GetIssues(t.Context(), db.ListOptionsAll)
+			postIssues, count, err := column.GetIssues(t.Context(),
+				project_model.FindProjectIssueOptions{ListOptions: db.ListOptionsAll})
 			require.NoError(t, err)
 			assert.Equal(t, int64(2), count)
 			assert.NotEqual(t, preIssues, postIssues)

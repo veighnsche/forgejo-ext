@@ -47,16 +47,10 @@ func (Column) TableName() string {
 	return "project_board" // TODO: the legacy table name should be project_column
 }
 
-func (c *Column) GetIssues(ctx context.Context, listOptions db.ListOptions) ([]*ProjectIssue, int64, error) {
-	issues := make([]*ProjectIssue, 0, 5)
-	sess := db.GetEngine(ctx).Where("project_id=?", c.ProjectID).
-		And("project_board_id=?", c.ID).
-		OrderBy("sorting, id")
-	page, pageSize := listOptions.GetPage(), listOptions.GetPageSize()
-	if !listOptions.IsListAll() && pageSize > 0 && page >= 1 {
-		sess.Limit(pageSize, (page-1)*pageSize)
-	}
-	total, err := sess.FindAndCount(&issues)
+func (c *Column) GetIssues(ctx context.Context, opts FindProjectIssueOptions) ([]*ProjectIssue, int64, error) {
+	opts.ProjectID = c.ProjectID
+	opts.ProjectColumnID = c.ID
+	issues, total, err := db.FindAndCount[ProjectIssue](ctx, opts)
 	if err != nil {
 		return nil, 0, err
 	}
