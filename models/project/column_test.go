@@ -88,7 +88,7 @@ func Test_MoveColumnsOnProject(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	project1 := unittest.AssertExistsAndLoadBean(t, &Project{ID: 1})
-	columns, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
+	columns, total, err := GetColumns(db.DefaultContext, project1.ID, FindColumnOptions{ListOptions: db.ListOptionsAll})
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
 	assert.EqualValues(t, 0, columns[0].Sorting)
@@ -103,7 +103,7 @@ func Test_MoveColumnsOnProject(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	columnsAfter, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
+	columnsAfter, total, err := GetColumns(db.DefaultContext, project1.ID, FindColumnOptions{ListOptions: db.ListOptionsAll})
 	require.NoError(t, err)
 	assert.Len(t, columnsAfter, 3)
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)
@@ -116,7 +116,7 @@ func TestMoveColumnsOnProjectSwap(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	project1 := unittest.AssertExistsAndLoadBean(t, &Project{ID: 1})
-	columns, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
+	columns, total, err := GetColumns(db.DefaultContext, project1.ID, FindColumnOptions{ListOptions: db.ListOptionsAll})
 	require.NoError(t, err)
 	require.Len(t, columns, 3)
 	require.Equal(t, int64(3), total)
@@ -137,7 +137,7 @@ func TestMoveColumnsOnProjectSwap(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	columnsAfter, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
+	columnsAfter, total, err := GetColumns(db.DefaultContext, project1.ID, FindColumnOptions{ListOptions: db.ListOptionsAll})
 	require.NoError(t, err)
 	assert.Len(t, columnsAfter, 3)
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)
@@ -171,7 +171,7 @@ func Test_NewColumn(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	project1 := unittest.AssertExistsAndLoadBean(t, &Project{ID: 1})
-	columns, total, err := GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
+	columns, total, err := GetColumns(db.DefaultContext, project1.ID, FindColumnOptions{ListOptions: db.ListOptionsAll})
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
 	require.Equal(t, int64(3), total)
@@ -248,10 +248,14 @@ func TestGetColumnsPagination(t *testing.T) {
 		{name: "30 per page", pageSize: 30, page: 1, columns: 3},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			columns, total, err := GetColumns(t.Context(), project1.ID, db.ListOptions{
-				PageSize: tt.pageSize,
-				Page:     tt.page,
-			})
+			columns, total, err := GetColumns(t.Context(), project1.ID,
+				FindColumnOptions{
+					ListOptions: db.ListOptions{
+						PageSize: tt.pageSize,
+						Page:     tt.page,
+					},
+				},
+			)
 			require.NoError(t, err)
 			assert.Len(t, columns, tt.columns)
 			assert.Equal(t, int64(3), total)

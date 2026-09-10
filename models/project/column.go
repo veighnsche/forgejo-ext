@@ -57,6 +57,24 @@ func (c *Column) GetIssues(ctx context.Context, opts FindProjectIssueOptions) ([
 	return issues, total, nil
 }
 
+// FindColumnOptions contains options to find columns.
+type FindColumnOptions struct {
+	db.ListOptions
+	ProjectID int64
+}
+
+func (opts FindColumnOptions) ToConds() builder.Cond {
+	cond := builder.NewCond()
+	if opts.ProjectID != 0 {
+		cond = cond.And(builder.Eq{"project_id": opts.ProjectID})
+	}
+	return cond
+}
+
+func (opts FindColumnOptions) ToOrders() string {
+	return "sorting, id"
+}
+
 func init() {
 	db.RegisterModel(new(Column))
 }
@@ -235,14 +253,9 @@ func UpdateColumn(ctx context.Context, column *Column) error {
 }
 
 // GetColumns fetches all columns related to a project
-func GetColumns(ctx context.Context, projectID int64, listOptions db.ListOptions) (ColumnList, int64, error) {
-	columns := make([]*Column, 0, 5)
-	sess := db.GetEngine(ctx).Where("project_id=?", projectID).OrderBy("sorting, id")
-	page, pageSize := listOptions.GetPage(), listOptions.GetPageSize()
-	if !listOptions.IsListAll() && pageSize > 0 && page >= 1 {
-		sess.Limit(pageSize, (page-1)*pageSize)
-	}
-	total, err := sess.FindAndCount(&columns)
+func GetColumns(ctx context.Context, projectID int64, opts FindColumnOptions) (ColumnList, int64, error) {
+	opts.ProjectID = projectID
+	columns, total, err := db.FindAndCount[Column](ctx, opts)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -338,7 +351,7 @@ func MoveColumnsOnProject(ctx context.Context, projectID int64, sortedColumnIDs 
 		}
 
 		// Validate all columns exist and belong to this project
-		allColumns, _, err := GetColumns(ctx, projectID, db.ListOptionsAll)
+		allColumns, _, err := GetColumns(ctx, projectID, FindColumnOptions{ListOptions: db.ListOptionsAll})
 		if err != nil {
 			return err
 		}

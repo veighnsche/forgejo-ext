@@ -71,7 +71,7 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	columns, total, err := project_model.GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
+	columns, total, err := project_model.GetColumns(db.DefaultContext, project1.ID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
 	assert.EqualValues(t, 0, columns[0].Sorting)
@@ -89,7 +89,7 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 	})
 	sess.MakeRequest(t, req, http.StatusOK)
 
-	columnsAfter, total, err := project_model.GetColumns(db.DefaultContext, project1.ID, db.ListOptionsAll)
+	columnsAfter, total, err := project_model.GetColumns(db.DefaultContext, project1.ID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)
@@ -1481,7 +1481,7 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			}
 
 			// check current columns
-			preCols, _, err := project_service.ListProjectColumns(t.Context(), tt.projectID, db.ListOptionsAll)
+			preCols, _, err := project_service.ListProjectColumns(t.Context(), tt.projectID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
 			require.NoError(t, err)
 			assert.Condition(t, func() bool {
 				return !containFunc(preCols)
@@ -1491,7 +1491,7 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusOK)
 
 			// check if column was created
-			postCols, _, err := project_service.ListProjectColumns(t.Context(), tt.projectID, db.ListOptionsAll)
+			postCols, _, err := project_service.ListProjectColumns(t.Context(), tt.projectID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
 			require.NoError(t, err)
 			assert.NotEqual(t, preCols, postCols)
 			assert.Condition(t, func() bool {

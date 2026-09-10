@@ -337,7 +337,7 @@ func ViewProject(ctx *context.Context) {
 		return
 	}
 
-	columns, _, err := project_model.GetColumns(ctx, project.ID, db.ListOptionsAll)
+	columns, _, err := project_model.GetColumns(ctx, project.ID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
 	if err != nil {
 		ctx.ServerError("GetColumns", err)
 		return
