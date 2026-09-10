@@ -10,5 +10,7 @@ import (
 )
 
 func TestDefaultRobotsTxt(t *testing.T) {
-	assert.Contains(t, string(defaultRobotsTxt()), "https://forgejo.org/docs/latest/admin/advanced/search-engines/")
+	robotsTxt := string(defaultRobotsTxt())
+	assert.Contains(t, robotsTxt, "https://forgejo.org/docs/latest/admin/advanced/search-engines/")
+	assert.Equal(t, robotsTxt, string(defaultRobotsTxt()), "subsequent call still works")
 }
