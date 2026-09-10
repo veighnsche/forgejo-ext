@@ -613,17 +613,13 @@ func listTeamInvitations(ctx *context.APIContext, options *organization.SearchIn
 func getTeamInvitationWithinTeam(ctx *context.APIContext) *organization.TeamInvite {
 	teamID := ctx.ParamsInt64("teamid")
 	inviteID := ctx.ParamsInt64("inviteid")
-	invite, err := organization.GetInviteByID(ctx, inviteID)
+	invite, err := organization.GetInviteInTeamByID(ctx, inviteID, teamID)
 	if err != nil {
 		if organization.IsErrTeamInviteNotFound(err) {
 			ctx.NotFound("getTeamInvitationWithinTeam")
 		} else {
 			ctx.Error(http.StatusInternalServerError, "GetInviteByID", err)
 		}
-		return nil
-	}
-	if invite.TeamID != teamID {
-		ctx.NotFound("getTeamInvitationWithinTeam")
 		return nil
 	}
 	err = invite.LoadUsers(ctx)
@@ -1067,19 +1063,13 @@ func ListMyTeamInvitations(ctx *context.APIContext) {
 
 func getMyTeamInvitation(ctx *context.APIContext) *organization.TeamInvite {
 	inviteID := ctx.ParamsInt64("inviteid")
-	invite, err := organization.GetInviteByID(ctx, inviteID)
+	invite, err := organization.GetInviteForUserByID(ctx, inviteID, ctx.Doer().ID)
 	if err != nil {
 		if organization.IsErrTeamInviteNotFound(err) {
 			ctx.NotFound("GetInviteByID")
 		} else {
 			ctx.Error(http.StatusInternalServerError, "GetInviteByID", err)
 		}
-		return nil
-	}
-	// check that it is intended for the current user
-	hasInvitedUser, invitedUserID := invite.InvitedID.Get()
-	if !hasInvitedUser || invitedUserID != ctx.Doer().ID {
-		ctx.NotFound("getMyTeamInvite")
 		return nil
 	}
 	// check  that it is not expired

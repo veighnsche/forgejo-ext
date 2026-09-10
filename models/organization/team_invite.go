@@ -224,9 +224,23 @@ func CreateTeamInviteForUser(ctx context.Context, doer, invited *user_model.User
 	return invite, db.Insert(ctx, invite)
 }
 
-func GetInviteByID(ctx context.Context, inviteID int64) (*TeamInvite, error) {
+// GetInviteForUserByID loads a team invite issued to a given user
+func GetInviteForUserByID(ctx context.Context, inviteID, userID int64) (*TeamInvite, error) {
 	invite := &TeamInvite{}
-	has, err := db.GetEngine(ctx).Where("id=?", inviteID).Get(invite)
+	has, err := db.GetEngine(ctx).Where("id=? AND invited_id=?", inviteID, userID).Get(invite)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, ErrTeamInviteNotFound{}
+	}
+	return invite, nil
+}
+
+// GetInviteInTeamByID loads a team invite within a given team
+func GetInviteInTeamByID(ctx context.Context, inviteID, teamID int64) (*TeamInvite, error) {
+	invite := &TeamInvite{}
+	has, err := db.GetEngine(ctx).Where("id=? AND team_id=?", inviteID, teamID).Get(invite)
 	if err != nil {
 		return nil, err
 	}
