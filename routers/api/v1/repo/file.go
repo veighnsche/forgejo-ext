@@ -82,7 +82,7 @@ func GetRawFile(ctx *context.APIContext) {
 	ctx.RespHeader().Set(giteaObjectTypeHeader, string(files_service.GetObjectTypeFromTreeEntry(entry)))
 	ctx.RespHeader().Set(forgejoObjectTypeHeader, string(files_service.GetObjectTypeFromTreeEntry(entry)))
 
-	if err := common.ServeBlob(ctx.Base, ctx.Repo().TreePath, blob, lastModified); err != nil {
+	if err := common.ServeBlobRaw(ctx.Base, ctx.Repo(), blob, lastModified); err != nil {
 		ctx.Error(http.StatusInternalServerError, "ServeBlob", err)
 	}
 }
@@ -140,8 +140,8 @@ func GetRawFileOrLFS(ctx *context.APIContext) {
 		}
 
 		// OK not cached - serve!
-		if err := common.ServeBlob(ctx.Base, ctx.Repo().TreePath, blob, lastModified); err != nil {
-			ctx.ServerError("ServeBlob", err)
+		if err := common.ServeBlobRaw(ctx.Base, ctx.Repo(), blob, lastModified); err != nil {
+			ctx.ServerError("ServeBlobRaw", err)
 		}
 		return
 	}
