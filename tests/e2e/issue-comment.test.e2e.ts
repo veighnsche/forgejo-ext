@@ -232,7 +232,8 @@ test('Quote reply', async ({page}, workerInfo) => {
   await page.click('#issuecomment-1001 .quote-reply');
 
   await expect(editorTextarea).toHaveValue('@user2 wrote in http://localhost:3003/user2/repo1/issues/1#issuecomment-1001:\n\n' +
-                                           '> ## [](#lorem-ipsum)Lorem Ipsum\n' +
+                                           '> ## Lorem Ipsum\n' +
+                                           '> [](#lorem-ipsum)\n' +
                                            '> \n' +
                                            '> I would like to say that **I am not appealed** that it took _so long_ for this `feature` to be [created](https://example.com) \\(e^{\\pi i} + 1 = 0\\)\n' +
                                            '> \n' +
@@ -255,7 +256,7 @@ test('Quote reply', async ({page}, workerInfo) => {
 
   await page.evaluate(() => {
     const range = new Range();
-    range.setStart(document.querySelector('#issuecomment-1001-content #user-content-lorem-ipsum').childNodes[1], 6);
+    range.setStart(document.querySelector('#issuecomment-1001-content #user-content-lorem-ipsum').childNodes[0], 6);
     range.setEnd(document.querySelector('#issuecomment-1001-content p').childNodes[1].childNodes[0], 7);
 
     const selection = window.getSelection();
@@ -268,6 +269,7 @@ test('Quote reply', async ({page}, workerInfo) => {
 
   await expect(editorTextarea).toHaveValue('@user2 wrote in http://localhost:3003/user2/repo1/issues/1#issuecomment-1001:\n\n' +
                                            '> ## Ipsum\n' +
+                                           '> [](#lorem-ipsum)\n' +
                                            '> \n' +
                                            '> I would like to say that **I am no**\n\n');
 
@@ -307,7 +309,8 @@ test('Pull quote reply', async ({page}, workerInfo) => {
   await page.click('.comment-code-cloud .quote-reply');
 
   await expect(editorTextarea).toHaveValue('@user2 wrote in http://localhost:3003/user2/commitsonpr/pulls/1/files#issuecomment-1002:\n\n' +
-                                           '> ## [](#lorem-ipsum)Lorem Ipsum\n' +
+                                           '> ## Lorem Ipsum\n' +
+                                           '> [](#lorem-ipsum)\n' +
                                            '> \n' +
                                            '> I would like to say that **I am not appealed** that it took _so long_ for this `feature` to be [created](https://example.com) \\(e^{\\pi i} + 1 = 0\\)\n' +
                                            '> \n' +
