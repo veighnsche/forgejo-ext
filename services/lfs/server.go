@@ -415,7 +415,7 @@ func getRequestContext(ctx *context.Context) *requestContext {
 func getAuthenticatedMeta(ctx *context.Context, rc *requestContext, p lfs_module.Pointer, requireWrite bool) *git_model.LFSMetaObject {
 	// NOTE that p.Size is not necessarily valid
 	if !p.IsOIDValid() {
-		log.Info("Attempt to access invalid LFS OID[%s] in %s/%s", p.Oid, rc.User, rc.Repo)
+		log.Info("Attempt to access invalid LFS OID[%s]/size=%d in %s", p.Oid, rc.User, rc.Repo)
 		writeStatusMessage(ctx, http.StatusUnprocessableEntity, "OID is invalid: "+p.Oid)
 		return nil
 	}

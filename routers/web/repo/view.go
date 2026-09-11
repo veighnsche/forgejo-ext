@@ -234,12 +234,12 @@ func getFileReader(ctx gocontext.Context, repoID int64, blob *git.Blob) ([]byte,
 	isTextFile := st.IsText()
 
 	// FIXME: what happens when README file is an image?
-	if !isTextFile || !setting.LFS.StartServer {
+	if !isTextFile {
 		return buf, dataRc, &fileInfo{isTextFile, false, blob.Size(), nil, st}, nil
 	}
 
 	pointer, err := lfs.ReadPointerFromBuffer(buf)
-	if err != nil { // fallback to plain file
+	if pointer == nil || err != nil { // fallback to plain file
 		return buf, dataRc, &fileInfo{isTextFile, false, blob.Size(), nil, st}, nil
 	}
 
@@ -251,7 +251,7 @@ func getFileReader(ctx gocontext.Context, repoID int64, blob *git.Blob) ([]byte,
 
 	dataRc.Close()
 
-	dataRc, err = lfs.ReadMetaObject(pointer)
+	dataRc, err = lfs.ReadMetaObject(*pointer)
 	if err != nil {
 		return nil, nil, nil, err
 	}
