@@ -251,11 +251,35 @@ var (
 	OIDCSubjectFormatLegacyForgejo15 OIDCSubjectFormat = "legacy-forgejo-v15"
 )
 
+// ActionsAccessScope controls which other repositories' Actions jobs may read
+// this repository while it is private. Public repositories are always readable,
+// so this setting only affects private ones.
+type ActionsAccessScope string
+
+const (
+	// ActionsAccessScopeNone grants no repository other than this one Actions
+	// read access. It is the empty default so new repositories keep today's behaviour.
+	ActionsAccessScopeNone ActionsAccessScope = ""
+
+	// ActionsAccessScopeSameOwner grants Actions read access to jobs in any
+	// repository owned by the same user or organization.
+	ActionsAccessScopeSameOwner ActionsAccessScope = "same-owner"
+
+	// ActionsAccessScopeSameOrg grants Actions read access to jobs in any
+	// repository in this repository's organization. Only meaningful when the
+	// owner is an organization.
+	ActionsAccessScopeSameOrg ActionsAccessScope = "same-org"
+)
+
 type ActionsConfig struct {
 	DisabledWorkflows []string
 
 	// Format of the OIDC 'sub' claim that will be used when `enable-openid-connect` is true in an Action.
 	OIDCSubjectFormat OIDCSubjectFormat `json:",omitempty"`
+
+	// AccessScope controls which other repositories' Actions jobs may read this
+	// repository while it is private.
+	AccessScope ActionsAccessScope `json:",omitempty"`
 }
 
 func (cfg *ActionsConfig) EnableWorkflow(file string) {

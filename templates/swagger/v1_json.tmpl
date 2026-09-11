@@ -26701,6 +26701,11 @@
       "description": "EditRepoOption options when editing a repository's properties",
       "type": "object",
       "properties": {
+        "actions_access_scope": {
+          "description": "which other repositories' Actions jobs may read this repository while it is private: \"\" (none), \"same-owner\", or \"same-org\".",
+          "type": "string",
+          "x-go-name": "ActionsAccessScope"
+        },
         "allow_fast_forward_only_merge": {
           "description": "either `true` to allow fast-forward-only merging pull requests, or `false` to prevent fast-forward-only merging.",
           "type": "boolean",
@@ -30165,6 +30170,10 @@
       "description": "Repository represents a repository",
       "type": "object",
       "properties": {
+        "actions_access_scope": {
+          "type": "string",
+          "x-go-name": "ActionsAccessScope"
+        },
         "allow_fast_forward_only_merge": {
           "type": "boolean",
           "x-go-name": "AllowFastForwardOnly"

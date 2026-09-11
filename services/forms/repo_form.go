@@ -186,6 +186,7 @@ type RepoUnitSettingForm struct {
 	EnablePackages                        bool
 	EnablePulls                           bool
 	EnableActions                         bool
+	ActionsAccessScope                    string `binding:"In(,same-owner,same-org)"`
 	PullsIgnoreWhitespace                 bool
 	PullsAllowMerge                       bool
 	PullsAllowRebase                      bool

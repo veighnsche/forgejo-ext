@@ -16,6 +16,7 @@ import (
 	"forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/setting"
 	"forgejo.org/services/authz"
 )
 
@@ -164,7 +165,48 @@ func GetActionRepoPermission(ctx context.Context, repo *repo_model.Repository, t
 		return perm, nil
 	}
 
+	// A private repo can opt in to letting other repositories' Actions jobs read
+	// it. Public repos are already readable below, so this only widens private ones.
+	if ActionsAccessGrantsRead(ctx, repo, task) {
+		if err := repo.LoadUnits(ctx); err != nil {
+			return Permission{}, err
+		}
+		return Permission{AccessMode: perm_model.AccessModeRead, Units: repo.Units}, nil
+	}
+
 	return GetUserRepoPermission(ctx, repo, user_model.NewActionsUser())
+}
+
+// ActionsAccessGrantsRead reports whether target has opted in, via its Actions
+// access scope, to letting the Actions job described by task read it. It applies
+// only to private targets (public repos are always readable) and only when the
+// instance has cross-repo Actions access enabled.
+func ActionsAccessGrantsRead(ctx context.Context, target *repo_model.Repository, task *actions_model.ActionTask) bool {
+	if !setting.Actions.CrossRepoAccessEnabled || !target.IsPrivate {
+		return false
+	}
+
+	cfgUnit, err := target.GetUnit(ctx, unit.TypeActions)
+	if err != nil {
+		return false // Actions is not enabled on the target.
+	}
+
+	switch cfgUnit.ActionsConfig().AccessScope {
+	case repo_model.ActionsAccessScopeSameOwner:
+		return task.OwnerID == target.OwnerID
+	case repo_model.ActionsAccessScopeSameOrg:
+		if task.OwnerID == target.OwnerID {
+			return true
+		}
+		owner, err := user_model.GetUserByID(ctx, target.OwnerID)
+		if err != nil || !owner.IsOrganization() {
+			return false
+		}
+		isMember, err := organization.IsOrganizationMember(ctx, target.OwnerID, task.OwnerID)
+		return err == nil && isMember
+	default:
+		return false
+	}
 }
 
 // GetUserRepoPermission returns the user permissions to the repository, where the user's permissions may be

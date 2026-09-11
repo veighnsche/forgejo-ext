@@ -103,6 +103,7 @@ func SettingsCtxData(ctx *context.Context) {
 func Units(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.settings.units.units")
 	ctx.Data["PageIsRepoSettingsUnits"] = true
+	ctx.Data["ActionsCrossRepoAccessEnabled"] = setting.Actions.CrossRepoAccessEnabled
 
 	ctx.HTML(http.StatusOK, tplSettingsUnits)
 }
@@ -244,9 +245,18 @@ func UnitsPost(ctx *context.Context) {
 	}
 
 	if form.EnableActions && !unit_model.TypeActions.UnitGlobalDisabled() {
+		// Preserve any existing Actions config and only overlay the access scope.
+		cfg := &repo_model.ActionsConfig{}
+		if existing, err := repo.GetUnit(ctx, unit_model.TypeActions); err == nil {
+			cfg = existing.ActionsConfig()
+		}
+		if setting.Actions.CrossRepoAccessEnabled {
+			cfg.AccessScope = repo_model.ActionsAccessScope(form.ActionsAccessScope)
+		}
 		units = append(units, repo_model.RepoUnit{
 			RepoID: repo.ID,
 			Type:   unit_model.TypeActions,
+			Config: cfg,
 		})
 	} else if !unit_model.TypeActions.UnitGlobalDisabled() {
 		deleteUnitTypes = append(deleteUnitTypes, unit_model.TypeActions)

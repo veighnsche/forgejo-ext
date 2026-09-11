@@ -22,11 +22,14 @@ func RepoAccess(ctx Context) {
 			return
 		}
 		if task.RepoID != ctx.Repository().ID {
-			ctx.NotFound()
-			return
-		}
-
-		if task.IsForkPullRequest {
+			// A different repo is only reachable when it opted into cross-repo
+			// Actions read access; the grant is read-only.
+			if !access_model.ActionsAccessGrantsRead(ctx.Context(), ctx.Repository(), task) {
+				ctx.NotFound()
+				return
+			}
+			ctx.Permission().AccessMode = perm.AccessModeRead
+		} else if task.IsForkPullRequest {
 			ctx.Permission().AccessMode = perm.AccessModeRead
 		} else {
 			ctx.Permission().AccessMode = perm.AccessModeWrite

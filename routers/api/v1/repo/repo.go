@@ -1092,11 +1092,33 @@ func updateRepoUnits(ctx *context.APIContext, owner string, repo *repo_model.Rep
 		}
 	}
 
-	if opts.HasActions != nil && !unit_model.TypeActions.UnitGlobalDisabled() {
-		if *opts.HasActions {
+	if (opts.HasActions != nil || opts.ActionsAccessScope != nil) && !unit_model.TypeActions.UnitGlobalDisabled() {
+		enable := repo.UnitEnabled(ctx, unit_model.TypeActions)
+		if opts.HasActions != nil {
+			enable = *opts.HasActions
+		}
+		if enable {
+			// Preserve any existing Actions config (disabled workflows, OIDC
+			// subject format) and only overlay the fields being changed.
+			cfg := &repo_model.ActionsConfig{}
+			if existing, err := repo.GetUnit(ctx, unit_model.TypeActions); err == nil {
+				cfg = existing.ActionsConfig()
+			}
+			if opts.ActionsAccessScope != nil {
+				scope := repo_model.ActionsAccessScope(*opts.ActionsAccessScope)
+				if scope != repo_model.ActionsAccessScopeNone &&
+					scope != repo_model.ActionsAccessScopeSameOwner &&
+					scope != repo_model.ActionsAccessScopeSameOrg {
+					err := fmt.Errorf("invalid actions access scope %q", *opts.ActionsAccessScope)
+					ctx.Error(http.StatusUnprocessableEntity, "ActionsAccessScope", err)
+					return err
+				}
+				cfg.AccessScope = scope
+			}
 			units = append(units, repo_model.RepoUnit{
 				RepoID: repo.ID,
 				Type:   unit_model.TypeActions,
+				Config: cfg,
 			})
 		} else {
 			deleteUnitTypes = append(deleteUnitTypes, unit_model.TypeActions)

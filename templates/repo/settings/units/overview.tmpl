@@ -58,6 +58,20 @@
 				<label>{{ctx.Locale.Tr "repo.settings.actions_desc"}}</label>
 			</div>
 		</div>
+		{{if .ActionsCrossRepoAccessEnabled}}
+			{{$actionsUnit := .Repository.MustGetUnit $.Context $.UnitTypeActions}}
+			<div class="field">
+				<label>{{ctx.Locale.Tr "repo.settings.actions_access_scope"}}</label>
+				<div class="ui dropdown selection">
+					<select name="actions_access_scope">
+						<option value="" {{if eq $actionsUnit.ActionsConfig.AccessScope "same-owner"}}{{else if eq $actionsUnit.ActionsConfig.AccessScope "same-org"}}{{else}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.actions_access_scope.none"}}</option>
+						<option value="same-owner" {{if eq $actionsUnit.ActionsConfig.AccessScope "same-owner"}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.actions_access_scope.same_owner"}}</option>
+						<option value="same-org" {{if eq $actionsUnit.ActionsConfig.AccessScope "same-org"}}selected{{end}}>{{ctx.Locale.Tr "repo.settings.actions_access_scope.same_org"}}</option>
+					</select>{{svg "octicon-triangle-down" 14 "dropdown icon"}}
+				</div>
+				<p class="help">{{ctx.Locale.Tr "repo.settings.actions_access_scope_desc"}}</p>
+			</div>
+		{{end}}
 	{{end}}
 
 	<div class="divider"></div>

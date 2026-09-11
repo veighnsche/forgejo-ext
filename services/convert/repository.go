@@ -135,8 +135,10 @@ func innerToRepo(ctx stdCtx.Context, repo *repo_model.Repository, permissionInRe
 	}
 
 	hasActions := false
-	if _, err := repo.GetUnit(ctx, unit_model.TypeActions); err == nil {
+	actionsAccessScope := ""
+	if actionsUnit, err := repo.GetUnit(ctx, unit_model.TypeActions); err == nil {
 		hasActions = true
+		actionsAccessScope = string(actionsUnit.ActionsConfig().AccessScope)
 	}
 
 	if err := repo.LoadOwner(ctx); err != nil {
@@ -240,6 +242,7 @@ func innerToRepo(ctx stdCtx.Context, repo *repo_model.Repository, permissionInRe
 		HasReleases:                   hasReleases,
 		HasPackages:                   hasPackages,
 		HasActions:                    hasActions,
+		ActionsAccessScope:            actionsAccessScope,
 		ExternalWiki:                  externalWiki,
 		HasPullRequests:               hasPullRequests,
 		IgnoreWhitespaceConflicts:     ignoreWhitespaceConflicts,

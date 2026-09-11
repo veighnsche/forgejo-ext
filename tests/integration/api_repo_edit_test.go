@@ -393,6 +393,26 @@ func TestAPIRepoEdit(t *testing.T) {
 		assert.Equal(t, "rebase", apiRepo.DefaultMergeStyle)
 		assert.Equal(t, "rebase", apiRepo.DefaultUpdateStyle)
 	})
+
+	t.Run("Actions access scope", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		invalidScope := "everyone"
+		MakeRequest(t, NewRequestWithJSON(t, "PATCH", url, &api.EditRepoOption{
+			HasActions:         &bTrue,
+			ActionsAccessScope: &invalidScope,
+		}).AddTokenAuth(token2), http.StatusUnprocessableEntity)
+
+		scope := "same-org"
+		MakeRequest(t, NewRequestWithJSON(t, "PATCH", url, &api.EditRepoOption{
+			HasActions:         &bTrue,
+			ActionsAccessScope: &scope,
+		}).AddTokenAuth(token2), http.StatusOK)
+
+		var apiRepo api.Repository
+		DecodeJSON(t, MakeRequest(t, NewRequest(t, "GET", url).AddTokenAuth(token2), http.StatusOK), &apiRepo)
+		assert.Equal(t, "same-org", apiRepo.ActionsAccessScope)
+	})
 }
 
 // This test verifies that a repo-specific access token with `write:repository` scope is not a sufficient scope to edit

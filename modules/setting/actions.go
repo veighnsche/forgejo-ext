@@ -28,6 +28,7 @@ var (
 		LimitDispatchInputs          int64             `ini:"LIMIT_DISPATCH_INPUTS"`
 		ConcurrencyGroupQueueEnabled bool              `ini:"CONCURRENCY_GROUP_QUEUE_ENABLED"`
 		IDTokenExpirationTime        int64             `ini:"ID_TOKEN_EXPIRATION_TIME"`
+		CrossRepoAccessEnabled       bool              `ini:"CROSS_REPO_ACCESS_ENABLED"`
 
 		KeyCfg *jwtx.KeyCfg
 	}{
