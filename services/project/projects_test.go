@@ -4,7 +4,6 @@
 package project
 
 import (
-	"errors"
 	"testing"
 
 	"forgejo.org/models/db"
@@ -354,7 +353,7 @@ func TestGetValidProjectColumnByID(t *testing.T) {
 	t.Run("Column Does Not Belong To Project", func(t *testing.T) {
 		differentColID := int64(4)
 		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, differentColID)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
+		assert.ErrorIs(t, err, util.ErrInvalidArgument)
 	})
 }
 
@@ -496,22 +495,22 @@ func TestGetProjectByIDForOwnerErrors(t *testing.T) {
 
 	t.Run("individual, wrong owner", func(t *testing.T) {
 		_, err := GetProjectByIDForOwner(t.Context(), project.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
+		assert.ErrorIs(t, err, util.ErrInvalidArgument)
 	})
 
 	t.Run("repository, wrong owner", func(t *testing.T) {
 		_, err := GetProjectByIDForOwner(t.Context(), repoProject.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
+		assert.ErrorIs(t, err, util.ErrInvalidArgument)
 	})
 
 	t.Run("organization, wrong owner", func(t *testing.T) {
 		_, err := GetProjectByIDForOwner(t.Context(), orgProject.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
+		assert.ErrorIs(t, err, util.ErrInvalidArgument)
 	})
 
 	t.Run("not existing project", func(t *testing.T) {
 		_, err := GetProjectByIDForOwner(t.Context(), 1234567890, 99)
-		assert.True(t, errors.Is(err, util.ErrNotExist))
+		assert.ErrorIs(t, err, util.ErrNotExist)
 	})
 }
 
