@@ -621,7 +621,7 @@ func TestProjectWebProjects(t *testing.T) {
 		// check links of projects in list
 		t.Run(name, func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
-			resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
+			resp := sessionGET(t, session, url, http.StatusOK)
 			doc := NewHTMLParser(t, resp.Body)
 			doc.AssertElement(t, expectElement, true)
 
@@ -691,7 +691,7 @@ func TestProjectWebProjects(t *testing.T) {
 
 		// one closed project
 		closeURL := fmt.Sprintf("%s/%d/close", projectsURL, project1.ID)
-		session.MakeRequest(t, NewRequest(t, "POST", closeURL), http.StatusOK)
+		sessionPOST(t, session, closeURL, http.StatusOK)
 
 		expectOpen = []string{project2URL, project3URL}
 		expectClosed = []string{project1URL}
@@ -722,7 +722,7 @@ func TestProjectWebProjects(t *testing.T) {
 
 		// close one project
 		closeURL := fmt.Sprintf("%s/%d/close", projectsURL, project1.ID)
-		session.MakeRequest(t, NewRequest(t, "POST", closeURL), http.StatusOK)
+		sessionPOST(t, session, closeURL, http.StatusOK)
 
 		// template: templates/org/projects/list.tmpl
 		// {{if .ContextUser.IsOrganization}}
@@ -762,7 +762,7 @@ func TestProjectWebProjects(t *testing.T) {
 
 		// close one project
 		closeURL := fmt.Sprintf("%s/%d/close", projectsURL, project1.ID)
-		session.MakeRequest(t, NewRequest(t, "POST", closeURL), http.StatusOK)
+		sessionPOST(t, session, closeURL, http.StatusOK)
 
 		// template: templates/repo/projects/list.tmpl
 		// template lines:
@@ -812,8 +812,7 @@ func TestProjectWebRenderNewProject(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/new", tt.owner, tt.repo)
-			resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
+			doc := getHTMLDoc(t, session, url, http.StatusOK)
 
 			// template: templates/org/projects/new.tmpl
 			// template lines:
@@ -939,11 +938,10 @@ func TestProjectWebCreateProject(t *testing.T) {
 				url := fmt.Sprintf("/%s/%s/projects", tt.owner, tt.repo)
 
 				// create project
-				session.MakeRequest(t, NewRequestWithJSON(t, "POST", url+"/new", &opts), http.StatusSeeOther)
+				sessionJSONPOST(t, session, url+"/new", &opts, http.StatusSeeOther)
 
 				// check project was created
-				resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
-				doc := NewHTMLParser(t, resp.Body)
+				doc := getHTMLDoc(t, session, url, http.StatusOK)
 				// template: templates/projects/list.tmpl
 				// template lines:
 				// <div class="milestone-list">
@@ -1009,7 +1007,7 @@ func TestProjectWebDeleteProject(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/1234567890/delete", tt.owner, tt.repo)
-			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusNotFound)
+			sessionPOST(t, session, url, http.StatusNotFound)
 		})
 	}
 
@@ -1028,7 +1026,7 @@ func TestProjectWebDeleteProject(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/delete", tt.owner, tt.repo, tt.projectID)
-			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusNotFound)
+			sessionPOST(t, session, url, http.StatusNotFound)
 		})
 	}
 
@@ -1049,13 +1047,13 @@ func TestProjectWebDeleteProject(t *testing.T) {
 			url := fmt.Sprintf("/%s/%s/projects/%d", tt.owner, tt.repo, tt.projectID)
 
 			// check project exists
-			session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
+			sessionGET(t, session, url, http.StatusOK)
 
 			// delete project
-			session.MakeRequest(t, NewRequest(t, "POST", url+"/delete"), http.StatusOK)
+			sessionPOST(t, session, url+"/delete", http.StatusOK)
 
 			// check project was deleted
-			session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusNotFound)
+			sessionGET(t, session, url, http.StatusNotFound)
 		})
 	}
 }
@@ -1096,8 +1094,7 @@ func TestProjectWebRenderEditProject(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/edit", tt.owner, tt.repo, tt.projectID)
-			resp := session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusOK)
-			doc := NewHTMLParser(t, resp.Body)
+			doc := getHTMLDoc(t, session, url, http.StatusOK)
 			// template: templates/org/projects/new.tmpl
 			// template lines:
 			// <div role="main" aria-label="{{.Title}}" class="page-content organization projects edit-project new">
@@ -1145,7 +1142,7 @@ func TestProjectWebRenderEditProject(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/edit", tt.owner, tt.repo, tt.projectID)
-			session.MakeRequest(t, NewRequest(t, "GET", url), http.StatusNotFound)
+			sessionGET(t, session, url, http.StatusNotFound)
 		})
 	}
 }
@@ -1191,7 +1188,7 @@ func TestProjectWebEditProjectPost(t *testing.T) {
 
 			// change project settings
 			url = fmt.Sprintf("%s/%d/edit", url, tt.projectID)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &projectOpts), http.StatusSeeOther)
+			sessionJSONPOST(t, session, url, &projectOpts, http.StatusSeeOther)
 
 			// check project settings were changed
 			project = unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: tt.projectID})
@@ -1215,7 +1212,7 @@ func TestProjectWebEditProjectPost(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/edit", tt.owner, tt.repo, tt.projectID)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &projectOpts), http.StatusNotFound)
+			sessionJSONPOST(t, session, url, &projectOpts, http.StatusNotFound)
 		})
 	}
 }
@@ -1245,7 +1242,7 @@ func TestProjectWebDeleteProjectColumn(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/1234567890/0", tt.owner, tt.repo)
-			session.MakeRequest(t, NewRequest(t, "DELETE", url), http.StatusNotFound)
+			sessionDELETE(t, session, url, http.StatusNotFound)
 		})
 	}
 
@@ -1264,7 +1261,7 @@ func TestProjectWebDeleteProjectColumn(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/0", tt.owner, tt.repo, tt.projectID)
-			session.MakeRequest(t, NewRequest(t, "DELETE", url), http.StatusNotFound)
+			sessionDELETE(t, session, url, http.StatusNotFound)
 		})
 	}
 
@@ -1284,7 +1281,7 @@ func TestProjectWebDeleteProjectColumn(t *testing.T) {
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/0", tt.owner, tt.repo, tt.projectID)
-			resp := session.MakeRequest(t, NewRequest(t, "DELETE", url), http.StatusInternalServerError)
+			resp := sessionDELETE(t, session, url, http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1344,7 +1341,7 @@ func TestProjectWebDeleteProjectColumn(t *testing.T) {
 
 			// delete column
 			url = fmt.Sprintf("%s/%d/%d", url, tt.projectID, columns[1].ID)
-			session.MakeRequest(t, NewRequest(t, "DELETE", url), http.StatusOK)
+			sessionDELETE(t, session, url, http.StatusOK)
 
 			// check column does not exist
 			unittest.AssertNotExistsBean(t, &project_model.Column{
@@ -1385,7 +1382,7 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/1234567890", tt.owner, tt.repo)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusNotFound)
+			sessionJSONPOST(t, session, url, &createOpts, http.StatusNotFound)
 		})
 	}
 
@@ -1404,7 +1401,7 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d", tt.owner, tt.repo, tt.projectID)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusNotFound)
+			sessionJSONPOST(t, session, url, &createOpts, http.StatusNotFound)
 		})
 	}
 
@@ -1429,7 +1426,7 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/", tt.owner, tt.repo, tt.projectID)
-			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOptsBad), http.StatusInternalServerError)
+			resp := sessionJSONPOST(t, session, url, &createOptsBad, http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1493,7 +1490,7 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			}, "column list should not contain column")
 
 			// create new column
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusOK)
+			sessionJSONPOST(t, session, url, &createOpts, http.StatusOK)
 
 			// check if column was created
 			postCols, err := db.Find[project_model.Column](t.Context(), project_model.FindColumnOptions{
@@ -1557,7 +1554,7 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/1234567890/0", tt.owner, tt.repo)
-			session.MakeRequest(t, NewRequestWithJSON(t, "PUT", url, &editOpts), http.StatusNotFound)
+			sessionJSONPUT(t, session, url, &editOpts, http.StatusNotFound)
 		})
 	}
 
@@ -1576,7 +1573,7 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/0", tt.owner, tt.repo, tt.projectID)
-			session.MakeRequest(t, NewRequestWithJSON(t, "PUT", url, &editOpts), http.StatusNotFound)
+			sessionJSONPUT(t, session, url, &editOpts, http.StatusNotFound)
 		})
 	}
 
@@ -1596,7 +1593,7 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/0", tt.owner, tt.repo, tt.projectID)
-			resp := session.MakeRequest(t, NewRequestWithJSON(t, "PUT", url, &editOpts), http.StatusInternalServerError)
+			resp := sessionJSONPUT(t, session, url, &editOpts, http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1644,7 +1641,7 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/%d", tt.owner, tt.repo, tt.projectID, tt.columnID)
-			resp := session.MakeRequest(t, NewRequestWithJSON(t, "PUT", url, &editOptsBad), http.StatusInternalServerError)
+			resp := sessionJSONPUT(t, session, url, &editOptsBad, http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1695,7 +1692,7 @@ func TestProjectWebEditProjectColumn(t *testing.T) {
 			assert.NotEqual(t, editOpts.Color, column.Color)
 
 			// change column settings
-			session.MakeRequest(t, NewRequestWithJSON(t, "PUT", url, &editOpts), http.StatusOK)
+			sessionJSONPUT(t, session, url, &editOpts, http.StatusOK)
 
 			// check that column settings were changed
 			column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{
@@ -1732,7 +1729,7 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/1234567890/0/default", tt.owner, tt.repo)
-			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusNotFound)
+			sessionPOST(t, session, url, http.StatusNotFound)
 		})
 	}
 
@@ -1751,7 +1748,7 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/0/default", tt.owner, tt.repo, tt.projectID)
-			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusNotFound)
+			sessionPOST(t, session, url, http.StatusNotFound)
 		})
 	}
 
@@ -1771,7 +1768,7 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/0/default", tt.owner, tt.repo, tt.projectID)
-			resp := session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusInternalServerError)
+			resp := sessionPOST(t, session, url, http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1831,7 +1828,7 @@ func TestProjectWebSetDefaultProjectColumn(t *testing.T) {
 
 			// set default column
 			url := fmt.Sprintf("/%s/%s/projects/%d/%d/default", tt.owner, tt.repo, tt.projectID, columns[1].ID)
-			session.MakeRequest(t, NewRequest(t, "POST", url), http.StatusOK)
+			sessionPOST(t, session, url, http.StatusOK)
 
 			// check that column is default now
 			column = unittest.AssertExistsAndLoadBean(t, &project_model.Column{
@@ -1870,7 +1867,7 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/1234567890/0/move", tt.owner, tt.repo)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusNotFound)
+			sessionJSONPOST(t, session, url, &moveOpts, http.StatusNotFound)
 		})
 	}
 
@@ -1889,7 +1886,7 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/0/move", tt.owner, tt.repo, tt.projectID)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusNotFound)
+			sessionJSONPOST(t, session, url, &moveOpts, http.StatusNotFound)
 		})
 	}
 
@@ -1909,7 +1906,7 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			defer test.MockVariableValue(&setting.IsProd, false)()
 			session := loginUser(t, user.Name)
 			url := fmt.Sprintf("/%s/%s/projects/%d/0/move", tt.owner, tt.repo, tt.projectID)
-			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusInternalServerError)
+			resp := sessionJSONPOST(t, session, url, &moveOpts, http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -1963,7 +1960,7 @@ func TestProjectWebMoveIssues(t *testing.T) {
 			moveOpts.ProjectIssues = []project_structs.ProjectIssue{
 				{IssueID: 1234567890, Sorting: 123},
 			}
-			resp := session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusInternalServerError)
+			resp := sessionJSONPOST(t, session, url, &moveOpts, http.StatusInternalServerError)
 
 			// template: templates/status/500.tmpl
 			// template lines:
@@ -2043,7 +2040,7 @@ func TestProjectWebMoveIssues(t *testing.T) {
 
 			// change sorting
 			url := fmt.Sprintf("/%s/%s/projects/%d/%d/move", tt.owner, tt.repo, tt.projectID, column.ID)
-			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &moveOpts), http.StatusOK)
+			sessionJSONPOST(t, session, url, &moveOpts, http.StatusOK)
 
 			// check sorting has changed
 			postIssues, count, err := db.FindAndCount[project_model.ProjectIssue](t.Context(),
