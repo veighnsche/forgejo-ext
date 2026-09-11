@@ -11,6 +11,7 @@
 import {expect} from '@playwright/test';
 import {test} from './utils_e2e.ts';
 import {screenshot} from './shared/screenshots.ts';
+import {accessibilityCheck} from './shared/accessibility.ts';
 
 test.use({user: 'user2'});
 
@@ -117,10 +118,47 @@ test('Watch/unwatch button URL retention', async ({page}) => {
   expect(page.url()).not.toContain('/unwatch');
 });
 
-test('README heading anchor links', async ({page}) => {
-  const response = await page.goto('/user2/repo1');
-  expect(response?.status()).toBe(200);
+test.describe('README heading anchor links', () => {
+  test.beforeEach(async ({page}) => {
+    const response = await page.goto('/user2/markup-headings');
+    expect(response?.status()).toBe(200);
+  });
 
-  const anchor = page.locator('[href="#repo1"]');
-  await expect(anchor).toHaveAccessibleName('Permalink: repo1');
+  test('anchor has accessible name', async ({page}) => {
+    const anchor = page.locator('[href="#markup-headings"]');
+    await expect(anchor).toHaveAccessibleName('Permalink: Markup headings');
+    await accessibilityCheck({page}, ['.markup :is(h1, h2, h3, h4, h5, h6)', '.markup .anchor'], [], []);
+  });
+
+  const allHeadings = [
+    {level: 1, name: 'Markup headings'},
+    {level: 2, name: 'Heading level 2'},
+    {level: 3, name: 'Heading level 3'},
+    {level: 4, name: 'Heading level 4'},
+    {level: 5, name: 'Heading level 5'},
+    {level: 6, name: 'The quick brown fox'},
+  ] as const;
+  for (const options of allHeadings) {
+    test(`anchor appears directly adjacent to h${options.level}`, async ({page}) => {
+      const heading = page.getByRole('heading', options);
+      const headingBox = await heading.boundingBox();
+      const headingHeight = await heading.evaluate(h => h.clientHeight - Number.parseFloat(getComputedStyle(h).paddingBottom));
+      const anchor = heading.locator('+ .anchor');
+      const anchorBox = await anchor.boundingBox();
+
+      expect(Math.round(anchorBox.y + anchorBox.height)).toBeCloseTo(Math.round(headingBox.y + headingHeight)); // aligned on bottom border
+      expect(anchorBox.x + anchorBox.width).toBeCloseTo(headingBox.x); // aligned on right border
+    });
+  }
+
+  for (const options of allHeadings.slice(0, 3)) {
+    test(`anchor is the same apparent height as adjacent h${options.level}`, async ({page}) => {
+      const heading = page.getByRole('heading', options);
+      const anchor = heading.locator('+ .anchor');
+      const anchorBox = await anchor.boundingBox();
+      const headingHeight = await heading.evaluate(h => h.clientHeight - Number.parseFloat(getComputedStyle(h).paddingBottom));
+
+      expect(Math.round(anchorBox.height)).toBeCloseTo(Math.round(headingHeight));
+    });
+  }
 });

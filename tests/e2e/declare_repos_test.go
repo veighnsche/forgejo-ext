@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -239,6 +240,17 @@ liberapay: example
 custom: "http://localhost:3003/"
 `},
 	}}, nil)
+	newRepoWithFiles(t, 2, "markup-headings", forgery.MapFS{
+		"README.md": forgery.MapFile(`# Markup headings
+This is a test.
+## Heading level 2
+### Heading level 3
+#### Heading level 4
+##### Heading level 5
+###### The quick brown fox
+jumps over the lazy dog.
+`),
+	})
 	// add your repo declarations here
 }
 
@@ -246,6 +258,23 @@ func readStringFile(t *testing.T, fn string) string {
 	c, err := os.ReadFile(filepath.Join(setting.AppWorkPath, fn))
 	require.NoError(t, err)
 	return string(c)
+}
+
+// Constructs a new repository with an initial commit
+func newRepoWithFiles(t *testing.T, userID int64, repoName string, files fs.FS) {
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: userID})
+
+	somerepo := forgery.CreateRepository(t, user, &forgery.CreateRepositoryOptions{
+		Name:  repoName,
+		Files: files,
+	})
+	forgery.EnableRepoUnits(t, somerepo,
+		unit_model.TypeCode,
+		unit_model.TypeIssues,
+	)
+
+	err := stats.UpdateRepoIndexer(somerepo)
+	require.NoError(t, err)
 }
 
 func newRepo(t *testing.T, userID int64, repoName string, enabledUnits map[unit_model.Type]convert.Conversion, fileChanges []FileChanges, setup SetupRepo) {
