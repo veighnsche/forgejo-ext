@@ -47,16 +47,6 @@ func (Column) TableName() string {
 	return "project_board" // TODO: the legacy table name should be project_column
 }
 
-func (c *Column) GetIssues(ctx context.Context, opts FindProjectIssueOptions) ([]*ProjectIssue, int64, error) {
-	opts.ProjectID = c.ProjectID
-	opts.ProjectColumnID = c.ID
-	issues, total, err := db.FindAndCount[ProjectIssue](ctx, opts)
-	if err != nil {
-		return nil, 0, err
-	}
-	return issues, total, nil
-}
-
 // FindColumnOptions contains options to find columns.
 type FindColumnOptions struct {
 	db.ListOptions

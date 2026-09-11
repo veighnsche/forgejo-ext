@@ -53,14 +53,18 @@ func Test_moveIssuesToAnotherColumn(t *testing.T) {
 
 	column1 := unittest.AssertExistsAndLoadBean(t, &Column{ID: 1, ProjectID: 1})
 
-	issues, total, err := column1.GetIssues(db.DefaultContext, FindProjectIssueOptions{ListOptions: db.ListOptionsAll})
+	issues, total, err := db.FindAndCount[ProjectIssue](db.DefaultContext, FindProjectIssueOptions{
+		ListOptions: db.ListOptionsAll, ProjectID: column1.ProjectID, ProjectColumnID: column1.ID,
+	})
 	require.NoError(t, err)
 	assert.Len(t, issues, 1)
 	assert.EqualValues(t, 1, issues[0].ID)
 	assert.Equal(t, int64(1), total)
 
 	column2 := unittest.AssertExistsAndLoadBean(t, &Column{ID: 2, ProjectID: 1})
-	issues, total, err = column2.GetIssues(db.DefaultContext, FindProjectIssueOptions{ListOptions: db.ListOptionsAll})
+	issues, total, err = db.FindAndCount[ProjectIssue](db.DefaultContext, FindProjectIssueOptions{
+		ListOptions: db.ListOptionsAll, ProjectID: column2.ProjectID, ProjectColumnID: column2.ID,
+	})
 	require.NoError(t, err)
 	assert.Len(t, issues, 1)
 	assert.EqualValues(t, 3, issues[0].ID)
@@ -69,12 +73,16 @@ func Test_moveIssuesToAnotherColumn(t *testing.T) {
 	err = column1.moveIssuesToAnotherColumn(db.DefaultContext, column2)
 	require.NoError(t, err)
 
-	issues, total, err = column1.GetIssues(db.DefaultContext, FindProjectIssueOptions{ListOptions: db.ListOptionsAll})
+	issues, total, err = db.FindAndCount[ProjectIssue](db.DefaultContext, FindProjectIssueOptions{
+		ListOptions: db.ListOptionsAll, ProjectID: column1.ProjectID, ProjectColumnID: column1.ID,
+	})
 	require.NoError(t, err)
 	assert.Empty(t, issues)
 	assert.Equal(t, int64(0), total)
 
-	issues, total, err = column2.GetIssues(db.DefaultContext, FindProjectIssueOptions{ListOptions: db.ListOptionsAll})
+	issues, total, err = db.FindAndCount[ProjectIssue](db.DefaultContext, FindProjectIssueOptions{
+		ListOptions: db.ListOptionsAll, ProjectID: column2.ProjectID, ProjectColumnID: column2.ID,
+	})
 	require.NoError(t, err)
 	assert.Len(t, issues, 2)
 	assert.EqualValues(t, 3, issues[0].ID)
@@ -305,12 +313,14 @@ func TestColumnGetIssuesPagination(t *testing.T) {
 		{name: "30 per page", pageSize: 30, page: 1, issues: 3},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			issues, total, err := column1.GetIssues(t.Context(),
+			issues, total, err := db.FindAndCount[ProjectIssue](t.Context(),
 				FindProjectIssueOptions{
 					ListOptions: db.ListOptions{
 						PageSize: tt.pageSize,
 						Page:     tt.page,
 					},
+					ProjectID:       column1.ProjectID,
+					ProjectColumnID: column1.ID,
 				},
 			)
 			require.NoError(t, err)

@@ -192,7 +192,9 @@ func (c *Column) moveIssuesToAnotherColumn(ctx context.Context, newColumn *Colum
 		return err
 	}
 
-	issues, _, err := c.GetIssues(ctx, FindProjectIssueOptions{ListOptions: db.ListOptionsAll})
+	issues, err := db.Find[ProjectIssue](ctx, FindProjectIssueOptions{
+		ListOptions: db.ListOptionsAll, ProjectID: c.ProjectID, ProjectColumnID: c.ID,
+	})
 	if err != nil {
 		return err
 	}

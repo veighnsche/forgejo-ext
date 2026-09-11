@@ -680,8 +680,12 @@ func TestCRUDProject(t *testing.T) {
 		defaultCol, err := project.GetDefaultColumn(t.Context())
 		require.NoError(t, err)
 
-		defaultIssues, _, err := defaultCol.GetIssues(t.Context(),
-			project_model.FindProjectIssueOptions{ListOptions: db.ListOptionsAll})
+		defaultIssues, err := db.Find[project_model.ProjectIssue](t.Context(),
+			project_model.FindProjectIssueOptions{
+				ListOptions:     db.ListOptionsAll,
+				ProjectID:       defaultCol.ProjectID,
+				ProjectColumnID: defaultCol.ID,
+			})
 		require.NoError(t, err)
 
 		assert.Contains(t, defaultIssues, pI1)
