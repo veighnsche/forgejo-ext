@@ -84,14 +84,27 @@ func TestUpdateRemoteVersion(t *testing.T) {
 		})).Return(nil)
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
 
-		require.NoError(t, UpdateRemoteVersion(t.Context(), []string{"16.0.3", "15.0.7"}))
+		require.NoError(t, UpdateRemoteVersion(t.Context(), []string{"16.0.3", "15.0.7"}, nil))
+	})
+
+	t.Run("success storing error", func(t *testing.T) {
+		state := system.NewMockStateStore(t)
+		state.On("Set", mock.Anything, mock.MatchedBy(func(item system.StateItem) bool {
+			cs, ok := item.(*CheckerState)
+			require.True(t, ok)
+			return cs.Name() == "update-checker" &&
+				cs.Error == "some error"
+		})).Return(nil)
+		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
+
+		require.NoError(t, UpdateRemoteVersion(t.Context(), nil, errors.New("some error")))
 	})
 
 	t.Run("error", func(t *testing.T) {
 		state := system.NewMockStateStore(t)
 		state.On("Set", mock.Anything, mock.Anything).Return(errors.New("oh no"))
 		defer test.MockVariableValue[system.StateStore](&system.AppState, state)()
-		require.ErrorContains(t, UpdateRemoteVersion(t.Context(), []string{"16.0.3", "15.0.7"}), "oh no")
+		require.ErrorContains(t, UpdateRemoteVersion(t.Context(), []string{"16.0.3", "15.0.7"}, nil), "oh no")
 	})
 }
 

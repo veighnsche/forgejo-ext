@@ -25,6 +25,7 @@ import (
 // CheckerState stores the remote version from the JSON endpoint
 type CheckerState struct {
 	SupportedVersions []string
+	Error             string
 }
 
 // Name returns the name of the state item for update checker
@@ -46,11 +47,7 @@ func GiteaUpdateChecker(httpEndpoint, domainEndpoint string) error {
 		version = []string{v}
 	}
 
-	if err != nil {
-		return err
-	}
-
-	return UpdateRemoteVersion(context.Background(), version)
+	return UpdateRemoteVersion(context.Background(), version, err)
 }
 
 var lookupTXT = net.LookupTXT
@@ -122,8 +119,14 @@ func getVersionHTTP(httpEndpoint string) (version string, err error) {
 }
 
 // UpdateRemoteVersion updates the latest available version of Gitea
-func UpdateRemoteVersion(ctx context.Context, versions []string) (err error) {
-	return system.AppState.Set(ctx, &CheckerState{SupportedVersions: versions})
+func UpdateRemoteVersion(ctx context.Context, versions []string, err error) error {
+	var state CheckerState
+	if err != nil {
+		state.Error = err.Error()
+	} else {
+		state.SupportedVersions = versions
+	}
+	return system.AppState.Set(ctx, &state)
 }
 
 type MajorReleaseState int
@@ -160,6 +163,9 @@ func GetReleaseState(ctx context.Context) (*ReleaseState, error) {
 	if err := system.AppState.Get(ctx, item); err != nil {
 		log.Warn("system appstate unable to retrieve update checker output: %s", err)
 		return nil, fmt.Errorf("system appstate unable to retrieve update checker output: %w", err)
+	} else if item.Error != "" {
+		// Persisted error from cron job.
+		return nil, errors.New(item.Error)
 	} else if item.SupportedVersions == nil {
 		// If the update checker hasn't yet been run, or has been disabled,  or hasn't been run since the format was
 		// changed from storing a single version to multiple versions, then we don't know available releases.
