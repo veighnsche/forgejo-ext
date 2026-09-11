@@ -142,7 +142,7 @@ test.describe('README heading anchor links', () => {
     test(`anchor appears directly adjacent to h${options.level}`, async ({page}) => {
       const heading = page.getByRole('heading', options);
       const headingBox = await heading.boundingBox();
-      const headingHeight = await heading.evaluate(h => h.clientHeight - Number.parseFloat(getComputedStyle(h).paddingBottom));
+      const headingHeight = await heading.evaluate((h) => h.clientHeight - Number.parseFloat(getComputedStyle(h).paddingBottom));
       const anchor = heading.locator('+ .anchor');
       const anchorBox = await anchor.boundingBox();
 
@@ -156,7 +156,7 @@ test.describe('README heading anchor links', () => {
       const heading = page.getByRole('heading', options);
       const anchor = heading.locator('+ .anchor');
       const anchorBox = await anchor.boundingBox();
-      const headingHeight = await heading.evaluate(h => h.clientHeight - Number.parseFloat(getComputedStyle(h).paddingBottom));
+      const headingHeight = await heading.evaluate((h) => h.clientHeight - Number.parseFloat(getComputedStyle(h).paddingBottom));
 
       expect(Math.round(anchorBox.height)).toBeCloseTo(Math.round(headingHeight));
     });
