@@ -78,7 +78,7 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 	assert.EqualValues(t, 0, columns[0].Sorting)
 	assert.EqualValues(t, 1, columns[1].Sorting)
 	assert.EqualValues(t, 2, columns[2].Sorting)
-	assert.Equal(t, int64(3), total)
+	assert.EqualValues(t, 3, total)
 
 	sess := loginUser(t, "user1")
 	req := NewRequestWithJSON(t, "POST", fmt.Sprintf("/%s/projects/%d/move", repo2.FullName(), project1.ID), map[string]any{
@@ -98,7 +98,7 @@ func TestMoveRepoProjectColumns(t *testing.T) {
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)
 	assert.Equal(t, columns[2].ID, columnsAfter[1].ID)
 	assert.Equal(t, columns[0].ID, columnsAfter[2].ID)
-	assert.Equal(t, int64(3), total)
+	assert.EqualValues(t, 3, total)
 
 	require.NoError(t, project_model.DeleteProjectByID(db.DefaultContext, project1.ID, optional.Some(project1.RepoID)))
 }
@@ -2033,7 +2033,7 @@ func TestProjectWebMoveIssues(t *testing.T) {
 					ProjectColumnID: column.ID,
 				})
 			require.NoError(t, err)
-			assert.Equal(t, int64(2), count)
+			assert.EqualValues(t, 2, count)
 
 			// set new sorting in moveOpts
 			moveOpts.ProjectIssues = []project_structs.ProjectIssue{
@@ -2053,7 +2053,7 @@ func TestProjectWebMoveIssues(t *testing.T) {
 					ProjectColumnID: column.ID,
 				})
 			require.NoError(t, err)
-			assert.Equal(t, int64(2), count)
+			assert.EqualValues(t, 2, count)
 			assert.NotEqual(t, preIssues, postIssues)
 		})
 	}

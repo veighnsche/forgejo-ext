@@ -26,7 +26,7 @@ func TestGetDefaultColumn(t *testing.T) {
 	// check if default column was added
 	column, err := projectWithoutDefault.GetDefaultColumn(db.DefaultContext)
 	require.NoError(t, err)
-	assert.Equal(t, int64(5), column.ProjectID)
+	assert.EqualValues(t, 5, column.ProjectID)
 	assert.Equal(t, "Uncategorized", column.Title)
 
 	projectWithMultipleDefaults, err := GetProjectByID(db.DefaultContext, 6)
@@ -35,8 +35,8 @@ func TestGetDefaultColumn(t *testing.T) {
 	// check if multiple defaults were removed
 	column, err = projectWithMultipleDefaults.GetDefaultColumn(db.DefaultContext)
 	require.NoError(t, err)
-	assert.Equal(t, int64(6), column.ProjectID)
-	assert.Equal(t, int64(9), column.ID)
+	assert.EqualValues(t, 6, column.ProjectID)
+	assert.EqualValues(t, 9, column.ID)
 
 	// set 8 as default column
 	require.NoError(t, SetDefaultColumn(db.DefaultContext, column.ProjectID, 8))
@@ -44,7 +44,7 @@ func TestGetDefaultColumn(t *testing.T) {
 	// then 9 will become a non-default column
 	column, err = GetColumn(db.DefaultContext, 9)
 	require.NoError(t, err)
-	assert.Equal(t, int64(6), column.ProjectID)
+	assert.EqualValues(t, 6, column.ProjectID)
 	assert.False(t, column.Default)
 }
 
@@ -59,7 +59,7 @@ func Test_moveIssuesToAnotherColumn(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, issues, 1)
 	assert.EqualValues(t, 1, issues[0].ID)
-	assert.Equal(t, int64(1), total)
+	assert.EqualValues(t, 1, total)
 
 	column2 := unittest.AssertExistsAndLoadBean(t, &Column{ID: 2, ProjectID: 1})
 	issues, total, err = db.FindAndCount[ProjectIssue](db.DefaultContext, FindProjectIssueOptions{
@@ -68,7 +68,7 @@ func Test_moveIssuesToAnotherColumn(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, issues, 1)
 	assert.EqualValues(t, 3, issues[0].ID)
-	assert.Equal(t, int64(1), total)
+	assert.EqualValues(t, 1, total)
 
 	err = column1.moveIssuesToAnotherColumn(db.DefaultContext, column2)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func Test_moveIssuesToAnotherColumn(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Empty(t, issues)
-	assert.Equal(t, int64(0), total)
+	assert.EqualValues(t, 0, total)
 
 	issues, total, err = db.FindAndCount[ProjectIssue](db.DefaultContext, FindProjectIssueOptions{
 		ListOptions: db.ListOptionsAll, ProjectID: column2.ProjectID, ProjectColumnID: column2.ID,
@@ -89,7 +89,7 @@ func Test_moveIssuesToAnotherColumn(t *testing.T) {
 	assert.EqualValues(t, 0, issues[0].Sorting)
 	assert.EqualValues(t, 1, issues[1].ID)
 	assert.EqualValues(t, 1, issues[1].Sorting)
-	assert.Equal(t, int64(2), total)
+	assert.EqualValues(t, 2, total)
 }
 
 func Test_MoveColumnsOnProject(t *testing.T) {
@@ -104,7 +104,7 @@ func Test_MoveColumnsOnProject(t *testing.T) {
 	assert.EqualValues(t, 0, columns[0].Sorting)
 	assert.EqualValues(t, 1, columns[1].Sorting)
 	assert.EqualValues(t, 2, columns[2].Sorting)
-	assert.Equal(t, int64(3), total)
+	assert.EqualValues(t, 3, total)
 
 	err = MoveColumnsOnProject(db.DefaultContext, project1.ID, map[int64]int64{
 		0: columns[1].ID,
@@ -121,7 +121,7 @@ func Test_MoveColumnsOnProject(t *testing.T) {
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)
 	assert.Equal(t, columns[2].ID, columnsAfter[1].ID)
 	assert.Equal(t, columns[0].ID, columnsAfter[2].ID)
-	assert.Equal(t, int64(3), total)
+	assert.EqualValues(t, 3, total)
 }
 
 func TestMoveColumnsOnProjectSwap(t *testing.T) {
@@ -133,7 +133,7 @@ func TestMoveColumnsOnProjectSwap(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, columns, 3)
-	require.Equal(t, int64(3), total)
+	require.EqualValues(t, 3, total)
 
 	// First give them distinct positions
 	err = MoveColumnsOnProject(db.DefaultContext, project1.ID, map[int64]int64{
@@ -159,7 +159,7 @@ func TestMoveColumnsOnProjectSwap(t *testing.T) {
 	assert.Equal(t, columns[1].ID, columnsAfter[0].ID)
 	assert.Equal(t, columns[0].ID, columnsAfter[1].ID)
 	assert.Equal(t, columns[2].ID, columnsAfter[2].ID)
-	assert.Equal(t, int64(3), total)
+	assert.EqualValues(t, 3, total)
 }
 
 func TestUpdateColumnSortingZero(t *testing.T) {
@@ -172,7 +172,7 @@ func TestUpdateColumnSortingZero(t *testing.T) {
 	// Verify it was set to 5
 	updated, err := GetColumn(db.DefaultContext, column.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int8(5), updated.Sorting)
+	assert.EqualValues(t, 5, updated.Sorting)
 
 	// Now set it back to 0
 	column.Sorting = 0
@@ -180,7 +180,7 @@ func TestUpdateColumnSortingZero(t *testing.T) {
 
 	updated, err = GetColumn(db.DefaultContext, column.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int8(0), updated.Sorting)
+	assert.EqualValues(t, 0, updated.Sorting)
 }
 
 func Test_NewColumn(t *testing.T) {
@@ -192,7 +192,7 @@ func Test_NewColumn(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Len(t, columns, 3)
-	require.Equal(t, int64(3), total)
+	require.EqualValues(t, 3, total)
 
 	for i := range maxProjectColumns - 3 {
 		err := CreateColumn(db.DefaultContext, &Column{
@@ -275,7 +275,7 @@ func TestGetColumnsPagination(t *testing.T) {
 			})
 			require.NoError(t, err)
 			assert.Len(t, columns, tt.columns)
-			assert.Equal(t, int64(3), total)
+			assert.EqualValues(t, 3, total)
 		})
 	}
 }
@@ -325,7 +325,7 @@ func TestColumnGetIssuesPagination(t *testing.T) {
 			)
 			require.NoError(t, err)
 			assert.Len(t, issues, tt.issues)
-			assert.Equal(t, int64(3), total)
+			assert.EqualValues(t, 3, total)
 		})
 	}
 }

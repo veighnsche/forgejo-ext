@@ -119,7 +119,7 @@ func TestListProjectByOptions(t *testing.T) {
 	}
 	projects, err := ListProjectsByOptions(t.Context(), opts)
 	require.NoError(t, err)
-	assert.Equal(t, int64(4), projects[0].ID)
+	assert.EqualValues(t, 4, projects[0].ID)
 }
 
 func TestGetIssues(t *testing.T) {
@@ -151,7 +151,7 @@ func TestCountProjectsByOptions(t *testing.T) {
 	}
 	count, err := CountProjectsByOptions(t.Context(), opts)
 	require.NoError(t, err)
-	assert.Equal(t, int64(3), count)
+	assert.EqualValues(t, 3, count)
 }
 
 func TestNewProject(t *testing.T) {
@@ -671,10 +671,10 @@ func TestCRUDProject(t *testing.T) {
 
 		pI1 = unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: 1})
 		pI2 = unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: 2})
-		assert.Equal(t, int64(2), pI1.Sorting)
-		assert.Equal(t, int64(1), pI2.Sorting)
-		assert.Equal(t, int64(1), pI1.ProjectColumnID)
-		assert.Equal(t, int64(1), pI2.ProjectColumnID)
+		assert.EqualValues(t, 2, pI1.Sorting)
+		assert.EqualValues(t, 1, pI2.Sorting)
+		assert.EqualValues(t, 1, pI1.ProjectColumnID)
+		assert.EqualValues(t, 1, pI2.ProjectColumnID)
 
 		// get issues in default column
 		defaultCol, err := project.GetDefaultColumn(t.Context())
