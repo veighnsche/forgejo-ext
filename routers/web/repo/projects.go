@@ -5,7 +5,6 @@ package repo
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -55,12 +54,9 @@ func MustEnableProjects(ctx *context.Context) {
 func getAndCheckProjectByID(ctx *context.Context, projectID int64) *project_model.Project {
 	project, err := project_service.GetProjectByIDForOwner(ctx, projectID, ctx.Repo.Repository.ID)
 	if err != nil {
-		if errors.Is(err, util.ErrInvalidArgument) || project_model.IsErrProjectNotExist(err) {
-			log.Error(fmt.Sprintf("error getting project %d: %v", projectID, err.Error()))
-			ctx.NotFound("GetProjectByIDForOwner", errors.New("could not find project"))
-			return nil
-		}
-		ctx.ServerError("GetProjectByIDForOwner", err)
+		ctx.NotFoundOrServerError("GetProjectByIDForOwner", func(err error) bool {
+			return errors.Is(err, util.ErrInvalidArgument) || project_model.IsErrProjectNotExist(err)
+		}, err)
 		return nil
 	}
 	return project
