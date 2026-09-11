@@ -116,3 +116,11 @@ test('Watch/unwatch button URL retention', async ({page}) => {
   expect(page.url()).not.toContain('/watch');
   expect(page.url()).not.toContain('/unwatch');
 });
+
+test('README heading anchor links', async ({page}) => {
+  const response = await page.goto('/user2/repo1');
+  expect(response?.status()).toBe(200);
+
+  const anchor = page.locator('[href="#repo1"]');
+  await expect(anchor).toHaveAccessibleName('Permalink: repo1');
+});

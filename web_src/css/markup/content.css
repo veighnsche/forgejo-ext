@@ -24,46 +24,42 @@
 
 .markup .anchor {
   float: inline-start;
+  position: relative;
+  display: flex;
+  align-items: center;
   padding-inline-end: 4px;
   margin-inline-start: -20px;
   color: inherit;
 }
 
-.markup .anchor .svg {
-  vertical-align: middle;
+.markup h1 + .anchor {
+  height: 40px;
+  top: -66px;
 }
 
-.markup .anchor:focus {
-  outline: none;
+.markup h2 + .anchor {
+  height: 30px;
+  top: -54px;
 }
 
-.markup h1 .anchor {
-  margin-top: -2px; /* re-align to center */
+.markup h3 + .anchor {
+  height: 25px;
+  top: -41px;
 }
 
-.markup h1 .anchor .svg,
-.markup h2 .anchor .svg,
-.markup h3 .anchor .svg,
-.markup h4 .anchor .svg,
-.markup h5 .anchor .svg,
-.markup h6 .anchor .svg {
+.markup :is(h4, h5, h6) + .anchor {
+  height: 20px;
+  top: -36px;
+}
+
+.markup :is(h1, h2, h3, h4, h5, h6) + .anchor .svg {
   visibility: hidden;
 }
 
-.markup h1:hover .anchor .svg,
-.markup h2:hover .anchor .svg,
-.markup h3:hover .anchor .svg,
-.markup h4:hover .anchor .svg,
-.markup h5:hover .anchor .svg,
-.markup h6:hover .anchor .svg {
+.markup :is(h1, h2, h3, h4, h5, h6):hover + .anchor .svg,
+.markup .anchor:hover .svg,
+.markup .anchor:focus-visible .svg {
   visibility: visible;
-}
-
-.markup h2 .anchor .svg,
-.markup h3 .anchor .svg,
-.markup h4 .anchor .svg {
-  position: relative;
-  top: -2px;
 }
 
 .markup h1,
