@@ -7,21 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"forgejo.org/models/db"
 	project_model "forgejo.org/models/project"
 	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/validation"
 )
-
-// ListProjectColumns Fetches a list of ProjectColumns and also returns their total count
-func ListProjectColumns(ctx context.Context, projectID int64, opts project_model.FindColumnOptions) ([]*project_model.Column, int64, error) {
-	opts.ProjectID = projectID
-	columns, total, err := db.FindAndCount[project_model.Column](ctx, opts)
-	if err != nil {
-		return nil, 0, fmt.Errorf("could not list columns for project %d: %w", projectID, err)
-	}
-	return columns, total, nil
-}
 
 func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, error) {
 	column, err := project_model.GetColumn(ctx, columnID)

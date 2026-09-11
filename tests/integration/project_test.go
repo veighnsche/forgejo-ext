@@ -28,7 +28,6 @@ import (
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/translation"
 	forms_service "forgejo.org/services/forms"
-	project_service "forgejo.org/services/project"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 
@@ -1485,7 +1484,9 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			}
 
 			// check current columns
-			preCols, _, err := project_service.ListProjectColumns(t.Context(), tt.projectID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
+			preCols, err := db.Find[project_model.Column](t.Context(), project_model.FindColumnOptions{
+				ListOptions: db.ListOptionsAll, ProjectID: tt.projectID,
+			})
 			require.NoError(t, err)
 			assert.Condition(t, func() bool {
 				return !containFunc(preCols)
@@ -1495,7 +1496,9 @@ func TestProjectWebCreateColumnInProject(t *testing.T) {
 			session.MakeRequest(t, NewRequestWithJSON(t, "POST", url, &createOpts), http.StatusOK)
 
 			// check if column was created
-			postCols, _, err := project_service.ListProjectColumns(t.Context(), tt.projectID, project_model.FindColumnOptions{ListOptions: db.ListOptionsAll})
+			postCols, err := db.Find[project_model.Column](t.Context(), project_model.FindColumnOptions{
+				ListOptions: db.ListOptionsAll, ProjectID: tt.projectID,
+			})
 			require.NoError(t, err)
 			assert.NotEqual(t, preCols, postCols)
 			assert.Condition(t, func() bool {
