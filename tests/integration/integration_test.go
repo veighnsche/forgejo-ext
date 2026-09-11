@@ -745,19 +745,22 @@ func getHTMLDoc(t testing.TB, session *TestSession, urlStr string, expectedStatu
 	return NewHTMLParser(t, resp.Body)
 }
 
-func sessionJSONPOST(t testing.TB, session *TestSession, endpoint string, opts any) *httptest.ResponseRecorder {
+func sessionJSONPOST(t testing.TB, session *TestSession, endpoint string, opts any, expectedStatus int,
+) *httptest.ResponseRecorder {
 	req := NewRequestWithJSON(t, "POST", endpoint, &opts)
-	return session.MakeRequest(t, req, NoExpectedStatus)
+	return session.MakeRequest(t, req, expectedStatus)
 }
 
-func sessionPOST(t testing.TB, session *TestSession, endpoint string) *httptest.ResponseRecorder {
+func sessionPOST(t testing.TB, session *TestSession, endpoint string, expectedStatus int,
+) *httptest.ResponseRecorder {
 	req := NewRequest(t, "POST", endpoint)
-	return session.MakeRequest(t, req, NoExpectedStatus)
+	return session.MakeRequest(t, req, expectedStatus)
 }
 
-func sessionGET(t testing.TB, session *TestSession, endpoint string) *httptest.ResponseRecorder {
+func sessionGET(t testing.TB, session *TestSession, endpoint string, expectedStatus int,
+) *httptest.ResponseRecorder {
 	req := NewRequest(t, "GET", endpoint)
-	return session.MakeRequest(t, req, NoExpectedStatus)
+	return session.MakeRequest(t, req, expectedStatus)
 }
 
 func SortMailerMessages(msgs []*mailer.Message) {

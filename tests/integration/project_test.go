@@ -2076,14 +2076,12 @@ func TestProjectWebCRUD(t *testing.T) {
 	}
 
 	newProjectEndpoint := fmt.Sprintf("/%v/-/projects/new", user2.Name)
-	resp := sessionJSONPOST(t, session, newProjectEndpoint, projectOpts)
-	assert.Equal(t, http.StatusSeeOther, resp.Code)
+	sessionJSONPOST(t, session, newProjectEndpoint, projectOpts, http.StatusSeeOther)
 
 	project := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: 4})
 
 	getProjectEndpoint := fmt.Sprintf("/%v/-/projects/%d", user2.Name, project.ID)
-	resp = sessionGET(t, session, getProjectEndpoint)
-	assert.Equal(t, http.StatusOK, resp.Code)
+	sessionGET(t, session, getProjectEndpoint, http.StatusOK)
 
 	// Create columns in a project
 	createPCOpt1 := forms_service.EditProjectColumnForm{
@@ -2093,8 +2091,7 @@ func TestProjectWebCRUD(t *testing.T) {
 	}
 
 	newProjectColEndpoint := fmt.Sprintf("/%v/-/projects/%d", user2.Name, project.ID)
-	resp = sessionJSONPOST(t, session, newProjectColEndpoint, createPCOpt1)
-	assert.Equal(t, http.StatusOK, resp.Code)
+	sessionJSONPOST(t, session, newProjectColEndpoint, createPCOpt1, http.StatusOK)
 
 	// Create, Get project for an owner
 	editProjectOpts := forms_service.CreateProjectForm{
@@ -2104,13 +2101,11 @@ func TestProjectWebCRUD(t *testing.T) {
 	}
 
 	editProjectEndpoint := fmt.Sprintf("/%v/-/projects/%d/edit", user2.Name, project.ID)
-	resp = sessionJSONPOST(t, session, editProjectEndpoint, editProjectOpts)
-	assert.Equal(t, http.StatusSeeOther, resp.Code)
+	sessionJSONPOST(t, session, editProjectEndpoint, editProjectOpts, http.StatusSeeOther)
 
 	// Remove project
 	deleteProjectEndpoint := fmt.Sprintf("/%v/-/projects/%d/delete", user2.Name, project.ID)
-	resp = sessionPOST(t, session, deleteProjectEndpoint)
-	assert.Equal(t, http.StatusOK, resp.Code)
+	sessionPOST(t, session, deleteProjectEndpoint, http.StatusOK)
 
 	unittest.AssertNotExistsBean(t, &project_model.Project{
 		ID: project.ID,
