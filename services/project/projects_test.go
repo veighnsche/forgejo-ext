@@ -191,7 +191,7 @@ func TestNewProject(t *testing.T) {
 
 		_, err := NewProject(&opts, org3, nilRepo, project_module.APIOwnerTypeIndividual)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Type was TypeIndividual, but owner was org")
+		assert.ErrorContains(t, err, "Type was TypeIndividual, but owner was org")
 	})
 
 	t.Run("individual, repo given", func(t *testing.T) {
@@ -204,7 +204,7 @@ func TestNewProject(t *testing.T) {
 
 		_, err := NewProject(&opts, user2, repo2, project_module.APIOwnerTypeIndividual)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Type was TypeIndividual, repo was given")
+		assert.ErrorContains(t, err, "Type was TypeIndividual, repo was given")
 	})
 
 	t.Run("organization", func(t *testing.T) {
@@ -238,7 +238,7 @@ func TestNewProject(t *testing.T) {
 
 		_, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeOrganization)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Type was TypeOrganization, but owner was individual")
+		assert.ErrorContains(t, err, "Type was TypeOrganization, but owner was individual")
 	})
 
 	t.Run("organization, repo given", func(t *testing.T) {
@@ -251,7 +251,7 @@ func TestNewProject(t *testing.T) {
 
 		_, err := NewProject(&opts, org3, repo2, project_module.APIOwnerTypeOrganization)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Type was TypeOrganization, repo was given")
+		assert.ErrorContains(t, err, "Type was TypeOrganization, repo was given")
 	})
 
 	t.Run("repository", func(t *testing.T) {
@@ -285,7 +285,7 @@ func TestNewProject(t *testing.T) {
 
 		_, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Repo type given, but repo struct was empty")
+		assert.ErrorContains(t, err, "Repo type given, but repo struct was empty")
 	})
 
 	t.Run("invalid card type", func(t *testing.T) {
@@ -299,7 +299,7 @@ func TestNewProject(t *testing.T) {
 
 		_, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Field APICardType")
+		assert.ErrorContains(t, err, "Field APICardType")
 	})
 
 	t.Run("invalid template type", func(t *testing.T) {
@@ -313,7 +313,7 @@ func TestNewProject(t *testing.T) {
 
 		_, err := NewProject(&opts, user2, nilRepo, project_module.APIOwnerTypeRepository)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Field APITemplateType")
+		assert.ErrorContains(t, err, "Field APITemplateType")
 	})
 
 	t.Run("invalid project type", func(t *testing.T) {
@@ -327,7 +327,7 @@ func TestNewProject(t *testing.T) {
 
 		_, err := NewProject(&opts, user2, nilRepo, invalidProjectType)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Field APIOwnerType")
+		assert.ErrorContains(t, err, "Field APIOwnerType")
 	})
 }
 
@@ -348,7 +348,7 @@ func TestGetValidProjectColumnByID(t *testing.T) {
 	t.Run("Not Existing Column ID", func(t *testing.T) {
 		nonExistingColumnID := int64(99999)
 		_, err := GetValidProjectColumnByID(t.Context(), validProjectID, nonExistingColumnID)
-		assert.Contains(t, err.Error(), notExistStr)
+		assert.ErrorContains(t, err, notExistStr)
 	})
 	t.Run("Column Does Not Belong To Project", func(t *testing.T) {
 		differentColID := int64(4)
@@ -368,7 +368,7 @@ func TestCreateColumnInProjectError(t *testing.T) {
 
 	err := CreateColumnInProject(t.Context(), column1)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "bad color code")
+	assert.ErrorContains(t, err, "bad color code")
 }
 
 func TestEditColumnInProjectError(t *testing.T) {
@@ -383,7 +383,7 @@ func TestEditColumnInProjectError(t *testing.T) {
 
 	err := EditColumnInProject(t.Context(), column1)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "bad color code")
+	assert.ErrorContains(t, err, "bad color code")
 }
 
 func TestSetDefaultColumn(t *testing.T) {
@@ -453,7 +453,7 @@ func TestMoveIssuesOnProjectColumnErrors(t *testing.T) {
 			}
 			err := MoveIssuesOnProjectColumn(t.Context(), column, pIs)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.expectError)
+			assert.ErrorContains(t, err, tt.expectError)
 		})
 	}
 }
@@ -535,7 +535,7 @@ func TestUpdateProject(t *testing.T) {
 		}
 		err := UpdateProject(t.Context(), project, updated)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Field APICardType")
+		assert.ErrorContains(t, err, "Field APICardType")
 	})
 
 	t.Run("invalid status", func(t *testing.T) {
@@ -544,7 +544,7 @@ func TestUpdateProject(t *testing.T) {
 		}
 		err := UpdateProject(t.Context(), project, updated)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Field APIStatus")
+		assert.ErrorContains(t, err, "Field APIStatus")
 	})
 
 	t.Run("change status", func(t *testing.T) {
@@ -636,7 +636,7 @@ func TestCRUDProject(t *testing.T) {
 		// try deleting default column
 		err = DeleteColumnInProject(t.Context(), column1.ID)
 		require.Error(t, err) // Can not delete default col
-		assert.Contains(t, err.Error(), "cannot delete default column")
+		require.ErrorContains(t, err, "cannot delete default column")
 
 		// delete other column
 		err = DeleteColumnInProject(t.Context(), column2.ID)

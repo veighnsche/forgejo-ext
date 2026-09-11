@@ -206,7 +206,7 @@ func Test_NewColumn(t *testing.T) {
 		ProjectID: project1.ID,
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "maximum number of columns reached")
+	assert.ErrorContains(t, err, "maximum number of columns reached")
 }
 
 // TestCreateColumnDefault tests CreateColumn in an empty project without a default column.
