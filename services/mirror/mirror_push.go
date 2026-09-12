@@ -195,7 +195,13 @@ func runPushSync(ctx context.Context, m *repo_model.PushMirror) error {
 		if isWiki {
 			path = repo.WikiPath()
 		}
-		if _, _, err := git.NewCommand(ctx, "config", "--unset-all").AddDynamicArguments("remote." + m.RemoteName + ".fetch").RunStdString(&git.RunOpts{Dir: path}); err != nil && !git.IsErrorExitCode(err, 5) {
+		// We used to erronously configure repos with `--mirror`, which would set both push and fetch refspecs into the
+		// git config.  We need to remove any `fetch` configurations that were leftover from that error, as they caused
+		// source repository references to rollback: https://codeberg.org/forgejo/forgejo/issues/14273 Exit code 5 is
+		// ignored; that occurs when `git config --unset-all` finds nothing to remove.
+		if _, _, err := git.NewCommand(ctx, "config", "--unset-all").
+			AddDynamicArguments("remote." + m.RemoteName + ".fetch").
+			RunStdString(&git.RunOpts{Dir: path}); err != nil && !git.IsErrorExitCode(err, 5) {
 			return err
 		}
 		remoteURL, err := git.GetRemoteURL(ctx, path, m.RemoteName)
