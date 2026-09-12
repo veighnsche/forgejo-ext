@@ -5,6 +5,7 @@ package integration
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/png"
 	"io"
@@ -18,6 +19,7 @@ import (
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/storage"
+	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
 	repo_service "forgejo.org/services/repository"
 	"forgejo.org/tests"
@@ -85,7 +87,7 @@ func TestCreateIssueAttachment(t *testing.T) {
 
 	req = NewRequestWithValues(t, "POST", link, postData)
 	resp = session.MakeRequest(t, req, http.StatusOK)
-	test.RedirectURL(resp) // check that redirect URL exists
+	issueURL := test.RedirectURL(resp) // check that redirect URL exists
 
 	// Validate that attachment is available
 	req = NewRequest(t, "GET", "/attachments/"+uuid)
@@ -93,6 +95,25 @@ func TestCreateIssueAttachment(t *testing.T) {
 
 	// anonymous visit should be allowed because user2/repo1 is a public repository
 	MakeRequest(t, req, http.StatusOK)
+
+	issueIndex := issueURL[strings.LastIndex(issueURL, "/")+1:]
+
+	// ensure digest is present
+	req = NewRequest(t, "GET", fmt.Sprintf("/api/v1/repos/user2/repo1/issues/%s/assets", issueIndex))
+	resp = session.MakeRequest(t, req, http.StatusOK)
+	var apiAttachments []api.Attachment
+	DecodeJSON(t, resp, &apiAttachments)
+
+	found := false
+	for _, a := range apiAttachments {
+		if a.UUID == uuid {
+			assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, a.Digest,
+				"digest should be sha256:<64 hex chars>, got: %s", a.Digest)
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "uploaded attachment %s not found in issue assets", uuid)
 }
 
 func TestGetAttachment(t *testing.T) {

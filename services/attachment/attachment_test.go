@@ -6,6 +6,7 @@ package attachment
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"forgejo.org/models/db"
@@ -42,4 +43,10 @@ func TestUploadAttachment(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, user.ID, attachment.UploaderID)
 	assert.Equal(t, int64(0), attachment.DownloadCount)
+
+	assert.NotEmpty(t, attachment.Digest)
+	assert.True(t, strings.HasPrefix(attachment.Digest, "sha256:"),
+		"digest should start with sha256:, got: %s", attachment.Digest)
+	assert.Len(t, attachment.Digest, len("sha256:")+64,
+		"digest should be sha256:<64 hex chars>, got: %s", attachment.Digest)
 }

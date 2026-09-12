@@ -43,6 +43,7 @@ type Attachment struct {
 	CommentID         int64 `xorm:"INDEX"`
 	Name              string
 	DownloadCount     int64              `xorm:"DEFAULT 0"`
+	Digest            string             `xorm:"TEXT"`
 	Size              int64              `xorm:"DEFAULT 0"`
 	NoAutoTime        bool               `xorm:"-"`
 	CreatedUnix       timeutil.TimeStamp `xorm:"created"`

@@ -8,5 +8,6 @@
   comment_id: 1
   name: forgejo-secrets.txt
   download_count: 0
+  digest: ""
   size: 536870911
   created_unix: 1730000000

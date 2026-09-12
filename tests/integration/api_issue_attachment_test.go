@@ -89,6 +89,10 @@ func TestAPICreateIssueAttachment(t *testing.T) {
 	DecodeJSON(t, resp, &apiAttachment)
 
 	unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: apiAttachment.ID, IssueID: issue.ID})
+
+	assert.NotEmpty(t, apiAttachment.Digest)
+	assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, apiAttachment.Digest,
+		"digest should be sha256:<64 hex chars>")
 }
 
 func TestAPICreateIssueAttachmentAutoDate(t *testing.T) {
@@ -120,6 +124,9 @@ func TestAPICreateIssueAttachmentAutoDate(t *testing.T) {
 		apiAttachment := new(api.Attachment)
 		DecodeJSON(t, resp, &apiAttachment)
 
+		assert.NotEmpty(t, apiAttachment.Digest)
+		assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, apiAttachment.Digest)
+
 		unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: apiAttachment.ID, IssueID: issue.ID})
 		// the execution of the API call supposedly lasted less than one minute
 		updatedSince := time.Since(apiAttachment.Created)
@@ -145,6 +152,9 @@ func TestAPICreateIssueAttachmentAutoDate(t *testing.T) {
 
 		apiAttachment := new(api.Attachment)
 		DecodeJSON(t, resp, &apiAttachment)
+
+		assert.NotEmpty(t, apiAttachment.Digest)
+		assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, apiAttachment.Digest)
 
 		// dates will be converted into the same tz, in order to compare them
 		utcTZ, _ := time.LoadLocation("UTC")

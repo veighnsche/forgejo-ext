@@ -122,6 +122,10 @@ func TestAPICreateCommentAttachment(t *testing.T) {
 	DecodeJSON(t, resp, &apiAttachment)
 
 	unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: apiAttachment.ID, CommentID: comment.ID})
+
+	assert.NotEmpty(t, apiAttachment.Digest)
+	assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, apiAttachment.Digest,
+		"digest should be sha256:<64 hex chars>")
 }
 
 func TestAPICreateCommentAttachmentAutoDate(t *testing.T) {
@@ -150,8 +154,12 @@ func TestAPICreateCommentAttachmentAutoDate(t *testing.T) {
 		req := NewRequestWithBody(t, "POST", urlStr, body).AddTokenAuth(token)
 		req.Header.Add("Content-Type", contentType)
 		resp := session.MakeRequest(t, req, http.StatusCreated)
+
 		apiAttachment := new(api.Attachment)
 		DecodeJSON(t, resp, &apiAttachment)
+
+		assert.NotEmpty(t, apiAttachment.Digest)
+		assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, apiAttachment.Digest)
 
 		unittest.AssertExistsAndLoadBean(t, &repo_model.Attachment{ID: apiAttachment.ID})
 		// the execution of the API call supposedly lasted less than one minute
@@ -175,8 +183,12 @@ func TestAPICreateCommentAttachmentAutoDate(t *testing.T) {
 		req := NewRequestWithBody(t, "POST", urlStr, body).AddTokenAuth(token)
 		req.Header.Add("Content-Type", contentType)
 		resp := session.MakeRequest(t, req, http.StatusCreated)
+
 		apiAttachment := new(api.Attachment)
 		DecodeJSON(t, resp, &apiAttachment)
+
+		assert.NotEmpty(t, apiAttachment.Digest)
+		assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, apiAttachment.Digest)
 
 		// dates will be converted into the same tz, in order to compare them
 		utcTZ, _ := time.LoadLocation("UTC")

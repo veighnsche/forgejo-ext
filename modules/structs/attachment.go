@@ -14,6 +14,7 @@ type Attachment struct {
 	Name          string `json:"name"`
 	Size          int64  `json:"size"`
 	DownloadCount int64  `json:"download_count"`
+	Digest        string `json:"digest"`
 	// swagger:strfmt date-time
 	Created     time.Time `json:"created_at"`
 	UUID        string    `json:"uuid"`
