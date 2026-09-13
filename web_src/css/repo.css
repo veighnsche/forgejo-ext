@@ -195,7 +195,8 @@ td .commit-summary {
   white-space: normal;
 }
 
-.commit-list .commit-status {
+.commit-list .commit-status,
+details.commit-body-toggle > summary > .ellipsis-button {
   margin: 0 0 0 0.25em;
 }
 
@@ -2259,10 +2260,6 @@ details.commit-body-toggle {
 details.commit-body-toggle > summary {
   display: inline-block;
   width: fit-content;
-}
-
-details.commit-body-toggle > summary > .ellipsis-button {
-  margin: 0 0 0 0.25em;
 }
 
 /* hack: since this element encompasses other trailing content, make so that only the "button"-looking part gets the focus highlight */
