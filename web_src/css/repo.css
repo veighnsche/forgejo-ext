@@ -2266,7 +2266,7 @@ details.commit-body-toggle > summary > .ellipsis-button {
 }
 
 /* hack: since this element encompasses other trailing content, make so that only the "button"-looking part gets the focus highlight */
-details.commit-body-toggle > summary:focus:has(> .ellipsis-button) {
+details.commit-body-toggle > summary:focus:not(.ellipsis-button) {
   /* focus styling happens in the next rule */
   outline: none;
 }
