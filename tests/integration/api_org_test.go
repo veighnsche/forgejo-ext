@@ -127,12 +127,17 @@ func TestAPIOrgEdit(t *testing.T) {
 	session := loginUser(t, "user1")
 
 	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteOrganization)
+	fullName := "Org3 organization new full name"
+	description := "A new description"
+	website := "https://try.gitea.io/new"
+	location := "Beijing"
+	private := "private"
 	org := api.EditOrgOption{
-		FullName:    "Org3 organization new full name",
-		Description: "A new description",
-		Website:     "https://try.gitea.io/new",
-		Location:    "Beijing",
-		Visibility:  "private",
+		FullName:    &fullName,
+		Description: &description,
+		Website:     &website,
+		Location:    &location,
+		Visibility:  &private,
 	}
 	req := NewRequestWithJSON(t, "PATCH", "/api/v1/orgs/org3", &org).
 		AddTokenAuth(token)
@@ -142,11 +147,30 @@ func TestAPIOrgEdit(t *testing.T) {
 	DecodeJSON(t, resp, &apiOrg)
 
 	assert.Equal(t, "org3", apiOrg.Name)
-	assert.Equal(t, org.FullName, apiOrg.FullName)
-	assert.Equal(t, org.Description, apiOrg.Description)
-	assert.Equal(t, org.Website, apiOrg.Website)
-	assert.Equal(t, org.Location, apiOrg.Location)
-	assert.Equal(t, org.Visibility, apiOrg.Visibility)
+	assert.Equal(t, fullName, apiOrg.FullName)
+	assert.Equal(t, description, apiOrg.Description)
+	assert.Equal(t, website, apiOrg.Website)
+	assert.Equal(t, location, apiOrg.Location)
+	assert.Equal(t, private, apiOrg.Visibility)
+
+	// reverting back to public should work and not alter any other attribute
+	public := "public"
+	org2 := api.EditOrgOption{
+		Visibility: &public,
+	}
+	req2 := NewRequestWithJSON(t, "PATCH", "/api/v1/orgs/org3", &org2).
+		AddTokenAuth(token)
+	resp2 := MakeRequest(t, req2, http.StatusOK)
+
+	var apiOrg2 api.Organization
+	DecodeJSON(t, resp2, &apiOrg2)
+
+	assert.Equal(t, "org3", apiOrg.Name)
+	assert.Equal(t, fullName, apiOrg2.FullName)
+	assert.Equal(t, description, apiOrg2.Description)
+	assert.Equal(t, website, apiOrg2.Website)
+	assert.Equal(t, location, apiOrg2.Location)
+	assert.Equal(t, public, apiOrg2.Visibility)
 }
 
 func TestAPIOrgEditBadVisibility(t *testing.T) {
@@ -154,12 +178,17 @@ func TestAPIOrgEditBadVisibility(t *testing.T) {
 	session := loginUser(t, "user1")
 
 	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteOrganization)
+	fullName := "Org3 organization new full name"
+	description := "A new description"
+	website := "https://try.gitea.io/new"
+	location := "Beijing"
+	visibility := "badvisibility"
 	org := api.EditOrgOption{
-		FullName:    "Org3 organization new full name",
-		Description: "A new description",
-		Website:     "https://try.gitea.io/new",
-		Location:    "Beijing",
-		Visibility:  "badvisibility",
+		FullName:    &fullName,
+		Description: &description,
+		Website:     &website,
+		Location:    &location,
+		Visibility:  &visibility,
 	}
 	req := NewRequestWithJSON(t, "PATCH", "/api/v1/orgs/org3", &org).
 		AddTokenAuth(token)
