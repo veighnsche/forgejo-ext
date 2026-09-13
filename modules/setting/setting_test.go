@@ -143,9 +143,9 @@ func TestAppVersionDocsURL(t *testing.T) {
 		{"latest", "", "https://forgejo.org/docs/latest/"},
 		{"latest", "//", "https://forgejo.org/docs/latest/"},
 		{"latest", "/user/", "https://forgejo.org/docs/latest/user/"},
-		// leading slash in path is optional:
+		// optional leading slash in path:
 		{"latest", "user/", "https://forgejo.org/docs/latest/user/"},
-		// trailing slash in path is verbatim:
+		// verbatim trailing slash in path:
 		{"latest", "user", "https://forgejo.org/docs/latest/user"},
 		{"latest", "あ", "https://forgejo.org/docs/latest/%E3%81%82"},
 		{"latest", "/あ", "https://forgejo.org/docs/latest/%E3%81%82"},
@@ -155,6 +155,13 @@ func TestAppVersionDocsURL(t *testing.T) {
 		{"latest", "/user/#hash-hash", "https://forgejo.org/docs/latest/user/#hash-hash"},
 		{"latest", "/user/#hash/hash", "https://forgejo.org/docs/latest/user/#hash/hash"},
 		{"latest", "/user", "https://forgejo.org/docs/latest/user"},
+		// verbatim escape characters
+		{"latest", "/user%2", "https://forgejo.org/docs/latest/user%252"},
+		{"latest", "/user%%", "https://forgejo.org/docs/latest/user%25%25"},
+		{"lat%2est", "/user%%", "https://forgejo.org/docs/lat%252est/user%25%25"},
+		{"lat%%est", "/user%%", "https://forgejo.org/docs/lat%25%25est/user%25%25"},
+		{"lat/%%est", "/user%%", "https://forgejo.org/docs/lat/%25%25est/user%25%25"},
+		// verbatim hash
 		{"latest", "/user#hash", "https://forgejo.org/docs/latest/user#hash"},
 		{"latest", "/user#hash-hash", "https://forgejo.org/docs/latest/user#hash-hash"},
 		{"latest", "/user#hash/hash", "https://forgejo.org/docs/latest/user#hash/hash"},

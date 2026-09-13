@@ -58,6 +58,7 @@ func AppDocsURL(path string) string {
 // Returns a URL string to forgejo docs for the given app version
 func AppVersionDocsURL(version, path string) string {
 	path, hash, hasHash := strings.Cut(path, "#")
+	version = util.PathEscapeSegments(version)
 	path = util.PathEscapeSegments(path)
 	if path == "" {
 		path = "/"
