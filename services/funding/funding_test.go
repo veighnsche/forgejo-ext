@@ -422,7 +422,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.Equal(t, "Expected up to 1 funding provider", errs[0].Error()) // error message reflects config (singular)
+		assert.EqualError(t, errs[0], "Expected up to 1 funding provider", "error message reflects config (singular)")
 
 		assert.Len(t, funding, 1)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
