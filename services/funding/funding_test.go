@@ -194,7 +194,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 			funding, errs := getFundingFromBlob([]byte(config))
 
 			assert.Len(t, errs, 1)
-			assert.EqualError(t, errs[0], fmt.Sprintf("Duplicate entry for key \"custom\": %s", expectedDuplicate))
+			require.EqualError(t, errs[0], fmt.Sprintf("Duplicate entry for key \"custom\": %s", expectedDuplicate))
 
 			actualRemainder := make([]string, 0, len(funding))
 			for _, funding := range funding {
@@ -211,9 +211,9 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 3)
-		assert.EqualError(t, errs[0], "Invalid type for key \"ko_fi\", expected a string or string array")
-		assert.EqualError(t, errs[1], `Invalid URL value for key "custom": parse "https://Arbitrary: 4242": invalid port ": 4242" after host`)
-		assert.EqualError(t, errs[2], `Invalid URL value for key "custom": invalid scheme "h3", expected one of: http, https`)
+		require.EqualError(t, errs[0], "Invalid type for key \"ko_fi\", expected a string or string array")
+		require.EqualError(t, errs[1], `Invalid URL value for key "custom": parse "https://Arbitrary: 4242": invalid port ": 4242" after host`)
+		require.EqualError(t, errs[2], `Invalid URL value for key "custom": invalid scheme "h3", expected one of: http, https`)
 
 		assert.Len(t, funding, 4)
 		assertLiberapay(t, funding[0], "liberapay.com/test", "https://liberapay.com/test")
@@ -232,7 +232,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 			funding, errs := getFundingFromBlob([]byte(config))
 
 			assert.Len(t, errs, 1)
-			assert.EqualError(t, errs[0], "Unknown funding provider: whatever")
+			require.EqualError(t, errs[0], "Unknown funding provider: whatever")
 
 			assert.Len(t, funding, 2)
 			assertCustom(t, funding[0], "https://test")
@@ -246,9 +246,9 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 3)
-		assert.EqualError(t, errs[0], "Unknown funding provider: whatever")
-		assert.EqualError(t, errs[1], "Invalid type for key \"ko_fi\", expected a string or string array")
-		assert.EqualError(t, errs[2], "Value for key \"ko_fi\" does not match pattern /^[^/]+$/")
+		require.EqualError(t, errs[0], "Unknown funding provider: whatever")
+		require.EqualError(t, errs[1], "Invalid type for key \"ko_fi\", expected a string or string array")
+		require.EqualError(t, errs[2], "Value for key \"ko_fi\" does not match pattern /^[^/]+$/")
 
 		assert.Len(t, funding, 1)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -259,7 +259,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.EqualError(t, errs[0], "Invalid type for key \"patreon\", expected a string or string array")
+		require.EqualError(t, errs[0], "Invalid type for key \"patreon\", expected a string or string array")
 
 		assert.Len(t, funding, 1)
 		assertPatreon(t, funding[0], "patreon.com/example", "https://patreon.com/example")
@@ -286,7 +286,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.EqualError(t, errs[0], "Expected up to 15 funding providers")
+		require.EqualError(t, errs[0], "Expected up to 15 funding providers")
 
 		assert.Len(t, funding, 15)
 		assertCustom(t, funding[0], "https://test1")
@@ -327,7 +327,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.EqualError(t, errs[0], "Expected up to 15 funding providers")
+		require.EqualError(t, errs[0], "Expected up to 15 funding providers")
 
 		assert.Len(t, funding, 15)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -369,7 +369,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.EqualError(t, errs[0], "Expected up to 15 funding providers")
+		require.EqualError(t, errs[0], "Expected up to 15 funding providers")
 
 		assert.Len(t, funding, 15)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -403,7 +403,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.EqualError(t, errs[0], "Expected up to 5 funding providers", "error message reflects config")
+		require.EqualError(t, errs[0], "Expected up to 5 funding providers", "error message reflects config")
 
 		assert.Len(t, funding, 5)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -422,7 +422,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.EqualError(t, errs[0], "Expected up to 1 funding provider", "error message reflects config (singular)")
+		require.EqualError(t, errs[0], "Expected up to 1 funding provider", "error message reflects config (singular)")
 
 		assert.Len(t, funding, 1)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -447,7 +447,7 @@ func TestFundingEntriesWithCustomSchemes(t *testing.T) {
 
 		assert.Empty(t, funding)
 		assert.Len(t, errs, 1)
-		assert.EqualError(t, errs[0], `Invalid URL value for key "custom": invalid scheme "h3", expected one of: http, https`)
+		require.EqualError(t, errs[0], `Invalid URL value for key "custom": invalid scheme "h3", expected one of: http, https`)
 	})
 
 	t.Run("an H3 website under custom schemes", func(t *testing.T) {
@@ -471,6 +471,6 @@ func TestFundingEntriesWithCustomSchemes(t *testing.T) {
 
 		assert.Empty(t, funding)
 		assert.Len(t, errs, 1)
-		assert.EqualError(t, errs[0], `Invalid URL value for key "custom": invalid scheme "gemini", expected one of: http, https, h3`)
+		require.EqualError(t, errs[0], `Invalid URL value for key "custom": invalid scheme "gemini", expected one of: http, https, h3`)
 	})
 }
