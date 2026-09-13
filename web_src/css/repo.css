@@ -2275,11 +2275,6 @@ details.commit-body-toggle summary:has(> .ellipsis-button):focus-visible > .elli
   outline: 1.5px dotted var(--color-text);
 }
 
-details.commit-body-toggle > summary::-webkit-details-marker,
-details.commit-body-toggle > summary::marker {
-  content: "";
-}
-
 .commit-body {
   margin: 0.25em 0;
   white-space: pre-wrap;
