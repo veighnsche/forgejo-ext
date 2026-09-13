@@ -155,7 +155,7 @@ func TestAppVersionDocsURL(t *testing.T) {
 		{"latest", "/user/#hash-hash", "https://forgejo.org/docs/latest/user/#hash-hash"},
 		{"latest", "/user/#hash/hash", "https://forgejo.org/docs/latest/user/#hash/hash"},
 		{"latest", "/user", "https://forgejo.org/docs/latest/user"},
-		// verbatim escape characters
+		// valid escape sequences
 		{"latest", "/user%2", "https://forgejo.org/docs/latest/user%252"},
 		{"latest", "/user%%", "https://forgejo.org/docs/latest/user%25%25"},
 		{"lat%2est", "/user%%", "https://forgejo.org/docs/lat%252est/user%25%25"},
