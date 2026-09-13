@@ -26,7 +26,7 @@ var (
 	AppVer string
 	// AppBuiltWith represents a human-readable version go runtime build version and build tags. (See main.go formatBuiltWith().)
 	AppBuiltWith string
-	// AppStartTime store time forgejo has started
+	// AppStartTime stores the time at which Forgejo started.
 	AppStartTime time.Time
 
 	// Other global setting objects
@@ -50,12 +50,12 @@ func init() {
 	log.SetConsoleLogger(log.DEFAULT, "console", log.INFO)
 }
 
-// Returns a URL string to forgejo docs for the current app version
+// Returns a URL string to Forgejo docs for the current app version.
 func AppDocsURL(path string) string {
 	return AppVersionDocsURL("latest", path)
 }
 
-// Returns a URL string to forgejo docs for the given app version
+// Returns a URL string to Forgejo docs for the given app version.
 func AppVersionDocsURL(version, path string) string {
 	path, hash, hasHash := strings.Cut(path, "#")
 	version = util.PathEscapeSegments(version)
