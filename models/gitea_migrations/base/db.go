@@ -68,7 +68,13 @@ func RecreateTables(beans ...any) func(*xorm.Engine) error {
 			for _, fk := range tableSchema.ForeignKeys {
 				targetTempTableName, ok := tempTableNamesByOriginalName[fk.TargetTableName]
 				if !ok {
-					return fmt.Errorf("incomplete table set: Found a foreign key reference to table %s, but it is not included in RecreateTables", fk.TargetTableName)
+					return fmt.Errorf(
+						"incomplete table set: Field '%s' of table '%s' references field '%s' of table '%s', which is not included in RecreateTables",
+						fk.SourceFieldName,
+						tableSchema.Name,
+						fk.TargetFieldName,
+						fk.TargetTableName,
+					)
 				}
 				fkName := fk.Name
 				if setting.Database.Type.IsMySQL() {
