@@ -229,6 +229,29 @@ func DeleteRepositoryDirectly(ctx context.Context, repoID int64, opts DeleteRepo
 			return err
 		}
 
+		// Remove LFS objects
+		var lfsObjects []*git_model.LFSMetaObject
+		if err = sess.Where("repository_id=?", repoID).Find(&lfsObjects); err != nil {
+			return err
+		}
+
+		lfsPaths = make([]string, 0, len(lfsObjects))
+		for _, v := range lfsObjects {
+			count, err := db.CountByBean(ctx, &git_model.LFSMetaObject{Pointer: lfs.Pointer{Oid: v.Oid}})
+			if err != nil {
+				return err
+			}
+			if count > 1 {
+				continue
+			}
+
+			lfsPaths = append(lfsPaths, v.RelativePath())
+		}
+
+		if _, err := db.DeleteByBean(ctx, &git_model.LFSMetaObject{RepositoryID: repoID}); err != nil {
+			return err
+		}
+
 		if !opts.KeepMigrationBeans {
 			if cnt, err := sess.ID(repoID).Delete(&repo_model.Repository{}); err != nil {
 				return err
@@ -274,29 +297,6 @@ func DeleteRepositoryDirectly(ctx context.Context, repoID int64, opts DeleteRepo
 
 		if err := project_model.DeleteProjectByRepoID(ctx, repoID); err != nil {
 			return fmt.Errorf("unable to delete projects for repo[%d]: %w", repoID, err)
-		}
-
-		// Remove LFS objects
-		var lfsObjects []*git_model.LFSMetaObject
-		if err = sess.Where("repository_id=?", repoID).Find(&lfsObjects); err != nil {
-			return err
-		}
-
-		lfsPaths = make([]string, 0, len(lfsObjects))
-		for _, v := range lfsObjects {
-			count, err := db.CountByBean(ctx, &git_model.LFSMetaObject{Pointer: lfs.Pointer{Oid: v.Oid}})
-			if err != nil {
-				return err
-			}
-			if count > 1 {
-				continue
-			}
-
-			lfsPaths = append(lfsPaths, v.RelativePath())
-		}
-
-		if _, err := db.DeleteByBean(ctx, &git_model.LFSMetaObject{RepositoryID: repoID}); err != nil {
-			return err
 		}
 
 		// Remove archives
