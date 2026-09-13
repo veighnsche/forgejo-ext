@@ -194,7 +194,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 			funding, errs := getFundingFromBlob([]byte(config))
 
 			assert.Len(t, errs, 1)
-			assert.Equal(t, fmt.Sprintf("Duplicate entry for key \"custom\": %s", expectedDuplicate), errs[0].Error())
+			assert.EqualError(t, errs[0], fmt.Sprintf("Duplicate entry for key \"custom\": %s", expectedDuplicate))
 
 			actualRemainder := make([]string, 0, len(funding))
 			for _, funding := range funding {
@@ -211,9 +211,9 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 3)
-		assert.Equal(t, "Invalid type for key \"ko_fi\", expected a string or string array", errs[0].Error())
-		assert.Equal(t, `Invalid URL value for key "custom": parse "https://Arbitrary: 4242": invalid port ": 4242" after host`, errs[1].Error())
-		assert.Equal(t, `Invalid URL value for key "custom": invalid scheme "h3", expected one of: http, https`, errs[2].Error())
+		assert.EqualError(t, errs[0], "Invalid type for key \"ko_fi\", expected a string or string array")
+		assert.EqualError(t, errs[1], `Invalid URL value for key "custom": parse "https://Arbitrary: 4242": invalid port ": 4242" after host`)
+		assert.EqualError(t, errs[2], `Invalid URL value for key "custom": invalid scheme "h3", expected one of: http, https`)
 
 		assert.Len(t, funding, 4)
 		assertLiberapay(t, funding[0], "liberapay.com/test", "https://liberapay.com/test")
@@ -232,7 +232,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 			funding, errs := getFundingFromBlob([]byte(config))
 
 			assert.Len(t, errs, 1)
-			assert.Equal(t, "Unknown funding provider: whatever", errs[0].Error())
+			assert.EqualError(t, errs[0], "Unknown funding provider: whatever")
 
 			assert.Len(t, funding, 2)
 			assertCustom(t, funding[0], "https://test")
@@ -246,9 +246,9 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 3)
-		assert.Equal(t, "Unknown funding provider: whatever", errs[0].Error())
-		assert.Equal(t, "Invalid type for key \"ko_fi\", expected a string or string array", errs[1].Error())
-		assert.Equal(t, "Value for key \"ko_fi\" does not match pattern /^[^/]+$/", errs[2].Error())
+		assert.EqualError(t, errs[0], "Unknown funding provider: whatever")
+		assert.EqualError(t, errs[1], "Invalid type for key \"ko_fi\", expected a string or string array")
+		assert.EqualError(t, errs[2], "Value for key \"ko_fi\" does not match pattern /^[^/]+$/")
 
 		assert.Len(t, funding, 1)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -259,7 +259,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.Equal(t, "Invalid type for key \"patreon\", expected a string or string array", errs[0].Error())
+		assert.EqualError(t, errs[0], "Invalid type for key \"patreon\", expected a string or string array")
 
 		assert.Len(t, funding, 1)
 		assertPatreon(t, funding[0], "patreon.com/example", "https://patreon.com/example")
@@ -286,7 +286,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.Equal(t, "Expected up to 15 funding providers", errs[0].Error())
+		assert.EqualError(t, errs[0], "Expected up to 15 funding providers")
 
 		assert.Len(t, funding, 15)
 		assertCustom(t, funding[0], "https://test1")
@@ -327,7 +327,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.Equal(t, "Expected up to 15 funding providers", errs[0].Error())
+		assert.EqualError(t, errs[0], "Expected up to 15 funding providers")
 
 		assert.Len(t, funding, 15)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -369,7 +369,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.Equal(t, "Expected up to 15 funding providers", errs[0].Error())
+		assert.EqualError(t, errs[0], "Expected up to 15 funding providers")
 
 		assert.Len(t, funding, 15)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -403,7 +403,7 @@ func TestFundingEntriesWithErrorsFromConfig(t *testing.T) {
 		funding, errs := getFundingFromBlob([]byte(config))
 
 		assert.Len(t, errs, 1)
-		assert.Equal(t, "Expected up to 5 funding providers", errs[0].Error()) // error message reflects config
+		assert.EqualError(t, errs[0], "Expected up to 5 funding providers", "error message reflects config")
 
 		assert.Len(t, funding, 5)
 		assertKoFi(t, funding[0], "ko-fi.com/test", "https://ko-fi.com/test")
@@ -447,7 +447,7 @@ func TestFundingEntriesWithCustomSchemes(t *testing.T) {
 
 		assert.Empty(t, funding)
 		assert.Len(t, errs, 1)
-		assert.Equal(t, `Invalid URL value for key "custom": invalid scheme "h3", expected one of: http, https`, errs[0].Error())
+		assert.EqualError(t, errs[0], `Invalid URL value for key "custom": invalid scheme "h3", expected one of: http, https`)
 	})
 
 	t.Run("an H3 website under custom schemes", func(t *testing.T) {
@@ -471,6 +471,6 @@ func TestFundingEntriesWithCustomSchemes(t *testing.T) {
 
 		assert.Empty(t, funding)
 		assert.Len(t, errs, 1)
-		assert.Equal(t, `Invalid URL value for key "custom": invalid scheme "gemini", expected one of: http, https, h3`, errs[0].Error())
+		assert.EqualError(t, errs[0], `Invalid URL value for key "custom": invalid scheme "gemini", expected one of: http, https, h3`)
 	})
 }
