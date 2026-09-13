@@ -63,7 +63,11 @@ func AppVersionDocsURL(version, path string) string {
 	if path == "" {
 		path = "/"
 	}
-	url, _ := url.JoinPath("https://forgejo.org/", "docs", version, path)
+	url, err := url.JoinPath("https://forgejo.org/", "docs", version, path)
+	if err != nil {
+		// Not sure when or if this would ever happen, but let's log the error and continue with an empty `url` value
+		log.Debug("AppVersionDocsURL failed to join version '%[1]s' to path '%[2]s': %[3]v", version, path, err)
+	}
 	if hasHash {
 		return url + "#" + hash
 	}
