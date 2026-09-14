@@ -42,11 +42,11 @@ type TeamUser struct {
 	UID                    int64                               `xorm:"UNIQUE(s)"`
 	User                   *user_model.User                    `xorm:"-"`
 	CreatedUnix            optional.Option[timeutil.TimeStamp] `xorm:"created_unix"`
-	Reason                 MembershipReason
-	CreatedByUserID        optional.Option[int64] `xorm:"index REFERENCES(user, id)"`
-	CreatedByUser          *user_model.User       `xorm:"-"`
-	CreatedByLoginSourceID optional.Option[int64] `xorm:"INDEX REFERENCES(login_source, id)"`
-	CreatedByLoginSource   *auth.Source           `xorm:"-"`
+	Reason                 MembershipReason                    `xorm:"NOT NULL DEFAULT 0"`
+	CreatedByUserID        optional.Option[int64]              `xorm:"index REFERENCES(user, id)"`
+	CreatedByUser          *user_model.User                    `xorm:"-"`
+	CreatedByLoginSourceID optional.Option[int64]              `xorm:"INDEX REFERENCES(login_source, id)"`
+	CreatedByLoginSource   *auth.Source                        `xorm:"-"`
 }
 
 // IsTeamMember returns true if given user is a member of team.

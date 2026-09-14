@@ -21,9 +21,9 @@ func addMembershipProvenanceToTeamUser(x *xorm.Engine) error {
 	type MembershipReason int
 	type TeamUser struct {
 		CreatedUnix            optional.Option[timeutil.TimeStamp] `xorm:"created_unix"`
-		Reason                 MembershipReason
-		CreatedByUserID        optional.Option[int64] `xorm:"index REFERENCES(user, id)"`
-		CreatedByLoginSourceID optional.Option[int64] `xorm:"INDEX REFERENCES(login_source, id)"`
+		Reason                 MembershipReason                    `xorm:"NOT NULL DEFAULT 0"`
+		CreatedByUserID        optional.Option[int64]              `xorm:"index REFERENCES(user, id)"`
+		CreatedByLoginSourceID optional.Option[int64]              `xorm:"INDEX REFERENCES(login_source, id)"`
 	}
 	_, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true}, new(TeamUser))
 	return err
