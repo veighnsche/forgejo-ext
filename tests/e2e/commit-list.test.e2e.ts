@@ -172,7 +172,7 @@ for (const run of runs) {
         const summary = page.locator('.message-wrapper', {hasText: 'Yet another multiline commit message'});
         const toggle = summary.getByLabel('Toggle full commit message');
         const body = page.locator('.commit-body', {hasText: 'now with a PR and status!'});
-        const status = page.locator('.commits-list a:has(> .octicon-check)');
+        const status = page.locator('.commits-list a:has(> .octicon-check)').first();
 
         await expect(summary).toBeVisible();
         await expect(toggle).toBeVisible();
@@ -201,7 +201,7 @@ for (const run of runs) {
         const summary = page.locator('.message-wrapper', {hasText: 'Yet another multiline commit message'});
         const toggle = summary.getByLabel('Toggle full commit message');
         const body = page.locator('.commit-body', {hasText: 'now with a PR and status!'});
-        const status = page.locator('.ci-status > a:has(> .octicon-check)');
+        const status = page.locator('.ci-status > a:has(> .octicon-check)').first();
 
         await expect(summary).toBeVisible();
         await expect(toggle).toBeVisible();
@@ -219,7 +219,7 @@ for (const run of runs) {
 
         // clicking the status navigates, rather than opening the message body
         await status.click();
-        await expect(page).toHaveURL('/user2/multiline-commit-messages/actions/runs/2/jobs/0');
+        await expect(page).toHaveURL('/user2/multiline-commit-messages/actions/runs/3/jobs/0');
       });
     });
   });

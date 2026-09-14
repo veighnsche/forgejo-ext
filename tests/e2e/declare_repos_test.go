@@ -21,12 +21,14 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/indexer/stats"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	actions_service "forgejo.org/services/actions"
 	issue_service "forgejo.org/services/issue"
 	pull_service "forgejo.org/services/pull"
+	release_service "forgejo.org/services/release"
 	files_service "forgejo.org/services/repository/files"
 	"forgejo.org/services/wiki"
 	"forgejo.org/tests/forgery"
@@ -120,14 +122,19 @@ func DeclareGitRepos(t *testing.T) {
 			CommitMsg: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed\n\ndo eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\nDolorem cupiditate deleniti illo quo vitae culpa totam blanditiis. Architecto molestias eveniet quibusdam voluptas saepe modi reprehenderit quos. Nobis qui ipsam id et delectus. Corrupti cupiditate occaecati eius. Voluptas voluptatibus culpa nostrum. Id temporibus minima quis voluptate. Et sit quos autem est natus saepe. Velit vitae eos sint magnam et magnam dolore. Aspernatur suscipit dolorem sint fugiat repudiandae provident dolorem voluptatem. Ullam ut unde aperiam. Aut occaecati sit placeat adipisci non. Animi tempore autem molestias numquam ut qui iste. Pariatur recusandae ipsam maxime nihil quia veniam. Doloremque voluptatibus voluptatum consequatur illum iure aperiam deleniti non. Quo quisquam eveniet nihil animi. Et unde in sint eligendi aut autem. Veniam voluptates debitis ullam doloremque. Debitis provident tempore ab fugiat aut distinctio omnis. Vel sapiente nulla id. Quia aliquam ab est. Consequatur voluptatem id blanditiis distinctio. Qui expedita quibusdam qui earum quis culpa. Iste laudantium fuga vero provident voluptatem laboriosam ullam et. Alias consequuntur earum dolor nemo molestiae non neque.",
 		},
 	}, func(user *user_model.User, repo *repo_model.Repository) {
-		// status on main branch
+		// status+tag on main branch
 		commitMainSha := commitNewFile(t, user, repo, "Another multiline commit message\nthis time with a status 🎉", "file2.md", "also a file")
 		addCommitStatus(t, user, repo, repo.DefaultBranch, commitMainSha)
+		createCommitRelease(t, user, repo, commitMainSha, "v1.4.2")
 
 		// status on PR
-		commitPrSha := addCommitWithMessageToBranch(t, user, repo, "main", "test-branch", "Yet another multiline commit message\nnow with a PR and status!", "file2.md", "", "still a file")
+		commitPrSha1 := addCommitWithMessageToBranch(t, user, repo, "main", "test-branch", "Yet another multiline commit message\nnow with a PR and status!", "file2.md", "", "still a file")
+		commitPrSha2 := addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal commit message", "file2.md", commitPrSha1, "yep, still a file")
+		commitPrSha3 := addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal commit message with status", "file2.md", commitPrSha2, "yep, still a file")
+		addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal multiline\ncommit message", "file2.md", commitPrSha3, "yep, still a file")
 		postPullRequest(repo, "test-branch", user, 455, "pullreq", "PR with multiline commits")
-		addCommitStatus(t, user, repo, "test-branch", commitPrSha)
+		addCommitStatus(t, user, repo, "test-branch", commitPrSha1)
+		addCommitStatus(t, user, repo, "test-branch", commitPrSha3)
 	})
 	newRepo(t, 2, "file-uploads", nil, []FileChanges{{
 		Filename: "UPLOAD_TEST.md",
@@ -455,4 +462,25 @@ func addCommitStatus(t *testing.T, user *user_model.User, repo *repo_model.Repos
 		IsForkPullRequest: false,
 	}
 	actions_service.CreateCommitStatus(db.DefaultContext, job)
+}
+
+func createCommitRelease(t *testing.T, user *user_model.User, repo *repo_model.Repository, target, tagName string) {
+	gitRepo, err := gitrepo.OpenRepository(db.DefaultContext, repo)
+	require.NoError(t, err)
+	rel := &repo_model.Release{
+		RepoID:           repo.ID,
+		PublisherID:      user.ID,
+		Publisher:        user,
+		TagName:          tagName,
+		Target:           target,
+		Title:            tagName,
+		Note:             "",
+		IsDraft:          false,
+		IsPrerelease:     false,
+		HideArchiveLinks: false,
+		IsTag:            false,
+		Repo:             repo,
+	}
+	err = release_service.CreateRelease(gitRepo, rel, "", nil)
+	require.NoError(t, err)
 }
