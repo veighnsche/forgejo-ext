@@ -187,7 +187,7 @@ func TestShowMembershipProvenance(t *testing.T) {
 	// check that the list of members shows the provenance of the added members
 	doc := NewHTMLParser(t, session.MakeRequest(t, NewRequest(t, "GET", teamURL), http.StatusOK).Body)
 	doc.AssertElement(t, ".flex-item-main div:contains('added by') a:contains('user2')", true)
-	doc.AssertElement(t, ".flex-item-main div:contains('joined via') b:contains('Keycloak')", true)
+	doc.AssertElement(t, ".flex-item-main div:contains('joined via') strong:contains('Keycloak')", true)
 
 	// delete the beans that are tracked in the membership provenance metadata
 	require.NoError(t, user_service.DeleteUser(t.Context(), user2, true))
