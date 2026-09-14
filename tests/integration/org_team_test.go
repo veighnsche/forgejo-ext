@@ -175,11 +175,10 @@ func TestShowMembershipProvenance(t *testing.T) {
 	user28 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 28})
 	user30 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 30})
 	loginSource := auth_model.Source{ID: 1, Name: "Keycloak"}
-	_, err := db.GetEngine(db.DefaultContext).Insert(loginSource)
-	require.NoError(t, err)
+	unittest.AssertSuccessfulInsert(t, &loginSource)
 
-	require.NoError(t, models.AddTeamMemberByCooptation(db.DefaultContext, team, user28.ID, user2.ID))
-	require.NoError(t, models.AddTeamMemberByLoginSource(db.DefaultContext, team, user30.ID, loginSource.ID))
+	require.NoError(t, models.AddTeamMemberByCooptation(t.Context(), team, user28.ID, user2.ID))
+	require.NoError(t, models.AddTeamMemberByLoginSource(t.Context(), team, user30.ID, loginSource.ID))
 
 	session := loginUser(t, "user30")
 
@@ -191,8 +190,8 @@ func TestShowMembershipProvenance(t *testing.T) {
 	doc.AssertElement(t, ".flex-item-main div:contains('joined via') b:contains('Keycloak')", true)
 
 	// delete the beans that are tracked in the membership provenance metadata
-	require.NoError(t, user_service.DeleteUser(db.DefaultContext, user2, true))
-	require.NoError(t, auth_service.DeleteSource(db.DefaultContext, &loginSource))
+	require.NoError(t, user_service.DeleteUser(t.Context(), user2, true))
+	require.NoError(t, auth_service.DeleteSource(t.Context(), &loginSource))
 
 	/// check that the membership provenance still displays correctly after those deletions
 	doc = NewHTMLParser(t, session.MakeRequest(t, NewRequest(t, "GET", teamURL), http.StatusOK).Body)
