@@ -28,7 +28,7 @@
 				{{end}}
 				<div class="ui attached segment">
 					<div class="flex-list">
-						{{range .Team.Memberships}}
+						{{range $.Memberships}}
 							<div class="flex-item tw-items-center">
 								<div class="flex-item-leading">
 									<a href="{{.User.HomeLink}}">{{ctx.AvatarUtils.Avatar .User 32}}</a>

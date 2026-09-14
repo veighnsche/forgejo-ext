@@ -76,7 +76,6 @@ type Team struct {
 	AccessMode              perm.AccessMode          `xorm:"'authorize'"`
 	Repos                   []*repo_model.Repository `xorm:"-"`
 	Members                 []*user_model.User       `xorm:"-"`
-	Memberships             []*TeamUser              `xorm:"-"`
 	NumRepos                int
 	NumMembers              int
 	Units                   []*TeamUnit `xorm:"-"`
@@ -176,15 +175,6 @@ func (t *Team) LoadMembers(ctx context.Context) (err error) {
 // LoadPaginatedMembers loads paginated members of the team in t.Members.
 func (t *Team) LoadPaginatedMembers(ctx context.Context, listOptions db.ListOptions) (err error) {
 	t.Members, err = GetTeamMembers(ctx, &SearchMembersOptions{
-		ListOptions: listOptions,
-		TeamID:      t.ID,
-	})
-	return err
-}
-
-// LoadPaginatedMemberships loads paginated memberships of the team in t.Memberships.
-func (t *Team) LoadPaginatedMemberships(ctx context.Context, listOptions db.ListOptions) (err error) {
-	t.Memberships, err = GetTeamMemberships(ctx, &SearchMembersOptions{
 		ListOptions: listOptions,
 		TeamID:      t.ID,
 	})

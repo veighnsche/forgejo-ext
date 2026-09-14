@@ -392,10 +392,15 @@ func TeamMembers(ctx *context.Context) {
 	opts.Page = page
 	opts.PageSize = setting.UI.MembersPagingNum
 
-	if err := ctx.Org.Team.LoadPaginatedMemberships(ctx, opts); err != nil {
-		ctx.ServerError("LoadPaginatedMemberships", err)
+	memberships, err := org_model.GetTeamMemberships(ctx, &org_model.SearchMembersOptions{
+		ListOptions: opts,
+		TeamID:      ctx.Org.Team.ID,
+	})
+	if err != nil {
+		ctx.ServerError("GetTeamMemberships", err)
 		return
 	}
+	ctx.Data["Memberships"] = memberships
 	ctx.Data["Page"] = pager
 	ctx.Data["Units"] = unit_model.Units
 
