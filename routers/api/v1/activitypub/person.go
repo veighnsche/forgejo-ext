@@ -4,6 +4,7 @@
 package activitypub
 
 import (
+	"fmt"
 	"net/http"
 
 	"forgejo.org/models/activities"
@@ -13,9 +14,11 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
+	app_context "forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	"forgejo.org/services/federation"
 
+	"github.com/42wim/httpsig"
 	ap "github.com/go-ap/activitypub"
 	"github.com/go-ap/jsonld"
 )
@@ -76,6 +79,10 @@ func PersonInbox(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx)
 	activity := form.(*ap.Activity)
+	if match, err := verifyActorMatchesSignature(*ctx, activity); !match {
+		ctx.Error(federation.HTTPStatus(err), "PersonInbox", err)
+		return
+	}
 	result, err := federation.ProcessPersonInbox(ctx, ctx.User(), activity)
 	if err != nil {
 		ctx.Error(federation.HTTPStatus(err), "PersonInbox", err)
@@ -252,4 +259,13 @@ func PersonActivityNote(ctx *context.APIContext) {
 	if _, err = ctx.Resp.Write(binary); err != nil {
 		log.Error("write to resp err: %v", err)
 	}
+}
+
+func verifyActorMatchesSignature(ctx app_context.APIContext, activity *ap.Activity) (auth bool, err error) {
+	r := ctx.Req
+	v, err := httpsig.NewVerifier(r)
+	fmt.Printf("key id: \t %v \n", v.KeyId())
+	fmt.Printf("actor id: \t %v \n", activity.Actor.GetID())
+
+	return true, nil
 }
