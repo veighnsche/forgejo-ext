@@ -55,6 +55,7 @@
 								<span class="commit-summary {{if gt .ParentCount 1}} grey text{{end}}" title="{{.Summary}}">{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}</span>
 							{{end}}
 							</span>
+							{{if or (IsMultilineCommitMessage .Message) .Statuses (and $.CommitTagsMap (index $.CommitTagsMap .ID.String))}}
 							<details class="commit-body-toggle" {{if not (IsMultilineCommitMessage .Message)}}open{{end}}>
 								<summary>
 									{{if IsMultilineCommitMessage .Message}}
@@ -74,6 +75,7 @@
 								<pre class="commit-body">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
 								{{end}}
 							</details>
+							{{end}}
 						</td>
 						{{if .Committer}}
 							<td class="text right aligned">{{DateUtils.TimeSince .Committer.When}}</td>
