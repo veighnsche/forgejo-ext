@@ -55,10 +55,10 @@ func TestDeleteNotPassedAssignee(t *testing.T) {
 func TestIsValidTeamReviewRequest_TeamOnlyAccessDoesNotPanic(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	// issue 23 / repo 24: a PR on an org-owned repo (org 17), authored by
+	// issue 23 / repo 25: a PR on an org-owned repo (org 17), authored by
 	// user 2, who is unrelated to team 9 ("review_team", which has access
 	// to repo 24 - see team_repo.yml) and has no collaboration row there.
-	issue, err := issues_model.GetIssueByID(db.DefaultContext, 23)
+	issue, err := issues_model.GetIssueByID(db.DefaultContext, 25)
 	require.NoError(t, err)
 
 	// Mirrors apiReviewRequest exactly: Issue.LoadRepo populates issue.Repo
