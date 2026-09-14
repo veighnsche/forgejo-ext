@@ -122,19 +122,29 @@ func TestDeleteTeam(t *testing.T) {
 func TestAddTeamMemberByCooptation(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	test := func(teamID, userID, inviterID int64) {
-		team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: teamID})
-		require.NoError(t, AddTeamMemberByCooptation(db.DefaultContext, team, userID, inviterID))
-		if userID == 4 {
-			unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: userID, TeamID: teamID, Reason: organization.MembershipReasonByUser, CreatedByUserID: optional.Some(inviterID)})
-		} else {
-			unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: userID, TeamID: teamID})
-		}
-		unittest.CheckConsistencyFor(t, &organization.Team{ID: teamID}, &user_model.User{ID: team.OrgID})
+	testCases := []struct {
+		name      string
+		teamID    int64
+		userID    int64
+		inviterID int64
+	}{
+		{"user already in team", 1, 2, 5},
+		{"user not yet in team", 1, 4, 5},
+		{"adding a user to a non-owners team", 3, 2, 5},
 	}
-	test(1, 2, 5)
-	test(1, 4, 5)
-	test(3, 2, 5)
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: testCase.teamID})
+			require.NoError(t, AddTeamMemberByCooptation(db.DefaultContext, team, testCase.userID, testCase.inviterID))
+			if testCase.userID == 4 {
+				unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID, Reason: organization.MembershipReasonByUser, CreatedByUserID: optional.Some(testCase.inviterID)})
+			} else {
+				unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID})
+			}
+			unittest.CheckConsistencyFor(t, &organization.Team{ID: testCase.teamID}, &user_model.User{ID: team.OrgID})
+		})
+	}
 }
 
 func TestAddTeamMemberByLoginSource(t *testing.T) {
@@ -144,15 +154,24 @@ func TestAddTeamMemberByLoginSource(t *testing.T) {
 	_, err := db.GetEngine(db.DefaultContext).Insert(loginSource)
 	require.NoError(t, err)
 
-	test := func(teamID, userID, loginSourceID int64) {
-		team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: teamID})
-		require.NoError(t, AddTeamMemberByLoginSource(db.DefaultContext, team, userID, loginSourceID))
-		unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: userID, TeamID: teamID})
-		unittest.CheckConsistencyFor(t, &organization.Team{ID: teamID}, &user_model.User{ID: team.OrgID})
+	testCases := []struct {
+		name   string
+		teamID int64
+		userID int64
+	}{
+		{"user already in team", 1, 2},
+		{"user not yet in team", 1, 4},
+		{"adding a user to a non-owners team", 3, 2},
 	}
-	test(1, 2, loginSource.ID)
-	test(1, 4, loginSource.ID)
-	test(3, 2, loginSource.ID)
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: testCase.teamID})
+			require.NoError(t, AddTeamMemberByLoginSource(db.DefaultContext, team, testCase.userID, loginSource.ID))
+			unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID})
+			unittest.CheckConsistencyFor(t, &organization.Team{ID: testCase.teamID}, &user_model.User{ID: team.OrgID})
+		})
+	}
 }
 
 func TestTeam_AddAndReturnTeamMember(t *testing.T) {

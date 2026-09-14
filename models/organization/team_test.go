@@ -92,17 +92,25 @@ func TestTeam_GetMembers(t *testing.T) {
 func TestTeam_GetMemberships(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	test := func(teamID int64) {
-		team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: teamID})
-		require.NoError(t, team.LoadPaginatedMemberships(db.DefaultContext, db.ListOptionsAll))
-		assert.Len(t, team.Memberships, team.NumMembers)
-		for _, membership := range team.Memberships {
-			assert.NotNil(t, membership.User)
-			assert.Equal(t, membership.User.ID, membership.UID)
-		}
+	var testCases = []struct {
+		name   string
+		teamID int64
+	}{
+		{"owners team", 1},
+		{"non-owners team", 3},
 	}
-	test(1)
-	test(3)
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: testCase.teamID})
+			require.NoError(t, team.LoadPaginatedMemberships(db.DefaultContext, db.ListOptionsAll))
+			assert.Len(t, team.Memberships, team.NumMembers)
+			for _, membership := range team.Memberships {
+				assert.NotNil(t, membership.User)
+				assert.Equal(t, membership.User.ID, membership.UID)
+			}
+		})
+	}
 }
 
 func TestGetTeam(t *testing.T) {
