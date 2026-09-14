@@ -42,6 +42,7 @@ type ActionRunJob struct {
 	Stopped           timeutil.TimeStamp
 	Created           timeutil.TimeStamp `xorm:"created"`
 	Updated           timeutil.TimeStamp `xorm:"updated index"`
+	ContinueOnError   bool
 
 	workflowPayloadDecoded *jobparser.SingleWorkflow `xorm:"-"`
 }
@@ -243,13 +244,19 @@ var AggregateJobStatus = func(jobs []*ActionRunJob) Status {
 	allSkipped := len(jobs) != 0
 	var hasFailure, hasCancelled, hasWaiting, hasRunning, hasBlocked bool
 	for _, job := range jobs {
-		allSuccessOrSkipped = allSuccessOrSkipped && (job.Status == StatusSuccess || job.Status == StatusSkipped)
-		allSkipped = allSkipped && job.Status == StatusSkipped
-		hasFailure = hasFailure || job.Status == StatusFailure
-		hasCancelled = hasCancelled || job.Status == StatusCancelled
-		hasWaiting = hasWaiting || job.Status == StatusWaiting
-		hasRunning = hasRunning || job.Status == StatusRunning
-		hasBlocked = hasBlocked || job.Status == StatusBlocked
+		effectiveStatus := job.Status
+
+		// Don't update the success/fail bits if this job has continueonerror set.
+		if !(effectiveStatus == StatusFailure && job.ContinueOnError) {
+			allSuccessOrSkipped = allSuccessOrSkipped && (effectiveStatus == StatusSuccess || effectiveStatus == StatusSkipped)
+			hasFailure = hasFailure || effectiveStatus == StatusFailure
+		}
+
+		allSkipped = allSkipped && effectiveStatus == StatusSkipped
+		hasCancelled = hasCancelled || effectiveStatus == StatusCancelled
+		hasWaiting = hasWaiting || effectiveStatus == StatusWaiting
+		hasRunning = hasRunning || effectiveStatus == StatusRunning
+		hasBlocked = hasBlocked || effectiveStatus == StatusBlocked
 	}
 	switch {
 	case allSkipped:

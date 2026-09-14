@@ -444,6 +444,7 @@ func InsertRunJobs(ctx context.Context, run *ActionRun, jobs []*jobparser.Single
 		needs := []string{}
 		name := run.Title
 		runsOn := []string{}
+		continueOnError := false
 		if job != nil {
 			needs = job.Needs()
 			if err := v.SetJob(id, job.EraseNeeds()); err != nil {
@@ -464,6 +465,12 @@ func InsertRunJobs(ctx context.Context, run *ActionRun, jobs []*jobparser.Single
 				hasWaiting = true
 			}
 
+			var err error
+			continueOnError, err = job.EvaluateContinueOnError()
+			if err != nil {
+				return fmt.Errorf("unable to evaluate job 'continue-on-error' on server-side with unexpected error: %w", err)
+			}
+
 			name, _ = util.SplitStringAtByteN(job.Name, 255)
 			runsOn = job.RunsOn()
 		}
@@ -479,6 +486,7 @@ func InsertRunJobs(ctx context.Context, run *ActionRun, jobs []*jobparser.Single
 			JobID:             id,
 			Needs:             needs,
 			RunsOn:            runsOn,
+			ContinueOnError:   continueOnError,
 		}
 		if err := runJob.PrepareNextAttempt(status); err != nil {
 			return err
