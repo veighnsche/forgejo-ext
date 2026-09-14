@@ -429,5 +429,5 @@ func TestDeleteUserCleansUpMembershipProvenance(t *testing.T) {
 
 	require.NoError(t, DeleteUser(db.DefaultContext, user2, true))
 
-	unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: 28, TeamID: 1, Reason: organization.MembershipReasonByUser, CreatedByUserID: optional.None[int64]()})
+	unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: 28, TeamID: 1, Reason: organization.MembershipReasonAddedByUser, CreatedByUserID: optional.None[int64]()})
 }

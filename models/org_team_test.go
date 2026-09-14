@@ -138,7 +138,7 @@ func TestAddTeamMemberByCooptation(t *testing.T) {
 			team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: testCase.teamID})
 			require.NoError(t, AddTeamMemberByCooptation(db.DefaultContext, team, testCase.userID, testCase.inviterID))
 			if testCase.userID == 4 {
-				unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID, Reason: organization.MembershipReasonByUser, CreatedByUserID: optional.Some(testCase.inviterID)})
+				unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID, Reason: organization.MembershipReasonAddedByUser, CreatedByUserID: optional.Some(testCase.inviterID)})
 			} else {
 				unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID})
 			}
@@ -206,7 +206,7 @@ func TestTeam_AddAndReturnTeamMember(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: testCase.teamID})
-			teamUser, err := InsertTeamMember(db.DefaultContext, team, testCase.userID, organization.MembershipReasonByUser, optional.Some(testCase.inviterID), optional.None[int64]())
+			teamUser, err := InsertTeamMember(db.DefaultContext, team, testCase.userID, organization.MembershipReasonAddedByUser, optional.Some(testCase.inviterID), optional.None[int64]())
 			require.NoError(t, err)
 			if testCase.alreadyMember {
 				assert.Nil(t, teamUser)
@@ -214,7 +214,7 @@ func TestTeam_AddAndReturnTeamMember(t *testing.T) {
 				require.NotNil(t, teamUser)
 				assert.Equal(t, testCase.teamID, teamUser.TeamID)
 				assert.Equal(t, testCase.userID, teamUser.UID)
-				unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID, Reason: organization.MembershipReasonByUser, CreatedByUserID: optional.Some(testCase.inviterID)})
+				unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: testCase.userID, TeamID: testCase.teamID, Reason: organization.MembershipReasonAddedByUser, CreatedByUserID: optional.Some(testCase.inviterID)})
 			}
 			unittest.CheckConsistencyFor(t, &organization.Team{ID: testCase.teamID}, &user_model.User{ID: team.OrgID})
 		})

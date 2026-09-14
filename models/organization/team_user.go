@@ -24,14 +24,14 @@ const (
 	// MembershipReasonUnknown represents a membership created before Forgejo started to track membership provenance
 	MembershipReasonUnknown MembershipReason = iota // Represented as zero to match the default values created by the SQL migration
 
-	// MembershipReasonOrgFounder represents a membership that was induced by creating the organization
-	MembershipReasonOrgFounder // 1
+	// MembershipReasonOrgCreator represents a membership that was induced by creating the organization
+	MembershipReasonOrgCreator // 1
 
-	// MembershipReasonByUser represents a membership created by another user (already member of the organization or site admin)
-	MembershipReasonByUser // 2
+	// MembershipReasonAddedByUser represents a membership created by another user (already member of the organization or site admin)
+	MembershipReasonAddedByUser // 2
 
-	// MembershipReasonByAuthProvider represents a membership created by an authentication source whose metadata was mapped to team membership
-	MembershipReasonByAuthProvider // 3
+	// MembershipReasonAddedByAuthProvider represents a membership created by an authentication source whose metadata was mapped to team membership
+	MembershipReasonAddedByAuthProvider // 3
 )
 
 // TeamUser represents an team-user relation.
@@ -157,13 +157,13 @@ func (t *TeamUser) IsUnknownMembershipReason() bool {
 }
 
 func (t *TeamUser) IsMembershipAsOrgFounder() bool {
-	return t.Reason == MembershipReasonOrgFounder
+	return t.Reason == MembershipReasonOrgCreator
 }
 
 func (t *TeamUser) IsMembershipAddedByUser() bool {
-	return t.Reason == MembershipReasonByUser
+	return t.Reason == MembershipReasonAddedByUser
 }
 
 func (t *TeamUser) IsMembershipAddedByLoginSource() bool {
-	return t.Reason == MembershipReasonByAuthProvider
+	return t.Reason == MembershipReasonAddedByAuthProvider
 }

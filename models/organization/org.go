@@ -368,7 +368,7 @@ func CreateOrganization(ctx context.Context, org *Organization, owner *user_mode
 		OrgID:       org.ID,
 		TeamID:      t.ID,
 		CreatedUnix: optional.Some(timeutil.TimeStampNow()),
-		Reason:      MembershipReasonOrgFounder,
+		Reason:      MembershipReasonOrgCreator,
 	}); err != nil {
 		return fmt.Errorf("insert team-user relation: %w", err)
 	}

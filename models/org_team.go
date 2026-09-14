@@ -373,12 +373,12 @@ func DeleteTeam(ctx context.Context, t *organization.Team) error {
 }
 
 func AddTeamMemberByCooptation(ctx context.Context, team *organization.Team, userID, inviterID int64) error {
-	_, err := InsertTeamMember(ctx, team, userID, organization.MembershipReasonByUser, optional.Some(inviterID), optional.None[int64]())
+	_, err := InsertTeamMember(ctx, team, userID, organization.MembershipReasonAddedByUser, optional.Some(inviterID), optional.None[int64]())
 	return err
 }
 
 func AddTeamMemberByLoginSource(ctx context.Context, team *organization.Team, userID, loginSourceID int64) error {
-	_, err := InsertTeamMember(ctx, team, userID, organization.MembershipReasonByAuthProvider, optional.None[int64](), optional.Some(loginSourceID))
+	_, err := InsertTeamMember(ctx, team, userID, organization.MembershipReasonAddedByAuthProvider, optional.None[int64](), optional.Some(loginSourceID))
 	return err
 }
 
