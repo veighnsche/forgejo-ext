@@ -942,6 +942,10 @@ func statusDiagnostics(ctx *app_context.Context, status actions_model.Status, ta
 		diagnostics = append(diagnostics, template.HTML(ctx.Locale.TrString("actions.need_approval_desc")))
 	}
 
+	if job.ContinueOnError {
+		diagnostics = append(diagnostics, template.HTML(ctx.Locale.TrString("actions.status.info.continue_on_error")))
+	}
+
 	if task != nil && task.RunnerID != 0 {
 		if runner, err := actions_model.GetRunnerByID(ctx, task.RunnerID); err == nil {
 			if ctx.IsUserRepoAdmin() {

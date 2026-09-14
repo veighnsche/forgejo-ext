@@ -842,6 +842,7 @@
 	"actions.status.info.failure": "Failed %[1]s after %[2]s",
 	"actions.status.info.running": "Running for %[1]s",
 	"actions.status.info.success": "Succeeded %[1]s in %[2]s",
+    "actions.status.info.continue_on_error": "This job failing will not fail the workflow as a whole.",
 	"actions.status.info.waiting": {
 		"one": "Waiting for %[1]s for a runner with the following label: %[2]s",
 		"other": "Waiting for %[1]s for a runner with the following labels: %[2]s"
