@@ -212,7 +212,17 @@ func applyRepoConditions(sess *xorm.Session, opts *IssuesOptions) {
 		if opts.RepoCond == nil {
 			opts.RepoCond = builder.NewCond()
 		}
-		opts.RepoCond = opts.RepoCond.Or(builder.In("issue.repo_id", builder.Select("id").From("repository").Where(builder.Eq{"is_private": false})))
+
+		subQuery := builder.Select("`repository`.id").From("repository").
+			Where(builder.Eq{"is_private": false})
+		if has, value := opts.IsPull.Get(); has {
+			unitType := unit.TypePullRequests
+			if !value {
+				unitType = unit.TypeIssues
+			}
+			subQuery = repo_model.JoinRepoType(subQuery, unitType)
+		}
+		opts.RepoCond = opts.RepoCond.Or(builder.In("issue.repo_id", subQuery))
 	}
 	if opts.RepoCond != nil {
 		sess.And(opts.RepoCond)
