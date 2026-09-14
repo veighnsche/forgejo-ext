@@ -339,6 +339,7 @@ func TestCreateTaskForRunner(t *testing.T) {
 		notifier := notify_service.NewMockNotifier(t)
 		notifier.On("Run").Return().Maybe()
 		notifier.On("WorkflowJobStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return()
+		notifier.On("WorkflowRunStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return()
 
 		notify_service.RegisterNotifier(notifier)
 		defer notify_service.UnregisterNotifier(notifier)
@@ -360,10 +361,18 @@ func TestCreateTaskForRunner(t *testing.T) {
 		assert.Equal(t, requestKey, task.RunnerRequestKey)
 
 		notifier.AssertNumberOfCalls(t, "WorkflowJobStatusChanged", 1)
+		notifier.AssertNumberOfCalls(t, "WorkflowRunStatusChanged", 1)
 		notifier.AssertCalled(
 			t, "WorkflowJobStatusChanged", mock.Anything,
 			mock.MatchedBy(func(eventJob *actions_model.ActionRunJob) bool {
 				return eventJob.ID == jobOne.ID && eventJob.Status == actions_model.StatusRunning
+			}),
+			actions_model.StatusWaiting,
+		)
+		notifier.AssertCalled(
+			t, "WorkflowRunStatusChanged", mock.Anything,
+			mock.MatchedBy(func(eventRun *actions_model.ActionRun) bool {
+				return eventRun.ID == jobOne.RunID && eventRun.Status == actions_model.StatusRunning
 			}),
 			actions_model.StatusWaiting,
 		)
