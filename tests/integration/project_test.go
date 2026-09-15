@@ -652,6 +652,7 @@ func TestProjectWebProjects(t *testing.T) {
 			}
 		})
 	}
+
 	t.Run("User", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		unittest.LoadFixtures()
@@ -778,6 +779,128 @@ func TestProjectWebProjects(t *testing.T) {
 		testProjectList(t, "get closed",
 			session, projectsURL+"?state=closed", expectElement, expectClosed)
 	})
+}
+
+func TestProjectWebProjectsQueryParams(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	unittest.LoadFixtures()
+
+	testProjectList := func(t *testing.T, name string, session *TestSession, url string) {
+		t.Run(name, func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			// get list of projects from url with query parameters
+			resp := sessionGET(t, session, url+"?state=open&q=test&sort=oldest", http.StatusOK)
+			doc := NewHTMLParser(t, resp.Body)
+
+			// switch
+
+			// template: templates/projects/list.tmpl
+			// template lines:
+			// {{if and $.CanWriteProjects (not $.Repository.IsArchived)}}
+			// 	<div class="tw-flex tw-justify-between tw-mb-4 tw-gap-2">
+			// 		<div class="switch list-header-toggle">
+			// 			<a class="item{{if not .IsShowClosed}} active{{end}}" href="?state=open&q={{$.Keyword}}">
+			// [...]
+			// 			</a>
+			// 			<a class="item{{if .IsShowClosed}} active{{end}}" href="?state=closed&q={{$.Keyword}}">
+			// [...]
+			// 			</a>
+			// 		</div>
+			// [...]
+			// 	</div>
+			// {{end}}
+
+			// "Open" is active
+			doc.AssertElement(t, ".tw-flex.tw-justify-between.tw-mb-4.tw-gap-2 .switch.list-header-toggle a.active[href='?state=open&q=test']", true)
+
+			// "Closed" is not active
+			doc.AssertElement(t, ".tw-flex.tw-justify-between.tw-mb-4.tw-gap-2 .switch.list-header-toggle a.active[href='?state=closed&q=test']", false)
+			doc.AssertElement(t, ".tw-flex.tw-justify-between.tw-mb-4.tw-gap-2 .switch.list-header-toggle a[href='?state=closed&q=test']", true)
+
+			// input
+
+			// template: templates/projects/list.tmpl
+			// template lines:
+			// <div class="list-header">
+			// 	<!-- Search -->
+			// 	<form class="list-header-search ui form ignore-dirty">
+			// 		<input type="hidden" name="state" value="{{$.State}}">
+			// 		{{template "shared/search/combo" dict "Value" .Keyword "Placeholder" (ctx.Locale.Tr "search.project_kind")}}
+			// 	</form>
+			// [...]
+			// </div>
+
+			// template: templates/shared/search/combo.tmpl
+			// template lines:
+			// <div class="ui small fluid action input">
+			// 	{{template "shared/search/input"
+			// 		dict
+			// 			"Value" .Value
+			// 			"Disabled" .Disabled
+			// 			"Placeholder" .Placeholder}}
+			// [...]
+			// </div>
+
+			// template: templates/shared/search/input.tmpl
+			// template lines:
+			// <input type="search" spellcheck="false" name="q" maxlength="255" placeholder="{{with .Placeholder}}{{.}}{{else}}{{ctx.Locale.Tr "search.search"}}{{end}}"{{with .Value}} value="{{.}}"{{end}}{{if .Disabled}} disabled{{end}}>
+
+			// value of input field is "test"
+			doc.AssertElement(t, ".list-header .list-header-search.ui.form.ignore-dirty .ui.small.fluid.action.input input[value='test']", true)
+
+			// form
+
+			// template: templates/projects/list.tmpl
+			// template lines:
+			// <div class="list-header">
+			// [...]
+			// 	</form>
+			// 	<!-- Sort -->
+			// 	<div class="ui secondary menu tw-mt-0">
+			// [...]
+			// 		<div class="menu">
+			// 			<a class="{{if eq .SortType "oldest"}}active {{end}}item" href="?q={{$.Keyword}}&sort=oldest&state={{$.State}}">{{ctx.Locale.Tr "issues.search.sort.oldest"}}</a>
+			// 			<a class="{{if eq .SortType "recentupdate"}}active {{end}}item" href="?q={{$.Keyword}}&sort=recentupdate&state={{$.State}}">{{ctx.Locale.Tr "issues.search.sort.recentupdate"}}</a>
+			// 			<a class="{{if eq .SortType "leastupdate"}}active {{end}}item" href="?q={{$.Keyword}}&sort=leastupdate&state={{$.State}}">{{ctx.Locale.Tr "issues.search.sort.leastupdate"}}</a>
+			// 		</div>
+			// 	</div>
+			// 	</div>
+			// </div>
+
+			// "Oldest" is active
+			doc.AssertElement(t, ".list-header .ui.secondary.menu.tw-mt-0 .menu a.active.item[href='?q=test&sort=oldest&state=open']", true)
+
+			// "Recently updated" is not active
+			doc.AssertElement(t, ".list-header .ui.secondary.menu.tw-mt-0 .menu a.active.item[href='?q=test&sort=recentupdate&state=open']", false)
+			doc.AssertElement(t, ".list-header .ui.secondary.menu.tw-mt-0 .menu a.item[href='?q=test&sort=recentupdate&state=open']", true)
+
+			// "Least recently updated" is not active
+			doc.AssertElement(t, ".list-header .ui.secondary.menu.tw-mt-0 .menu a.active.item[href='?q=test&sort=leastupdate&state=open']", false)
+			doc.AssertElement(t, ".list-header .ui.secondary.menu.tw-mt-0 .menu a.item[href='?q=test&sort=leastupdate&state=open']", true)
+		})
+	}
+
+	// create test user, org, repo
+	user := forgery.CreateUser(t, nil)
+	org := forgery.CreateOrganisation(t, user)
+	repo := forgery.CreateRepository(t, user, nil)
+
+	session := loginUser(t, user.Name)
+
+	// run tests
+	for _, tt := range []struct {
+		name  string
+		owner string
+		repo  string
+	}{
+		{"User", user.Name, "-"},
+		{"Organization", org.Name, "-"},
+		{"Repository", user.Name, repo.Name},
+	} {
+		url := fmt.Sprintf("/%s/%s/projects", tt.owner, tt.repo)
+		testProjectList(t, tt.name, session, url)
+	}
 }
 
 func TestProjectWebRenderNewProject(t *testing.T) {
