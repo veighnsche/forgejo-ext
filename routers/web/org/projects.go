@@ -60,9 +60,11 @@ func Projects(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("repo.projects")
 
 	sortType := ctx.FormTrim("sort")
+	ctx.Data["SortType"] = sortType
 
 	showClosed := strings.EqualFold(ctx.FormTrim("state"), "closed")
 	keyword := ctx.FormTrim("q")
+	ctx.Data["Keyword"] = keyword
 	page := max(ctx.FormInt("page"), 1)
 
 	projectType := project_service.GetAPIOwnerType(ctx.ContextUser.IsOrganization(), false)
@@ -118,19 +120,15 @@ func Projects(ctx *context.Context) {
 		return
 	}
 
-	numPages := 0
-	if total > 0 {
-		numPages = (int(total) - 1/setting.UI.IssuePagingNum)
-	}
-
-	pager := context.NewPagination(int(total), setting.UI.IssuePagingNum, page, numPages)
+	pager := context.NewPagination(len(projects), setting.UI.IssuePagingNum, page, 5)
 	pager.AddParam(ctx, "state", "State")
+	pager.AddParam(ctx, "q", "Keyword")
+	pager.AddParam(ctx, "sort", "SortType")
 	ctx.Data["Page"] = pager
 
 	ctx.Data["CanWriteProjects"] = canWriteProjects(ctx)
 	ctx.Data["IsShowClosed"] = showClosed
 	ctx.Data["PageIsViewProjects"] = true
-	ctx.Data["SortType"] = sortType
 
 	numOpenIssues, err := issues_model.NumIssuesInProjects(ctx, projects, ctx.Doer, ctx.Org.Organization, optional.Some(false))
 	if err != nil {
