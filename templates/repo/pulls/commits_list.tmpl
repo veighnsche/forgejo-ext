@@ -29,28 +29,18 @@
 			{{end}}
 		</div>
 
-		<div class="message">
+		<div class="message tw-flex">
 			{{$commitLink := (printf "%s/pulls/%d/commits/%s" $commitRepoLink $.Issue.Index (PathEscape .ID.String))}}
 			<div class="message-wrapper">
 				{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}
-				{{if or (IsMultilineCommitMessage .Message) .Statuses}}
-				<details class="commit-body-toggle" {{if not (IsMultilineCommitMessage .Message)}}open{{end}}>
-					<summary>
-						{{if IsMultilineCommitMessage .Message}}
-						<span class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}">...</span>
-						{{end}}
-						{{if .Statuses}}
-						<span class="ci-status">
-							{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
-						</span>
-						{{end}}
-					</summary>
-					{{if IsMultilineCommitMessage .Message}}
+				{{if IsMultilineCommitMessage .Message}}
+				<details class="commit-body-toggle">
+					<summary class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}">...</summary>
 					<pre class="commit-body">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
-					{{end}}
 				</details>
 				{{end}}
 			</div>
+			{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
 		</div>
 
 		<div class="actions">

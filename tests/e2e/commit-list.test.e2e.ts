@@ -50,7 +50,7 @@ for (const run of runs) {
         expect(response?.status()).toBe(200);
 
         const summary = page.locator('.message-wrapper', {hasText: 'Another multiline commit message'});
-        const toggle = summary.locator('+ details').getByLabel('Toggle full commit message');
+        const toggle = summary.locator('> details').getByLabel('Toggle full commit message');
         const body = page.locator('.commit-body', {hasText: 'this time with a status 🎉'});
         const status = page.locator('a:has(> .octicon-check)');
         const otherBody = page.locator('.commit-body', {hasText: 'which spans multiple lines'});
@@ -201,7 +201,7 @@ for (const run of runs) {
         const summary = page.locator('.message-wrapper', {hasText: 'Yet another multiline commit message'});
         const toggle = summary.getByLabel('Toggle full commit message');
         const body = page.locator('.commit-body', {hasText: 'now with a PR and status!'});
-        const status = page.locator('.ci-status > a:has(> .octicon-check)').first();
+        const status = page.locator('a:has(> .octicon-check)').first();
 
         await expect(summary).toBeVisible();
         await expect(toggle).toBeVisible();
