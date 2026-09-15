@@ -467,6 +467,7 @@ func addCommitStatus(t *testing.T, user *user_model.User, repo *repo_model.Repos
 func createCommitRelease(t *testing.T, user *user_model.User, repo *repo_model.Repository, target, tagName string) {
 	gitRepo, err := gitrepo.OpenRepository(db.DefaultContext, repo)
 	require.NoError(t, err)
+	defer gitRepo.Close()
 	rel := &repo_model.Release{
 		RepoID:           repo.ID,
 		PublisherID:      user.ID,
