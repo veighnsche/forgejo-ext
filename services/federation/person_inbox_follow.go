@@ -16,7 +16,7 @@ import (
 	"github.com/go-ap/jsonld"
 )
 
-func processPersonFollow(ctx context.Context, ctxUser *user.User, activity *ap.Activity) (ServiceResult, error) {
+func processPersonFollow(ctx context.Context, ctxUser *user.User, activity *ap.Activity, keyid string) (ServiceResult, error) {
 	follow, err := forgefed.NewForgeFollowFromAp(*activity)
 	if err != nil {
 		log.Error("Invalid follow activity: %s", err)
@@ -28,6 +28,11 @@ func processPersonFollow(ctx context.Context, ctxUser *user.User, activity *ap.A
 	if err != nil {
 		log.Error("Error finding or creating federated user (%s): %v", actorURI, err)
 		return ServiceResult{}, NewErrNotAcceptablef("Federated user not found: %v", err)
+	}
+
+	if federatedUser.ExternalID != keyid {
+		log.Error("KeyId (%v) in signature does not match ActorId (%v)", keyid, federatedUser.ExternalID)
+		return ServiceResult{}, NewErrNotAcceptablef("KeyId (%v) in signature does not match ActorId (%v)", keyid, federatedUser.ExternalID)
 	}
 
 	following, err := user.IsFollowingAp(ctx, ctxUser, federatedUser)

@@ -4,8 +4,8 @@
 package activitypub
 
 import (
-	"fmt"
 	"net/http"
+	"strings"
 
 	"forgejo.org/models/activities"
 	"forgejo.org/modules/activitypub"
@@ -79,11 +79,8 @@ func PersonInbox(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx)
 	activity := form.(*ap.Activity)
-	if match, err := verifyActorMatchesSignature(*ctx, activity); !match {
-		ctx.Error(federation.HTTPStatus(err), "PersonInbox", err)
-		return
-	}
-	result, err := federation.ProcessPersonInbox(ctx, ctx.User(), activity)
+	keyid := getKeyID(*ctx)
+	result, err := federation.ProcessPersonInbox(ctx, ctx.User(), activity, keyid)
 	if err != nil {
 		ctx.Error(federation.HTTPStatus(err), "PersonInbox", err)
 		return
@@ -261,11 +258,16 @@ func PersonActivityNote(ctx *context.APIContext) {
 	}
 }
 
-func verifyActorMatchesSignature(ctx app_context.APIContext, activity *ap.Activity) (auth bool, err error) {
+func getKeyID(ctx app_context.APIContext) string {
 	r := ctx.Req
 	v, err := httpsig.NewVerifier(r)
-	fmt.Printf("key id: \t %v \n", v.KeyId())
-	fmt.Printf("actor id: \t %v \n", activity.Actor.GetID())
 
-	return true, nil
+	if err != nil {
+		log.Debug("For %q verification failed: %v", r.URL.Path, err)
+	}
+	keyURI := v.KeyId()
+	keyURIWithoutMainKey := strings.Split(keyURI, "#")[0]
+	keyURISplit := strings.Split(keyURIWithoutMainKey, "/")
+	keyId := keyURISplit[len(keyURISplit)-1]
+	return keyId
 }
