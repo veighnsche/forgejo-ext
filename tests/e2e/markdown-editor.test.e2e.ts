@@ -353,6 +353,7 @@ test('Markdown list continuation', async ({page}) => {
 
 test.describe('Markdown insert table', () => {
   test.beforeEach(async ({page}) => {
+    // Load page with editor
     const response = await page.goto('/user2/repo1/issues/1');
     expect(response?.status()).toBe(200);
   });
@@ -441,147 +442,132 @@ test.describe('Markdown insert table', () => {
 
 test.describe('Markdown insert link', () => {
   test.beforeEach(async ({page}) => {
+    // Load page with editor
     const response = await page.goto('/user2/repo1/issues/1');
     expect(response?.status()).toBe(200);
   });
 
-  test.describe('JS off', () => {
-    test.use({javaScriptEnabled: false});
-
-    test('button is disabled', async ({page}) => {
+  test.describe('modal', () => {
+    test.beforeEach(async ({page}) => {
       const area = page.locator('#comment-form');
-      const newLinkButton = area.locator('button[data-md-action="new-link"]');
-      await expect(newLinkButton).toBeDisabled();
 
-      // no point testing the edit form as well; it's only reachable when JS is enabled
+      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
+      await expect(newLinkModal).toBeHidden();
+
+      const newLinkButton = area.locator('button[data-md-action="new-link"]');
+      await newLinkButton.click();
+    });
+
+    test('closes on Esc', async ({ page }) => {
+      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
+      await expect(newLinkModal).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(newLinkModal).toBeHidden();
+    });
+
+    test('closes on outside click', async ({page}) => {
+      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
+      await expect(newLinkModal).toBeVisible();
+      // can't select ::backdrop directly, so manually click just outside of the bounding box for the same effect
+      const box = await newLinkModal.boundingBox();
+      await page.mouse.click(box.x + 2, box.y + 2); // clicking the modal itself does nothing
+      await expect(newLinkModal).toBeVisible();
+      await page.mouse.click(box.x - 1, box.y);
+      await expect(newLinkModal).toBeHidden();
+    });
+
+    test('closes on Cancel button', async ({page}) => {
+      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
+      await expect(newLinkModal).toBeVisible();
+      await newLinkModal.getByRole('button', {name: 'Cancel'}).click();
+      await expect(newLinkModal).toBeHidden();
     });
   });
 
-  test.describe('JS on', () => {
-    test.use({javaScriptEnabled: true});
+  test('button is enabled and functional', async ({page}) => {
+    async function evaluateLinkInsertion(page: Page, selector: string, isEditing: boolean) {
+      const url = 'https://example.com';
+      const description = 'Where does this lead?';
 
-    test.describe('modal', () => {
-      test.beforeEach(async ({page}) => {
-        const area = page.locator('#comment-form');
+      let expectedContent = `[${description}](${url})`;
 
-        const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
-        await expect(newLinkModal).toBeHidden();
+      const area = page.locator(selector);
 
-        const newLinkButton = area.locator('button[data-md-action="new-link"]');
-        await newLinkButton.click();
-      });
-
-      test('closes on Esc', async ({ page }) => {
-        const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
-        await expect(newLinkModal).toBeVisible();
-        await page.keyboard.press('Escape');
-        await expect(newLinkModal).toBeHidden();
-      });
-
-      test('closes on outside click', async ({page}) => {
-        const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
-        await expect(newLinkModal).toBeVisible();
-        // can't select ::backdrop directly, so manually click just outside of the bounding box for the same effect
-        const box = await newLinkModal.boundingBox();
-        await page.mouse.click(box.x + 2, box.y + 2); // clicking the modal itself does nothing
-        await expect(newLinkModal).toBeVisible();
-        await page.mouse.click(box.x - 1, box.y);
-        await expect(newLinkModal).toBeHidden();
-      });
-
-      test('closes on Cancel button', async ({page}) => {
-        const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
-        await expect(newLinkModal).toBeVisible();
-        await newLinkModal.getByRole('button', {name: 'Cancel'}).click();
-        await expect(newLinkModal).toBeHidden();
-      });
-    });
-
-    test('button is enabled and functional', async ({page}) => {
-      async function evaluateLinkInsertion(page: Page, selector: string, isEditing: boolean) {
-        const url = 'https://example.com';
-        const description = 'Where does this lead?';
-
-        let expectedContent = `[${description}](${url})`;
-
-        const area = page.locator(selector);
-
-        if (isEditing) {
-          // Preparations for evaluating comment editing
-          await area.locator('.comment-header-right.actions details.dropdown').click();
-          await area.locator('.comment-header-right.actions details.dropdown .edit-content').click();
-          expectedContent = `good work!${expectedContent}`;
-        }
-
-        const newLinkButton = area.locator('button[data-md-action="new-link"]');
-        await newLinkButton.click();
-
-        const newLinkModal = page.locator('[data-modal-name="new-markdown-link"][open]');
-        await expect(newLinkModal).toBeVisible();
-        await accessibilityCheck({page}, ['[data-modal-name="new-markdown-link"][open]'], [], []);
-        await screenshot(page);
-
-        const urlInput = newLinkModal.locator('input[name="link-url"]');
-        const descriptionInput = newLinkModal.locator('input[name="link-description"]');
-
-        await expect(urlInput).toBeEnabled();
-        await expect(descriptionInput).toBeEnabled();
-
-        await urlInput.fill(url);
-        await descriptionInput.fill(description);
-
-        await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
-        await expect(newLinkModal).toBeHidden();
-
-        const textarea = area.locator('textarea[name=content]');
-        await expect(textarea).toHaveValue(expectedContent);
-        await screenshot(page);
+      if (isEditing) {
+        // Preparations for evaluating comment editing
+        await area.locator('.comment-header-right.actions details.dropdown').click();
+        await area.locator('.comment-header-right.actions details.dropdown .edit-content').click();
+        expectedContent = `good work!${expectedContent}`;
       }
 
-      async function evaluateLinkInsertionShortcut(page: Page, selector: string) {
-        const url = 'https://example.com';
-        const description = 'Where does this lead?';
+      const newLinkButton = area.locator('button[data-md-action="new-link"]');
+      await newLinkButton.click();
 
-        const expectedContent = `[${description}](${url})`;
+      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"][open]');
+      await expect(newLinkModal).toBeVisible();
+      await accessibilityCheck({page}, ['[data-modal-name="new-markdown-link"][open]'], [], []);
+      await screenshot(page);
 
-        const area = page.locator(selector);
+      const urlInput = newLinkModal.locator('input[name="link-url"]');
+      const descriptionInput = newLinkModal.locator('input[name="link-description"]');
 
-        const textarea = area.locator('textarea[name=content]');
+      await expect(urlInput).toBeEnabled();
+      await expect(descriptionInput).toBeEnabled();
 
-        await textarea.fill(description);
-        await textarea.focus();
-        await textarea.evaluate((it:HTMLTextAreaElement) => it.setSelectionRange(0, it.value.length));
+      await urlInput.fill(url);
+      await descriptionInput.fill(description);
 
-        await textarea.press('ControlOrMeta+KeyK');
+      await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
+      await expect(newLinkModal).toBeHidden();
 
-        const newLinkModal = page.locator('[data-modal-name="new-markdown-link"][open]');
-        await expect(newLinkModal).toBeVisible();
-        await accessibilityCheck({page}, ['[data-modal-name="new-markdown-link"][open]'], [], []);
-        await screenshot(page);
+      const textarea = area.locator('textarea[name=content]');
+      await expect(textarea).toHaveValue(expectedContent);
+      await screenshot(page);
+    }
 
-        const urlInput = newLinkModal.locator('input[name="link-url"]');
+    async function evaluateLinkInsertionShortcut(page: Page, selector: string) {
+      const url = 'https://example.com';
+      const description = 'Where does this lead?';
 
-        await expect(urlInput).toBeEnabled();
+      const expectedContent = `[${description}](${url})`;
 
-        await urlInput.fill(url);
+      const area = page.locator(selector);
 
-        await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
-        await expect(newLinkModal).toBeHidden();
+      const textarea = area.locator('textarea[name=content]');
 
-        await expect(textarea).toHaveValue(expectedContent);
-        await screenshot(page);
-      }
+      await textarea.fill(description);
+      await textarea.focus();
+      await textarea.evaluate((it:HTMLTextAreaElement) => it.setSelectionRange(0, it.value.length));
 
-      await expect(async () => {
-        await evaluateLinkInsertion(page, '#comment-form', false);
-        await evaluateLinkInsertion(page, '#issuecomment-2', true);
-      }).toPass();
+      await textarea.press('ControlOrMeta+KeyK');
 
-      await expect(async () => {
-        await evaluateLinkInsertionShortcut(page, '#comment-form');
-        await evaluateLinkInsertionShortcut(page, '#issuecomment-2');
-      }).toPass();
-    });
+      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"][open]');
+      await expect(newLinkModal).toBeVisible();
+      await accessibilityCheck({page}, ['[data-modal-name="new-markdown-link"][open]'], [], []);
+      await screenshot(page);
+
+      const urlInput = newLinkModal.locator('input[name="link-url"]');
+
+      await expect(urlInput).toBeEnabled();
+
+      await urlInput.fill(url);
+
+      await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
+      await expect(newLinkModal).toBeHidden();
+
+      await expect(textarea).toHaveValue(expectedContent);
+      await screenshot(page);
+    }
+
+    await expect(async () => {
+      await evaluateLinkInsertion(page, '#comment-form', false);
+      await evaluateLinkInsertion(page, '#issuecomment-2', true);
+    }).toPass();
+
+    await expect(async () => {
+      await evaluateLinkInsertionShortcut(page, '#comment-form');
+      await evaluateLinkInsertionShortcut(page, '#issuecomment-2');
+    }).toPass();
   });
 });
 
