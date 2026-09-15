@@ -300,7 +300,7 @@ class ComboMarkdownEditor {
     replaceTextareaSelection(document.getElementById(`_combo_markdown_editor_${elementId}`), code);
 
     // Close the modal
-    newTableModal.querySelector('button[data-selector-name="cancel-button"]').click();
+    newTableModal.close();
   }
 
   setupTableInserter() {
