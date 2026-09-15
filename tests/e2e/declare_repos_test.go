@@ -125,7 +125,7 @@ func DeclareGitRepos(t *testing.T) {
 		// status+tag on main branch
 		commitMainSha := commitNewFile(t, user, repo, "Another multiline commit message\nthis time with a status 🎉", "file2.md", "also a file")
 		addCommitStatus(t, user, repo, repo.DefaultBranch, commitMainSha)
-		createCommitRelease(t, user, repo, commitMainSha, "v1.4.2")
+		tagCommitWithRelease(t, user, repo, commitMainSha, "v1.4.2")
 
 		// status on PR
 		commitPrSha1 := addCommitWithMessageToBranch(t, user, repo, "main", "test-branch", "Yet another multiline commit message\nnow with a PR and status!", "file2.md", "", "still a file")
@@ -464,7 +464,7 @@ func addCommitStatus(t *testing.T, user *user_model.User, repo *repo_model.Repos
 	actions_service.CreateCommitStatus(db.DefaultContext, job)
 }
 
-func createCommitRelease(t *testing.T, user *user_model.User, repo *repo_model.Repository, target, tagName string) {
+func tagCommitWithRelease(t *testing.T, user *user_model.User, repo *repo_model.Repository, target, tagName string) {
 	gitRepo, err := gitrepo.OpenRepository(db.DefaultContext, repo)
 	require.NoError(t, err)
 	defer gitRepo.Close()
