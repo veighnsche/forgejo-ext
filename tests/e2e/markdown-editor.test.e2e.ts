@@ -374,8 +374,8 @@ test('Markdown insert table', async ({page}) => {
     const rowsInput = newTableModal.locator('input[name="table-rows"]');
     const columnsInput = newTableModal.locator('input[name="table-columns"]');
 
-    await expect(rowsInput).not.toHaveAttribute('disabled');
-    await expect(columnsInput).not.toHaveAttribute('disabled');
+    await expect(rowsInput).toBeEnabled();
+    await expect(columnsInput).toBeEnabled();
 
     await rowsInput.fill('3');
     await columnsInput.fill('2');
@@ -398,93 +398,113 @@ test('Markdown insert table', async ({page}) => {
   }).toPass({timeout: 3000});
 });
 
-test('Markdown insert link', async ({page}) => {
-  async function evaluateLinkInsertion(page: Page, selector: string, isEditing: boolean) {
-    const url = 'https://example.com';
-    const description = 'Where does this lead?';
+test.describe('Markdown insert link', () => {
+  test.beforeEach(async ({page}) => {
+    const response = await page.goto('/user2/repo1/issues/1');
+    expect(response?.status()).toBe(200);
+  });
 
-    let expectedContent = `[${description}](${url})`;
+  test.describe('JS off', () => {
+    test.use({javaScriptEnabled: false});
 
-    const area = page.locator(selector);
+    test('button is disabled', async ({page}) => {
+      const area = page.locator('#comment-form');
+      const newLinkButton = area.locator('button[data-md-action="new-link"]');
+      await expect(newLinkButton).toBeDisabled();
 
-    if (isEditing) {
-      // Preparations for evaluating comment editing
-      await area.locator('.comment-header-right.actions details.dropdown').click();
-      await area.locator('.comment-header-right.actions details.dropdown .edit-content').click();
-      expectedContent = `good work!${expectedContent}`;
-    }
+      // no point testing the edit form as well; it's only reachable when JS is enabled
+    });
+  });
 
-    const newLinkButton = area.locator('button[data-md-action="new-link"]');
-    await newLinkButton.click();
+  test.describe('JS on', () => {
+    test.use({javaScriptEnabled: true});
 
-    const newLinkModal = page.locator('[data-modal-name="new-markdown-link"][open]');
-    await expect(newLinkModal).toBeVisible();
-    await accessibilityCheck({page}, ['[data-modal-name="new-markdown-link"][open]'], [], []);
-    await screenshot(page);
+    test('button is enabled and functional', async ({page}) => {
+      async function evaluateLinkInsertion(page: Page, selector: string, isEditing: boolean) {
+        const url = 'https://example.com';
+        const description = 'Where does this lead?';
 
-    const urlInput = newLinkModal.locator('input[name="link-url"]');
-    const descriptionInput = newLinkModal.locator('input[name="link-description"]');
+        let expectedContent = `[${description}](${url})`;
 
-    await expect(urlInput).not.toHaveAttribute('disabled');
-    await expect(descriptionInput).not.toHaveAttribute('disabled');
+        const area = page.locator(selector);
 
-    await urlInput.fill(url);
-    await descriptionInput.fill(description);
+        if (isEditing) {
+          // Preparations for evaluating comment editing
+          await area.locator('.comment-header-right.actions details.dropdown').click();
+          await area.locator('.comment-header-right.actions details.dropdown .edit-content').click();
+          expectedContent = `good work!${expectedContent}`;
+        }
 
-    await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
-    await expect(newLinkModal).toBeHidden();
+        const newLinkButton = area.locator('button[data-md-action="new-link"]');
+        await newLinkButton.click();
 
-    const textarea = area.locator('textarea[name=content]');
-    await expect(textarea).toHaveValue(expectedContent);
-    await screenshot(page);
-  }
+        const newLinkModal = page.locator('[data-modal-name="new-markdown-link"][open]');
+        await expect(newLinkModal).toBeVisible();
+        await accessibilityCheck({page}, ['[data-modal-name="new-markdown-link"][open]'], [], []);
+        await screenshot(page);
 
-  async function evaluateLinkInsertionShortcut(page: Page, selector: string) {
-    const url = 'https://example.com';
-    const description = 'Where does this lead?';
+        const urlInput = newLinkModal.locator('input[name="link-url"]');
+        const descriptionInput = newLinkModal.locator('input[name="link-description"]');
 
-    const expectedContent = `[${description}](${url})`;
+        await expect(urlInput).toBeEnabled();
+        await expect(descriptionInput).toBeEnabled();
 
-    const area = page.locator(selector);
+        await urlInput.fill(url);
+        await descriptionInput.fill(description);
 
-    const textarea = area.locator('textarea[name=content]');
+        await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
+        await expect(newLinkModal).toBeHidden();
 
-    await textarea.fill(description);
-    await textarea.focus();
-    await textarea.evaluate((it:HTMLTextAreaElement) => it.setSelectionRange(0, it.value.length));
+        const textarea = area.locator('textarea[name=content]');
+        await expect(textarea).toHaveValue(expectedContent);
+        await screenshot(page);
+      }
 
-    await textarea.press('ControlOrMeta+KeyK');
+      async function evaluateLinkInsertionShortcut(page: Page, selector: string) {
+        const url = 'https://example.com';
+        const description = 'Where does this lead?';
 
-    const newLinkModal = page.locator('[data-modal-name="new-markdown-link"][open]');
-    await expect(newLinkModal).toBeVisible();
-    await accessibilityCheck({page}, ['[data-modal-name="new-markdown-link"][open]'], [], []);
-    await screenshot(page);
+        const expectedContent = `[${description}](${url})`;
 
-    const urlInput = newLinkModal.locator('input[name="link-url"]');
+        const area = page.locator(selector);
 
-    await expect(urlInput).not.toHaveAttribute('disabled');
+        const textarea = area.locator('textarea[name=content]');
 
-    await urlInput.fill(url);
+        await textarea.fill(description);
+        await textarea.focus();
+        await textarea.evaluate((it:HTMLTextAreaElement) => it.setSelectionRange(0, it.value.length));
 
-    await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
-    await expect(newLinkModal).toBeHidden();
+        await textarea.press('ControlOrMeta+KeyK');
 
-    await expect(textarea).toHaveValue(expectedContent);
-    await screenshot(page);
-  }
+        const newLinkModal = page.locator('[data-modal-name="new-markdown-link"][open]');
+        await expect(newLinkModal).toBeVisible();
+        await accessibilityCheck({page}, ['[data-modal-name="new-markdown-link"][open]'], [], []);
+        await screenshot(page);
 
-  const response = await page.goto('/user2/repo1/issues/1');
-  expect(response?.status()).toBe(200);
+        const urlInput = newLinkModal.locator('input[name="link-url"]');
 
-  await expect(async () => {
-    await evaluateLinkInsertion(page, '#comment-form', false);
-    await evaluateLinkInsertion(page, '#issuecomment-2', true);
-  }).toPass();
+        await expect(urlInput).toBeEnabled();
 
-  await expect(async () => {
-    await evaluateLinkInsertionShortcut(page, '#comment-form');
-    await evaluateLinkInsertionShortcut(page, '#issuecomment-2');
-  }).toPass();
+        await urlInput.fill(url);
+
+        await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
+        await expect(newLinkModal).toBeHidden();
+
+        await expect(textarea).toHaveValue(expectedContent);
+        await screenshot(page);
+      }
+
+      await expect(async () => {
+        await evaluateLinkInsertion(page, '#comment-form', false);
+        await evaluateLinkInsertion(page, '#issuecomment-2', true);
+      }).toPass();
+
+      await expect(async () => {
+        await evaluateLinkInsertionShortcut(page, '#comment-form');
+        await evaluateLinkInsertionShortcut(page, '#issuecomment-2');
+      }).toPass();
+    });
+  });
 });
 
 test('text expander has higher prio then prefix continuation', async ({page}) => {
