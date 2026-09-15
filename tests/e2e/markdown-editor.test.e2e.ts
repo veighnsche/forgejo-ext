@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // @watch start
+// web_src/js/modules/modal.ts
 // web_src/js/modules/tab.ts
 // web_src/css/modules/tab.css
 // web_src/js/features/comp/ComboMarkdownEditor.js
@@ -369,7 +370,7 @@ test.describe('Markdown insert table', () => {
       await newTableButton.click();
     });
 
-    test('closes on Esc', async ({ page }) => {
+    test('closes on Esc', async ({page}) => {
       const newTableModal = page.locator('[data-modal-name="new-markdown-table"]');
       await expect(newTableModal).toBeVisible();
       await page.keyboard.press('Escape');
@@ -458,7 +459,7 @@ test.describe('Markdown insert link', () => {
       await newLinkButton.click();
     });
 
-    test('closes on Esc', async ({ page }) => {
+    test('closes on Esc', async ({page}) => {
       const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
       await expect(newLinkModal).toBeVisible();
       await page.keyboard.press('Escape');

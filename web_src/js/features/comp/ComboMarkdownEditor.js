@@ -102,12 +102,7 @@ class ComboMarkdownEditor {
       this.indentSelection(true, false);
     });
     this.textareaMarkdownToolbar.querySelector('button[data-md-action="new-table"]')?.setAttribute('data-modal', `dialog[data-markdown-table-modal-id="${this.elementIdSuffix}"]`);
-
-    const newLinkButton = this.textareaMarkdownToolbar.querySelector('button[data-md-action="new-link"]');
-    if (newLinkButton) {
-      newLinkButton.disabled = false;
-      newLinkButton.setAttribute('data-modal', `dialog[data-markdown-link-modal-id="${this.elementIdSuffix}"]`);
-    }
+    this.textareaMarkdownToolbar.querySelector('button[data-md-action="new-link"]')?.setAttribute('data-modal', `dialog[data-markdown-link-modal-id="${this.elementIdSuffix}"]`);
 
     // Find all data-md-ctrl-shortcut elements in the markdown toolbar.
     const shortcutKeys = new Map();
