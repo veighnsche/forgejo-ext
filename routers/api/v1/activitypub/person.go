@@ -5,7 +5,6 @@ package activitypub
 
 import (
 	"net/http"
-	"strings"
 
 	"forgejo.org/models/activities"
 	"forgejo.org/modules/activitypub"
@@ -79,8 +78,8 @@ func PersonInbox(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx)
 	activity := form.(*ap.Activity)
-	keyid := getKeyID(*ctx)
-	result, err := federation.ProcessPersonInbox(ctx, ctx.User(), activity, keyid)
+	keyID := getKeyID(*ctx)
+	result, err := federation.ProcessPersonInbox(ctx, ctx.User(), activity, keyID)
 	if err != nil {
 		ctx.Error(federation.HTTPStatus(err), "PersonInbox", err)
 		return
@@ -266,8 +265,6 @@ func getKeyID(ctx app_context.APIContext) string {
 		log.Debug("For %q verification failed: %v", r.URL.Path, err)
 	}
 	keyURI := v.KeyId()
-	keyURIWithoutMainKey := strings.Split(keyURI, "#")[0]
-	keyURISplit := strings.Split(keyURIWithoutMainKey, "/")
-	keyId := keyURISplit[len(keyURISplit)-1]
-	return keyId
+
+	return keyURI
 }
