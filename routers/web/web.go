@@ -1860,6 +1860,7 @@ func registerRoutes(m *web.Route) {
 			m.Post("", repo_flags.ManagePost)
 		}, adminReq, context.RepoAssignment, context.UnitTypes())
 	}
+	m.Post("/{username}/{reponame}/send_moderation_notice", adminReq, context.RepoAssignment, repo_flags.SendEmailToOwner)
 	// ***** END: Repository *****
 
 	m.Group("/notifications", func() {

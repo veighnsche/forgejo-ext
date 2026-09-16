@@ -229,6 +229,10 @@
 	"repo.settings.units.more_units_disable_hint": "The \"Enable more\" hint can be disabled in <a href=\"%s\">User settings > Appearance</a>.",
 	"repo.settings.collaboration.change_access": "Change access mode",
 	"repo.settings.collaboration.none": " There are no collaborators yet.",
+	"repo.admin.moderation.notify_owner": "Send a moderation notice",
+	"repo.admin.send_email_to_owners": "Send email to owners",
+	"repo.admin.failed_to_send_moderation_notice": "Failed to send moderation notice",
+	"repo.admin.moderation_notice_added_to_queue": "Moderation notice was successfully added to e-mail queue",
 	"incorrect_root_url": "This Forgejo instance is configured to be served on \"%s\". You are currently viewing Forgejo through a different URL, which may cause parts of the application to break. The canonical URL is controlled by Forgejo admins via the ROOT_URL setting in the app.ini.",
 	"themes.names.forgejo-auto": "Forgejo (follow system theme)",
 	"themes.names.forgejo-light": "Forgejo light",
@@ -460,6 +464,8 @@
 	"mail.actions.job_failure_info_finished": "Finished: %[1]s",
 	"mail.actions.job_failure_view_results": "View results on %[1]s.",
 	"mail.issue.action.close_by_commit": "%[1]s closed %[2]s in commit %[3]s.",
+	"mail.repo.admin.moderation_notice.subject": "A notice from %[1]s",
+	"mail.repo.admin.moderation_notice.text": "The admins from %[1]s are sending you the following notice regarding <a href=\"%[3]s\">%[2]s</a> repository:",
 	"mail.team_invite.expiration": {
 		"one": "This invitation will expire in %d day.",
 		"other": "This invitation will expire in %d days."

@@ -10,6 +10,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/context"
+	"forgejo.org/services/mailer"
 )
 
 const (
@@ -43,6 +44,20 @@ func ManagePost(ctx *context.Context) {
 		log.Error("Error replacing repository flags for repo %d: %v", ctx.Repo.Repository.ID, err)
 	} else {
 		ctx.Flash.Success(ctx.Tr("repo.admin.flags_replaced"))
+	}
+
+	ctx.Redirect(ctx.Repo.Repository.HTMLURL() + "/flags")
+}
+
+func SendEmailToOwner(ctx *context.Context) {
+	notice := ctx.FormString("moderation-notice")
+
+	err := mailer.SendRepoOwnerModerationNoticeMail(ctx, ctx.Repo.Repository, notice)
+	if err != nil {
+		ctx.Flash.Error(ctx.Tr("repo.admin.failed_to_send_moderation_notice"))
+		log.Error("Failed to send moderation notice to owners of repo %d: %v", ctx.Repo.Repository.ID, err)
+	} else {
+		ctx.Flash.Success(ctx.Tr("repo.admin.moderation_notice_added_to_queue"))
 	}
 
 	ctx.Redirect(ctx.Repo.Repository.HTMLURL() + "/flags")

@@ -8,6 +8,19 @@
 				{{ctx.Locale.Tr "repo.admin.manage_flags"}}
 			</h4>
 			<div class="ui attached segment">
+				<form class="ui form" action="{{.RepoLink}}/send_moderation_notice" method="post">
+					<label>
+						{{ctx.Locale.Tr "repo.admin.moderation.notify_owner"}}
+						<textarea name="moderation-notice" rows="4" placeholder="custom moderation notice for repo owner(s)" maxlength="1024"></textarea>
+						<span class="help">This notice will be included in an email template and send to the repository owner(s).</span>
+					</label>
+
+					<div class="field">
+						<button class="ui primary button">{{ctx.Locale.Tr "repo.admin.send_email_to_owners"}}</button>
+					</div>
+				</form>
+			</div>
+			<div class="ui attached segment">
 				<form class="ui form" action="{{.Link}}" method="post">
 					<strong>{{ctx.Locale.Tr "repo.admin.enabled_flags"}}</strong>
 					<div class="ui segment tw-pl-4">
