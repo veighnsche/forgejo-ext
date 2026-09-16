@@ -61,22 +61,16 @@ func TestIsValidTeamReviewRequest(t *testing.T) {
 
 	// Mirrors apiReviewRequest exactly: Issue.LoadRepo populates issue.Repo
 	// but deliberately does NOT preload issue.Repo.Owner.
-	require.NoError(t, issue.LoadRepo(db.DefaultContext))
+	require.NoError(t, issue.LoadRepo(t.Context()))
 	assert.Nil(t, issue.Repo.Owner, "fixture setup should leave Owner unloaded, matching production")
 
-	teamWithRepoAccess, err := organization.GetTeamByID(db.DefaultContext, 900)
-	require.NoError(t, err)
-	teamWithoutRepoAccess, err := organization.GetTeamByID(db.DefaultContext, 901)
-	require.NoError(t, err)
+	teamWithRepoAccess := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 900})
+	teamWithoutRepoAccess := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 901})
 
-	poster, err := user_model.GetUserByID(db.DefaultContext, 902)
-	require.NoError(t, err)
-	teamOnlyMember, err := user_model.GetUserByID(db.DefaultContext, 901) // only access is via teamWithRepoAccess membership
-	require.NoError(t, err)
-	unrelatedUser, err := user_model.GetUserByID(db.DefaultContext, 903)
-	require.NoError(t, err)
-	org, err := user_model.GetUserByID(db.DefaultContext, 900)
-	require.NoError(t, err)
+	poster := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 902})
+	teamOnlyMember := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 901}) // only access is via teamWithRepoAccess membership
+	unrelatedUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 903})
+	org := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 900})
 
 	tests := []struct {
 		name       string
@@ -134,7 +128,7 @@ func TestIsValidTeamReviewRequest(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := IsValidTeamReviewRequest(db.DefaultContext, tt.reviewer, tt.doer, tt.isAdd, issue)
+			err := IsValidTeamReviewRequest(t.Context(), tt.reviewer, tt.doer, tt.isAdd, issue)
 			if tt.wantReason == "" {
 				assert.NoError(t, err)
 				return
