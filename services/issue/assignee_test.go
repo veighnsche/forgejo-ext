@@ -48,31 +48,101 @@ func TestDeleteNotPassedAssignee(t *testing.T) {
 	assert.Empty(t, issue.Assignee)
 }
 
-// A doer whose only access to an org-owned repo comes from team membership
-// (not the PR's poster, not the repo-owner account, not an explicit
-// collaborator row) must not crash IsValidTeamReviewRequest just because
-// issue.Repo.Owner hasn't been preloaded.
-func TestIsValidTeamReviewRequest_TeamOnlyAccessDoesNotPanic(t *testing.T) {
+func TestIsValidTeamReviewRequest(t *testing.T) {
+	defer unittest.OverrideFixtures("services/issue/TestIsValidTeamReviewRequest")()
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	// issue 23 / repo 25: a PR on an org-owned repo (org 17), authored by
-	// user 2, who is unrelated to team 9 ("review_team", which has access
-	// to repo 24 - see team_repo.yml) and has no collaboration row there.
-	issue, err := issues_model.GetIssueByID(db.DefaultContext, 25)
-	require.NoError(t, err)
+	// issue 900 / repo 900: a private PR on an org-owned repo (org 900),
+	// authored by user 902. Team 900 ("review_team_900") has read access to
+	// repo 900 and to the pull request unit; user 901's only access to the
+	// repo comes through membership in that team. Team 901 has no access to
+	// repo 900 at all. User 903 has no relation to the repo or either team.
+	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 900})
 
 	// Mirrors apiReviewRequest exactly: Issue.LoadRepo populates issue.Repo
 	// but deliberately does NOT preload issue.Repo.Owner.
 	require.NoError(t, issue.LoadRepo(db.DefaultContext))
 	assert.Nil(t, issue.Repo.Owner, "fixture setup should leave Owner unloaded, matching production")
 
-	team, err := organization.GetTeamByID(db.DefaultContext, 9)
+	teamWithRepoAccess, err := organization.GetTeamByID(db.DefaultContext, 900)
+	require.NoError(t, err)
+	teamWithoutRepoAccess, err := organization.GetTeamByID(db.DefaultContext, 901)
 	require.NoError(t, err)
 
-	doer, err := user_model.GetUserByID(db.DefaultContext, 20) // team 9 member, not the poster
+	poster, err := user_model.GetUserByID(db.DefaultContext, 902)
+	require.NoError(t, err)
+	teamOnlyMember, err := user_model.GetUserByID(db.DefaultContext, 901) // only access is via teamWithRepoAccess membership
+	require.NoError(t, err)
+	unrelatedUser, err := user_model.GetUserByID(db.DefaultContext, 903)
+	require.NoError(t, err)
+	org, err := user_model.GetUserByID(db.DefaultContext, 900)
 	require.NoError(t, err)
 
-	assert.NotPanics(t, func() {
-		_ = IsValidTeamReviewRequest(db.DefaultContext, team, doer, true, issue)
-	})
+	tests := []struct {
+		name       string
+		reviewer   *organization.Team
+		doer       *user_model.User
+		isAdd      bool
+		wantReason string // empty means the request is expected to be valid
+	}{
+		{
+			name:     "poster can add a team reviewer that has repo access",
+			reviewer: teamWithRepoAccess,
+			doer:     poster,
+			isAdd:    true,
+		},
+		{
+			name:     "doer whose only access is via team membership can add that team as a reviewer",
+			reviewer: teamWithRepoAccess,
+			doer:     teamOnlyMember,
+			isAdd:    true,
+		},
+		{
+			name:       "doer unrelated to the repo cannot add a reviewer",
+			reviewer:   teamWithRepoAccess,
+			doer:       unrelatedUser,
+			isAdd:      true,
+			wantReason: "Doer can't choose reviewer",
+		},
+		{
+			name:     "doer whose only access is via team membership can remove that team as a reviewer",
+			reviewer: teamWithRepoAccess,
+			doer:     teamOnlyMember,
+			isAdd:    false,
+		},
+		{
+			name:       "doer unrelated to the repo cannot remove a reviewer",
+			reviewer:   teamWithRepoAccess,
+			doer:       unrelatedUser,
+			isAdd:      false,
+			wantReason: "Doer can't remove reviewer",
+		},
+		{
+			name:       "an organization cannot be the doer",
+			reviewer:   teamWithRepoAccess,
+			doer:       org,
+			isAdd:      true,
+			wantReason: "Organization can't be doer to add reviewer",
+		},
+		{
+			name:       "a team without repo access cannot be added as a reviewer, even by the poster",
+			reviewer:   teamWithoutRepoAccess,
+			doer:       poster,
+			isAdd:      true,
+			wantReason: "Reviewing team can't read repo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := IsValidTeamReviewRequest(db.DefaultContext, tt.reviewer, tt.doer, tt.isAdd, issue)
+			if tt.wantReason == "" {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			var reviewReqErr issues_model.ErrNotValidReviewRequest
+			require.ErrorAs(t, err, &reviewReqErr)
+			assert.Equal(t, tt.wantReason, reviewReqErr.Reason)
+		})
+	}
 }
