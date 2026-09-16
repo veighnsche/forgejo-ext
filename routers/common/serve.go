@@ -24,10 +24,26 @@ import (
 // Git LFS pointers shall be resolved; their target shall be provided.
 // See also: [ServeBlobRaw]
 func ServeBlob(ctx *context.Base, repo *context.Repository, blob *git.Blob, lastModified *time.Time) error {
+	// Deal with caching (blob ID).
 	if httpcache.HandleGenericETagTimeCache(ctx.Req, ctx.Resp, `"`+blob.ID.String()+`"`, lastModified) {
 		return nil
 	}
 
+	// If it's over 1024 bytes, it can't be an LFS file.
+	if blob.Size() > lfs.BlobSizeCutoff {
+		// First handle caching for the blob
+		if httpcache.HandleGenericETagTimeCache(ctx.Req, ctx.Resp, `"`+blob.ID.String()+`"`, lastModified) {
+			return nil
+		}
+
+		// OK not cached - serve!
+		return ServeBlobRaw(ctx, repo, blob, lastModified)
+	}
+
+	// Now that we don't know whether this is an LFS file or not,
+	// let's investigate...
+	//
+	// (dataRc should be closed before ServeBlobRaw is called)
 	dataRc, err := blob.DataAsync()
 	if err != nil {
 		return err
@@ -43,46 +59,71 @@ func ServeBlob(ctx *context.Base, repo *context.Repository, blob *git.Blob, last
 	}()
 
 	pointer, err := lfs.ReadPointer(dataRc)
-	if err == nil {
-		meta, _ := git_model.GetLFSMetaObjectByOid(ctx, repo.Repository.ID, pointer.Oid)
-		if meta == nil {
+	if err != nil {
+		// First handle caching for the blob
+		if httpcache.HandleGenericETagTimeCache(ctx.Req, ctx.Resp, `"`+blob.ID.String()+`"`, lastModified) {
+			return nil
+		}
+
+		// OK not cached - serve!
+		if err = dataRc.Close(); err != nil {
+			log.Error("ServeBlob: Close: %v", err)
+		}
+		closed = true
+		return ServeBlobRaw(ctx, repo, blob, lastModified)
+	}
+
+	// Now check if there is a MetaObject for this pointer
+	meta, err := git_model.GetLFSMetaObjectByOid(ctx, repo.Repository.ID, pointer.Oid)
+	// If there isn't one, just serve the data directly
+	if err != nil {
+		if err == git_model.ErrLFSObjectNotExist || err == lfs.ErrInvalidOIDFormat {
+			// Handle caching for the blob SHA (not the LFS object OID)
+			if httpcache.HandleGenericETagTimeCache(ctx.Req, ctx.Resp, `"`+blob.ID.String()+`"`, lastModified) {
+				return nil
+			}
+
+			// Again, not cached - serve!
 			if err = dataRc.Close(); err != nil {
 				log.Error("ServeBlob: Close: %v", err)
 			}
 			closed = true
 			return ServeBlobRaw(ctx, repo, blob, lastModified)
 		}
-		if httpcache.HandleGenericETagCache(ctx.Req, ctx.Resp, `"`+pointer.Oid+`"`) {
-			return nil
-		}
 
-		if setting.LFS.Storage.MinioConfig.ServeDirect {
-			// If we have a signed url (S3, object storage, blob storage), redirect to this directly.
-			u, err := storage.LFS.URL(pointer.RelativePath(), blob.Name(), nil)
-			if u != nil && err == nil {
-				ctx.Redirect(u.String())
-				return nil
-			}
-		}
+		return err
+	}
 
-		lfsDataRc, err := lfs.ReadMetaObject(meta.Pointer)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err = lfsDataRc.Close(); err != nil {
-				log.Error("ServeBlob: Close: %v", err)
-			}
-		}()
-		ServeContentByReadSeeker(ctx, repo.TreePath, lastModified, lfsDataRc)
+	// Handle caching for the LFS object OID
+	if httpcache.HandleGenericETagCache(ctx.Req, ctx.Resp, `"`+pointer.Oid+`"`) {
 		return nil
 	}
+
+	if setting.LFS.Storage.MinioConfig.ServeDirect {
+		// If we have a signed url (S3, object storage, blob storage), redirect to this directly.
+		u, err := storage.LFS.URL(pointer.RelativePath(), pointer.Oid, nil)
+		if u != nil && err == nil {
+			ctx.Redirect(u.String())
+			return nil
+		}
+	}
+
+	lfsDataRc, err := lfs.ReadMetaObject(meta.Pointer)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err = lfsDataRc.Close(); err != nil {
+			log.Error("ServeBlobOrLFS: Close: %v", err)
+		}
+	}()
+
 	if err = dataRc.Close(); err != nil {
 		log.Error("ServeBlob: Close: %v", err)
 	}
 	closed = true
-
-	return ServeBlobRaw(ctx, repo, blob, lastModified)
+	ServeContentByReadSeeker(ctx, repo.TreePath, lastModified, lfsDataRc)
+	return nil
 }
 
 // ServeBlobRaw serves a [git.Blob] as-is (with caching support).
