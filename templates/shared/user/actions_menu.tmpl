@@ -32,13 +32,13 @@
 		{{if and .IsSigned (ne .SignedUserID .ContextUser.ID)}}
 			<hr>
 			<ul>
-				<li hx-target="#profile-avatar-card" hx-indicator="#profile-avatar-card" id="action-block">
+				<li id="action-block">
 					{{if .IsBlocked}}
-						<button class="orange text" hx-post="{{.ContextUser.HomeLink}}?action=unblock">
+						<button class="orange text" hx-post="{{.ContextUser.HomeLink}}?action=unblock" hx-target="#profile-avatar-card" hx-indicator="#profile-avatar-card">
 							{{svg "octicon-person"}} {{ctx.Locale.Tr "user.unblock"}}
 						</button>
 					{{else}}
-						<button class="orange text" data-modal-id="block-user" hx-post="{{.ContextUser.HomeLink}}?action=block" hx-confirm="-">
+						<button type="button" class="orange text" command="show-modal" commandfor="block-user">
 							{{svg "octicon-blocked"}} {{ctx.Locale.Tr "user.block"}}
 						</button>
 					{{end}}

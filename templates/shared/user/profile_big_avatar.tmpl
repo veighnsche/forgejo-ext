@@ -4,7 +4,7 @@
 
 {{$showFollow := and .IsSigned (ne .SignedUserID .ContextUser.ID)}}
 
-<div id="profile-avatar-card" class="ui card" hx-swap="morph">
+<div id="profile-avatar-card" class="ui card">
 	<div id="profile-avatar" class="content tw-flex">
 	{{if eq .SignedUserID .ContextUser.ID}}
 		<a class="image" href="{{AppSubUrl}}/user/settings#avatar-settings" data-tooltip-content="{{ctx.Locale.Tr "user.change_avatar"}}">
