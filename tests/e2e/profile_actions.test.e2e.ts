@@ -15,7 +15,7 @@ test('Follow and block actions', async ({page}) => {
   await page.goto('/user1');
 
   // Check if following and then unfollowing works.
-  const followButton = page.locator('.primary-action button');
+  const followButton = page.locator('.main-actions > button');
   await expect(followButton).toContainText('Follow');
   await followButton.click();
   await expect(followButton).toContainText('Unfollow');

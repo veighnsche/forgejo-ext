@@ -16,7 +16,7 @@ test('Buttons and other controls have consistent height', async ({page}) => {
   await page.goto('/user1');
 
   // The height of dropdown opener and the button should be matching, even in mobile browsers with coarse pointer
-  let buttonHeight = (await page.locator('#profile-avatar-card .main-actions .primary-action').boundingBox()).height;
+  let buttonHeight = (await page.locator('#profile-avatar-card .main-actions > button').boundingBox()).height;
   const openerHeight = (await page.locator('#profile-avatar-card .main-actions .dropdown').boundingBox()).height;
   expect(openerHeight).toBe(buttonHeight);
 
