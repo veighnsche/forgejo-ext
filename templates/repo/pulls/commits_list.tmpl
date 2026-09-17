@@ -29,7 +29,7 @@
 			{{end}}
 		</div>
 
-		<div class="message tw-flex">
+		<div class="message">
 			{{$commitLink := (printf "%s/pulls/%d/commits/%s" $commitRepoLink $.Issue.Index (PathEscape .ID.String))}}
 			<div class="message-wrapper">
 				{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}
