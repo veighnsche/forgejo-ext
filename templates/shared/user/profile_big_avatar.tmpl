@@ -30,7 +30,7 @@
 		</div>
 	</div>
 	{{if $showFollow}}
-		<div class="actions button-row">
+		<div class="main-actions button-row">
 			<div class="primary-action" hx-target="#profile-avatar-card" hx-indicator="#profile-avatar-card">
 				{{if .IsFollowing}}
 					<button hx-post="{{.ContextUser.HomeLink}}?action=unfollow" class="secondary button tw-w-full">
