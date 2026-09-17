@@ -42,6 +42,7 @@ jobs:
         with:
           show-progress: false
           persist-credentials: false # don't want to push anything
+          filter: blob:none # we don't need all blobs but full tree
 
       - name: Sanitize the name of the repository
         id: repository
