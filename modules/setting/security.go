@@ -4,6 +4,7 @@
 package setting
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"forgejo.org/modules/jwtx"
 	"forgejo.org/modules/keying"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/util"
 )
 
 var (
@@ -123,8 +125,8 @@ func loadSecretFromURI(uri string) (string, error) {
 
 // createSymmeticSigningKey creates a new symmetric signing key and saves it to
 // the setting named cfgSecret (usually [PFX_]SECRET) in section cfgSection
-func createSymmeticSigningKeyCfg(rootCfg ConfigProvider, cfgSection, cfgSecret string) (*[]byte, error) {
-	jwtSecretBytes, jwtSecretBase64 := generate.NewJwtSecret()
+func createSymmeticSigningKeyCfg(rootCfg ConfigProvider, cfgSection, cfgSecret string, secretBytes []byte) error {
+	jwtSecretBase64 := base64.RawURLEncoding.EncodeToString(secretBytes)
 	saveCfg, err := rootCfg.PrepareSaving()
 	if err == nil {
 		rootCfg.Section(cfgSection).Key(cfgSecret).SetValue(jwtSecretBase64)
@@ -132,9 +134,9 @@ func createSymmeticSigningKeyCfg(rootCfg ConfigProvider, cfgSection, cfgSecret s
 		err = saveCfg.Save()
 	}
 	if err != nil {
-		return nil, fmt.Errorf("save %s.%s failed: %v", cfgSection, cfgSecret, err)
+		return fmt.Errorf("save %s.%s failed: %v", cfgSection, cfgSecret, err)
 	}
-	return &jwtSecretBytes, nil
+	return nil
 }
 
 // loadSymmeticSigningKey loads a signing key and creates it unless present
@@ -152,7 +154,12 @@ func loadSymmeticSigningKeyCfg(rootCfg ConfigProvider, sec ConfigSection, pfx st
 	}
 
 	log.Info("[%s] %s or %s failed loading: %v - creating new key", sec.Name(), cfgSecret, cfgSecretURI, err)
-	return createSymmeticSigningKeyCfg(rootCfg, sec.Name(), cfgSecret)
+	secret = util.CryptoRandomBytes(32)
+	err = createSymmeticSigningKeyCfg(rootCfg, sec.Name(), cfgSecret, secret)
+	if err == nil {
+		return &secret, nil
+	}
+	return nil, err
 }
 
 // loadAsymmeticSigningKey loads a signing key from [pfx]SIGNING_PRIVATE_KEY_FILE
