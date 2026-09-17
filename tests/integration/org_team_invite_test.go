@@ -618,7 +618,10 @@ func TestOrgTeamDeclineInvitation(t *testing.T) {
 	declineURL := doc.Find("#decline_form").AttrOr("action", "")
 	assert.Equal(t, fmt.Sprintf("/org/invite/%s/decline", invite1.Token), declineURL)
 	req = NewRequest(t, "POST", declineURL)
-	session.MakeRequest(t, req, http.StatusSeeOther)
+	resp := session.MakeRequest(t, req, http.StatusSeeOther)
+	req = NewRequest(t, "GET", test.RedirectURL(resp))
+	doc = NewHTMLParser(t, session.MakeRequest(t, req, http.StatusOK).Body)
+	assert.Contains(t, strings.TrimSpace(doc.Find(".flash-success").Text()), "Invitation declined.")
 
 	// the invite doesn't exist anymore
 	unittest.AssertNotExistsBean(t, &organization.TeamInvite{ID: invite1.ID})

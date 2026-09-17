@@ -699,6 +699,7 @@ func DeclineTeamInvite(ctx *context.Context) {
 		ctx.ServerError("DeclineInvite", err)
 		return
 	}
+	ctx.Flash.Success(ctx.Tr("org.teams.invitation_declined"))
 
 	// if there is another invite in the same org for the same user, redirect them to that
 	if linkedToUser {
