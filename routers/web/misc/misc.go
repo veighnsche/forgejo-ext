@@ -7,6 +7,7 @@ package misc
 import (
 	"net/http"
 	"path"
+	"sync"
 
 	"forgejo.org/modules/httpcache"
 	"forgejo.org/modules/log"
@@ -58,13 +59,8 @@ func StaticRedirect(target string) func(w http.ResponseWriter, req *http.Request
 	}
 }
 
-var composedDefaultRobotsTxt []byte
-
-func defaultRobotsTxt() []byte {
-	if composedDefaultRobotsTxt != nil {
-		return composedDefaultRobotsTxt
-	}
-	composedDefaultRobotsTxt = []byte(`# The default Forgejo robots.txt
+var defaultRobotsTxt = sync.OnceValue(func() []byte {
+	return []byte(`# The default Forgejo robots.txt
 # For more information: ` + setting.AppDocsURL("admin/advanced/search-engines/") + `
 
 User-agent: *
@@ -135,8 +131,7 @@ Disallow: /*q=*
 Disallow: /*sort=*
 Disallow: /*repo-search-archived=*
 `)
-	return composedDefaultRobotsTxt
-}
+})
 
 func RobotsTxt(w http.ResponseWriter, req *http.Request) {
 	httpcache.SetCacheControlInHeader(w.Header(), setting.StaticCacheTime)
