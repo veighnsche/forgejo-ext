@@ -34,7 +34,7 @@ for (const run of runs) {
         await expect(toggle).toBeVisible();
         await expect(body).toBeHidden();
 
-        await toggle.click({force: isMobile}); // open!
+        await toggle.click({force: isMobile}); // open! span intercepts pointer events on mobile somehow, so force
         await expect(toggle).toBeVisible();
         await expect(summary).toBeVisible();
         await expect(body).toBeVisible();
