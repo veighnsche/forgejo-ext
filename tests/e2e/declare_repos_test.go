@@ -129,12 +129,14 @@ func DeclareGitRepos(t *testing.T) {
 
 		// status on PR
 		commitPrSha1 := addCommitWithMessageToBranch(t, user, repo, "main", "test-branch", "Yet another multiline commit message\nnow with a PR and status!", "file2.md", "", "still a file")
-		commitPrSha2 := addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal commit message", "file2.md", commitPrSha1, "yep, still a file")
-		commitPrSha3 := addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal commit message with status", "file2.md", commitPrSha2, "yep, still a file")
-		addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal multiline\ncommit message", "file2.md", commitPrSha3, "yep, still a file")
+		commitPrSha2 := addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "One more message\nThis time, the details are longer than the summary. Imagine that!", "file2.md", commitPrSha1, "still a file")
+		commitPrSha3 := addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal commit message", "file2.md", commitPrSha2, "yep, still a file")
+		commitPrSha4 := addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal commit message with status", "file2.md", commitPrSha3, "yep, still a file")
+		addCommitWithMessageToBranch(t, user, repo, "test-branch", "test-branch", "Normal multiline\ncommit message", "file2.md", commitPrSha4, "yep, still a file")
 		postPullRequest(repo, "test-branch", user, 455, "pullreq", "PR with multiline commits")
 		addCommitStatus(t, user, repo, "test-branch", commitPrSha1)
-		addCommitStatus(t, user, repo, "test-branch", commitPrSha3)
+		addCommitStatus(t, user, repo, "test-branch", commitPrSha2)
+		addCommitStatus(t, user, repo, "test-branch", commitPrSha4)
 	})
 	newRepo(t, 2, "file-uploads", nil, []FileChanges{{
 		Filename: "UPLOAD_TEST.md",
