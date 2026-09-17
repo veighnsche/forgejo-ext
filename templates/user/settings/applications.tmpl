@@ -70,37 +70,7 @@
 		{{end}}
 	</div>
 
-<div class="ui test('Dimmed modal', async ({page}) => {
-  await page.goto('/user1');
-
-  await expect(page.locator('#action-block')).toContainText('Block');
-
-  // Ensure the modal is hidden
-  await expect(page.locator('#block-user')).toBeHidden();
-
-  await page.locator('.actions .dropdown').click();
-  await page.locator('#action-block').click();
-
-  // Modal and dimmer should be visible.
-  await expect(page.locator('#block-user')).toBeVisible();
-  await expect(page.locator('.ui.dimmer')).toBeVisible();
-  await screenshot(page, page.locator('.ui.g-modal-confirm.delete.modal'), 50);
-
-  // After canceling, modal and dimmer should be hidden.
-  await page.locator('#block-user .cancel').click();
-  await expect(page.locator('.ui.dimmer')).toBeHidden();
-  await expect(page.locator('#block-user')).toBeHidden();
-  await screenshot(page);
-
-  // Open the block modal and make the dimmer visible again.
-  await page.locator('.actions .dropdown').click();
-  await page.locator('#action-block').click();
-  await expect(page.locator('#block-user')).toBeVisible();
-  await expect(page.locator('.ui.dimmer')).toBeVisible();
-  await expect(page.locator('.ui.dimmer')).toHaveCount(1);
-  await screenshot(page, page.locator('.ui.g-modal-confirm.delete.modal'), 50);
-});
- delete modal" id="regenerate-token">
+	<div class="ui g-modal-confirm delete modal" id="regenerate-token">
 	<div class="header">
 		{{svg "octicon-issue-reopened" 16 "tw-mr-1"}}
 		{{ctx.Locale.Tr "settings.access_token_regeneration"}}
