@@ -89,8 +89,8 @@ func TestActivityPubRepositoryInboxValid(t *testing.T) {
 		cf, err := activitypub.NewClientFactoryWithTimeout(60 * time.Second)
 		require.NoError(t, err)
 
-		c, err := cf.WithKeysDirect(ctx, mock.Persons[0].PrivKey,
-			mock.Persons[0].KeyID(federatedSrv.URL), nil)
+		c, err := cf.WithKeysDirect(ctx, mock.ApActor.PrivKey,
+			mock.ApActor.KeyID(federatedSrv.URL), nil)
 		require.NoError(t, err)
 
 		activity1 := fmt.Appendf(nil,
