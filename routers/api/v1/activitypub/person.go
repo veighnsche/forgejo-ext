@@ -4,24 +4,18 @@
 package activitypub
 
 import (
-	"fmt"
 	"net/http"
-	"net/url"
 
 	"forgejo.org/models/activities"
-	fedhost "forgejo.org/models/forgefed"
-	"forgejo.org/models/user"
 	"forgejo.org/modules/activitypub"
 	"forgejo.org/modules/forgefed"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/web"
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
-	app_context "forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	"forgejo.org/services/federation"
 
-	"github.com/42wim/httpsig"
 	ap "github.com/go-ap/activitypub"
 	"github.com/go-ap/jsonld"
 )
@@ -82,15 +76,15 @@ func PersonInbox(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx)
 	activity := form.(*ap.Activity)
-	keyID := getKeyID(*ctx)
 
-	err := verifyKeyIDMatchesActorID(*ctx, keyID, activity)
+	err := verifyKeyIDMatchesActorID(*ctx, activity)
 	if err != nil {
-		ctx.Error(http.StatusNotAcceptable, "For keyID match failed: %v", err)
+		log.Error("Failed to verify keyID and actorID: %v", err)
+		ctx.Error(http.StatusNotAcceptable, "Failed to verify keyID and actorID: %v", err)
 		return
 	}
 
-	result, err := federation.ProcessPersonInbox(ctx, ctx.User(), activity, keyID)
+	result, err := federation.ProcessPersonInbox(ctx, ctx.User(), activity)
 	if err != nil {
 		ctx.Error(federation.HTTPStatus(err), "PersonInbox", err)
 		return
@@ -266,51 +260,4 @@ func PersonActivityNote(ctx *context.APIContext) {
 	if _, err = ctx.Resp.Write(binary); err != nil {
 		log.Error("write to resp err: %v", err)
 	}
-}
-
-func getKeyID(ctx app_context.APIContext) string {
-	r := ctx.Req
-	v, err := httpsig.NewVerifier(r)
-
-	if err != nil {
-		log.Debug("For %q verification failed: %v", r.URL.Path, err)
-	}
-	keyURI := v.KeyId()
-
-	return keyURI
-}
-
-func verifyKeyIDMatchesActorID(ctx app_context.APIContext, keyID string, activity *ap.Activity) error {
-	keyURL, err := url.Parse(keyID)
-	if err != nil {
-		return err
-	}
-
-	actorURI := activity.Actor.GetLink().String()
-	_, federatedUser, federationHost, err := federation.FindOrCreateFederatedUser(ctx, actorURI)
-
-	_, keyUser, err := user.FindFederatedUserByKeyID(ctx, keyURL.String())
-	if err != nil {
-
-		if !user.IsErrFederatedUserNotExists(err) {
-			return err
-		}
-
-		// Check for existing federation host key
-		keyHost, err := fedhost.FindFederationHostByKeyID(ctx, keyURL.String())
-		if err != nil {
-			if !fedhost.IsErrFederationHostNotFound(err) {
-				return err
-			}
-		} else {
-			if federationHost.ID != keyHost.ID {
-				return fmt.Errorf("KeyID (%v) in signature does not match FederationHost ID (%v)", keyHost.ID, federationHost.ID)
-			}
-		}
-	} else {
-		if federatedUser.ID != keyUser.ID {
-			return fmt.Errorf("KeyID (%v) in signature does not match FederatedUser ID (%v)", keyUser.ID, federatedUser.ID)
-		}
-	}
-	return nil
 }

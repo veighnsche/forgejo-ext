@@ -79,6 +79,14 @@ func RepositoryInbox(ctx *context.APIContext) {
 	log.Info("RepositoryInbox: repo: %v", repository)
 	form := web.GetForm(ctx)
 	activity := form.(*ap.Activity)
+
+	err := verifyKeyIDMatchesActorID(*ctx, activity)
+	if err != nil {
+		log.Error("Failed to verify keyID and actorID: %v", err)
+		ctx.Error(http.StatusNotAcceptable, "Failed to verify keyID and actorID: %v", err)
+		return
+	}
+
 	result, err := federation.ProcessRepositoryInbox(ctx, activity, repository.ID)
 	if err != nil {
 		ctx.Error(federation.HTTPStatus(err), "Processing Repository Inbox failed", result)
