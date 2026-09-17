@@ -55,7 +55,7 @@
 									</ul>
 								</div>
 								<div class="actions">
-									<button type="button" type="button" command="close" commandfor="block-user" class="ui cancel button">{{svg "octicon-x"}}{{ctx.Locale.Tr "modal.no"}}</button>
+									<button type="button" command="close" commandfor="block-user" class="ui cancel button">{{svg "octicon-x"}}{{ctx.Locale.Tr "modal.no"}}</button>
 									<button type="button" class="ui red button" hx-post="{{.ContextUser.HomeLink}}?action=block" hx-target="#profile-avatar-card" hx-indicator="#profile-avatar-card">{{svg "octicon-check"}}{{ctx.Locale.Tr "modal.yes"}}</button>
 								</div>
 							</article>
