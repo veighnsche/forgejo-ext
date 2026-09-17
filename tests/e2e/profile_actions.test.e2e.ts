@@ -23,7 +23,7 @@ test('Follow and block actions', async ({page}) => {
   await expect(followButton).toContainText('Follow');
 
   // Simple block interaction.
-  const actionsDropdownBtn = page.locator('.actions .dropdown summary');
+  const actionsDropdownBtn = page.locator('.main-actions .dropdown summary');
   const blockButton = page.locator('#action-block');
   await expect(blockButton).toBeHidden();
 
@@ -34,7 +34,7 @@ test('Follow and block actions', async ({page}) => {
   await blockButton.click();
   await expect(page.locator('#block-user')).toBeVisible();
   await screenshot(page);
-  await page.locator('#block-user .ok').click();
+  await page.locator('#block-user .red.button').click();
   await expect(blockButton).toContainText('Unblock');
   await expect(page.locator('#block-user')).toBeHidden();
 
