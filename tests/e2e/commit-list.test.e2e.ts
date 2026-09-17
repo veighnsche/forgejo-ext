@@ -219,7 +219,7 @@ for (const run of runs) {
 
         // clicking the status navigates, rather than opening the message body
         await status.click();
-        await expect(page).toHaveURL('/user2/multiline-commit-messages/actions/runs/3/jobs/0');
+        await expect(page).toHaveURL('/user2/multiline-commit-messages/actions/runs/4/jobs/0');
       });
     });
   });
