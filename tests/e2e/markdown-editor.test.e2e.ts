@@ -352,7 +352,7 @@ test('Markdown list continuation', async ({page}) => {
   }
 });
 
-function evaluateModalClosure(type: "table" | "link") {
+function evaluateModalClosure(type: 'table' | 'link') {
   const modalSelector = `[data-modal-name="new-markdown-${type}"]`;
   const buttonSelector = `button[data-md-action="new-${type}"]`;
 
@@ -401,7 +401,7 @@ test.describe('Markdown insert table', () => {
     expect(response?.status()).toBe(200);
   });
 
-  evaluateModalClosure("table");
+  evaluateModalClosure('table');
 
   test('Button is enabled and functional', async ({page}) => {
     async function evaluateTableInsertion(page: Page, selector: string, isEditing: boolean) {
@@ -455,7 +455,7 @@ test.describe('Markdown insert link', () => {
     expect(response?.status()).toBe(200);
   });
 
-  evaluateModalClosure("link");
+  evaluateModalClosure('link');
 
   test('Button is enabled and functional', async ({page}) => {
     async function evaluateLinkInsertion(page: Page, selector: string, isEditing: boolean) {
