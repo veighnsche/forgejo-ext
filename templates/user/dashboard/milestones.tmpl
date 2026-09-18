@@ -105,7 +105,7 @@
 									{{end}}
 									{{if .UpdatedUnix}}
 										<div class="flex-text-block">
-											{{svg "octicon-clock"}}
+											{{svg "octicon-history"}}
 											{{ctx.Locale.Tr "repo.milestones.update_ago" (DateUtils.TimeSince .UpdatedUnix)}}
 										</div>
 									{{end}}
