@@ -16,7 +16,7 @@
 					</div>
 				</div>
 			</td>
-			<td class="text grey right age repo-files-table-latest-commit-cell tw-py-0">{{if .LatestCommit}}{{if .LatestCommit.Committer}}{{DateUtils.TimeSince .LatestCommit.Committer.When}}{{end}}{{end}}</td>
+			<td class="text grey right age repo-files-table-latest-commit-cell tw-py-0">{{if .LatestCommit}}{{if .LatestCommit.Committer}}{{ctx.TimeSince .LatestCommit.Committer.When}}{{end}}{{end}}</td>
 		</tr>
 		{{if .HasParentPath}}
 			<tr class="has-parent">
@@ -68,7 +68,7 @@
 						{{end}}
 					</span>
 				</td>
-				<td class="text right age three wide">{{if $commit}}{{DateUtils.TimeSince $commit.Committer.When}}{{end}}</td>
+				<td class="text right age three wide">{{if $commit}}{{ctx.TimeSince $commit.Committer.When}}{{end}}</td>
 			</tr>
 		{{end}}
 	</tbody>

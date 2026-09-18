@@ -135,7 +135,7 @@
 					{{.TagName}}
 					<a class="title" href="{{$.RepoLink}}/releases/tag/{{.TagName | PathEscapeSegments}}">{{.Title | RenderEmoji $.Context | RenderCodeBlock}}</a>
 				{{end}}
-				{{DateUtils.TimeSince .CreatedUnix}}
+				{{ctx.TimeSince .CreatedUnix}}
 			</p>
 		{{end}}
 	</div>
@@ -154,7 +154,7 @@
 			<p class="desc">
 				<span class="ui purple label">{{ctx.Locale.Tr "repo.activity.merged_prs_label"}}</span>
 				#{{.Index}} <a class="title" href="{{$.RepoLink}}/pulls/{{.Index}}">{{RenderRefIssueTitle $.Context .Issue.Title}}</a>
-				{{DateUtils.TimeSince .MergedUnix}}
+				{{ctx.TimeSince .MergedUnix}}
 			</p>
 		{{end}}
 	</div>
@@ -173,7 +173,7 @@
 			<p class="desc">
 				<span class="ui green label">{{ctx.Locale.Tr "repo.activity.opened_prs_label"}}</span>
 				#{{.Index}} <a class="title" href="{{$.RepoLink}}/pulls/{{.Index}}">{{RenderRefIssueTitle $.Context .Issue.Title}}</a>
-				{{DateUtils.TimeSince .Issue.CreatedUnix}}
+				{{ctx.TimeSince .Issue.CreatedUnix}}
 			</p>
 		{{end}}
 	</div>
@@ -192,7 +192,7 @@
 			<p class="desc">
 				<span class="ui red label">{{ctx.Locale.Tr "repo.activity.closed_issue_label"}}</span>
 				#{{.Index}} <a class="title" href="{{$.RepoLink}}/issues/{{.Index}}">{{RenderRefIssueTitle $.Context .Title}}</a>
-				{{DateUtils.TimeSince .ClosedUnix}}
+				{{ctx.TimeSince .ClosedUnix}}
 			</p>
 		{{end}}
 	</div>
@@ -211,7 +211,7 @@
 			<p class="desc">
 				<span class="ui green label">{{ctx.Locale.Tr "repo.activity.new_issue_label"}}</span>
 				#{{.Index}} <a class="title" href="{{$.RepoLink}}/issues/{{.Index}}">{{RenderRefIssueTitle $.Context .Title}}</a>
-				{{DateUtils.TimeSince .CreatedUnix}}
+				{{ctx.TimeSince .CreatedUnix}}
 			</p>
 		{{end}}
 	</div>
@@ -232,7 +232,7 @@
 				{{else}}
 				<a class="title" href="{{$.RepoLink}}/issues/{{.Index}}">{{RenderRefIssueTitle $.Context .Title}}</a>
 				{{end}}
-				{{DateUtils.TimeSince .UpdatedUnix}}
+				{{ctx.TimeSince .UpdatedUnix}}
 			</p>
 		{{end}}
 	</div>

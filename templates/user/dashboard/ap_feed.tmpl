@@ -15,7 +15,7 @@
 				</div>
 				{{if .NoteURL}}
 					<div class="flex-item-footer">
-						<span class="flex-text-inline">{{svg "octicon-calendar"}}{{ctx.Locale.Tr "user.activitypub_feed.posted_on" (DateUtils.TimeSince .Created)}}</span>
+						<span class="flex-text-inline">{{svg "octicon-calendar"}}{{ctx.Locale.Tr "user.activitypub_feed.posted_on" (ctx.TimeSince .Created)}}</span>
 						<a class="flex-text-inline" href="{{.NoteURL}}">{{svg "octicon-link-external"}}{{ctx.Locale.Tr "user.activitypub_feed.original_source"}}</a>
 					</div>
 				{{end}}

@@ -61,7 +61,7 @@
 								#{{.Index}}
 							{{- end -}}
 						</a>
-						{{$timeStr := DateUtils.TimeSince .GetLastEventTimestamp}}
+						{{$timeStr := ctx.TimeSince .GetLastEventTimestamp}}
 						{{if .OriginalAuthor}}
 							{{ctx.Locale.Tr .GetLastEventLabelFake $timeStr .OriginalAuthor}}
 						{{else if gt .Poster.ID 0}}
@@ -145,7 +145,7 @@
 					{{if or (eq $.SortType "recentupdate") (eq $.SortType "leastupdate")}}
 					<span class="flex-text-inline">
 						{{svg "octicon-history" 14}}
-						{{ctx.Locale.Tr "issues.updated" (DateUtils.TimeSince .UpdatedUnix)}}
+						{{ctx.Locale.Tr "issues.updated" (ctx.TimeSince .UpdatedUnix)}}
 					</span>
 					{{end}}
 				</div>

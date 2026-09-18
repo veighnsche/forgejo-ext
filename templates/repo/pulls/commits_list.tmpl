@@ -89,7 +89,7 @@
 		</div>
 
 		<div class="date">
-			{{if .Committer}}{{DateUtils.TimeSince .Committer.When}}{{else}}{{DateUtils.TimeSince .Author.When}}{{end}}
+			{{if .Committer}}{{ctx.TimeSince .Committer.When}}{{else}}{{ctx.TimeSince .Author.When}}{{end}}
 		</div>
 
 		<div class="commit-buttons">
