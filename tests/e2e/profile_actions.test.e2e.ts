@@ -16,6 +16,7 @@ test('Follow and block actions', async ({page}) => {
 
   const followButton = page.locator('.main-actions > button');
   const dropdownOpener = page.locator('.main-actions .dropdown summary');
+  const dropdownContent = page.locator('.main-actions .dropdown .content');
   const blockButton = page.locator('#action-block');
   const flashMessage = page.locator('#flash-message');
 
@@ -26,17 +27,29 @@ test('Follow and block actions', async ({page}) => {
   await followButton.click();
   await expect(followButton).toContainText('Follow');
 
-  // Simple block interaction.
+  // Dropdown is closed, block button is not visible
+  await expect(dropdownContent).toBeHidden();
   await expect(blockButton).toBeHidden();
 
+  // Open dropdown, block button should become visible
   await dropdownOpener.click();
+  await expect(dropdownContent).toBeVisible();
   await expect(blockButton).toBeVisible();
   await expect(blockButton).toContainText('Block');
 
+  // Use button to open confirmation modal
   await blockButton.click();
   await expect(page.locator('#block-user')).toBeVisible();
   await screenshot(page);
+
+  // Opening modal closes dropdown
+  await expect(dropdownContent).toBeHidden();
+  await expect(blockButton).toBeHidden();
+
+  // Confirm block action
   await page.locator('#block-user .red.button').click();
+
+  // Changes after blocking: modal is hidden, button is changed to "Unblock"
   await expect(blockButton).toContainText('Unblock');
   await expect(page.locator('#block-user')).toBeHidden();
 
