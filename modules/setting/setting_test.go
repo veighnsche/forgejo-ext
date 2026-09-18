@@ -179,7 +179,7 @@ func TestAppVersionDocsURL(t *testing.T) {
 
 func TestAppDocsURL(t *testing.T) {
 	defer test.MockProtect(&AppVer)()
-	defer test.MockProtect(&AppDocsVer)()
+	defer test.MockVariableValue(&AppDocsVer, initAppDocsVer)() // instead of OnceValue
 
 	cases := [][2]string{
 		{"", "https://forgejo.org/docs/latest/user/getting-started/first-repository/"},
@@ -206,7 +206,6 @@ func TestAppDocsURL(t *testing.T) {
 
 		t.Run(appVersion, func(t *testing.T) {
 			AppVer = appVersion
-			AppDocsVer = ""
 			assert.Equal(t, expectedURL, AppDocsURL("user/getting-started/first-repository/"))
 		})
 	}

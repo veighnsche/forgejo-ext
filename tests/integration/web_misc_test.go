@@ -125,7 +125,7 @@ func TestBaseTemplateTitle(t *testing.T) {
 
 func TestRobotsTxt(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	defer test.MockVariableValue(&setting.AppDocsVer, "v0.1")()
+	defer test.MockVariableValue(&setting.AppDocsVer, func() string { return "v0.1" })()
 
 	req := NewRequest(t, "GET", "/robots.txt")
 	resp := MakeRequest(t, req, http.StatusOK)

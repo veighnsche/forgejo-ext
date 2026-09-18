@@ -15,7 +15,7 @@ import (
 )
 
 func TestTranslatePreExecutionWarning(t *testing.T) {
-	defer test.MockVariableValue(&setting.AppDocsVer, "v0.0")() // tests below use "foo" instead, to demonstrate that the given values are NOT derived from setting.AppDocsVer
+	defer test.MockVariableValue(&setting.AppDocsVer, func() string { return "v0.0" })() // tests below use "foo" instead, to demonstrate that the given values are NOT derived from setting.AppDocsVer
 	translation.InitLocales(t.Context())
 	lang := translation.NewLocale("en-US")
 

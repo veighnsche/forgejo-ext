@@ -271,7 +271,7 @@ func testOptionsGitPush(t *testing.T, u *url.URL) {
 		doGitAddRemote(gitPath, "collaborator", u)(t)
 
 		t.Run("User without write access is not allowed to push", func(t *testing.T) {
-			defer test.MockVariableValue(&setting.AppDocsVer, "v0.0")()
+			defer test.MockVariableValue(&setting.AppDocsVer, func() string { return "v0.0" })()
 			branchName := "branch3"
 			doGitCreateBranch(gitPath, branchName)(t)
 			stderr := doGitPushTestRepositoryFail(t, gitPath, "collaborator", branchName)

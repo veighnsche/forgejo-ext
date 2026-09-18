@@ -13,7 +13,7 @@ import (
 )
 
 func TestDefaultRobotsTxt(t *testing.T) {
-	defer test.MockVariableValue(&setting.AppDocsVer, "v0.0")()
+	defer test.MockVariableValue(&setting.AppDocsVer, func() string { return "v0.0" })()
 
 	robotsTxt := string(defaultRobotsTxt())
 	assert.Contains(t, robotsTxt, "https://forgejo.org/docs/v0.0/admin/advanced/search-engines/") // derived from setting.AppDocsVer

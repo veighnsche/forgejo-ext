@@ -84,7 +84,7 @@ func TestNavbarItems(t *testing.T) {
 
 	t.Run(`User dropdown - default conditions`, func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
-		defer test.MockVariableValue(&setting.AppDocsVer, "v0.0")()
+		defer test.MockVariableValue(&setting.AppDocsVer, func() string { return "v0.0" })()
 
 		// What regular user sees
 		assertions := []struct {

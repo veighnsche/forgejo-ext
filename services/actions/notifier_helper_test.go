@@ -415,7 +415,7 @@ func TestActionsNotifier_ExpandReusableWorkflow(t *testing.T) {
 
 func TestActionsNotifier_PermissionsWarning(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
-	defer test.MockVariableValue(&setting.AppDocsVer, "v0.0")()
+	defer test.MockVariableValue(&setting.AppDocsVer, func() string { return "v0.0" })()
 
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 10})
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 3})

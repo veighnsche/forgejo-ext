@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"forgejo.org/modules/log"
@@ -26,8 +27,8 @@ var ForgejoVersion = "1.0.0"
 var (
 	// AppVer is the version of the current build of Forgejo. It is set in main.go from main.Version.
 	AppVer string
-	// AppDocsVer is the version string used when composing URLs for the current Forgejo version's docs webpage
-	AppDocsVer string
+	// AppDocsVer returns the version string in URLs to the current Forgejo version's docs webpage.
+	AppDocsVer = sync.OnceValue(initAppDocsVer)
 	// AppBuiltWith represents a human-readable version go runtime build version and build tags. (See main.go formatBuiltWith().)
 	AppBuiltWith string
 	// AppStartTime stores the time at which Forgejo started.
@@ -54,24 +55,26 @@ func init() {
 	log.SetConsoleLogger(log.DEFAULT, "console", log.INFO)
 }
 
-// Returns a URL string to Forgejo docs for the current app version.
-func AppDocsURL(path string) string {
-	if AppDocsVer == "" {
-		AppDocsVer = "latest"
+func initAppDocsVer() string {
+	result := "latest"
 
-		// parse semver if we haven't yet
-		ver, err := version.NewSemver(strings.TrimSpace(AppVer))
-		if err != nil {
-			log.Warn("Doclinks will fallback to version '%s' due to err: %v", AppDocsVer, err)
-		} else {
-			segments := ver.Segments()
-			if len(segments) >= 2 {
-				AppDocsVer = fmt.Sprintf("v%d.%d", segments[0], segments[1])
-			}
+	// parse semver if we haven't yet
+	ver, err := version.NewSemver(strings.TrimSpace(AppVer))
+	if err != nil {
+		log.Warn("Doclinks will fallback to version '%s' due to err: %v", result, err)
+	} else {
+		segments := ver.Segments()
+		if len(segments) >= 2 {
+			result = fmt.Sprintf("v%d.%d", segments[0], segments[1])
 		}
 	}
 
-	return AppVersionDocsURL(AppDocsVer, path)
+	return result
+}
+
+// Returns a URL string to Forgejo docs for the current app version.
+func AppDocsURL(path string) string {
+	return AppVersionDocsURL(AppDocsVer(), path)
 }
 
 // Returns a URL string to Forgejo docs for the given app version.
