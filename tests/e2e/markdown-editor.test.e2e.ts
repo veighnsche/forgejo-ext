@@ -352,6 +352,48 @@ test('Markdown list continuation', async ({page}) => {
   }
 });
 
+function evaluateModalClosure(type: "table" | "link") {
+  const modalSelector = `[data-modal-name="new-markdown-${type}"]`;
+  const buttonSelector = `button[data-md-action="new-${type}"]`;
+
+  test.describe('Modal closure', () => {
+    test.beforeEach(async ({page}) => {
+      const area = page.locator('#comment-form');
+
+      const modal = page.locator(modalSelector);
+      await expect(modal).toBeHidden();
+
+      const button = area.locator(buttonSelector);
+      await button.click();
+    });
+
+    test('Esc key', async ({page}) => {
+      const modal = page.locator(modalSelector);
+      await expect(modal).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(modal).toBeHidden();
+    });
+
+    test('Click outside', async ({page}) => {
+      const modal = page.locator(modalSelector);
+      await expect(modal).toBeVisible();
+      // can't select ::backdrop directly, so manually click just outside of the bounding box for the same effect
+      const box = await modal.boundingBox();
+      await page.mouse.click(box.x + 2, box.y + 2); // clicking the modal itself does nothing
+      await expect(modal).toBeVisible();
+      await page.mouse.click(box.x - 1, box.y);
+      await expect(modal).toBeHidden();
+    });
+
+    test('Cancel button', async ({page}) => {
+      const modal = page.locator(modalSelector);
+      await expect(modal).toBeVisible();
+      await modal.getByRole('button', {name: 'Cancel'}).click();
+      await expect(modal).toBeHidden();
+    });
+  });
+}
+
 test.describe('Markdown insert table', () => {
   test.beforeEach(async ({page}) => {
     // Load page with editor
@@ -359,42 +401,7 @@ test.describe('Markdown insert table', () => {
     expect(response?.status()).toBe(200);
   });
 
-  test.describe('Modal closure', () => {
-    test.beforeEach(async ({page}) => {
-      const area = page.locator('#comment-form');
-
-      const newTableModal = page.locator('[data-modal-name="new-markdown-table"]');
-      await expect(newTableModal).toBeHidden();
-
-      const newTableButton = area.locator('button[data-md-action="new-table"]');
-      await newTableButton.click();
-    });
-
-    test('Esc key', async ({page}) => {
-      const newTableModal = page.locator('[data-modal-name="new-markdown-table"]');
-      await expect(newTableModal).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(newTableModal).toBeHidden();
-    });
-
-    test('Click outside', async ({page}) => {
-      const newTableModal = page.locator('[data-modal-name="new-markdown-table"]');
-      await expect(newTableModal).toBeVisible();
-      // can't select ::backdrop directly, so manually click just outside of the bounding box for the same effect
-      const box = await newTableModal.boundingBox();
-      await page.mouse.click(box.x + 2, box.y + 2); // clicking the modal itself does nothing
-      await expect(newTableModal).toBeVisible();
-      await page.mouse.click(box.x - 1, box.y);
-      await expect(newTableModal).toBeHidden();
-    });
-
-    test('Cancel button', async ({page}) => {
-      const newTableModal = page.locator('[data-modal-name="new-markdown-table"]');
-      await expect(newTableModal).toBeVisible();
-      await newTableModal.getByRole('button', {name: 'Cancel'}).click();
-      await expect(newTableModal).toBeHidden();
-    });
-  });
+  evaluateModalClosure("table");
 
   test('Button is enabled and functional', async ({page}) => {
     async function evaluateTableInsertion(page: Page, selector: string, isEditing: boolean) {
@@ -448,42 +455,7 @@ test.describe('Markdown insert link', () => {
     expect(response?.status()).toBe(200);
   });
 
-  test.describe('Modal closure', () => {
-    test.beforeEach(async ({page}) => {
-      const area = page.locator('#comment-form');
-
-      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
-      await expect(newLinkModal).toBeHidden();
-
-      const newLinkButton = area.locator('button[data-md-action="new-link"]');
-      await newLinkButton.click();
-    });
-
-    test('Esc key', async ({page}) => {
-      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
-      await expect(newLinkModal).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(newLinkModal).toBeHidden();
-    });
-
-    test('Click outside', async ({page}) => {
-      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
-      await expect(newLinkModal).toBeVisible();
-      // can't select ::backdrop directly, so manually click just outside of the bounding box for the same effect
-      const box = await newLinkModal.boundingBox();
-      await page.mouse.click(box.x + 2, box.y + 2); // clicking the modal itself does nothing
-      await expect(newLinkModal).toBeVisible();
-      await page.mouse.click(box.x - 1, box.y);
-      await expect(newLinkModal).toBeHidden();
-    });
-
-    test('Cancel button', async ({page}) => {
-      const newLinkModal = page.locator('[data-modal-name="new-markdown-link"]');
-      await expect(newLinkModal).toBeVisible();
-      await newLinkModal.getByRole('button', {name: 'Cancel'}).click();
-      await expect(newLinkModal).toBeHidden();
-    });
-  });
+  evaluateModalClosure("link");
 
   test('Button is enabled and functional', async ({page}) => {
     async function evaluateLinkInsertion(page: Page, selector: string, isEditing: boolean) {
