@@ -179,7 +179,7 @@ func TestAppVersionDocsURL(t *testing.T) {
 
 func TestAppDocsURL(t *testing.T) {
 	defer test.MockProtect(&AppVer)()
-	defer test.MockVariableValue(&AppDocsVer, initAppDocsVer)() // instead of OnceValue
+	defer test.MockVariableValue(&AppDocsVer, initialAppDocsVer)() // instead of OnceValue
 
 	cases := [][2]string{
 		{"", "https://forgejo.org/docs/latest/user/getting-started/first-repository/"},

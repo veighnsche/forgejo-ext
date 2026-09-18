@@ -27,8 +27,8 @@ var ForgejoVersion = "1.0.0"
 var (
 	// AppVer is the version of the current build of Forgejo. It is set in main.go from main.Version.
 	AppVer string
-	// AppDocsVer returns the version string in URLs to the current Forgejo version's docs webpage.
-	AppDocsVer = sync.OnceValue(initAppDocsVer)
+	// AppDocsVer returns the Forgejo Docs version string corresponding to the current build of Forgejo.
+	AppDocsVer = sync.OnceValue(initialAppDocsVer)
 	// AppBuiltWith represents a human-readable version go runtime build version and build tags. (See main.go formatBuiltWith().)
 	AppBuiltWith string
 	// AppStartTime stores the time at which Forgejo started.
@@ -55,7 +55,8 @@ func init() {
 	log.SetConsoleLogger(log.DEFAULT, "console", log.INFO)
 }
 
-func initAppDocsVer() string {
+// Parses AppVer as a semver string and returns a version string compatible with Forgejo Docs.
+func initialAppDocsVer() string {
 	result := "latest"
 
 	// parse semver if we haven't yet
