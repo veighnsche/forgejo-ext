@@ -54,13 +54,13 @@ test('Follow and block actions', async ({page}) => {
   await expect(blockButton).toContainText('Unblock');
   await expect(blockModal).toBeHidden();
 
-  // Check that following the user yields in a error being shown.
+  // Attempting to follow the user now yields in a error
   await followButton.click();
   await expect(flashMessage).toBeVisible();
   await expect(flashMessage).toContainText('You cannot follow this user because you have blocked this user or this user has blocked you.');
   await screenshot(page);
 
-  // Unblock interaction.
+  // Unblocking the user changes the button back to "Block"
   await dropdownOpener.click();
   await blockButton.click();
   await expect(blockButton).toContainText('Block');
