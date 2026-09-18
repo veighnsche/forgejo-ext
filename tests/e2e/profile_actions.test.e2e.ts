@@ -14,8 +14,12 @@ test.use({user: 'user2'});
 test('Follow and block actions', async ({page}) => {
   await page.goto('/user1');
 
-  // Check if following and then unfollowing works.
   const followButton = page.locator('.main-actions > button');
+  const actionsDropdownBtn = page.locator('.main-actions .dropdown summary');
+  const blockButton = page.locator('#action-block');
+  const flashMessage = page.locator('#flash-message');
+
+  // Check if following and then unfollowing works.
   await expect(followButton).toContainText('Follow');
   await followButton.click();
   await expect(followButton).toContainText('Unfollow');
@@ -23,8 +27,6 @@ test('Follow and block actions', async ({page}) => {
   await expect(followButton).toContainText('Follow');
 
   // Simple block interaction.
-  const actionsDropdownBtn = page.locator('.main-actions .dropdown summary');
-  const blockButton = page.locator('#action-block');
   await expect(blockButton).toBeHidden();
 
   await actionsDropdownBtn.click();
@@ -40,7 +42,6 @@ test('Follow and block actions', async ({page}) => {
 
   // Check that following the user yields in a error being shown.
   await followButton.click();
-  const flashMessage = page.locator('#flash-message');
   await expect(flashMessage).toBeVisible();
   await expect(flashMessage).toContainText('You cannot follow this user because you have blocked this user or this user has blocked you.');
   await screenshot(page);
