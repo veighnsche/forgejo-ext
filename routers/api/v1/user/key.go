@@ -319,7 +319,7 @@ func DeletePublicKey(ctx *context.APIContext) {
 
 // GetSSHVerificationToken returns the current token to be signed for SSH key verification.
 func GetSSHVerificationToken(ctx *context.APIContext) {
-	// swagger:operation GET /user/key_token user userCurrentGetKeyVerificationToken
+	// swagger:operation GET /user/ssh_key_token user userCurrentGetKeyVerificationToken
 	// ---
 	// summary: Get a token to verify an SSH key
 	// produces:
@@ -350,7 +350,7 @@ type swaggerUserCurrentPostKeyVerify struct {
 
 // VerifyPublicKey verifies the public key
 func VerifyPublicKey(ctx *context.APIContext) {
-	// swagger:operation POST /user/key_verify user userCurrentPostKeyVerify
+	// swagger:operation POST /user/ssh_key_verify user userCurrentPostKeyVerify
 	// ---
 	// summary: Verify a public key
 	// consumes:

@@ -705,8 +705,8 @@ func Routes() *web.Route {
 				m.Combo("/{id}").Get(user.GetPublicKey).
 					Delete(user.DeletePublicKey)
 			})
-			m.Get("/key_token", user.GetSSHVerificationToken)
-			m.Post("/key_verify", bind(api.VerifySSHKeyOption{}), user.VerifyPublicKey)
+			m.Get("/ssh_key_token", user.GetSSHVerificationToken)
+			m.Post("/ssh_key_verify", bind(api.VerifySSHKeyOption{}), user.VerifyPublicKey)
 
 			// (admin:application scope)
 			m.Group("/applications", func() {

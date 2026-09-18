@@ -366,6 +366,9 @@ var ignoredErrorMessage = []string{
 
 	// TestDemoErrorPages
 	`ErrorPage() [E] Example error: Example error`,
+
+	// TestVerifyUserKey: an invalid signature is deliberately submitted.
+	`VerifySSHKey() [E] Unable to validate token signature. Error: ssh: signature did not verify`,
 }
 
 func (w *testLoggerWriterCloser) recordError(msg string) {

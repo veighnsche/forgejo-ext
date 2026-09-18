@@ -225,6 +225,9 @@ func TestCreateUserKey(t *testing.T) {
 	DecodeJSON(t, resp, &respPublicKeys)
 	assert.False(t, respPublicKeys[0].Verified)
 	assert.Equal(t, respPublicKeys[0].Created, newPublicKey.Updated)
+
+	// Verification is covered by TestVerifyUserKey, which generates a key pair
+	// so the private key is available to sign the verification token.
 }
 
 func TestVerifyUserKey(t *testing.T) {
@@ -244,12 +247,46 @@ func TestVerifyUserKey(t *testing.T) {
 	var newPublicKey api.PublicKey
 	DecodeJSON(t, resp, &newPublicKey)
 
-	req = NewRequest(t, "GET", "/api/v1/user/key_token").AddTokenAuth(token)
+	req = NewRequest(t, "GET", "/api/v1/user/ssh_key_token").AddTokenAuth(token)
 	resp = MakeRequest(t, req, http.StatusOK)
 	signature, err := sshsig.Sign(privateKey, bytes.NewBuffer(resp.Body.Bytes()), setting.Domain)
 	require.NoError(t, err)
 
-	req = NewRequestWithJSON(t, "POST", "/api/v1/user/key_verify", api.VerifySSHKeyOption{
+	invalidSignature, err := sshsig.Sign(privateKey, bytes.NewBufferString("incorrect verification token"), setting.Domain)
+	require.NoError(t, err)
+
+	for _, testCase := range []struct {
+		name        string
+		fingerprint string
+		signature   string
+		status      int
+	}{
+		{
+			name:        "invalid signature",
+			fingerprint: newPublicKey.Fingerprint,
+			signature:   string(invalidSignature),
+			status:      http.StatusUnprocessableEntity,
+		},
+		{
+			name:        "key not found",
+			fingerprint: "SHA256:unknown",
+			signature:   string(signature),
+			status:      http.StatusNotFound,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			req := NewRequestWithJSON(t, "POST", "/api/v1/user/ssh_key_verify", api.VerifySSHKeyOption{
+				Fingerprint: testCase.fingerprint,
+				Signature:   testCase.signature,
+			}).AddTokenAuth(token)
+			MakeRequest(t, req, testCase.status)
+
+			key := unittest.AssertExistsAndLoadBean(t, &asymkey_model.PublicKey{ID: newPublicKey.ID})
+			assert.False(t, key.Verified)
+		})
+	}
+
+	req = NewRequestWithJSON(t, "POST", "/api/v1/user/ssh_key_verify", api.VerifySSHKeyOption{
 		Fingerprint: newPublicKey.Fingerprint,
 		Signature:   string(signature),
 	}).AddTokenAuth(token)

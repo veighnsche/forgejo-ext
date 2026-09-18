@@ -21482,73 +21482,6 @@
         }
       }
     },
-    "/user/key_token": {
-      "get": {
-        "produces": [
-          "text/plain"
-        ],
-        "tags": [
-          "user"
-        ],
-        "summary": "Get a token to verify an SSH key",
-        "operationId": "userCurrentGetKeyVerificationToken",
-        "responses": {
-          "200": {
-            "$ref": "#/responses/string"
-          },
-          "401": {
-            "$ref": "#/responses/unauthorized"
-          },
-          "403": {
-            "$ref": "#/responses/forbidden"
-          },
-          "404": {
-            "$ref": "#/responses/notFound"
-          }
-        }
-      }
-    },
-    "/user/key_verify": {
-      "post": {
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "user"
-        ],
-        "summary": "Verify a public key",
-        "operationId": "userCurrentPostKeyVerify",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/VerifySSHKeyOption"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/PublicKey"
-          },
-          "401": {
-            "$ref": "#/responses/unauthorized"
-          },
-          "403": {
-            "$ref": "#/responses/forbidden"
-          },
-          "404": {
-            "$ref": "#/responses/notFound"
-          },
-          "422": {
-            "$ref": "#/responses/validationError"
-          }
-        }
-      }
-    },
     "/user/keys": {
       "get": {
         "produces": [
@@ -22108,6 +22041,73 @@
           },
           "403": {
             "$ref": "#/responses/forbidden"
+          }
+        }
+      }
+    },
+    "/user/ssh_key_token": {
+      "get": {
+        "produces": [
+          "text/plain"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Get a token to verify an SSH key",
+        "operationId": "userCurrentGetKeyVerificationToken",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/string"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/user/ssh_key_verify": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Verify a public key",
+        "operationId": "userCurrentPostKeyVerify",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/VerifySSHKeyOption"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/PublicKey"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/forbidden"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          },
+          "422": {
+            "$ref": "#/responses/validationError"
           }
         }
       }
