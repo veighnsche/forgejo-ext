@@ -180,6 +180,9 @@ forgejo.org/modules/setting
 	NewConfigProviderFromData
 	GitConfigType.GetOption
 	InitLoggersForTest
+	checkSigningOnlySymmetric
+	checkValidationOnlySymmetric
+	onlySymmetric
 
 forgejo.org/modules/sync
 	StatusTable.Start

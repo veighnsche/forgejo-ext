@@ -255,6 +255,30 @@ func onlyAsymmetric() checkKeyCfg {
 	}
 }
 
+////////////////
+// onlySymmetric(): Allow only symmetric algorithms and their config
+
+var specSymmetric = checkSpec{
+	jwtx.IsValidSymmetricAlgorithm,
+	&jwtx.ValidSymmetricAlgorighms,
+	[]string{"SIGNING_PRIVATE_KEY_FILE"},
+}
+
+func checkSigningOnlySymmetric(rootCfg ConfigProvider, cfgSection, pfx string) error {
+	return checkSigningSpec(rootCfg, cfgSection, pfx, specSymmetric)
+}
+
+func checkValidationOnlySymmetric(rootCfg ConfigProvider, cfgSection, pfx string) error {
+	return checkValidationSpec(rootCfg, cfgSection, pfx, specSymmetric)
+}
+
+func onlySymmetric() checkKeyCfg {
+	return checkKeyCfg{
+		signing:      checkSigningOnlySymmetric,
+		verification: checkValidationOnlySymmetric,
+	}
+}
+
 // loadSigningKey() loads a or creates signing key based on settings in section cfgSection
 // [pfx]SIGNING_ALGORITHM determines the algorithm
 // [pfx]SECRET is a literal secret for symmetric algorithms
