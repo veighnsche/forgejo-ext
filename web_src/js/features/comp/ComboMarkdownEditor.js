@@ -311,18 +311,18 @@ class ComboMarkdownEditor {
   addNewLink(event) {
     const elementId = event.target.getAttribute('data-element-id');
     const newLinkModal = document.querySelector(`dialog[data-markdown-link-modal-id="${elementId}"]`);
-    const form = newLinkModal.querySelector('div[data-selector-name="form"]');
+    const fieldset = newLinkModal.querySelector('fieldset[data-selector-name="form"]');
 
     // Validate input fields
-    for (const currentInput of form.querySelectorAll('input')) {
+    for (const currentInput of fieldset.querySelectorAll('input')) {
       if (!currentInput.checkValidity()) {
         currentInput.reportValidity();
         return;
       }
     }
 
-    const url = form.querySelector('input[name="link-url"]').value;
-    const description = form.querySelector('input[name="link-description"]').value;
+    const url = fieldset.querySelector('input[name="link-url"]').value;
+    const description = fieldset.querySelector('input[name="link-description"]').value;
 
     const code = `[${description}](${url})`;
 
@@ -330,8 +330,8 @@ class ComboMarkdownEditor {
 
     // Close the modal then clear its fields in case the user wants to add another one.
     newLinkModal.close();
-    form.querySelector('input[name="link-url"]').value = '';
-    form.querySelector('input[name="link-description"]').value = '';
+    fieldset.querySelector('input[name="link-url"]').value = '';
+    fieldset.querySelector('input[name="link-description"]').value = '';
   }
 
   setupLinkInserter() {
