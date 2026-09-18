@@ -164,5 +164,33 @@
 				<button class="primary button">{{ctx.Locale.Tr "save"}}</button>
 			</form>
 		</div>
+
+		<!-- Timestamp -->
+		<h4 id="hints" class="ui top attached header">
+			{{ctx.Locale.Tr "settings.timestamp"}}
+		</h4>
+		<div class="ui attached segment">
+			<form class="ui form" action="{{.Link}}/timestamp" method="post">
+				<div class="inline field">
+					{{ctx.Locale.Tr "settings.timestamp_description"}}
+				</div>
+				<div class="inline field">
+					<div class="ui radio checkbox">
+						<input name="timestamp_type" value="relative" type="radio" {{if eq $.TimestampType "relative"}}checked{{end}}>
+						<label>{{ctx.Locale.Tr "settings.timestamp_relative"}}</label>
+					</div>
+				</div>
+				<div class="inline field">
+					<div class="ui radio checkbox">
+						<input name="timestamp_type" value="absolute" type="radio" {{if eq $.TimestampType "absolute"}}checked{{end}}>
+						<label>{{ctx.Locale.Tr "settings.timestamp_absolute"}}</label>
+					</div>
+				</div>
+				<div class="field">
+					<button class="primary button">{{ctx.Locale.Tr "settings.timestamp_save"}}</button>
+				</div>
+			</form>
+		</div>
+
 	</div>
 {{template "user/settings/layout_footer" .}}
