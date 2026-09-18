@@ -107,6 +107,11 @@ func (ct SniffedType) Is3MF() bool {
 	return strings.Contains(ct.contentType, ThreeMFMimeType)
 }
 
+// IsFont detects if data is a font format
+func (ct SniffedType) IsFont() bool {
+	return strings.Contains(ct.contentType, "font/")
+}
+
 // IsRepresentableAsText returns true if file content can be represented as
 // plain text or is empty.
 func (ct SniffedType) IsRepresentableAsText() bool {
@@ -115,7 +120,7 @@ func (ct SniffedType) IsRepresentableAsText() bool {
 
 // IsBrowsableBinaryType returns whether a non-text type can be displayed in a browser
 func (ct SniffedType) IsBrowsableBinaryType() bool {
-	return ct.IsImage() || ct.IsSvgImage() || ct.IsPDF() || ct.IsVideo() || ct.IsAudio() || ct.Is3DModel()
+	return ct.IsImage() || ct.IsSvgImage() || ct.IsPDF() || ct.IsVideo() || ct.IsAudio() || ct.Is3DModel() || ct.IsFont()
 }
 
 // GetMimeType returns the mime type
