@@ -4,6 +4,9 @@
 {{end}}
 
 <nav id="navbar" aria-label="{{ctx.Locale.Tr "aria.navbar"}}">
+	{{if .IsSigned}}
+		<form id="logout-user-action" action="{{AppSubUrl}}/user/logout" method="POST" class="tw-hidden"></form>
+	{{end}}
 	<div class="navbar-left ui secondary menu">
 		<!-- the logo -->
 		<a class="item" id="navbar-logo" href="{{AppSubUrl}}/" aria-label="{{if .IsSigned}}{{ctx.Locale.Tr "dashboard"}}{{else}}{{ctx.Locale.Tr "home"}}{{end}}">
@@ -68,10 +71,10 @@
 					<hr>
 					<ul>
 						<li>
-							<a class="link-action" href data-url="{{AppSubUrl}}/user/logout">
+							<button form="logout-user-action">
 								{{svg "octicon-sign-out"}}
 								{{ctx.Locale.Tr "sign_out"}}
-							</a>
+							</button>
 						</li>
 					</ul>
 				</div>
@@ -216,10 +219,10 @@
 						{{end}}
 						<hr>
 						<li>
-							<a class="link-action" href data-url="{{AppSubUrl}}/user/logout">
+							<button form="logout-user-action">
 								{{svg "octicon-sign-out"}}
 								{{ctx.Locale.Tr "sign_out"}}
-							</a>
+							</button>
 						</li>
 					</ul>
 				</div>
