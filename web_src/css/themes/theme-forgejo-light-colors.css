@@ -1,0 +1,161 @@
+@import "../chroma/light.css";
+@import "../codemirror/light.css";
+@import "../markup/light.css";
+
+:root {
+  /* CONSTANT COLORS   */
+  --color-black-5: #0000001d;
+  --color-black-10: #00010f;
+  --color-black-60: #222426;
+  --color-white: #ffffff;
+  --color-white-30: #e4e4e4aa;
+  --color-white-50: #e2e2e5;
+  --color-grey-40: #cacaca7b;
+  --color-grey-140: #cacacaff;
+  --color-red-90: #c2410c;
+  --zinc-100: #f4f4f5;
+  --zinc-200: #e4e4e7;
+  --zinc-300: #d4d4d8;
+  --zinc-550: #61616a;
+  --zinc-600: #52525b;
+  --zinc-900: #18181b;
+
+  /* SEMANTIC COLORS FOR DASHBOARD */
+  --color-dashboard-help: var(--zinc-600);
+  --color-dashboard-sidebar-menu-active: var(--color-white-50);
+  --color-dashboard-sidebar-menu-count-bubble: var(--color-grey-140);
+  --color-label-text: var(--color-black-10);
+  --color-label-bg: var(--color-grey-40);
+  --color-label-light-border: var(--color-black-5);
+  --color-link: var(--color-red-90);
+  --color-navbar-bg: var(--zinc-100);
+  --color-navbar-bg-border: var(--zinc-200);
+  --color-navbar-bg-hover: var(--zinc-300);
+  --color-notification-count: var(--color-red-90);
+  --color-pagination-menu: var(--zinc-100);
+  --color-pagination-menu-border-color: var(--zinc-200);
+  --color-pagination-menu-disabled: var(--zinc-550);
+  --color-secondary-nav-bg: var(--color-white);
+  --color-text: var(--zinc-900);
+  --color-ui-menu-border: var(--color-black-60);
+  --color-ui-secondary-menu-hover: var(--color-white-30);
+}
+
+#navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-navbar-bg);
+  border-bottom: 1px solid var(--color-navbar-bg-border);
+  margin: 0 !important;
+  padding: 0 10px;
+}
+
+#navbar a.item:hover, #navbar a.item:focus,
+#navbar details.dropdown > summary:is(:hover, :focus),
+#navbar details.dropdown[open] > summary,
+#navbar button.item:hover, #navbar button.item:focus {
+  background: var(--color-navbar-bg-hover);
+}
+
+a {
+  color: var(--color-link);
+  cursor: pointer;
+  text-decoration-line: none;
+  text-decoration-skip-ink: all;
+}
+
+.secondary-nav {
+  background: var(--color-secondary-nav-bg) !important; /* important because of .ui.secondary.menu */
+}
+
+.sha.label {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 0;
+  align-items: center;
+  margin: 0 6px; /* needs to go but looked into case-by-case */
+  padding: 0;
+  min-width: 0; /* from .ui.label, may be bad actually */
+  background: var(--color-label-bg);
+  color: var(--color-label-text);
+  border: 1px solid var(--color-label-light-border);
+  border-radius: var(--border-radius);
+  white-space: nowrap;
+  font-family: var(--fonts-monospace);
+  font-size: 13px;
+  font-weight: var(--font-weight-normal);
+}
+
+.tw-border-b-secondary {
+  border-block-end-color: var(--color-navbar-bg-border) !important;
+}
+
+.ui.basic.labels .primary.label,
+.ui.ui.ui.basic.primary.label {
+  color: var(--color-text-dark) !important;
+}
+
+.ui.basic.primary.button.item {
+  background-color: var(--color-active) !important;
+  color: var(--color-text) !important;
+  box-shadow: none !important;
+}
+
+.ui.floating.dropdown .overflow.menu .scrolling.menu.items {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid var(--color-navbar-bg-border);
+}
+
+.ui.ui.ui.grey.label {
+  background: var(--color-dashboard-sidebar-menu-count-bubble);
+  border-color: var(--color-label-bg);
+  color: var(--color-label-text);
+}
+
+.ui.labeled.icon.buttons > .button > .icon,
+.ui.labeled.icon.button > .icon {
+  background-color: var(--color-shadow) !important;
+}
+
+.ui.menu {
+  border: 1px solid var(--color-ui-menu-border);
+  box-shadow: 0 1px 2px 0 var(--color-ui-menu-border);
+  border-radius: 0.28571429rem;
+  min-height: 2.85714286em;
+}
+
+.ui.menu,
+.ui.vertical.menu {
+  background: var(--color-pagination-menu);
+  border-color: var(--color-pagination-menu-border-color);
+  box-shadow: none;
+}
+
+.ui.menu .item {
+  color: var(--color-text);
+  user-select: auto;
+  line-height: var(--line-height-default); /* fomantic uses "1" which causes overflow problems because "1" doesn't consider the descent part */
+}
+
+.ui.ui.menu .item.disabled {
+  color: var(--color-pagination-menu-disabled);
+}
+
+.ui.red.label.notification_count,
+.ui.primary.labels .label {
+  background-color: var(--color-notification-count) !important;
+}
+
+.ui.secondary.menu .active.item,
+.ui.secondary.menu .active.item:hover {
+  color: var(--color-text);
+  background: var(--color-dashboard-sidebar-menu-active);
+}
+
+.ui.secondary.menu .dropdown.item:hover,
+.ui.secondary.menu a.item:hover {
+  color: var(--color-text);
+  background: var(--color-ui-secondary-menu-hover);
+}
