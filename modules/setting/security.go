@@ -279,6 +279,30 @@ func onlySymmetric() checkKeyCfg {
 	}
 }
 
+////////////////
+// onlyHS256(): Allow only HS256
+
+var specHS256 = checkSpec{
+	func(alg string) bool { return (alg == "HS256") },
+	&[]string{"HS256"},
+	[]string{"SIGNING_PRIVATE_KEY_FILE"},
+}
+
+func checkSigningOnlyHS256(rootCfg ConfigProvider, cfgSection, pfx string) error {
+	return checkSigningSpec(rootCfg, cfgSection, pfx, specHS256)
+}
+
+func checkValidationOnlyHS256(rootCfg ConfigProvider, cfgSection, pfx string) error {
+	return checkValidationSpec(rootCfg, cfgSection, pfx, specHS256)
+}
+
+func onlyHS256() checkKeyCfg {
+	return checkKeyCfg{
+		signing:      checkSigningOnlyHS256,
+		verification: checkValidationOnlyHS256,
+	}
+}
+
 // loadSigningKey() loads a or creates signing key based on settings in section cfgSection
 // [pfx]SIGNING_ALGORITHM determines the algorithm
 // [pfx]SECRET is a literal secret for symmetric algorithms

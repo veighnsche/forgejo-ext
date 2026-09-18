@@ -342,6 +342,26 @@ var testCKCerr = []struct {
 		complaint: "[foo] Unexpected algorithm: X_KEYS_ACCEPTED = RS256, needs to be one of [HS256 HS384 HS512]",
 		checks:    []checkKeyCfg{onlySymmetric()},
 	},
+
+	// onlyHS256()
+	{
+		name:      "HS256_Sign_OtherAlg",
+		cfgline:   defSecret + "X_SIGNING_ALGORITHM = HS384",
+		complaint: "[foo] Unexpected algorithm: X_SIGNING_ALGORITHM = HS384, needs to be one of [HS256]",
+		checks:    []checkKeyCfg{onlyHS256()},
+	},
+	{
+		name:      "HS256_Sign_SIGNING_PRIVATE_KEY_FILE",
+		cfgline:   defSecret + "X_SIGNING_PRIVATE_KEY_FILE = file:foo",
+		complaint: "[foo] Invalid config key: X_SIGNING_PRIVATE_KEY_FILE - must be removed",
+		checks:    []checkKeyCfg{onlyHS256()},
+	},
+	{
+		name:      "HS256_Validate_AsymAlg",
+		cfgline:   defSecret + "X_KEYS_ACCEPTED = ES384:file:foo HS256:file:Bazz",
+		complaint: "[foo] Unexpected algorithm: X_KEYS_ACCEPTED = ES384, needs to be one of [HS256]",
+		checks:    []checkKeyCfg{onlyHS256()},
+	},
 }
 
 func TestCheckKeyCfgErr(t *testing.T) {

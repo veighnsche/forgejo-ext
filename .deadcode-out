@@ -183,6 +183,9 @@ forgejo.org/modules/setting
 	checkSigningOnlySymmetric
 	checkValidationOnlySymmetric
 	onlySymmetric
+	checkSigningOnlyHS256
+	checkValidationOnlyHS256
+	onlyHS256
 
 forgejo.org/modules/sync
 	StatusTable.Start
