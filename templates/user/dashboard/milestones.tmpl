@@ -99,13 +99,13 @@
 									</div>
 									{{if .TotalTrackedTime}}
 										<div class="flex-text-block">
-											{{svg "octicon-clock"}}
+											{{svg "octicon-clock" 14}}
 											{{.TotalTrackedTime|Sec2Time}}
 										</div>
 									{{end}}
 									{{if .UpdatedUnix}}
 										<div class="flex-text-block">
-											{{svg "octicon-history"}}
+											{{svg "octicon-history" 14}}
 											{{ctx.Locale.Tr "repo.milestones.update_ago" (DateUtils.TimeSince .UpdatedUnix)}}
 										</div>
 									{{end}}
