@@ -178,6 +178,18 @@ forgejo.org/modules/queue/lqinternal
 
 forgejo.org/modules/setting
 	NewConfigProviderFromData
+	NewVolatileConfigProvider
+	volatileConfig.WriteTo
+	volatileConfig.String
+	volatileConfig.Save
+	volatileConfig.SaveTo
+	volatileConfig.GetFile
+	volatileConfig.DisableSaving
+	volatileConfig.PrepareSaving
+	volatileConfig.Section
+	volatileConfig.Sections
+	volatileConfig.NewSection
+	volatileConfig.GetSection
 	GitConfigType.GetOption
 	InitLoggersForTest
 
