@@ -100,6 +100,13 @@ func NewTemplateContextForWeb(ctx *Context) *templates.Context {
 	tmplCtx.Locale = ctx.Locale
 	tmplCtx.AvatarUtils = templates.NewAvatarUtils(ctx)
 	tmplCtx.Data = ctx.Data
+
+	// At the moment when this creates tmplCtx, ctx doesn't have a Doer yet.
+	// Also, templates/context cannot reference Context in this file;
+	// it would be a circular import.
+	tmplCtx.Doer = func() *user_model.User {
+		return ctx.Doer
+	}
 	return tmplCtx
 }
 
