@@ -77,10 +77,10 @@ func PersonInbox(ctx *context.APIContext) {
 	form := web.GetForm(ctx)
 	activity := form.(*ap.Activity)
 
-	err := verifyKeyIDMatchesActorID(*ctx, activity)
+	err := federation.VerifyKeyIDMatchesActorID(*ctx, ctx.Req, activity)
 	if err != nil {
 		log.Error("Failed to verify keyID and actorID: %v", err)
-		ctx.Error(http.StatusNotAcceptable, "Failed to verify keyID and actorID: %v", err)
+		ctx.Error(http.StatusUnauthorized, "Failed to verify keyID and actorID: %v", err)
 		return
 	}
 
