@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -17,7 +18,9 @@ import (
 	"forgejo.org/models/user"
 	"forgejo.org/modules/activitypub"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/setting"
 
+	"github.com/42wim/httpsig"
 	ap "github.com/go-ap/activitypub"
 )
 
@@ -209,4 +212,74 @@ func decodePublicKeyPem(pubKeyPem string) ([]byte, error) {
 	}
 
 	return block.Bytes, nil
+}
+
+func getKeyID(r *http.Request) (string, error) {
+	if !setting.Federation.SignatureEnforced {
+		return "", fmt.Errorf("Signature Enforcing is not enabled")
+	}
+
+	v, err := httpsig.NewVerifier(r)
+	if err != nil {
+		log.Debug("For %q verification failed: %v", r.URL.Path, err)
+	}
+
+	keyURI := v.KeyId()
+
+	return keyURI, nil
+}
+
+// Finds the ID of requester and actor and compares them
+func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity *ap.Activity) error {
+	// skip if key veryfication is not enforced
+	if !setting.Federation.SignatureEnforced {
+		return nil
+	}
+
+	keyID, err := getKeyID(req)
+	if err != nil {
+		return err
+	}
+
+	keyURL, err := url.Parse(keyID)
+	if err != nil {
+		return err
+	}
+
+	if activity.Actor == nil {
+		return fmt.Errorf("Invalid getting actor from request")
+	}
+
+	actorURI := activity.Actor.GetLink().String()
+
+	_, federatedUser, federationHost, err := FindOrCreateFederatedUser(ctx, actorURI)
+	if err != nil {
+		log.Error("Error finding or creating federated user (%s): %v", actorURI, err)
+		return fmt.Errorf("Federated user not found: %v", err)
+	}
+	_, keyUser, err := user.FindFederatedUserByKeyID(ctx, keyURL.String())
+	if err != nil {
+
+		// if keyID does exist in db but is not associated with a federated user err == ErrFederatedUserNotExists,
+		// otherwise keyID does not exist, thus we do not have to check keyID again
+		if !user.IsErrFederatedUserNotExists(err) {
+			return err
+		}
+
+		keyHost, err := forgefed.FindFederationHostByKeyID(ctx, keyURL.String())
+		if err != nil {
+			if !forgefed.IsErrFederationHostNotFound(err) {
+				return err
+			}
+		} else {
+			if federationHost.KeyID.String != keyHost.KeyID.String {
+				return fmt.Errorf("KeyID (%v) in signature does not match FederationHostID (%v)", keyHost.KeyID.String, federationHost.KeyID.String)
+			}
+		}
+	} else {
+		if federatedUser.KeyID.String != keyUser.KeyID.String {
+			return fmt.Errorf("KeyID (%v) in signature does not match FederatedUserID (%v)", keyUser.KeyID.String, federatedUser.KeyID.String)
+		}
+	}
+	return nil
 }
