@@ -12,6 +12,7 @@ import (
 
 	"forgejo.org/models/avatars"
 	issues_model "forgejo.org/models/issues"
+	"forgejo.org/models/user"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/templates"
@@ -49,6 +50,11 @@ func GetContentHistoryList(ctx *context.Context) {
 	commentID := ctx.FormInt64("comment_id")
 	items, _ := issues_model.FetchIssueContentHistoryList(ctx, issue.ID, commentID)
 
+	timestampType := templates.TimestampRelative
+	if ctx.Doer != nil {
+		timestampType, _ = user.GetUserSetting(ctx, ctx.Doer.ID, user.SettingsKeyTimestampType)
+	}
+
 	// render history list to HTML for frontend dropdown items: (name, value)
 	// name is HTML of "avatar + userName + userAction + timeSince"
 	// value is historyId
@@ -76,7 +82,7 @@ func GetContentHistoryList(ctx *context.Context) {
 		class := avatars.DefaultAvatarClass + " tw-mr-2"
 		name := html.EscapeString(username)
 		avatarHTML := string(templates.AvatarHTML(src, 28, class, username))
-		timeSinceHTML := string(templates.TimeSince(item.EditedUnix))
+		timeSinceHTML := string(templates.TimeSince(item.EditedUnix, timestampType))
 		content := fmt.Sprintf(contentFmt, avatarHTML, name, actionText, timeSinceHTML)
 
 		results = append(results, map[string]any{

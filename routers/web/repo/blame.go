@@ -233,6 +233,10 @@ func renderBlame(ctx *context.Context, blameParts []*git.BlamePart, commitNames 
 	if err != nil {
 		log.Error("Unable to get file language for %-v:%s. Error: %v", ctx.Repo.Repository, ctx.Repo.TreePath, err)
 	}
+	timestampType := templates.TimestampRelative
+	if ctx.Doer != nil {
+		timestampType, _ = user_model.GetUserSetting(ctx, ctx.Doer.ID, user_model.SettingsKeyTimestampType)
+	}
 
 	lines := make([]string, 0)
 	rows := make([]*blameRow, 0)
@@ -258,7 +262,7 @@ func renderBlame(ctx *context.Context, blameParts []*git.BlamePart, commitNames 
 				commitCnt++
 
 				// User avatar image
-				commitSince := templates.TimeSince(commit.Author.When)
+				commitSince := templates.TimeSince(commit.Author.When, timestampType)
 
 				var avatar string
 				if commit.User != nil {

@@ -20,6 +20,7 @@ import (
 	git_model "forgejo.org/models/git"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
+	"forgejo.org/models/user"
 	"forgejo.org/modules/actions"
 	"forgejo.org/modules/base"
 	"forgejo.org/modules/git"
@@ -372,10 +373,14 @@ func getViewResponse(ctx *app_context.Context, req *ViewRequest, runIndex, jobIn
 		}
 		allAttempts = append(allAttempts, taskAttempt)
 	}
+	timestampType := templates.TimestampRelative
+	if ctx.Doer != nil {
+		timestampType, _ = user.GetUserSetting(ctx, ctx.Doer.ID, user.SettingsKeyTimestampType)
+	}
 	for _, actionTask := range taskAttempts {
 		taskAttempt := &TaskAttempt{
 			Number:            actionTask.Attempt,
-			Started:           templates.TimeSince(actionTask.Started),
+			Started:           templates.TimeSince(actionTask.Started, timestampType),
 			Status:            actionTask.Status.String(),
 			StatusDiagnostics: statusDiagnostics(ctx, actionTask.Status, actionTask, current),
 		}
@@ -915,15 +920,20 @@ func statusDiagnostics(ctx *app_context.Context, status actions_model.Status, ta
 	// Initialize as empty container for it to be serialized to an empty JSON array, not `null`.
 	diagnostics := []template.HTML{}
 
+	timestampType := templates.TimestampRelative
+	if ctx.Doer != nil {
+		timestampType, _ = user.GetUserSetting(ctx, ctx.Doer.ID, user.SettingsKeyTimestampType)
+	}
+
 	switch status {
 	case actions_model.StatusBlocked:
 		diagnostics = append(diagnostics,
-			ctx.Locale.Tr("actions.status.info.blocked", templates.TimeDuration(job.Updated)))
+			ctx.Locale.Tr("actions.status.info.blocked", templates.TimeDuration(job.Updated, timestampType)))
 	case actions_model.StatusCancelled:
 		// Only the task has accurate information because multiple tasks share a single job.
 		if task != nil {
 			diagnostics = append(diagnostics,
-				ctx.Locale.Tr("actions.status.info.cancelled", templates.TimeSince(task.Stopped), task.Duration()))
+				ctx.Locale.Tr("actions.status.info.cancelled", templates.TimeSince(task.Stopped, timestampType), task.Duration()))
 		} else {
 			diagnostics = append(diagnostics, template.HTML(status.LocaleString(ctx.Locale)))
 		}
@@ -931,7 +941,7 @@ func statusDiagnostics(ctx *app_context.Context, status actions_model.Status, ta
 		// Only the task has accurate information because multiple tasks share a single job.
 		if task != nil {
 			diagnostics = append(diagnostics,
-				ctx.Locale.Tr("actions.status.info.failure", templates.TimeSince(task.Stopped), task.Duration()))
+				ctx.Locale.Tr("actions.status.info.failure", templates.TimeSince(task.Stopped, timestampType), task.Duration()))
 		} else {
 			diagnostics = append(diagnostics, template.HTML(status.LocaleString(ctx.Locale)))
 		}
@@ -939,7 +949,7 @@ func statusDiagnostics(ctx *app_context.Context, status actions_model.Status, ta
 		// Only the task has accurate information because multiple tasks share a single job.
 		if task != nil {
 			diagnostics = append(diagnostics,
-				ctx.Locale.Tr("actions.status.info.running", templates.TimeDuration(task.Started)))
+				ctx.Locale.Tr("actions.status.info.running", templates.TimeDuration(task.Started, timestampType)))
 		} else {
 			diagnostics = append(diagnostics, template.HTML(status.LocaleString(ctx.Locale)))
 		}
@@ -947,7 +957,7 @@ func statusDiagnostics(ctx *app_context.Context, status actions_model.Status, ta
 		// Only the task has accurate information because multiple tasks share a single job.
 		if task != nil {
 			diagnostics = append(diagnostics,
-				ctx.Locale.Tr("actions.status.info.success", templates.TimeSince(task.Stopped), task.Duration()))
+				ctx.Locale.Tr("actions.status.info.success", templates.TimeSince(task.Stopped, timestampType), task.Duration()))
 		} else {
 			diagnostics = append(diagnostics, template.HTML(status.LocaleString(ctx.Locale)))
 		}
@@ -955,7 +965,7 @@ func statusDiagnostics(ctx *app_context.Context, status actions_model.Status, ta
 		joinedLabels := strings.Join(job.RunsOn, ", ")
 
 		diagnostics = append(diagnostics,
-			ctx.Locale.TrPluralString(len(job.RunsOn), "actions.status.info.waiting", templates.TimeDuration(job.Updated), joinedLabels))
+			ctx.Locale.TrPluralString(len(job.RunsOn), "actions.status.info.waiting", templates.TimeDuration(job.Updated, timestampType), joinedLabels))
 	default:
 		diagnostics = append(diagnostics, template.HTML(status.LocaleString(ctx.Locale)))
 	}
