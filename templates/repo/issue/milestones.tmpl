@@ -55,7 +55,7 @@
 							<div class="flex-text-block">
 								{{if .IsClosed}}
 									{{$closedDate:= DateUtils.TimeSince .ClosedDateUnix}}
-									{{svg "octicon-clock" 14}}
+									{{svg "octicon-calendar" 14}}
 									{{ctx.Locale.Tr "repo.milestones.closed" $closedDate}}
 								{{else}}
 									{{if .DeadlineString}}
