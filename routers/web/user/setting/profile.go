@@ -22,6 +22,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/templates"
 	"forgejo.org/modules/translation"
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
@@ -341,6 +342,13 @@ func Appearance(ctx *context.Context) {
 		return forms.IsUserHiddenCommentTypeGroupChecked(commentTypeGroup, hiddenCommentTypes)
 	}
 
+	val, err = user_model.GetUserSetting(ctx, ctx.Doer.ID, user_model.SettingsKeyTimestampType, templates.TimestampRelative)
+	if err != nil {
+		ctx.ServerError("GetUserSetting", err)
+		return
+	}
+	ctx.Data["TimestampType"] = val
+
 	ctx.HTML(http.StatusOK, tplSettingsAppearance)
 }
 
@@ -425,6 +433,19 @@ func UpdateUserHints(ctx *context.Context) {
 // UpdateUserHiddenComments update a user's shown comment types
 func UpdateUserHiddenComments(ctx *context.Context) {
 	err := user_model.SetUserSetting(ctx, ctx.Doer.ID, user_model.SettingsKeyHiddenCommentTypes, forms.UserHiddenCommentTypesFromRequest(ctx).String())
+	if err != nil {
+		ctx.ServerError("SetUserSetting", err)
+		return
+	}
+
+	log.Trace("User settings updated: %s", ctx.Doer.Name)
+	ctx.Flash.Success(ctx.Tr("settings.saved_successfully"))
+	ctx.Redirect(setting.AppSubURL + "/user/settings/appearance")
+}
+
+func UpdateTimestamp(ctx *context.Context) {
+	form := web.GetForm(ctx).(*forms.TimestampTypeForm)
+	err := user_model.SetUserSetting(ctx, ctx.Doer.ID, user_model.SettingsKeyTimestampType, form.TimestampType)
 	if err != nil {
 		ctx.ServerError("SetUserSetting", err)
 		return

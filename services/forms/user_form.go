@@ -450,3 +450,7 @@ func (f *PackageSettingForm) Validate(req *http.Request, errs binding.Errors) bi
 	ctx := context.GetValidateContext(req)
 	return middleware.Validate(errs, ctx.Data, f, ctx.Locale)
 }
+
+type TimestampTypeForm struct {
+	TimestampType string `binding:"Required"`
+}
