@@ -29,18 +29,18 @@ func microcmdUserChangePassword() *cli.Command {
 		Action: newAuthService().runChangePassword,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "username",
-				Aliases: []string{"u"},
-				Value:   "",
-				Usage:   "The user to change password for",
-				// Required: true, // TODO: ?
+				Name:     "username",
+				Aliases:  []string{"u"},
+				Value:    "",
+				Usage:    "The user to change password for",
+				Required: true,
 			},
 			&cli.StringFlag{
-				Name:    "password",
-				Aliases: []string{"p"},
-				Value:   "",
-				Usage:   "New password to set for user",
-				// Required: true, // TODO: ?
+				Name:     "password",
+				Aliases:  []string{"p"},
+				Value:    "",
+				Usage:    "New password to set for user",
+				Required: true,
 			},
 			&cli.BoolFlag{
 				Name:  "must-change-password",
