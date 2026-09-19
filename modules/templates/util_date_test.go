@@ -66,16 +66,19 @@ func TestTimeSince(t *testing.T) {
 	defer test.MockVariableValue(&setting.IsInTesting, false)()
 
 	du := NewDateUtils()
-	assert.EqualValues(t, "-", du.TimeSince(nil))
+	assert.EqualValues(t, "-", du.TimeSince(nil, TimestampRelative))
 
 	refTimeStr := "2018-01-01T00:00:00Z"
 	refTime, _ := time.Parse(time.RFC3339, refTimeStr)
 
-	actual := du.TimeSince(refTime)
+	actual := du.TimeSince(refTime, TimestampRelative)
 	assert.EqualValues(t, `<relative-time prefix="" tense="past" datetime="2018-01-01T00:00:00Z" data-tooltip-content data-tooltip-interactive="true">2018-01-01 00:00:00 +00:00</relative-time>`, actual)
 
-	actual = timeSinceTo(&refTime, time.Time{})
+	actual = timeSinceTo(&refTime, time.Time{}, TimestampRelative)
 	assert.EqualValues(t, `<relative-time prefix="" tense="future" datetime="2018-01-01T00:00:00Z" data-tooltip-content data-tooltip-interactive="true">2018-01-01 00:00:00 +00:00</relative-time>`, actual)
+
+	actual = timeSinceTo(&refTime, time.Time{}, TimestampAbsolute)
+	assert.EqualValues(t, `<span data-testid="absolute-time-1514764800">2018-01-01 00:00:00</span>`, actual)
 
 	actual = timeSinceLegacy(timeutil.TimeStampNano(refTime.UnixNano()), nil)
 	assert.EqualValues(t, `<relative-time prefix="" tense="past" datetime="2017-12-31T19:00:00-05:00" data-tooltip-content data-tooltip-interactive="true">2017-12-31 19:00:00 -05:00</relative-time>`, actual)
@@ -89,8 +92,13 @@ func TestTimeDuration(t *testing.T) {
 	defer timeutil.MockUnset()
 
 	t.Run("Display TZ UTC", func(t *testing.T) {
-		result := TimeDuration(timeutil.TimeStampNow().Add(-67))
+		result := TimeDuration(timeutil.TimeStampNow().Add(-67), TimestampRelative)
 		assert.EqualValues(t, `<relative-time datetime="2024-05-19T05:39:25Z" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">1m7s</relative-time>`, result)
+	})
+
+	t.Run("Display Absolute Time TZ UTC", func(t *testing.T) {
+		result := TimeDuration(timeutil.TimeStampNow(), TimestampAbsolute)
+		assert.EqualValues(t, `<span data-testid="absolute-time-1716097232">2024-05-19 05:40:32</span>`, result)
 	})
 
 	t.Run("Display TZ London", func(t *testing.T) {
@@ -99,7 +107,7 @@ func TestTimeDuration(t *testing.T) {
 
 		defer test.MockVariableValue(&setting.DefaultUILocation, londonTZ)()
 
-		result := TimeDuration(timeutil.TimeStampNow().Add(-68))
+		result := TimeDuration(timeutil.TimeStampNow().Add(-68), TimestampRelative)
 		assert.EqualValues(t, `<relative-time datetime="2024-05-19T06:39:24+01:00" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">1m8s</relative-time>`, result)
 	})
 }
