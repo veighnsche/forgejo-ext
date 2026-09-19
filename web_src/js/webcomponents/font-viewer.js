@@ -4,7 +4,6 @@ const samples = [
   '0123456789',
   '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~',
 ];
-
 const pangramSizes = [12, 18, 24, 36];
 const defaultPangram = 'The quick brown fox jumps over the lazy dog';
 
@@ -34,9 +33,10 @@ window.customElements.define(
   'font-viewer',
   class extends HTMLElement {
     connectedCallback() {
+      const fallbackLink = this.innerHTML; // eslint-disable-line wc/no-child-traversal-in-connectedcallback
+
       const src = this.getAttribute('src');
       const pangram = this.getAttribute('pangram') || defaultPangram;
-      const fallback = this.innerHTML; // eslint-disable-line wc/no-child-traversal-in-connectedcallback
       const family = `font-preview-${instanceCount++}`;
 
       new FontFace(family, `url("${src}")`).load().then((font) => {
@@ -47,7 +47,7 @@ window.customElements.define(
           ...pangramSizes.flatMap((size) => makePangram(pangram, size)),
         );
       }).catch(() => {
-        this.innerHTML = fallback;
+        this.innerHTML = fallbackLink;
       });
     }
   },
