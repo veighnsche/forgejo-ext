@@ -143,6 +143,10 @@
 						{{else}}
 							<a href="{{$.RawFileLink}}" rel="nofollow">{{ctx.Locale.Tr "repo.file_view_raw"}}</a>
 						{{end}}
+					{{else if .IsFontFile}}
+						<lazy-webc tag="font-viewer" src="{{$.RawFileLink}}" pangram="{{.FontPreviewPangram}}">
+							<a href="{{$.RawFileLink}}" rel="nofollow">{{ctx.Locale.Tr "repo.file_view_raw"}}</a>
+						</lazy-webc>
 					{{else}}
 						<a href="{{$.RawFileLink}}" rel="nofollow">{{ctx.Locale.Tr "repo.file_view_raw"}}</a>
 					{{end}}

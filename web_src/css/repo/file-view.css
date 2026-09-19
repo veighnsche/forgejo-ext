@@ -37,3 +37,27 @@
   height: 100%;
   background: var(--color-highlight-fg);
 }
+
+/* The font family and size are dynamic the component passes them in as custom properties. */
+font-viewer {
+  --font-viewer-family: inherit;
+  --font-viewer-font-size: 1em;
+
+  padding: 1rem;
+}
+
+font-viewer p {
+  font-family: var(--font-viewer-family);
+}
+
+font-viewer .font-viewer-sample {
+  font-size: 28px;
+}
+
+font-viewer .font-viewer-pangram {
+  font-size: var(--font-viewer-font-size);
+}
+
+font-viewer .font-viewer-size {
+  color: var(--color-text-light-2);
+}

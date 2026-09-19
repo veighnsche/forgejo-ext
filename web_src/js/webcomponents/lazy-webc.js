@@ -28,6 +28,9 @@ const loadableComponents = {
   'citation-information': lazyPromise(() => {
     return import(/* webpackChunkName: "citation-information" */ './citation-information.js');
   }),
+  'font-viewer': lazyPromise(() => {
+    return import(/* webpackChunkName: "font-viewer" */ './font-viewer.js');
+  }),
 };
 
 /**
