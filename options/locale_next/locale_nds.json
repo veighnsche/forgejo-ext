@@ -977,7 +977,7 @@
 	"admin.config.federation.max_size": "Hoogste verlöövt Antwoord-Grött",
 	"admin.config.federation.signature_enforced": "HTTP-Unnerschrievens verlangen",
 	"admin.config.federation.signature_algorithms": "Unnerschriev-Programmen",
-	"admin.config.federation.digest_algorithm": "Unnerschrift-Prüüfsumm-Programm",
+	"admin.config.federation.digest_algorithms": "Unnerschrift-Prüüfsumm-Programm",
 	"admin.config.federation.get_headers": "Unnerschreven GET-Koppriegen",
 	"admin.config.federation.post_headers": "Unnerschreven POST-Koppriegen",
 	"actions.workflow.unknown_job_in_needs": "Upgaav mit ID %[1]s benöömt unbekannte Upgaven in `needs`: %[2]s.",

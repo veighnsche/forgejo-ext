@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	forgefed_model "forgejo.org/models/forgefed"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/hostmatcher"
 	"forgejo.org/modules/log"
@@ -26,6 +27,7 @@ import (
 	"forgejo.org/modules/setting"
 
 	"github.com/42wim/httpsig"
+	httpsign9421 "github.com/yaronf/httpsign"
 )
 
 const (
@@ -62,7 +64,7 @@ func containsRequiredHTTPHeaders(method string, headers []string) error {
 type ClientFactory struct {
 	client      *http.Client
 	algs        []httpsig.Algorithm
-	digestAlg   httpsig.DigestAlgorithm
+	digestAlgs  []httpsig.DigestAlgorithm
 	getHeaders  []string
 	postHeaders []string
 }
@@ -90,6 +92,11 @@ func NewClientFactoryWithTimeout(timeout time.Duration) (c *ClientFactory, err e
 		return nil, err
 	}
 
+	digestAlgs := []httpsig.DigestAlgorithm{}
+	for _, alg := range setting.Federation.DigestAlgorithms {
+		digestAlgs = append(digestAlgs, httpsig.DigestAlgorithm(strings.ToUpper(alg)))
+	}
+
 	c = &ClientFactory{
 		client: &http.Client{
 			Transport: &http.Transport{
@@ -99,7 +106,7 @@ func NewClientFactoryWithTimeout(timeout time.Duration) (c *ClientFactory, err e
 			CheckRedirect: checkRedirect,
 		},
 		algs:        setting.HttpsigAlgs,
-		digestAlg:   httpsig.DigestAlgorithm(setting.Federation.DigestAlgorithm),
+		digestAlgs:  digestAlgs,
 		getHeaders:  setting.Federation.GetHeaders,
 		postHeaders: setting.Federation.PostHeaders,
 	}
@@ -162,15 +169,88 @@ type APClientFactory interface {
 	WithKeysDirect(ctx context.Context, privateKey, pubID string, hosts []*url.URL) (APClient, error)
 }
 
+type ClientKeyType int
+
+const (
+	ClientKeyUser ClientKeyType = 1
+	ClientKeyHost ClientKeyType = 2
+)
+
+// ClientPublicKey is a convenience struct used to construct a verifying ClientKey
+type ClientPublicKey struct {
+	KeyID string
+	Alg   setting.Algorithm
+	Type  ClientKeyType
+}
+
+// NewClientPublicKey creates a new ClientPublicKey for verifying signatures.
+func NewClientPublicKey(keyID string, alg setting.Algorithm, ty ClientKeyType) ClientPublicKey {
+	return ClientPublicKey{keyID, alg, ty}
+}
+
+func (k ClientPublicKey) PublicKeyBytes(ctx context.Context) (int64, []byte, error) {
+	var err error
+
+	switch k.Type {
+	case ClientKeyHost:
+		if host, err := forgefed_model.FindFederationHostByKeyID(ctx, k.KeyID); err == nil && host != nil && host.PublicKey.Valid {
+			return host.ID, host.PublicKey.V, nil
+		}
+	case ClientKeyUser:
+		fallthrough
+	default:
+		if _, federatedUser, err := user_model.FindFederatedUserByKeyID(ctx, k.KeyID); err == nil && federatedUser != nil && federatedUser.PublicKey.Valid {
+			return federatedUser.UserID, federatedUser.PublicKey.V, nil
+		}
+	}
+
+	return -1, nil, fmt.Errorf("error finding public key for key ID: %v, error: %w", k.KeyID, err)
+}
+
+// ClientKey creates a new [ClientKey].
+func (k ClientPublicKey) ClientKey(ctx context.Context) (*ClientKey, error) {
+	ownerID, keyBytes, err := k.PublicKeyBytes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	clientKey := &ClientKey{
+		pubKey:   keyBytes,
+		pubKeyID: k.KeyID,
+		ownerID:  ownerID,
+		alg:      k.Alg,
+	}
+	return clientKey, nil
+}
+
+// ClientKey represents a client key used to sign a HTTP request.
+type ClientKey struct {
+	privKey  []byte
+	pubKey   []byte
+	pubKeyID string
+	ownerID  int64
+	alg      setting.Algorithm
+}
+
+// NewClientKey creates a new [ClientKey] from the provided parameters.
+func NewClientKey(privKey []byte, pubKeyID string, alg setting.Algorithm) *ClientKey {
+	return &ClientKey{
+		privKey:  privKey,
+		pubKeyID: pubKeyID,
+		alg:      alg,
+	}
+}
+
 // Client struct
 type Client struct {
 	client      *http.Client
 	algs        []httpsig.Algorithm
-	digestAlg   httpsig.DigestAlgorithm
+	digestAlgs  []httpsig.DigestAlgorithm
 	getHeaders  []string
 	postHeaders []string
 	priv        *rsa.PrivateKey
 	pubID       string
+	clientKeys  []*ClientKey
+	useRFC9421  bool
 }
 
 // NewRequest function
@@ -185,14 +265,21 @@ func (cf *ClientFactory) WithKeysDirect(ctx context.Context, privateKey, pubID s
 		return nil, fmt.Errorf("client: invalid host for HostMatcher: %w", err)
 	}
 
+	clientKeys := []*ClientKey{
+		NewClientKey([]byte(privateKey), pubID, setting.AlgorithmRSASHA256CAVAGE),
+		NewClientKey([]byte(privateKey), pubID, setting.AlgorithmRSARFC9421),
+	}
+
 	c := Client{
 		client:      cf.client,
 		algs:        cf.algs,
-		digestAlg:   cf.digestAlg,
+		digestAlgs:  cf.digestAlgs,
 		getHeaders:  cf.getHeaders,
 		postHeaders: cf.postHeaders,
 		priv:        privParsed,
 		pubID:       pubID,
+		clientKeys:  clientKeys,
+		useRFC9421:  setting.Federation.UseRFC9421,
 	}
 	return &c, nil
 }
@@ -221,46 +308,152 @@ func (c *Client) newRequest(method string, b []byte, to string) (req *http.Reque
 	return req, err
 }
 
-// Post function
+// Do makes an HTTP request to an ActivityPub server.
+func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
+	if req == nil {
+		return nil, fmt.Errorf("nil ActivityPub request")
+	}
+
+	return c.client.Do(req)
+}
+
+// Post constructs a POST request with forgejo/gitea specific headers, and makes the request to the server.
 func (c *Client) Post(b []byte, to string) (resp *http.Response, err error) {
-	var req *http.Request
+	req, err := c.PostRequest(b, to)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.Do(req)
+}
+
+// KeyID gets the key ID for the ActivityPub public key.
+func (c *Client) KeyID() string {
+	return c.pubID
+}
+
+// normalizeRFC9421Path normalizes RFC 9421 path:
+//
+// <https://www.rfc-editor.org/rfc/rfc9110#section-4.2.3>
+func normalizeRFC9421Path(req *http.Request) {
+	if req.URL.Path == "" {
+		req.URL.Path = "/"
+	}
+}
+
+// Create an http POST request with forgejo/gitea specific headers
+func (c *Client) PostRequest(b []byte, to string) (req *http.Request, err error) {
 	if req, err = c.newRequest(http.MethodPost, b, to); err != nil {
 		return nil, err
 	}
 
 	if c.pubID != "" {
-		signer, _, err := httpsig.NewSigner(c.algs, c.digestAlg, c.postHeaders, httpsig.Signature, httpsigExpirationTime)
-		if err != nil {
-			return nil, err
-		}
-		if err := signer.SignRequest(c.priv, c.pubID, req, b); err != nil {
-			return nil, err
+		if c.useRFC9421 {
+			config := rfc9421SignConfig()
+
+			hasBody := len(b) > 0
+			sigHeaders := setting.Federation.PostHeadersRFC9421
+			if hasBody {
+				sigHeaders = append(sigHeaders, "Content-Digest")
+			}
+			fields := httpsign9421.Headers(sigHeaders...)
+
+			signers, err := c.SignersRFC9421(config, fields)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Created", fmt.Sprintf("%d", time.Now().Unix()))
+			if hasBody {
+				digest, err := ContentDigest(&req.Body, setting.Federation.DigestAlgorithms)
+				if err != nil {
+					return nil, err
+				}
+				req.Header.Set("Content-Digest", digest)
+			}
+
+			normalizeRFC9421Path(req)
+
+			for i, signer := range signers {
+				sigName := fmt.Sprintf("sig%d", i+1)
+				signatureInput, signature, err := httpsign9421.SignRequest(sigName, signer, req)
+				if err != nil {
+					return nil, err
+				}
+				req.Header.Set("Signature-Input", signatureInput)
+				req.Header.Set("Signature", signature)
+			}
+		} else {
+			if len(c.digestAlgs) == 0 {
+				return nil, fmt.Errorf("httpsig: nil digest algorithm")
+			}
+			signer, _, err := httpsig.NewSigner(c.algs, c.digestAlgs[0], c.postHeaders, httpsig.Signature, httpsigExpirationTime)
+			if err != nil {
+				return nil, err
+			}
+			if err := signer.SignRequest(c.priv, c.pubID, req, b); err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	resp, err = c.client.Do(req)
-	return resp, err
+	return req, nil
 }
 
 // Create an http GET request with forgejo/gitea specific headers
 func (c *Client) Get(to string) (resp *http.Response, err error) {
-	var req *http.Request
+	req, err := c.GetRequest(to)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.Do(req)
+}
+
+// GetRequest creates an http GET request with forgejo/gitea specific headers
+func (c *Client) GetRequest(to string) (req *http.Request, err error) {
 	if req, err = c.newRequest(http.MethodGet, nil, to); err != nil {
 		return nil, err
 	}
 
 	if c.pubID != "" {
-		signer, _, err := httpsig.NewSigner(c.algs, c.digestAlg, c.getHeaders, httpsig.Signature, httpsigExpirationTime)
-		if err != nil {
-			return nil, err
-		}
-		if err := signer.SignRequest(c.priv, c.pubID, req, nil); err != nil {
-			return nil, err
+		if c.useRFC9421 {
+			config := rfc9421SignConfig()
+			fields := httpsign9421.Headers(setting.Federation.GetHeadersRFC9421...)
+
+			signers, err := c.SignersRFC9421(config, fields)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Created", fmt.Sprintf("%d", time.Now().Unix()))
+
+			normalizeRFC9421Path(req)
+
+			for i, signer := range signers {
+				sigName := fmt.Sprintf("sig%d", i+1)
+				signatureInput, signature, err := httpsign9421.SignRequest(sigName, signer, req)
+				if err != nil {
+					return nil, err
+				}
+				req.Header.Set("Signature-Input", signatureInput)
+				req.Header.Set("Signature", signature)
+			}
+		} else {
+			if len(c.digestAlgs) == 0 {
+				return nil, fmt.Errorf("httpsig: nil digest algorithm")
+			}
+			signer, _, err := httpsig.NewSigner(c.algs, c.digestAlgs[0], c.getHeaders, httpsig.Signature, httpsigExpirationTime)
+			if err != nil {
+				return nil, err
+			}
+			if err := signer.SignRequest(c.priv, c.pubID, req, nil); err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	resp, err = c.client.Do(req)
-	return resp, err
+	return req, nil
 }
 
 // Create an http GET request with forgejo/gitea specific headers
@@ -290,6 +483,16 @@ func (c *Client) GetBody(uri string) ([]byte, error) {
 	return body, nil
 }
 
+// SetRFC9421 sets whether to sign requests using the RFC 9421 HTTP Message Signing algorithm.
+func (c *Client) SetRFC9421(use bool) {
+	c.useRFC9421 = use
+}
+
+// GetRFC9421 gets whether the RFC 9421 HTTP Message Signing algorithm is used to sign requests.
+func (c *Client) GetRFC9421() bool {
+	return c.useRFC9421
+}
+
 // Limit number of characters in a string (useful to prevent log injection attacks and overly long log outputs)
 // Thanks to https://www.socketloop.com/tutorials/golang-characters-limiter-example
 func charLimiter(s string, limit int) string {
@@ -305,8 +508,15 @@ func charLimiter(s string, limit int) string {
 type APClient interface {
 	newRequest(method string, b []byte, to string) (req *http.Request, err error)
 	Post(b []byte, to string) (resp *http.Response, err error)
+	PostRequest(b []byte, to string) (req *http.Request, err error)
 	Get(to string) (resp *http.Response, err error)
+	GetRequest(to string) (req *http.Request, err error)
 	GetBody(uri string) ([]byte, error)
+	Do(req *http.Request) (resp *http.Response, err error)
+	GetRFC9421() bool
+	SetRFC9421(use bool)
+	KeyID() string
+	SignedHeaders(method string, hasBody bool) string
 }
 
 // contextKey is a value for use with context.WithValue.

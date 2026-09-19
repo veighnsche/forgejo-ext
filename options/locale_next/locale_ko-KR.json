@@ -865,7 +865,7 @@
 	"settings.authorized_integration.forgejo_actions_local.git_ref.help": "비어 있으면 모든 레퍼런스가 허용됩니다. 패턴 구문은 <a href=\"%[1]s\">%[2]s</a> 문서를 참조하세요.<br>예: <code>refs/heads/main</code>, <code>refs/pull/*/head</code>.",
 	"settings.permissions_access_specific_repositories": "특정 저장소",
 	"actions.status.failure": "실패",
-	"admin.config.federation.digest_algorithm": "서명 다이제스트 알고리즘",
+	"admin.config.federation.digest_algorithms": "서명 다이제스트 알고리즘",
 	"packages.settings.delete": "패키지 삭제",
 	"admin.dashboard.cleanup_actions": "작업에서 만료된 로그 및 아티팩트 정리",
 	"editor.replace_all": "모두 교체",

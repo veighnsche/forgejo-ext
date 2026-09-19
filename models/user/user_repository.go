@@ -141,13 +141,13 @@ func GetFederatedUserByUserID(ctx context.Context, userID int64) (*User, *Federa
 	if err != nil {
 		return nil, nil, err
 	} else if !has {
-		return nil, nil, fmt.Errorf("FederatedUser table does not contain entry for user ID: %v", federatedUser.UserID)
+		return nil, nil, fmt.Errorf("FederatedUser table does not contain entry for user ID: %v", userID)
 	}
 	has, err = db.GetEngine(ctx).ID(federatedUser.UserID).Get(user)
 	if err != nil {
 		return nil, nil, err
 	} else if !has {
-		return nil, nil, fmt.Errorf("FederatedUser table contains entry for user ID %v, but no user with this ID exists", federatedUser.UserID)
+		return nil, nil, fmt.Errorf("FederatedUser table contains entry for user ID %v, but no user with this ID exists", userID)
 	}
 
 	if res, err := validation.IsValid(*user); !res {

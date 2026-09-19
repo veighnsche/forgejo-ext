@@ -990,7 +990,7 @@
 	"admin.config.federation.share_user_statistics": "Делиться статистикой пользователей с другими узлами",
 	"admin.config.federation.get_headers": "Подписанные заголовки GET",
 	"admin.config.federation.post_headers": "Подписанные заголовки POST",
-	"admin.config.federation.digest_algorithm": "Алгоритм хеширования для подписей",
+	"admin.config.federation.digest_algorithms": "Алгоритм хеширования для подписей",
 	"user.activitypub_feed.no_activity": "Нет активности из Федивёрса",
 	"user.activitypub_feed.hint": "В этой ленте будут появляться активности пользователей Федивёрса, на которых вы подписаны, а также записи, в которых вы упомянуты.",
 	"user.activitypub_feed.posted_on": "Опубликовано %[1]s",

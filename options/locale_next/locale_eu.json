@@ -361,7 +361,7 @@
 	"admin.config.federation.max_size": "Onartutako erantzun-tamaina maximoa",
 	"admin.config.federation.signature_enforced": "Eskatu HTTP sinadurak",
 	"admin.config.federation.signature_algorithms": "Sinadura-algoritmoak",
-	"admin.config.federation.digest_algorithm": "Sinaduraren digest algoritmoa",
+	"admin.config.federation.digest_algorithms": "Sinaduraren digest algoritmoa",
 	"admin.config.federation.get_headers": "Sinatutako GET goiburuak",
 	"admin.config.federation.post_headers": "Sinatutako POST goiburuak",
 	"admin.config.moderation_config": "Moderazioaren konfigurazioa",

@@ -992,7 +992,7 @@
 	"actions.workflow.rerun_impossible": "Робочий потік неможливо перезапустити.",
 	"actions.workflow.job_rerun_impossible": "Завдання неможливо перезапустити.",
 	"actions.workflow.unknown_job_in_needs": "Завдання з ID %[1]s посилається на невідомі завдання в `needs`: %[2]s.",
-	"admin.config.federation.digest_algorithm": "Алгоритм хешування для підписів",
+	"admin.config.federation.digest_algorithms": "Алгоритм хешування для підписів",
 	"admin.config.federation.max_size": "Максимальний розмір відповіді",
 	"admin.config.federation.share_user_statistics": "Ділитися статистикою користувачів з іншими хостами",
 	"admin.federation.user.inbox_path": "Адреса для вхідних",

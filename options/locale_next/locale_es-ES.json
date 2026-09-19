@@ -830,7 +830,7 @@
 	"admin.config.federation.max_size": "Tamaño máximo de respuesta concedida",
 	"admin.config.federation.signature_enforced": "Requiere firmas HTTP",
 	"admin.config.federation.signature_algorithms": "Algoritmo de firma",
-	"admin.config.federation.digest_algorithm": "Algoritmo digest de firma",
+	"admin.config.federation.digest_algorithms": "Algoritmo digest de firma",
 	"admin.config.federation.get_headers": "Cabeceras GET firmadas",
 	"admin.config.federation.post_headers": "Cabeceras POST firmadas",
 	"moderation.report.mark_as_handled": "Marcar como manipulado",

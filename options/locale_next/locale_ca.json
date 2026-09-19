@@ -894,7 +894,7 @@
 	"actions.runners.edit_runner.regenerate_token_help": "El testimoni actual s'invalidarà immediatament. Rebreu un nou testimoni en la pàgina següent.",
 	"actions.runners.edit_runner.save_button": "Desa",
 	"actions.runners.edit_runner.cancel_button": "Cancel·la",
-	"admin.config.federation.digest_algorithm": "Algoritme del resum de signatura",
+	"admin.config.federation.digest_algorithms": "Algoritme del resum de signatura",
 	"admin.system_status.profiling_bucket_hash_table_obtained": "S'ha obtingut el perfil de contenidor de la taula hash",
 	"admin.system_status.other_system_allocation_obtained": "S'ha obtingut un altre sistema d'assignació",
 	"admin.system_status.gc_times": "Vegades del GC",

@@ -977,7 +977,7 @@
 	"admin.config.federation.max_size": "Max. erlaubte Antwortgröße",
 	"admin.config.federation.signature_enforced": "HTTP-Signaturen erfordern",
 	"admin.config.federation.signature_algorithms": "Signaturalgorithmen",
-	"admin.config.federation.digest_algorithm": "Signatur-Hashwert-Algorithmus",
+	"admin.config.federation.digest_algorithms": "Signatur-Hashwert-Algorithmus",
 	"admin.config.federation.get_headers": "Signierte GET-Header",
 	"admin.config.federation.post_headers": "Signierte POST-Header",
 	"actions.workflow.unknown_job_in_needs": "Auftrag mit ID %[1]s referenziert unbekannte Aufträge in `needs`: %[2]s.",

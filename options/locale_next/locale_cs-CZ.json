@@ -998,7 +998,7 @@
 	"admin.config.federation.max_size": "Maximální povolená velikost odpovědi",
 	"admin.config.federation.signature_enforced": "Vyžadovat HTTP podpisy",
 	"admin.config.federation.signature_algorithms": "Algoritmy podpisu",
-	"admin.config.federation.digest_algorithm": "Algoritmus výpočtu kontrolního součtu podpisu",
+	"admin.config.federation.digest_algorithms": "Algoritmus výpočtu kontrolního součtu podpisu",
 	"admin.config.federation.get_headers": "Podepsané hlavičky GET",
 	"admin.config.federation.post_headers": "Podepsané hlavičky POST",
 	"actions.runners.version": "Verze",

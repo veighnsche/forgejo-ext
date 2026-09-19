@@ -910,7 +910,7 @@
 	"admin.config.federation.max_size": "允许的最大响应大小",
 	"admin.config.federation.signature_enforced": "强制要求HTTP签名",
 	"admin.config.federation.signature_algorithms": "签名算法",
-	"admin.config.federation.digest_algorithm": "签名摘要算法",
+	"admin.config.federation.digest_algorithms": "签名摘要算法",
 	"admin.config.federation.get_headers": "GET请求中要签名的请求头",
 	"admin.config.federation.post_headers": "POST请求中要签名的请求头",
 	"user.activitypub_feed.feed": "联邦订阅源",

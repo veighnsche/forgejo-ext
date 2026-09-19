@@ -814,7 +814,7 @@
 	"admin.config.federation.max_size": "İzin verilen maksimum yanıt boyutu",
 	"admin.config.federation.signature_enforced": "HTTP imzalarını zorunlu kıl",
 	"admin.config.federation.signature_algorithms": "İmza algoritmaları",
-	"admin.config.federation.digest_algorithm": "İmza özet algoritması",
+	"admin.config.federation.digest_algorithms": "İmza özet algoritması",
 	"admin.config.federation.get_headers": "İmzalı GET başlıkları",
 	"admin.config.federation.post_headers": "İmzalı POST başlıkları",
 	"moderation.report.mark_as_handled": "\"Çözüldü\" olarak işaretle",

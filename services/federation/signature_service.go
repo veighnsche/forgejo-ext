@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -19,6 +20,7 @@ import (
 	"forgejo.org/modules/log"
 
 	ap "github.com/go-ap/activitypub"
+	httpsign9421 "github.com/yaronf/httpsign"
 )
 
 func FindOrCreateActorKey(ctx context.Context, keyID string) (pubKey any, err error) {
@@ -209,4 +211,34 @@ func decodePublicKeyPem(pubKeyPem string) ([]byte, error) {
 	}
 
 	return block.Bytes, nil
+}
+
+func FetchRFC9421PubKey(r *http.Request) error {
+	ctx := r.Context()
+
+	sigNames, err := httpsign9421.RequestSignatureNames(r, false)
+	if err != nil {
+		return fmt.Errorf("error getting RFC 9421 signature names: %v", err)
+	}
+
+	for _, name := range sigNames {
+		msgDetails, err := httpsign9421.RequestDetails(name, r)
+		if err != nil {
+			log.Warn("signature: %s error getting message details: %v", name, err)
+			continue
+		}
+		if msgDetails.KeyID == nil {
+			log.Warn("signature: %s nil key ID", name)
+			continue
+		}
+
+		keyID := *msgDetails.KeyID
+
+		if _, err = FindOrCreateActorKey(ctx, keyID); err != nil {
+			log.Debug("For %q verification failed: %v", r.URL.Path, err)
+			return err
+		}
+	}
+
+	return nil
 }

@@ -932,7 +932,7 @@
 	"admin.config.federation.max_size": "Uasmhéid freagartha ceadaithe",
 	"admin.config.federation.signature_enforced": "Éiligh sínithe HTTP",
 	"admin.config.federation.signature_algorithms": "Algartaim shínithe",
-	"admin.config.federation.digest_algorithm": "Algartam díleá sínithe",
+	"admin.config.federation.digest_algorithms": "Algartam díleá sínithe",
 	"admin.config.federation.get_headers": "Ceanntásca GET sínithe",
 	"admin.config.federation.post_headers": "Ceanntásca POST sínithe",
 	"settings.specific_repo_access": "Rochtain ar an stór",

@@ -571,7 +571,7 @@
 	"admin.config.federation.max_size": "Ukuran respons maksimum yang diizinkan",
 	"admin.config.federation.signature_enforced": "Wajibkan tanda tangan HTTP",
 	"admin.config.federation.signature_algorithms": "Algoritma tanda tangan",
-	"admin.config.federation.digest_algorithm": "Algoritma intisari tanda tangan",
+	"admin.config.federation.digest_algorithms": "Algoritma intisari tanda tangan",
 	"admin.config.federation.get_headers": "Header GET yang ditandatangani",
 	"admin.config.federation.post_headers": "Header POST yang ditandatangani",
 	"moderation.report.mark_as_handled": "Tandai sebagai ditangani",

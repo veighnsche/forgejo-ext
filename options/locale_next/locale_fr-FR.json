@@ -974,7 +974,7 @@
 	"admin.federation.users.manage_panel": "Gérer les utilisateurs fédérés",
 	"admin.federation.users.show_local_user": "Montrer les détails de l'utilisateur local",
 	"admin.config.federation.signature_algorithms": "Algorithmes de signature",
-	"admin.config.federation.digest_algorithm": "Algorithme de hachage de signature",
+	"admin.config.federation.digest_algorithms": "Algorithme de hachage de signature",
 	"user.activitypub_feed.original_source": "Source originale",
 	"actions.runners.runner_setup.instruction_advanced_configurations": "Pour configurer l'exécuteur Forgejo dans des conteneurs ou pour des configurations avancées, consultez la <a href=\"%s\">documentation</a>.",
 	"actions.workflow.rerun_impossible": "Le workflow ne peut pas être relancé.",

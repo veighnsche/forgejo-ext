@@ -897,7 +897,7 @@
 	"admin.config.federation.max_size": "அதிகபட்சமாக அனுமதிக்கப்பட்ட மறுமொழி அளவு",
 	"admin.config.federation.signature_enforced": "HTTP கையொப்பங்கள் தேவை",
 	"admin.config.federation.signature_algorithms": "கையொப்ப வழிமுறைகள்",
-	"admin.config.federation.digest_algorithm": "சிக்னேச்சர் டைசச்ட் அல்காரிதம்",
+	"admin.config.federation.digest_algorithms": "சிக்னேச்சர் டைசச்ட் அல்காரிதம்",
 	"admin.config.federation.get_headers": "GET தலைப்புகளில் கையொப்பமிடப்பட்டது",
 	"admin.config.federation.post_headers": "கையொப்பமிடப்பட்ட POST தலைப்புகள்",
 	"settings.specific_repo_access": "களஞ்சிய அணுகல்",

@@ -276,7 +276,7 @@
 	"admin.config.federation.max_size": "Max allowed response size",
 	"admin.config.federation.signature_enforced": "Require HTTP signatures",
 	"admin.config.federation.signature_algorithms": "Signature algorithms",
-	"admin.config.federation.digest_algorithm": "Signature digest algorithm",
+	"admin.config.federation.digest_algorithms": "Signature digest algorithms",
 	"admin.config.federation.get_headers": "Signed GET headers",
 	"admin.config.federation.post_headers": "Signed POST headers",
 	"admin.config.moderation_config": "Moderation configuration",

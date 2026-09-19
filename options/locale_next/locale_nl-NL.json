@@ -906,7 +906,7 @@
 	"admin.config.federation.max_size": "Maximaal toegestane responsegrootte",
 	"admin.config.federation.signature_enforced": "Vereist HTTP handtekeningen",
 	"admin.config.federation.signature_algorithms": "Handtekeningalgoritmes",
-	"admin.config.federation.digest_algorithm": "Handtekening-hashalgoritme",
+	"admin.config.federation.digest_algorithms": "Handtekening-hashalgoritme",
 	"admin.config.federation.get_headers": "Ondertekende GET headers",
 	"admin.config.federation.post_headers": "Ondertekende POST headers",
 	"settings.new_access_token": "Nieuwe toegangstoken",

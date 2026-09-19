@@ -998,7 +998,7 @@
 	"admin.config.federation.max_size": "Tamanho máximo permitido da resposta",
 	"admin.config.federation.signature_enforced": "Exigir assinaturas HTTP",
 	"admin.config.federation.signature_algorithms": "Algoritmos de assinatura",
-	"admin.config.federation.digest_algorithm": "Algoritmo de resumo da assinatura",
+	"admin.config.federation.digest_algorithms": "Algoritmo de resumo da assinatura",
 	"admin.config.federation.get_headers": "Cabeçalhos GET assinados",
 	"admin.config.federation.post_headers": "Cabeçalhos POST assinados",
 	"user.activitypub_feed.feed": "Feed do Fediverso",

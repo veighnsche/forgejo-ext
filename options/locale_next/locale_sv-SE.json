@@ -975,7 +975,7 @@
 	"admin.config.federation.max_size": "Maximal tillåten svarsstorlek",
 	"admin.config.federation.signature_enforced": "Kräv HTTP-signaturer",
 	"admin.config.federation.signature_algorithms": "Signaturalgoritmer",
-	"admin.config.federation.digest_algorithm": "Signatursammanfattning algoritm",
+	"admin.config.federation.digest_algorithms": "Signatursammanfattning algoritm",
 	"admin.config.federation.get_headers": "Signerade GET-rubriker",
 	"admin.config.federation.post_headers": "Signerade POST-rubriker",
 	"actions.runners.version": "Version",

@@ -715,7 +715,7 @@
 	"admin.config.federation.max_size": "最大許容レスポンスサイズ",
 	"admin.config.federation.signature_enforced": "HTTP署名を必須にする",
 	"admin.config.federation.signature_algorithms": "署名アルゴリズム",
-	"admin.config.federation.digest_algorithm": "署名ダイジェストアルゴリズム",
+	"admin.config.federation.digest_algorithms": "署名ダイジェストアルゴリズム",
 	"admin.config.federation.get_headers": "署名付きGETヘッダー",
 	"admin.config.federation.post_headers": "署名付きPOSTヘッダー",
 	"admin.config.moderation_config": "モデレーション設定",

@@ -13,6 +13,7 @@ import (
 
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/db"
+	forgefed_model "forgejo.org/models/forgefed"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
@@ -36,8 +37,7 @@ type HTTPSign struct{}
 // the corresponding user object on successful validation.
 // Returns nil if header is empty or validation fails.
 func (h *HTTPSign) Verify(req *http.Request, w http.ResponseWriter, _ auth.SessionStore) auth.MethodOutput {
-	sigHead := req.Header.Get("Signature")
-	if len(sigHead) == 0 {
+	if len(req.Header.Get("Signature")) == 0 {
 		return &auth.AuthenticationNotAttempted{}
 	}
 
@@ -58,7 +58,7 @@ func (h *HTTPSign) Verify(req *http.Request, w http.ResponseWriter, _ auth.Sessi
 			log.Warn("Failed authentication attempt from %s", req.RemoteAddr)
 			return &auth.AuthenticationNotAttempted{} // 401 is not expected on signature validation miss; return not attempted
 		}
-	} else {
+	} else if len(req.Header.Get("Signature")) != 0 {
 		// Handle Signature signed by Public Key
 		publicKey, err = VerifyPubKey(req)
 		if err != nil {
@@ -66,15 +66,24 @@ func (h *HTTPSign) Verify(req *http.Request, w http.ResponseWriter, _ auth.Sessi
 			log.Warn("Failed authentication attempt from %s", req.RemoteAddr)
 			return &auth.AuthenticationNotAttempted{} // 401 is not expected on signature validation miss; return not attempted
 		}
+	} else {
+		log.Warn("No valid authorization headers found: %v", req.Header)
+		return &auth.AuthenticationNotAttempted{} // 401 is not expected on signature validation miss; return not attempted
 	}
 
-	u, err := user_model.GetUserByID(req.Context(), publicKey.OwnerID)
-	if err != nil {
-		return &auth.AuthenticationError{Error: fmt.Errorf("httpsign GetUserByID: %w", err)}
+	u, userErr := user_model.GetUserByID(req.Context(), publicKey.OwnerID)
+	if userErr == nil {
+		log.Trace("HTTP Sign: Logged in user %-v", u)
+		return &auth.AuthenticationSuccess{Result: &httpSignAuthenticationResult{user: u}}
 	}
 
-	log.Trace("HTTP Sign: Logged in user %-v", u)
-	return &auth.AuthenticationSuccess{Result: &httpSignAuthenticationResult{user: u}}
+	host, hostErr := forgefed_model.GetFederationHost(req.Context(), publicKey.OwnerID)
+	if hostErr == nil {
+		log.Trace("HTTP Sign: Logged in host %-v", host.AsURL())
+		return &auth.AuthenticationSuccess{Result: &httpSignAuthenticationResult{host: host}}
+	}
+
+	return &auth.AuthenticationError{Error: fmt.Errorf("httpsign GetUserByID: %w, GetFederationHost: %w", userErr, hostErr)}
 }
 
 func VerifyPubKey(r *http.Request) (*asymkey_model.PublicKey, error) {

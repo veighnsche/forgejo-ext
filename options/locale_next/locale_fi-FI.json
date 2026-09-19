@@ -780,7 +780,7 @@
 	"admin.config.federation.max_size": "Sallittu vastauksen enimmäiskoko",
 	"admin.config.federation.signature_enforced": "Vaadi HTTP-allekirjoitukset",
 	"admin.config.federation.signature_algorithms": "Allekirjoitusalgoritmit",
-	"admin.config.federation.digest_algorithm": "Allekirjoituksen tiivistealgoritmi",
+	"admin.config.federation.digest_algorithms": "Allekirjoituksen tiivistealgoritmi",
 	"admin.config.federation.get_headers": "Allekirjoitetut GET-otsikot",
 	"admin.config.federation.post_headers": "Allekirjoitetut POST-otsikot",
 	"admin.config.moderation_config": "Lievennyksen kokoonpano",
