@@ -91,13 +91,17 @@
 	<p>
 		Often used in lists for every item or as overflow menus. Opener usually comes
 		without explicit textual description but with a horizontal kebab icon and a
-		border to look like something clickable and not just random dots.<br> Make
-		sure that it has <code>aria-label</code> via <code>data-tooltip-content</code>
-		so it is accessible to screen readers and has more meaning for regular users.
+		border to look like something clickable and not just random dots.
+	</p>
+	<p>
+		Make sure that it has <code>aria-label</code> via <code>data-tooltip-content</code>
+		so it is accessible to screen readers and has more meaning for regular users. You may
+		also use <code>aria-label</code> directly, in conjunction with <code>data-tooltip-from-label</code>,
+		to label the control for users without Javascript.
 	</p>
 	<div class="button-sequence">
 		<div class="dialog-dropdown">
-			<button class="opener border" command="toggle-popover" commandfor="dropdown-4" data-tooltip-content="{{ctx.Locale.Tr "profile.actions.tooltip"}}">
+			<button class="opener border" command="toggle-popover" commandfor="dropdown-4" aria-label="{{ctx.Locale.Tr "profile.actions.tooltip"}}" data-tooltip-from-label>
 				{{svg "octicon-kebab-horizontal"}}
 			</button>
 			<dialog popover id="dropdown-4">
@@ -113,7 +117,7 @@
 		</div>
 
 		<div class="dialog-dropdown">
-			<button class="opener border" command="toggle-popover" commandfor="dropdown-5" data-tooltip-content="{{ctx.Locale.Tr "profile.actions.tooltip"}}">
+			<button class="opener border" command="toggle-popover" commandfor="dropdown-5" aria-label="{{ctx.Locale.Tr "profile.actions.tooltip"}}" data-tooltip-from-label>
 				{{svg "octicon-kebab-horizontal"}}
 			</button>
 			<dialog popover id="dropdown-5">

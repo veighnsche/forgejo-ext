@@ -249,5 +249,20 @@ test.describe(`Visual properties`, () => {
     expect(await page.locator(`#dd5_g1_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd5_g2_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd5_g2_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px 0px 4px 4px');
+
+    // Explicit label with JS off
+    const dropdown = page.locator('#dropdown-5 > summary');
+    await expect(dropdown).toHaveAccessibleName('More actions');
+    await expect(dropdown).toHaveAttribute('data-tooltip-from-label');
+    await expect(dropdown).not.toHaveAttribute('data-tooltip-content');
+  });
+
+  test('Copies tooltip from aria-label when JS is enabled', async ({page}) => {
+    await page.goto('/-/demo/dropdown');
+    const dropdown = page.locator('#dropdown-5 > summary');
+    // Javascript copies the tooltip from the accessible label
+    await expect(dropdown).toHaveAccessibleName('More actions');
+    await expect(dropdown).toHaveAttribute('data-tooltip-content', 'More actions');
+    await expect(dropdown).not.toHaveAttribute('data-tooltip-from-label'); // this attribute *was* present, as tested above
   });
 });
