@@ -199,6 +199,7 @@ func TestAppDocsURL(t *testing.T) {
 		{"17.1.9", "https://forgejo.org/docs/v17.1/user/getting-started/first-repository/"},
 		{"    17.1.9", "https://forgejo.org/docs/v17.1/user/getting-started/first-repository/"},
 		{"17.1.9+prerelease", "https://forgejo.org/docs/v17.1/user/getting-started/first-repository/"},
+		{"16.0.0-dev-753-6bcc6da0+gitea-1.22.0", "https://forgejo.org/docs/v16.0/user/getting-started/first-repository/"},
 	}
 	for _, c := range cases {
 		appVersion := c[0]
