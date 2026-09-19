@@ -149,6 +149,12 @@ function attachChildrenLazyTooltip(target) {
 }
 
 export function initGlobalTooltips() {
+  // copy `aria-label` to `data-tooltip-content` where appropriate
+  for (const el of document.querySelectorAll('[data-tooltip-from-label][aria-label]')) {
+    el.setAttribute('data-tooltip-content', el.ariaLabel);
+    el.removeAttribute('data-tooltip-from-label');
+  }
+
   // use MutationObserver to detect new "data-tooltip-content" elements added to the DOM, or attributes changed
   const observerConnect = (observer) => observer.observe(document, {
     subtree: true,

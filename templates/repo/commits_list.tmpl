@@ -57,7 +57,7 @@
 								{{end}}
 								{{if IsMultilineCommitMessage .Message}}
 									<details class="commit-body-toggle">
-										<summary class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}">...</summary>
+										<summary class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}" data-tooltip-from-label>...</summary>
 										<pre class="commit-body">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
 									</details>
 								{{end}}
