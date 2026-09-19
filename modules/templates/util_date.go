@@ -17,6 +17,13 @@ import (
 
 type DateUtils struct{}
 
+type TimestampType string
+
+const (
+	TimestampRelative string = "relative"
+	TimestampAbsolute string = "absolute"
+)
+
 func NewDateUtils() *DateUtils {
 	return (*DateUtils)(nil) // the util is stateless, and we do not need to create an instance
 }
@@ -41,8 +48,8 @@ func (du *DateUtils) FullTime(time any) template.HTML {
 	return dateTimeFormat("full", time)
 }
 
-func (du *DateUtils) TimeSince(time any) template.HTML {
-	return TimeSince(time)
+func (du *DateUtils) TimeSince(time any, timestampType string) template.HTML {
+	return TimeSince(time, timestampType)
 }
 
 // ParseLegacy parses the datetime in legacy format, eg: "2016-01-02" in server's timezone.
@@ -73,7 +80,7 @@ func timeSinceLegacy(time any, _ translation.Locale) template.HTML {
 	if !setting.IsProd || setting.IsInTesting {
 		panic("timeSinceLegacy is for backward compatibility only, do not use it in new code")
 	}
-	return TimeSince(time)
+	return TimeSince(time, TimestampRelative)
 }
 
 func anyToTime(any any) (t time.Time, isZero bool) {
@@ -131,7 +138,7 @@ func dateTimeFormat(format string, datetime any) template.HTML {
 	}
 }
 
-func timeSinceTo(then any, now time.Time) template.HTML {
+func timeSinceTo(then any, now time.Time, timestampType string) template.HTML {
 	thenTime, isZero := anyToTime(then)
 	if isZero {
 		return "-"
@@ -146,26 +153,36 @@ func timeSinceTo(then any, now time.Time) template.HTML {
 		attrs = `tense="future"`
 	}
 
-	// declare data-tooltip-content attribute to switch from "title" tooltip to "tippy" tooltip
-	htm := fmt.Sprintf(`<relative-time prefix="" %s datetime="%s" data-tooltip-content data-tooltip-interactive="true">%s</relative-time>`,
-		attrs, thenTime.Format(time.RFC3339), friendlyText)
+	var htm string
+	if timestampType == TimestampAbsolute {
+		htm = fmt.Sprintf(`<span data-testid="absolute-time-%d">%s</span>`, thenTime.Unix(), thenTime.Format(time.DateTime))
+	} else {
+		// declare data-tooltip-content attribute to switch from "title" tooltip to "tippy" tooltip
+		htm = fmt.Sprintf(`<relative-time prefix="" %s datetime="%s" data-tooltip-content data-tooltip-interactive="true">%s</relative-time>`,
+			attrs, thenTime.Format(time.RFC3339), friendlyText)
+	}
 	return template.HTML(htm)
 }
 
 // TimeSince renders relative time HTML given a time
-func TimeSince(then any) template.HTML {
-	return timeSinceTo(then, time.Now())
+func TimeSince(then any, timestampType string) template.HTML {
+	return timeSinceTo(then, time.Now(), timestampType)
 }
 
 // TimeDuration renders the duration between the argument start and now as `<relative-time>` element. It renders only
 // the duration, for example, `5 minutes, 2 seconds`, whereas TimeSince would output `5 minutes, 2 seconds ago`.
-func TimeDuration(start any) template.HTML {
+func TimeDuration(start any, timestampType string) template.HTML {
 	startTime, isZero := anyToTime(start)
 	if isZero {
 		return "-"
 	}
 
-	markup := fmt.Sprintf(`<relative-time datetime="%[1]s" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">%[2]s</relative-time>`,
-		startTime.Format(time.RFC3339), timeutil.TimeStampNow().AsTime().Sub(startTime).Truncate(time.Second))
+	var markup string
+	if timestampType == TimestampAbsolute {
+		markup = fmt.Sprintf(`<span data-testid="absolute-time-%d">%s</span>`, startTime.Unix(), startTime.Format(time.DateTime))
+	} else {
+		markup = fmt.Sprintf(`<relative-time datetime="%[1]s" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">%[2]s</relative-time>`,
+			startTime.Format(time.RFC3339), timeutil.TimeStampNow().AsTime().Sub(startTime).Truncate(time.Second))
+	}
 	return template.HTML(markup)
 }
