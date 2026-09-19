@@ -125,6 +125,19 @@ func TestIsGLB(t *testing.T) {
 	assert.False(t, DetectContentType([]byte("plain text"), "").Is3DModel())
 }
 
+func TestIsFont(t *testing.T) {
+	ttf := []byte{0x00, 0x01, 0x00, 0x00, 0x00}
+	assert.True(t, DetectContentType(ttf, "font.ttf").IsFont())
+	assert.Equal(t, "font/ttf", DetectContentType(ttf, "font.ttf").GetMimeType())
+
+	assert.True(t, DetectContentType([]byte("OTTO\x00\x00"), "font.otf").IsFont())
+	assert.True(t, DetectContentType([]byte("wOFF\x00\x00"), "font.woff").IsFont())
+	assert.True(t, DetectContentType([]byte("wOF2\x00\x00"), "font.woff2").IsFont())
+	assert.True(t, DetectContentType([]byte("ttcf\x00\x00"), "font.ttc").IsFont())
+
+	assert.False(t, DetectContentType([]byte("plain text"), "").IsFont())
+}
+
 func TestDetectContentTypeFromReader(t *testing.T) {
 	mp3, _ := base64.StdEncoding.DecodeString("SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3Zl")
 	st, err := DetectContentTypeFromReader(bytes.NewReader(mp3), "")
