@@ -655,9 +655,10 @@ func renderFile(ctx *context.Context, entry *git.TreeEntry) {
 		case fInfo.st.Is3MF():
 			ctx.Data["Is3MFFile"] = true
 		}
-	case fInfo.st.IsFont():
+	case fInfo.st.IsFont() && setting.UI.FontPreviewEnabled:
 		ctx.Data["IsFontFile"] = true
 		ctx.Data["FontPreviewPangram"] = setting.UI.FontPreviewPangram
+		ctx.Data["FontPreviewSizes"] = []int{12, 18, 24, 36}
 	case fInfo.st.IsImage() && (setting.UI.SVG.Enabled || !fInfo.st.IsSvgImage()):
 		ctx.Data["IsImageFile"] = true
 		ctx.Data["CanCopyContent"] = true

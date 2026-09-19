@@ -144,9 +144,22 @@
 							<a href="{{$.RawFileLink}}" rel="nofollow">{{ctx.Locale.Tr "repo.file_view_raw"}}</a>
 						{{end}}
 					{{else if .IsFontFile}}
-						<lazy-webc tag="font-viewer" src="{{$.RawFileLink}}" pangram="{{.FontPreviewPangram}}">
-							<a href="{{$.RawFileLink}}" rel="nofollow">{{ctx.Locale.Tr "repo.file_view_raw"}}</a>
-						</lazy-webc>
+						<style>
+							@font-face {
+								font-family: "font-preview";
+								src: url("{{$.RawFileLink}}");
+							}
+						</style>
+						<div class="font-preview">
+							<p class="font-viewer-sample">abcdefghijklmnopqrstuvwxyz</p>
+							<p class="font-viewer-sample">ABCDEFGHIJKLMNOPQRSTUVWXYZ</p>
+							<p class="font-viewer-sample">0123456789</p>
+							<p class="font-viewer-sample">{{`!"#$%&'()*+,-./:;<=>?@[\]^_`}}{{"`"}}{{`{|}~`}}</p>
+							{{range $size := .FontPreviewSizes}}
+								<small class="font-viewer-size">{{$size}}px</small>
+								<p class="font-viewer-pangram" style="font-size: {{$size}}px">{{$.FontPreviewPangram}}</p>
+							{{end}}
+						</div>
 					{{else}}
 						<a href="{{$.RawFileLink}}" rel="nofollow">{{ctx.Locale.Tr "repo.file_view_raw"}}</a>
 					{{end}}
