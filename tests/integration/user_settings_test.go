@@ -4,7 +4,9 @@
 package integration
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -14,9 +16,11 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/templates"
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/translation"
 	"forgejo.org/tests"
+	"forgejo.org/tests/forgery"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -220,5 +224,49 @@ func TestUserRename(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			test(t, session, true)
 		})
+	})
+}
+
+func TestTimestampSetting(t *testing.T) {
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		user := forgery.CreateUser(t, nil)
+		repo := forgery.CreateRepository(t, user, nil)
+		issue := forgery.CreateIssue(t, user, repo, "test issue", "")
+		session := loginUser(t, user.Name)
+
+		checkSetting := func(inputValue string) {
+			req := NewRequest(t, "GET", "/user/settings/appearance")
+			resp := session.MakeRequest(t, req, http.StatusOK)
+			htmlDoc := NewHTMLParser(t, resp.Body)
+			element := htmlDoc.doc.Find(fmt.Sprintf(`input[name="timestamp_type"][value="%s"]`, inputValue))
+			_, checked := element.Attr("checked")
+			assert.True(t, checked)
+		}
+
+		updateSetting := func(timestampType string) {
+			req := NewRequestWithValues(t, "POST", "/user/settings/appearance/timestamp", map[string]string{
+				"timestamp_type": timestampType,
+			})
+			session.MakeRequest(t, req, http.StatusSeeOther)
+		}
+
+		// check setting is relative
+		checkSetting(templates.TimestampRelative)
+
+		// change setting to absolute
+		updateSetting(templates.TimestampAbsolute)
+		defer updateSetting(templates.TimestampRelative)
+
+		// check setting is absolute
+		checkSetting(templates.TimestampAbsolute)
+
+		// check issue timestamp is absolute
+		req := NewRequest(t, "GET", "/issues")
+		resp := session.MakeRequest(t, req, http.StatusOK)
+		htmlDoc := NewHTMLParser(t, resp.Body)
+
+		issueCreatedTime := issue.CreatedUnix.AsTime().Unix()
+		element := htmlDoc.doc.Find(fmt.Sprintf(`span[data-testid="absolute-time-%d"]`, issueCreatedTime))
+		assert.NotNil(t, element)
 	})
 }
