@@ -549,6 +549,14 @@ func CreateTaskForRunner(ctx context.Context, runner *actions_model.ActionRunner
 		return nil, actions_model.ErrNoJobUpdated
 	}
 
+	if job.Run.Started.IsZero() {
+		job.Run.Started = job.Started
+
+		if err = actions_model.UpdateRun(ctx, job.Run); err != nil {
+			return nil, fmt.Errorf("could not update run %d of job %d: %w", job.RunID, job.ID, err)
+		}
+	}
+
 	if err = PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
 		return nil, fmt.Errorf("could not propagate changed status of job %d: %w", job.ID, err)
 	}
