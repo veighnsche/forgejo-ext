@@ -6,7 +6,10 @@ import {test} from '../utils_e2e.ts';
 
 /**
  * Constructs test cases that assure interactive modal closure behaviors for a given modal.
- * Callers must take care to have a `test.beforeEach` block navigate to the relevant webpage.
+ *
+ * These tests verify that the modal can be light-dismissed or closed via a button.
+ * Callers must take care to have a `test.beforeEach` block navigate to the relevant webpage
+ * before these tests run.
  *
  * @param modalLoc Returns the locator for the modal under test.
  * @param actuatorLoc Returns the locator for an element that activates the modal on click.
