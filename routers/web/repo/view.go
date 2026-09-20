@@ -1081,14 +1081,19 @@ func renderHomeCode(ctx *context.Context) {
 			return
 		}
 
-		var tag *git.Tag
-		if tag, err = ctx.Repo.GitRepo.GetLatestTag(); err != nil {
-			ctx.ServerError("GetLatestTag", err)
+		var tags []*git.Tag
+		var totalTags int
+		if tags, totalTags, err = ctx.Repo.GitRepo.GetTagInfos(0, 1); err != nil {
+			ctx.ServerError("GetTagInfos", err)
+			return
+		}
+		if totalTags == 0 {
+			ctx.ServerError("GetTagInfos: no tags in the repository", err)
 			return
 		}
 
-		log.Info("Tag with latest commit: \"%s\" - redirecting", tag.Name)
-		ctx.Redirect(ctx.Link + "/src/commit/" + tag.ID.String())
+		log.Trace("Tag with latest commit: \"%s\" - redirecting", tags[0].Name)
+		ctx.Redirect(ctx.Link + "/src/commit/" + tags[0].ID.String())
 		return
 	}
 
