@@ -89,7 +89,7 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 			assert.NotEmpty(t, commitURL)
 			assert.Equal(t, commitID, path.Base(commitURL))
 
-			cls, ok := doc.doc.Find(".commits .commit .message .commit-status").Last().Attr("class")
+			cls, ok := doc.doc.Find(".commits .commit .message-wrapper .commit-status").Last().Attr("class")
 			assert.True(t, ok)
 			assert.Contains(t, cls, statesIcons[status])
 		}

@@ -123,9 +123,11 @@ func DeclareGitRepos(t *testing.T) {
 		},
 	}, func(user *user_model.User, repo *repo_model.Repository) {
 		// status+tag on main branch
-		commitMainSha := commitNewFile(t, user, repo, "Another multiline commit message\nthis time with a status 🎉", "file2.md", "also a file")
-		addCommitStatus(t, user, repo, repo.DefaultBranch, commitMainSha)
-		tagCommitWithRelease(t, user, repo, commitMainSha, "v1.4.2")
+		commitMainSha1 := commitNewFile(t, user, repo, "Another multiline commit message\nOnly this time, we have a big shiny status icon 🎉", "file1.5.md", "also a file")
+		commitMainSha2 := commitNewFile(t, user, repo, "This is a commit.\nThe commit knows where it is because it knows where it isn't.", "file2.md", "also a file")
+		addCommitStatus(t, user, repo, repo.DefaultBranch, commitMainSha1)
+		addCommitStatus(t, user, repo, repo.DefaultBranch, commitMainSha2)
+		tagCommitWithRelease(t, user, repo, commitMainSha2, "v1.4.2")
 
 		// status on PR
 		commitPrSha1 := addCommitWithMessageToBranch(t, user, repo, "main", "test-branch", "Yet another multiline commit message\nnow with a PR and status!", "file2.md", "", "still a file")

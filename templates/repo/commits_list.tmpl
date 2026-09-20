@@ -44,34 +44,32 @@
 							)}}
 						</td>
 						<td class="message">
-							<div class="message-row">
-								<span class="message-wrapper">
-								{{if $.PageIsWiki}}
-									<span class="commit-summary {{if gt .ParentCount 1}} grey text{{end}}" title="{{.Summary}}">{{.Summary | RenderEmoji $.Context}}</span>
-								{{else}}
-									{{$commitLink:= printf "%s/commit/%s" $commitRepoLink (PathEscape .ID.String)}}
-									{{if $.PageIsPullCommits}}
-										{{$commitLink = (printf "%s/pulls/%d/commits/%s" $commitRepoLink $.Issue.Index (PathEscape .ID.String))}}
-									{{end}}
-									<span class="commit-summary {{if gt .ParentCount 1}} grey text{{end}}" title="{{.Summary}}">{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}</span>
+							<span class="message-wrapper">
+							{{if $.PageIsWiki}}
+								<span class="commit-summary {{if gt .ParentCount 1}} grey text{{end}}" title="{{.Summary}}">{{.Summary | RenderEmoji $.Context}}</span>
+							{{else}}
+								{{$commitLink:= printf "%s/commit/%s" $commitRepoLink (PathEscape .ID.String)}}
+								{{if $.PageIsPullCommits}}
+									{{$commitLink = (printf "%s/pulls/%d/commits/%s" $commitRepoLink $.Issue.Index (PathEscape .ID.String))}}
 								{{end}}
-								{{if IsMultilineCommitMessage .Message}}
-									<details class="commit-body-toggle">
-										<summary class="ui button ellipsis-button" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}" data-tooltip-from-label>...</summary>
-										<pre class="commit-body">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
-									</details>
-								{{end}}
-								</span>
-								{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
-								{{if $.CommitTagsMap}}
-									{{$tags := index $.CommitTagsMap .ID.String}}
-									{{if $tags}}
-										{{range $tags}}
-											{{- template "repo/tag/name" dict "RepoLink" $.Repository.Link "TagName" .TagName "IsRelease" (not .IsTag) -}}
-										{{end}}
+								<span class="commit-summary {{if gt .ParentCount 1}} grey text{{end}}" title="{{.Summary}}">{{RenderCommitMessageLinkSubject $.Context .Message $commitLink ($.Repository.ComposeMetas ctx)}}</span>
+							{{end}}
+							</span>
+							{{if IsMultilineCommitMessage .Message}}
+							<button class="ui button js-toggle-commit-body ellipsis-button" aria-expanded="false" aria-label="{{ctx.Locale.Tr "repo.toggle_full_commit_message"}}" data-tooltip-from-label>...</button>
+							{{end}}
+							{{template "repo/commit_statuses" dict "Status" .Status "Statuses" .Statuses}}
+							{{if $.CommitTagsMap}}
+								{{$tags := index $.CommitTagsMap .ID.String}}
+								{{if $tags}}
+									{{range $tags}}
+										{{- template "repo/tag/name" dict "RepoLink" $.Repository.Link "TagName" .TagName "IsRelease" (not .IsTag) -}}
 									{{end}}
 								{{end}}
-							</div>
+							{{end}}
+							{{if IsMultilineCommitMessage .Message}}
+							<pre class="commit-body tw-hidden">{{RenderCommitBody $.Context .Message ($.Repository.ComposeMetas ctx)}}</pre>
+							{{end}}
 						</td>
 						{{if .Committer}}
 							<td class="text right aligned">{{DateUtils.TimeSince .Committer.When}}</td>

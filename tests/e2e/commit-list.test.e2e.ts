@@ -26,9 +26,9 @@ for (const run of runs) {
         const response = await page.goto('/user2/multiline-commit-messages');
         expect(response?.status()).toBe(200);
 
-        const summary = page.locator('.commit-summary', {hasText: 'Another multiline commit message'});
+        const summary = page.locator('.commit-summary', {hasText: 'This is a commit.'});
         const toggle = summary.getByLabel('Toggle full commit message');
-        const body = page.locator('.commit-body', {hasText: 'this time with a status 🎉'});
+        const body = page.locator('.commit-body', {hasText: 'The commit knows where it is because it knows where it isn\'t.'});
 
         await expect(summary).toBeVisible();
         await expect(toggle).toBeVisible();
@@ -46,28 +46,29 @@ for (const run of runs) {
       });
 
       test('Repo commits', async ({page, isMobile}) => {
+        test.skip(!run.useJs); // TODO: this might work without JS after updating the layout
         const response = await page.goto('/user2/multiline-commit-messages/commits/branch/main');
         expect(response?.status()).toBe(200);
 
-        const summary = page.locator('.message-wrapper', {hasText: 'Another multiline commit message'});
-        const toggle = summary.locator('> details').getByLabel('Toggle full commit message');
-        const body = page.locator('.commit-body', {hasText: 'this time with a status 🎉'});
-        const status = page.locator('a:has(> .octicon-check)');
+        const message = page.locator('.message', {hasText: 'Another multiline commit message'});
+        const toggle = message.getByLabel('Toggle full commit message');
+        const body = message.locator('.commit-body', {hasText: 'Only this time, we have a big shiny status icon 🎉'});
+        const status = message.locator('a:has(> .octicon-check)');
         const otherBody = page.locator('.commit-body', {hasText: 'which spans multiple lines'});
 
-        await expect(summary).toBeVisible();
+        await expect(message).toBeVisible();
         await expect(toggle).toBeVisible();
         await expect(body).toBeHidden();
         await expect(otherBody).toBeHidden();
 
         await toggle.click({force: isMobile}); // open!
         await expect(toggle).toBeVisible();
-        await expect(summary).toBeVisible();
+        await expect(message).toBeVisible();
         await expect(body).toBeVisible();
         await expect(otherBody).toBeHidden();
 
         await toggle.click({force: isMobile}); // close!
-        await expect(summary).toBeVisible();
+        await expect(message).toBeVisible();
         await expect(toggle).toBeVisible();
         await expect(body).toBeHidden();
         await expect(otherBody).toBeHidden();
@@ -190,10 +191,12 @@ for (const run of runs) {
 
         // clicking the status navigates, rather than opening the message body
         await status.click();
-        await expect(page).toHaveURL('/user2/multiline-commit-messages/actions/runs/2/jobs/0');
+        await expect(page).toHaveURL('/user2/multiline-commit-messages/actions/runs/3/jobs/0');
       });
 
       test('Multiline commit message in list', async ({page, isMobile}) => {
+        test.skip(!run.useJs); // TODO: this might work without JS after updating the layout
+
         // ensure multiline commits work in the PR view
         const response = await page.goto('/user2/multiline-commit-messages/pulls/1/commits');
         expect(response?.status()).toBe(200);
@@ -219,7 +222,7 @@ for (const run of runs) {
 
         // clicking the status navigates, rather than opening the message body
         await status.click();
-        await expect(page).toHaveURL('/user2/multiline-commit-messages/actions/runs/4/jobs/0');
+        await expect(page).toHaveURL('/user2/multiline-commit-messages/actions/runs/5/jobs/0');
       });
     });
   });

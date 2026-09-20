@@ -30,10 +30,6 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-
-    .message {
-      display: flex;
-    }
   }
 
   .commits .commit .author {
