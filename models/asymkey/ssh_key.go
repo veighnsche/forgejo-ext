@@ -15,6 +15,7 @@ import (
 	"forgejo.org/models/perm"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 
@@ -72,6 +73,15 @@ func (key *PublicKey) OmitEmail() string {
 // TODO: Consider dropping this function
 func (key *PublicKey) AuthorizedString() string {
 	return AuthorizedStringForKey(key)
+}
+
+// IsCompatible returns true if the key can be used with the current server configuration.
+func (key *PublicKey) IsCompatible() bool {
+	if setting.SSH.StartBuiltinServer || len(setting.SSH.KeygenPath) == 0 {
+		_, _, err := SSHNativeParsePublicKey(key.Content)
+		return err == nil
+	}
+	return true
 }
 
 func addKey(ctx context.Context, key *PublicKey) (err error) {

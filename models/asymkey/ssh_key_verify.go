@@ -6,10 +6,13 @@ package asymkey
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"forgejo.org/models/db"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/process"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/util"
 
 	"github.com/42wim/sshsig"
 )
@@ -31,15 +34,48 @@ func VerifySSHKey(ctx context.Context, ownerID int64, fingerprint, token, signat
 		return "", ErrKeyNotExist{}
 	}
 
-	err = sshsig.Verify(bytes.NewBuffer([]byte(token)), []byte(signature), []byte(key.Content), setting.Domain)
-	if err != nil {
-		// edge case for Windows based shells that will add CR LF if piped to ssh-keygen command
-		// see https://github.com/PowerShell/PowerShell/issues/5974
-		if sshsig.Verify(bytes.NewBuffer([]byte(token+"\r\n")), []byte(signature), []byte(key.Content), setting.Domain) != nil {
-			log.Error("Unable to validate token signature. Error: %v", err)
-			return "", ErrSSHInvalidTokenSignature{
-				Fingerprint: key.Fingerprint,
+	if len(setting.SSH.KeygenPath) == 0 || setting.SSH.StartBuiltinServer {
+		err = sshsig.Verify(bytes.NewBuffer([]byte(token)), []byte(signature), []byte(key.Content), setting.Domain)
+		if err != nil {
+			// edge case for Windows based shells that will add CR LF if piped to ssh-keygen command
+			// see https://github.com/PowerShell/PowerShell/issues/5974
+			err = sshsig.Verify(bytes.NewBuffer([]byte(token+"\r\n")), []byte(signature), []byte(key.Content), setting.Domain)
+		}
+	} else {
+		var (
+			tmpSignature, tmpAuthorizedSigners string
+		)
+		if tmpSignature, err = writeTmpKeyFile(signature); err != nil {
+			return "", err
+		}
+		defer func() {
+			if err := util.Remove(tmpSignature); err != nil {
+				log.Warn("Unable to remove temporary signature file: %s: Error: %v", tmpSignature, err)
 			}
+		}()
+
+		if tmpAuthorizedSigners, err = writeTmpKeyFile(fmt.Sprintf("* %s", key.Content)); err != nil {
+			return "", err
+		}
+		defer func() {
+			if err := util.Remove(tmpAuthorizedSigners); err != nil {
+				log.Warn("Unable to remove temporary signers file: %s: Error: %v", tmpAuthorizedSigners, err)
+			}
+		}()
+
+		_, _, err = process.GetManager().ExecDirEnvStdIn(ctx, -1, "", "VerifySSHKey", nil, bytes.NewBuffer([]byte(token)), setting.SSH.KeygenPath,
+			"-Y", "verify",
+			"-s", tmpSignature,
+			"-I", "",
+			"-f", tmpAuthorizedSigners,
+			"-n", setting.Domain,
+		)
+	}
+
+	if err != nil {
+		log.Error("Unable to validate token signature. Error: %v", err)
+		return "", ErrSSHInvalidTokenSignature{
+			Fingerprint: key.Fingerprint,
 		}
 	}
 

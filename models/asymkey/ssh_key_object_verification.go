@@ -12,7 +12,9 @@ import (
 	"forgejo.org/models/db"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/process"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/util"
 
 	"github.com/42wim/sshsig"
 	"golang.org/x/crypto/ssh"
@@ -56,7 +58,7 @@ func ParseObjectWithSSHSignature(ctx context.Context, c *GitObject, committer *u
 
 		for _, k := range keys {
 			if k.Verified && activated {
-				commitVerification := verifySSHObjectVerification(c.Signature.Signature, c.Signature.Payload, k, committer, committer, c.Committer.Email)
+				commitVerification := verifySSHObjectVerification(ctx, c.Signature.Signature, c.Signature.Payload, k, committer, committer, c.Committer.Email)
 				if commitVerification != nil {
 					return commitVerification
 				}
@@ -74,7 +76,7 @@ func ParseObjectWithSSHSignature(ctx context.Context, c *GitObject, committer *u
 			Name:  setting.Repository.Signing.SigningName,
 			Email: setting.Repository.Signing.SigningEmail,
 		}
-		commitVerification := verifySSHObjectVerification(c.Signature.Signature, c.Signature.Payload, instanceSSHKey, committer, instanceUser, setting.Repository.Signing.SigningEmail)
+		commitVerification := verifySSHObjectVerification(ctx, c.Signature.Signature, c.Signature.Payload, instanceSSHKey, committer, instanceUser, setting.Repository.Signing.SigningEmail)
 		if commitVerification != nil {
 			return commitVerification
 		}
@@ -87,8 +89,46 @@ func ParseObjectWithSSHSignature(ctx context.Context, c *GitObject, committer *u
 	}
 }
 
-func verifySSHObjectVerification(sig, payload string, k *PublicKey, committer, signer *user_model.User, email string) *ObjectVerification {
-	if err := sshsig.Verify(bytes.NewBuffer([]byte(payload)), []byte(sig), []byte(k.Content), "git"); err != nil {
+func verifySSHObjectVerification(ctx context.Context, sig, payload string, k *PublicKey, committer, signer *user_model.User, email string) *ObjectVerification {
+	var err error
+
+	if len(setting.SSH.KeygenPath) == 0 || setting.SSH.StartBuiltinServer {
+		err = sshsig.Verify(bytes.NewBuffer([]byte(payload)), []byte(sig), []byte(k.Content), "git")
+	} else {
+		var (
+			tmpSignature, tmpAuthorizedSigners string
+		)
+		if tmpSignature, err = writeTmpKeyFile(sig); err != nil {
+			log.Error("Failed to write signature to temporary file: %v", err)
+			return nil
+		}
+		defer func() {
+			if err := util.Remove(tmpSignature); err != nil {
+				log.Warn("Unable to remove temporary signature file: %s: Error: %v", tmpSignature, err)
+			}
+		}()
+
+		if tmpAuthorizedSigners, err = writeTmpKeyFile(fmt.Sprintf("* %s", k.Content)); err != nil {
+			log.Error("Failed to write authorized signers to temporary file: %v", err)
+			return nil
+		}
+		defer func() {
+			if err := util.Remove(tmpAuthorizedSigners); err != nil {
+				log.Warn("Unable to remove temporary signers file: %s: Error: %v", tmpAuthorizedSigners, err)
+			}
+		}()
+
+		_, _, err = process.GetManager().ExecDirEnvStdIn(ctx, -1, "", "VerifySSHKey", nil, bytes.NewBuffer([]byte(payload)), setting.SSH.KeygenPath,
+			"-Y", "verify",
+			"-s", tmpSignature,
+			"-I", "",
+			"-f", tmpAuthorizedSigners,
+			"-n", "git",
+		)
+	}
+
+	if err != nil {
+		log.Warn("Signature verification failed: %v", err)
 		return nil
 	}
 

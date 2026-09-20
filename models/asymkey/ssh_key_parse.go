@@ -147,12 +147,23 @@ func parseKeyString(content string) (string, error) {
 			return "", fmt.Errorf("key type and content does not match: %s - %s", keyType, t)
 		}
 	}
-	// Finally we need to check whether we can actually read the proposed key:
-	_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(keyType + " " + keyContent + " " + keyComment))
-	if err != nil {
-		return "", fmt.Errorf("invalid ssh public key: %w", err)
-	}
+
 	return keyType + " " + keyContent + " " + keyComment, nil
+}
+
+func ParsePublicKey(content string) (keyType string, length int, err error) {
+	var fnName string
+	if len(setting.SSH.KeygenPath) == 0 || setting.SSH.StartBuiltinServer {
+		fnName = "SSHNativeParsePublicKey"
+		keyType, length, err = SSHNativeParsePublicKey(content)
+	} else {
+		fnName = "SSHKeyGenParsePublicKey"
+		keyType, length, err = SSHKeyGenParsePublicKey(content)
+	}
+	if err != nil {
+		err = fmt.Errorf("%s: %w", fnName, err)
+	}
+	return
 }
 
 // CheckPublicKeyString checks if the given public key string is recognized by SSH.
@@ -171,26 +182,15 @@ func CheckPublicKeyString(content string) (_ string, err error) {
 	// remove any unnecessary whitespace now
 	content = strings.TrimSpace(content)
 
+	keyType, length, err := ParsePublicKey(content)
+	if err != nil {
+		return
+	}
+	log.Trace("Key info [native: %v]: %s-%d", setting.SSH.StartBuiltinServer, keyType, length)
+
 	if !setting.SSH.MinimumKeySizeCheck {
 		return content, nil
 	}
-
-	var (
-		fnName  string
-		keyType string
-		length  int
-	)
-	if len(setting.SSH.KeygenPath) == 0 {
-		fnName = "SSHNativeParsePublicKey"
-		keyType, length, err = SSHNativeParsePublicKey(content)
-	} else {
-		fnName = "SSHKeyGenParsePublicKey"
-		keyType, length, err = SSHKeyGenParsePublicKey(content)
-	}
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", fnName, err)
-	}
-	log.Trace("Key info [native: %v]: %s-%d", setting.SSH.StartBuiltinServer, keyType, length)
 
 	if minLen, found := setting.SSH.MinimumKeySizes[keyType]; found && length >= minLen {
 		return content, nil
