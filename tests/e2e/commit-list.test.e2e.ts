@@ -3,6 +3,7 @@
 
 // @watch start
 // templates/repo/commits_list.tmpl
+// templates/repo/commits_list_small.tmpl
 // templates/repo/latest_commit.tmpl
 // templates/repo/pulls/commits_list.tmpl
 // web_src/css/repo.css
