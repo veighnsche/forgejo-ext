@@ -152,8 +152,8 @@ onDomReady(() => {
   initRepoBranchButton();
   initRepoCodeView();
   initRepoCommentForm();
-  initRepoDiffCommitBranchesAndTags();
   initRepoEllipsisButton();
+  initRepoDiffCommitBranchesAndTags();
   initRepoEditor();
   initAddOrgMemberButton();
   initRepoGraphGit();
