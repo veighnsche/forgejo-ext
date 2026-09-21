@@ -146,7 +146,7 @@
 					{{else if .IsFontFile}}
 						<style>
 							@font-face {
-								font-family: "font-preview";
+								font-family: font-preview;
 								src: url("{{$.RawFileLink}}");
 							}
 						</style>
@@ -156,7 +156,7 @@
 							<p class="font-viewer-sample">0123456789</p>
 							<p class="font-viewer-sample">! " ' , . ; : ?</p>
 							<p class="font-viewer-sample">+ - * / = < > % ^ & | ~</p>
-							<p class="font-viewer-sample">( ) [ ] { }</p>
+							<p class="font-viewer-sample">(&nbsp;) [ ] { }</p>
 							<p class="font-viewer-sample">$ # @ \ ` _</p>
 							{{range $size := .FontPreviewSizes}}
 								<small class="font-viewer-size">{{$size}}px</small>
