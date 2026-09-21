@@ -61,48 +61,48 @@ const DURATION_LIST_FORMAT = new Intl.ListFormat(navigator.language, {
  * https://translate.codeberg.org/languages/$LANGUAGE_CODE/#information
  * https://github.com/WeblateOrg/language-data/blob/main/languages.csv
  */
-const PLURAL_RULES = [
+const PLURAL_RULES: readonly ((_: number) => number)[] = [
   // [ 0] Common 2-form, e.g. English, German
-  function (n: number) { return n !== 1 ? 1 : 0 },
+  function (n) { return n !== 1 ? 1 : 0 },
 
   // [ 1] Bengali 2-form
-  function (n: number) { return n > 1 ? 1 : 0 },
+  function (n) { return n > 1 ? 1 : 0 },
 
   // [ 2] Icelandic 2-form
-  function (n: number) { return n % 10 !== 1 || n % 100 === 11 ? 1 : 0 },
+  function (n) { return n % 10 !== 1 || n % 100 === 11 ? 1 : 0 },
 
   // [ 3] Filipino 2-form
-  function (n: number) { return n !== 1 && n !== 2 && n !== 3 && (n % 10 === 4 || n % 10 === 6 || n % 10 === 9) ? 1 : 0 },
+  function (n) { return n !== 1 && n !== 2 && n !== 3 && (n % 10 === 4 || n % 10 === 6 || n % 10 === 9) ? 1 : 0 },
 
   // [ 4] One form
-  function (_: number) { return 0 },
+  function (_) { return 0 },
 
   // [ 5] Czech 3-form
-  function (n: number) { return (n === 1) ? 0 : (n >= 2 && n <= 4) ? 1 : 2 },
+  function (n) { return (n === 1) ? 0 : (n >= 2 && n <= 4) ? 1 : 2 },
 
   // [ 6] Russian 3-form
-  function (n: number) { return n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2 },
+  function (n) { return n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2 },
 
   // [ 7] Polish 3-form
-  function (n: number) { return n === 1 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2 },
+  function (n) { return n === 1 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 1 : 2 },
 
   // [ 8] Latvian 3-form
-  function (n: number) { return (n % 10 === 0 || n % 100 >= 11 && n % 100 <= 19) ? 0 : ((n % 10 === 1 && n % 100 !== 11) ? 1 : 2) },
+  function (n) { return (n % 10 === 0 || n % 100 >= 11 && n % 100 <= 19) ? 0 : ((n % 10 === 1 && n % 100 !== 11) ? 1 : 2) },
 
   // [ 9] Lithunian 3-form
-  function (n: number) { return (n % 10 === 1 && (n % 100 < 11 || n % 100 > 19)) ? 0 : ((n % 10 >= 2 && n % 10 <= 9 && (n % 100 < 11 || n % 100 > 19)) ? 1 : 2) },
+  function (n) { return (n % 10 === 1 && (n % 100 < 11 || n % 100 > 19)) ? 0 : ((n % 10 >= 2 && n % 10 <= 9 && (n % 100 < 11 || n % 100 > 19)) ? 1 : 2) },
 
   // [10] French 3-form
-  function (n: number) { return (n === 0 || n === 1) ? 0 : ((n !== 0 && n % 1000000 === 0) ? 1 : 2) },
+  function (n) { return (n === 0 || n === 1) ? 0 : ((n !== 0 && n % 1000000 === 0) ? 1 : 2) },
 
   // [11] Catalan 3-form
-  function (n: number) { return (n === 1) ? 0 : ((n !== 0 && n % 1000000 === 0) ? 1 : 2) },
+  function (n) { return (n === 1) ? 0 : ((n !== 0 && n % 1000000 === 0) ? 1 : 2) },
 
   // [12] Slovenian 4-form
-  function (n: number) { return n % 100 === 1 ? 0 : n % 100 === 2 ? 1 : n % 100 === 3 || n % 100 === 4 ? 2 : 3 },
+  function (n) { return n % 100 === 1 ? 0 : n % 100 === 2 ? 1 : n % 100 === 3 || n % 100 === 4 ? 2 : 3 },
 
   // [13] Arabic 6-form
-  function (n: number) { return n === 0 ? 0 : n === 1 ? 1 : n === 2 ? 2 : n % 100 >= 3 && n % 100 <= 10 ? 3 : n % 100 >= 11 ? 4 : 5 },
+  function (n) { return n === 0 ? 0 : n === 1 ? 1 : n === 2 ? 2 : n % 100 >= 3 && n % 100 <= 10 ? 3 : n % 100 >= 11 ? 4 : 5 },
 ];
 
 /**
