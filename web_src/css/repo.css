@@ -2002,6 +2002,11 @@ details.repo-search-result summary::marker {
   border-radius: var(--border-radius) !important;
   box-shadow: 0 0 0 3px var(--color-primary-alpha-30) !important;
 }
+.diff-file-box.is-target {
+  border-color: var(--color-primary) !important;
+  border-radius: var(--border-radius) !important;
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-30) !important;
+}
 
 .code-comment:target .content {
   box-shadow: none !important;

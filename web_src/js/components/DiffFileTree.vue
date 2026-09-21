@@ -3,6 +3,7 @@ import DiffFileTreeItem from './DiffFileTreeItem.vue';
 import {toggleElem} from '../utils/dom.js';
 import {diffTreeStore} from '../modules/stores.js';
 import {setFileFolding} from '../features/file-fold.js';
+import {loadMoreFiles} from '../features/repo-diff.js';
 
 const LOCAL_STORAGE_KEY = 'diff_file_tree_visible';
 
@@ -75,12 +76,12 @@ export default {
       return result;
     },
   },
-  mounted() {
+  async mounted() {
     // Default to true if unset
     this.store.fileTreeIsVisible = localStorage.getItem(LOCAL_STORAGE_KEY) !== 'false';
     document.querySelector('.diff-toggle-file-tree-button').addEventListener('click', this.toggleVisibility);
 
-    this.hashChangeListener();
+    await this.hashChangeListener();
     window.addEventListener('hashchange', this.hashChangeListener);
   },
   unmounted() {
@@ -88,9 +89,31 @@ export default {
     window.removeEventListener('hashchange', this.hashChangeListener);
   },
   methods: {
-    hashChangeListener() {
+    highlightTarget() {
+      document.querySelector('.diff-file-box.is-target')?.classList.remove('is-target');
+      const id = window.location.hash.slice(1);
+      const target = document.getElementById(id);
+
+      target?.classList.add('is-target');
+      target?.scrollIntoView();
+    },
+    async hashChangeListener() {
       this.store.selectedItem = window.location.hash;
+      await this.loadToSelectedFile();
       this.expandSelectedFile();
+    },
+    async loadToSelectedFile() {
+      if (this.store.selectedItem) {
+        const target = this.store.files.find((item) => item.NameHash === this.store.selectedItem.substring('#diff-'.length));
+        const params = new URLSearchParams(window.location.search);
+        params.set('file-only', true);
+
+        for (let page = this.store.currentPage + 1; page <= target.OnPage; page++) {
+          params.set('diff-page', page);
+          await loadMoreFiles(`?${params.toString()}`);
+        }
+        this.highlightTarget();
+      }
     },
     expandSelectedFile() {
       // expand file if the selected file is folded
