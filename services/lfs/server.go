@@ -171,6 +171,10 @@ func BatchHandler(ctx *context.Context) {
 	}
 
 	if isUpload {
+		if repository.IsArchived {
+			writeStatusMessage(ctx, http.StatusForbidden, ctx.Locale.TrString("repo.archive.title"))
+			return
+		}
 		ok, err := quota_model.EvaluateForUser(ctx, repository.OwnerID, quota_model.LimitSubjectSizeGitLFS)
 		if err != nil {
 			log.Error("quota_model.EvaluateForUser: %v", err)
@@ -241,7 +245,7 @@ func BatchHandler(ctx *context.Context) {
 					return
 				}
 				if accessible {
-					_, err := git_model.NewLFSMetaObject(ctx, repository.ID, p)
+					_, err := git_model.NewLFSMetaObject(ctx, repository, p)
 					if err != nil {
 						log.Error("Unable to create LFS MetaObject [%s] for %s/%s. Error: %v", p.Oid, rc.User, rc.Repo, err)
 						writeStatus(ctx, http.StatusInternalServerError)
@@ -297,6 +301,10 @@ func UploadHandler(ctx *context.Context) {
 	if repository == nil {
 		return
 	}
+	if err := repository.MustNotBeArchived(); err != nil {
+		writeStatusMessage(ctx, http.StatusForbidden, ctx.Locale.TrString("repo.archive.title"))
+		return
+	}
 
 	contentStore := lfs_module.NewContentStore()
 	exists, err := contentStore.Exists(p)
@@ -347,7 +355,7 @@ func UploadHandler(ctx *context.Context) {
 			log.Error("Error putting LFS MetaObject [%s] into content store. Error: %v", p.Oid, err)
 			return err
 		}
-		_, err := git_model.NewLFSMetaObject(ctx, repository.ID, p)
+		_, err := git_model.NewLFSMetaObject(ctx, repository, p)
 		return err
 	}
 

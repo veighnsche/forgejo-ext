@@ -70,6 +70,10 @@ func (l *LFSLock) LoadOwner(ctx context.Context) error {
 
 // CreateLFSLock creates a new lock.
 func CreateLFSLock(ctx context.Context, repo *repo_model.Repository, lock *LFSLock) (*LFSLock, error) {
+	if err := repo.MustNotBeArchived(); err != nil {
+		return nil, err
+	}
+
 	dbCtx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err

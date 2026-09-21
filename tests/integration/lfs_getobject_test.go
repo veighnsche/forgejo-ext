@@ -29,11 +29,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func storeObjectInRepo(t *testing.T, repositoryID int64, content *[]byte) string {
+func storeObjectInRepo(t *testing.T, repo *repo_model.Repository, content *[]byte) string {
 	pointer, err := lfs.GeneratePointer(bytes.NewReader(*content))
 	require.NoError(t, err)
 
-	_, err = git_model.NewLFSMetaObject(db.DefaultContext, repositoryID, pointer)
+	_, err = git_model.NewLFSMetaObject(db.DefaultContext, repo, pointer)
 	require.NoError(t, err)
 	contentStore := lfs.NewContentStore()
 	exist, err := contentStore.Exists(pointer)
@@ -48,7 +48,7 @@ func storeObjectInRepo(t *testing.T, repositoryID int64, content *[]byte) string
 func makeStoreRequest(t *testing.T, content *[]byte, extraHeader *http.Header) *RequestWrapper {
 	repo, err := repo_model.GetRepositoryByOwnerAndName(db.DefaultContext, "user2", "repo1")
 	require.NoError(t, err)
-	oid := storeObjectInRepo(t, repo.ID, content)
+	oid := storeObjectInRepo(t, repo, content)
 	t.Cleanup(func() {
 		git_model.RemoveLFSMetaObjectByOid(db.DefaultContext, repo.ID, oid)
 	})

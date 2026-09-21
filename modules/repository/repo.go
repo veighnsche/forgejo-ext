@@ -194,7 +194,7 @@ func StoreMissingLfsObjectsInRepository(ctx context.Context, repo *repo_model.Re
 
 			defer content.Close()
 
-			_, err := git_model.NewLFSMetaObject(ctx, repo.ID, p)
+			_, err := git_model.NewLFSMetaObject(ctx, repo, p)
 			if err != nil {
 				log.Error("Repo[%-v]: Error creating LFS meta object %-v: %v", repo, p, err)
 				return err
@@ -241,7 +241,7 @@ func StoreMissingLfsObjectsInRepository(ctx context.Context, repo *repo_model.Re
 
 		if exist {
 			log.Trace("Repo[%-v]: LFS object %-v already present; creating meta object", repo, pointerBlob.Pointer)
-			_, err := git_model.NewLFSMetaObject(ctx, repo.ID, pointerBlob.Pointer)
+			_, err := git_model.NewLFSMetaObject(ctx, repo, pointerBlob.Pointer)
 			if err != nil {
 				log.Error("Repo[%-v]: Error creating LFS meta object %-v: %v", repo, pointerBlob.Pointer, err)
 				return err

@@ -2,7 +2,7 @@
 	<div class="repo-setting-content">
 		<h4 class="ui top attached header">
 			{{ctx.Locale.Tr "repo.settings.lfs_pointers.found" .NumPointers .NumAssociated .NumNotAssociated .NumNoExist}}
-			{{if gt .NumAssociatable 0}}
+			{{if and (not .IsArchived) (gt .NumAssociatable 0)}}
 				<div class="ui right">
 					<form class="ui form" method="post" action="{{$.Link}}/associate">
 						{{range .Pointers}}

@@ -38,7 +38,7 @@ func TestGarbageCollectLFSMetaObjects(t *testing.T) {
 
 	// add lfs object
 	lfsContent := []byte("gitea1")
-	lfsOid := storeObjectInRepo(t, repo.ID, &lfsContent)
+	lfsOid := storeObjectInRepo(t, repo, &lfsContent)
 
 	// gc
 	err = repo_service.GarbageCollectLFSMetaObjects(t.Context(), repo_service.GarbageCollectLFSMetaObjectsOptions{
@@ -58,11 +58,11 @@ func TestGarbageCollectLFSMetaObjects(t *testing.T) {
 	assert.Equal(t, validLFSObjects-1, remainingLFSObjects)
 }
 
-func storeObjectInRepo(t *testing.T, repositoryID int64, content *[]byte) string {
+func storeObjectInRepo(t *testing.T, repo *repo_model.Repository, content *[]byte) string {
 	pointer, err := lfs.GeneratePointer(bytes.NewReader(*content))
 	require.NoError(t, err)
 
-	_, err = git_model.NewLFSMetaObject(db.DefaultContext, repositoryID, pointer)
+	_, err = git_model.NewLFSMetaObject(db.DefaultContext, repo, pointer)
 	require.NoError(t, err)
 	contentStore := lfs.NewContentStore()
 	exist, err := contentStore.Exists(pointer)

@@ -1323,14 +1323,14 @@ func registerRoutes(m *web.Route) {
 			m.Group("/lfs", func() {
 				m.Get("/", repo_setting.LFSFiles)
 				m.Get("/show/{oid}", repo_setting.LFSFileGet)
-				m.Post("/delete/{oid}", repo_setting.LFSDelete)
+				m.Post("/delete/{oid}", context.RepoMustNotBeArchived(), repo_setting.LFSDelete)
 				m.Get("/pointers", repo_setting.LFSPointerFiles)
-				m.Post("/pointers/associate", repo_setting.LFSAutoAssociate)
+				m.Post("/pointers/associate", context.RepoMustNotBeArchived(), repo_setting.LFSAutoAssociate)
 				m.Get("/find", repo_setting.LFSFileFind)
 				m.Group("/locks", func() {
 					m.Get("/", repo_setting.LFSLocks)
-					m.Post("/", repo_setting.LFSLockFile)
-					m.Post("/{lid}/unlock", repo_setting.LFSUnlock)
+					m.Post("/", context.RepoMustNotBeArchived(), repo_setting.LFSLockFile)
+					m.Post("/{lid}/unlock", context.RepoMustNotBeArchived(), repo_setting.LFSUnlock)
 				})
 			})
 			m.Group("/actions", func() {

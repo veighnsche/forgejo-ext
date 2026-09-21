@@ -81,7 +81,7 @@ func TestAPILFSBatch(t *testing.T) {
 	repo := createLFSTestRepository(t, "batch")
 
 	content := []byte("dummy1")
-	oid := storeObjectInRepo(t, repo.ID, &content)
+	oid := storeObjectInRepo(t, repo, &content)
 	defer git_model.RemoveLFSMetaObjectByOid(db.DefaultContext, repo.ID, oid)
 
 	newRequest := func(t testing.TB, br *lfs.BatchRequest) *RequestWrapper {
@@ -265,7 +265,7 @@ func TestAPILFSBatch(t *testing.T) {
 
 			repo2 := createLFSTestRepository(t, "batch2")
 			content := []byte("dummy0")
-			storeObjectInRepo(t, repo2.ID, &content)
+			storeObjectInRepo(t, repo2, &content)
 
 			meta, err := git_model.GetLFSMetaObjectByOid(db.DefaultContext, repo.ID, p.Oid)
 			assert.Nil(t, meta)
@@ -345,7 +345,7 @@ func TestAPILFSUpload(t *testing.T) {
 	repo := createLFSTestRepository(t, "upload")
 
 	content := []byte("dummy3")
-	oid := storeObjectInRepo(t, repo.ID, &content)
+	oid := storeObjectInRepo(t, repo, &content)
 	defer git_model.RemoveLFSMetaObjectByOid(db.DefaultContext, repo.ID, oid)
 
 	newRequest := func(t testing.TB, p lfs.Pointer, content string) *RequestWrapper {
@@ -454,7 +454,7 @@ func TestAPILFSVerify(t *testing.T) {
 	repo := createLFSTestRepository(t, "verify")
 
 	content := []byte("dummy3")
-	oid := storeObjectInRepo(t, repo.ID, &content)
+	oid := storeObjectInRepo(t, repo, &content)
 	defer git_model.RemoveLFSMetaObjectByOid(db.DefaultContext, repo.ID, oid)
 
 	newRequest := func(t testing.TB, p *lfs.Pointer) *RequestWrapper {

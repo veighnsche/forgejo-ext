@@ -437,7 +437,11 @@ func CreateOrUpdateFile(ctx context.Context, t *TemporaryUploadRepository, file 
 
 	if lfsMetaObject != nil {
 		// We have an LFS object - create it
-		lfsMetaObject, err = git_model.NewLFSMetaObject(ctx, lfsMetaObject.RepositoryID, lfsMetaObject.Pointer)
+		repo, err := repo_model.GetRepositoryByID(ctx, lfsMetaObject.RepositoryID)
+		if err != nil {
+			return err
+		}
+		lfsMetaObject, err = git_model.NewLFSMetaObject(ctx, repo, lfsMetaObject.Pointer)
 		if err != nil {
 			return err
 		}

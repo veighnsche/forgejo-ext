@@ -139,6 +139,12 @@ func PostLockHandler(ctx *context.Context) {
 		})
 		return
 	}
+	if err := repository.MustNotBeArchived(); err != nil {
+		ctx.Resp.Header().Set("WWW-Authenticate", "Basic realm=gitea-lfs")
+		writeStatusMessage(ctx, http.StatusForbidden, ctx.Locale.TrString("repo.archive.title"))
+		return
+	}
+
 	repository.MustOwner(ctx)
 
 	context.CheckRepoScopedToken(ctx, repository, auth_model.Write)
@@ -275,6 +281,11 @@ func UnLockHandler(ctx *context.Context) {
 		ctx.JSON(http.StatusUnauthorized, api.LFSLockError{
 			Message: "You must have push access to delete locks",
 		})
+		return
+	}
+	if err := repository.MustNotBeArchived(); err != nil {
+		ctx.Resp.Header().Set("WWW-Authenticate", "Basic realm=gitea-lfs")
+		writeStatusMessage(ctx, http.StatusForbidden, ctx.Locale.TrString("repo.archive.title"))
 		return
 	}
 	repository.MustOwner(ctx)

@@ -135,14 +135,18 @@ var ErrLFSObjectNotExist = db.ErrNotExist{Resource: "LFS Meta object"}
 
 // NewLFSMetaObject stores a given populated LFSMetaObject structure in the database
 // if it is not already present.
-func NewLFSMetaObject(ctx context.Context, repoID int64, p lfs.Pointer) (*LFSMetaObject, error) {
+func NewLFSMetaObject(ctx context.Context, repo *repo_model.Repository, p lfs.Pointer) (*LFSMetaObject, error) {
+	if err := repo.MustNotBeArchived(); err != nil {
+		return nil, err
+	}
+
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer committer.Close()
 
-	m, exist, err := db.Get[LFSMetaObject](ctx, builder.Eq{"repository_id": repoID, "oid": p.Oid})
+	m, exist, err := db.Get[LFSMetaObject](ctx, builder.Eq{"repository_id": repo.ID, "oid": p.Oid})
 	if err != nil {
 		return nil, err
 	} else if exist {
@@ -150,7 +154,7 @@ func NewLFSMetaObject(ctx context.Context, repoID int64, p lfs.Pointer) (*LFSMet
 		return m, committer.Commit()
 	}
 
-	m = &LFSMetaObject{Pointer: p, RepositoryID: repoID}
+	m = &LFSMetaObject{Pointer: p, RepositoryID: repo.ID}
 	if err = db.Insert(ctx, m); err != nil {
 		return nil, err
 	}
@@ -251,7 +255,11 @@ func ExistsLFSObject(ctx context.Context, oid string) (bool, error) {
 }
 
 // LFSAutoAssociate auto associates accessible LFSMetaObjects
-func LFSAutoAssociate(ctx context.Context, metas []*LFSMetaObject, user *user_model.User, repoID int64) error {
+func LFSAutoAssociate(ctx context.Context, metas []*LFSMetaObject, user *user_model.User, repo *repo_model.Repository) error {
+	if err := repo.MustNotBeArchived(); err != nil {
+		return err
+	}
+
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -282,7 +290,7 @@ func LFSAutoAssociate(ctx context.Context, metas []*LFSMetaObject, user *user_mo
 		}
 		for i := range newMetas {
 			newMetas[i].Size = oidMap[newMetas[i].Oid].Size
-			newMetas[i].RepositoryID = repoID
+			newMetas[i].RepositoryID = repo.ID
 		}
 		if err = db.Insert(ctx, newMetas); err != nil {
 			return err
@@ -294,10 +302,10 @@ func LFSAutoAssociate(ctx context.Context, metas []*LFSMetaObject, user *user_mo
 			p := lfs.Pointer{Oid: metas[i].Oid, Size: metas[i].Size}
 			_, err = sess.Insert(&LFSMetaObject{
 				Pointer:      p,
-				RepositoryID: repoID,
+				RepositoryID: repo.ID,
 			})
 			if err != nil {
-				log.Warn("failed to insert LFS meta object %-v for repo_id: %d into database, err=%v", p, repoID, err)
+				log.Warn("failed to insert LFS meta object %-v for repo_id: %d into database, err=%v", p, repo.ID, err)
 			}
 		}
 	}

@@ -62,6 +62,7 @@ func LFSFiles(ctx *context.Context) {
 	}
 	ctx.Data["LFSFiles"] = lfsMetaObjects
 	ctx.Data["Page"] = pager
+	ctx.Data["IsArchived"] = ctx.Repo.Repository.IsArchived
 	ctx.HTML(http.StatusOK, tplSettingsLFS)
 }
 
@@ -521,6 +522,7 @@ func LFSPointerFiles(ctx *context.Context) {
 		ctx.Data["NumAssociatable"] = numAssociatable
 		ctx.Data["NumNoExist"] = numNoExist
 		ctx.Data["NumNotAssociated"] = numPointers - numAssociated
+		ctx.Data["IsArchived"] = ctx.Repo.Repository.IsArchived
 
 		return nil
 	}()
@@ -532,7 +534,8 @@ func LFSPointerFiles(ctx *context.Context) {
 	ctx.HTML(http.StatusOK, tplSettingsLFSPointers)
 }
 
-// LFSAutoAssociate auto associates accessible lfs files
+// Frontend of [git_model.LFSAutoAssociate], which auto-associates accessible
+// LFSMetaObjects.
 func LFSAutoAssociate(ctx *context.Context) {
 	if !setting.LFS.StartServer {
 		ctx.NotFound("LFSAutoAssociate", nil)
@@ -556,7 +559,7 @@ func LFSAutoAssociate(ctx *context.Context) {
 		metas[i].Oid = oid[:idx]
 		// metas[i].RepositoryID = ctx.Repo.Repository.ID
 	}
-	if err := git_model.LFSAutoAssociate(ctx, metas, ctx.Doer, ctx.Repo.Repository.ID); err != nil {
+	if err := git_model.LFSAutoAssociate(ctx, metas, ctx.Doer, ctx.Repo.Repository); err != nil {
 		ctx.ServerError("LFSAutoAssociate", err)
 		return
 	}
