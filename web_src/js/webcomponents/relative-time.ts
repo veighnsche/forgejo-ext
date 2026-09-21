@@ -61,7 +61,7 @@ const DURATION_LIST_FORMAT = new Intl.ListFormat(navigator.language, {
  * https://translate.codeberg.org/languages/$LANGUAGE_CODE/#information
  * https://github.com/WeblateOrg/language-data/blob/main/languages.csv
  */
-const PLURAL_RULES: readonly ((_: number) => number)[] = [
+const PLURAL_RULES: readonly ((n: number) => number)[] = [
   // [ 0] Common 2-form, e.g. English, German
   function (n) { return n !== 1 ? 1 : 0 },
 
