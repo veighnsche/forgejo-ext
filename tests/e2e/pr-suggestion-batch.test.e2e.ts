@@ -57,9 +57,6 @@ test('PR: batch apply suggestions (create, edit, batch, discard, apply)', async 
     await expect(page.locator('.suggestion-diff')).toHaveCount(2);
     await expect(page.locator('.add-suggestion-batch')).toHaveCount(2);
 
-    // Reload should not be there, waiting fix https://codeberg.org/forgejo/forgejo/pulls/14124
-    await page.reload();
-
     const firstComment = page.locator('.comment').filter({hasText: 'Line 20--batched'});
     await firstComment.locator('details.dropdown summary').click();
     await firstComment.locator('details.dropdown .content .edit-content').click();
