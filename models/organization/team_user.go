@@ -73,6 +73,14 @@ type SearchMembersOptions struct {
 	TeamID int64
 }
 
+func (opts SearchMembersOptions) ToConds() builder.Cond {
+	cond := builder.NewCond()
+	if opts.TeamID > 0 {
+		cond = cond.And(builder.Eq{"team_id": opts.TeamID})
+	}
+	return cond
+}
+
 // GetTeamMembers returns all members in given team of organization.
 func GetTeamMembers(ctx context.Context, opts *SearchMembersOptions) ([]*user_model.User, error) {
 	var members []*user_model.User
@@ -101,11 +109,8 @@ func IsUserInTeams(ctx context.Context, userID int64, teamIDs []int64) (bool, er
 // GetTeamMemberships returns all team memberships including provenance information.
 func GetTeamMemberships(ctx context.Context, opts *SearchMembersOptions) ([]*TeamUser, error) {
 	var memberships []*TeamUser
-	sess := db.GetEngine(ctx).Table("user").Alias("u").Join("inner", "team_user", "u.id = team_user.uid")
-	if opts.TeamID > 0 {
-		sess = sess.Where(builder.Eq{"team_user.team_id": opts.TeamID})
-	}
-	if opts.PageSize > 0 && opts.Page > 0 {
+	sess := db.GetEngine(ctx).Table("team_user").Join("inner", []string{"user", "u"}, "u.id = team_user.uid").Where(opts.ToConds())
+	if !opts.ListAll && opts.PageSize > 0 && opts.Page > 0 {
 		sess = sess.Limit(opts.PageSize, (opts.Page-1)*opts.PageSize)
 	}
 	if err := sess.OrderBy("u.full_name, u.name").Find(&memberships); err != nil {
