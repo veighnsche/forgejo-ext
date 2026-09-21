@@ -73,6 +73,8 @@ func handler(items ...notificationOpts) []notificationOpts {
 			if err := activities_model.CreateOrUpdateReleaseNotifications(db.DefaultContext, opts.ReleaseID); err != nil {
 				log.Error("Was unable to create release notification: %v", err)
 			}
+		default:
+			log.Error("unable to create notification of unknown type: %d", opts.NotificationType)
 		}
 	}
 	return nil
@@ -96,6 +98,7 @@ func (ns *notificationService) CreateIssueComment(ctx context.Context, doer *use
 	_ = ns.notificationQueue.Push(opts)
 	for _, mention := range mentions {
 		opts := notificationOpts{
+			NotificationType:     notificationTypeIssue,
 			IssueID:              issue.ID,
 			NotificationAuthorID: doer.ID,
 			ReceiverID:           mention.ID,
