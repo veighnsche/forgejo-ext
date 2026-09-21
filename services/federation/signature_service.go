@@ -255,7 +255,7 @@ func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity 
 	_, federatedUser, federationHost, err := FindOrCreateFederatedUser(ctx, actorURI)
 	if err != nil {
 		log.Error("Error finding or creating federated user (%s): %v", actorURI, err)
-		return fmt.Errorf("Federated user not found: %v", err)
+		return fmt.Errorf("Error finding or creating federated user (%s): %v", actorURI, err)
 	}
 	_, keyUser, err := user.FindFederatedUserByKeyID(ctx, keyURL.String())
 	if err != nil {
@@ -268,9 +268,7 @@ func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity 
 
 		keyHost, err := forgefed.FindFederationHostByKeyID(ctx, keyURL.String())
 		if err != nil {
-			if !forgefed.IsErrFederationHostNotFound(err) {
-				return err
-			}
+			return err
 		} else {
 			if federationHost.KeyID.String != keyHost.KeyID.String {
 				return fmt.Errorf("KeyID (%v) in signature does not match FederationHostID (%v)", keyHost.KeyID.String, federationHost.KeyID.String)

@@ -48,7 +48,6 @@ func TestActivityPubPersonVerifyKeyID(t *testing.T) {
 
 		ctx, _ := contexttest.MockAPIContext(t, localUser2Inbox)
 
-		// Distant user 15 initiates federeted user 15 following local user 2 (should pass)
 		cf, err := activitypub.NewClientFactoryWithTimeout(60 * time.Second)
 		require.NoError(t, err)
 
