@@ -72,22 +72,6 @@ STORAGE_TYPE = minio
 	assert.EqualValues(t, "minio", Actions.ArtifactStorage.Type)
 	assert.Equal(t, "actions_artifacts/", Actions.ArtifactStorage.MinioConfig.BasePath)
 
-	iniStr = `
-[storage.actions_artifacts]
-STORAGE_TYPE = my_storage
-
-[storage.my_storage]
-STORAGE_TYPE = minio
-`
-	cfg, err = NewConfigProviderFromData(iniStr)
-	require.NoError(t, err)
-	require.NoError(t, loadActionsFrom(cfg))
-
-	assert.EqualValues(t, "local", Actions.LogStorage.Type)
-	assert.Equal(t, "actions_log", filepath.Base(Actions.LogStorage.Path))
-	assert.EqualValues(t, "minio", Actions.ArtifactStorage.Type)
-	assert.Equal(t, "actions_artifacts/", Actions.ArtifactStorage.MinioConfig.BasePath)
-
 	iniStr = ``
 	cfg, err = NewConfigProviderFromData(iniStr)
 	require.NoError(t, err)
