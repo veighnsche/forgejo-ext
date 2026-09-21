@@ -4,11 +4,19 @@ interface Window {
     appUrl: string;
     appSubUrl: string;
     assetUrlPrefix: string;
-    pageData: Record<string, unknown>;
+    pageData: PageData;
     i18n: Record<string, string>;
     customEmojis: Set<string>;
     mentionValues: MentionValue[];
   }
+}
+
+interface PageData {
+  PLURALSTRINGS_LANG: Record<string, string[]>;
+  PLURAL_RULE_LANG: number;
+  DATETIMESTRINGS: Record<string, string>;
+
+  [key: string]: unknown; // TODO: remove this after we've enumerated all pageData entries
 }
 
 interface MentionValue {
