@@ -44,10 +44,8 @@ forgejo.org/models/issues
 	IsErrUnknownDependencyType
 	IsErrIssueWasClosed
 
-forgejo.org/models/organization
-	SearchMembersOptions.ToConds
-
 forgejo.org/models/perm/access
+	AccessLevel
 	GetRepoWriters
 
 forgejo.org/models/user
@@ -74,7 +72,7 @@ forgejo.org/modules/auth/password/pwn
 	WithHTTP
 
 forgejo.org/modules/base
-	SetupGiteaRoot
+	SetupProjectRoot
 
 forgejo.org/modules/cache
 	WithNoCacheContext

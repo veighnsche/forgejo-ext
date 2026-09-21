@@ -304,12 +304,6 @@ func (w *Webhook) HasActionRunFailureEvent() bool {
 		(w.ChooseEvents && w.ActionRunFailure)
 }
 
-// HasActionRunRecoverEvent returns if hook enabled action recover event.
-func (w *Webhook) HasActionRunRecoverEvent() bool {
-	return w.SendEverything ||
-		(w.ChooseEvents && w.ActionRunRecover)
-}
-
 // HasActionRunSuccessEvent returns if hook enabled action success event.
 func (w *Webhook) HasActionRunSuccessEvent() bool {
 	return w.SendEverything ||
@@ -320,6 +314,62 @@ func (w *Webhook) HasActionRunSuccessEvent() bool {
 func (w *Webhook) HasPullRequestReviewRequestEvent() bool {
 	return w.SendEverything ||
 		(w.ChooseEvents && w.PullRequestReviewRequest)
+}
+
+func (w *Webhook) HasWorkflowRunBlockedEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowRunBlocked)
+}
+
+func (w *Webhook) HasWorkflowRunCancelledEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowRunCancelled)
+}
+
+func (w *Webhook) HasWorkflowRunFailureEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowRunFailure)
+}
+
+func (w *Webhook) HasWorkflowRunRunningEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowRunRunning)
+}
+
+func (w *Webhook) HasWorkflowRunSkippedEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowRunSkipped)
+}
+
+func (w *Webhook) HasWorkflowRunSuccessEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowRunSuccess)
+}
+
+func (w *Webhook) HasWorkflowRunWaitingEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowRunWaiting)
+}
+
+func (w *Webhook) HasWorkflowJobBlockedEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowJobBlocked)
+}
+
+func (w *Webhook) HasWorkflowJobCancelledEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowJobCancelled)
+}
+
+func (w *Webhook) HasWorkflowJobFailureEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowJobFailure)
+}
+
+func (w *Webhook) HasWorkflowJobRunningEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowJobRunning)
+}
+
+func (w *Webhook) HasWorkflowJobSkippedEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowJobSkipped)
+}
+
+func (w *Webhook) HasWorkflowJobSuccessEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowJobSuccess)
+}
+
+func (w *Webhook) HasWorkflowJobWaitingEvent() bool {
+	return w.SendEverything || (w.ChooseEvents && w.WorkflowJobWaiting)
 }
 
 // EventCheckers returns event checkers
@@ -355,8 +405,21 @@ func (w *Webhook) EventCheckers() []struct {
 		{w.HasPackageEvent, webhook_module.HookEventPackage},
 		{w.HasPullRequestReviewRequestEvent, webhook_module.HookEventPullRequestReviewRequest},
 		{w.HasActionRunFailureEvent, webhook_module.HookEventActionRunFailure},
-		{w.HasActionRunRecoverEvent, webhook_module.HookEventActionRunRecover},
 		{w.HasActionRunSuccessEvent, webhook_module.HookEventActionRunSuccess},
+		{w.HasWorkflowRunBlockedEvent, webhook_module.HookEventWorkflowRunBlocked},
+		{w.HasWorkflowRunCancelledEvent, webhook_module.HookEventWorkflowRunCancelled},
+		{w.HasWorkflowRunFailureEvent, webhook_module.HookEventWorkflowRunFailure},
+		{w.HasWorkflowRunRunningEvent, webhook_module.HookEventWorkflowRunRunning},
+		{w.HasWorkflowRunSkippedEvent, webhook_module.HookEventWorkflowRunSkipped},
+		{w.HasWorkflowRunSuccessEvent, webhook_module.HookEventWorkflowRunSuccess},
+		{w.HasWorkflowRunWaitingEvent, webhook_module.HookEventWorkflowRunWaiting},
+		{w.HasWorkflowJobBlockedEvent, webhook_module.HookEventWorkflowJobBlocked},
+		{w.HasWorkflowJobCancelledEvent, webhook_module.HookEventWorkflowJobCancelled},
+		{w.HasWorkflowJobFailureEvent, webhook_module.HookEventWorkflowJobFailure},
+		{w.HasWorkflowJobRunningEvent, webhook_module.HookEventWorkflowJobRunning},
+		{w.HasWorkflowJobSkippedEvent, webhook_module.HookEventWorkflowJobSkipped},
+		{w.HasWorkflowJobSuccessEvent, webhook_module.HookEventWorkflowJobSuccess},
+		{w.HasWorkflowJobWaitingEvent, webhook_module.HookEventWorkflowJobWaiting},
 	}
 }
 

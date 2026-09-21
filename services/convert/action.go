@@ -5,11 +5,13 @@ package convert
 
 import (
 	"context"
+	"fmt"
 
 	actions_model "forgejo.org/models/actions"
 	access_model "forgejo.org/models/perm/access"
 	user_model "forgejo.org/models/user"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/util"
 )
 
 // ToActionRun convert actions_model.User to api.ActionRun
@@ -64,12 +66,27 @@ func ToActionArtifact(repoAPIURL string, art *actions_model.AggregatedArtifact) 
 	}
 }
 
-func ToActionRunJob(job *actions_model.ActionRunJob) *api.ActionRunJob {
+// ToActionRunJob converts an ActionRunJob to its API representation.
+// When steps is non-nil, the returned struct's Steps slice is populated
+// from that list (in order). Callers that want the "Set up job" head and
+// "Complete job" tail should compute them via actions.FullSteps(task)
+// before calling here.
+func ToActionRunJob(ctx context.Context, job *actions_model.ActionRunJob, steps []*actions_model.ActionTaskStep) (*api.ActionRunJob, error) {
 	if job == nil {
-		return nil
+		// nil is a legitimate result, not an indicator for an error.
+		return nil, nil //nolint:nilnil
 	}
 
-	return &api.ActionRunJob{
+	if err := job.LoadAttributes(ctx); err != nil {
+		return nil, fmt.Errorf("failed to load attributes of job %d: %w", job.ID, err)
+	}
+
+	htmlURL, err := job.HTMLURL(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not generate HTMLURL of job %d: %w", job.ID, err)
+	}
+
+	out := &api.ActionRunJob{
 		ID:      job.ID,
 		RunID:   job.RunID,
 		Attempt: job.Attempt,
@@ -77,9 +94,24 @@ func ToActionRunJob(job *actions_model.ActionRunJob) *api.ActionRunJob {
 		RepoID:  job.RepoID,
 		OwnerID: job.OwnerID,
 		Name:    job.Name,
-		Needs:   job.Needs,
+		HTMLURL: htmlURL,
+		Needs:   util.ConvertSlice[actions_model.LocalJobIdentifier, string](job.Needs),
 		RunsOn:  job.RunsOn,
 		TaskID:  job.TaskID,
 		Status:  job.Status.String(),
 	}
+	if steps == nil {
+		return out, nil
+	}
+	out.Steps = make([]*api.ActionRunJobStep, len(steps))
+	for i, s := range steps {
+		out.Steps[i] = &api.ActionRunJobStep{
+			Number:  int64(i),
+			Name:    s.Name,
+			Status:  s.Status.String(),
+			Started: s.Started.AsTime(),
+			Stopped: s.Stopped.AsTime(),
+		}
+	}
+	return out, nil
 }

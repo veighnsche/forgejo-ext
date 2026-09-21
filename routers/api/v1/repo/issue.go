@@ -765,7 +765,7 @@ func CreateIssue(ctx *context.APIContext) {
 	}
 
 	if form.Closed {
-		if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer(), "", true); err != nil {
+		if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer(), &issues_model.PRNotificationInfo{MergedCommitID: ""}, true); err != nil {
 			if issues_model.IsErrDependenciesLeft(err) {
 				ctx.Error(http.StatusPreconditionFailed, "DependenciesLeft", "cannot close this issue because it still has open dependencies")
 				return
@@ -825,26 +825,14 @@ func EditIssue(ctx *context.APIContext) {
 	//     "$ref": "#/responses/error"
 
 	form := web.GetForm(ctx).(*api.EditIssueOption)
-	issue, err := issues_model.GetIssueByIndex(ctx, ctx.Repo().Repository.ID, ctx.ParamsInt64(":index"))
-	if err != nil {
-		if issues_model.IsErrIssueNotExist(err) {
-			ctx.NotFound()
-		} else {
-			ctx.Error(http.StatusInternalServerError, "GetIssueByIndex", err)
-		}
+	issue := ctx.LoadIssue("index")
+	if ctx.Written() {
 		return
 	}
-	issue.Repo = ctx.Repo().Repository
-	canWrite := ctx.Repo().CanWriteIssuesOrPulls(issue.IsPull)
 
-	err = issue.LoadAttributes(ctx)
+	err := issue.LoadAttributes(ctx)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "LoadAttributes", err)
-		return
-	}
-
-	if !issue.IsPoster(ctx.Doer().ID) && !canWrite {
-		ctx.Status(http.StatusForbidden)
 		return
 	}
 
@@ -882,7 +870,7 @@ func EditIssue(ctx *context.APIContext) {
 	}
 
 	// Update or remove the deadline, only if set and allowed
-	if (form.Deadline != nil || form.RemoveDeadline != nil) && canWrite {
+	if form.Deadline != nil || form.RemoveDeadline != nil {
 		var deadlineUnix timeutil.TimeStamp
 
 		if form.RemoveDeadline == nil || !*form.RemoveDeadline {
@@ -912,7 +900,7 @@ func EditIssue(ctx *context.APIContext) {
 	// Pass one or more user logins to replace the set of assignees on this Issue.
 	// Send an empty array ([]) to clear all assignees from the Issue.
 
-	if canWrite && (form.Assignees != nil || form.Assignee != nil) {
+	if form.Assignees != nil || form.Assignee != nil {
 		oneAssignee := ""
 		if form.Assignee != nil {
 			oneAssignee = *form.Assignee
@@ -925,7 +913,7 @@ func EditIssue(ctx *context.APIContext) {
 		}
 	}
 
-	if canWrite && form.Milestone != nil &&
+	if form.Milestone != nil &&
 		issue.MilestoneID != *form.Milestone {
 		oldMilestoneID := issue.MilestoneID
 		issue.MilestoneID = *form.Milestone
@@ -947,7 +935,7 @@ func EditIssue(ctx *context.APIContext) {
 		}
 		isClosed := api.StateClosed == api.StateType(*form.State)
 		if issue.IsClosed != isClosed {
-			if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer(), "", isClosed); err != nil {
+			if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer(), &issues_model.PRNotificationInfo{MergedCommitID: ""}, isClosed); err != nil {
 				if issues_model.IsErrDependenciesLeft(err) {
 					ctx.Error(http.StatusPreconditionFailed, "DependenciesLeft", "cannot close this issue because it still has open dependencies")
 					return
@@ -999,17 +987,12 @@ func DeleteIssue(ctx *context.APIContext) {
 	//     "$ref": "#/responses/forbidden"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
-	issue, err := issues_model.GetIssueByIndex(ctx, ctx.Repo().Repository.ID, ctx.ParamsInt64(":index"))
-	if err != nil {
-		if issues_model.IsErrIssueNotExist(err) {
-			ctx.NotFound(err)
-		} else {
-			ctx.Error(http.StatusInternalServerError, "GetIssueByID", err)
-		}
+	issue := ctx.LoadIssue("index")
+	if ctx.Written() {
 		return
 	}
 
-	if err = issue_service.DeleteIssue(ctx, ctx.Doer(), ctx.Repo().GitRepo, issue); err != nil {
+	if err := issue_service.DeleteIssue(ctx, ctx.Doer(), ctx.Repo().GitRepo, issue); err != nil {
 		ctx.Error(http.StatusInternalServerError, "DeleteIssueByID", err)
 		return
 	}
@@ -1055,13 +1038,8 @@ func UpdateIssueDeadline(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 	form := web.GetForm(ctx).(*api.EditDeadlineOption)
-	issue, err := issues_model.GetIssueByIndex(ctx, ctx.Repo().Repository.ID, ctx.ParamsInt64(":index"))
-	if err != nil {
-		if issues_model.IsErrIssueNotExist(err) {
-			ctx.NotFound()
-		} else {
-			ctx.Error(http.StatusInternalServerError, "GetIssueByIndex", err)
-		}
+	issue := ctx.LoadIssue("index")
+	if ctx.Written() {
 		return
 	}
 

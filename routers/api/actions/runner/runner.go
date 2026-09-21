@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/actions"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/sync"
 	"forgejo.org/modules/util"
 	actions_service "forgejo.org/services/actions"
 
@@ -36,10 +37,11 @@ var _ runnerv1connect.RunnerServiceClient = (*Service)(nil)
 
 type Service struct {
 	runnerv1connect.UnimplementedRunnerServiceHandler
+	runnerRequestKeyMutexMap sync.MutexMap
 }
 
 // Register for new runner.
-func (s *Service) Register(
+func (*Service) Register(
 	ctx context.Context,
 	req *connect.Request[runnerv1.RegisterRequest],
 ) (*connect.Response[runnerv1.RegisterResponse], error) {
@@ -109,7 +111,7 @@ func (s *Service) Register(
 	return res, nil
 }
 
-func (s *Service) Declare(
+func (*Service) Declare(
 	ctx context.Context,
 	req *connect.Request[runnerv1.DeclareRequest],
 ) (*connect.Response[runnerv1.DeclareResponse], error) {
@@ -142,6 +144,23 @@ func (s *Service) FetchTask(
 
 	requestKey := getRequestKey(ctx)
 	if requestKey != nil {
+		// It's possible for Forgejo to receive multiple concurrent requests for a given request key if the client made
+		// a request (A), request (A) took longer than the client's HTTP timeout, request (A) continues to run on
+		// Forgejo, and the client sends request (B).  In that case, we need to protect against reading from the
+		// database and sending only *some* of the tasks for the request key back to the runner, as they get assigned
+		// and committed to the database from request (A), but while request (A) is still running and request (B) is
+		// received.  To do this, we lock on the request key with a MutexMap.
+		//
+		// The lock must be held for the entirety of `FetchTask`, so even if the request key isn't used to recover
+		// tasks, the lock is held while new tasks are picked.
+		locked, cleanup := s.runnerRequestKeyMutexMap.TryLock(*requestKey)
+		defer cleanup()
+		if !locked {
+			// Another goroutine is currently processing some work for this request key.  Provide an error to the
+			// client.  This will allow the client to retry with the same request key at its typical fetch interval.
+			return nil, connect.NewError(connect.CodeInternal, errors.New("request key is currently locked; retry soon"))
+		}
+
 		recoveredTasks, err := recoverTasks(ctx, runner, *requestKey)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -167,7 +186,7 @@ func (s *Service) FetchTask(
 		// it means there may still be some tasks not be assigned.
 		// try to pick a task for the runner that send the request.
 		if t, err := actions_service.PickTask(ctx, runner, requestKey, nil); err != nil {
-			if !(actions_service.IsNoTaskAvailable(err)) {
+			if !actions_service.IsNoTaskAvailable(err) {
 				log.Error("pick task failed: %v", err)
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("pick task: %w", err))
 			}
@@ -179,7 +198,7 @@ func (s *Service) FetchTask(
 			for taskCapacity > 0 {
 				t, err := actions_service.PickTask(ctx, runner, requestKey, nil)
 				if err != nil {
-					if !(actions_service.IsNoTaskAvailable(err)) {
+					if !actions_service.IsNoTaskAvailable(err) {
 						// Don't return an error to the client/runner -- we've already assigned one-or-more tasks to the runner
 						// and if we don't return them, they can't be picked up by another runner and will become zombie tasks.
 						// Log the error and return the tasks we've assigned so far.
@@ -201,7 +220,7 @@ func (s *Service) FetchTask(
 	return res, nil
 }
 
-func (s *Service) FetchSingleTask(
+func (*Service) FetchSingleTask(
 	ctx context.Context,
 	req *connect.Request[runnerv1.FetchSingleTaskRequest],
 ) (*connect.Response[runnerv1.FetchSingleTaskResponse], error) {
@@ -237,7 +256,7 @@ func (s *Service) FetchSingleTask(
 		}
 
 		if t, err := actions_service.PickTask(ctx, runner, requestKey, handle); err != nil {
-			if !(actions_service.IsNoTaskAvailable(err)) {
+			if !actions_service.IsNoTaskAvailable(err) {
 				log.Error("pick task failed: %v", err)
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("pick task: %w", err))
 			}
@@ -253,7 +272,7 @@ func (s *Service) FetchSingleTask(
 }
 
 // UpdateTask updates the task status.
-func (s *Service) UpdateTask(
+func (*Service) UpdateTask(
 	ctx context.Context,
 	req *connect.Request[runnerv1.UpdateTaskRequest],
 ) (*connect.Response[runnerv1.UpdateTaskResponse], error) {
@@ -334,7 +353,7 @@ func (s *Service) UpdateTask(
 }
 
 // UpdateLog uploads log of the task.
-func (s *Service) UpdateLog(
+func (*Service) UpdateLog(
 	ctx context.Context,
 	req *connect.Request[runnerv1.UpdateLogRequest],
 ) (*connect.Response[runnerv1.UpdateLogResponse], error) {
@@ -389,6 +408,53 @@ func (s *Service) UpdateLog(
 	}
 
 	return res, nil
+}
+
+// UpdateStepSummary stores the step summaries (GITHUB_STEP_SUMMARY markdown) of the task.
+func (*Service) UpdateStepSummary(
+	ctx context.Context,
+	req *connect.Request[runnerv1.UpdateStepSummaryRequest],
+) (*connect.Response[runnerv1.UpdateStepSummaryResponse], error) {
+	runner := GetRunner(ctx)
+
+	task, err := actions_model.GetTaskByID(ctx, req.Msg.TaskId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get task: %w", err))
+	} else if runner.ID != task.RunnerID {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("invalid runner for task"))
+	}
+
+	if len(req.Msg.Summaries) == 0 {
+		return connect.NewResponse(&runnerv1.UpdateStepSummaryResponse{}), nil
+	}
+
+	steps, err := actions_model.GetTaskStepsByTaskID(ctx, task.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get task steps: %w", err))
+	}
+	stepsByIndex := make(map[int64]*actions_model.ActionTaskStep, len(steps))
+	for _, step := range steps {
+		stepsByIndex[step.Index] = step
+	}
+
+	summaries := make([]*actions_model.ActionTaskStepSummary, 0, len(req.Msg.Summaries))
+	for _, summary := range req.Msg.Summaries {
+		step, ok := stepsByIndex[summary.StepNumber]
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown step number %d for task %d", summary.StepNumber, task.ID))
+		}
+		summaries = append(summaries, &actions_model.ActionTaskStepSummary{
+			StepID:  step.ID,
+			TaskID:  task.ID,
+			RepoID:  task.RepoID,
+			Content: summary.Content,
+		})
+	}
+	if err := actions_model.SaveTaskStepSummaries(ctx, summaries...); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("save step summaries: %w", err))
+	}
+
+	return connect.NewResponse(&runnerv1.UpdateStepSummaryResponse{}), nil
 }
 
 func recoverTasks(ctx context.Context, runner *actions_model.ActionRunner, requestKey string) ([]*runnerv1.Task, error) {

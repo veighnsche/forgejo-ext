@@ -126,7 +126,6 @@ func assertPullRequestEqual(t *testing.T, expected, actual *base.PullRequest) {
 	assertTimeEqual(t, expected.Updated, actual.Updated)
 	assertTimePtrEqual(t, expected.Closed, actual.Closed)
 	assertLabelsEqual(t, expected.Labels, actual.Labels)
-	assert.Equal(t, expected.PatchURL, actual.PatchURL)
 	assert.Equal(t, expected.Merged, actual.Merged)
 	assertTimePtrEqual(t, expected.MergedTime, actual.MergedTime)
 	assert.Equal(t, expected.MergeCommitSHA, actual.MergeCommitSHA)
@@ -223,6 +222,7 @@ func assertRepositoryEqual(t *testing.T, expected, actual *base.Repository) {
 	assert.Equal(t, expected.OriginalURL, actual.OriginalURL)
 	assert.Equal(t, expected.DefaultBranch, actual.DefaultBranch)
 	assert.Equal(t, expected.Website, actual.Website)
+	assert.Equal(t, expected.AvatarURL, actual.AvatarURL)
 }
 
 func assertReviewEqual(t *testing.T, expected, actual *base.Review) {
@@ -254,8 +254,10 @@ func assertReviewCommentEqual(t *testing.T, expected, actual *base.ReviewComment
 	assert.Equal(t, expected.DiffHunk, actual.DiffHunk)
 	assert.Equal(t, expected.Position, actual.Position)
 	assert.Equal(t, expected.Line, actual.Line)
+	assert.Equal(t, expected.ExtraLinesCount, actual.ExtraLinesCount)
 	assert.Equal(t, expected.CommitID, actual.CommitID)
 	assert.Equal(t, expected.PosterID, actual.PosterID)
+	assert.Equal(t, expected.PosterName, actual.PosterName)
 	assertReactionsEqual(t, expected.Reactions, actual.Reactions)
 	assertTimeEqual(t, expected.CreatedAt, actual.CreatedAt)
 	assertTimeEqual(t, expected.UpdatedAt, actual.UpdatedAt)

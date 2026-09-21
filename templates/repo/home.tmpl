@@ -62,7 +62,7 @@
 					{{end}}
 					{{$cmpBranch = print $cmpBranch (.BranchName|PathEscapeSegments)}}
 					{{$compareLink := printf "%s/compare/%s...%s" .BaseRepo.Link (.BaseRepo.DefaultBranch|PathEscapeSegments) $cmpBranch}}
-					<a id="new-pull-request" role="button" class="ui compact basic button" href="{{$compareLink}}"
+					<a id="new-pull-request" class="ui compact basic button" href="{{$compareLink}}"
 						data-tooltip-content="{{if .PullRequestCtx.Allowed}}{{ctx.Locale.Tr "repo.pulls.compare_changes"}}{{else}}{{ctx.Locale.Tr "action.compare_branch"}}{{end}}">
 						{{svg "octicon-git-pull-request"}}
 					</a>
@@ -74,15 +74,15 @@
 
 				{{if and .CanWriteCode .IsViewBranch (not .Repository.IsMirror) (not .Repository.IsArchived) (not .IsViewFile)}}
 					<button class="ui dropdown basic compact jump button tw-mr-1"{{if not .Repository.CanEnableEditor}} disabled{{end}}>
-						{{ctx.Locale.Tr "repo.editor.add_file"}}
+						{{ctx.Locale.Tr "file_editor.add_file"}}
 						{{svg "octicon-triangle-down" 14 "dropdown icon"}}
 						<div class="menu">
 							<a class="item" href="{{.RepoLink}}/_new/{{.BranchName | PathEscapeSegments}}/{{.TreePath | PathEscapeSegments}}">
-								{{ctx.Locale.Tr "repo.editor.new_file"}}
+								{{ctx.Locale.Tr "file_editor.new_file"}}
 							</a>
 							{{if .RepositoryUploadEnabled}}
 							<a class="item" href="{{.RepoLink}}/_upload/{{.BranchName | PathEscapeSegments}}/{{.TreePath | PathEscapeSegments}}">
-								{{ctx.Locale.Tr "repo.editor.upload_file"}}
+								{{ctx.Locale.Tr "file_editor.upload_file"}}
 							</a>
 							{{end}}
 							<a class="item" href="{{.RepoLink}}/_diffpatch/{{.BranchName | PathEscapeSegments}}/{{.TreePath | PathEscapeSegments}}">

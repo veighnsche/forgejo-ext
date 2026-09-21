@@ -21,6 +21,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestVisibility(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	// not logged in user
+	req := NewRequest(t, "GET", "/org/org3/teams/team12creators")
+	MakeRequest(t, req, http.StatusSeeOther)
+
+	// not org member
+	session := loginUser(t, "user5")
+	req = NewRequest(t, "GET", "/org/org3/teams/team12creators")
+	session.MakeRequest(t, req, http.StatusNotFound)
+
+	// org member, not part of the team
+	session = loginUser(t, "user4")
+	req = NewRequest(t, "GET", "/org/org3/teams/team12creators")
+	session.MakeRequest(t, req, http.StatusNotFound)
+
+	// org member, part of the team
+	session = loginUser(t, "user28")
+	req = NewRequest(t, "GET", "/org/org3/teams/team12creators")
+	session.MakeRequest(t, req, http.StatusOK)
+
+	// org owner
+	session = loginUser(t, "user2")
+	req = NewRequest(t, "GET", "/org/org3/teams/team12creators")
+	session.MakeRequest(t, req, http.StatusOK)
+
+	// site admin
+	session = loginUser(t, "user1")
+	req = NewRequest(t, "GET", "/org/org3/teams/team12creators")
+	session.MakeRequest(t, req, http.StatusOK)
+}
+
 func TestPaginatedMembers(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	// To make sure that pagination kicks in even though the test team has few members
@@ -90,6 +123,13 @@ func TestDisplayInvites(t *testing.T) {
 	// the two invited users are shown
 	assert.Equal(t, "/user31", doc.Find("a:contains('user31')").AttrOr("href", ""))
 	assert.Equal(t, 1, doc.Find("div.flex-item-main:contains('external_user@example.com')").Length())
+	// the expired invitations are also shown
+	assert.Equal(t, "/user30", doc.Find("a:contains('user30')").AttrOr("href", ""))
+	assert.Equal(t, 1, doc.Find("div.flex-item-main:contains('other_ext_user@example.com')").Length())
+	// there are buttons to remove any of those invitations
+	assert.Equal(t, 4, doc.Find(fmt.Sprintf("form[action='%s/action/remove_invite'] button:contains('Remove')", teamURL)).Length())
+	// and buttons to renew the expired ones
+	assert.Equal(t, 2, doc.Find(fmt.Sprintf("form[action='%s/action/add'] button:contains('Renew')", teamURL)).Length())
 }
 
 func TestAddMembersByInvitations(t *testing.T) {
@@ -120,4 +160,14 @@ func TestAddMembersByInvitations(t *testing.T) {
 	body = session.MakeRequest(t, NewRequest(t, "GET", teamURL), http.StatusOK).Body
 	doc = NewHTMLParser(t, body)
 	assert.Equal(t, "/user31", doc.Find("a:contains('user31')").AttrOr("href", ""))
+
+	// invite the same user again
+	req = NewRequestWithValues(t, "POST", fmt.Sprintf("%s/action/add", teamURL), map[string]string{
+		"uname": "user31",
+	})
+	resp = session.MakeRequest(t, req, http.StatusSeeOther)
+	assert.Equal(t, teamURL, resp.Header().Get("Location"))
+	body = session.MakeRequest(t, NewRequest(t, "GET", teamURL), http.StatusOK).Body
+	doc = NewHTMLParser(t, body)
+	assert.Contains(t, strings.TrimSpace(doc.Find(".flash-error").Text()), "This user is already invited to the team.")
 }

@@ -5,6 +5,7 @@
 package packages_test
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"forgejo.org/models/db"
@@ -12,7 +13,11 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	packages_module "forgejo.org/modules/packages"
+	"forgejo.org/modules/timeutil"
+	packages_service "forgejo.org/services/packages"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,7 +81,7 @@ func TestGetPackageByID(t *testing.T) {
 	require.Equal(t, *p0, *p)
 	require.NoError(t, err)
 
-	// Get package with non-existng ID should yield ErrPackageNotExist
+	// Get package with non-existing ID should yield ErrPackageNotExist
 	p, err = packages_model.GetPackageByID(db.DefaultContext, 999)
 	require.Nil(t, p)
 	require.Error(t, err)
@@ -249,7 +254,7 @@ func TestHasCountPackages(t *testing.T) {
 	require.NotNil(t, pv2)
 	require.NoError(t, err)
 
-	// A package withmultiple package versions should be counted only once
+	// A package with multiple package versions should be counted only once
 	has, err = packages_model.HasOwnerPackages(db.DefaultContext, owner.ID)
 	require.True(t, has)
 	require.NoError(t, err)
@@ -308,4 +313,204 @@ func TestHasCountPackages(t *testing.T) {
 	count, err = packages_model.CountRepositoryPackages(db.DefaultContext, 0)
 	require.EqualValues(t, 1, count)
 	require.NoError(t, err)
+}
+
+func TestPackageTotalSize(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	ctx := t.Context()
+	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+
+	data, err := packages_module.NewHashedBuffer()
+	require.NoError(t, err)
+
+	pv, _, err := packages_service.CreatePackageAndAddFile(ctx, &packages_service.PackageCreationInfo{
+		PackageInfo: packages_service.PackageInfo{
+			Owner:       owner,
+			PackageType: packages_model.TypeGeneric,
+			Name:        "Bleihai",
+			Version:     "1337",
+		},
+		Creator: owner,
+	}, &packages_service.PackageFileCreationInfo{
+		PackageFileInfo: packages_service.PackageFileInfo{Filename: "uwu"},
+		Data:            data,
+		Creator:         owner,
+		IsLead:          true,
+	})
+
+	require.NoError(t, err)
+
+	blobs := []*packages_model.PackageBlob{
+		{
+			Size:        10,
+			CreatedUnix: timeutil.TimeStampNow(),
+		},
+		{
+			Size:        20,
+			CreatedUnix: timeutil.TimeStampNow().Add(1),
+		},
+		{
+			Size:        40,
+			CreatedUnix: timeutil.TimeStampNow().Add(2),
+		},
+	}
+
+	for i, b := range blobs {
+		timeBuf := []byte(b.CreatedUnix.AsTime().String())
+		hsr := packages_module.NewMultiHasher()
+		_, err := hsr.Write(timeBuf)
+		require.NoError(t, err)
+
+		md5hash, sha1hash, sha256hash, sha512hash, blake2bhash := hsr.Sums()
+		b.HashMD5 = hex.EncodeToString(md5hash)
+		b.HashSHA1 = hex.EncodeToString(sha1hash)
+		b.HashSHA256 = hex.EncodeToString(sha256hash)
+		b.HashSHA512 = hex.EncodeToString(sha512hash)
+		b.HashBlake2b = hex.EncodeToString(blake2bhash)
+
+		b, _, err := packages_model.GetOrInsertBlob(ctx, b)
+		require.NoError(t, err)
+		blobs[i] = b
+	}
+
+	files := []struct {
+		Size int64
+		File *packages_model.PackageFile
+	}{
+		{
+			Size: 10,
+			File: &packages_model.PackageFile{
+				VersionID: pv.ID,
+				BlobID:    blobs[0].ID,
+				Name:      "shark",
+				LowerName: "shark",
+			},
+		},
+		{
+			Size: 20,
+			File: &packages_model.PackageFile{
+				VersionID: pv.ID,
+				BlobID:    blobs[1].ID,
+				Name:      "shark1",
+				LowerName: "shark1",
+			},
+		},
+		{
+			Size: 40,
+			File: &packages_model.PackageFile{
+				VersionID: pv.ID,
+				BlobID:    blobs[2].ID,
+				Name:      "shark2",
+				LowerName: "shark2",
+			},
+		},
+	}
+
+	totalSize := int64(0)
+	for _, f := range files {
+		_, err := packages_model.TryInsertFile(ctx, f.File)
+		require.NoError(t, err)
+
+		pv, err = packages_model.GetVersionByID(ctx, pv.ID)
+		require.NoError(t, err)
+
+		totalSize += f.Size
+		assert.Equal(t, totalSize, pv.TotalSize)
+	}
+
+	for _, f := range files {
+		err := packages_model.DeleteFileByID(ctx, f.File.ID)
+		require.NoError(t, err)
+
+		pv, err = packages_model.GetVersionByID(ctx, pv.ID)
+		require.NoError(t, err)
+
+		totalSize -= f.Size
+		assert.Equal(t, totalSize, pv.TotalSize)
+	}
+}
+
+func TestSortPackages(t *testing.T) {
+	defer unittest.OverrideFixtures("models/packages/fixtures/TestSortPackages")()
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	ctx := t.Context()
+
+	// default sort options (unix desc)
+	pvs, count, err := packages_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{})
+	require.NoError(t, err)
+	assert.EqualValues(t, 4, count)
+
+	expectedOrder := []int64{77, 76, 75, 74}
+	for i, pv := range pvs {
+		assert.Equal(t, expectedOrder[i], pv.ID)
+	}
+
+	// sort by name
+	pvs, count, err = packages_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{
+		Sort: packages_model.SortNameAsc,
+	})
+	require.NoError(t, err)
+	assert.EqualValues(t, 4, count)
+
+	expectedOrder = []int64{74, 76, 75, 77}
+	for i, pv := range pvs {
+		assert.Equal(t, expectedOrder[i], pv.ID)
+	}
+
+	// sort by version
+	pvs, count, err = packages_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{
+		Sort: packages_model.SortVersionAsc,
+	})
+	require.NoError(t, err)
+	assert.EqualValues(t, 4, count)
+
+	expectedOrder = []int64{74, 75, 76, 77}
+	for i, pv := range pvs {
+		assert.Equal(t, expectedOrder[i], pv.ID)
+	}
+
+	// sort by total size
+	pvs, count, err = packages_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{
+		Sort: packages_model.SortSizeAsc,
+	})
+	require.NoError(t, err)
+	assert.EqualValues(t, 4, count)
+
+	expectedOrder = []int64{77, 75, 74, 76}
+	for i, pv := range pvs {
+		assert.Equal(t, expectedOrder[i], pv.ID)
+	}
+}
+
+func TestDownloadCounterAndLastDownload(t *testing.T) {
+	p := prepareExamplePackage(t)
+	pv0, err := packages_model.GetOrInsertVersion(db.DefaultContext, &packages_model.PackageVersion{
+		PackageID:    p.ID,
+		LowerVersion: "normal",
+		IsInternal:   false,
+	})
+	require.NotNil(t, pv0)
+	require.NoError(t, err)
+
+	referenceTime := timeutil.TimeStamp(0)
+	// There should be no downloads, yet.
+	pv, err := packages_model.GetVersionByID(db.DefaultContext, pv0.ID)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, pv.DownloadCount)
+	require.Equal(t, referenceTime, pv.LastDownloadUnix)
+
+	// Increment Download Counter And Set Last Download should yield no error
+	err = packages_model.IncrementDownloadCounterAndSetLastDownload(db.DefaultContext, pv.ID)
+	require.NoError(t, err)
+
+	referenceTime = timeutil.TimeStampNow()
+	// The download count should be incremented and the last download time not null.
+	pv, err = packages_model.GetVersionByID(db.DefaultContext, pv.ID)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, pv.DownloadCount)
+	require.GreaterOrEqual(t, pv.LastDownloadUnix.AsLocalTime().Compare(referenceTime.AsLocalTime()), 0)
+
+	deletePackage(t, p)
 }

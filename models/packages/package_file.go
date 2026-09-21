@@ -59,10 +59,21 @@ func TryInsertFile(ctx context.Context, pf *PackageFile) (*PackageFile, error) {
 	if has {
 		return existing, ErrDuplicatePackageFile
 	}
-	if _, err = e.Insert(pf); err != nil {
-		return nil, err
-	}
-	return pf, nil
+
+	err = db.WithTx(ctx, func(ctx context.Context) error {
+		if _, err = db.GetEngine(ctx).Insert(pf); err != nil {
+			return err
+		}
+
+		pv, err := GetVersionByID(ctx, pf.VersionID)
+		if err != nil {
+			return err
+		}
+
+		return pv.UpdateTotalSize(ctx)
+	})
+
+	return pf, err
 }
 
 // GetFilesByVersionID gets all files of a version
@@ -116,8 +127,28 @@ func GetFileForVersionByName(ctx context.Context, versionID int64, name, key str
 
 // DeleteFileByID deletes a file
 func DeleteFileByID(ctx context.Context, fileID int64) error {
-	_, err := db.GetEngine(ctx).ID(fileID).Delete(&PackageFile{})
-	return err
+	return db.WithTx(ctx, func(ctx context.Context) error {
+		e := db.GetEngine(ctx)
+
+		pf := PackageFile{}
+		_, err := e.ID(fileID).Get(&pf)
+		if err != nil {
+			return err
+		}
+
+		pv := PackageVersion{}
+		_, err = e.ID(pf.VersionID).Get(&pv)
+		if err != nil {
+			return err
+		}
+
+		_, err = e.ID(fileID).Delete(&PackageFile{})
+		if err != nil {
+			return err
+		}
+
+		return pv.UpdateTotalSize(ctx)
+	})
 }
 
 // PackageFileSearchOptions are options for SearchXXX methods
@@ -227,11 +258,20 @@ func SearchFiles(ctx context.Context, opts *PackageFileSearchOptions) ([]*Packag
 }
 
 // CalculateFileSize sums up all blob sizes matching the search options.
-// It does NOT respect the deduplication of blobs.
+// It respects the deduplication of blobs.
+//
+// Deduplication works as follows: we fetch all package_file entries matching
+// the search options, but take only unique blob_id values (the same blob can
+// be reused by multiple package_file entries), and then sum up the sizes of
+// these unique blobs.
 func CalculateFileSize(ctx context.Context, opts *PackageFileSearchOptions) (int64, error) {
+	in := builder.
+		Select("DISTINCT package_file.blob_id").
+		From("package_file").
+		Where(opts.toConds())
+
 	return db.GetEngine(ctx).
-		Table("package_file").
-		Where(opts.toConds()).
-		Join("INNER", "package_blob", "package_blob.id = package_file.blob_id").
+		Table("package_blob").
+		Where(builder.In("package_blob.id", in)).
 		SumInt(new(PackageBlob), "size")
 }

@@ -38,6 +38,17 @@ func TestOrgMembersPage(t *testing.T) {
 		doc.AssertElement(t, "#add-org-member-button", false)
 	})
 
+	t.Run("Guest PoV with empty members list", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		// hide the visibility of all public members of org3
+		require.NoError(t, organization.ChangeOrgUserStatus(db.DefaultContext, 3, 2, false))
+		require.NoError(t, organization.ChangeOrgUserStatus(db.DefaultContext, 3, 28, false))
+
+		doc := NewHTMLParser(t, MakeRequest(t, NewRequest(t, "GET", "/org/org3/members"), http.StatusOK).Body)
+		doc.AssertElement(t, ".empty-placeholder", true)
+	})
+
 	t.Run("Member PoV", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
@@ -254,15 +265,15 @@ func TestOrgAddMemberGeneratesAnInvite(t *testing.T) {
 
 	session := loginUser(t, "user2")
 
-	teamURL := fmt.Sprintf("/org/%s/members", org.Name)
-	req := NewRequestWithValues(t, "POST", teamURL+"/action/add", map[string]string{
+	membersURL := fmt.Sprintf("/org/%s/members", org.Name)
+	req := NewRequestWithValues(t, "POST", membersURL+"/action/add", map[string]string{
 		"uid":    "2",
 		"uname":  user.LoginName,
 		"team_1": "on",
 		"team_2": "on",
 	})
 	resp := session.MakeRequest(t, req, http.StatusSeeOther)
-	assert.Equal(t, teamURL, resp.Header().Get("Location"))
+	assert.Equal(t, membersURL, resp.Header().Get("Location"))
 
 	user = unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 5})
 	isMember, err = organization.IsTeamMember(db.DefaultContext, team1.OrgID, team1.ID, user.ID)
@@ -273,4 +284,37 @@ func TestOrgAddMemberGeneratesAnInvite(t *testing.T) {
 	assert.False(t, isMember)
 	unittest.AssertExistsAndLoadBean(t, &organization.TeamInvite{TeamID: team1.ID, InviterID: 2, InvitedID: optional.Some(user.ID)})
 	unittest.AssertExistsAndLoadBean(t, &organization.TeamInvite{TeamID: team2.ID, InviterID: 2, InvitedID: optional.Some(user.ID)})
+
+	doc := NewHTMLParser(t, session.MakeRequest(t, NewRequest(t, "GET", membersURL), http.StatusOK).Body)
+	assert.Contains(t, strings.TrimSpace(doc.Find(".flash-info").Text()), "User successfully invited to the organization.")
+}
+
+func TestOrgAlreadyInvitedMemberFails(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, true)()
+
+	team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 1})
+	org := unittest.AssertExistsAndLoadBean(t, &organization.Organization{ID: team.OrgID})
+	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	user5 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 5})
+
+	_, err := organization.CreateTeamInviteForUser(t.Context(), user2, user5, team)
+	require.NoError(t, err)
+
+	session := loginUser(t, "user2")
+
+	teamURL := fmt.Sprintf("/org/%s/members", org.Name)
+	req := NewRequestWithValues(t, "POST", teamURL+"/action/add", map[string]string{
+		"uid":    "5",
+		"uname":  user5.LoginName,
+		"team_1": "on",
+	})
+	resp := session.MakeRequest(t, req, http.StatusSeeOther)
+	assert.Equal(t, teamURL, resp.Header().Get("Location"))
+	doc := NewHTMLParser(t, session.MakeRequest(t, NewRequest(t, "GET", teamURL), http.StatusOK).Body)
+	assert.Contains(t, strings.TrimSpace(doc.Find(".flash-error").Text()), "This user is already invited to the organization.")
+
+	isTeamMember, err := organization.IsTeamMember(t.Context(), team.OrgID, team.ID, user5.ID)
+	require.NoError(t, err)
+	assert.False(t, isTeamMember)
 }

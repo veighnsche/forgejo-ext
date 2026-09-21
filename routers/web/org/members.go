@@ -146,6 +146,18 @@ func MembersAction(ctx *context.Context) {
 			ctx.Redirect(ctx.Org.OrgLink + "/members")
 			return
 		}
+		if setting.Service.AddMembersByInvitations {
+			alreadyInvited, err := ctx.Org.Organization.IsInvitedToOrg(ctx, u.ID)
+			if err != nil {
+				ctx.ServerError("IsInvitedToOrg", err)
+				return
+			}
+			if alreadyInvited {
+				ctx.Flash.Error(ctx.Tr("members.user_already_invited_to_org"))
+				ctx.Redirect(ctx.Org.OrgLink + "/members")
+				return
+			}
+		}
 
 		teams, err := organization.FindOrgTeams(ctx, org.ID)
 		if err != nil {
@@ -167,6 +179,8 @@ func MembersAction(ctx *context.Context) {
 
 		if !addedToTeam {
 			ctx.Flash.Error(ctx.Tr("members.no_team_selected"))
+		} else if setting.Service.AddMembersByInvitations {
+			ctx.Flash.Info(ctx.Tr("members.successfully_invited"))
 		}
 		ctx.Redirect(ctx.Org.OrgLink + "/members")
 		return

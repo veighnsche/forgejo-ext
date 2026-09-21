@@ -27,6 +27,7 @@ import (
 	"forgejo.org/modules/httpcache"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
+	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/web"
 	web_types "forgejo.org/modules/web/types"
 	apiv1_permissions "forgejo.org/routers/api/v1/permissions"
@@ -49,7 +50,8 @@ type APIContext struct {
 	user *user_model.User // the user which is being visited, in most cases it differs from Doer
 
 	repo       *Repository
-	comment    *issues_model.Comment
+	issues     map[int64]*issues_model.Issue
+	comments   map[int64]*issues_model.Comment
 	org        *APIOrganization
 	pkg        *Package
 	quotaGroup *quota_model.Group
@@ -71,16 +73,11 @@ func init() {
 //            if we need to indicate some errors, we should introduce some new fields like ErrorCode or ErrorType
 // * url:     the swagger document URL
 
-type APIError struct {
-	Message string `json:"message"`
-	URL     string `json:"url"`
-}
-
 // APIError is error format response
 // swagger:response error
 type swaggerAPIError struct {
 	// in:body
-	Body APIError `json:"body"`
+	Body api.APIError `json:"body"`
 }
 
 type APIValidationError struct {
@@ -112,7 +109,7 @@ type swaggerAPIInvalidTopicsError struct {
 type APIEmpty struct{}
 
 type APIUnauthorizedError struct {
-	APIError
+	api.APIError
 }
 
 // APIUnauthorizedError is a unauthorized error response
@@ -123,7 +120,7 @@ type swaggerAPUnauthorizedError struct {
 }
 
 type APIForbiddenError struct {
-	APIError
+	api.APIError
 }
 
 // APIForbiddenError is a forbidden error response
@@ -159,7 +156,7 @@ type APIRedirect struct{}
 type APIString string
 
 type APIRepoArchivedError struct {
-	APIError
+	api.APIError
 }
 
 // APIRepoArchivedError is an error that is raised when an archived repo should be modified
@@ -170,7 +167,7 @@ type swaggerAPIRepoArchivedError struct {
 }
 
 type APIInternalServerError struct {
-	APIError
+	api.APIError
 }
 
 // APIInternalServerError is an error that is raised when an internal server error occurs
@@ -233,6 +230,28 @@ func (ctx *APIContext) SetRepo(repo *Repository) {
 	ctx.repo = repo
 }
 
+func (ctx *APIContext) LoadIssue(indexParam string) *issues_model.Issue {
+	id := ctx.ParamsInt64(indexParam)
+	issue, ok := ctx.issues[id]
+	if !ok {
+		var err error
+		issue, err = issues_model.GetIssueByIndex(ctx.Context(), ctx.Repository().ID, id)
+		if err != nil {
+			if issues_model.IsErrIssueNotExist(err) {
+				ctx.NotFound("IsErrIssueNotExist", err)
+				return nil
+			}
+			ctx.Error(http.StatusInternalServerError, "GetIssueByIndex", err)
+			return nil
+		}
+
+		issue.Repo = ctx.Repo().Repository
+
+		ctx.issues[id] = issue
+	}
+	return issue
+}
+
 func (ctx *APIContext) Repository() *repo_model.Repository {
 	return ctx.Repo().Repository
 }
@@ -243,14 +262,6 @@ func (ctx *APIContext) Permission() *access_model.Permission {
 
 func (ctx *APIContext) SetPermission(permission *access_model.Permission) {
 	ctx.Repo().Permission = *permission
-}
-
-func (ctx *APIContext) Comment() *issues_model.Comment {
-	return ctx.comment
-}
-
-func (ctx *APIContext) SetComment(comment *issues_model.Comment) {
-	ctx.comment = comment
 }
 
 func (ctx *APIContext) Organization() *org_model.Organization {
@@ -278,6 +289,33 @@ func (ctx *APIContext) PackageOwner() *user_model.User {
 		return nil
 	}
 	return ctx.Package().Owner
+}
+
+func (ctx *APIContext) LoadComment(idParam string) *issues_model.Comment {
+	id := ctx.ParamsInt64(idParam)
+	comment, ok := ctx.comments[id]
+	if !ok {
+		var err error
+		comment, err = issues_model.GetCommentByID(ctx, id)
+		if err != nil {
+			if issues_model.IsErrCommentNotExist(err) {
+				ctx.NotFound(err)
+			} else {
+				ctx.InternalServerError(err)
+			}
+			return nil
+		}
+
+		if err = comment.LoadIssue(ctx); err != nil {
+			ctx.InternalServerError(err)
+			return nil
+		}
+
+		comment.Issue.Repo = ctx.Repo().Repository
+
+		ctx.comments[id] = comment
+	}
+	return comment
 }
 
 func (ctx *APIContext) PackageAccessMode() perm.AccessMode {
@@ -337,7 +375,7 @@ func (ctx *APIContext) Error(status int, title string, obj any) {
 		}
 	}
 
-	ctx.JSON(status, APIError{
+	ctx.JSON(status, api.APIError{
 		Message: message,
 		URL:     setting.API.SwaggerURL,
 	})
@@ -353,7 +391,7 @@ func (ctx *APIContext) InternalServerError(err error) {
 		message = err.Error()
 	}
 
-	ctx.JSON(http.StatusInternalServerError, APIError{
+	ctx.JSON(http.StatusInternalServerError, api.APIError{
 		Message: message,
 		URL:     setting.API.SwaggerURL,
 	})
@@ -428,10 +466,12 @@ func APIContexter() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			base, baseCleanUp := NewBaseContext(w, req)
 			ctx := &APIContext{
-				Base:  base,
-				cache: mc.GetCache(),
-				repo:  &Repository{PullRequest: &PullRequest{}},
-				org:   &APIOrganization{},
+				Base:     base,
+				issues:   make(map[int64]*issues_model.Issue),
+				comments: make(map[int64]*issues_model.Comment),
+				cache:    mc.GetCache(),
+				repo:     &Repository{PullRequest: &PullRequest{}},
+				org:      &APIOrganization{},
 			}
 			defer baseCleanUp()
 

@@ -42,7 +42,7 @@
 					<label {{if .Err_Biography}}class="field error"{{end}}>
 						{{ctx.Locale.Tr "user.user_bio"}}
 						<textarea name="biography" rows="2" placeholder="{{ctx.Locale.Tr "settings.biography_placeholder"}}" maxlength="255">{{.SignedUser.Description}}</textarea>
-						<span class="help">{{ctx.Locale.Tr "settings.profile.dotprofile.hint" ".profile" "https://forgejo.org/docs/latest/user/profile/"}}</span>
+						<span class="help">{{ctx.Locale.Tr "settings.profile.dotprofile.hint" ".profile" (AppDocsURL "user/collaboration/profile/")}}</span>
 					</label>
 
 					<label {{if .Err_Website}}class="field error"{{end}}>
@@ -61,30 +61,30 @@
 					<legend id="privacy-user-settings">{{ctx.Locale.Tr "settings.privacy"}}</legend>
 
 					<label id="visibility-setting" {{if .Err_Visibility}}class="field error"{{end}}>
-						{{ctx.Locale.Tr "settings.visibility"}}
+						{{ctx.Locale.Tr "user.visibility.label"}}
 						<div class="ui selection type dropdown" aria-labelledby="visibility-setting">
 							{{if .SignedUser.Visibility.IsPublic}}<input type="hidden" id="visibility" name="visibility" value="0">{{end}}
 							{{if .SignedUser.Visibility.IsLimited}}<input type="hidden" id="visibility" name="visibility" value="1">{{end}}
 							{{if .SignedUser.Visibility.IsPrivate}}<input type="hidden" id="visibility" name="visibility" value="2">{{end}}
 							<div class="text">
-								{{if .SignedUser.Visibility.IsPublic}}{{ctx.Locale.Tr "settings.visibility.public"}}{{end}}
-								{{if .SignedUser.Visibility.IsLimited}}{{ctx.Locale.Tr "settings.visibility.limited"}}{{end}}
-								{{if .SignedUser.Visibility.IsPrivate}}{{ctx.Locale.Tr "settings.visibility.private"}}{{end}}
+								{{if .SignedUser.Visibility.IsPublic}}{{ctx.Locale.Tr "user.visibility.public.title"}}{{end}}
+								{{if .SignedUser.Visibility.IsLimited}}{{ctx.Locale.Tr "user.visibility.limited.title"}}{{end}}
+								{{if .SignedUser.Visibility.IsPrivate}}{{ctx.Locale.Tr "user.visibility.private.title"}}{{end}}
 							</div>
 							{{svg "octicon-triangle-down" 14 "dropdown icon"}}
 							<div class="menu">
 								{{range $mode := .AllowedUserVisibilityModes}}
 									{{if $mode.IsPublic}}
-										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.public_tooltip"}}" data-value="0">{{ctx.Locale.Tr "settings.visibility.public"}}</div>
+										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "user.visibility.public.tooltip"}}" data-value="0">{{ctx.Locale.Tr "user.visibility.public.title"}}</div>
 									{{else if $mode.IsLimited}}
-										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.limited_tooltip"}}" data-value="1">{{ctx.Locale.Tr "settings.visibility.limited"}}</div>
+										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "user.visibility.limited.tooltip"}}" data-value="1">{{ctx.Locale.Tr "user.visibility.limited.title"}}</div>
 									{{else if $mode.IsPrivate}}
-										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.private_tooltip"}}" data-value="2">{{ctx.Locale.Tr "settings.visibility.private"}}</div>
+										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "user.visibility.private.tooltip"}}" data-value="2">{{ctx.Locale.Tr "user.visibility.private.title"}}</div>
 									{{end}}
 								{{end}}
 							</div>
 						</div>
-						<span class="help">{{ctx.Locale.Tr "settings.visibility.description" "https://forgejo.org/docs/latest/user/repo-permissions/#profile-and-visibility"}}</span>
+						<span class="help">{{ctx.Locale.Tr "settings.visibility.description" (AppDocsURL "user/repo-permissions/#profile-and-visibility")}}</span>
 					</label>
 
 					<label>
@@ -137,8 +137,8 @@
 
 				<div class="inline field tw-pl-4">
 					<label for="new-avatar">{{ctx.Locale.Tr "settings.choose_new_avatar"}}</label>
-					<input id="new-avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
-					<br/><span class=help>{{ctx.Locale.Tr "avatar.constraints_hint" (ctx.Locale.TrSize .MaxAvatarFileSize) .MaxAvatarWidth .MaxAvatarHeight}}</span>
+					<input id="new-avatar" name="avatar" aria-describedby="new-avatar-description" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
+					<br/><span id="new-avatar-description" class=help>{{ctx.Locale.Tr "avatar.constraints_hint" (ctx.Locale.TrSize .MaxAvatarFileSize) .MaxAvatarWidth .MaxAvatarHeight}}</span>
 				</div>
 
 				<div class="field button-sequence">

@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"forgejo.org/models/db"
+	"forgejo.org/models/repo"
+	"forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/assert"
@@ -79,12 +81,12 @@ func TestActionTask_GetTasksByRunnerRequestKey(t *testing.T) {
 }
 
 func TestActionTask_GetAvailableJobsForRunner(t *testing.T) {
-	defer unittest.OverrideFixtures("models/actions/TestActionTask_GetAvailableJobsForRunner")()
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	runner := unittest.AssertExistsAndLoadBean(t, &ActionRunner{ID: 73711})
-
 	t.Run("Priority takes precedence", func(t *testing.T) {
+		defer unittest.OverrideFixtures("models/actions/TestActionTask_GetAvailableJobsForRunner")()
+		require.NoError(t, unittest.PrepareTestDatabase())
+
+		runner := unittest.AssertExistsAndLoadBean(t, &ActionRunner{ID: 73711})
+
 		jobs, err := GetAvailableJobsForRunner(db.GetEngine(t.Context()), runner)
 		require.NoError(t, err)
 
@@ -93,4 +95,73 @@ func TestActionTask_GetAvailableJobsForRunner(t *testing.T) {
 		assert.Equal(t, int64(504010), jobs[1].ID)
 		assert.Equal(t, int64(504030), jobs[2].ID)
 	})
+
+	t.Run("Runner skips pending jobs when actions disabled", func(t *testing.T) {
+		testCases := []struct {
+			name     string
+			runnerID int64
+		}{
+			{
+				name:     "Repository runner",
+				runnerID: 73711,
+			},
+			{
+				name:     "User runner",
+				runnerID: 73712,
+			},
+			{
+				name:     "Global runner",
+				runnerID: 73713,
+			},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(testCase.name, func(t *testing.T) {
+				defer unittest.OverrideFixtures("models/actions/TestActionTask_GetAvailableJobsForRunner")()
+				require.NoError(t, unittest.PrepareTestDatabase())
+
+				repo62 := unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: 62})
+				runner := unittest.AssertExistsAndLoadBean(t, &ActionRunner{ID: 73711})
+
+				jobs, err := GetAvailableJobsForRunner(db.GetEngine(t.Context()), runner)
+				require.NoError(t, err)
+
+				assert.Len(t, jobs, 3)
+				assert.Equal(t, int64(504020), jobs[0].ID)
+				assert.Equal(t, int64(504010), jobs[1].ID)
+				assert.Equal(t, int64(504030), jobs[2].ID)
+
+				// Disable actions
+				_, err = db.GetEngine(t.Context()).
+					Where("repo_id = ?", repo62.ID).
+					In("type", []unit.Type{unit.TypeActions}).
+					Delete(new(repo.RepoUnit))
+				require.NoError(t, err)
+
+				jobs, err = GetAvailableJobsForRunner(db.GetEngine(t.Context()), runner)
+				require.NoError(t, err)
+
+				assert.Empty(t, jobs)
+			})
+		}
+	})
+}
+
+func TestActionTask_DeleteTask(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	const taskID, repoID = int64(46), int64(4)
+	step := &ActionTaskStep{TaskID: taskID, Index: 0, RepoID: repoID}
+	unittest.AssertSuccessfulInsert(t, step)
+	unittest.AssertSuccessfulInsert(t,
+		&ActionTaskStepSummary{StepID: step.ID, TaskID: taskID, RepoID: repoID, Content: "## gone"},
+		&ActionTaskOutput{TaskID: taskID, OutputKey: "delete_task_test", OutputValue: "gone"},
+	)
+
+	require.NoError(t, DeleteTask(t.Context(), taskID))
+
+	unittest.AssertNotExistsBean(t, &ActionTask{ID: taskID})
+	unittest.AssertCount(t, &ActionTaskStepSummary{TaskID: taskID}, 0)
+	unittest.AssertCount(t, &ActionTaskStep{TaskID: taskID}, 0)
+	unittest.AssertCount(t, &ActionTaskOutput{TaskID: taskID}, 0)
 }

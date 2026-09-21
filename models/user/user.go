@@ -730,6 +730,11 @@ func AdminCreateUser(ctx context.Context, u *User, overwriteDefault ...*CreateUs
 func createUser(ctx context.Context, u *User, createdByAdmin bool, overwriteDefault ...*CreateUserOverwriteOptions) (err error) {
 	overwriteDefaultPresent := len(overwriteDefault) != 0 && overwriteDefault[0] != nil
 
+	// Apply username prefix for non-admin user creation if configured.
+	if !createdByAdmin && setting.Service.UsernamePrefix != "" && !strings.HasPrefix(u.Name, setting.Service.UsernamePrefix) {
+		u.Name = setting.Service.UsernamePrefix + u.Name
+	}
+
 	// If a username is invalid as-is, check whether the username is meant
 	// for an ActivityPub account. Username constraints that belong to "foreign"
 	// ActivityPub servers, whose implementations we cannot control, are expected
@@ -1359,14 +1364,20 @@ func isUserVisibleToViewerCond(viewer *User) builder.Cond {
 			builder.
 				Select("`team_user`.uid").
 				From("team_user").
-				Join("INNER", "`team_user` AS t2", "`team_user`.org_id = `t2`.org_id").
-				Where(builder.Eq{"`t2`.uid": viewer.ID})),
+				// Explicitly don't self-join, two seperate queries are much faster for
+				// a lot of rows
+				Where(builder.In("`team_user`.org_id",
+					builder.
+						Select("`team_user`.org_id").
+						From("team_user").
+						Where(builder.Eq{"`team_user`.uid": viewer.ID})))),
 		// viewer's org
 		builder.In("`user`.id",
 			builder.
 				Select("`team_user`.org_id").
 				From("team_user").
-				Where(builder.Eq{"`team_user`.uid": viewer.ID})))
+				Where(builder.Eq{"`team_user`.uid": viewer.ID})),
+	)
 }
 
 // IsUserVisibleToViewer check if viewer is able to see user profile
@@ -1404,7 +1415,10 @@ func IsUserVisibleToViewer(ctx context.Context, u, viewer *User) bool {
 						builder.In("org_id",
 							builder.Select("org_id").
 								From("team_user", "t2").
-								Where(builder.Eq{"uid": u.ID}))))).
+								Where(builder.Eq{"uid": u.ID})),
+					),
+				),
+			).
 			Count()
 		if err != nil {
 			return false

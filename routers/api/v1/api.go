@@ -60,7 +60,6 @@ import (
 	"strings"
 
 	auth_model "forgejo.org/models/auth"
-	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	quota_model "forgejo.org/models/quota"
@@ -124,39 +123,7 @@ func sudo() func(ctx *context.APIContext) {
 	}
 }
 
-func repoAssignment(ctx *context.APIContext) {
-	apiv1_permissions_testhelpers.FollowedBy(repoAssignment, apiv1_permissions.RepoAccess)
-	userName := ctx.Params("username")
-	repoName := ctx.Params("reponame")
-
-	var (
-		owner *user_model.User
-		err   error
-	)
-
-	// Check if the user is the same as the repository owner.
-	if ctx.IsSigned() && ctx.Doer().LowerName == strings.ToLower(userName) {
-		owner = ctx.Doer()
-	} else {
-		owner, err = user_model.GetUserByName(ctx, userName)
-		if err != nil {
-			if user_model.IsErrUserNotExist(err) {
-				if redirectUserID, err := redirect_service.LookupUserRedirect(ctx, ctx.Doer(), userName); err == nil {
-					context.RedirectToUser(ctx.Base, userName, redirectUserID)
-				} else if user_model.IsErrUserRedirectNotExist(err) {
-					ctx.NotFound("GetUserByName", err)
-				} else {
-					ctx.Error(http.StatusInternalServerError, "LookupRedirect", err)
-				}
-			} else {
-				ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
-			}
-			return
-		}
-	}
-	ctx.Repo().Owner = owner
-	ctx.SetUser(owner)
-
+func repoAssignment(ctx *context.APIContext, owner *user_model.User, repoName string) {
 	// Get repository.
 	repo, err := repo_model.GetRepositoryByName(ctx, owner.ID, repoName)
 	if err != nil {
@@ -177,6 +144,50 @@ func repoAssignment(ctx *context.APIContext) {
 
 	repo.Owner = owner
 	ctx.Repo().Repository = repo
+	ctx.Repo().Owner = owner
+}
+
+func userAssignment(ctx *context.APIContext, userName string) {
+	user, err := user_model.GetUserByName(ctx, userName)
+	if err != nil {
+		if user_model.IsErrUserNotExist(err) {
+			if redirectUserID, err := redirect_service.LookupUserRedirect(ctx, ctx.Doer(), userName); err == nil {
+				context.RedirectToUser(ctx.Base, userName, redirectUserID)
+			} else if user_model.IsErrUserRedirectNotExist(err) {
+				ctx.NotFound("GetUserByName", err)
+			} else {
+				ctx.Error(http.StatusInternalServerError, "LookupRedirect", err)
+			}
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
+		}
+		return
+	}
+	ctx.SetUser(user)
+}
+
+func repoAndOwnerAssignment(ownerNameParam, repoNameParam string) func(ctx *context.APIContext) {
+	apiv1_permissions_testhelpers.FollowedBy(repoAndOwnerAssignment, apiv1_permissions.RepoAccess)
+	return func(ctx *context.APIContext) {
+		ownerName := ctx.Params(ownerNameParam)
+		repoName := ctx.Params(repoNameParam)
+
+		var owner *user_model.User
+
+		// Check if the owner is the same as the repository owner.
+		if ctx.IsSigned() && ctx.Doer().LowerName == strings.ToLower(ownerName) {
+			owner = ctx.Doer()
+			ctx.SetUser(owner)
+		} else {
+			userAssignment(ctx, ownerName)
+			if ctx.Written() {
+				return
+			}
+			owner = ctx.User()
+		}
+
+		repoAssignment(ctx, owner, repoName)
+	}
 }
 
 func repoAccess() func(ctx *context.APIContext) {
@@ -191,38 +202,14 @@ func checkPermission(check func(ctx apiv1_permissions.Context)) func(*context.AP
 }
 
 // must be used within a group with a call to commentAssignment() to set ctx.Comment
-func reqValidCommentID() func(*context.APIContext) {
+func reqValidCommentID(idParam string) func(*context.APIContext) {
 	apiv1_permissions_testhelpers.RecordSignature(apiv1_permissions.ReqValidCommentID)
 	return func(ctx *context.APIContext) {
-		if ctx.Comment() == nil {
-			panic("reqValidCommentID requires commentAssignment to be called first")
-		}
-		apiv1_permissions.ReqValidCommentID(ctx, ctx.Comment())
-	}
-}
-
-// must be used within a group with a call to repoAssignment() to set ctx.Repo
-func commentAssignment(idParam string) func(ctx *context.APIContext) {
-	apiv1_permissions_testhelpers.FollowedBy(commentAssignment, apiv1_permissions.ReqValidCommentID)
-	return func(ctx *context.APIContext) {
-		comment, err := issues_model.GetCommentByID(ctx, ctx.ParamsInt64(idParam))
-		if err != nil {
-			if issues_model.IsErrCommentNotExist(err) {
-				ctx.NotFound(err)
-			} else {
-				ctx.InternalServerError(err)
-			}
+		comment := ctx.LoadComment(idParam)
+		if ctx.Written() {
 			return
 		}
-
-		if err = comment.LoadIssue(ctx); err != nil {
-			ctx.InternalServerError(err)
-			return
-		}
-
-		comment.Issue.Repo = ctx.Repo().Repository
-
-		ctx.SetComment(comment)
+		apiv1_permissions.ReqValidCommentID(ctx, comment)
 	}
 }
 
@@ -245,6 +232,59 @@ func checkTokenPublicOnly() func(*context.APIContext) {
 			org = ctx.Org().Organization.AsUser()
 		}
 		apiv1_permissions.CheckTokenPublicOnly(ctx, ctx.User(), org, packageOwner)
+	}
+}
+
+func reqIssueUnlockedOrCanWrite(indexParam string) func(ctx *context.APIContext) {
+	apiv1_permissions_testhelpers.RecordSignature(apiv1_permissions.ReqIssueUnlockedOrCanWrite)
+	return func(ctx *context.APIContext) {
+		issue := ctx.LoadIssue(indexParam)
+		if ctx.Written() {
+			return
+		}
+		apiv1_permissions.ReqIssueUnlockedOrCanWrite(ctx, issue)
+	}
+}
+
+func reqEditIssue(indexParam string) func(ctx *context.APIContext) {
+	apiv1_permissions_testhelpers.RecordSignature(apiv1_permissions.ReqEditIssue)
+	return func(ctx *context.APIContext) {
+		issue := ctx.LoadIssue(indexParam)
+		if ctx.Written() {
+			return
+		}
+		apiv1_permissions.ReqEditIssue(ctx, issue, web.GetForm(ctx).(*api.EditIssueOption))
+	}
+}
+
+// hack in the sense that it should fail hard but instead silently does nothing
+// it would be a breaking change to remove this hack
+func hackEditIssue(indexParam string) func(ctx *context.APIContext) {
+	return func(ctx *context.APIContext) {
+		issue := ctx.LoadIssue(indexParam)
+		if ctx.Written() {
+			return
+		}
+		canWrite := !issue.IsLocked && ctx.Permission().CanWriteIssuesOrPulls(issue.IsPull)
+		if !canWrite {
+			form := web.GetForm(ctx).(*api.EditIssueOption)
+			form.Assignee = nil
+			form.Assignees = nil
+			form.Deadline = nil
+			form.RemoveDeadline = nil
+		}
+	}
+}
+
+func reqCommentIssueUnlockedOrCanWrite(idParam string) func(ctx *context.APIContext) {
+	apiv1_permissions_testhelpers.RecordSignature(apiv1_permissions.ReqIssueUnlockedOrCanWrite)
+	return func(ctx *context.APIContext) {
+		comment := ctx.LoadComment(idParam)
+		if ctx.Written() {
+			return
+		}
+
+		apiv1_permissions.ReqIssueUnlockedOrCanWrite(ctx, comment.Issue)
 	}
 }
 
@@ -369,6 +409,10 @@ func reqOrgMembership() func(ctx *context.APIContext) {
 	return checkPermission(apiv1_permissions.ReqOrgMembership)
 }
 
+func doerCanCreateOrganization() func(ctx *context.APIContext) {
+	return checkPermission(apiv1_permissions.DoerCanCreateOrganization)
+}
+
 func reqGitHook() func(ctx *context.APIContext) {
 	return checkPermission(apiv1_permissions.ReqGitHook)
 }
@@ -399,6 +443,15 @@ func orgAssignment(ctx *context.APIContext) {
 	} else {
 		ctx.Org().Organization = org
 		ctx.SetUser(ctx.Org().Organization.AsUser())
+	}
+}
+
+func orgRepoAssignment(repoNameParam string) func(ctx *context.APIContext) {
+	apiv1_permissions_testhelpers.FollowedBy(orgRepoAssignment, apiv1_permissions.RepoAccess)
+	return func(ctx *context.APIContext) {
+		repoName := ctx.Params(repoNameParam)
+
+		repoAssignment(ctx, ctx.Org().Organization.AsUser(), repoName)
 	}
 }
 
@@ -433,7 +486,11 @@ func mustAllowPulls() func(ctx *context.APIContext) {
 func mustEnableLocalIssuesIfIsIssue() func(*context.APIContext) {
 	apiv1_permissions_testhelpers.RecordSignature(apiv1_permissions.MustEnableLocalIssuesIfIsIssue)
 	return func(ctx *context.APIContext) {
-		apiv1_permissions.MustEnableLocalIssuesIfIsIssue(ctx, ctx.ParamsInt64(":index"))
+		issue := ctx.LoadIssue("index")
+		if ctx.Written() {
+			return
+		}
+		apiv1_permissions.MustEnableLocalIssuesIfIsIssue(ctx, issue)
 	}
 }
 
@@ -649,33 +706,11 @@ func Routes() *web.Route {
 				Post(bind(api.CreateEmailOption{}), user.AddEmail).
 				Delete(bind(api.DeleteEmailOption{}), user.DeleteEmail)
 
-			// manage user-level actions features
-			m.Group("/actions", func() {
-				m.Group("/secrets", func() {
-					m.Combo("/{secretname}").
-						Put(bind(api.CreateOrUpdateSecretOption{}), user.CreateOrUpdateSecret).
-						Delete(user.DeleteSecret)
-				})
-
-				m.Group("/variables", func() {
-					m.Get("", user.ListVariables)
-					m.Combo("/{variablename}").
-						Get(user.GetVariable).
-						Delete(user.DeleteVariable).
-						Post(bind(api.CreateVariableOption{}), user.CreateVariable).
-						Put(bind(api.UpdateVariableOption{}), user.UpdateVariable)
-				})
-
-				m.Group("/runners", func() {
-					m.Combo("").
-						Get(reqToken(), user.ListRunners).
-						Post(bind(api.RegisterRunnerOptions{}), user.RegisterRunner)
-					m.Get("/registration-token", reqToken(), user.GetRegistrationToken) //nolint:staticcheck
-					m.Get("/{runner_id}", reqToken(), user.GetRunner)
-					m.Delete("/{runner_id}", reqToken(), user.DeleteRunner)
-					m.Get("/jobs", reqToken(), user.SearchActionRunJobs)
-				})
-			})
+			addActionsRoutes(
+				m,
+				func(ctx *context.APIContext) {},
+				user.NewAction(),
+			)
 
 			m.Get("/followers", user.ListMyFollowers)
 			m.Group("/following", func() {
@@ -733,7 +768,7 @@ func Routes() *web.Route {
 						m.Get("", user.IsStarring)
 						m.Put("", user.Star)
 						m.Delete("", user.Unstar)
-					}, repoAssignment, repoAccess(), checkTokenPublicOnly())
+					}, repoAndOwnerAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 				}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryRepository))
 			}
 			m.Get("/times", repo.ListMyTrackedTimes)
@@ -776,7 +811,7 @@ func Routes() *web.Route {
 
 		// Needs to be extracted from the larger `/repos` group because deleting a repo isn't protected by
 		// `AccessTokenScopeCategoryRepository`; it's protected by either the User or Organization scope.
-		m.Delete("/repos/{username}/{reponame}", repoAssignment, repoAccess(), tokenRequiresRepoOwnerScope(), reqOwner(), repo.Delete)
+		m.Delete("/repos/{username}/{reponame}", repoAndOwnerAssignment("username", "reponame"), repoAccess(), tokenRequiresRepoOwnerScope(), reqOwner(), repo.Delete)
 
 		// Repos (requires repo scope)
 		m.Group("/repos", func() {
@@ -896,12 +931,17 @@ func Routes() *web.Route {
 						m.Delete("/{artifact_id}", reqToken(), reqRepoWriter(unit.TypeActions), repo.DeleteActionArtifact)
 						m.Get("/{artifact_id}/zip", repo.DownloadActionArtifact)
 					})
-					m.Get("/jobs/{job_id}/logs", repo.GetActionJobLogs)
+					m.Group("/jobs/{job_id}", func() {
+						m.Get("", repo.GetActionJob)
+						m.Post("/rerun", reqToken(), reqRepoWriter(unit.TypeActions), repo.RerunActionJob)
+						m.Get("/logs", repo.GetActionJobLogs)
+					})
 					m.Group("/runs", func() {
 						m.Get("", repo.ListActionRuns)
 						m.Get("/{run_id}", repo.GetActionRun)
 						m.Delete("/{run_id}", reqToken(), reqAdmin(unit.TypeActions), repo.DeleteActionRun)
 						m.Post("/{run_id}/cancel", reqToken(), reqRepoWriter(unit.TypeActions), repo.CancelActionRun)
+						m.Post("/{run_id}/rerun", reqToken(), reqRepoWriter(unit.TypeActions), repo.RerunActionRun)
 						m.Get("/{run_id}/jobs", repo.ListActionRunJobs)
 						m.Get("/{run_id}/logs", repo.GetActionRunLogs)
 						m.Get("/{run_id}/artifacts", repo.ListActionRunArtifacts)
@@ -1008,7 +1048,7 @@ func Routes() *web.Route {
 										m.Combo("").
 											Get(repo.GetPullReviewComment).
 											Delete(reqToken(), repo.DeletePullReviewComment)
-									}, commentAssignment("comment"), reqValidCommentID())
+									}, reqValidCommentID("comment"))
 								})
 								m.Post("/dismissals", reqToken(), bind(api.DismissPullReviewOptions{}), repo.DismissPullReview)
 								m.Post("/undismissals", reqToken(), repo.UnDismissPullReview)
@@ -1087,7 +1127,7 @@ func Routes() *web.Route {
 				})
 
 				m.Get("/{ball_type:tarball|zipball|bundle}/*", reqRepoReader(unit.TypeCode), repo.DownloadArchive)
-			}, repoAssignment, repoAccess(), checkTokenPublicOnly())
+			}, repoAndOwnerAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryRepository))
 
 		// Notifications (requires notifications scope)
@@ -1096,7 +1136,7 @@ func Routes() *web.Route {
 				m.Combo("/notifications", reqToken()).
 					Get(notify.ListRepoNotifications).
 					Put(notify.ReadRepoNotifications)
-			}, repoAssignment, repoAccess(), checkTokenPublicOnly())
+			}, repoAndOwnerAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryNotification))
 
 		// Issue (requires issue scope)
@@ -1117,8 +1157,8 @@ func Routes() *web.Route {
 								Delete(reqToken(), repo.DeleteIssueComment)
 							m.Combo("/reactions").
 								Get(repo.GetIssueCommentReactions).
-								Post(reqToken(), bind(api.EditReactionOption{}), repo.PostIssueCommentReaction).
-								Delete(reqToken(), bind(api.EditReactionOption{}), repo.DeleteIssueCommentReaction)
+								Post(reqToken(), reqCommentIssueUnlockedOrCanWrite("id"), bind(api.EditReactionOption{}), repo.PostIssueCommentReaction).
+								Delete(reqToken(), reqCommentIssueUnlockedOrCanWrite("id"), bind(api.EditReactionOption{}), repo.DeleteIssueCommentReaction)
 							m.Group("/assets", func() {
 								m.Combo("").
 									Get(repo.ListIssueCommentAttachments).
@@ -1128,16 +1168,16 @@ func Routes() *web.Route {
 									Patch(reqToken(), mustNotBeArchived(), bind(api.EditAttachmentOptions{}), repo.EditIssueCommentAttachment).
 									Delete(reqToken(), mustNotBeArchived(), repo.DeleteIssueCommentAttachment)
 							}, mustEnableAttachments())
-						}, commentAssignment(":id"), reqValidCommentID())
+						}, reqValidCommentID("id"))
 					})
 					m.Group("/{index}", func() {
 						m.Combo("").Get(repo.GetIssue).
-							Patch(reqToken(), bind(api.EditIssueOption{}), repo.EditIssue).
+							Patch(reqToken(), mustNotBeArchived(), bind(api.EditIssueOption{}), hackEditIssue("index"), reqEditIssue("index"), repo.EditIssue).
 							Delete(reqToken(), reqAdmin(), context.ReferencesGitRepo(), repo.DeleteIssue)
 						m.Group("/comments", func() {
 							m.Combo("").Get(repo.ListIssueComments).
-								Post(reqToken(), mustNotBeArchived(), bind(api.CreateIssueCommentOption{}), repo.CreateIssueComment)
-							m.Combo("/{id}", reqToken(), commentAssignment(":id"), reqValidCommentID()).Patch(bind(api.EditIssueCommentOption{}), repo.EditIssueCommentDeprecated).
+								Post(reqToken(), mustNotBeArchived(), reqIssueUnlockedOrCanWrite("index"), bind(api.CreateIssueCommentOption{}), repo.CreateIssueComment)
+							m.Combo("/{id}", reqToken(), reqValidCommentID("id")).Patch(bind(api.EditIssueCommentOption{}), repo.EditIssueCommentDeprecated).
 								Delete(repo.DeleteIssueCommentDeprecated)
 						})
 						m.Get("/timeline", repo.ListIssueCommentsAndTimeline)
@@ -1169,8 +1209,8 @@ func Routes() *web.Route {
 						})
 						m.Combo("/reactions").
 							Get(repo.GetIssueReactions).
-							Post(reqToken(), bind(api.EditReactionOption{}), repo.PostIssueReaction).
-							Delete(reqToken(), bind(api.EditReactionOption{}), repo.DeleteIssueReaction)
+							Post(reqToken(), reqIssueUnlockedOrCanWrite("index"), bind(api.EditReactionOption{}), repo.PostIssueReaction).
+							Delete(reqToken(), reqIssueUnlockedOrCanWrite("index"), bind(api.EditReactionOption{}), repo.DeleteIssueReaction)
 						m.Group("/assets", func() {
 							m.Combo("").
 								Get(repo.ListIssueAttachments).
@@ -1194,6 +1234,8 @@ func Routes() *web.Route {
 								Delete(reqToken(), reqAdmin(), repo.UnpinIssue)
 							m.Patch("/{position}", reqToken(), reqAdmin(), repo.MoveIssuePin)
 						})
+						m.Put("/lock", reqRepoWriter(unit.TypeIssues, unit.TypePullRequests), bind(api.IssueLockOption{}), repo.LockIssue)
+						m.Delete("/lock", reqRepoWriter(unit.TypeIssues, unit.TypePullRequests), repo.UnlockIssue)
 					}, mustEnableLocalIssuesIfIsIssue())
 				}, mustEnableIssuesOrPulls())
 				m.Group("/labels", func() {
@@ -1210,7 +1252,7 @@ func Routes() *web.Route {
 						Patch(reqToken(), reqRepoWriter(unit.TypeIssues, unit.TypePullRequests), bind(api.EditMilestoneOption{}), repo.EditMilestone).
 						Delete(reqToken(), reqRepoWriter(unit.TypeIssues, unit.TypePullRequests), repo.DeleteMilestone)
 				})
-			}, repoAssignment, repoAccess(), checkTokenPublicOnly())
+			}, repoAndOwnerAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryIssue))
 
 		// NOTE: these are Gitea package management API - see packages.CommonRoutes and packages.DockerContainerRoutes for endpoints that implement package manager APIs
@@ -1235,7 +1277,7 @@ func Routes() *web.Route {
 			m.Get("", reqToken(), org.ListUserOrgs)
 			m.Get("/{org}/permissions", reqToken(), org.GetUserOrgsPermissions)
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryUser, auth_model.AccessTokenScopeCategoryOrganization), context.UserAssignmentAPI(), checkTokenPublicOnly())
-		m.Post("/orgs", tokenRequiresScopes(auth_model.AccessTokenScopeCategoryOrganization), reqToken(), bind(api.CreateOrgOption{}), org.Create)
+		m.Post("/orgs", doerCanCreateOrganization(), tokenRequiresScopes(auth_model.AccessTokenScopeCategoryOrganization), reqToken(), bind(api.CreateOrgOption{}), org.Create)
 		m.Get("/orgs", org.GetAll, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryOrganization))
 		m.Group("/orgs/{org}", func() {
 			m.Combo("").Get(org.Get).
@@ -1316,9 +1358,9 @@ func Routes() *web.Route {
 			})
 			m.Group("/repos", func() {
 				m.Get("", reqToken(), org.GetTeamRepos)
-				m.Combo("/{org}/{reponame}").
-					Put(reqToken(), org.AddTeamRepository).
-					Delete(reqToken(), org.RemoveTeamRepository).
+				m.Combo("/{org}/{reponame}", orgAssignment, orgRepoAssignment("reponame"), repoAccess()).
+					Put(reqToken(), reqAdmin(), org.AddTeamRepository).
+					Delete(reqToken(), reqAdmin(), org.RemoveTeamRepository).
 					Get(reqToken(), org.GetTeamRepo)
 			})
 			m.Get("/activities/feeds", org.ListTeamActivityFeeds)

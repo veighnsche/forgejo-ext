@@ -5,7 +5,9 @@ package actions
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -13,9 +15,10 @@ import (
 	"forgejo.org/modules/cache"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 
-	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
+	gouuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -181,19 +184,19 @@ func TestRepoNumOpenActions(t *testing.T) {
 
 	t.Run("Repo 1", func(t *testing.T) {
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
-		clearRepoRunCountCache(t.Context(), repo)
+		clearRepoRunCountCache(t.Context(), repo.ID)
 		assert.Equal(t, 0, RepoNumOpenActions(t.Context(), repo.ID))
 	})
 
 	t.Run("Repo 4", func(t *testing.T) {
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 4})
-		clearRepoRunCountCache(t.Context(), repo)
-		assert.Equal(t, 0, RepoNumOpenActions(t.Context(), repo.ID))
+		clearRepoRunCountCache(t.Context(), repo.ID)
+		assert.Equal(t, 3, RepoNumOpenActions(t.Context(), repo.ID))
 	})
 
 	t.Run("Repo 63", func(t *testing.T) {
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 63})
-		clearRepoRunCountCache(t.Context(), repo)
+		clearRepoRunCountCache(t.Context(), repo.ID)
 		assert.Equal(t, 1, RepoNumOpenActions(t.Context(), repo.ID))
 	})
 
@@ -208,7 +211,7 @@ func TestRepoNumOpenActions(t *testing.T) {
 		assert.Equal(t, 1, RepoNumOpenActions(t.Context(), repo.ID))
 
 		// Now that we clear the cache, computation should be performed
-		clearRepoRunCountCache(t.Context(), repo)
+		clearRepoRunCountCache(t.Context(), repo.ID)
 		assert.Equal(t, 0, RepoNumOpenActions(t.Context(), repo.ID))
 	})
 }
@@ -331,299 +334,6 @@ func TestActionRun_NeedApproval(t *testing.T) {
 	})
 }
 
-func TestActionRun_IncompleteMatrix(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	pullRequestPosterID := int64(4)
-	repoID := int64(10)
-	pullRequestID := int64(2)
-	runDoesNotNeedApproval := &ActionRun{
-		RepoID:              repoID,
-		PullRequestID:       pullRequestID,
-		PullRequestPosterID: pullRequestPosterID,
-	}
-
-	workflowRaw := []byte(`
-jobs:
-  job2:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        dim1: "${{ fromJSON(needs.other-job.outputs.some-output) }}"
-    steps:
-      - run: true
-`)
-	workflows, err := jobparser.Parse(workflowRaw, false, jobparser.WithJobOutputs(map[string]map[string]string{}))
-	require.NoError(t, err)
-	require.True(t, workflows[0].IncompleteMatrix) // must be set for this test scenario to be valid
-
-	require.NoError(t, InsertRunWithoutNotification(t.Context(), runDoesNotNeedApproval, workflows))
-
-	jobs, err := db.Find[ActionRunJob](t.Context(), FindRunJobOptions{RunID: runDoesNotNeedApproval.ID})
-	require.NoError(t, err)
-	require.Len(t, jobs, 1)
-	job := jobs[0]
-
-	// Expect job with an incomplete matrix to be StatusBlocked:
-	assert.Equal(t, StatusBlocked, job.Status)
-}
-
-func TestActionRun_IncompleteRunsOn(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	pullRequestPosterID := int64(4)
-	repoID := int64(10)
-	pullRequestID := int64(2)
-	runDoesNotNeedApproval := &ActionRun{
-		RepoID:              repoID,
-		PullRequestID:       pullRequestID,
-		PullRequestPosterID: pullRequestPosterID,
-	}
-
-	workflowRaw := []byte(`
-jobs:
-  job2:
-    runs-on: ${{ needs.other-job.outputs.some-output }}
-    steps:
-      - run: true
-`)
-	workflows, err := jobparser.Parse(workflowRaw, false, jobparser.WithJobOutputs(map[string]map[string]string{}), jobparser.SupportIncompleteRunsOn())
-	require.NoError(t, err)
-	require.True(t, workflows[0].IncompleteRunsOn) // must be set for this test scenario to be valid
-
-	require.NoError(t, InsertRunWithoutNotification(t.Context(), runDoesNotNeedApproval, workflows))
-
-	jobs, err := db.Find[ActionRunJob](t.Context(), FindRunJobOptions{RunID: runDoesNotNeedApproval.ID})
-	require.NoError(t, err)
-	require.Len(t, jobs, 1)
-	job := jobs[0]
-
-	// Expect job with an incomplete runs-on to be StatusBlocked:
-	assert.Equal(t, StatusBlocked, job.Status)
-}
-
-func TestActionRun_FindOuterWorkflowCall(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	pullRequestPosterID := int64(4)
-	repoID := int64(10)
-	pullRequestID := int64(2)
-	run := &ActionRun{
-		RepoID:              repoID,
-		PullRequestID:       pullRequestID,
-		PullRequestPosterID: pullRequestPosterID,
-	}
-
-	workflowRaw := []byte(`
-jobs:
-  outer-job:
-    uses: ./.forgejo/workflows/reusable.yml
-`)
-	workflows, err := jobparser.Parse(workflowRaw, false,
-		jobparser.WithJobOutputs(map[string]map[string]string{}),
-		jobparser.ExpandLocalReusableWorkflows(func(job *jobparser.Job, path string) ([]byte, error) {
-			return []byte(`
-on:
-  workflow_call:
-jobs:
-  inner-job-1:
-    runs-on: debian
-    steps: []
-  inner-job-2:
-    runs-on: debian
-    steps: []
-`), nil
-		}))
-	require.NoError(t, err)
-	require.NoError(t, InsertRunWithoutNotification(t.Context(), run, workflows))
-
-	jobs, err := db.Find[ActionRunJob](t.Context(), FindRunJobOptions{RunID: run.ID})
-	require.NoError(t, err)
-	require.Len(t, jobs, 3)
-
-	for _, j := range jobs {
-		t.Run(j.Name, func(t *testing.T) {
-			_, err := j.DecodeWorkflowPayload()
-			require.NoError(t, err)
-			outer, err := run.FindOuterWorkflowCall(t.Context(), j)
-			if j.Name == "outer-job" {
-				require.ErrorContains(t, err, "invalid state for FindOuterWorkflowCall")
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, outer)
-				assert.Equal(t, "outer-job", outer.Name)
-			}
-		})
-	}
-}
-
-func TestActionRun_IncompleteWith(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	pullRequestPosterID := int64(4)
-	repoID := int64(10)
-	pullRequestID := int64(2)
-	runDoesNotNeedApproval := &ActionRun{
-		RepoID:              repoID,
-		PullRequestID:       pullRequestID,
-		PullRequestPosterID: pullRequestPosterID,
-	}
-
-	workflowRaw := []byte(`
-jobs:
-  outer-job:
-    with:
-      some_input: ${{ needs.other-job.outputs.some-output }}
-    uses: ./.forgejo/workflows/reusable.yml
-`)
-	workflows, err := jobparser.Parse(workflowRaw, false,
-		jobparser.WithJobOutputs(map[string]map[string]string{}),
-		jobparser.ExpandLocalReusableWorkflows(func(job *jobparser.Job, path string) ([]byte, error) {
-			return []byte(`
-on:
-  workflow_call:
-    inputs:
-      some_input:
-        type: string
-jobs:
-  inner-job:
-    runs-on: debian
-    steps: []
-`), nil
-		}))
-	require.NoError(t, err)
-	require.True(t, workflows[0].IncompleteWith) // must be set for this test scenario to be valid
-
-	require.NoError(t, InsertRunWithoutNotification(t.Context(), runDoesNotNeedApproval, workflows))
-
-	jobs, err := db.Find[ActionRunJob](t.Context(), FindRunJobOptions{RunID: runDoesNotNeedApproval.ID})
-	require.NoError(t, err)
-	require.Len(t, jobs, 1)
-	job := jobs[0]
-
-	// Expect job with an incomplete with to be StatusBlocked:
-	assert.Equal(t, StatusBlocked, job.Status)
-}
-
-func TestComputeRunStatus(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-
-	t.Run("no changes", func(t *testing.T) {
-		run, columns, err := ComputeRunStatus(t.Context(), 791)
-		require.NoError(t, err)
-		assert.Equal(t, StatusSuccess, run.Status)
-		assert.NotContains(t, columns, "status")
-		assert.EqualValues(t, 1683636528, run.Started)
-		assert.NotContains(t, columns, "started")
-		assert.EqualValues(t, 1683636626, run.Stopped)
-		assert.NotContains(t, columns, "stopped")
-	})
-
-	t.Run("change status", func(t *testing.T) {
-		job := unittest.AssertExistsAndLoadBean(t, &ActionRunJob{ID: 192})
-		job.Status = StatusFailure
-		affected, err := db.GetEngine(t.Context()).Cols("status").ID(job.ID).Update(job)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		run, columns, err := ComputeRunStatus(t.Context(), 791)
-		require.NoError(t, err)
-		assert.Equal(t, StatusFailure, run.Status)
-		assert.Contains(t, columns, "status")
-		assert.NotContains(t, columns, "started")
-		assert.NotContains(t, columns, "stopped")
-	})
-
-	t.Run("won't change started if not running", func(t *testing.T) {
-		job := unittest.AssertExistsAndLoadBean(t, &ActionRunJob{ID: 192})
-		job.Status = StatusBlocked
-		affected, err := db.GetEngine(t.Context()).Cols("status").ID(job.ID).Update(job)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		preRun := unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: 791})
-		preRun.Started = 0
-		affected, err = db.GetEngine(t.Context()).Cols("started").ID(preRun.ID).Update(preRun)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		run, columns, err := ComputeRunStatus(t.Context(), 791)
-		require.NoError(t, err)
-		assert.Equal(t, StatusBlocked, run.Status)
-		assert.EqualValues(t, 0, run.Started)
-		assert.Contains(t, columns, "status")
-		assert.NotContains(t, columns, "started")
-		assert.NotContains(t, columns, "stopped")
-	})
-
-	t.Run("change started", func(t *testing.T) {
-		// Need the job to be "Running" for started to appear to change
-		job := unittest.AssertExistsAndLoadBean(t, &ActionRunJob{ID: 192})
-		job.Status = StatusRunning
-		affected, err := db.GetEngine(t.Context()).Cols("status").ID(job.ID).Update(job)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		preRun := unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: 791})
-		preRun.Started = 0
-		affected, err = db.GetEngine(t.Context()).Cols("started").ID(preRun.ID).Update(preRun)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		run, columns, err := ComputeRunStatus(t.Context(), 791)
-		require.NoError(t, err)
-		assert.Equal(t, StatusRunning, run.Status)
-		assert.NotEqualValues(t, 0, run.Started)
-		assert.Contains(t, columns, "status")
-		assert.Contains(t, columns, "started")
-		assert.NotContains(t, columns, "stopped")
-	})
-
-	t.Run("won't change stopped if not done", func(t *testing.T) {
-		job := unittest.AssertExistsAndLoadBean(t, &ActionRunJob{ID: 192})
-		job.Status = StatusRunning
-		affected, err := db.GetEngine(t.Context()).Cols("status").ID(job.ID).Update(job)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		preRun := unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: 791})
-		preRun.Stopped = 0
-		affected, err = db.GetEngine(t.Context()).Cols("stopped").ID(preRun.ID).Update(preRun)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		run, columns, err := ComputeRunStatus(t.Context(), 791)
-		require.NoError(t, err)
-		assert.Equal(t, StatusRunning, run.Status)
-		assert.EqualValues(t, 0, run.Stopped)
-		assert.Contains(t, columns, "status")
-		assert.NotContains(t, columns, "stopped")
-	})
-
-	t.Run("change stopped", func(t *testing.T) {
-		// Need the job to be some version of Done for stopped to appear to change
-		job := unittest.AssertExistsAndLoadBean(t, &ActionRunJob{ID: 192})
-		job.Status = StatusSuccess
-		affected, err := db.GetEngine(t.Context()).Cols("status").ID(job.ID).Update(job)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		preRun := unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: 791})
-		preRun.Stopped = 0
-		affected, err = db.GetEngine(t.Context()).Cols("stopped").ID(preRun.ID).Update(preRun)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, affected)
-
-		run, columns, err := ComputeRunStatus(t.Context(), 791)
-		require.NoError(t, err)
-		assert.Equal(t, StatusSuccess, run.Status)
-		assert.NotEqualValues(t, 0, run.Stopped)
-		assert.NotContains(t, columns, "status")
-		assert.NotContains(t, columns, "started")
-		assert.Contains(t, columns, "stopped")
-	})
-}
-
 func TestInsertRunJobs(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -637,18 +347,32 @@ func TestInsertRunJobs(t *testing.T) {
 		CommitSHA:           "1421f75bc5474c69fdb1dc176bcb96d381f935dd",
 	}
 
-	workflowRaw := []byte(`
-jobs:
-  build:
-    runs-on: fedora
-  test:
-    runs-on: debian
-    steps: []
-`)
-	jobs, err := jobparser.Parse(workflowRaw, false)
-	require.NoError(t, err)
+	unittest.AssertSuccessfulInsert(t, actionRun)
 
-	require.NoError(t, InsertRunWithoutNotification(t.Context(), actionRun, jobs))
+	jobs := []*ActionRunJob{
+		{
+			RepoID:    actionRun.RepoID,
+			CommitSHA: actionRun.CommitSHA,
+			JobID:     "build",
+			Name:      "build",
+			RunsOn:    []string{"fedora"},
+			Status:    StatusWaiting,
+		},
+		{
+			RepoID:    actionRun.RepoID,
+			CommitSHA: actionRun.CommitSHA,
+			JobID:     "test",
+			Name:      "test",
+			RunsOn:    []string{"debian"},
+			Status:    StatusWaiting,
+			Handle:    gouuid.New().String(),
+		},
+	}
+
+	require.NoError(t, InsertRunJobs(t.Context(), actionRun, jobs))
+
+	assert.NotZero(t, jobs[0].ID)
+	assert.NotZero(t, jobs[1].ID)
 
 	insertedJobs, err := db.Find[ActionRunJob](t.Context(), FindRunJobOptions{RunID: actionRun.ID})
 	require.NoError(t, err)
@@ -660,7 +384,7 @@ jobs:
 	assert.Equal(t, actionRun.CommitSHA, insertedJobs[0].CommitSHA)
 	assert.Equal(t, actionRun.IsForkPullRequest, insertedJobs[0].IsForkPullRequest)
 	assert.Equal(t, "build", insertedJobs[0].Name)
-	assert.Equal(t, "build", insertedJobs[0].JobID)
+	assert.Equal(t, JobIdentifier("build"), insertedJobs[0].JobID)
 	assert.Empty(t, insertedJobs[0].Needs)
 	assert.Equal(t, []string{"fedora"}, insertedJobs[0].RunsOn)
 	assert.Equal(t, int64(1), insertedJobs[0].Attempt)
@@ -668,6 +392,7 @@ jobs:
 	assert.Zero(t, insertedJobs[0].Stopped)
 	assert.Zero(t, insertedJobs[0].TaskID)
 	assert.Equal(t, StatusWaiting, insertedJobs[0].Status)
+	assert.Len(t, insertedJobs[0].Handle, 36)
 
 	assert.Equal(t, actionRun.ID, insertedJobs[1].RunID)
 	assert.Equal(t, actionRun.RepoID, insertedJobs[1].RepoID)
@@ -675,7 +400,7 @@ jobs:
 	assert.Equal(t, actionRun.CommitSHA, insertedJobs[1].CommitSHA)
 	assert.Equal(t, actionRun.IsForkPullRequest, insertedJobs[1].IsForkPullRequest)
 	assert.Equal(t, "test", insertedJobs[1].Name)
-	assert.Equal(t, "test", insertedJobs[1].JobID)
+	assert.Equal(t, JobIdentifier("test"), insertedJobs[1].JobID)
 	assert.Empty(t, insertedJobs[1].Needs)
 	assert.Equal(t, []string{"debian"}, insertedJobs[1].RunsOn)
 	assert.Equal(t, int64(1), insertedJobs[1].Attempt)
@@ -683,6 +408,7 @@ jobs:
 	assert.Zero(t, insertedJobs[1].Stopped)
 	assert.Zero(t, insertedJobs[1].TaskID)
 	assert.Equal(t, StatusWaiting, insertedJobs[1].Status)
+	assert.Equal(t, jobs[1].Handle, insertedJobs[1].Handle)
 }
 
 func TestActionRunLoadAttributes(t *testing.T) {
@@ -745,4 +471,188 @@ func TestGetQueuedRunsByRepoID(t *testing.T) {
 
 	assert.Len(t, runs, 1)
 	assert.Equal(t, int64(535685), runs[0].ID)
+}
+
+func TestPrepareNextAttempt(t *testing.T) {
+	t.Run("Error if pending", func(t *testing.T) {
+		for _, pendingStatus := range PendingStatuses() {
+			t.Run(pendingStatus.String(), func(t *testing.T) {
+				run := &ActionRun{ID: 10, Status: pendingStatus}
+
+				err := run.PrepareNextAttempt()
+
+				require.ErrorContains(t, err, "cannot prepare next attempt because run 10 is active")
+			})
+		}
+	})
+
+	t.Run("Next attempt prepared if done", func(t *testing.T) {
+		for _, acceptableStatus := range DoneStatuses() {
+			t.Run(acceptableStatus.String(), func(t *testing.T) {
+				run := &ActionRun{
+					ID:               11,
+					Status:           acceptableStatus,
+					Started:          1786976036,
+					Stopped:          1786976040,
+					PreviousDuration: time.Minute,
+					Priority:         MaxRunPriority,
+					Prioritize:       true,
+				}
+
+				require.NoError(t, run.PrepareNextAttempt())
+
+				assert.Equal(t, time.Minute+4*time.Second, run.PreviousDuration)
+				assert.Equal(t, StatusWaiting, run.Status)
+				assert.Zero(t, run.Started)
+				assert.Zero(t, run.Stopped)
+				assert.Equal(t, DefaultRunPriority, run.Priority)
+				assert.False(t, run.Prioritize)
+			})
+		}
+	})
+}
+
+func TestRefreshStatus(t *testing.T) {
+	t.Run("Unchanged status", func(t *testing.T) {
+		run := &ActionRun{ID: 24, Status: StatusRunning, Stopped: 0}
+
+		assert.False(t, run.RefreshStatus([]*ActionRunJob{{Status: StatusRunning}}))
+
+		assert.Equal(t, StatusRunning, run.Status)
+		assert.Zero(t, run.Stopped)
+	})
+
+	t.Run("Changed status", func(t *testing.T) {
+		run := &ActionRun{ID: 24, Status: StatusBlocked, Stopped: 0}
+
+		assert.True(t, run.RefreshStatus([]*ActionRunJob{{Status: StatusWaiting}}))
+
+		assert.Equal(t, StatusWaiting, run.Status)
+		assert.Zero(t, run.Stopped)
+	})
+
+	t.Run("Completed", func(t *testing.T) {
+		now := time.Now()
+
+		timeutil.MockSet(now)
+		defer timeutil.MockUnset()
+
+		run := &ActionRun{ID: 24, Status: StatusBlocked, Stopped: 0}
+
+		assert.True(t, run.RefreshStatus([]*ActionRunJob{{Status: StatusCancelled}}))
+
+		assert.Equal(t, StatusCancelled, run.Status)
+		assert.Equal(t, now.Truncate(time.Second), run.Stopped.AsTime())
+	})
+
+	t.Run("Unchanged completed status", func(t *testing.T) {
+		now := time.Now()
+
+		timeutil.MockSet(now)
+		defer timeutil.MockUnset()
+
+		stopped := timeutil.TimeStampNow().Add(-10)
+
+		run := &ActionRun{ID: 24, Status: StatusSuccess, Stopped: stopped}
+
+		assert.False(t, run.RefreshStatus([]*ActionRunJob{{Status: StatusSuccess}}))
+
+		assert.Equal(t, StatusSuccess, run.Status)
+		assert.Equal(t, stopped, run.Stopped)
+	})
+}
+
+func TestUpdateRun(t *testing.T) {
+	t.Run("Truncates title", func(t *testing.T) {
+		require.NoError(t, unittest.PrepareTestDatabase())
+
+		run := &ActionRun{ID: 7569, OwnerID: 2, RepoID: 62, Title: "Within limits"}
+
+		unittest.AssertSuccessfulInsert(t, run)
+
+		run.Title = strings.Repeat("m", 256)
+
+		require.NoError(t, UpdateRun(t.Context(), run))
+
+		run = unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: run.ID})
+		assert.Len(t, run.Title, 255)
+	})
+
+	t.Run("Rejects outdated runs", func(t *testing.T) {
+		require.NoError(t, unittest.PrepareTestDatabase())
+
+		originalRun := &ActionRun{ID: 7569, OwnerID: 2, RepoID: 62, Title: "A run"}
+
+		unittest.AssertSuccessfulInsert(t, originalRun)
+
+		runCopy := unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: originalRun.ID})
+
+		assert.Equal(t, 1, originalRun.Version)
+		assert.Equal(t, 1, runCopy.Version)
+
+		require.NoError(t, UpdateRun(t.Context(), originalRun))
+
+		assert.Equal(t, 2, originalRun.Version)
+		assert.Equal(t, 1, runCopy.Version)
+
+		err := UpdateRun(t.Context(), runCopy)
+
+		assert.ErrorIs(t, err, ErrActionRunOutOfDate)
+	})
+
+	t.Run("Updates only given columns", func(t *testing.T) {
+		require.NoError(t, unittest.PrepareTestDatabase())
+
+		run := &ActionRun{ID: 7569, OwnerID: 2, RepoID: 62, Title: "A run"}
+
+		unittest.AssertSuccessfulInsert(t, run)
+
+		unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: run.ID, Title: "A run"})
+
+		run.Title = "Changed title"
+
+		require.NoError(t, UpdateRun(t.Context(), run, "id"))
+
+		unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: run.ID, Title: "A run"})
+		unittest.AssertNotExistsBean(t, &ActionRun{ID: run.ID, Title: "Changed title"})
+
+		require.NoError(t, UpdateRun(t.Context(), run, "title"))
+
+		unittest.AssertNotExistsBean(t, &ActionRun{ID: run.ID, Title: "A run"})
+		unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: run.ID, Title: "Changed title"})
+	})
+
+	t.Run("Updates zero values when not columns given", func(t *testing.T) {
+		require.NoError(t, unittest.PrepareTestDatabase())
+
+		run := &ActionRun{ID: 7569, OwnerID: 2, RepoID: 62, Title: "A run"}
+
+		unittest.AssertSuccessfulInsert(t, run)
+
+		unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: run.ID, Title: "A run"})
+
+		run.Title = ""
+
+		require.NoError(t, UpdateRun(t.Context(), run))
+
+		unittest.AssertExistsAndLoadBean(t, &ActionRun{ID: run.ID, Title: ""})
+		unittest.AssertNotExistsBean(t, &ActionRun{ID: run.ID, Title: "A run"})
+	})
+
+	t.Run("Clears cache", func(t *testing.T) {
+		require.NoError(t, unittest.PrepareTestDatabase())
+		require.NoError(t, cache.Init())
+
+		run := &ActionRun{ID: 7569, OwnerID: 2, RepoID: 62, Title: "A run", Status: StatusRunning}
+
+		unittest.AssertSuccessfulInsert(t, run)
+
+		assert.Equal(t, 1, RepoNumOpenActions(t.Context(), run.RepoID))
+
+		run.Status = StatusSuccess
+
+		require.NoError(t, UpdateRun(t.Context(), run))
+
+		assert.Zero(t, RepoNumOpenActions(t.Context(), run.RepoID))
+	})
 }

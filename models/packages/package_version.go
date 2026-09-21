@@ -27,15 +27,17 @@ func init() {
 
 // PackageVersion represents a package version
 type PackageVersion struct {
-	ID            int64              `xorm:"pk autoincr"`
-	PackageID     int64              `xorm:"UNIQUE(s) INDEX NOT NULL"`
-	CreatorID     int64              `xorm:"NOT NULL DEFAULT 0"`
-	Version       string             `xorm:"NOT NULL"`
-	LowerVersion  string             `xorm:"UNIQUE(s) INDEX NOT NULL"`
-	CreatedUnix   timeutil.TimeStamp `xorm:"created INDEX NOT NULL"`
-	IsInternal    bool               `xorm:"INDEX NOT NULL DEFAULT false"`
-	MetadataJSON  string             `xorm:"metadata_json LONGTEXT"`
-	DownloadCount int64              `xorm:"NOT NULL DEFAULT 0"`
+	ID               int64              `xorm:"pk autoincr"`
+	PackageID        int64              `xorm:"UNIQUE(s) INDEX NOT NULL"`
+	CreatorID        int64              `xorm:"NOT NULL DEFAULT 0"`
+	Version          string             `xorm:"NOT NULL"`
+	LowerVersion     string             `xorm:"UNIQUE(s) INDEX NOT NULL"`
+	CreatedUnix      timeutil.TimeStamp `xorm:"created INDEX NOT NULL"`
+	IsInternal       bool               `xorm:"INDEX NOT NULL DEFAULT false"`
+	MetadataJSON     string             `xorm:"metadata_json LONGTEXT"`
+	DownloadCount    int64              `xorm:"NOT NULL DEFAULT 0"`
+	LastDownloadUnix timeutil.TimeStamp `xorm:"NULL"`
+	TotalSize        int64              `xorm:"NOT NULL DEFAULT 0"`
 }
 
 // GetOrInsertVersion inserts a version. If the same version exist already ErrDuplicatePackageVersion is returned
@@ -66,9 +68,26 @@ func UpdateVersion(ctx context.Context, pv *PackageVersion) error {
 	return err
 }
 
-// IncrementDownloadCounter increments the download counter of a version
-func IncrementDownloadCounter(ctx context.Context, versionID int64) error {
-	_, err := db.GetEngine(ctx).Exec("UPDATE `package_version` SET `download_count` = `download_count` + 1 WHERE `id` = ?", versionID)
+func (pv *PackageVersion) UpdateTotalSize(ctx context.Context) error {
+	size, err := db.GetEngine(ctx).
+		Table("package_file").
+		Where("package_file.version_id = ?", pv.ID).
+		Cols("blob_id").
+		Join("INNER", "package_blob", "package_file.blob_id = package_blob.id").
+		SumInt(&PackageBlob{}, "package_blob.size")
+	if err != nil {
+		return err
+	}
+
+	pv.TotalSize = size
+	_, err = db.GetEngine(ctx).ID(pv.ID).Cols("total_size").Update(pv)
+
+	return err
+}
+
+// IncrementDownloadCounterAndSetLastDownload increments the download counter and sets the last download time of a version
+func IncrementDownloadCounterAndSetLastDownload(ctx context.Context, versionID int64) error {
+	_, err := db.GetEngine(ctx).Exec("UPDATE `package_version` SET `download_count` = `download_count` + 1, `last_download_unix` = ? WHERE `id` = ?", timeutil.TimeStampNow(), versionID)
 	return err
 }
 
@@ -192,6 +211,8 @@ const (
 	SortVersionDesc VersionSort = "version_desc"
 	SortCreatedAsc  VersionSort = "created_asc"
 	SortCreatedDesc VersionSort = "created_desc"
+	SortSizeAsc     VersionSort = "size_asc"
+	SortSizeDesc    VersionSort = "size_desc"
 )
 
 // PackageSearchOptions are options for SearchXXX methods
@@ -300,6 +321,10 @@ func (opts *PackageSearchOptions) configureOrderBy(e db.Engine) {
 		e.Asc("package_version.version")
 	case SortCreatedAsc:
 		e.Asc("package_version.created_unix")
+	case SortSizeAsc:
+		e.Asc("package_version.total_size")
+	case SortSizeDesc:
+		e.Desc("package_version.total_size")
 	default:
 		e.Desc("package_version.created_unix")
 	}

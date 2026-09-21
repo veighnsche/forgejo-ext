@@ -5,18 +5,23 @@ package integration
 
 import (
 	"net/url"
+	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/container"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 	"forgejo.org/tests/forgery"
 
+	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/xorm/xorm/convert"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -201,6 +206,91 @@ jobs:
 	})
 }
 
+func TestActionFetchTask_IdempotentConcurrent(t *testing.T) {
+	if !setting.Database.Type.IsSQLite3() {
+		// mock repo runner only supported on SQLite testing
+		t.Skip()
+	}
+
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+
+		// create the repo
+		repo := createFetchTaskTestRepository(t, user2, "matrix.yml", `
+on:
+  push:
+jobs:
+  job1:
+    strategy:
+      matrix:
+        d1: [a, b, c, d, e]
+        d2: [a, b, c, d, e]
+    runs-on: ubuntu-latest
+    steps:
+      - run: sleep 2
+`)
+
+		runner := newMockRunner()
+		runner.registerAsRepoRunner(t, user2.Name, repo.Name, "mock-runner", []string{"ubuntu-latest"})
+
+		runner.setRequestKey("c6dacc80-dace-4cea-9aad-f0e266355d8e")
+
+		// If we make two simultaneous requests with the same runner request key, we should get either the error
+		// "request key is currently locked; retry soon", or, the same tasks from both requests.
+		concurrentCount := 15
+		type fetchResult struct {
+			index     int
+			task      *runnerv1.Task
+			addtTasks []*runnerv1.Task
+			err       error
+		}
+		fetchResults := make(chan fetchResult, concurrentCount)
+
+		var wg sync.WaitGroup
+		for i := range concurrentCount {
+			wg.Go(func() {
+				// Larger task capacity is used to make the successful call take longer, cause higher chance of problems if
+				// concurrency isn't handled correctly
+				task, addtTasks, err := runner.fetchTaskOrError(t, 10)
+				fetchResults <- fetchResult{index: i, task: task, addtTasks: addtTasks, err: err}
+			})
+		}
+
+		wg.Wait()
+		close(fetchResults)
+
+		var firstResponseTaskIDs container.Set[int64]
+		for res := range fetchResults {
+			t.Logf("res = %#v", res)
+			if res.task != nil {
+				// This response had tasks, so let's ensure they're always the same for every response.
+				taskIDs := container.Set[int64]{}
+				taskIDs.Add(res.task.GetId())
+				for _, extraTask := range res.addtTasks {
+					assert.True(t, taskIDs.Add(extraTask.GetId()))
+				}
+				if firstResponseTaskIDs == nil {
+					// first response with tasks -- record the IDs
+					firstResponseTaskIDs = taskIDs
+					assert.Len(t, taskIDs, 10)
+				} else {
+					// we've already found one response with tasks, so assert that they're all the same
+					d1 := firstResponseTaskIDs.Difference(taskIDs)
+					assert.Empty(t, d1, "first response taskIDs minus current response taskIDs should be empty")
+					d2 := taskIDs.Difference(firstResponseTaskIDs)
+					assert.Empty(t, d2, "current response taskIDs minus first response taskIDs should be empty")
+				}
+			} else if res.err != nil {
+				require.ErrorContains(t, res.err, "request key is currently locked")
+			} else {
+				assert.Fail(t, "unexpected condition - res.task = nil, res.err = nil")
+			}
+		}
+
+		assert.NotNil(t, firstResponseTaskIDs, "at least one response should return tasks")
+	})
+}
+
 func TestActionFetchTask_RequestedJob(t *testing.T) {
 	if !setting.Database.Type.IsSQLite3() {
 		// mock repo runner only supported on SQLite testing
@@ -330,5 +420,109 @@ jobs:
 		require.NotNil(t, task)
 		assert.Contains(t, string(task.GetWorkflowPayload()), "name: job2")
 		require.Len(t, additionalTasks, 1)
+	})
+}
+
+func TestActionFetchTask_RunAndJobPropertyChanges(t *testing.T) {
+	if !setting.Database.Type.IsSQLite3() {
+		// mock repo runner only supported on SQLite testing
+		t.Skip()
+	}
+
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		startDate1 := time.Date(2026, 9, 20, 19, 30, 44, 0, time.UTC)
+
+		timeutil.MockSet(startDate1)
+		defer timeutil.MockUnset()
+
+		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+
+		// create the repo
+		repo := createFetchTaskTestRepository(t, user2, "simple.yml", `
+on:
+  push:
+jobs:
+  job1:
+    runs-on: debian
+    steps:
+      - run: echo OK
+  job2:
+    runs-on: debian
+    steps:
+      - run: echo OK
+`)
+
+		runner := newMockRunner()
+		runner.registerAsRepoRunner(t, user2.Name, repo.Name, "debian-runner", []string{"debian"})
+
+		run := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{RepoID: repo.ID})
+		job1 := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunJob{RepoID: repo.ID, Name: "job1"})
+		job2 := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunJob{RepoID: repo.ID, Name: "job2"})
+
+		assert.Zero(t, run.Started)
+		assert.Zero(t, run.Stopped)
+		assert.Zero(t, run.Duration())
+
+		assert.Zero(t, job1.Started)
+		assert.Zero(t, job1.Stopped)
+		assert.Zero(t, job1.Duration())
+
+		assert.Zero(t, job2.Started)
+		assert.Zero(t, job2.Stopped)
+		assert.Zero(t, job2.Duration())
+
+		task1 := runner.maybeFetchSingleTask(t, nil)
+		require.NotNil(t, task1)
+
+		// Move the clock forward to simulate a job that has taken 18 seconds.
+		endDate1 := startDate1.Add(18 * time.Second)
+		timeutil.MockSet(endDate1)
+
+		runner.succeedAtTask(t, task1)
+
+		run = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{RepoID: repo.ID})
+		job1 = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunJob{RepoID: repo.ID, Name: "job1"})
+		job2 = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunJob{RepoID: repo.ID, Name: "job2"})
+
+		assert.Equal(t, startDate1.UTC(), run.Started.AsTime().UTC())
+		assert.Zero(t, run.Stopped)
+		assert.NotZero(t, run.Duration()) // Depends on time.Since.
+
+		assert.Equal(t, startDate1.UTC(), job1.Started.AsTime().UTC())
+		assert.Equal(t, endDate1.UTC(), job1.Stopped.AsTime().UTC())
+		assert.Equal(t, 18*time.Second, job1.Duration())
+
+		assert.Zero(t, job2.Started)
+		assert.Zero(t, job2.Stopped)
+		assert.Zero(t, job2.Duration())
+
+		// Move the clock forward to simulate a delay of 5 seconds.
+		startDate2 := endDate1.Add(5 * time.Second)
+		timeutil.MockSet(startDate2)
+
+		task2 := runner.maybeFetchSingleTask(t, nil)
+		require.NotNil(t, task2)
+
+		// Move the clock forward to simulate a job that has taken 25 seconds.
+		endDate2 := startDate2.Add(25 * time.Second)
+		timeutil.MockSet(endDate2)
+
+		runner.succeedAtTask(t, task2)
+
+		run = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{RepoID: repo.ID})
+		job1 = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunJob{RepoID: repo.ID, Name: "job1"})
+		job2 = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunJob{RepoID: repo.ID, Name: "job2"})
+
+		assert.Equal(t, startDate1.UTC(), run.Started.AsTime().UTC())
+		assert.Equal(t, endDate2.UTC(), run.Stopped.AsTime().UTC())
+		assert.Equal(t, 48*time.Second, run.Duration())
+
+		assert.Equal(t, startDate1.UTC(), job1.Started.AsTime().UTC())
+		assert.Equal(t, endDate1.UTC(), job1.Stopped.AsTime().UTC())
+		assert.Equal(t, 18*time.Second, job1.Duration())
+
+		assert.Equal(t, startDate2.UTC(), job2.Started.AsTime().UTC())
+		assert.Equal(t, endDate2.UTC(), job2.Stopped.AsTime().UTC())
+		assert.Equal(t, 25*time.Second, job2.Duration())
 	})
 }

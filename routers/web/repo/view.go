@@ -48,15 +48,17 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/svg"
+	"forgejo.org/modules/translation"
 	"forgejo.org/modules/typesniffer"
 	"forgejo.org/modules/util"
 	"forgejo.org/routers/web/feed"
 	"forgejo.org/services/context"
+	funding_service "forgejo.org/services/funding"
 	issue_service "forgejo.org/services/issue"
 	repo_service "forgejo.org/services/repository"
 	files_service "forgejo.org/services/repository/files"
 
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 
 	_ "golang.org/x/image/bmp"  // for processing bmp images
 	_ "golang.org/x/image/webp" // for processing webp images
@@ -452,6 +454,13 @@ func renderFile(ctx *context.Context, entry *git.TreeEntry) {
 		if fInfo.fileSize > git.MaxGitmodulesFileSize {
 			ctx.Data["FileWarning"] = ctx.Locale.Tr("repo.view.gitmodules_too_large")
 		}
+	} else if funding_service.CouldBeFundingConfig(ctx.Repo.TreePath) {
+		funding, err := funding_service.GetFundingFromPath(ctx.Repo.Repository, ctx.Repo.TreePath, ctx.Repo.Commit)
+		if err != nil {
+			ctx.Data["FileError"] = ctx.Locale.Tr("funding.yaml_error.unknown", strings.TrimSpace(err.Error()))
+		} else if funding != nil && len(funding.Errors) > 0 {
+			ctx.Data["FileError"], ctx.Data["FileErrorDetails"] = renderFundingErrors(ctx.Locale, funding.Errors)
+		}
 	}
 
 	isDisplayingSource := ctx.FormString("display") == "source"
@@ -709,6 +718,47 @@ func renderFile(ctx *context.Context, entry *git.TreeEntry) {
 	} else if !ctx.Repo.CanWriteToBranch(ctx, ctx.Doer, ctx.Repo.BranchName) {
 		ctx.Data["DeleteFileTooltip"] = ctx.Tr("repo.editor.must_have_write_access")
 	}
+}
+
+// Returns appropriate heading and detail markup for the given `funding.Errors`
+// list.
+//
+// This function assumes that the list is nonempty.
+func renderFundingErrors(locale translation.Locale, fundingErrs []error) (heading template.HTML, details []template.HTML) {
+	if len(fundingErrs) == 1 {
+		err := renderFundingError(locale, fundingErrs[0])
+		heading = locale.Tr("funding.yaml_error.heading_one", err)
+	} else {
+		heading = locale.Tr("funding.yaml_error.heading_few")
+		details = make([]template.HTML, 0, len(fundingErrs))
+		for _, err := range fundingErrs {
+			details = append(details, renderFundingError(locale, err))
+		}
+	}
+
+	return heading, details
+}
+
+// Returns an appropriate user-facing message for the given funding error.
+func renderFundingError(locale translation.Locale, err error) template.HTML {
+	if unknownProviderErr, ok := errors.AsType[funding_service.UnknownProviderError](err); ok {
+		return locale.Tr("funding.yaml_error.unknown_provider", unknownProviderErr.Name)
+	} else if tooManyErr, ok := errors.AsType[funding_service.TooManyProvidersError](err); ok {
+		return locale.TrPluralString(tooManyErr.TotalLimit, "funding.yaml_error.n_too_many_providers", tooManyErr.TotalLimit)
+	} else if duplicateEntryErr, ok := errors.AsType[funding_service.DuplicateEntryError](err); ok {
+		return locale.Tr("funding.yaml_error.duplicate_entry", duplicateEntryErr.Name, duplicateEntryErr.Value)
+	} else if badInputErr, ok := errors.AsType[funding_service.BadInputError](err); ok {
+		return locale.Tr("funding.yaml_error.bad_input", badInputErr.Name, badInputErr.Pattern.String())
+	} else if duplicateYamlKeyErr, ok := errors.AsType[*funding_service.DuplicateYAMLKeyError](err); ok {
+		return locale.Tr("funding.yaml_error.duplicate_yaml_key", duplicateYamlKeyErr.Key)
+	} else if invalidYAMLErr, ok := errors.AsType[funding_service.InvalidYamlTypeError](err); ok {
+		return locale.Tr("funding.yaml_error.invalid_yaml_type", invalidYAMLErr.Name)
+	} else if notMappingErr, ok := errors.AsType[*funding_service.NotYAMLMappingError](err); ok {
+		return locale.Tr("funding.yaml_error.not_yaml_mapping", notMappingErr.ShortTag)
+	} else if parseErr, ok := errors.AsType[funding_service.CannotParseURLError](err); ok {
+		return locale.Tr("funding.yaml_error.parse_url", parseErr.Name, parseErr.Err.Error())
+	}
+	return locale.Tr("funding.yaml_error.unknown", strings.TrimSpace(err.Error()))
 }
 
 func markupRender(ctx *context.Context, renderCtx *markup.RenderContext, input io.Reader) (escaped *charset.EscapeStatus, output template.HTML, err error) {

@@ -12,6 +12,8 @@ import (
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	secret_model "forgejo.org/models/secret"
+	"forgejo.org/modules/actions"
+	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
@@ -1156,6 +1158,74 @@ func CancelActionRun(ctx *context.APIContext) {
 	ctx.Status(http.StatusNoContent)
 }
 
+// RerunActionRun reruns a workflow run.
+func RerunActionRun(ctx *context.APIContext) {
+	// swagger:operation POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun repository RerunActionRun
+	// ---
+	// summary: Rerun a finished (succeeded, failed, cancelled or skipped) workflow run.
+	// description: >
+	//   Rerun a particular workflow run. The workflow run must have completed (succeeded, failed, cancelled or skipped) for the
+	//   operation to succeed. Otherwise, an error is returned.
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: owner
+	//   in: path
+	//   description: owner of the repo
+	//   type: string
+	//   required: true
+	// - name: repo
+	//   in: path
+	//   description: name of the repo
+	//   type: string
+	//   required: true
+	// - name: run_id
+	//   in: path
+	//   description: ID of the workflow run
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// responses:
+	//   "204":
+	//     description: Workflow rerun has been started
+	//   "400":
+	//     "$ref": "#/responses/error"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	run, err := actions_model.GetRunByID(ctx, ctx.ParamsInt64(":run_id"))
+	if err != nil {
+		if errors.Is(err, util.ErrNotExist) {
+			ctx.Error(http.StatusNotFound, "GetRunById", err)
+			return
+		}
+
+		ctx.Error(http.StatusInternalServerError, "GetRunByID", err)
+		return
+	}
+
+	if ctx.Repo().Repository.ID != run.RepoID {
+		ctx.Error(http.StatusNotFound, "GetRunById", util.ErrNotExist)
+		return
+	}
+
+	if _, err = actions_service.RerunAllJobs(ctx, run); err != nil {
+		switch {
+		case errors.Is(err, actions_service.ErrRerunWorkflowStillRunning),
+			errors.Is(err, actions_service.ErrRerunWorkflowInvalid),
+			errors.Is(err, actions_service.ErrRerunWorkflowDisabled):
+			ctx.Error(http.StatusBadRequest, "RerunAllJobs", err)
+		default:
+			ctx.Error(http.StatusInternalServerError, "RerunAllJobs", err)
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
 // ListActionRunJobs return a filtered list of jobs that belong to a single workflow run
 func ListActionRunJobs(ctx *context.APIContext) {
 	// swagger:operation GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs repository ListActionRunJobs
@@ -1215,7 +1285,13 @@ func ListActionRunJobs(ctx *context.APIContext) {
 
 	response := make([]*api.ActionRunJob, 0, len(jobs))
 	for _, job := range jobs {
-		response = append(response, convert.ToActionRunJob(job))
+		convertedJob, err := convert.ToActionRunJob(ctx, job, nil)
+		if err != nil {
+			ctx.Error(http.StatusInternalServerError, "ToActionRunJob", err)
+			return
+		}
+
+		response = append(response, convertedJob)
 	}
 
 	ctx.JSON(http.StatusOK, response)
@@ -1535,6 +1611,161 @@ func DeleteActionArtifact(ctx *context.APIContext) {
 	ctx.Status(http.StatusNoContent)
 }
 
+func GetActionJob(ctx *context.APIContext) {
+	// swagger:operation GET /repos/{owner}/{repo}/actions/jobs/{job_id} repository repoGetActionJob
+	// ---
+	// summary: Get a single workflow run job, including its step list
+	// description: >
+	//   Returns the workflow job plus the ordered list of steps that make up
+	//   its execution. The `number` field on each step is the value accepted
+	//   by the `?step=` filter on the job-logs endpoint; `number=0` is always
+	//   "Set up job" and the last index is always "Complete job", with the
+	//   workflow's real steps in between. A job that has never been picked up
+	//   by a runner returns the job metadata with `steps` omitted.
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: owner
+	//   in: path
+	//   description: owner of the repo
+	//   type: string
+	//   required: true
+	// - name: repo
+	//   in: path
+	//   description: name of the repo
+	//   type: string
+	//   required: true
+	// - name: job_id
+	//   in: path
+	//   description: ID of the workflow job
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// responses:
+	//   "200":
+	//     "$ref": "#/responses/ActionRunJob"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	jobID := ctx.ParamsInt64(":job_id")
+
+	job, err := actions_model.GetRunJobByID(ctx, jobID)
+	if err != nil {
+		if errors.Is(err, util.ErrNotExist) {
+			ctx.Error(http.StatusNotFound, "GetRunJobByID", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetRunJobByID", err)
+		}
+		return
+	}
+	if job.RepoID != ctx.Repo().Repository.ID {
+		ctx.Error(http.StatusNotFound, "GetRunJobByID", util.ErrNotExist)
+		return
+	}
+
+	var task *actions_model.ActionTask
+	if job.TaskID != 0 {
+		task, err = actions_model.GetTaskByID(ctx, job.TaskID)
+		if err != nil {
+			ctx.Error(http.StatusInternalServerError, "GetTaskByID", err)
+			return
+		}
+	}
+
+	var full []*actions_model.ActionTaskStep
+	if task != nil {
+		// Targeted step load — LoadAttributes pulls job + run too, which we
+		// don't need here.
+		steps, err := actions_model.GetTaskStepsByTaskID(ctx, task.ID)
+		if err != nil {
+			ctx.Error(http.StatusInternalServerError, "GetTaskStepsByTaskID", err)
+			return
+		}
+		task.Steps = steps
+		full = actions.FullSteps(task)
+	}
+
+	convertedJob, err := convert.ToActionRunJob(ctx, job, full)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "ToActionRunJob", err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, convertedJob)
+}
+
+// RerunActionJob reruns a completed workflow job and its dependent jobs.
+func RerunActionJob(ctx *context.APIContext) {
+	// swagger:operation POST /repos/{owner}/{repo}/actions/jobs/{job_id}/rerun repository repoRerunActionJob
+	// ---
+	// summary: Rerun a completed workflow job and its dependent jobs
+	// description: >
+	//   Rerun a particular workflow job and all jobs that depend on it. The workflow job must have completed (succeeded,
+	//   failed, cancelled or skipped) for the operation to succeed. Otherwise, an error is returned.
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: owner
+	//   in: path
+	//   description: owner of the repo
+	//   type: string
+	//   required: true
+	// - name: repo
+	//   in: path
+	//   description: name of the repo
+	//   type: string
+	//   required: true
+	// - name: job_id
+	//   in: path
+	//   description: ID of the workflow job
+	//   type: integer
+	//   format: int64
+	//   required: true
+	// responses:
+	//   "204":
+	//     description: Workflow job rerun has been started
+	//   "400":
+	//     "$ref": "#/responses/error"
+	//   "403":
+	//     "$ref": "#/responses/forbidden"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	jobID := ctx.ParamsInt64(":job_id")
+
+	job, err := actions_model.GetRunJobByID(ctx, jobID)
+	if err != nil {
+		if errors.Is(err, util.ErrNotExist) {
+			ctx.Error(http.StatusNotFound, "GetRunJobByID", err)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetRunJobByID", err)
+		}
+		return
+	}
+	if job.RepoID != ctx.Repo().Repository.ID {
+		ctx.Error(http.StatusNotFound, "GetRunJobByID", util.ErrNotExist)
+		return
+	}
+
+	if _, err = actions_service.RerunJob(ctx, job); err != nil {
+		switch {
+		case errors.Is(err, actions_service.ErrRerunJobStillRunning),
+			errors.Is(err, actions_service.ErrRerunWorkflowInvalid),
+			errors.Is(err, actions_service.ErrRerunWorkflowDisabled):
+			ctx.Error(http.StatusBadRequest, "RerunJob", err)
+		default:
+			ctx.Error(http.StatusInternalServerError, "RerunJob", err)
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
 // GetActionJobLogs serves plaintext logs for a single action job.
 func GetActionJobLogs(ctx *context.APIContext) {
 	// swagger:operation GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs repository repoGetActionJobLogs
@@ -1545,9 +1776,15 @@ func GetActionJobLogs(ctx *context.APIContext) {
 	//   most recent attempt is returned (ActionRunJob.TaskID tracks the latest
 	//   task). Pass `?attempt=N` to fetch the log for a specific historical
 	//   attempt; the value matches the `attempt` field returned by the job
-	//   listing endpoints.
+	//   listing endpoints. Pass `?step=N` to narrow to a single step (using
+	//   the `number` field from `GET /actions/jobs/{job_id}`), `?q=` to
+	//   substring-filter lines, and `?format=ndjson` for NDJSON output (one
+	//   `{time, content}` object per line). When `q` or `format=ndjson` is
+	//   set the response drops `Accept-Ranges` and does not support `Range:`
+	//   since the total length isn't known until the scan finishes.
 	// produces:
 	// - text/plain
+	// - application/x-ndjson
 	// parameters:
 	// - name: owner
 	//   in: path
@@ -1571,13 +1808,48 @@ func GetActionJobLogs(ctx *context.APIContext) {
 	//   type: integer
 	//   format: int64
 	//   required: false
+	// - name: step
+	//   in: query
+	//   description: >
+	//     Step number to filter to. Use the `number` field from
+	//     `GET /repos/{owner}/{repo}/actions/jobs/{job_id}` — 0 is the
+	//     "Set up job" entry, the last index is the "Complete job" entry,
+	//     real steps are in between. Returns only that step's slice of
+	//     the log. Range requests still work over the slice.
+	//   type: integer
+	//   required: false
+	// - name: q
+	//   in: query
+	//   description: >
+	//     Substring filter applied to each line's content (the part after the
+	//     timestamp prefix). Plain string match — regex is not supported.
+	//     Setting `q` drops `Accept-Ranges` and disables `Range:` support;
+	//     the full filtered body is always returned.
+	//   type: string
+	//   required: false
+	// - name: qi
+	//   in: query
+	//   description: Case-insensitive substring match (only meaningful when `q` is set).
+	//   type: boolean
+	//   required: false
+	// - name: format
+	//   in: query
+	//   description: >
+	//     Response shape. `text` (default) returns log content as plaintext
+	//     lines. `ndjson` returns one `{"time":"...","content":"..."}` object
+	//     per emitted line, separated by `\n` (content-type
+	//     `application/x-ndjson`). `format=ndjson` drops `Accept-Ranges` and
+	//     disables `Range:` support.
+	//   type: string
+	//   enum: [text, ndjson]
+	//   required: false
 	// responses:
 	//   "200":
-	//     description: Plaintext log content
+	//     description: Plaintext log content (or NDJSON when `format=ndjson`)
 	//     schema:
 	//       type: string
 	//   "206":
-	//     description: Partial log content (Range request)
+	//     description: Partial log content (Range request; not returned when `q` or `format=ndjson` is set)
 	//     schema:
 	//       type: string
 	//   "401":
@@ -1594,12 +1866,22 @@ func GetActionJobLogs(ctx *context.APIContext) {
 		attempt = optional.Some(ctx.FormInt64("attempt"))
 	}
 
-	reader, filename, modtime, err := actions_service.OpenJobLogReader(ctx, ctx.Repo().Repository, jobID, attempt)
+	var stepFilter optional.Option[int]
+	if ctx.FormString("step") != "" {
+		stepFilter = optional.Some(ctx.FormInt("step"))
+	}
+
+	q := ctx.FormString("q")
+	ignoreCase := ctx.FormBool("qi")
+	asJSON := ctx.FormString("format") == "ndjson"
+
+	reader, filename, modtime, err := actions_service.OpenJobLogReader(ctx, ctx.Repo().Repository, jobID, attempt, stepFilter)
 	if err != nil {
 		switch {
 		case errors.Is(err, util.ErrNotExist),
 			errors.Is(err, actions_service.ErrJobNotExecuted),
-			errors.Is(err, actions_service.ErrLogsExpired):
+			errors.Is(err, actions_service.ErrLogsExpired),
+			errors.Is(err, actions_service.ErrStepOutOfRange):
 			ctx.Error(http.StatusNotFound, "OpenJobLogReader", err)
 		default:
 			ctx.Error(http.StatusInternalServerError, "OpenJobLogReader", err)
@@ -1607,6 +1889,26 @@ func GetActionJobLogs(ctx *context.APIContext) {
 		return
 	}
 	defer reader.Close()
+
+	// Filtered or JSON output: bypass http.ServeContent (no Range, no
+	// Content-Length) and stream line-by-line via WriteJobLogStream.
+	if q != "" || asJSON {
+		contentType := "text/plain; charset=utf-8"
+		if asJSON {
+			contentType = "application/x-ndjson"
+		}
+		ctx.Resp.Header().Set("Content-Type", contentType)
+		ctx.Resp.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", filename))
+		if err := actions_service.WriteJobLogStream(ctx.Resp, reader, actions_service.JobLogFilterOptions{
+			Query:      q,
+			IgnoreCase: ignoreCase,
+			JSON:       asJSON,
+		}); err != nil {
+			// Best-effort — headers may already be flushed, so we can only log.
+			log.Error("WriteJobLogStream job %d: %v", jobID, err)
+		}
+		return
+	}
 
 	ctx.Resp.Header().Set("Accept-Ranges", "bytes")
 	// Pin Content-Type explicitly so http.ServeContent doesn't extension-sniff.

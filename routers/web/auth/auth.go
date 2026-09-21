@@ -433,7 +433,7 @@ func SignOut(ctx *context.Context) {
 		})
 	}
 	HandleSignOut(ctx)
-	ctx.JSONRedirect(setting.AppSubURL + "/")
+	ctx.Redirect(setting.AppSubURL + "/")
 }
 
 // check if registration is allowed and set Data for template
@@ -462,6 +462,7 @@ func SignUp(ctx *context.Context) {
 	context.SetCaptchaData(ctx)
 
 	ctx.Data["PageIsSignUp"] = true
+	ctx.Data["UsernamePrefix"] = setting.Service.UsernamePrefix
 
 	registrationDisabled(ctx)
 
@@ -495,6 +496,7 @@ func SignUpPost(ctx *context.Context) {
 	context.SetCaptchaData(ctx)
 
 	ctx.Data["PageIsSignUp"] = true
+	ctx.Data["UsernamePrefix"] = setting.Service.UsernamePrefix
 
 	if ctx.HasError() {
 		ctx.HTML(http.StatusOK, tplSignUp)

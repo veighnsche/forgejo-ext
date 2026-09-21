@@ -11,6 +11,7 @@ import (
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	"forgejo.org/modules/actions"
+	"forgejo.org/modules/container"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
@@ -85,19 +86,34 @@ func CancelAbandonedJobs(ctx context.Context) error {
 		return err
 	}
 
-	now := timeutil.TimeStampNow()
-	for _, job := range jobs {
-		job.Status = actions_model.StatusCancelled
-		job.Stopped = now
-		if err := db.WithTx(ctx, func(ctx context.Context) error {
-			_, err := UpdateRunJob(ctx, job, nil, "status", "stopped")
-			return err
-		}); err != nil {
-			log.Warn("cancel abandoned job %v: %v", job.ID, err)
-			// go on
-		}
-		CreateCommitStatus(ctx, job)
-	}
+	return db.WithTx(ctx, func(ctx context.Context) error {
+		runsToUpdate := container.Set[int64]{}
+		now := timeutil.TimeStampNow()
+		for _, job := range jobs {
+			// Capture the current status because it is required for sending notifications.
+			priorStatus := job.Status
 
-	return nil
+			job.Stopped = now
+			job.Status = actions_model.StatusCancelled
+			if _, err = actions_model.UpdateRunJobWithoutNotification(ctx, job, nil, "status", "stopped"); err != nil {
+				return fmt.Errorf("could not cancel abandoned job %d: %v", job.ID, err)
+			}
+
+			if err = PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
+				return fmt.Errorf("could not propagate the status of job %d: %w", job.ID, err)
+			}
+
+			runsToUpdate.Add(job.RunID)
+
+			CreateCommitStatus(ctx, job)
+		}
+
+		for runID := range runsToUpdate {
+			if err = RefreshAndPropagateRunStatus(ctx, runID); err != nil {
+				return fmt.Errorf("could not refresh and propagate the status of run %d: %w", runID, err)
+			}
+		}
+
+		return nil
+	})
 }

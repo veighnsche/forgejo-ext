@@ -23,8 +23,8 @@ import (
 	"forgejo.org/modules/webhook"
 	"forgejo.org/services/convert"
 
-	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
-	act_model "code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
+	act_model "code.forgejo.org/forgejo/runner/v13/act/model"
 )
 
 type InputRequiredErr struct {
@@ -192,6 +192,7 @@ func (entry *Workflow) Dispatch(ctx context.Context, inputGetter InputValueGette
 		jobparser.ExpandLocalReusableWorkflows(expandLocalReusableWorkflows(entry.Commit)),
 		jobparser.ExpandInstanceReusableWorkflows(expandInstanceReusableWorkflows(ctx)),
 		jobparser.WithGitContext(generateGiteaContextForRun(run)),
+		jobparser.EnableNamespaces(),
 	)
 	if err != nil {
 		return nil, nil, err
@@ -265,7 +266,8 @@ func ConfigureActionRunTitle(workflows []*jobparser.SingleWorkflow, run *actions
 // or appropriate defaults if not present.
 func ConfigureActionRunConcurrency(workflow *act_model.Workflow, run *actions_model.ActionRun, vars map[string]string, inputs map[string]any) error {
 	concurrencyGroup, cancelInProgress, err := jobparser.EvaluateWorkflowConcurrency(
-		workflow.RawConcurrency, generateGiteaContextForRun(run), vars, inputs)
+		workflow.RawConcurrency, generateGiteaContextForRun(run), vars, inputs,
+	)
 	if err != nil {
 		return fmt.Errorf("unable to evaluate workflow `concurrency` block: %w", err)
 	}

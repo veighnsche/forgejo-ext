@@ -155,24 +155,113 @@
 			</fieldset>
 			<!-- Action Run Events -->
 			<fieldset class="simple-grid grid-2">
-				<legend>{{ctx.Locale.Tr "repo.settings.event_header_action"}}</legend>
+				<legend>
+					{{ctx.Locale.Tr "repo.settings.event_header_action"}}
+					<div class="ui red label" data-tooltip-content="{{ctx.Locale.Tr "repo.settings.event_action_do_not_use_tooltip"}}">{{ctx.Locale.Tr "repo.settings.event_action_do_not_use_label"}}</div>
+				</legend>
 				<!-- Action Run Failure -->
 				<label>
 					<input name="action_failure" type="checkbox" {{if .Webhook.ActionRunFailure}}checked{{end}}>
 					{{ctx.Locale.Tr "repo.settings.event_action_failure"}}
 					<span class="help">{{ctx.Locale.Tr "repo.settings.event_action_failure_desc"}}</span>
 				</label>
-				<!-- Action Run Recover -->
-				<label>
-					<input name="action_recover" type="checkbox" {{if .Webhook.ActionRunRecover}}checked{{end}}>
-					{{ctx.Locale.Tr "repo.settings.event_action_recover"}}
-					<span class="help">{{ctx.Locale.Tr "repo.settings.event_action_recover_desc"}}</span>
-				</label>
 				<!-- Action Run Success -->
 				<label>
 					<input name="action_success" type="checkbox" {{if .Webhook.ActionRunSuccess}}checked{{end}}>
 					{{ctx.Locale.Tr "repo.settings.event_action_success"}}
 					<span class="help">{{ctx.Locale.Tr "repo.settings.event_action_success_desc"}}</span>
+				</label>
+			</fieldset>
+			<!-- Workflow Run Events -->
+			<fieldset class="simple-grid grid-2">
+				<legend>{{ctx.Locale.Tr "repo.settings.event_header_workflow_run"}}</legend>
+				<!-- Workflow Run Blocked -->
+				<label>
+					<input name="workflow_run_blocked" type="checkbox" {{if .Webhook.WorkflowRunBlocked}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_run_blocked"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_run_blocked_desc"}}</span>
+				</label>
+				<!-- Workflow Run Cancelled -->
+				<label>
+					<input name="workflow_run_cancelled" type="checkbox" {{if .Webhook.WorkflowRunCancelled}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_run_cancelled"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_run_cancelled_desc"}}</span>
+				</label>
+				<!-- Workflow Run Failure -->
+				<label>
+					<input name="workflow_run_failure" type="checkbox" {{if .Webhook.WorkflowRunFailure}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_run_failure"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_run_failure_desc"}}</span>
+				</label>
+				<!-- Workflow Run Running -->
+				<label>
+					<input name="workflow_run_running" type="checkbox" {{if .Webhook.WorkflowRunRunning}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_run_running"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_run_running_desc"}}</span>
+				</label>
+				<!-- Workflow Run Skipped -->
+				<label>
+					<input name="workflow_run_skipped" type="checkbox" {{if .Webhook.WorkflowRunSkipped}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_run_skipped"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_run_skipped_desc"}}</span>
+				</label>
+				<!-- Workflow Run Success -->
+				<label>
+					<input name="workflow_run_success" type="checkbox" {{if .Webhook.WorkflowRunSuccess}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_run_success"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_run_success_desc"}}</span>
+				</label>
+				<!-- Workflow Run Waiting -->
+				<label>
+					<input name="workflow_run_waiting" type="checkbox" {{if .Webhook.WorkflowRunWaiting}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_run_waiting"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_run_waiting_desc"}}</span>
+				</label>
+			</fieldset>
+			<!-- Workflow Job Events -->
+			<fieldset class="simple-grid grid-2">
+				<legend>{{ctx.Locale.Tr "repo.settings.event_header_workflow_job"}}</legend>
+				<!-- Workflow Job Blocked -->
+				<label>
+					<input name="workflow_job_blocked" type="checkbox" {{if .Webhook.WorkflowJobBlocked}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_job_blocked"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_job_blocked_desc"}}</span>
+				</label>
+				<!-- Workflow Job Cancelled -->
+				<label>
+					<input name="workflow_job_cancelled" type="checkbox" {{if .Webhook.WorkflowJobCancelled}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_job_cancelled"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_job_cancelled_desc"}}</span>
+				</label>
+				<!-- Workflow Job Failure -->
+				<label>
+					<input name="workflow_job_failure" type="checkbox" {{if .Webhook.WorkflowJobFailure}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_job_failure"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_job_failure_desc"}}</span>
+				</label>
+				<!-- Workflow Job Running -->
+				<label>
+					<input name="workflow_job_running" type="checkbox" {{if .Webhook.WorkflowJobRunning}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_job_running"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_job_running_desc"}}</span>
+				</label>
+				<!-- Workflow Job Skipped -->
+				<label>
+					<input name="workflow_job_skipped" type="checkbox" {{if .Webhook.WorkflowJobSkipped}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_job_skipped"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_job_skipped_desc"}}</span>
+				</label>
+				<!-- Workflow Job Success -->
+				<label>
+					<input name="workflow_job_success" type="checkbox" {{if .Webhook.WorkflowJobSuccess}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_job_success"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_job_success_desc"}}</span>
+				</label>
+				<!-- Workflow Job Waiting -->
+				<label>
+					<input name="workflow_job_waiting" type="checkbox" {{if .Webhook.WorkflowJobWaiting}}checked{{end}}>
+					{{ctx.Locale.Tr "repo.settings.event_workflow_job_waiting"}}
+					<span class="help">{{ctx.Locale.Tr "repo.settings.event_workflow_job_waiting_desc"}}</span>
 				</label>
 			</fieldset>
 		</fieldset>

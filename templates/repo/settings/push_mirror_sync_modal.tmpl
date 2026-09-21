@@ -1,12 +1,12 @@
 <dialog id="push-mirror-edit-modal">
 	<article>
-		<header>{{ctx.Locale.Tr "repo.settings.mirror_settings.push_mirror.edit_sync_time"}}</header>
+		<header>{{ctx.Locale.Tr "mirror_settings.push_mirror.edit_sync_time"}}</header>
 		<form class="ui form ignore-dirty" method="post">
 			<div class="content">
 				<input type="hidden" name="action" value="push-mirror-update">
 				<input type="hidden" name="push_mirror_id" id="push-mirror-edit-id">
 				<div class="field">
-					<label for="name">{{ctx.Locale.Tr "repo.settings.mirror_settings.mirrored_repository"}}</label>
+					<label for="name">{{ctx.Locale.Tr "mirror_settings.mirrored_repository"}}</label>
 					<div class="ui small input">
 						<input id="push-mirror-edit-address" readonly>
 					</div>
@@ -22,7 +22,7 @@
 					<div class="ui small input">
 						<input id="push-mirror-edit-branch-filter" name="push_mirror_branch_filter" maxlength="2048">
 					</div>
-					<p class="help">{{ctx.Locale.Tr "repo.settings.push_mirror.branch_filter.description" "https://forgejo.org/docs/latest/user/repo-mirror/#branch-filter" "Forgejo"}}</p>
+					<p class="help">{{ctx.Locale.Tr "repo.settings.push_mirror.branch_filter.description" (AppDocsURL "user/repo-mirror/#branch-filter") "Forgejo"}}</p>
 				</div>
 			</div>
 			<div class="actions">

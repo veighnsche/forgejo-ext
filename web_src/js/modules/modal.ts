@@ -18,11 +18,9 @@ export function showModal(modalID: string | HTMLDialogElement, onApprove: () => 
   // Close the modal if the cancel button is pressed.
   modal.querySelector('.cancel')?.addEventListener('click', () => {
     modal.close();
+    modal.querySelector('.ok')?.removeEventListener('click', onApprove);
   }, {once: true, passive: true});
   modal.querySelector('.ok')?.addEventListener('click', onApprove, {passive: true});
-
-  // Call a `onShow` callback if one is registered for this element.
-  modal?.$modal?.onShow();
 
   // The modal is ready to be shown.
   modal.showModal();

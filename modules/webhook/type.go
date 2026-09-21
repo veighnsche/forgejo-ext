@@ -35,8 +35,21 @@ const (
 	HookEventSchedule                  HookEventType = "schedule"
 	HookEventWorkflowDispatch          HookEventType = "workflow_dispatch"
 	HookEventActionRunFailure          HookEventType = "action_run_failure"
-	HookEventActionRunRecover          HookEventType = "action_run_recover"
 	HookEventActionRunSuccess          HookEventType = "action_run_success"
+	HookEventWorkflowRunBlocked        HookEventType = "workflow_run_blocked"
+	HookEventWorkflowRunCancelled      HookEventType = "workflow_run_cancelled"
+	HookEventWorkflowRunFailure        HookEventType = "workflow_run_failure"
+	HookEventWorkflowRunRunning        HookEventType = "workflow_run_running"
+	HookEventWorkflowRunSkipped        HookEventType = "workflow_run_skipped"
+	HookEventWorkflowRunSuccess        HookEventType = "workflow_run_success"
+	HookEventWorkflowRunWaiting        HookEventType = "workflow_run_waiting"
+	HookEventWorkflowJobBlocked        HookEventType = "workflow_job_blocked"
+	HookEventWorkflowJobCancelled      HookEventType = "workflow_job_cancelled"
+	HookEventWorkflowJobFailure        HookEventType = "workflow_job_failure"
+	HookEventWorkflowJobRunning        HookEventType = "workflow_job_running"
+	HookEventWorkflowJobSkipped        HookEventType = "workflow_job_skipped"
+	HookEventWorkflowJobSuccess        HookEventType = "workflow_job_success"
+	HookEventWorkflowJobWaiting        HookEventType = "workflow_job_waiting"
 )
 
 // Event returns the HookEventType as an event string
@@ -71,10 +84,36 @@ func (h HookEventType) Event() string {
 		return "release"
 	case HookEventActionRunFailure:
 		return "action_run_failure"
-	case HookEventActionRunRecover:
-		return "action_run_recover"
 	case HookEventActionRunSuccess:
 		return "action_run_success"
+	case HookEventWorkflowRunBlocked:
+		return "workflow_run_blocked"
+	case HookEventWorkflowRunCancelled:
+		return "workflow_run_cancelled"
+	case HookEventWorkflowRunFailure:
+		return "workflow_run_failure"
+	case HookEventWorkflowRunRunning:
+		return "workflow_run_running"
+	case HookEventWorkflowRunSkipped:
+		return "workflow_run_skipped"
+	case HookEventWorkflowRunSuccess:
+		return "workflow_run_success"
+	case HookEventWorkflowRunWaiting:
+		return "workflow_run_waiting"
+	case HookEventWorkflowJobBlocked:
+		return "workflow_job_blocked"
+	case HookEventWorkflowJobCancelled:
+		return "workflow_job_cancelled"
+	case HookEventWorkflowJobFailure:
+		return "workflow_job_failure"
+	case HookEventWorkflowJobRunning:
+		return "workflow_job_running"
+	case HookEventWorkflowJobSkipped:
+		return "workflow_job_skipped"
+	case HookEventWorkflowJobSuccess:
+		return "workflow_job_success"
+	case HookEventWorkflowJobWaiting:
+		return "workflow_job_waiting"
 	}
 	return ""
 }

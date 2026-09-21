@@ -997,6 +997,11 @@ func SignInOAuth(ctx *context.Context) {
 				ctx.ServerError("SignIn", err)
 				return
 			}
+			codeChallenge, err = generateCodeChallenge(ctx, provider)
+			if err != nil {
+				ctx.ServerError("SignIn", fmt.Errorf("could not generate code_challenge: %w", err))
+				return
+			}
 			if err = authSource.Cfg.(*oauth2.Source).Callout(ctx.Req, ctx.Resp, codeChallenge, promptParam); err != nil {
 				ctx.ServerError("SignIn", err)
 			}
@@ -1381,7 +1386,7 @@ func handleOAuth2SignIn(ctx *context.Context, source *auth.Source, u *user_model
 		ctx.ServerError("UnmarshalDynGroupMappings", err)
 		return
 	}
-	dynGroupMaps := source_service.NewDynGroupMaps(dynGroupMappings)
+	dynGroupMaps := source_service.GetDynGroupMaps(source.ID, dynGroupMappings)
 
 	groups := getClaimedGroups(oauth2Source, &gothUser)
 	quotaGroups := getClaimedQuotaGroups(oauth2Source, &gothUser)

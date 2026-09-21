@@ -753,7 +753,7 @@ func EditPullRequest(ctx *context.APIContext) {
 		}
 		isClosed := api.StateClosed == api.StateType(*form.State)
 		if issue.IsClosed != isClosed {
-			if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer(), "", isClosed); err != nil {
+			if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer(), &issues_model.PRNotificationInfo{MergedCommitID: ""}, isClosed); err != nil {
 				if issues_model.IsErrDependenciesLeft(err) {
 					ctx.Error(http.StatusPreconditionFailed, "DependenciesLeft", "cannot close this pull request because it still has open dependencies")
 					return
@@ -1214,6 +1214,7 @@ func parseCompareInfo(ctx *context.APIContext, form api.CreatePullRequestOption)
 	headIsBranch := headGitRepo.IsBranchExist(headBranch)
 	headIsTag := headGitRepo.IsTagExist(headBranch)
 	if !headIsCommit && !headIsBranch && !headIsTag {
+		headGitRepo.Close()
 		ctx.NotFound(fmt.Errorf("could not find '%s' to be a commit, branch or tag in the head repository %s/%s", headBranch, headRepo.Owner.Name, headRepo.Name))
 		return nil, nil, nil, "", ""
 	}
@@ -1312,9 +1313,20 @@ func UpdatePullRequest(ctx *context.APIContext) {
 		return
 	}
 
+	headRepoPerm, err := access_model.GetUserRepoPermissionWithReducer(ctx, pr.HeadRepo, ctx.Doer(), ctx.Reducer())
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetUserRepoPermissionWithReducer head repo", err)
+		return
+	}
+	baseRepoPerm, err := access_model.GetUserRepoPermissionWithReducer(ctx, pr.BaseRepo, ctx.Doer(), ctx.Reducer())
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "GetUserRepoPermissionWithReducer base repo", err)
+		return
+	}
+
 	rebase := ctx.FormString("style") == "rebase"
 
-	allowedUpdateByMerge, allowedUpdateByRebase, err := pull_service.IsUserAllowedToUpdate(ctx, pr, ctx.Doer())
+	allowedUpdateByMerge, allowedUpdateByRebase, err := pull_service.IsUserAllowedToUpdate(ctx, pr, ctx.Doer(), headRepoPerm, baseRepoPerm)
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "IsUserAllowedToMerge", err)
 		return
@@ -1334,6 +1346,10 @@ func UpdatePullRequest(ctx *context.APIContext) {
 			return
 		} else if models.IsErrRebaseConflicts(err) {
 			ctx.Error(http.StatusConflict, "Update", "rebase failed because of conflict")
+			return
+		} else if errors.Is(err, pull_service.ErrPullRequestIsUpdateToDate) {
+			// No need to report an error -- the update operation didn't do anything, but there was nothing to be done.
+			ctx.Status(http.StatusOK)
 			return
 		}
 		ctx.Error(http.StatusInternalServerError, "pull_service.Update", err)

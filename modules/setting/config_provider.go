@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"forgejo.org/modules/duration"
 	"forgejo.org/modules/log"
-	"forgejo.org/modules/util"
 
 	"github.com/dustin/go-humanize"
 	"gopkg.in/ini.v1" //nolint:depguard
@@ -33,7 +33,7 @@ type ConfigKey interface {
 	MustBool(defaultVal ...bool) bool
 	MustInt(defaultVal ...int) int
 	MustInt64(defaultVal ...int64) int64
-	MustDuration(defaultVal ...time.Duration) time.Duration
+	MustDuration(defaultVal time.Duration) (time.Duration, error)
 }
 
 type ConfigSection interface {
@@ -58,25 +58,27 @@ type ConfigProvider interface {
 	GetFile() string
 	DisableSaving()
 	PrepareSaving() (ConfigProvider, error)
-	IsLoadedFromEmpty() bool
 }
 
 type iniConfigProvider struct {
 	file string
 	ini  *ini.File
 
-	disableSaving   bool // disable the "Save" method because the config options could be polluted
-	loadedFromEmpty bool // whether the file has not existed previously
+	disableSaving bool // disable the "Save" method because the config options could be polluted
 }
 
 type iniConfigSection struct {
 	sec *ini.Section
 }
 
+type iniConfigKey struct {
+	*ini.Key
+}
+
 var (
 	_ ConfigProvider = (*iniConfigProvider)(nil)
 	_ ConfigSection  = (*iniConfigSection)(nil)
-	_ ConfigKey      = (*ini.Key)(nil)
+	_ ConfigKey      = (*iniConfigKey)(nil)
 )
 
 // ConfigSectionKey only searches the keys in the given section, but it is O(n).
@@ -156,16 +158,20 @@ func (s *iniConfigSection) HasKey(key string) bool {
 }
 
 func (s *iniConfigSection) NewKey(name, value string) (ConfigKey, error) {
-	return s.sec.NewKey(name, value)
+	key, err := s.sec.NewKey(name, value)
+	if err != nil {
+		return nil, err
+	}
+	return &iniConfigKey{key}, nil
 }
 
 func (s *iniConfigSection) Key(key string) ConfigKey {
-	return s.sec.Key(key)
+	return &iniConfigKey{s.sec.Key(key)}
 }
 
 func (s *iniConfigSection) Keys() (keys []ConfigKey) {
 	for _, k := range s.sec.Keys() {
-		keys = append(keys, k)
+		keys = append(keys, &iniConfigKey{k})
 	}
 	return keys
 }
@@ -181,6 +187,7 @@ func configProviderLoadOptions() ini.LoadOptions {
 	return ini.LoadOptions{
 		KeyValueDelimiterOnWrite: " = ",
 		IgnoreContinuation:       true,
+		Loose:                    true,
 	}
 }
 
@@ -192,8 +199,7 @@ func NewConfigProviderFromData(configContent string) (ConfigProvider, error) {
 	}
 	cfg.NameMapper = ini.SnackCase
 	return &iniConfigProvider{
-		ini:             cfg,
-		loadedFromEmpty: true,
+		ini: cfg,
 	}, nil
 }
 
@@ -201,26 +207,15 @@ func NewConfigProviderFromData(configContent string) (ConfigProvider, error) {
 // NOTE: do not print any log except error.
 func NewConfigProviderFromFile(file string) (ConfigProvider, error) {
 	cfg := ini.Empty(configProviderLoadOptions())
-	loadedFromEmpty := true
 
-	if file != "" {
-		isFile, err := util.IsFile(file)
-		if err != nil {
-			return nil, fmt.Errorf("unable to check if %q is a file. Error: %v", file, err)
-		}
-		if isFile {
-			if err = cfg.Append(file); err != nil {
-				return nil, fmt.Errorf("failed to load config file %q: %v", file, err)
-			}
-			loadedFromEmpty = false
-		}
+	if err := cfg.Append(file); err != nil {
+		return nil, fmt.Errorf("failed to load config file %q: %v", file, err)
 	}
 
 	cfg.NameMapper = ini.SnackCase
 	return &iniConfigProvider{
-		file:            file,
-		ini:             cfg,
-		loadedFromEmpty: loadedFromEmpty,
+		file: file,
+		ini:  cfg,
 	}, nil
 }
 
@@ -266,10 +261,8 @@ func (p *iniConfigProvider) Save() error {
 	if filename == "" {
 		return errors.New("config file path must not be empty")
 	}
-	if p.loadedFromEmpty {
-		if err := os.MkdirAll(filepath.Dir(filename), os.ModePerm); err != nil {
-			return fmt.Errorf("failed to create %q: %v", filename, err)
-		}
+	if err := os.MkdirAll(filepath.Dir(filename), os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create %q: %v", filename, err)
 	}
 	if err := p.ini.SaveTo(filename); err != nil {
 		return fmt.Errorf("failed to save %q: %v", filename, err)
@@ -312,14 +305,21 @@ func (p *iniConfigProvider) PrepareSaving() (ConfigProvider, error) {
 	return NewConfigProviderFromFile(p.file)
 }
 
-func (p *iniConfigProvider) IsLoadedFromEmpty() bool {
-	return p.loadedFromEmpty
-}
-
 func mustMapSetting(rootCfg ConfigProvider, sectionName string, setting any) {
 	if err := rootCfg.Section(sectionName).MapTo(setting); err != nil {
 		log.Fatal("Failed to map %s settings: %v", sectionName, err)
 	}
+}
+
+// MustDuration will return a error if the value is non-zero and it cannot be
+// parsed as a duration, if the value is non-zero `defaultVal` is returned
+func (k *iniConfigKey) MustDuration(defaultVal time.Duration) (time.Duration, error) {
+	val := k.String()
+	if len(val) == 0 {
+		return defaultVal, nil
+	}
+
+	return duration.Parse(val)
 }
 
 // mustBytes returns -1 on parse error, or value out of range 0 to math.MaxInt64
@@ -370,8 +370,7 @@ func NewConfigProviderForLocale(source any, others ...any) (ConfigProvider, erro
 	}
 	iniFile.BlockMode = false
 	return &iniConfigProvider{
-		ini:             iniFile,
-		loadedFromEmpty: true,
+		ini: iniFile,
 	}, nil
 }
 

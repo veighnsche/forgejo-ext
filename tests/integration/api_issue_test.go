@@ -417,7 +417,7 @@ func TestAPIEditIssueAutoDate(t *testing.T) {
 		var apiError api.APIError
 		DecodeJSON(t, resp, &apiError)
 
-		assert.Equal(t, "user needs to have admin or repository owner right to set an update date", apiError.Message)
+		assert.Equal(t, "No permission to edit the following issue fields: updated_at", apiError.Message)
 	})
 }
 
@@ -500,7 +500,8 @@ func TestAPISearchIssues(t *testing.T) {
 	// as this API was used in the frontend, it uses UI page size
 	expectedIssueCount := min(
 		// from the fixtures
-		20, setting.UI.IssuePagingNum)
+		20, setting.UI.IssuePagingNum,
+	)
 
 	link, _ := url.Parse("/api/v1/repos/issues/search")
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeReadIssue)
@@ -603,7 +604,8 @@ func TestAPISearchIssuesWithLabels(t *testing.T) {
 	// as this API was used in the frontend, it uses UI page size
 	expectedIssueCount := min(
 		// from the fixtures
-		20, setting.UI.IssuePagingNum)
+		20, setting.UI.IssuePagingNum,
+	)
 
 	link, _ := url.Parse("/api/v1/repos/issues/search")
 	token := getUserToken(t, "user1", auth_model.AccessTokenScopeReadIssue)

@@ -8,11 +8,14 @@ import (
 	"html/template"
 	"net/http"
 	"testing"
+	"time"
 
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/templates"
+	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/translation"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/contexttest"
@@ -150,6 +153,7 @@ func baseExpectedViewResponse() *ViewResponse {
 				Title:             "update actions",
 				TitleHTML:         template.HTML("update actions"),
 				Status:            "success",
+				EstimatedOutcome:  "success",
 				Description:       "actions.runs.on_push_description",
 				CanCancel:         false,
 				CanApprove:        false,
@@ -182,8 +186,8 @@ func baseExpectedViewResponse() *ViewResponse {
 				},
 			},
 			CurrentJob: ViewCurrentJob{
-				Title:   "job_2",
-				Details: []template.HTML{"actions.status.success"},
+				Title:     "job_2",
+				Summaries: []template.HTML{},
 				Steps: []*ViewJobStep{
 					{
 						Summary: "Set up job",
@@ -199,19 +203,19 @@ func baseExpectedViewResponse() *ViewResponse {
 						Number:            3,
 						Started:           template.HTML("<relative-time prefix=\"\" tense=\"past\" datetime=\"2023-05-09T12:48:48Z\" data-tooltip-content data-tooltip-interactive=\"true\">2023-05-09 12:48:48 +00:00</relative-time>"),
 						Status:            "running",
-						StatusDiagnostics: []template.HTML{"actions.status.running"},
+						StatusDiagnostics: []template.HTML{"actions.status.info.running"},
 					},
 					{
 						Number:            2,
 						Started:           template.HTML("<relative-time prefix=\"\" tense=\"past\" datetime=\"2023-05-09T12:48:48Z\" data-tooltip-content data-tooltip-interactive=\"true\">2023-05-09 12:48:48 +00:00</relative-time>"),
 						Status:            "success",
-						StatusDiagnostics: []template.HTML{"actions.status.success"},
+						StatusDiagnostics: []template.HTML{"actions.status.info.success"},
 					},
 					{
 						Number:            1,
 						Started:           template.HTML("<relative-time prefix=\"\" tense=\"past\" datetime=\"2023-05-09T12:48:48Z\" data-tooltip-content data-tooltip-interactive=\"true\">2023-05-09 12:48:48 +00:00</relative-time>"),
 						Status:            "success",
-						StatusDiagnostics: []template.HTML{"actions.status.success"},
+						StatusDiagnostics: []template.HTML{"actions.status.info.success"},
 					},
 				},
 			},
@@ -255,6 +259,8 @@ func TestActionsViewViewPost(t *testing.T) {
 				resp.State.Run.Link = "/user5/repo4/actions/runs/189"
 				resp.State.Run.Title = "job output"
 				resp.State.Run.TitleHTML = "job output"
+				resp.State.Run.Status = "waiting"
+				resp.State.Run.EstimatedOutcome = "unknown"
 				resp.State.Run.Jobs = []*ViewJob{
 					{
 						ID:     194,
@@ -288,7 +294,7 @@ func TestActionsViewViewPost(t *testing.T) {
 						Number:            1,
 						Started:           template.HTML("<relative-time prefix=\"\" tense=\"past\" datetime=\"2023-05-09T12:48:48Z\" data-tooltip-content data-tooltip-interactive=\"true\">2023-05-09 12:48:48 +00:00</relative-time>"),
 						Status:            "success",
-						StatusDiagnostics: []template.HTML{"actions.status.success"},
+						StatusDiagnostics: []template.HTML{"actions.status.info.success"},
 					},
 				}
 
@@ -322,6 +328,8 @@ func TestActionsViewViewPost(t *testing.T) {
 				resp.State.Run.Link = "/user5/repo4/actions/runs/190"
 				resp.State.Run.Title = "job output"
 				resp.State.Run.TitleHTML = "job output"
+				resp.State.Run.Status = "waiting"
+				resp.State.Run.EstimatedOutcome = "unknown"
 				resp.State.Run.Done = false
 				resp.State.Run.Jobs = []*ViewJob{
 					{
@@ -338,14 +346,13 @@ func TestActionsViewViewPost(t *testing.T) {
 
 				// Expected blank data in the response because this job isn't picked by a runner yet.  Keep details here
 				// in-sync with the RepoActionView 'view non-picked action run job' test.
-				resp.State.CurrentJob.Details = []template.HTML{"actions.status.diagnostics.waiting"}
 				resp.State.CurrentJob.Steps = []*ViewJobStep{}
 				resp.State.CurrentJob.AllAttempts = []*TaskAttempt{
 					{
 						Number:            1,
 						Started:           template.HTML("actions.jobs.not_started"),
 						Status:            "waiting",
-						StatusDiagnostics: []template.HTML{"actions.status.diagnostics.waiting"},
+						StatusDiagnostics: []template.HTML{"actions.status.info.waiting"},
 					},
 				}
 			},
@@ -387,6 +394,92 @@ func TestActionsViewViewPost(t *testing.T) {
 			assert.Equal(t, *tt.expected, actual)
 		})
 	}
+}
+
+func TestActionsViewViewPost_Logs(t *testing.T) {
+	defer unittest.OverrideFixtures("routers/web/repo/actions/TestActionsViewViewPost_Logs")()
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	translation.InitLocales(t.Context())
+
+	timeutil.MockSet(time.Unix(1788695891, 0))
+	defer timeutil.MockUnset()
+
+	assertCurrentJob := func(t *testing.T, currentJob ViewCurrentJob) {
+		assert.Equal(t, "build", currentJob.Title)
+
+		assert.Len(t, currentJob.AllAttempts, 2)
+		assert.Equal(t, "waiting", currentJob.AllAttempts[0].Status)
+		assert.Equal(t, template.HTML("not started"), currentJob.AllAttempts[0].Started)
+		assert.EqualValues(t, 2, currentJob.AllAttempts[0].Number)
+		assert.Equal(t, "success", currentJob.AllAttempts[1].Status)
+		assert.Contains(t, currentJob.AllAttempts[1].Started, "2026-09-06 11:56:47 +00:00")
+		assert.EqualValues(t, 1, currentJob.AllAttempts[1].Number)
+
+		assert.Len(t, currentJob.AllAttempts[0].StatusDiagnostics, 1)
+		assert.Contains(t, currentJob.AllAttempts[0].StatusDiagnostics[0],
+			"for a runner with the following label: debian")
+
+		assert.Len(t, currentJob.AllAttempts[1].StatusDiagnostics, 1)
+		assert.Contains(t, currentJob.AllAttempts[1].StatusDiagnostics[0], "Succeeded")
+	}
+
+	// Look at the newest attempt first. Because it is waiting and has not been picked up by a
+	// runner, there is no task. No task means no logs. But diagnostics and previous attempts
+	// should be visible.
+	ctx, resp := contexttest.MockContext(t, "user2/test_workflows/actions/runs/41/jobs/0/attempt/2")
+	contexttest.LoadUser(t, ctx, 2)
+	contexttest.LoadRepo(t, ctx, 62)
+	ctx.SetParams("run", "41")
+	ctx.SetParams("job", "0")
+	ctx.SetParams("attempt", "2")
+	ctx.Locale = translation.NewLocale("en-US")
+	web.SetForm(ctx, &ViewRequest{})
+
+	ViewPost(ctx)
+	require.Equal(t, http.StatusOK, resp.Result().StatusCode, "failure in ViewPost(): %q", resp.Body.String())
+
+	var actual ViewResponse
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &actual))
+
+	assert.Equal(t, "Update ci.yaml", actual.State.Run.Title)
+	assert.Equal(t, "waiting", actual.State.Run.Status)
+
+	assertCurrentJob(t, actual.State.CurrentJob)
+
+	assert.Empty(t, actual.State.CurrentJob.Steps)
+
+	// Now, look at the first attempt. Because it has succeeded, there is a task with logs which
+	// should be displayed.
+	ctx, resp = contexttest.MockContext(t, "user2/test_workflows/actions/runs/41/jobs/0/attempt/1")
+	contexttest.LoadUser(t, ctx, 2)
+	contexttest.LoadRepo(t, ctx, 62)
+	ctx.SetParams("run", "41")
+	ctx.SetParams("job", "0")
+	ctx.SetParams("attempt", "1")
+	ctx.Locale = translation.NewLocale("en-US")
+	web.SetForm(ctx, &ViewRequest{})
+
+	ViewPost(ctx)
+	require.Equal(t, http.StatusOK, resp.Result().StatusCode, "failure in ViewPost(): %q", resp.Body.String())
+
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &actual))
+
+	assert.Equal(t, "Update ci.yaml", actual.State.Run.Title)
+	assert.Equal(t, "waiting", actual.State.Run.Status)
+
+	assertCurrentJob(t, actual.State.CurrentJob)
+
+	assert.Len(t, actual.State.CurrentJob.Steps, 3)
+	assert.Equal(t, "Set up job", actual.State.CurrentJob.Steps[0].Summary)
+	assert.Equal(t, "success", actual.State.CurrentJob.Steps[0].Status)
+	assert.Equal(t, "2s", actual.State.CurrentJob.Steps[0].Duration)
+	assert.Equal(t, "Hello world!", actual.State.CurrentJob.Steps[1].Summary)
+	assert.Equal(t, "success", actual.State.CurrentJob.Steps[1].Status)
+	assert.Equal(t, "9s", actual.State.CurrentJob.Steps[1].Duration)
+	assert.Equal(t, "Complete job", actual.State.CurrentJob.Steps[2].Summary)
+	assert.Equal(t, "success", actual.State.CurrentJob.Steps[2].Status)
+	assert.Equal(t, "3s", actual.State.CurrentJob.Steps[2].Duration)
 }
 
 func TestActionsViewCancelableUntilAllJobsFinished(t *testing.T) {
@@ -599,89 +692,238 @@ func TestActionsRerun(t *testing.T) {
 }
 
 func TestActionsViewStatusDiagnostics(t *testing.T) {
-	translation.InitLocales(t.Context())
-	english := translation.NewLocale("en-US")
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	timeutil.MockSet(time.Date(2024, 5, 19, 7, 40, 32, 0, time.UTC))
+	defer timeutil.MockUnset()
+
+	ctx, _ := contexttest.MockContext(t, "user2/test_workflows/actions/runs/155/jobs/0/attempt/1",
+		contexttest.MockContextOption{Render: templates.HTMLRenderer()})
+
+	translation.InitLocales(ctx)
+	ctx.Locale = translation.NewLocale("en-US")
+
+	runner := &actions_model.ActionRunner{ID: 908122, UUID: "e38977f9-3113-4305-84a0-43159fba18d3", Name: "my-runner"}
+	unittest.AssertSuccessfulInsert(t, runner)
+
+	unittest.AssertNotExistsBean(t, &actions_model.ActionRunner{ID: 95884})
 
 	testCases := []struct {
 		name     string
 		status   actions_model.Status
-		job      actions_model.ActionRunJob
+		task     *actions_model.ActionTask
+		job      *actions_model.ActionRunJob
 		expected []template.HTML
 	}{
 		{
-			name:     "Unknown status",
-			status:   actions_model.StatusUnknown,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"windows"}, Run: &actions_model.ActionRun{NeedApproval: false}},
+			name:   "Unknown status",
+			status: actions_model.StatusUnknown,
+			job: &actions_model.ActionRunJob{
+				RunsOn: []string{"windows"},
+				Run:    &actions_model.ActionRun{NeedApproval: false},
+			},
 			expected: []template.HTML{"Unknown"},
 		},
 		{
-			name:     "Waiting without labels",
-			status:   actions_model.StatusWaiting,
-			job:      actions_model.ActionRunJob{RunsOn: []string{}, Run: &actions_model.ActionRun{NeedApproval: false}},
-			expected: []template.HTML{"Waiting for a runner with the following labels: "},
+			name:   "Waiting without labels",
+			status: actions_model.StatusWaiting,
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{},
+				Run:     &actions_model.ActionRun{NeedApproval: false},
+				Updated: timeutil.TimeStampNow().Add(-25*60 - 12),
+			},
+			expected: []template.HTML{
+				`Waiting for <relative-time datetime="2024-05-19T07:15:20Z" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">25m12s</relative-time> for a runner with the following labels: `,
+			},
 		},
 		{
-			name:     "Waiting with one label",
-			status:   actions_model.StatusWaiting,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"freebsd"}, Run: &actions_model.ActionRun{NeedApproval: false}},
-			expected: []template.HTML{"Waiting for a runner with the following label: freebsd"},
+			name:   "Waiting with one label",
+			status: actions_model.StatusWaiting,
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{"freebsd"},
+				Run:     &actions_model.ActionRun{NeedApproval: false},
+				Updated: timeutil.TimeStampNow().Add(-25*60 - 12),
+			},
+			expected: []template.HTML{
+				`Waiting for <relative-time datetime="2024-05-19T07:15:20Z" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">25m12s</relative-time> for a runner with the following label: freebsd`,
+			},
 		},
 		{
-			name:     "Waiting with labels, no approval",
-			status:   actions_model.StatusWaiting,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"docker", "ubuntu"}, Run: &actions_model.ActionRun{NeedApproval: false}},
-			expected: []template.HTML{"Waiting for a runner with the following labels: docker, ubuntu"},
+			name:   "Waiting with labels, no approval",
+			status: actions_model.StatusWaiting,
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{"docker", "ubuntu"},
+				Run:     &actions_model.ActionRun{NeedApproval: false},
+				Updated: timeutil.TimeStampNow().Add(-25*60 - 12),
+			},
+			expected: []template.HTML{
+				`Waiting for <relative-time datetime="2024-05-19T07:15:20Z" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">25m12s</relative-time> for a runner with the following labels: docker, ubuntu`,
+			},
 		},
 		{
 			name:   "Waiting with labels, approval",
 			status: actions_model.StatusWaiting,
-			job:    actions_model.ActionRunJob{RunsOn: []string{"docker", "ubuntu"}, Run: &actions_model.ActionRun{NeedApproval: true}},
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{"docker", "ubuntu"},
+				Run:     &actions_model.ActionRun{NeedApproval: true},
+				Updated: timeutil.TimeStampNow().Add(-25*60 - 12),
+			},
 			expected: []template.HTML{
-				"Waiting for a runner with the following labels: docker, ubuntu",
+				`Waiting for <relative-time datetime="2024-05-19T07:15:20Z" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">25m12s</relative-time> for a runner with the following labels: docker, ubuntu`,
 				"Need approval to run workflows for fork pull request.",
 			},
 		},
 		{
-			name:     "Running",
-			status:   actions_model.StatusRunning,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
-			expected: []template.HTML{"Running"},
+			name:   "Running with task",
+			status: actions_model.StatusRunning,
+			task: &actions_model.ActionTask{
+				Started:  timeutil.TimeStampNow().Add(-10),
+				RunnerID: 908122,
+				Status:   actions_model.StatusRunning,
+			},
+			job: &actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
+			expected: []template.HTML{
+				`Running for <relative-time datetime="2024-05-19T07:40:22Z" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">10s</relative-time>`,
+				"Assigned to runner my-runner (e38977f9-3113-4305-84a0-43159fba18d3)",
+			},
 		},
 		{
-			name:     "Success",
-			status:   actions_model.StatusSuccess,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
-			expected: []template.HTML{"Success"},
+			name:   "Running without task",
+			status: actions_model.StatusRunning,
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{"debian"},
+				Run:     &actions_model.ActionRun{NeedApproval: false},
+				Started: timeutil.TimeStampNow().Add(-10),
+				Status:  actions_model.StatusRunning,
+			},
+			expected: []template.HTML{`Running`},
 		},
 		{
-			name:     "Failure",
-			status:   actions_model.StatusFailure,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
+			name:   "Success without task",
+			status: actions_model.StatusSuccess,
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{"debian"},
+				Run:     &actions_model.ActionRun{NeedApproval: false},
+				Started: timeutil.TimeStampNow().Add(-20),
+				Stopped: timeutil.TimeStampNow().Add(-5),
+				Status:  actions_model.StatusSuccess,
+			},
+			expected: []template.HTML{`Success`},
+		},
+		{
+			name:   "Success with ephemeral runner",
+			status: actions_model.StatusSuccess,
+			task: &actions_model.ActionTask{
+				Started:  timeutil.TimeStampNow().Add(-20),
+				Stopped:  timeutil.TimeStampNow().Add(-5),
+				Status:   actions_model.StatusSuccess,
+				RunnerID: 95884,
+			},
+			job: &actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
+			expected: []template.HTML{
+				`Succeeded <relative-time prefix="" tense="past" datetime="2024-05-19T07:40:27Z" data-tooltip-content data-tooltip-interactive="true">2024-05-19 07:40:27 +00:00</relative-time> in 15s`,
+			},
+		},
+		{
+			name:   "Success with persistent runner",
+			status: actions_model.StatusSuccess,
+			task: &actions_model.ActionTask{
+				Started:  timeutil.TimeStampNow().Add(-20),
+				Stopped:  timeutil.TimeStampNow().Add(-5),
+				Status:   actions_model.StatusSuccess,
+				RunnerID: 908122,
+			},
+			job: &actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
+			expected: []template.HTML{
+				`Succeeded <relative-time prefix="" tense="past" datetime="2024-05-19T07:40:27Z" data-tooltip-content data-tooltip-interactive="true">2024-05-19 07:40:27 +00:00</relative-time> in 15s`,
+				"Assigned to runner my-runner (e38977f9-3113-4305-84a0-43159fba18d3)",
+			},
+		},
+		{
+			name:   "Failure without task",
+			status: actions_model.StatusFailure,
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{"debian"},
+				Run:     &actions_model.ActionRun{NeedApproval: false},
+				Status:  actions_model.StatusFailure,
+				Started: timeutil.TimeStampNow().Add(-17),
+				Stopped: timeutil.TimeStampNow(),
+			},
 			expected: []template.HTML{"Failure"},
 		},
 		{
-			name:     "Cancelled",
-			status:   actions_model.StatusCancelled,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
+			name:   "Failure with task",
+			status: actions_model.StatusFailure,
+			task: &actions_model.ActionTask{
+				Status:   actions_model.StatusFailure,
+				Started:  timeutil.TimeStampNow().Add(-17),
+				Stopped:  timeutil.TimeStampNow(),
+				RunnerID: 908122,
+			},
+			job: &actions_model.ActionRunJob{
+				RunsOn: []string{"debian"},
+				Run:    &actions_model.ActionRun{NeedApproval: false},
+				Status: actions_model.StatusFailure,
+			},
+			expected: []template.HTML{
+				`Failed <relative-time prefix="" tense="past" datetime="2024-05-19T07:40:32Z" data-tooltip-content data-tooltip-interactive="true">2024-05-19 07:40:32 +00:00</relative-time> after 17s`,
+				"Assigned to runner my-runner (e38977f9-3113-4305-84a0-43159fba18d3)",
+			},
+		},
+		{
+			name:   "Cancelled without task",
+			status: actions_model.StatusCancelled,
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{"debian"},
+				Run:     &actions_model.ActionRun{NeedApproval: false},
+				Status:  actions_model.StatusFailure,
+				Started: timeutil.TimeStampNow().Add(-65),
+				Stopped: timeutil.TimeStampNow(),
+			},
 			expected: []template.HTML{"Canceled"},
+		},
+		{
+			name:   "Cancelled with task",
+			status: actions_model.StatusCancelled,
+			task: &actions_model.ActionTask{
+				Status:   actions_model.StatusFailure,
+				Started:  timeutil.TimeStampNow().Add(-65),
+				Stopped:  timeutil.TimeStampNow().Add(-3),
+				RunnerID: 908122,
+			},
+			job: &actions_model.ActionRunJob{
+				RunsOn: []string{"debian"},
+				Run:    &actions_model.ActionRun{NeedApproval: false},
+				Status: actions_model.StatusFailure,
+			},
+			expected: []template.HTML{
+				`Cancelled <relative-time prefix="" tense="past" datetime="2024-05-19T07:40:29Z" data-tooltip-content data-tooltip-interactive="true">2024-05-19 07:40:29 +00:00</relative-time> after 1m2s`,
+				"Assigned to runner my-runner (e38977f9-3113-4305-84a0-43159fba18d3)",
+			},
 		},
 		{
 			name:     "Skipped",
 			status:   actions_model.StatusSkipped,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
+			job:      &actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
 			expected: []template.HTML{"Skipped"},
 		},
 		{
-			name:     "Blocked",
-			status:   actions_model.StatusBlocked,
-			job:      actions_model.ActionRunJob{RunsOn: []string{"debian"}, Run: &actions_model.ActionRun{NeedApproval: false}},
-			expected: []template.HTML{"Blocked"},
+			name:   "Blocked",
+			status: actions_model.StatusBlocked,
+			job: &actions_model.ActionRunJob{
+				RunsOn:  []string{"debian"},
+				Run:     &actions_model.ActionRun{NeedApproval: false},
+				Updated: timeutil.TimeStampNow().Add(-87 * 60),
+			},
+			expected: []template.HTML{
+				`Blocked for <relative-time datetime="2024-05-19T06:13:32Z" format="duration" prefix="" data-tooltip-content data-tooltip-interactive="true">1h27m0s</relative-time>`,
+			},
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			assert.Equal(t, testCase.expected, statusDiagnostics(testCase.status, &testCase.job, english))
+			assert.Equal(t, testCase.expected, statusDiagnostics(ctx, testCase.status, testCase.task, testCase.job))
 		})
 	}
 }

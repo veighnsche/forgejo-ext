@@ -219,13 +219,13 @@ func TestSearchUsers(t *testing.T) {
 	}
 
 	testUserSuccess(&user_model.SearchUserOptions{OrderBy: "id ASC", ListOptions: db.ListOptions{Page: 1}},
-		[]int64{1, 2, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 24, 27, 28, 29, 30, 32, 34, 37, 38, 39, 40, 43, 1041})
+		[]int64{1, 2, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 24, 27, 28, 29, 30, 32, 34, 37, 38, 39, 40, 43, 44, 1041})
 
 	testUserSuccess(&user_model.SearchUserOptions{ListOptions: db.ListOptions{Page: 1}, IsActive: optional.Some(false)},
 		[]int64{43, 9})
 
 	testUserSuccess(&user_model.SearchUserOptions{OrderBy: "id ASC", ListOptions: db.ListOptions{Page: 1}, IsActive: optional.Some(true)},
-		[]int64{1, 2, 4, 5, 8, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 24, 27, 28, 29, 30, 32, 34, 37, 38, 39, 40, 1041})
+		[]int64{1, 2, 4, 5, 8, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 24, 27, 28, 29, 30, 32, 34, 37, 38, 39, 40, 44, 1041})
 
 	testUserSuccess(&user_model.SearchUserOptions{Keyword: "user1", OrderBy: "id ASC", ListOptions: db.ListOptions{Page: 1}, IsActive: optional.Some(true)},
 		[]int64{1, 10, 11, 12, 13, 14, 15, 16, 18})
@@ -495,6 +495,62 @@ func TestCreateUserPlainWithFediverseHandle(t *testing.T) {
 	// Note: We don't expect that admins are able to access any front-facing
 	// function that sets the overwrite (i.e. CreateFederatedUser), hence it
 	// has been omitted for now.
+}
+
+func TestCreateUserWithUsernamePrefix(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	defer test.MockVariableValue(&setting.Service.UsernamePrefix, "fbsd-")()
+
+	t.Run("Normal creation adds prefix", func(t *testing.T) {
+		user := &user_model.User{
+			Name:               "john",
+			Email:              "john-prefix@example.com",
+			Passwd:             "password123!",
+			MustChangePassword: false,
+		}
+		err := user_model.CreateUser(db.DefaultContext, user)
+		require.NoError(t, err)
+		assert.Equal(t, "fbsd-john", user.Name)
+	})
+
+	t.Run("Admin creation skips prefix", func(t *testing.T) {
+		user := &user_model.User{
+			Name:               "adminuser",
+			Email:              "adminuser-prefix@example.com",
+			Passwd:             "password123!",
+			MustChangePassword: false,
+		}
+		err := user_model.AdminCreateUser(db.DefaultContext, user)
+		require.NoError(t, err)
+		assert.Equal(t, "adminuser", user.Name)
+	})
+
+	t.Run("No double prefix", func(t *testing.T) {
+		user := &user_model.User{
+			Name:               "fbsd-already",
+			Email:              "already-prefix@example.com",
+			Passwd:             "password123!",
+			MustChangePassword: false,
+		}
+		err := user_model.CreateUser(db.DefaultContext, user)
+		require.NoError(t, err)
+		assert.Equal(t, "fbsd-already", user.Name)
+	})
+}
+
+func TestCreateUserWithoutUsernamePrefix(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	defer test.MockVariableValue(&setting.Service.UsernamePrefix, "")()
+
+	user := &user_model.User{
+		Name:               "noprefixuser",
+		Email:              "noprefix@example.com",
+		Passwd:             "password123!",
+		MustChangePassword: false,
+	}
+	err := user_model.CreateUser(db.DefaultContext, user)
+	require.NoError(t, err)
+	assert.Equal(t, "noprefixuser", user.Name)
 }
 
 func TestGetUserIDsByNames(t *testing.T) {

@@ -18,8 +18,8 @@ import (
 	"forgejo.org/modules/timeutil"
 	webhook_module "forgejo.org/modules/webhook"
 
-	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,7 +55,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: true
-`),
+`,
+			),
 		},
 	}
 
@@ -134,7 +135,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: true
-`),
+`,
+				),
 			},
 			want: []actions_model.ActionRun{
 				{
@@ -166,7 +168,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: true
-`),
+`,
+				),
 			},
 			want: []actions_model.ActionRun{
 				{
@@ -186,6 +189,68 @@ jobs:
 				assertMutable(t, &expected, run)
 			}
 			unittest.AssertSuccessfulDelete(t, actions_model.ActionRun{RepoID: repo.ID})
+		})
+	}
+}
+
+func TestCreateSchedulePersistentErrors(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2, OwnerID: 2})
+
+	testCases := []struct {
+		name     string
+		workflow string
+	}{
+		{
+			name: "unparseable workflow",
+			workflow: `
+name: test
+jobs: false
+`,
+		},
+		{
+			name: "unparseable notifications",
+			workflow: `
+name: test
+enable-email-notifications: "no thanks"
+jobs:
+  job2:
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
+`,
+		},
+		{
+			name: "unparseable concurrency",
+			workflow: `
+name: test
+concurrency: { group: [] }
+jobs:
+  job2:
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
+`,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			cron := actions_model.ActionSchedule{
+				Title:             "scheduletitle1",
+				RepoID:            repo.ID,
+				OwnerID:           repo.OwnerID,
+				WorkflowID:        "some.yml",
+				WorkflowDirectory: ".forgejo/workflows",
+				TriggerUserID:     repo.OwnerID,
+				Ref:               "branch",
+				CommitSHA:         "fakeSHA",
+				Event:             webhook_module.HookEventSchedule,
+				EventPayload:      "fakepayload",
+				Content:           []byte(testCase.workflow),
+			}
+			err := CreateScheduleTask(t.Context(), &cron)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, actions_model.ErrPersistentScheduling)
 		})
 	}
 }
@@ -323,7 +388,8 @@ jobs:
         dim1: "${{ fromJSON(needs.other-job.outputs.some-output) }}"
     steps:
       - run: true
-`),
+`,
+			),
 		},
 	}
 
@@ -385,7 +451,8 @@ jobs:
     runs-on: "${{ fromJSON(needs.other-job.outputs.some-output) }}"
     steps:
       - run: true
-`),
+`,
+			),
 		},
 	}
 
@@ -474,7 +541,8 @@ jobs:
     uses: ./.forgejo/workflows/reusable.yml
   job3:
     uses: some-org/some-repo/.forgejo/workflows/reusable-path.yml@main
-`),
+`,
+			),
 		},
 	}
 

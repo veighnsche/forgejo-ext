@@ -14,6 +14,7 @@ import (
 	activities_model "forgejo.org/models/activities"
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/models/repo"
+	user_model "forgejo.org/models/user"
 	fm "forgejo.org/modules/forgefed"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/markup"
@@ -21,8 +22,14 @@ import (
 )
 
 func ActionToForgeUserActivity(ctx context.Context, action *activities_model.Action) (fm.ForgeUserActivity, error) {
+	action.LoadRepo(ctx)
 	if action.Repo == nil {
 		return fm.ForgeUserActivity{}, repo.ErrRepoNotExist{}
+	}
+
+	action.LoadActUser(ctx)
+	if action.ActUser == nil {
+		return fm.ForgeUserActivity{}, user_model.ErrUserNotExist{}
 	}
 
 	render := func(format string, args ...any) string {
@@ -106,6 +113,9 @@ func ActionToForgeUserActivity(ctx context.Context, action *activities_model.Act
 	case activities_model.ActionPushTag:
 		return makeUserActivity("pushed %s at %s", renderTag(), renderRepo())
 	case activities_model.ActionCommentIssue:
+		if err := action.LoadComment(ctx); err != nil {
+			return fm.ForgeUserActivity{}, err
+		}
 		renderedComment, err := markdown.RenderString(&markup.RenderContext{
 			Ctx: ctx,
 		}, action.Comment.Content)

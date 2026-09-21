@@ -28,8 +28,21 @@ type HookEvents struct {
 	Release                  bool `json:"release"`
 	Package                  bool `json:"package"`
 	ActionRunFailure         bool `json:"action_run_failure"`
-	ActionRunRecover         bool `json:"action_run_recover"`
 	ActionRunSuccess         bool `json:"action_run_success"`
+	WorkflowRunBlocked       bool `json:"workflow_run_blocked"`
+	WorkflowRunCancelled     bool `json:"workflow_run_cancelled"`
+	WorkflowRunFailure       bool `json:"workflow_run_failure"`
+	WorkflowRunRunning       bool `json:"workflow_run_running"`
+	WorkflowRunSkipped       bool `json:"workflow_run_skipped"`
+	WorkflowRunSuccess       bool `json:"workflow_run_success"`
+	WorkflowRunWaiting       bool `json:"workflow_run_waiting"`
+	WorkflowJobBlocked       bool `json:"workflow_job_blocked"`
+	WorkflowJobCancelled     bool `json:"workflow_job_cancelled"`
+	WorkflowJobFailure       bool `json:"workflow_job_failure"`
+	WorkflowJobRunning       bool `json:"workflow_job_running"`
+	WorkflowJobSkipped       bool `json:"workflow_job_skipped"`
+	WorkflowJobSuccess       bool `json:"workflow_job_success"`
+	WorkflowJobWaiting       bool `json:"workflow_job_waiting"`
 }
 
 // HookEvent represents events that will deliver a hook.

@@ -26,6 +26,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/indexer/issues"
+	"forgejo.org/modules/optional"
 	"forgejo.org/modules/references"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
@@ -890,7 +891,8 @@ func TestSearchIssues(t *testing.T) {
 
 	expectedIssueCount := min(
 		// from the fixtures
-		20, setting.UI.IssuePagingNum)
+		20, setting.UI.IssuePagingNum,
+	)
 
 	req := NewRequest(t, "GET", "/issues/search")
 	resp := session.MakeRequest(t, req, http.StatusOK)
@@ -1015,7 +1017,8 @@ func TestSearchIssuesWithLabels(t *testing.T) {
 
 	expectedIssueCount := min(
 		// from the fixtures
-		20, setting.UI.IssuePagingNum)
+		20, setting.UI.IssuePagingNum,
+	)
 
 	session := loginUser(t, "user1")
 	link, _ := url.Parse("/issues/search")
@@ -1750,7 +1753,7 @@ func TestIssueProjectSidebarMissing(t *testing.T) {
 		htmlDoc.AssertElement(t, ".select-project.dropdown", true)
 	})
 
-	project_model.DeleteProjectByID(ctx, 1003)
+	project_model.DeleteProjectByID(ctx, 1003, optional.None[int64]())
 	// Disable repository's project unit
 	require.NoError(t, repo_service.UpdateRepositoryUnits(db.DefaultContext, repo, nil, []unit_model.Type{unit_model.TypeProjects}))
 	t.Run("Sidebar missing", func(tt *testing.T) {
@@ -1800,7 +1803,7 @@ func TestIssueProjectSidebarMissing(t *testing.T) {
 	org = team.GetOrg(ctx)
 	session = loginUser(t, user.Name)
 
-	require.NoError(t, project_model.DeleteProjectByID(db.DefaultContext, 1004))
+	require.NoError(t, project_model.DeleteProjectByID(db.DefaultContext, 1004, optional.None[int64]()))
 
 	issueURL = testNewIssue(t, session, org.Name, repo.Name, "Hello", "World")
 	t.Run("Sidebar showing - org off & repo on", func(tt *testing.T) {

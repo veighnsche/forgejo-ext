@@ -10,6 +10,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -41,19 +42,27 @@ func TestMain(m *testing.M) {
 
 	tests.InitTest()
 	initChangedFiles()
-	testE2eWebRoutes = routers.NormalRoutes()
 
-	err := unittest.InitFixtures(
-		unittest.FixturesOptions{
-			Dir:  filepath.Join(setting.AppWorkPath, "models/fixtures/"),
-			Base: setting.AppWorkPath,
-			Dirs: []string{"tests/e2e/fixtures/"},
-		},
-	)
+	fixtureOptions := unittest.FixturesOptions{
+		Dir:  filepath.Join(setting.AppWorkPath, "models/fixtures/"),
+		Base: setting.AppWorkPath,
+		Dirs: []string{"tests/e2e/fixtures/"},
+	}
+
+	err := unittest.InitFixtures(fixtureOptions)
 	if err != nil {
 		fmt.Printf("Error initializing test database: %v\n", err)
 		os.Exit(1)
 	}
+
+	testE2eWebRoutes = routers.NormalRoutes()
+	testE2eWebRoutes.R.Patch("/_e2e/fixtures/reload", func(_ http.ResponseWriter, _ *http.Request) {
+		err := unittest.LoadFixtures()
+		if err != nil {
+			fmt.Printf("Error reloading fixtures: %s\n", err)
+			os.Exit(1)
+		}
+	})
 
 	exitVal := m.Run()
 
@@ -108,7 +117,8 @@ func TestE2e(t *testing.T) {
 			// Add test-specific fixures or config options.
 			// Note: this breaks test execution through Playwright Extension for VSCode
 			// Note: these tests only work properly via `make test-e2e-sqlite#filename`
-			if testname == "buttons.test.e2e" || testname == "dropdown.test.e2e" || testname == "modal.test.e2e" {
+			if testname == "buttons.test.e2e" || testname == "dropdown.test.e2e" || testname == "modal.test.e2e" || testname == "hashbox.test.e2e" {
+				// Allow access to /-/demo/
 				defer test.MockVariableValue(&setting.IsProd, false)()
 				defer test.MockVariableValue(&testE2eWebRoutes, routers.NormalRoutes())()
 			}
@@ -135,6 +145,7 @@ func TestE2e(t *testing.T) {
 				cmd := exec.Command(runArgs[0], thisTest...)
 				cmd.Env = os.Environ()
 				cmd.Env = append(cmd.Env, fmt.Sprintf("GITEA_URL=%s", setting.AppURL))
+				cmd.Dir = setting.AppWorkPath
 
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
