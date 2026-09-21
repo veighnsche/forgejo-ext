@@ -273,6 +273,9 @@ Forgejo or set your environment appropriately.`, "")
 			lastline = 0
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return fail(ctx, "Failed to read stdin", "HookPreReceive os.Stdin scanner failed: %v", err)
+	}
 
 	if count > 0 {
 		hookOptions.OldCommitIDs = oldCommitIDs[:count]
@@ -399,6 +402,10 @@ Forgejo or set your environment appropriately.`, "")
 			messages = append(messages, resp.Messages...)
 			count = 0
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		hookPrintMessages(messages)
+		return fail(ctx, "Failed to read stdin", "HookPostReceive os.Stdin scanner failed: %v", err)
 	}
 
 	if count == 0 {
