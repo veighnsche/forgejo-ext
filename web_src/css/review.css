@@ -334,3 +334,14 @@ td.diff-line-commented-range {
 .suggestion-diff .code-diff td {
   border: none !important;
 }
+
+/* Diff cells are `<code class="code-inner">`; inside the comment's `.markup` they would
+   inherit the inline-code pill (grey background, padding, 85% font, radius), which hides
+   the row's added/removed color. Restore the plain diff cell rendering. */
+.suggestion-diff .code-inner {
+  padding: 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  background-color: transparent;
+  border-radius: 0;
+}
