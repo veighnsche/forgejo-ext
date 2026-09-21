@@ -132,7 +132,7 @@ const DURATION_KEYS = {
  * browser's Intl formatting when the string is untranslated.
  */
 function FormatDurationUnit(n: number, unit: Intl.RelativeTimeFormatUnit): string {
-  const translation = pageData.PLURALSTRINGS_LANG[DURATION_KEYS[unit]]?.[PLURAL_RULES[pageData.PLURAL_RULE_LANG](n)];
+  const translation = pageData.PLURALSTRINGS_LANG[DURATION_KEYS[unit]]?.[PLURAL_RULES[pageData.PLURAL_RULE_LANG]?.(n)];
   if (translation) return translation.replace('%d', n.toString());
   return GetDurationFormatter(unit).format(n);
 }
