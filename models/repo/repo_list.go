@@ -749,18 +749,11 @@ func GetUserRepositories(ctx context.Context, opts *SearchRepoOptions) (Reposito
 }
 
 func makeTypeUnitConds(types []unit.Type) builder.Cond {
-	switch len(types) {
-	case 0:
-		return builder.NewCond()
-	case 1:
-		return builder.Eq{"`repo_unit`.type": types[0]}
-	default:
-		conds := make([]builder.Cond, len(types))
-		for i, t := range types {
-			conds[i] = builder.Eq{"`repo_unit`.type": t}
-		}
-		return builder.Or(conds...)
+	conds := make([]builder.Cond, len(types))
+	for i, t := range types {
+		conds[i] = builder.Eq{"`repo_unit`.type": t}
 	}
+	return builder.Or(conds...)
 }
 
 func JoinRepoType(b *builder.Builder, types ...unit.Type) *builder.Builder {
