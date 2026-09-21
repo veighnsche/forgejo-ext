@@ -420,12 +420,16 @@ function diffLineCodeText(row, side) {
 // insertSuggestionBlock inserts a ```suggestion fenced block (prefilled with the
 // commented lines) at the textarea cursor, on its own line.
 function insertSuggestionBlock(textarea, lines) {
-  const block = `\`\`\`suggestion\n${lines.join('\n')}\n\`\`\`\n`;
+  const opening = '```suggestion\n';
+  const content = lines.join('\n');
+  const block = `${opening}${content}\n\`\`\`\n`;
   const start = textarea.selectionStart ?? textarea.value.length;
   const end = textarea.selectionEnd ?? textarea.value.length;
   const before = textarea.value.slice(0, start);
   const prefix = before === '' || before.endsWith('\n') ? '' : '\n';
   textarea.setRangeText(prefix + block, start, end, 'end');
+  const caret = start + prefix.length + opening.length + content.length;
+  textarea.setSelectionRange(caret, caret);
   textarea.dispatchEvent(new Event('input', {bubbles: true}));
   textarea.focus();
 }
