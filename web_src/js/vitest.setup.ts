@@ -8,6 +8,7 @@ window.config = {
   pageData: {},
   i18n: {},
   customEmojis: new Set(['forgejo', 'frogejo', 'blobnom']),
+  appUrl: '',
   appSubUrl: '',
   assetUrlPrefix: '/assets',
   mentionValues: [
