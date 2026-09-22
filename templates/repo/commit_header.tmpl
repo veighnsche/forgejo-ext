@@ -132,8 +132,26 @@
 	{{if IsMultilineCommitMessage .Commit.Message}}
 		<pre class="commit-body">{{RenderCommitBody $.Context .Commit.Message ($.Repository.ComposeMetas ctx)}}</pre>
 	{{end}}
-	{{template "repo/commit_load_branches_and_tags" .}}
 </div>
+
+{{if not (or .PageIsWiki .PageIsPullFiles)}}
+	<div class="branch-and-tag-area ui attached segment {{$class}}" data-text-default-branch-tooltip="{{ctx.Locale.Tr "repo.commit.contained_in_default_branch"}}">
+		<details>
+			<summary class="load-branches-and-tags" data-text="{{ctx.Locale.Tr "repo.commit.contained_in"}}" data-fetch-url="{{.RepoLink}}/commit/{{.CommitID}}/load-branches-and-tags">{{ctx.Locale.Tr "repo.commit.load_referencing_branches_and_tags"}}</summary>
+			<div class="branch-and-tag-detail tw-hidden">
+				<div class="tw-flex tw-mt-2">
+					<div class="tw-p-1">{{svg "octicon-git-branch"}}</div>
+					<div class="branch-area flex-text-block tw-flex-wrap tw-flex-1"></div>
+				</div>
+				<div class="tw-flex tw-mt-2">
+					<div class="tw-p-1">{{svg "octicon-tag"}}</div>
+					<div class="tag-area flex-text-block tw-flex-wrap tw-flex-1"></div>
+				</div>
+			</div>
+		</details>
+	</div>
+{{end}}
+
 <div class="ui attached segment tw-flex tw-items-center tw-justify-between tw-py-1 commit-header-row tw-flex-wrap {{$class}}">
 		<div class="tw-flex tw-items-center author">
 			{{if .Author}}

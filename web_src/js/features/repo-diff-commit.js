@@ -1,17 +1,19 @@
 import {hideElem, showElem, toggleElem} from '../utils/dom.js';
 import {GET} from '../modules/fetch.js';
 
-async function loadBranchesAndTags(area, loadingButton) {
-  loadingButton.classList.add('disabled');
+async function loadBranchesAndTags(area, btn) {
+  const state = btn.getAttribute('data-state');
+  if (state == 'fetching' || state == 'fetched') return;
   try {
-    const res = await GET(loadingButton.getAttribute('data-fetch-url'));
+    btn.setAttribute('data-state', 'fetching');
+    const res = await GET(btn.getAttribute('data-fetch-url'));
     const data = await res.json();
-    hideElem(loadingButton);
     addTags(area, data.tags);
     addBranches(area, data.branches, data.default_branch);
     showElem(area.querySelectorAll('.branch-and-tag-detail'));
   } finally {
-    loadingButton.classList.remove('disabled');
+    btn.innerText = btn.getAttribute('data-text')
+    btn.setAttribute('data-state', 'fetched');
   }
 }
 
