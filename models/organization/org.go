@@ -6,10 +6,12 @@ package organization
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
 	actions_model "forgejo.org/models/actions"
+	"forgejo.org/models/avatars"
 	"forgejo.org/models/db"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
@@ -105,6 +107,11 @@ func (org *Organization) IsOrgMember(ctx context.Context, uid int64) (bool, erro
 	return IsOrganizationMember(ctx, org.ID, uid)
 }
 
+// IsInvitedToOrg returns true if given user is invited to the organization.
+func (org *Organization) IsInvitedToOrg(ctx context.Context, uid int64) (bool, error) {
+	return IsInvitedToOrganization(ctx, org.ID, uid)
+}
+
 // CanCreateOrgRepo returns true if given user can create repo in organization
 func (org *Organization) CanCreateOrgRepo(ctx context.Context, uid int64) (bool, error) {
 	return CanCreateOrgRepo(ctx, org.ID, uid)
@@ -159,6 +166,16 @@ func (org *Organization) hasMemberWithUserID(ctx context.Context, userID int64) 
 // AvatarLink returns the full avatar link with http host
 func (org *Organization) AvatarLink(ctx context.Context) string {
 	return org.AsUser().AvatarLink(ctx)
+}
+
+// UploadedAvatarLink returns the organization's uploaded avatar link for the given display size,
+// or an empty string if no avatar was uploaded.
+func (org *Organization) UploadedAvatarLink(size int) string {
+	// Uploaded avatars use SHA-256 hashes; generated identicons use MD5 hashes.
+	if !org.UseCustomAvatar || len(org.Avatar) != sha256.Size*2 {
+		return ""
+	}
+	return avatars.GenerateUserResizedAvatarLink(org.Avatar, size*setting.Avatar.RenderedSizeFactor)
 }
 
 // HTMLURL returns the organization's full link.

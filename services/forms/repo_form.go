@@ -15,7 +15,6 @@ import (
 
 	"forgejo.org/models"
 	issues_model "forgejo.org/models/issues"
-	project_model "forgejo.org/models/project"
 	webhook_model "forgejo.org/models/webhook"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
@@ -285,6 +284,13 @@ type WebhookCoreForm struct {
 	Package                  bool
 	ActionFailure            bool
 	ActionSuccess            bool
+	WorkflowRunBlocked       bool
+	WorkflowRunCancelled     bool
+	WorkflowRunFailure       bool
+	WorkflowRunRunning       bool
+	WorkflowRunSkipped       bool
+	WorkflowRunSuccess       bool
+	WorkflowRunWaiting       bool
 	WorkflowJobBlocked       bool
 	WorkflowJobCancelled     bool
 	WorkflowJobFailure       bool
@@ -398,8 +404,8 @@ func (i IssueLockForm) HasValidReason() bool {
 type CreateProjectForm struct {
 	Title        string `binding:"Required;MaxSize(100)"`
 	Content      string
-	TemplateType project_model.TemplateType
-	CardType     project_model.CardType
+	TemplateType string
+	CardType     string
 }
 
 // EditProjectColumnForm is a form for editing a project column

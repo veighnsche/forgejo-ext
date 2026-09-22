@@ -7,24 +7,31 @@ package setting
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/user"
+	"forgejo.org/modules/util"
+
+	"github.com/hashicorp/go-version"
 )
 
 var ForgejoVersion = "1.0.0"
 
 // settings
 var (
-	// AppVer is the version of the current build of Gitea. It is set in main.go from main.Version.
+	// AppVer is the version of the current build of Forgejo. It is set in main.go from main.Version.
 	AppVer string
+	// AppDocsVer returns the Forgejo Docs version string corresponding to the current build of Forgejo.
+	AppDocsVer = sync.OnceValue(initialAppDocsVer)
 	// AppBuiltWith represents a human-readable version go runtime build version and build tags. (See main.go formatBuiltWith().)
 	AppBuiltWith string
-	// AppStartTime store time gitea has started
+	// AppStartTime stores the time at which Forgejo started.
 	AppStartTime time.Time
 
 	// Other global setting objects
@@ -46,6 +53,48 @@ func init() {
 
 	// By default set this logger at Info - we'll change it later, but we need to start with something.
 	log.SetConsoleLogger(log.DEFAULT, "console", log.INFO)
+}
+
+// Parses AppVer as a semver string and returns a version string compatible with Forgejo Docs.
+func initialAppDocsVer() string {
+	result := "latest"
+
+	// parse semver if we haven't yet
+	ver, err := version.NewSemver(strings.TrimSpace(AppVer))
+	if err != nil {
+		log.Warn("Doclinks will fallback to version '%s' due to err: %v", result, err)
+	} else {
+		segments := ver.Segments()
+		if len(segments) >= 2 {
+			result = fmt.Sprintf("v%d.%d", segments[0], segments[1])
+		}
+	}
+
+	return result
+}
+
+// Returns a URL string to Forgejo docs for the current app version.
+func AppDocsURL(path string) string {
+	return AppVersionDocsURL(AppDocsVer(), path)
+}
+
+// Returns a URL string to Forgejo docs for the given app version.
+func AppVersionDocsURL(version, path string) string {
+	path, hash, hasHash := strings.Cut(path, "#")
+	version = util.PathEscapeSegments(version)
+	path = util.PathEscapeSegments(path)
+	if path == "" {
+		path = "/"
+	}
+	url, err := url.JoinPath("https://forgejo.org/", "docs", version, path)
+	if err != nil {
+		// Not sure when or if this would ever happen, but let's log the error and continue with an empty `url` value
+		log.Debug("AppVersionDocsURL failed to join version '%[1]s' to path '%[2]s': %[3]v", version, path, err)
+	}
+	if hasHash {
+		return url + "#" + hash
+	}
+	return url
 }
 
 // IsRunUserMatchCurrentUser returns false if configured run user does not match

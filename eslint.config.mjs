@@ -16,8 +16,9 @@ import vue from 'eslint-plugin-vue';
 import vueScopedCss from 'eslint-plugin-vue-scoped-css';
 import toml from 'eslint-plugin-toml';
 import tseslint from 'typescript-eslint';
+import {defineConfig} from 'eslint/config';
 
-export default tseslint.config(
+export default defineConfig(
   ...tseslint.configs.recommended,
   eslintPluginImportX.flatConfigs.typescript,
   {
@@ -322,6 +323,8 @@ export default tseslint.config(
       'no-jquery/no-contains': [2],
       'no-jquery/no-context-prop': [2],
       'no-jquery/no-css': [2],
+      'no-jquery/no-css-number': [2],
+      'no-jquery/no-css-props': [2],
       'no-jquery/no-data': [0],
       'no-jquery/no-deferred': [2],
       'no-jquery/no-delegate': [2],
@@ -347,6 +350,7 @@ export default tseslint.config(
       'no-jquery/no-has': [2],
       'no-jquery/no-hold-ready': [2],
       'no-jquery/no-html': [0],
+      'no-jquery/no-internal-array-methods': [2],
       'no-jquery/no-in-array': [2],
       'no-jquery/no-is-array': [2],
       'no-jquery/no-is-empty-object': [2],
@@ -356,6 +360,7 @@ export default tseslint.config(
       'no-jquery/no-is-window': [2],
       'no-jquery/no-is': [2],
       'no-jquery/no-jquery-constructor': [0],
+      'no-jquery/no-jquery-ui': [2],
       'no-jquery/no-live': [2],
       'no-jquery/no-load-shorthand': [2],
       'no-jquery/no-load': [2],

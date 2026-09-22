@@ -46,7 +46,7 @@ func WebhookList(ctx *context.Context) {
 	ctx.Data["BaseLink"] = ctx.Repo.RepoLink + "/settings/hooks"
 	ctx.Data["BaseLinkNew"] = ctx.Repo.RepoLink + "/settings/hooks"
 	ctx.Data["WebhookList"] = webhook_service.List()
-	ctx.Data["Description"] = ctx.Tr("repo.settings.hooks_desc", "https://forgejo.org/docs/latest/user/repository/webhooks/")
+	ctx.Data["Description"] = ctx.Tr("repo.settings.hooks_desc", setting.AppDocsURL("user/repository/webhooks/"))
 
 	ws, err := db.Find[webhook.Webhook](ctx, webhook.ListWebhookOptions{RepoID: ctx.Repo.Repository.ID})
 	if err != nil {
@@ -177,6 +177,13 @@ func ParseHookEvent(form forms.WebhookCoreForm) *webhook_module.HookEvent {
 			Package:                  form.Package,
 			ActionRunFailure:         form.ActionFailure,
 			ActionRunSuccess:         form.ActionSuccess,
+			WorkflowRunBlocked:       form.WorkflowRunBlocked,
+			WorkflowRunCancelled:     form.WorkflowRunCancelled,
+			WorkflowRunFailure:       form.WorkflowRunFailure,
+			WorkflowRunRunning:       form.WorkflowRunRunning,
+			WorkflowRunSkipped:       form.WorkflowRunSkipped,
+			WorkflowRunSuccess:       form.WorkflowRunSuccess,
+			WorkflowRunWaiting:       form.WorkflowRunWaiting,
 			WorkflowJobBlocked:       form.WorkflowJobBlocked,
 			WorkflowJobCancelled:     form.WorkflowJobCancelled,
 			WorkflowJobFailure:       form.WorkflowJobFailure,
