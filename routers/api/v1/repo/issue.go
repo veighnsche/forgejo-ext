@@ -24,6 +24,7 @@ import (
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/timeutil"
+	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
@@ -919,6 +920,17 @@ func EditIssue(ctx *context.APIContext) {
 		issue.MilestoneID = *form.Milestone
 		if err = issue_service.ChangeMilestoneAssign(ctx, issue, ctx.Doer(), oldMilestoneID); err != nil {
 			ctx.Error(http.StatusInternalServerError, "ChangeMilestoneAssign", err)
+			return
+		}
+	}
+
+	if form.Project != nil {
+		if err = issues_model.IssueAssignOrRemoveProject(ctx, issue, ctx.Doer(), *form.Project, 0); err != nil {
+			if errors.Is(err, util.ErrPermissionDenied) {
+				ctx.Error(http.StatusForbidden, "IssueAssignOrRemoveProject", err)
+			} else {
+				ctx.Error(http.StatusInternalServerError, "IssueAssignOrRemoveProject", err)
+			}
 			return
 		}
 	}

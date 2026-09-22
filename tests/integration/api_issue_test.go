@@ -16,6 +16,7 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
+	project_model "forgejo.org/models/project"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
@@ -338,6 +339,54 @@ func TestAPIEditIssue(t *testing.T) {
 	assert.Equal(t, apiIssue.Milestone.Title, apiIssueIdempotent.Milestone.Title)
 	assert.Equal(t, apiIssue.Body, apiIssueIdempotent.Body)
 	assert.Equal(t, apiIssue.Title, apiIssueIdempotent.Title)
+}
+
+func TestAPIEditIssueProject(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
+	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
+	project := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: 1})
+	column, err := project.GetDefaultColumn(db.DefaultContext)
+	require.NoError(t, err)
+
+	session := loginUser(t, owner.Name)
+	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteIssue)
+
+	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 5})
+	urlStr := fmt.Sprintf("/api/v1/repos/%s/%s/issues/%d", owner.Name, repo.Name, issue.Index)
+
+	t.Run("Remove", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{IssueID: issue.ID, ProjectID: project.ID})
+
+		none := int64(0)
+		req := NewRequestWithJSON(t, "PATCH", urlStr, api.EditIssueOption{
+			Project: &none,
+		}).AddTokenAuth(token)
+		MakeRequest(t, req, http.StatusCreated)
+
+		unittest.AssertNotExistsBean(t, &project_model.ProjectIssue{IssueID: issue.ID})
+	})
+
+	t.Run("Assign", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		unittest.AssertNotExistsBean(t, &project_model.ProjectIssue{IssueID: issue.ID})
+
+		req := NewRequestWithJSON(t, "PATCH", urlStr, api.EditIssueOption{
+			Project: &project.ID,
+		}).AddTokenAuth(token)
+		MakeRequest(t, req, http.StatusCreated)
+
+		unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{
+			IssueID:         issue.ID,
+			ProjectID:       project.ID,
+			ProjectColumnID: column.ID,
+		})
+	})
+
 }
 
 func TestAPIEditIssueAutoDate(t *testing.T) {
