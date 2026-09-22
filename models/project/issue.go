@@ -61,8 +61,9 @@ type ErrProjectIssueNotExist struct {
 }
 
 // IsErrProjectIssueNotExist checks if an error is a ErrProjectIssueNotExist
+// TODO: remove this to remove deadcode?
 func IsErrProjectIssueNotExist(err error) bool {
-	_, ok := err.(ErrProjectIssueNotExist)
+	_, ok := errors.AsType[ErrProjectIssueNotExist](err)
 	return ok
 }
 
