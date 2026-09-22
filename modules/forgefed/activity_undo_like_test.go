@@ -103,7 +103,7 @@ func Test_UndoLikeMarshalJSON(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MarshalJSON() got = %q\nwant %q", got, tt.want)
+				t.Errorf("MarshalJSON()\ngot = %q\nwant = %q", got, tt.want)
 			}
 		})
 	}
@@ -125,7 +125,6 @@ func Test_UndoLikeUnmarshalJSON(t *testing.T) {
 				`"actor":"https://repo.prod.meissa.de/api/v1/activitypub/user-id/1",` +
 				`"object":{` +
 				`"type":"Like",` +
-				`"startTime":"2024-03-27T00:00:00Z",` +
 				`"actor":"https://repo.prod.meissa.de/api/v1/activitypub/user-id/1",` +
 				`"object":"https://codeberg.org/api/v1/activitypub/repository-id/1"}}`),
 			want: &forgefed.ForgeUndoLike{
@@ -234,7 +233,7 @@ func TestActivityValidationUndo(t *testing.T) {
 		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
 	}
 	res, err = validation.IsValid(sut)
-	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Value object.type should not be empty\nField object.type contains the value , which is not in allowed subset [Like]"})
+	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Value object.type should not be empty\nField object.type contains the value <nil>, which is not in allowed subset [Like]"})
 	assert.False(t, res)
 
 	// like actor missing
