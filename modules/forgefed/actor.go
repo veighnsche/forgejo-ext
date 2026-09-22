@@ -57,6 +57,10 @@ func (id ActorID) AsURI() string {
 	return result
 }
 
+func (id ActorID) AsNormalizedURI() string {
+	return strings.ToLower(id.AsURI())
+}
+
 func (id ActorID) Validate() []string {
 	var result []string
 	result = append(result, validation.ValidateNotEmpty(id.ID, "ID")...)

@@ -78,4 +78,37 @@ func TestActivityPubRepoFollowing(t *testing.T) {
 			t.Error("Activity is not a like for this repo")
 		}
 	})
+
+	t.Run("Unstar a repo having a following staring repo", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		repoLink := fmt.Sprintf("/%s", repo.FullName())
+		link := fmt.Sprintf("%s/action/unstar", repoLink)
+		req := NewRequest(t, "POST", link)
+
+		session.MakeRequest(t, req, http.StatusOK)
+
+		// Verify distant server received a undoLike activity
+		activity := ap.Activity{}
+		err := activity.UnmarshalJSON([]byte(mock.LastPost))
+		if err != nil {
+			t.Errorf("Error unmarshalling Activity: %q", err)
+		}
+
+		// Verify distant server received a undoLike activity
+		undoLike, err := fm.NewForgeUndoLikeFromActivity(&activity)
+		if err != nil {
+			t.Errorf("Error converting ForgeUndoLike from activity: %q", err)
+		}
+		if isValid, err := validation.IsValid(undoLike); !isValid {
+			t.Errorf("ForgeUndoLike is not valid: %q", err)
+		}
+
+		likeActivity := undoLike.Object.(ap.Activity)
+		iri := likeActivity.Object.GetLink().String()
+		isCorrectObject := strings.HasSuffix(iri, "/api/v1/activitypub/repository-id/1")
+
+		if !isCorrectObject {
+			t.Error("Activity is not a Undolike for this repo")
+		}
+	})
 }

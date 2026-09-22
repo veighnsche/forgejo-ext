@@ -13,7 +13,9 @@ func ProcessRepositoryInbox(ctx context.Context, activity *ap.Activity, reposito
 	switch activity.Type {
 	case ap.LikeType:
 		return ProcessLikeActivity(ctx, activity, repositoryID)
+	case ap.UndoType:
+		return ProcessRepositoryInboxUndoLike(ctx, activity, repositoryID)
 	default:
-		return ServiceResult{}, NewErrNotAcceptablef("Not a like activity: %v", activity.Type)
+		return ServiceResult{}, NewErrNotAcceptablef("Unhandled activity: %v", activity.Type)
 	}
 }

@@ -74,3 +74,27 @@ func TestActorIdValidation(t *testing.T) {
 	assert.Len(t, result, 1)
 	assert.Equal(t, "not all input was parsed, \nUnvalidated Input:\"https://an.other.host/api/v1/activitypub/user-id/1?illegal=action\" \nParsed URI: \"https://an.other.host/api/v1/activitypub/user-id/1\"", result[0])
 }
+
+func TestActorIdNormalizedURI(t *testing.T) {
+	sut := forgefed.ActorID{
+		ID:                 "5",
+		HostSchema:         "https",
+		Path:               "api/v1/activitypub/user-id",
+		Host:               "an.other.forgejo.host",
+		HostPort:           443,
+		UnvalidatedInput:   "https://an.other.forgejo.host/api/v1/activitypub/user-id/5",
+		IsPortSupplemented: true,
+	}
+	assert.Equal(t, "https://an.other.forgejo.host/api/v1/activitypub/user-id/5", sut.AsNormalizedURI())
+
+	sut = forgefed.ActorID{
+		ID:                 "5",
+		HostSchema:         "https",
+		Path:               "api/v1/activitypub/USER-id",
+		Host:               "an.other.forgejo.hosT",
+		HostPort:           443,
+		UnvalidatedInput:   "https://an.other.forgejo.host/api/v1/activitypub/user-id/5",
+		IsPortSupplemented: true,
+	}
+	assert.Equal(t, "https://an.other.forgejo.host/api/v1/activitypub/user-id/5", sut.AsNormalizedURI())
+}

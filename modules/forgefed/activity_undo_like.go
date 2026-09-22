@@ -4,6 +4,8 @@
 package forgefed
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"forgejo.org/modules/validation"
@@ -18,22 +20,49 @@ type ForgeUndoLike struct {
 	ap.Activity
 }
 
-func NewForgeUndoLike(actorIRI, objectIRI string, startTime time.Time) (ForgeUndoLike, error) {
-	result := ForgeUndoLike{}
-	result.Type = ap.UndoType
-	result.Actor = ap.IRI(actorIRI)
-	result.StartTime = startTime
+func NewForgeUndoLikeFromActivity(activity *ap.Activity) (ForgeUndoLike, error) {
+	like, ok := activity.Object.(*ap.Activity)
+	if !ok {
+		return ForgeUndoLike{}, errors.New("invalid activity.Object")
+	}
 
-	like := ap.Activity{}
-	like.Type = ap.LikeType
-	like.Actor = ap.IRI(actorIRI)
-	like.Object = ap.IRI(objectIRI)
-	result.Object = &like
+	result := ForgeUndoLike{}
+	result.Type = activity.Type
+	result.Actor = activity.Actor
+	result.Object = *like
+	result.StartTime = activity.StartTime
 
 	if valid, err := validation.IsValid(result); !valid {
 		return ForgeUndoLike{}, err
 	}
 	return result, nil
+}
+
+func NewForgeUndoLike(actorIRI, objectIRI string, startTime time.Time) (ForgeUndoLike, error) {
+	like := ap.Activity{}
+	like.Type = ap.LikeType
+	like.Actor = ap.IRI(actorIRI)
+	like.Object = ap.IRI(objectIRI)
+
+	result := ForgeUndoLike{}
+	result.Type = ap.UndoType
+	result.Actor = ap.IRI(actorIRI)
+	result.StartTime = startTime
+	result.Object = like
+
+	if valid, err := validation.IsValid(result); !valid {
+		return ForgeUndoLike{}, err
+	}
+	return result, nil
+}
+
+func (undo ForgeUndoLike) Like() (ap.Like, error) {
+	like, ok := undo.Object.(ap.Like)
+	fmt.Printf("%#v\n", undo.Object)
+	if !ok {
+		return ap.Like{}, errors.New("object is not of type Like - type assertion failed")
+	}
+	return like, nil
 }
 
 func (undo *ForgeUndoLike) UnmarshalJSON(data []byte) error {
@@ -45,35 +74,37 @@ func (undo ForgeUndoLike) Validate() []string {
 	result = append(result, validation.ValidateNotEmpty(undo.Type, "type")...)
 	result = append(result, validation.ValidateOneOf(undo.Type, []any{ap.UndoType}, "type")...)
 
-	if undo.Actor == nil {
-		result = append(result, "Actor should not be nil.")
-	} else {
-		result = append(result, validation.ValidateNotEmpty(undo.Actor.GetID().String(), "actor")...)
-	}
+	undoActorValidation := validation.ValidateIDExists(undo.Actor, "actor")
+	result = append(result, undoActorValidation...)
 
 	result = append(result, validation.ValidateNotEmpty(undo.StartTime.String(), "startTime")...)
 	if undo.StartTime.IsZero() {
 		result = append(result, "StartTime was invalid.")
 	}
 
-	if undo.Object == nil {
-		result = append(result, "object should not be empty.")
-	} else if activity, ok := undo.Object.(*ap.Activity); !ok {
-		result = append(result, "object is not of type Activity")
+	like, err := undo.Like()
+	if err != nil {
+		result = append(result, "Invalid activity, error type assertion Like()")
 	} else {
-		result = append(result, validation.ValidateNotEmpty(activity.Type, "type")...)
-		result = append(result, validation.ValidateOneOf(activity.Type, []any{ap.LikeType}, "type")...)
+		result = append(result, validation.ValidateNotEmpty(like.Type, "object.type")...)
+		result = append(result, validation.ValidateOneOf(like.Type, []any{ap.LikeType}, "object.type")...)
 
-		if activity.Actor == nil {
-			result = append(result, "Object.Actor should not be nil.")
-		} else {
-			result = append(result, validation.ValidateNotEmpty(activity.Actor.GetID().String(), "actor")...)
-		}
+		undoLikeActorValidation := validation.ValidateIDExists(like.Actor, "object.actor")
+		result = append(result, undoLikeActorValidation...)
+		result = append(result, validation.ValidateIDExists(like.Object, "object.object")...)
 
-		if activity.Object == nil {
-			result = append(result, "Object.Object should not be nil.")
-		} else {
-			result = append(result, validation.ValidateNotEmpty(activity.Object.GetID().String(), "object")...)
+		if len(undoActorValidation)+len(undoLikeActorValidation) == 0 {
+			undoActor, err := NewActorID(undo.Actor.GetID().String())
+			if err != nil {
+				result = append(result, err.Error())
+			}
+			undoLikeActor, err := NewActorID(like.Actor.GetID().String())
+			if err != nil {
+				result = append(result, err.Error())
+			}
+			if undoActor.AsNormalizedURI() != undoLikeActor.AsNormalizedURI() {
+				result = append(result, "The undo actor and undo.object actor has to be the same")
+			}
 		}
 	}
 	return result
