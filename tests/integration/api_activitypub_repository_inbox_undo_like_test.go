@@ -25,6 +25,7 @@ import (
 
 func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
+	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
 	defer test.MockVariableValue(&testWebRoutes, routers.NormalRoutes())()
 
 	mock := test.NewFederationServerMock()
