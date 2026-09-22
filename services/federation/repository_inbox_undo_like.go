@@ -5,6 +5,7 @@ package federation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -95,7 +96,6 @@ func SendUndoLikeActivities(ctx context.Context, doer user.User, repoID int64) e
 	if err != nil {
 		return err
 	}
-
 	for i, activity := range undoLikeActivityList {
 		activity.StartTime = activity.StartTime.Add(time.Duration(i) * time.Second)
 		json, err := activity.MarshalJSON()
@@ -103,7 +103,12 @@ func SendUndoLikeActivities(ctx context.Context, doer user.User, repoID int64) e
 			return err
 		}
 
-		_, err = apclient.Post(json, fmt.Sprintf("%v/inbox", activity.Object))
+		like, ok := activity.Object.(ap.Like)
+		if !ok {
+			return errors.New("the object in the undo like activity must be a like object")
+		}
+
+		_, err = apclient.Post(json, fmt.Sprintf("%v/inbox", like.Object))
 		if err != nil {
 			log.Error("error %v while sending activity: %#v", err, activity)
 		}
