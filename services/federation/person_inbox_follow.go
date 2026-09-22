@@ -71,35 +71,3 @@ func processPersonFollow(ctx context.Context, ctxUser *user.User, activity *ap.A
 	result := NewServiceResultWithBytes(http.StatusAccepted, []byte(`{"status":"Accepted"}`))
 	return result, nil
 }
-
-// func verifyKeyIDMatchesActorID(ctx context.Context, federatedUser user.FederatedUser, federationHost fedhost.FederationHost, keyID string) error {
-// 	keyURL, err := url.Parse(keyID)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	_, keyUser, err := user.FindFederatedUserByKeyID(ctx, keyURL.String())
-// 	if err != nil {
-
-// 		if !user.IsErrFederatedUserNotExists(err) {
-// 			return err
-// 		}
-
-// 		// Check for existing federation host key
-// 		keyHost, err := fedhost.FindFederationHostByKeyID(ctx, keyURL.String())
-// 		if err != nil {
-// 			if !fedhost.IsErrFederationHostNotFound(err) {
-// 				return err
-// 			}
-// 		} else {
-// 			if federationHost.ID != keyHost.ID {
-// 				return NewErrNotAcceptablef("KeyID (%v) in signature does not match FederationHost ID (%v)", keyHost.ID, federationHost.ID)
-// 			}
-// 		}
-// 	} else {
-// 		if federatedUser.ID != keyUser.ID {
-// 			return NewErrNotAcceptablef("KeyID (%v) in signature does not match FederatedUser ID (%v)", keyUser.ID, federatedUser.ID)
-// 		}
-// 	}
-// 	return nil
-// }
