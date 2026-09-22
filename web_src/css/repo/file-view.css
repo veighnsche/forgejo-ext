@@ -40,7 +40,7 @@
 
 .font-preview {
   padding: 1rem;
-  font-family: font-preview;
+  font-family: preview-font, var(--fonts-regular), sans-serif;
 }
 
 .font-preview .font-viewer-sample {
