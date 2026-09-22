@@ -16,6 +16,7 @@ import (
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
+
 	"github.com/42wim/httpsig"
 	ap "github.com/go-ap/activitypub"
 	"github.com/stretchr/testify/require"
@@ -54,7 +55,7 @@ func TestVerifyKeyIDMatchesActorID(t *testing.T) {
 	actor := ap.Actor{ID: ap.IRI(mock.Persons[0].KeyID(federatedSrv.URL))}
 	activity := ap.Activity{Actor: actor}
 
-	follow_activity := fmt.Appendf(
+	followActivity := fmt.Appendf(
 		nil,
 		`{"type":"Follow",`+
 			`"actor":"%s",`+
@@ -65,10 +66,11 @@ func TestVerifyKeyIDMatchesActorID(t *testing.T) {
 
 	t.Run("valid_signed_with_user_key", func(t *testing.T) {
 		req, err := createPostReq(
-			follow_activity,
+			followActivity,
 			mock.Persons[0].PrivKey,
 			mock.Persons[0].KeyID(federatedSrv.URL),
-			"/api/v1/activitypub/user-id/2/inbox")
+			"/api/v1/activitypub/user-id/2/inbox",
+		)
 		require.NoError(t, err)
 
 		err = VerifyKeyIDMatchesActorID(t.Context(), req, &activity)
@@ -77,10 +79,11 @@ func TestVerifyKeyIDMatchesActorID(t *testing.T) {
 
 	t.Run("valid_signed_with_host_key", func(t *testing.T) {
 		req, err := createPostReq(
-			follow_activity,
+			followActivity,
 			mock.ApActor.PrivKey,
 			mock.ApActor.KeyID(federatedSrv.URL),
-			"/api/v1/activitypub/user-id/2/inbox")
+			"/api/v1/activitypub/user-id/2/inbox",
+		)
 		require.NoError(t, err)
 
 		err = VerifyKeyIDMatchesActorID(t.Context(), req, &activity)
@@ -89,10 +92,11 @@ func TestVerifyKeyIDMatchesActorID(t *testing.T) {
 
 	t.Run("invalid_request", func(t *testing.T) {
 		req, err := createPostReq(
-			follow_activity,
+			followActivity,
 			mock.Persons[1].PrivKey,
 			mock.Persons[1].KeyID(federatedSrv.URL),
-			"/api/v1/activitypub/user-id/2/inbox")
+			"/api/v1/activitypub/user-id/2/inbox",
+		)
 		require.NoError(t, err)
 
 		err = VerifyKeyIDMatchesActorID(t.Context(), req, &activity)
@@ -116,7 +120,8 @@ func TestVerifyRequestDigest(t *testing.T) {
 		body,
 		mock.Persons[0].PrivKey,
 		mock.Persons[0].KeyID("someserver.com"),
-		"/api/v1/activitypub/user-id/2/inbox")
+		"/api/v1/activitypub/user-id/2/inbox",
+	)
 	require.NoError(t, err)
 
 	t.Run("valid_digest", func(t *testing.T) {
@@ -124,7 +129,7 @@ func TestVerifyRequestDigest(t *testing.T) {
 	})
 
 	t.Run("forged_body", func(t *testing.T) {
-		forged_body := fmt.Appendf(
+		forgedBody := fmt.Appendf(
 			nil,
 			`{"type":"Follow",`+
 				`"actor":"%s",`+
@@ -134,7 +139,7 @@ func TestVerifyRequestDigest(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		req.Body = io.NopCloser(bytes.NewReader(forged_body))
+		req.Body = io.NopCloser(bytes.NewReader(forgedBody))
 
 		require.Error(t, VerifyRequestDigest(req))
 	})
@@ -160,13 +165,14 @@ func TestMatchCryptoAlgorithm(t *testing.T) {
 		_, err := matchCryptoAlgorithm("SssHA_256")
 		require.Error(t, err)
 	})
-
 }
 
-func createPostReq(body []byte, privateKey string, pubID string, to string) (req *http.Request, err error) {
-
+func createPostReq(body []byte, privateKey, pubID, to string) (req *http.Request, err error) {
 	privPem, _ := pem.Decode([]byte(privateKey))
 	privParsed, err := x509.ParsePKCS1PrivateKey(privPem.Bytes)
+	if err != nil {
+		return nil, err
+	}
 
 	algs := setting.HttpsigAlgs
 	digestAlg := httpsig.DigestAlgorithm(setting.Federation.DigestAlgorithm)
@@ -174,7 +180,6 @@ func createPostReq(body []byte, privateKey string, pubID string, to string) (req
 
 	buf := bytes.NewBuffer(body)
 	req, err = http.NewRequest(http.MethodPost, to, buf)
-
 	if err != nil {
 		return nil, err
 	}

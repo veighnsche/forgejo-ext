@@ -268,13 +268,11 @@ func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity 
 	if err == nil && federatedUser.KeyID.String != keyUser.KeyID.String {
 		return fmt.Errorf("KeyID (%v) in signature does not match FederatedUserID (%v)", keyUser.KeyID.String, federatedUser.KeyID.String)
 	} else if err != nil && user.IsErrFederatedUserNotExists(err) {
-
 		keyHost, err := forgefed.FindFederationHostByKeyID(ctx, keyURL.String())
 		if err != nil {
 			return err
 		} else if federationHost.KeyID.String != keyHost.KeyID.String {
 			return fmt.Errorf("KeyID (%v) in signature does not match FederationHostID (%v)", keyHost.KeyID.String, federationHost.KeyID.String)
-
 		}
 	} else {
 		return err

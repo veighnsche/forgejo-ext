@@ -65,12 +65,12 @@ func TestActivityPubPersonVerifyKeyID(t *testing.T) {
 		distantURI, err := url.Parse(distantURL)
 		require.NoError(t, err)
 
-		c_user_15, err := cf.WithKeysDirect(ctx, mock.Persons[0].PrivKey, mock.Persons[0].KeyID(federatedSrv.URL), []*url.URL{distantURI})
+		cUser15, err := cf.WithKeysDirect(ctx, mock.Persons[0].PrivKey, mock.Persons[0].KeyID(federatedSrv.URL), []*url.URL{distantURI})
 		require.NoError(t, err)
 
 		//------------- Test keyID not equal to ActorID -------------
-		t.Run("keyID_not_equal_actorID", func(t *testing.T) {
-			follow_false := fmt.Appendf(
+		t.Run("keyIDNotEqualActorID", func(t *testing.T) {
+			followFalse := fmt.Appendf(
 				nil,
 				`{"type":"Follow",`+
 					`"actor":"%s",`+
@@ -79,9 +79,9 @@ func TestActivityPubPersonVerifyKeyID(t *testing.T) {
 				localUser2URL,
 			)
 
-			resp_false, err := c_user_15.Post(follow_false, localUser2Inbox)
+			respFalse, err := cUser15.Post(followFalse, localUser2Inbox)
 			require.NoError(t, err)
-			assert.Equal(t, http.StatusUnauthorized, resp_false.StatusCode)
+			assert.Equal(t, http.StatusUnauthorized, respFalse.StatusCode)
 
 			// follow does not exist
 			distantFederatedUser30 := unittest.AssertExistsAndLoadBean(t, &user_model.FederatedUser{ExternalID: "30"})
@@ -93,8 +93,8 @@ func TestActivityPubPersonVerifyKeyID(t *testing.T) {
 			)
 		})
 		//------------- Test keyID equal to ActorID -------------
-		t.Run("keyID_equal_actorID", func(t *testing.T) {
-			follow_true := fmt.Appendf(
+		t.Run("keyIDAEqualActorID", func(t *testing.T) {
+			followTrue := fmt.Appendf(
 				nil,
 				`{"type":"Follow",`+
 					`"actor":"%s",`+
@@ -103,9 +103,9 @@ func TestActivityPubPersonVerifyKeyID(t *testing.T) {
 				localUser2URL,
 			)
 
-			resp_true_user, err := c_user_15.Post(follow_true, localUser2Inbox)
+			respTrueUser, err := cUser15.Post(followTrue, localUser2Inbox)
 			require.NoError(t, err)
-			assert.Equal(t, http.StatusAccepted, resp_true_user.StatusCode)
+			assert.Equal(t, http.StatusAccepted, respTrueUser.StatusCode)
 
 			// local follow exists
 			distantFederatedUser15 := unittest.AssertExistsAndLoadBean(t, &user_model.FederatedUser{ExternalID: "15"})
@@ -117,7 +117,6 @@ func TestActivityPubPersonVerifyKeyID(t *testing.T) {
 			)
 		})
 	})
-
 }
 
 func TestActivityPubVeryfiyReqDigest(t *testing.T) {
@@ -136,7 +135,7 @@ func TestActivityPubVeryfiyReqDigest(t *testing.T) {
 		defer test.MockVariableValue(&setting.AppURL, localUrl.String())()
 		localUser2Inbox := localUrl.JoinPath("/api/v1/activitypub/user-id/2/inbox").String()
 
-		follow_activity := fmt.Appendf(
+		followActivity := fmt.Appendf(
 			nil,
 			`{"type":"Follow",`+
 				`"actor":"%s",`+
@@ -145,18 +144,19 @@ func TestActivityPubVeryfiyReqDigest(t *testing.T) {
 			localUser2Inbox,
 		)
 		req, err := createPostReq(
-			follow_activity,
+			followActivity,
 			mock.Persons[0].PrivKey,
 			mock.Persons[0].KeyID(federatedSrv.URL),
-			localUser2Inbox)
+			localUser2Inbox,
+		)
 		require.NoError(t, err)
 
-		t.Run("valid_request", func(t *testing.T) {
+		t.Run("validRequest", func(t *testing.T) {
 			MakeRequest(t, &RequestWrapper{req}, http.StatusAccepted)
 		})
 
-		t.Run("invalid_request", func(t *testing.T) {
-			forged_body := fmt.Appendf(
+		t.Run("invalidRequest", func(t *testing.T) {
+			forgedBody := fmt.Appendf(
 				nil,
 				`{"type":"Follow",`+
 					`"actor":"%s",`+
@@ -166,17 +166,19 @@ func TestActivityPubVeryfiyReqDigest(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			req.Body = io.NopCloser(bytes.NewReader(forged_body))
+			req.Body = io.NopCloser(bytes.NewReader(forgedBody))
 
 			MakeRequest(t, &RequestWrapper{req}, http.StatusBadRequest)
 		})
 	})
 }
 
-func createPostReq(body []byte, privateKey string, pubID string, to string) (req *http.Request, err error) {
-
+func createPostReq(body []byte, privateKey, pubID, to string) (req *http.Request, err error) {
 	privPem, _ := pem.Decode([]byte(privateKey))
 	privParsed, err := x509.ParsePKCS1PrivateKey(privPem.Bytes)
+	if err != nil {
+		return nil, err
+	}
 
 	algs := setting.HttpsigAlgs
 	digestAlg := httpsig.DigestAlgorithm(setting.Federation.DigestAlgorithm)
@@ -184,7 +186,6 @@ func createPostReq(body []byte, privateKey string, pubID string, to string) (req
 
 	buf := bytes.NewBuffer(body)
 	req, err = http.NewRequest(http.MethodPost, to, buf)
-
 	if err != nil {
 		return nil, err
 	}
