@@ -5,7 +5,6 @@ package forgefed
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"forgejo.org/modules/validation"
@@ -21,10 +20,7 @@ type ForgeUndoLike struct {
 }
 
 func NewForgeUndoLikeFromActivity(activity *ap.Activity) (ForgeUndoLike, error) {
-	like, ok := activity.Object.(*ap.Activity)
-	if !ok {
-		return ForgeUndoLike{}, errors.New("invalid activity.Object")
-	}
+	like := activity.Object.(*ap.Activity)
 
 	result := ForgeUndoLike{}
 	result.Type = activity.Type
@@ -58,7 +54,6 @@ func NewForgeUndoLike(actorIRI, objectIRI string, startTime time.Time) (ForgeUnd
 
 func (undo ForgeUndoLike) Like() (ap.Like, error) {
 	like, ok := undo.Object.(ap.Like)
-	fmt.Printf("%#v\n", undo.Object)
 	if !ok {
 		return ap.Like{}, errors.New("object is not of type Like - type assertion failed")
 	}
