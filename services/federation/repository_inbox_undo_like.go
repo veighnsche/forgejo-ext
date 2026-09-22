@@ -70,7 +70,7 @@ func SendUndoLikeActivities(ctx context.Context, doer user.User, repoID int64) e
 		return err
 	}
 
-	likeActivityList := make([]fm.ForgeUndoLike, 0)
+	undoLikeActivityList := make([]fm.ForgeUndoLike, 0)
 	var hosts []*url.URL
 	for _, followingRepo := range followingRepos {
 		log.Trace("Found following repo: %#v", followingRepo)
@@ -80,11 +80,11 @@ func SendUndoLikeActivities(ctx context.Context, doer user.User, repoID int64) e
 			return fmt.Errorf("invalid repository URL: %w", err)
 		}
 		hosts = append(hosts, hostURL)
-		likeActivity, err := fm.NewForgeUndoLike(doer.APActorID(), target, time.Now())
+		undoLikeActivity, err := fm.NewForgeUndoLike(doer.APActorID(), target, time.Now())
 		if err != nil {
 			return err
 		}
-		likeActivityList = append(likeActivityList, likeActivity)
+		undoLikeActivityList = append(undoLikeActivityList, undoLikeActivity)
 	}
 
 	apclientFactory, err := activitypub.GetClientFactory(ctx)
@@ -96,21 +96,14 @@ func SendUndoLikeActivities(ctx context.Context, doer user.User, repoID int64) e
 		return err
 	}
 
-	for i, followingRepo := range followingRepos {
-		log.Trace("Found following repo: %#v", followingRepo)
-		target := followingRepo.URI
-		activity, err := fm.NewForgeUndoLike(doer.APActorID(), target, time.Now())
-		if err != nil {
-			return err
-		}
-
+	for i, activity := range undoLikeActivityList {
 		activity.StartTime = activity.StartTime.Add(time.Duration(i) * time.Second)
 		json, err := activity.MarshalJSON()
 		if err != nil {
 			return err
 		}
 
-		_, err = apclient.Post(json, fmt.Sprintf("%v/inbox", target))
+		_, err = apclient.Post(json, fmt.Sprintf("%v/inbox", activity.Object))
 		if err != nil {
 			log.Error("error %v while sending activity: %#v", err, activity)
 		}
