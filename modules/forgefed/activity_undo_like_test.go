@@ -208,7 +208,7 @@ func TestActivityValidationUndo(t *testing.T) {
 		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
 	}
 	res, err = validation.IsValid(sut)
-	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Value type should not be empty\nField type contains the value , which is not in allowed subset [Undo]"})
+	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Value type should not be empty\nField type contains the value <nil>, which is not in allowed subset [Undo]"})
 	assert.False(t, res)
 
 	// actor missing
