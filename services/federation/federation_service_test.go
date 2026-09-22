@@ -5,9 +5,11 @@ package federation
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"testing"
 
@@ -37,13 +39,11 @@ func TestMain(m *testing.M) {
 
 func TestVerifyKeyIDMatchesActorID(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
-	t.Context()
 	defer test.MockVariableValue(&setting.Federation.Enabled, true)()
 	defer test.MockVariableValue(&setting.Federation.SignatureEnforced, true)()
 	defer test.MockVariableValue(&setting.Federation.InsecureAllowInvalidHosts, true)()
 	defer test.MockVariableValue(&setting.Federation.MaxSize, 2048)()
 
-	// setup
 	mock := test.NewFederationServerMock()
 	federatedSrv := mock.DistantServer(t)
 	defer federatedSrv.Close()
@@ -100,7 +100,70 @@ func TestVerifyKeyIDMatchesActorID(t *testing.T) {
 	})
 }
 
-func createPostReq(b []byte, privateKey string, pubID string, to string) (req *http.Request, err error) {
+func TestVerifyRequestDigest(t *testing.T) {
+	mock := test.NewFederationServerMock()
+
+	body := fmt.Appendf(
+		nil,
+		`{"type":"Follow",`+
+			`"actor":"%s",`+
+			`"object":"%s"}`,
+		"someserver.com/api/v1/activiypup/user-id/123",
+		"/api/v1/activitypub/user-id/2/inbox",
+	)
+
+	req, err := createPostReq(
+		body,
+		mock.Persons[0].PrivKey,
+		mock.Persons[0].KeyID("someserver.com"),
+		"/api/v1/activitypub/user-id/2/inbox")
+	require.NoError(t, err)
+
+	t.Run("valid_digest", func(t *testing.T) {
+		require.NoError(t, VerifyRequestDigest(req))
+	})
+
+	t.Run("forged_body", func(t *testing.T) {
+		forged_body := fmt.Appendf(
+			nil,
+			`{"type":"Follow",`+
+				`"actor":"%s",`+
+				`"object":"%s"}`,
+			"someserver.com/api/v1/activiypup/user-id/1457",
+			"/api/v1/activitypub/user-id/2/inbox",
+		)
+		require.NoError(t, err)
+
+		req.Body = io.NopCloser(bytes.NewReader(forged_body))
+
+		require.Error(t, VerifyRequestDigest(req))
+	})
+}
+
+func TestMatchCryptoAlgorithm(t *testing.T) {
+	t.Run("positiv_lower_case", func(t *testing.T) {
+		algo, err := matchCryptoAlgorithm("sha-256")
+		require.NoError(t, err)
+		require.Equal(t, crypto.SHA256, algo)
+	})
+	t.Run("positiv_capital_letters", func(t *testing.T) {
+		algo, err := matchCryptoAlgorithm("SHA-256")
+		require.NoError(t, err)
+		require.Equal(t, crypto.SHA256, algo)
+	})
+	t.Run("positiv_underscore", func(t *testing.T) {
+		algo, err := matchCryptoAlgorithm("SHA_256")
+		require.NoError(t, err)
+		require.Equal(t, crypto.SHA256, algo)
+	})
+	t.Run("unknow_algo", func(t *testing.T) {
+		_, err := matchCryptoAlgorithm("SssHA_256")
+		require.Error(t, err)
+	})
+
+}
+
+func createPostReq(body []byte, privateKey string, pubID string, to string) (req *http.Request, err error) {
 
 	privPem, _ := pem.Decode([]byte(privateKey))
 	privParsed, err := x509.ParsePKCS1PrivateKey(privPem.Bytes)
@@ -109,7 +172,7 @@ func createPostReq(b []byte, privateKey string, pubID string, to string) (req *h
 	digestAlg := httpsig.DigestAlgorithm(setting.Federation.DigestAlgorithm)
 	postHeaders := setting.Federation.PostHeaders
 
-	buf := bytes.NewBuffer(b)
+	buf := bytes.NewBuffer(body)
 	req, err = http.NewRequest(http.MethodPost, to, buf)
 
 	if err != nil {
@@ -127,7 +190,7 @@ func createPostReq(b []byte, privateKey string, pubID string, to string) (req *h
 		if err != nil {
 			return nil, err
 		}
-		if err := signer.SignRequest(privParsed, pubID, req, b); err != nil {
+		if err := signer.SignRequest(privParsed, pubID, req, body); err != nil {
 			return nil, err
 		}
 	}

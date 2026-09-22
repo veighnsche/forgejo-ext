@@ -40,6 +40,13 @@ func verifyHTTPSignature(ctx app_context.APIContext) (authenticated bool, err er
 		log.Debug("For %q verification failed: %v", r.URL.Path, err)
 		return false, err
 	}
+
+	err = federation.VerifyRequestDigest(r)
+	if err != nil {
+		log.Debug("For %q digest verification failed: %v", r.URL.Path, err)
+		return true, err
+	}
+
 	return true, nil
 }
 

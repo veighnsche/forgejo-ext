@@ -4,15 +4,21 @@
 package federation
 
 import (
+	"bytes"
 	"context"
+	"crypto"
 	"crypto/x509"
 	"database/sql"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"forgejo.org/models/forgefed"
 	"forgejo.org/models/user"
@@ -230,6 +236,7 @@ func getKeyID(r *http.Request) (string, error) {
 }
 
 // Finds the ID of requester and actor and compares them
+// Only use after http signatur verification
 func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity *ap.Activity) error {
 	// skip if key veryfication is not enforced
 	if !setting.Federation.SignatureEnforced {
@@ -258,26 +265,82 @@ func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity 
 		return fmt.Errorf("Error finding or creating federated user (%s): %v", actorURI, err)
 	}
 	_, keyUser, err := user.FindFederatedUserByKeyID(ctx, keyURL.String())
-	if err != nil {
-
-		// if keyID does exist in db but is not associated with a federated user err == ErrFederatedUserNotExists,
-		// otherwise keyID does not exist, thus we do not have to check keyID again
-		if !user.IsErrFederatedUserNotExists(err) {
-			return err
-		}
+	if err == nil && federatedUser.KeyID.String != keyUser.KeyID.String {
+		return fmt.Errorf("KeyID (%v) in signature does not match FederatedUserID (%v)", keyUser.KeyID.String, federatedUser.KeyID.String)
+	} else if err != nil && user.IsErrFederatedUserNotExists(err) {
 
 		keyHost, err := forgefed.FindFederationHostByKeyID(ctx, keyURL.String())
 		if err != nil {
 			return err
-		} else {
-			if federationHost.KeyID.String != keyHost.KeyID.String {
-				return fmt.Errorf("KeyID (%v) in signature does not match FederationHostID (%v)", keyHost.KeyID.String, federationHost.KeyID.String)
-			}
+		} else if federationHost.KeyID.String != keyHost.KeyID.String {
+			return fmt.Errorf("KeyID (%v) in signature does not match FederationHostID (%v)", keyHost.KeyID.String, federationHost.KeyID.String)
+
 		}
 	} else {
-		if federatedUser.KeyID.String != keyUser.KeyID.String {
-			return fmt.Errorf("KeyID (%v) in signature does not match FederatedUserID (%v)", keyUser.KeyID.String, federatedUser.KeyID.String)
-		}
+		return err
 	}
 	return nil
+}
+
+func VerifyRequestDigest(req *http.Request) error {
+	digest := req.Header.Get("Digest")
+	if digest == "" {
+		return fmt.Errorf("Error: no digest in Header")
+	}
+
+	digestSplit := regexp.MustCompile("=").Split(digest, 2)
+
+	digestAlgo, err := matchCryptoAlgorithm(digestSplit[0])
+	if err != nil {
+		return err
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return err
+	}
+
+	req.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	h := digestAlgo.New()
+	h.Write(body)
+
+	calcDigest := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	if calcDigest != digestSplit[1] {
+		return fmt.Errorf("Calculated digest does not match digest from header")
+	}
+
+	return nil
+}
+
+var crytoAlgoyithms = []crypto.Hash{
+	crypto.MD4,
+	crypto.MD5,
+	crypto.SHA1,
+	crypto.SHA224,
+	crypto.SHA256,
+	crypto.SHA384,
+	crypto.SHA512,
+	crypto.MD5SHA1,
+	crypto.RIPEMD160,
+	crypto.SHA3_224,
+	crypto.SHA3_256,
+	crypto.SHA3_384,
+	crypto.SHA3_512,
+	crypto.SHA512_224,
+	crypto.SHA512_256,
+	crypto.BLAKE2s_256,
+	crypto.BLAKE2b_256,
+	crypto.BLAKE2b_384,
+	crypto.BLAKE2b_512,
+}
+
+func matchCryptoAlgorithm(algo string) (crypto.Hash, error) {
+	for _, h := range crytoAlgoyithms {
+		if strings.EqualFold(strings.Replace(algo, "_", "-", 1), h.String()) {
+			return h, nil
+		}
+	}
+	return crypto.Hash.HashFunc(21), fmt.Errorf("Unknown hash alogrithm: %s", algo)
 }
