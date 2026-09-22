@@ -17,10 +17,10 @@ import (
 	validation "forgejo.org/modules/validation"
 )
 
-func getBasicSearchOpts(isShowClosed bool, sortType, keyword string, projectType project_module.APIOwnerType, pageOpts ...int) *project_model.SearchOptions {
+func getBasicSearchOpts(isShowClosed bool, sortType, keyword string, ownerType project_module.APIOwnerType, pageOpts ...int) *project_model.SearchOptions {
 	opts := &project_model.SearchOptions{
 		IsClosed: optional.Some(isShowClosed),
-		Type:     projectType.ToOwnerType(),
+		Type:     ownerType.ToOwnerType(),
 	}
 	opts.OrderBy = project_model.GetSearchOrderBySortType(sortType)
 	if keyword != "" {
@@ -53,7 +53,7 @@ func NewProject(
 	form *project_structs.CreateOrUpdateProjectOptions,
 	owner *user_model.User,
 	repo *repo_model.Repository,
-	projectType project_module.APIOwnerType,
+	ownerType project_module.APIOwnerType,
 ) (*project_model.Project, error) {
 	var err error
 
@@ -73,7 +73,7 @@ func NewProject(
 		return nil, err
 	}
 
-	valid, err = validation.IsValid(projectType)
+	valid, err = validation.IsValid(ownerType)
 	if !valid {
 		return nil, err
 	}
@@ -83,11 +83,11 @@ func NewProject(
 		Description:  form.Description,
 		TemplateType: projectTemplateType.ToTemplateType(),
 		CardType:     projectCardType.ToCardType(),
-		Type:         projectType.ToOwnerType(),
+		Type:         ownerType.ToOwnerType(),
 	}
 
 	errNotValid := validation.ErrNotValid{}
-	switch projectType {
+	switch ownerType {
 	case project_module.APIOwnerTypeIndividual:
 		if owner.IsOrganization() {
 			errNotValid.Message = "Type was TypeIndividual, but owner was org"
@@ -122,15 +122,64 @@ func NewProject(
 	return res, nil
 }
 
-// GetSearchOpts Returns search options for user, org or repo depending on the projectType
-func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, projectType project_module.APIOwnerType, pageOpts ...int) *project_model.SearchOptions {
-	opts := getBasicSearchOpts(isShowClosed, sortType, keyword, projectType, pageOpts...)
-	if projectType == project_module.APIOwnerTypeRepository {
+// GetSearchOpts returns search options for user, org or repo depending on the ownerType
+func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, ownerType project_module.APIOwnerType, pageOpts ...int) *project_model.SearchOptions {
+	opts := getBasicSearchOpts(isShowClosed, sortType, keyword, ownerType, pageOpts...)
+	if ownerType == project_module.APIOwnerTypeRepository {
 		opts.RepoID = id
 	} else {
 		opts.OwnerID = id
 	}
 	return opts
+}
+
+// setProjectOwnerAndRepo sets the owner and repo in the project if they are missing
+func SetProjectOwnerAndRepo(
+	p *project_model.Project,
+	setOwner *user_model.User,
+	setRepo *repo_model.Repository,
+) {
+	if p.Owner == nil {
+		p.Owner = setOwner
+	}
+	if p.Repo == nil && setRepo != nil {
+		p.Repo = setRepo
+	}
+}
+
+// ListProjects lists all projects, optionally sets repo in returned projects.
+func ListProjects(
+	ctx context.Context,
+	owner *user_model.User,
+	repo *repo_model.Repository,
+	ownerType project_module.APIOwnerType,
+	listOptions db.ListOptions,
+) ([]*project_model.Project, int64, error) {
+	// get projects
+	opts := project_model.SearchOptions{
+		ListOptions: listOptions,
+		Type:        ownerType.ToOwnerType(),
+	}
+	if ownerType == project_module.APIOwnerTypeRepository {
+		opts.RepoID = repo.ID
+	} else {
+		opts.OwnerID = owner.ID
+	}
+	projects, total, err := db.FindAndCount[project_model.Project](ctx, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// set owner and repo in projects if set by caller
+	for _, p := range projects {
+		if ownerType == project_module.APIOwnerTypeRepository {
+			SetProjectOwnerAndRepo(p, nil, repo)
+		} else {
+			SetProjectOwnerAndRepo(p, owner, nil)
+		}
+	}
+
+	return projects, total, nil
 }
 
 // GetProjectByIDForOwner Fetches a Project by its ID from the DB

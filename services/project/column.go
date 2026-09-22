@@ -7,10 +7,22 @@ import (
 	"context"
 	"fmt"
 
+	"forgejo.org/models/db"
 	project_model "forgejo.org/models/project"
 	project_module "forgejo.org/modules/project"
+	project_structs "forgejo.org/modules/structs"
 	"forgejo.org/modules/validation"
 )
+
+func NewColumn(form *project_structs.CreateProjectColumnOptions, projectID int64) *project_model.Column {
+	return &project_model.Column{
+		Title:     form.Title,
+		Default:   form.Default,
+		Sorting:   form.Sorting,
+		Color:     form.Color,
+		ProjectID: projectID,
+	}
+}
 
 func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, error) {
 	column, err := project_model.GetColumn(ctx, columnID)
@@ -50,6 +62,53 @@ func CreateColumnInProject(ctx context.Context, col *project_model.Column) error
 
 // EditColumnInProject Update the title or color of a ProjectColumn
 func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
+	err := project_model.UpdateColumn(ctx, col)
+	if err != nil {
+		return fmt.Errorf("could not edit column for project %d: %w", col.ProjectID, err)
+	}
+	return nil
+}
+
+// UpdateColumnInProject allow full updates of the column, including default and sorting
+func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form *project_structs.CreateProjectColumnOptions, projectID, columnID int64) error {
+	if form.Title != "" {
+		col.Title = form.Title
+	}
+	if form.Color != "" {
+		col.Color = form.Color
+	}
+	if form.Default && !col.Default {
+		if err := SetDefaultColumn(ctx, projectID, columnID); err != nil {
+			return err
+		}
+	}
+	if form.Sorting != col.Sorting {
+		cols, err := db.Find[project_model.Column](ctx, project_model.FindColumnOptions{
+			ListOptions: db.ListOptionsAll, ProjectID: projectID,
+		})
+		if err != nil {
+			return err
+		}
+		sorting := make(map[int64]int64, 0)
+		for _, subCol := range cols {
+			// TODO: test/fix this
+			if subCol.ID == col.ID {
+				// move column to new sorting position
+				sorting[int64(form.Sorting)] = subCol.ID
+				continue
+			}
+			if subCol.Sorting >= form.Sorting {
+				// move following columns to their new sorting positions
+				sorting[int64(subCol.Sorting)+1] = subCol.ID
+			}
+		}
+		err = project_model.MoveColumnsOnProject(ctx, projectID, sorting)
+		if err != nil {
+			return err
+		}
+		col.Sorting = form.Sorting // UpdateColumn below sets Sorting again, make sure it's up to date
+	}
+	// TODO: check if something actually has to be changed?
 	err := project_model.UpdateColumn(ctx, col)
 	if err != nil {
 		return fmt.Errorf("could not edit column for project %d: %w", col.ProjectID, err)

@@ -11,7 +11,7 @@ import (
 
 func TestMovedIssuesOptionGetIssueIDs(t *testing.T) {
 	m := &MovedIssuesOption{
-		ProjectIssues: []ProjectIssue{
+		ProjectIssues: []MovedProjectIssue{
 			{1, 1},
 			{2, 2},
 			{3, 3},
@@ -27,7 +27,7 @@ func TestMovedIssuesOptionGetIssueIDs(t *testing.T) {
 
 func TestMovedIssuesOptionGetSortingMap(t *testing.T) {
 	m := &MovedIssuesOption{
-		ProjectIssues: []ProjectIssue{
+		ProjectIssues: []MovedProjectIssue{
 			{1, 1},
 			{2, 2},
 			{3, 3},

@@ -48,6 +48,9 @@ forgejo.org/models/perm/access
 	AccessLevel
 	GetRepoWriters
 
+forgejo.org/models/project
+	IsErrProjectIssueNotExist
+
 forgejo.org/models/user
 	IsErrUserWrongType
 	IsErrExternalLoginUserAlreadyExist

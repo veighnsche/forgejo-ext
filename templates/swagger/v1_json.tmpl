@@ -4159,6 +4159,717 @@
         }
       }
     },
+    "/orgs/{org}/projects": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Get a list of projects",
+        "operationId": "orgListProjects",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Create a project for an organization",
+        "operationId": "orgCreateProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "project",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOrUpdateProjectOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/Project"
+          }
+        }
+      }
+    },
+    "/orgs/{org}/projects/{project_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Get a project",
+        "operationId": "orgGetProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/Project"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Delete a project",
+        "operationId": "orgDeleteProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Update a project",
+        "operationId": "orgUpdateProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "project",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOrUpdateProjectOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/orgs/{org}/projects/{project_id}/column/{column_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Get a ProjectColumn",
+        "operationId": "orgGetProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectColumn"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Delete a ProjectColumn",
+        "operationId": "orgDeleteProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Update a ProjectColumn",
+        "operationId": "orgUpdateProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectColumnOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/orgs/{org}/projects/{project_id}/column/{column_id}/issues": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Create ProjectIssue in a ProjectColumn",
+        "operationId": "orgCreateProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "List ProjectIssues of a ProjectColumn",
+        "operationId": "orgListProjectColumnIssues",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssueList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/orgs/{org}/projects/{project_id}/column/{column_id}/issues/{issue_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Get a ProjectIssue in a ProjectColumn",
+        "operationId": "orgGetProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Delete a ProjectIssue in a ProjectColumn",
+        "operationId": "orgDeleteProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Update a ProjectIssue in a ProjectColumn",
+        "operationId": "orgUpdateProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectIssue",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateProjectColumnIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/orgs/{org}/projects/{project_id}/columns": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "List ProjectColumns",
+        "operationId": "orgListProjectColumns",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectColumnList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Create a ProjectColumn",
+        "operationId": "orgCreateProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectColumnOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectColumn"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/orgs/{org}/projects/{project_id}/issues": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "List ProjectIssues",
+        "operationId": "orgListProjectIssues",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssueList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "organization"
+        ],
+        "summary": "Create a ProjectIssue for project",
+        "operationId": "orgCreateProjectIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the organization",
+            "name": "org",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectIssue",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/orgs/{org}/public_members": {
       "get": {
         "produces": [
@@ -19330,6 +20041,836 @@
         }
       }
     },
+    "/repos/{username}/{reponame}/projects": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Get a list of projects",
+        "operationId": "repoListProjects",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Create a project for a user",
+        "operationId": "repoCreateProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOrUpdateProjectOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/Project"
+          }
+        }
+      }
+    },
+    "/repos/{username}/{reponame}/projects/{project_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Get a project",
+        "operationId": "repoGetProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/Project"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "repository"
+        ],
+        "summary": "Delete a project",
+        "operationId": "repoDeleteProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Update a project",
+        "operationId": "repoUpdateProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "project",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOrUpdateProjectOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/repos/{username}/{reponame}/projects/{project_id}/column/{column_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Get a ProjectColumn",
+        "operationId": "repoGetProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectColumn"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "repository"
+        ],
+        "summary": "Delete a ProjectColumn",
+        "operationId": "repoDeleteProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Update a ProjectColumn",
+        "operationId": "repoUpdateProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectColumn",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectColumnOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/repos/{username}/{reponame}/projects/{project_id}/column/{column_id}/issues": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Create ProjectIssue in a ProjectColumn",
+        "operationId": "repoCreateProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectIssue",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "List ProjectIssues of a ProjectColumn",
+        "operationId": "repoListProjectColumnIssues",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssueList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/repos/{username}/{reponame}/projects/{project_id}/column/{column_id}/issues/{issue_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Get a ProjectIssue in a ProjectColumn",
+        "operationId": "repoGetProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "repository"
+        ],
+        "summary": "Delete a ProjectIssue in a ProjectColumn",
+        "operationId": "repoDeleteProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Update a ProjectIssue in a ProjectColumn",
+        "operationId": "repoUpdateProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectIssue",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateProjectColumnIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/repos/{username}/{reponame}/projects/{project_id}/columns": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "List ProjectColumns",
+        "operationId": "repoListProjectColumns",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectColumnList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Create a ProjectColumn",
+        "operationId": "repoCreateProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectColumn",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectColumnOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectColumn"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/repos/{username}/{reponame}/projects/{project_id}/issues": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "List ProjectIssues",
+        "operationId": "repoListProjectIssues",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssueList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "repository"
+        ],
+        "summary": "Create a ProjectIssue for project",
+        "operationId": "repoCreateProjectIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "name of the repository",
+            "name": "reponame",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectIssue",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/repositories/{id}": {
       "get": {
         "produces": [
@@ -22906,6 +24447,717 @@
         }
       }
     },
+    "/users/{username}/projects": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Get a list of projects",
+        "operationId": "userListProjects",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Create a project for a user",
+        "operationId": "userCreateProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "project",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOrUpdateProjectOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/Project"
+          }
+        }
+      }
+    },
+    "/users/{username}/projects/{project_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Get a project",
+        "operationId": "userGetProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/Project"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "user"
+        ],
+        "summary": "Delete a project",
+        "operationId": "userDeleteProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Update a project",
+        "operationId": "userUpdateProject",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "project",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOrUpdateProjectOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/users/{username}/projects/{project_id}/column/{column_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Get a ProjectColumn",
+        "operationId": "userGetProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectColumn"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "user"
+        ],
+        "summary": "Delete a ProjectColumn",
+        "operationId": "userDeleteProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Update a ProjectColumn",
+        "operationId": "userUpdateProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectColumn",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectColumnOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/users/{username}/projects/{project_id}/column/{column_id}/issues": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Create ProjectIssue in a ProjectColumn",
+        "operationId": "userCreateProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectIssue",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "List ProjectIssues of a ProjectColumn",
+        "operationId": "userListProjectColumnIssues",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssueList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/users/{username}/projects/{project_id}/column/{column_id}/issues/{issue_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Get a ProjectIssue in a ProjectColumn",
+        "operationId": "userGetProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "user"
+        ],
+        "summary": "Delete a ProjectIssue in a ProjectColumn",
+        "operationId": "userDeleteProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull delete returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Update a ProjectIssue in a ProjectColumn",
+        "operationId": "userUpdateProjectColumnIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the column id",
+            "name": "column_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the issue id",
+            "name": "issue_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectIssue",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateProjectColumnIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfull update returns 200 OK"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/users/{username}/projects/{project_id}/columns": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "List ProjectColumns",
+        "operationId": "userListProjectColumns",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectColumnList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Create a ProjectColumn",
+        "operationId": "userCreateProjectColumn",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectColumnOptions"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/responses/ProjectColumn"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
+    "/users/{username}/projects/{project_id}/issues": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "List ProjectIssues",
+        "operationId": "userListProjectIssues",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssueList"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Create a ProjectIssue for project",
+        "operationId": "userCreateProjectIssue",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "name of the user",
+            "name": "username",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "the project id",
+            "name": "project_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "projectIssue",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateProjectIssueOptions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ProjectIssue"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/users/{username}/repos": {
       "get": {
         "produces": [
@@ -25371,6 +27623,32 @@
       },
       "x-go-package": "forgejo.org/modules/structs"
     },
+    "CreateOrUpdateProjectOptions": {
+      "type": "object",
+      "properties": {
+        "card_type": {
+          "type": "string",
+          "x-go-name": "CardType"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "status": {
+          "type": "string",
+          "x-go-name": "Status"
+        },
+        "template_type": {
+          "type": "string",
+          "x-go-name": "TemplateType"
+        },
+        "title": {
+          "type": "string",
+          "x-go-name": "Title"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
     "CreateOrUpdateSecretOption": {
       "type": "object",
       "title": "CreateOrUpdateSecretOption defines the properties of the secret to create or update.",
@@ -25430,6 +27708,40 @@
         "website": {
           "type": "string",
           "x-go-name": "Website"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
+    "CreateProjectColumnOptions": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "x-go-name": "Color"
+        },
+        "default": {
+          "type": "boolean",
+          "x-go-name": "Default"
+        },
+        "sorting": {
+          "type": "integer",
+          "format": "int8",
+          "x-go-name": "Sorting"
+        },
+        "title": {
+          "type": "string",
+          "x-go-name": "Title"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
+    "CreateProjectIssueOptions": {
+      "type": "object",
+      "properties": {
+        "issue_id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "IssueID"
         }
       },
       "x-go-package": "forgejo.org/modules/structs"
@@ -29085,6 +31397,113 @@
       },
       "x-go-package": "forgejo.org/modules/structs"
     },
+    "Project": {
+      "type": "object",
+      "properties": {
+        "card_type": {
+          "type": "string",
+          "x-go-name": "CardType"
+        },
+        "description": {
+          "type": "string",
+          "x-go-name": "Description"
+        },
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ID"
+        },
+        "owner_name": {
+          "type": "string",
+          "x-go-name": "OwnerName"
+        },
+        "project_type": {
+          "type": "string",
+          "x-go-name": "OwnerType"
+        },
+        "repo_name": {
+          "type": "string",
+          "x-go-name": "RepoName"
+        },
+        "status": {
+          "type": "string",
+          "x-go-name": "Status"
+        },
+        "template_type": {
+          "type": "string",
+          "x-go-name": "TemplateType"
+        },
+        "title": {
+          "type": "string",
+          "x-go-name": "Title"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
+    "ProjectColumn": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "x-go-name": "Color"
+        },
+        "default": {
+          "type": "boolean",
+          "x-go-name": "Default"
+        },
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ID"
+        },
+        "project_id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ProjectID"
+        },
+        "sorting": {
+          "type": "integer",
+          "format": "int8",
+          "x-go-name": "Sorting"
+        },
+        "title": {
+          "type": "string",
+          "x-go-name": "Title"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
+    "ProjectIssue": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ID"
+        },
+        "issue_id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "IssueID"
+        },
+        "project_column_id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ProjectColumnID"
+        },
+        "project_id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ProjectID"
+        },
+        "sorting": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Sorting"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
     "PublicKey": {
       "description": "PublicKey publickey is a user key to push code to repository",
       "type": "object",
@@ -31111,6 +33530,22 @@
       },
       "x-go-package": "forgejo.org/modules/structs"
     },
+    "UpdateProjectColumnIssueOptions": {
+      "type": "object",
+      "properties": {
+        "project_column_id": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "ProjectColumnID"
+        },
+        "sorting": {
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "Sorting"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
     "UpdateRepoAvatarOption": {
       "description": "UpdateRepoAvatarUserOption options when updating the repo avatar",
       "type": "object",
@@ -32432,6 +34867,51 @@
         }
       }
     },
+    "Project": {
+      "description": "Project - Get specific project",
+      "schema": {
+        "$ref": "#/definitions/Project"
+      }
+    },
+    "ProjectColumn": {
+      "description": "ProjectColumn - Get specific project column",
+      "schema": {
+        "$ref": "#/definitions/ProjectColumn"
+      }
+    },
+    "ProjectColumnList": {
+      "description": "ProjectColumnList - List of columns in the project",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/ProjectColumn"
+        }
+      }
+    },
+    "ProjectIssue": {
+      "description": "ProjectIssue - Get specific project issue",
+      "schema": {
+        "$ref": "#/definitions/ProjectIssue"
+      }
+    },
+    "ProjectIssueList": {
+      "description": "ProjectIssueList - List of issues in the project",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/ProjectIssue"
+        }
+      }
+    },
+    "ProjectList": {
+      "description": "ProjectList - List of projects",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/Project"
+        }
+      }
+    },
     "PublicKey": {
       "description": "PublicKey",
       "schema": {
@@ -33064,7 +35544,7 @@
     "parameterBodies": {
       "description": "parameterBodies",
       "schema": {
-        "$ref": "#/definitions/RegisterRunnerOptions"
+        "$ref": "#/definitions/CreateProjectIssueOptions"
       }
     },
     "quotaExceeded": {
