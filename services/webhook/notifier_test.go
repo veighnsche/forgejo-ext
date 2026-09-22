@@ -14,11 +14,11 @@ import (
 	webhook_model "forgejo.org/models/webhook"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/json"
-	"forgejo.org/modules/log"
 	"forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
+	"forgejo.org/modules/timeutil"
 	webhook_module "forgejo.org/modules/webhook"
 
 	"github.com/stretchr/testify/assert"
@@ -144,32 +144,6 @@ func TestAction(t *testing.T) {
 	triggerUser := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2, OwnerID: triggerUser.ID})
 
-	oldSuccessRun := &actions_model.ActionRun{
-		ID:            1,
-		Status:        actions_model.StatusSuccess,
-		Index:         1,
-		RepoID:        repo.ID,
-		Stopped:       1693648027,
-		WorkflowID:    "some_workflow",
-		Title:         "oldSuccessRun",
-		TriggerUser:   triggerUser,
-		TriggerUserID: triggerUser.ID,
-		TriggerEvent:  "push",
-	}
-	oldSuccessRun.LoadAttributes(db.DefaultContext)
-	oldFailureRun := &actions_model.ActionRun{
-		ID:            1,
-		Status:        actions_model.StatusFailure,
-		Index:         1,
-		RepoID:        repo.ID,
-		Stopped:       1693648027,
-		WorkflowID:    "some_workflow",
-		Title:         "oldFailureRun",
-		TriggerUser:   triggerUser,
-		TriggerUserID: triggerUser.ID,
-		TriggerEvent:  "push",
-	}
-	oldFailureRun.LoadAttributes(db.DefaultContext)
 	newSuccessRun := &actions_model.ActionRun{
 		ID:            1,
 		Status:        actions_model.StatusSuccess,
@@ -197,10 +171,10 @@ func TestAction(t *testing.T) {
 	}
 	newFailureRun.LoadAttributes(db.DefaultContext)
 
-	t.Run("Successful Run after Nothing", func(t *testing.T) {
+	t.Run("Successful Run", func(t *testing.T) {
 		defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
 
-		NewNotifier().ActionRunNowDone(db.DefaultContext, newSuccessRun, actions_model.StatusWaiting, nil)
+		NewNotifier().WorkflowRunCompleted(t.Context(), newSuccessRun, actions_model.StatusWaiting)
 
 		// there's only one of these at the time
 		hookTask := unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{}, unittest.Cond("event_type == 'action_run_success' AND payload_content LIKE '%success%newSuccessRun%'"))
@@ -211,59 +185,12 @@ func TestAction(t *testing.T) {
 		assert.Equal(t, structs.HookActionSuccess, payloadContent.Action)
 		assert.Equal(t, actions_model.StatusWaiting.String(), payloadContent.PriorStatus)
 		assertActionEqual(t, newSuccessRun, payloadContent.Run)
-		assert.Nil(t, payloadContent.LastRun)
 	})
 
-	t.Run("Successful Run after Failure", func(t *testing.T) {
+	t.Run("Failed Run", func(t *testing.T) {
 		defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
 
-		NewNotifier().ActionRunNowDone(db.DefaultContext, newSuccessRun, actions_model.StatusWaiting, oldFailureRun)
-
-		{
-			hookTask := unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{}, unittest.Cond("event_type == 'action_run_success' AND payload_content LIKE '%success%newSuccessRun%oldFailureRun%'"))
-			assert.Equal(t, webhook_module.HookEventActionRunSuccess, hookTask.EventType)
-
-			var payloadContent structs.ActionPayload
-			require.NoError(t, json.Unmarshal([]byte(hookTask.PayloadContent), &payloadContent))
-			assert.Equal(t, structs.HookActionSuccess, payloadContent.Action)
-			assert.Equal(t, actions_model.StatusWaiting.String(), payloadContent.PriorStatus)
-			assertActionEqual(t, newSuccessRun, payloadContent.Run)
-			assertActionEqual(t, oldFailureRun, payloadContent.LastRun)
-		}
-		{
-			hookTask := unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{}, unittest.Cond("event_type == 'action_run_recover' AND payload_content LIKE '%recover%newSuccessRun%oldFailureRun%'"))
-			assert.Equal(t, webhook_module.HookEventActionRunRecover, hookTask.EventType)
-
-			log.Error("something: %s", hookTask.PayloadContent)
-			var payloadContent structs.ActionPayload
-			require.NoError(t, json.Unmarshal([]byte(hookTask.PayloadContent), &payloadContent))
-			assert.Equal(t, structs.HookActionRecover, payloadContent.Action)
-			assert.Equal(t, actions_model.StatusWaiting.String(), payloadContent.PriorStatus)
-			assertActionEqual(t, newSuccessRun, payloadContent.Run)
-			assertActionEqual(t, oldFailureRun, payloadContent.LastRun)
-		}
-	})
-
-	t.Run("Successful Run after Success", func(t *testing.T) {
-		defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
-
-		NewNotifier().ActionRunNowDone(db.DefaultContext, newSuccessRun, actions_model.StatusWaiting, oldSuccessRun)
-
-		hookTask := unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{}, unittest.Cond("event_type == 'action_run_success' AND payload_content LIKE '%success%newSuccessRun%oldSuccessRun%'"))
-		assert.Equal(t, webhook_module.HookEventActionRunSuccess, hookTask.EventType)
-
-		var payloadContent structs.ActionPayload
-		require.NoError(t, json.Unmarshal([]byte(hookTask.PayloadContent), &payloadContent))
-		assert.Equal(t, structs.HookActionSuccess, payloadContent.Action)
-		assert.Equal(t, actions_model.StatusWaiting.String(), payloadContent.PriorStatus)
-		assertActionEqual(t, newSuccessRun, payloadContent.Run)
-		assertActionEqual(t, oldSuccessRun, payloadContent.LastRun)
-	})
-
-	t.Run("Failed Run after Nothing", func(t *testing.T) {
-		defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
-
-		NewNotifier().ActionRunNowDone(db.DefaultContext, newFailureRun, actions_model.StatusWaiting, nil)
+		NewNotifier().WorkflowRunCompleted(t.Context(), newFailureRun, actions_model.StatusWaiting)
 
 		// there should only be this one at the time
 		hookTask := unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{}, unittest.Cond("event_type == 'action_run_failure' AND payload_content LIKE '%failure%newFailureRun%'"))
@@ -274,38 +201,209 @@ func TestAction(t *testing.T) {
 		assert.Equal(t, structs.HookActionFailure, payloadContent.Action)
 		assert.Equal(t, actions_model.StatusWaiting.String(), payloadContent.PriorStatus)
 		assertActionEqual(t, newFailureRun, payloadContent.Run)
-		assert.Nil(t, payloadContent.LastRun)
 	})
+}
 
-	t.Run("Failed Run after Failure", func(t *testing.T) {
-		defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
+func TestWebhookNotifier_NewWorkflowJobAttempt(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
 
-		NewNotifier().ActionRunNowDone(db.DefaultContext, newFailureRun, actions_model.StatusWaiting, oldFailureRun)
+	defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
 
-		hookTask := unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{}, unittest.Cond("event_type == 'action_run_failure' AND payload_content LIKE '%failure%newFailureRun%oldFailureRun%'"))
-		assert.Equal(t, webhook_module.HookEventActionRunFailure, hookTask.EventType)
+	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	repo62 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 62, OwnerID: user2.ID})
 
-		var payloadContent structs.ActionPayload
-		require.NoError(t, json.Unmarshal([]byte(hookTask.PayloadContent), &payloadContent))
-		assert.Equal(t, structs.HookActionFailure, payloadContent.Action)
-		assert.Equal(t, actions_model.StatusWaiting.String(), payloadContent.PriorStatus)
-		assertActionEqual(t, newFailureRun, payloadContent.Run)
-		assertActionEqual(t, oldFailureRun, payloadContent.LastRun)
-	})
+	webhook := webhook_model.Webhook{
+		OwnerID:     user2.ID,
+		RepoID:      repo62.ID,
+		URL:         "https://example.com/",
+		HTTPMethod:  "POST",
+		ContentType: webhook_model.ContentTypeJSON,
+		Events:      `{"send_everything":true}`,
+		IsActive:    true,
+		Type:        webhook_module.FORGEJO,
+	}
 
-	t.Run("Failed Run after Success", func(t *testing.T) {
-		defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
+	unittest.AssertSuccessfulInsert(t, webhook)
 
-		NewNotifier().ActionRunNowDone(db.DefaultContext, newFailureRun, actions_model.StatusWaiting, oldSuccessRun)
+	run := &actions_model.ActionRun{
+		Title:       "Update pom.xml",
+		RepoID:      repo62.ID,
+		OwnerID:     user2.ID,
+		TriggerUser: user2,
+		Status:      actions_model.StatusWaiting,
+	}
 
-		hookTask := unittest.AssertExistsAndLoadBean(t, &webhook_model.HookTask{}, unittest.Cond("event_type == 'action_run_failure' AND payload_content LIKE '%failure%newFailureRun%oldSuccessRun%'"))
-		assert.Equal(t, webhook_module.HookEventActionRunFailure, hookTask.EventType)
+	unittest.AssertSuccessfulInsert(t, run)
 
-		var payloadContent structs.ActionPayload
-		require.NoError(t, json.Unmarshal([]byte(hookTask.PayloadContent), &payloadContent))
-		assert.Equal(t, structs.HookActionFailure, payloadContent.Action)
-		assert.Equal(t, actions_model.StatusWaiting.String(), payloadContent.PriorStatus)
-		assertActionEqual(t, newFailureRun, payloadContent.Run)
-		assertActionEqual(t, oldSuccessRun, payloadContent.LastRun)
-	})
+	job := &actions_model.ActionRunJob{
+		RunID:             run.ID,
+		RepoID:            repo62.ID,
+		OwnerID:           user2.ID,
+		CommitSHA:         "365cc67e3d824b0c8dabf6f7799990ed2a9ce271",
+		IsForkPullRequest: false,
+		Name:              "build",
+		Attempt:           2,
+		Handle:            "51ddf9d1-2649-4b08-9fde-6867275a4b28",
+		JobID:             "build",
+		RunsOn:            []string{"fedora", "size-m"},
+		Status:            actions_model.StatusWaiting,
+		Started:           0,
+		Stopped:           0,
+		Created:           timeutil.TimeStamp(1789052551),
+		Updated:           timeutil.TimeStamp(1789052552),
+	}
+
+	unittest.AssertSuccessfulInsert(t, job)
+
+	require.NoError(t, job.LoadAttributes(t.Context()))
+
+	notifier := webhookNotifier{}
+	notifier.NewWorkflowJobAttempt(t.Context(), job)
+
+	hookTask := unittest.AssertExistsAndLoadBean(t,
+		&webhook_model.HookTask{EventType: webhook_module.HookEventWorkflowJobWaiting})
+
+	var payloadContent structs.WorkflowJobPayload
+	require.NoError(t, json.Unmarshal([]byte(hookTask.PayloadContent), &payloadContent))
+
+	assert.Equal(t, structs.HookNewWorkflowJobAttempt, payloadContent.Action)
+	assert.Equal(t, job.ID, payloadContent.Job.ID)
+	assert.Equal(t, run.ID, payloadContent.Run.ID)
+	assert.Equal(t, repo62.ID, payloadContent.Repository.ID)
+}
+
+func TestWebhookNotifier_WorkflowJobStatusChanged(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
+
+	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	repo62 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 62, OwnerID: user2.ID})
+
+	webhook := webhook_model.Webhook{
+		OwnerID:     user2.ID,
+		RepoID:      repo62.ID,
+		URL:         "https://example.com/",
+		HTTPMethod:  "POST",
+		ContentType: webhook_model.ContentTypeJSON,
+		Events:      `{"send_everything":true}`,
+		IsActive:    true,
+		Type:        webhook_module.FORGEJO,
+	}
+
+	unittest.AssertSuccessfulInsert(t, webhook)
+
+	run := &actions_model.ActionRun{
+		Title:       "Update pom.xml",
+		RepoID:      repo62.ID,
+		OwnerID:     user2.ID,
+		TriggerUser: user2,
+		Status:      actions_model.StatusRunning,
+	}
+
+	unittest.AssertSuccessfulInsert(t, run)
+
+	job := &actions_model.ActionRunJob{
+		RunID:             run.ID,
+		RepoID:            repo62.ID,
+		OwnerID:           user2.ID,
+		CommitSHA:         "365cc67e3d824b0c8dabf6f7799990ed2a9ce271",
+		IsForkPullRequest: false,
+		Name:              "build",
+		Attempt:           2,
+		Handle:            "51ddf9d1-2649-4b08-9fde-6867275a4b28",
+		JobID:             "build",
+		RunsOn:            []string{"fedora", "size-m"},
+		Status:            actions_model.StatusRunning,
+		Started:           1789052552,
+		Stopped:           0,
+		Created:           timeutil.TimeStamp(1789052551),
+		Updated:           timeutil.TimeStamp(1789052552),
+	}
+
+	unittest.AssertSuccessfulInsert(t, job)
+
+	require.NoError(t, job.LoadAttributes(t.Context()))
+
+	notifier := webhookNotifier{}
+	notifier.WorkflowJobStatusChanged(t.Context(), job, actions_model.StatusWaiting)
+
+	hookTask := unittest.AssertExistsAndLoadBean(t,
+		&webhook_model.HookTask{EventType: webhook_module.HookEventWorkflowJobRunning})
+
+	var payloadContent structs.WorkflowJobPayload
+	require.NoError(t, json.Unmarshal([]byte(hookTask.PayloadContent), &payloadContent))
+
+	assert.Equal(t, structs.HookWorkflowJobStatusChanged, payloadContent.Action)
+	assert.Equal(t, job.ID, payloadContent.Job.ID)
+	assert.Equal(t, run.ID, payloadContent.Run.ID)
+	assert.Equal(t, repo62.ID, payloadContent.Repository.ID)
+}
+
+func TestWebhookNotifier_WorkflowJobCompleted(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	defer test.MockVariableValue(&setting.Webhook.PayloadCommitLimit, 10)()
+
+	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+	repo62 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 62, OwnerID: user2.ID})
+
+	webhook := webhook_model.Webhook{
+		OwnerID:     user2.ID,
+		RepoID:      repo62.ID,
+		URL:         "https://example.com/",
+		HTTPMethod:  "POST",
+		ContentType: webhook_model.ContentTypeJSON,
+		Events:      `{"send_everything":true}`,
+		IsActive:    true,
+		Type:        webhook_module.FORGEJO,
+	}
+
+	unittest.AssertSuccessfulInsert(t, webhook)
+
+	run := &actions_model.ActionRun{
+		Title:       "Update pom.xml",
+		RepoID:      repo62.ID,
+		OwnerID:     user2.ID,
+		TriggerUser: user2,
+		Status:      actions_model.StatusSuccess,
+	}
+
+	unittest.AssertSuccessfulInsert(t, run)
+
+	job := &actions_model.ActionRunJob{
+		RunID:             run.ID,
+		RepoID:            repo62.ID,
+		OwnerID:           user2.ID,
+		CommitSHA:         "365cc67e3d824b0c8dabf6f7799990ed2a9ce271",
+		IsForkPullRequest: false,
+		Name:              "build",
+		Attempt:           2,
+		Handle:            "51ddf9d1-2649-4b08-9fde-6867275a4b28",
+		JobID:             "build",
+		RunsOn:            []string{"fedora", "size-m"},
+		Status:            actions_model.StatusSuccess,
+		Started:           1789052552,
+		Stopped:           1789052573,
+		Created:           timeutil.TimeStamp(1789052551),
+		Updated:           timeutil.TimeStamp(1789052574),
+	}
+
+	unittest.AssertSuccessfulInsert(t, job)
+
+	require.NoError(t, job.LoadAttributes(t.Context()))
+
+	notifier := webhookNotifier{}
+	notifier.WorkflowJobCompleted(t.Context(), job, actions_model.StatusRunning)
+
+	hookTask := unittest.AssertExistsAndLoadBean(t,
+		&webhook_model.HookTask{EventType: webhook_module.HookEventWorkflowJobSuccess})
+
+	var payloadContent structs.WorkflowJobPayload
+	require.NoError(t, json.Unmarshal([]byte(hookTask.PayloadContent), &payloadContent))
+
+	assert.Equal(t, structs.HookWorkflowJobCompleted, payloadContent.Action)
+	assert.Equal(t, job.ID, payloadContent.Job.ID)
+	assert.Equal(t, run.ID, payloadContent.Run.ID)
+	assert.Equal(t, repo62.ID, payloadContent.Repository.ID)
 }

@@ -205,8 +205,7 @@ func GetDefaultMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr
 // Merge merges pull request to base repository.
 // Caller should check PR is ready to be merged (review and status checks)
 func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, baseGitRepo *git.Repository, mergeStyle repo_model.MergeStyle, expectedHeadCommitID, message string, wasAutoMerged bool) error {
-	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
-	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
+	defer pullWorkingPool.Lock(fmt.Sprint(pr.ID))()
 
 	pr, err := issues_model.GetPullRequestByID(ctx, pr.ID)
 	if err != nil {
@@ -303,7 +302,7 @@ func handleCloseCrossReferences(ctx context.Context, pr *issues_model.PullReques
 		}
 		isClosed := ref.RefAction == references.XRefActionCloses
 		if isClosed != ref.Issue.IsClosed {
-			if err = issue_service.ChangeStatus(ctx, ref.Issue, doer, pr.MergedCommitID, isClosed); err != nil {
+			if err = issue_service.ChangeStatus(ctx, ref.Issue, doer, &issues_model.PRNotificationInfo{MergedCommitID: pr.MergedCommitID}, isClosed); err != nil {
 				// Allow ErrDependenciesLeft
 				if !issues_model.IsErrDependenciesLeft(err) {
 					return err

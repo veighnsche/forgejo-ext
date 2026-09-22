@@ -15,8 +15,6 @@ import (
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
-
-	"xorm.io/builder"
 )
 
 var (
@@ -35,16 +33,16 @@ var (
 // GetAllRerunJobs get all jobs that need to be rerun when job should be rerun
 func GetAllRerunJobs(job *actions_model.ActionRunJob, allJobs []*actions_model.ActionRunJob) []*actions_model.ActionRunJob {
 	rerunJobs := []*actions_model.ActionRunJob{job}
-	rerunJobsIDSet := make(container.Set[string])
-	rerunJobsIDSet.Add(job.JobID)
+	rerunJobsIDSet := make(container.Set[actions_model.NamespacedJobIdentifier])
+	rerunJobsIDSet.Add(job.NamespacedJobID())
 
 	for _, j := range allJobs {
-		if rerunJobsIDSet.Contains(j.JobID) {
+		if rerunJobsIDSet.Contains(j.NamespacedJobID()) {
 			continue
 		}
-		if slices.ContainsFunc(j.Needs, rerunJobsIDSet.Contains) {
+		if slices.ContainsFunc(j.NamespacedNeeds(), rerunJobsIDSet.Contains) {
 			rerunJobs = append(rerunJobs, j)
-			rerunJobsIDSet.Add(j.JobID)
+			rerunJobsIDSet.Add(j.NamespacedJobID())
 		}
 	}
 
@@ -72,7 +70,7 @@ func RerunAllJobs(ctx context.Context, run *actions_model.ActionRun) ([]*actions
 
 	var rerunJobs []*actions_model.ActionRunJob
 	if err := db.WithTx(ctx, func(ctx context.Context) error {
-		if run.Status != actions_model.StatusUnknown && !run.Status.IsDone() {
+		if !run.Status.IsDone() {
 			return fmt.Errorf("cannot prepare next attempt because run %d is active: %s", run.ID, run.Status.String())
 		}
 
@@ -82,18 +80,8 @@ func RerunAllJobs(ctx context.Context, run *actions_model.ActionRun) ([]*actions
 			return fmt.Errorf("cannot remove artifacts of previous run of run %d: %w", run.ID, err)
 		}
 
-		run.PreviousDuration = run.Duration()
-
-		run.Status = actions_model.StatusWaiting
-		run.Started = 0
-		run.Stopped = 0
-		run.Priority = actions_model.DefaultRunPriority
-		run.Prioritize = false
-
-		// The columns have to be specified here to work around a xorm quirk: It won't update columns that are set to
-		// their zero value without AllCols().
-		if err := UpdateRun(ctx, run, "status", "started", "stopped", "previous_duration", "priority", "prioritize"); err != nil {
-			return fmt.Errorf("cannot update run %d: %w", run.ID, err)
+		if err := InitiateNextRunAttempt(ctx, run); err != nil {
+			return fmt.Errorf("could not initiate next attempt of run %d: %w", run.ID, err)
 		}
 
 		if err := recalculateRunPriorities(ctx, run.RepoID); err != nil {
@@ -111,7 +99,7 @@ func RerunAllJobs(ctx context.Context, run *actions_model.ActionRun) ([]*actions
 				initialStatus = actions_model.StatusBlocked
 			}
 
-			if err := rerunSingleJob(ctx, job, initialStatus); err != nil {
+			if err := InitiateNextJobAttempt(ctx, job, initialStatus); err != nil {
 				return fmt.Errorf("could not rerun job %d of run %d: %w", job.ID, run.ID, err)
 			}
 
@@ -147,18 +135,9 @@ func RerunJob(ctx context.Context, job *actions_model.ActionRunJob) ([]*actions_
 
 	var rerunJobs []*actions_model.ActionRunJob
 	if err := db.WithTx(ctx, func(ctx context.Context) error {
-		if job.Run.Status.IsUnknown() || job.Run.Status.IsDone() {
-			job.Run.PreviousDuration = job.Run.Duration()
-			job.Run.Status = actions_model.StatusWaiting
-			job.Run.Started = 0
-			job.Run.Stopped = 0
-			job.Run.Priority = actions_model.DefaultRunPriority
-			job.Run.Prioritize = false
-
-			// The columns have to be specified here to work around a xorm quirk: It won't update columns that are set
-			// to their zero value without AllCols().
-			if err := UpdateRun(ctx, job.Run, "previous_duration", "status", "started", "stopped", "priority", "prioritize"); err != nil {
-				return fmt.Errorf("unable to update run %d of job %d: %w", job.RunID, job.ID, err)
+		if job.Run.Status.IsDone() {
+			if err := InitiateNextRunAttempt(ctx, job.Run); err != nil {
+				return fmt.Errorf("could not initiate next attempt of run %d: %w", job.Run.ID, err)
 			}
 
 			if err := recalculateRunPriorities(ctx, job.RepoID); err != nil {
@@ -210,35 +189,22 @@ func RerunJob(ctx context.Context, job *actions_model.ActionRunJob) ([]*actions_
 				initialStatus = actions_model.StatusBlocked
 			}
 
-			if err := rerunSingleJob(ctx, jobToRerun, initialStatus); err != nil {
+			if err := InitiateNextJobAttempt(ctx, jobToRerun, initialStatus); err != nil {
 				return fmt.Errorf("cannot rerun job %d: %w", jobToRerun.ID, err)
 			}
 			rerunJobs = append(rerunJobs, jobToRerun)
 		}
+
+		if err = RefreshAndPropagateRunStatus(ctx, job.RunID); err != nil {
+			return fmt.Errorf("could not refresh and propagate the status of run %d: %w", job.RunID, err)
+		}
+
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 
 	return rerunJobs, nil
-}
-
-func rerunSingleJob(ctx context.Context, job *actions_model.ActionRunJob, initialStatus actions_model.Status) error {
-	oldStatus := job.Status
-
-	if err := job.PrepareNextAttempt(initialStatus); err != nil {
-		return err
-	}
-
-	// The columns have to be specified here to work around a xorm quirk: It won't update columns that are set to their
-	// zero value without AllCols().
-	if _, err := UpdateRunJob(ctx, job, builder.Eq{"status": oldStatus}, "handle", "attempt", "task_id", "status", "started", "stopped"); err != nil {
-		return err
-	}
-
-	CreateCommitStatus(ctx, job)
-
-	return nil
 }
 
 // cancelSingleJob cancels the given job and its associated task, if any. outcomeStatus defines the status that should
@@ -253,22 +219,27 @@ func cancelSingleJob(ctx context.Context, job *actions_model.ActionRunJob, outco
 	}
 
 	return db.WithTx(ctx, func(ctx context.Context) error {
-		if job.TaskID == 0 {
-			job.Status = outcomeStatus
-			job.Stopped = timeutil.TimeStampNow()
-			_, err := UpdateRunJob(ctx, job, nil, "status", "stopped")
-			if err != nil {
-				return fmt.Errorf("could not cancel job %d: %w", job.ID, err)
-			}
+		// Capture the job's current status for notifications.
+		priorStatus := job.Status
+
+		job.Status = outcomeStatus
+		job.Stopped = timeutil.TimeStampNow()
+		_, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, nil, "status", "stopped")
+		if err != nil {
+			return fmt.Errorf("could not cancel job %d: %w", job.ID, err)
+		}
+
+		if err := PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
+			return fmt.Errorf("could not propagate the status of job %d: %w", job.ID, err)
 		}
 
 		// A task might have been created while we're trying to cancel the job. Therefore, always try to stop the task.
-		if err := StopTask(ctx, job.TaskID, outcomeStatus); err != nil {
-			if errors.Is(err, util.ErrNotExist) {
-				return nil
+		if err := stopTask(ctx, job.TaskID, outcomeStatus); err != nil {
+			if !errors.Is(err, util.ErrNotExist) {
+				return err
 			}
-			return err
 		}
+
 		return nil
 	})
 }

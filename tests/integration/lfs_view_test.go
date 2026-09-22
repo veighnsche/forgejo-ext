@@ -14,6 +14,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/lfs"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/translation"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -21,28 +22,59 @@ import (
 )
 
 // check that files stored in LFS render properly in the web UI
-func TestLFSRender(t *testing.T) {
+func TestLFSFileRender(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
 	session := loginUser(t, "user2")
+	locale := translation.NewLocale("en-US")
 
-	// check that a markup file is flagged with "Stored in Git LFS" and shows its text
+	// for a repository without LFS files, check that the correct 'not found'
+	// message is actually shown
+	t.Run("Without LFS", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+		req := NewRequest(t, "GET", "/user2/repo1/settings/lfs")
+		resp := session.MakeRequest(t, req, http.StatusOK)
+
+		filesTable := NewHTMLParser(t, resp.Body).doc.Find("#lfs-files-table")
+		assert.Contains(t, filesTable.Text(), locale.TrString("repo.settings.lfs_no_lfs_files"))
+	})
+
+	// check that a markup file is flagged with the appropriate Git LFS label
+	// and that its text is shown in the file view and the diff view
 	t.Run("Markup", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
+		// View file
 		req := NewRequest(t, "GET", "/user2/lfs/src/branch/master/CONTRIBUTING.md")
 		resp := session.MakeRequest(t, req, http.StatusOK)
 
 		doc := NewHTMLParser(t, resp.Body).doc
 
 		fileInfo := doc.Find("div.file-info-entry").First().Text()
-		assert.Contains(t, fileInfo, "Stored with Git LFS")
+		assert.Contains(t, fileInfo, locale.TrString("repo.stored_lfs"))
 
 		content := doc.Find("div.file-view").Text()
 		assert.Contains(t, content, "Testing documents in LFS")
+
+		// View file in diff by obtaining latest commit
+		req = NewRequest(t, "GET", "/user2/lfs/commits/branch/master/CONTRIBUTING.md")
+		resp = session.MakeRequest(t, req, http.StatusOK)
+
+		// Parse the 'History' page, navigate to latest commit and view its diff.
+		doc = NewHTMLParser(t, resp.Body).doc
+		latestCommit, _ := doc.Find(".default-link").First().Attr("href")
+		req = NewRequest(t, "GET", latestCommit)
+		resp = session.MakeRequest(t, req, http.StatusOK)
+
+		doc = NewHTMLParser(t, resp.Body).doc
+
+		// Find the 'Git LFS' label.
+		fileNameDiffBar := doc.Find(".diff-file-name").Last().Text()
+		assert.Contains(t, fileNameDiffBar, locale.TrString("quota.sizes.git.lfs"))
 	})
 
-	// check that an image is flagged with "Stored in Git LFS" and renders inline
+	// check that an image is flagged with the appropriate Git LFS label
+	// and that its text is shown in the file view and the diff view
 	t.Run("Image", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
@@ -52,14 +84,32 @@ func TestLFSRender(t *testing.T) {
 		doc := NewHTMLParser(t, resp.Body).doc
 
 		fileInfo := doc.Find("div.file-info-entry").First().Text()
-		assert.Contains(t, fileInfo, "Stored with Git LFS")
+		assert.Contains(t, fileInfo, locale.TrString("repo.stored_lfs"))
 
 		src, exists := doc.Find(".file-view img").Attr("src")
 		assert.True(t, exists, "The image should be in an <img> tag")
 		assert.Equal(t, "/user2/lfs/media/branch/master/jpeg.jpg", src, "The image should use the /media link because it's in LFS")
+
+		// View file in diff by obtaining latest commit
+		req = NewRequest(t, "GET", "/user2/lfs/commits/branch/master/jpeg.jpg")
+		resp = session.MakeRequest(t, req, http.StatusOK)
+
+		// Parse the 'History' page, navigate to latest commit and view its diff.
+		doc = NewHTMLParser(t, resp.Body).doc
+		latestCommit, _ := doc.Find(".default-link").First().Attr("href")
+		req = NewRequest(t, "GET", latestCommit)
+		resp = session.MakeRequest(t, req, http.StatusOK)
+
+		doc = NewHTMLParser(t, resp.Body).doc
+
+		// Find the 'Git LFS' label.
+		fileNameDiffBar := doc.Find(".diff-file-name").Last().Text()
+		assert.Contains(t, fileNameDiffBar, locale.TrString("quota.sizes.git.lfs"))
 	})
 
-	// check that a binary file is flagged with "Stored in Git LFS" and renders a /media/ link instead of a /raw/ link
+	// check that a binary file is flagged with "Stored in Git LFS" and renders a
+	// /media/ link instead of a /raw/ link, while the appropriate Git LFS label
+	// is shown in the diff view
 	t.Run("Binary", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
@@ -69,14 +119,31 @@ func TestLFSRender(t *testing.T) {
 		doc := NewHTMLParser(t, resp.Body).doc
 
 		fileInfo := doc.Find("div.file-info-entry").First().Text()
-		assert.Contains(t, fileInfo, "Stored with Git LFS")
+		assert.Contains(t, fileInfo, locale.TrString("repo.stored_lfs"))
 
 		rawLink, exists := doc.Find("div.file-view > div.view-raw > a").Attr("href")
 		assert.True(t, exists, "Download link should render instead of content because this is a binary file")
 		assert.Equal(t, "/user2/lfs/media/branch/master/crypt.bin", rawLink, "The download link should use the proper /media link because it's in LFS")
+
+		// View file in diff by obtaining latest commit
+		req = NewRequest(t, "GET", "/user2/lfs/commits/branch/master/crypt.bin")
+		resp = session.MakeRequest(t, req, http.StatusOK)
+
+		// Parse the 'History' page, navigate to latest commit and view its diff.
+		doc = NewHTMLParser(t, resp.Body).doc
+		latestCommit, _ := doc.Find(".default-link").First().Attr("href")
+		req = NewRequest(t, "GET", latestCommit)
+		resp = session.MakeRequest(t, req, http.StatusOK)
+
+		doc = NewHTMLParser(t, resp.Body).doc
+
+		// Find the 'Git LFS' label.
+		fileNameDiffBar := doc.Find(".diff-file-name").Last().Text()
+		assert.Contains(t, fileNameDiffBar, locale.TrString("quota.sizes.git.lfs"))
 	})
 
-	// check that a directory with a README file shows its text
+	// check that a directory with a README file shows its text and that the diff
+	// view also shows the 'Git LFS' label
 	t.Run("Readme", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
@@ -87,28 +154,22 @@ func TestLFSRender(t *testing.T) {
 
 		content := doc.Find("div.file-view").Text()
 		assert.Contains(t, content, "Testing READMEs in LFS")
-	})
 
-	t.Run("/settings/lfs/pointers", func(t *testing.T) {
-		defer tests.PrintCurrentTest(t)()
-
-		// visit /user2/lfs/settings/lfs/pointer
-		req := NewRequest(t, "GET", "/user2/lfs/settings/lfs/pointers")
-		resp := session.MakeRequest(t, req, http.StatusOK)
-
-		// follow the first link to /user2/lfs/settings/lfs/find?oid=....
-		filesTable := NewHTMLParser(t, resp.Body).doc.Find("#lfs-files-table")
-		assert.Contains(t, filesTable.Text(), "Find commits")
-		lfsFind := filesTable.Find(`.primary.button[href^="/user2"]`)
-		assert.Positive(t, lfsFind.Length())
-		lfsFindPath, exists := lfsFind.First().Attr("href")
-		assert.True(t, exists)
-
-		assert.Contains(t, lfsFindPath, "oid=")
-		req = NewRequest(t, "GET", lfsFindPath)
+		// View file in diff by obtaining latest commit
+		req = NewRequest(t, "GET", "/user2/lfs/commits/branch/master/subdir/README.md")
 		resp = session.MakeRequest(t, req, http.StatusOK)
-		doc := NewHTMLParser(t, resp.Body).doc
-		assert.Equal(t, 1, doc.Find(`.sha.label[href="/user2/lfs/commit/73cf03db6ece34e12bf91e8853dc58f678f2f82d"]`).Length(), "could not find link to commit")
+
+		// Parse the 'History' page, navigate to latest commit and view its diff.
+		doc = NewHTMLParser(t, resp.Body).doc
+		latestCommit, _ := doc.Find(".default-link").First().Attr("href")
+		req = NewRequest(t, "GET", latestCommit)
+		resp = session.MakeRequest(t, req, http.StatusOK)
+
+		doc = NewHTMLParser(t, resp.Body).doc
+
+		// Find the 'Git LFS' label.
+		fileNameDiffBar := doc.Find(".diff-file-name").Last().Text()
+		assert.Contains(t, fileNameDiffBar, locale.TrString("quota.sizes.git.lfs"))
 	})
 
 	// check that an invalid lfs entry defaults to plaintext
@@ -130,8 +191,10 @@ func TestLFSLockView(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})       // in org 3
+	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1}) // owned by user 2
 	repo3 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3}) // own by org 3
 	session := loginUser(t, user2.Name)
+	locale := translation.NewLocale("en-US")
 
 	// create a lock
 	lockPath := "test_lfs_lock_view.zip"
@@ -154,6 +217,16 @@ func TestLFSLockView(t *testing.T) {
 		req.Header.Set("Content-Type", lfs.MediaType)
 		MakeRequest(t, req, http.StatusOK)
 	}()
+
+	t.Run("no locks message", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		req := NewRequest(t, "GET", fmt.Sprintf("/%s/settings/lfs/locks", repo1.FullName()))
+		resp := session.MakeRequest(t, req, http.StatusOK)
+
+		filesTable := NewHTMLParser(t, resp.Body).doc.Find("#lfs-files-locks-table")
+		assert.Contains(t, filesTable.Text(), locale.TrString("repo.settings.lfs_locks_no_locks"))
+	})
 
 	t.Run("owner name", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
@@ -178,5 +251,79 @@ func TestLFSLockView(t *testing.T) {
 		assert.Equal(t, lockPath, strings.TrimSpace(td.Eq(0).Text()))
 		// owner name
 		assert.Equal(t, user2.DisplayName(), strings.TrimSpace(td.Eq(1).Text()))
+	})
+}
+
+func TestLFSPointerAndFindCommitView(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	session := loginUser(t, "user2")
+	locale := translation.NewLocale("en-US")
+
+	// visit /user2/repo1/settings/lfs/pointer, without find commit check
+	// and check if not found message is shown
+	t.Run("Without LFS", func(t *testing.T) {
+		t.Run("Pointer View", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequest(t, "GET", "/user2/repo1/settings/lfs/pointers")
+			resp := session.MakeRequest(t, req, http.StatusOK)
+
+			filesTable := NewHTMLParser(t, resp.Body).doc.Find("#lfs-files-table")
+			assert.Contains(t, filesTable.Text(), locale.TrString("repo.settings.lfs.no_pointers"))
+		})
+
+		t.Run("Find Commit View", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+
+			req := NewRequest(t, "GET", "/user2/repo1/settings/lfs/find?oid=thisoiddoesnotexist&size=1")
+			resp := session.MakeRequest(t, req, http.StatusOK)
+
+			filesTable := NewHTMLParser(t, resp.Body).doc.Find(".user-main-content")
+			assert.Contains(t, filesTable.Text(), locale.TrString("repo.settings.lfs_lfs_file_no_commits"))
+			// While we're at it, why not include this as well?
+			assert.Contains(t, filesTable.Text(), "LFS / thisoiddoesnotexist")
+		})
+	})
+
+	// visit /user2/lfs/settings/lfs/pointer, with find commit check
+	t.Run("With LFS", func(t *testing.T) {
+		defer tests.PrintCurrentTest(t)()
+
+		// visit /user2/lfs/settings/lfs/pointer
+		req := NewRequest(t, "GET", "/user2/lfs/settings/lfs/pointers")
+		resp := session.MakeRequest(t, req, http.StatusOK)
+
+		// follow the first link to /user2/lfs/settings/lfs/find?oid=....
+		// (to get to the 'Find commits' view)
+		filesTable := NewHTMLParser(t, resp.Body).doc.Find("#lfs-files-table")
+		assert.Contains(t, filesTable.Text(), locale.TrString("repo.settings.lfs_findcommits"))
+		lfsFind := filesTable.Find(`.primary.button[href^="/user2"]`)
+		assert.Positive(t, lfsFind.Length())
+		lfsFindPath, exists := lfsFind.First().Attr("href")
+		assert.True(t, exists)
+
+		assert.Contains(t, lfsFindPath, "oid=")
+		req = NewRequest(t, "GET", lfsFindPath)
+		resp = session.MakeRequest(t, req, http.StatusOK)
+		doc := NewHTMLParser(t, resp.Body).doc
+
+		// Check name
+		lfsFilename := doc.Find(`a[href^="/user2/lfs/src/commit/73cf03db6ece34e12bf91e8853dc58f678f2f82d/subdir/README.md"]`).Text()
+		assert.NotNil(t, lfsFilename, "could not find file link")
+		assert.Equal(t, "subdir/README.md", lfsFilename, "incorrect file name")
+
+		// Check branch
+		branchString := doc.Find(`a[href^="/user2/lfs/src/branch/master"]`).Text()
+		assert.NotNil(t, branchString, "could not find branch link")
+		assert.Equal(t, "master", branchString, "incorrect branch")
+
+		// Check SHA
+		shortShaString := doc.Find(`a[href^="/user2/lfs/commit/73cf03db6ece34e12bf91e8853dc58f678f2f82d"]`).Text()
+		assert.NotNil(t, shortShaString, "could not find sha link")
+		assert.Equal(t, "73cf03db6e", shortShaString, "incorrect sha")
+
+		// Check date
+		assert.Equal(t, "2022-12-21", doc.Find(`td[data-test-name="date"]`).Text())
 	})
 }

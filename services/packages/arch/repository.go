@@ -30,7 +30,7 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
 )
 
-var locker = sync.NewExclusivePool()
+var locker = sync.MutexMap{}
 
 func GetOrCreateRepositoryVersion(ctx context.Context, ownerID int64) (*packages_model.PackageVersion, error) {
 	return packages_service.GetOrCreateInternalPackageVersion(ctx, ownerID, packages_model.TypeArch, arch_module.RepositoryPackage, arch_module.RepositoryVersion)
@@ -106,8 +106,7 @@ func NewFileSign(ctx context.Context, ownerID int64, input io.Reader) (*packages
 // BuildPacmanDB Create db signature cache
 func BuildPacmanDB(ctx context.Context, ownerID int64, group, arch string) error {
 	key := fmt.Sprintf("pkg_%d_arch_db_%s", ownerID, group)
-	locker.CheckIn(key)
-	defer locker.CheckOut(key)
+	defer locker.Lock(key)()
 	pv, err := GetOrCreateRepositoryVersion(ctx, ownerID)
 	if err != nil {
 		return err
@@ -360,7 +359,8 @@ func generateKeypair(owner string) (string, string, error) {
 		"Arch Package signature only",
 		fmt.Sprintf("%s@noreply.%s", owner, setting.Packages.RegistryHost), &packet.Config{
 			RSABits: 4096,
-		})
+		},
+	)
 	if err != nil {
 		return "", "", err
 	}

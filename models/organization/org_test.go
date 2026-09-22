@@ -175,6 +175,21 @@ func TestIsPublicMembership(t *testing.T) {
 	test(unittest.NonexistentID, unittest.NonexistentID, false)
 }
 
+func TestIsPrivateMembership(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	test := func(orgID, userID int64, expected bool) {
+		isMember, err := organization.IsPrivateMembership(db.DefaultContext, orgID, userID)
+		require.NoError(t, err)
+		assert.Equal(t, expected, isMember)
+	}
+	test(3, 2, false)
+	test(3, 3, false)
+	test(3, 4, true)
+	test(6, 5, false)
+	test(6, 4, false)
+	test(unittest.NonexistentID, unittest.NonexistentID, false)
+}
+
 func TestGetOrgUsersByOrgID(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
@@ -417,9 +432,10 @@ func TestUser_RemoveOrgRepo(t *testing.T) {
 
 	require.NoError(t, organization.RemoveOrgRepo(db.DefaultContext, org.ID, unittest.NonexistentID))
 
+	// Can't check consistency of Team here; `RemoveOrgRepo` removes a repo from the owners team making it fail the
+	// consistency rules, but it is only used when performing a transfer.
 	unittest.CheckConsistencyFor(t,
 		&user_model.User{ID: org.ID},
-		&organization.Team{OrgID: org.ID},
 		&repo_model.Repository{ID: repo.ID})
 }
 

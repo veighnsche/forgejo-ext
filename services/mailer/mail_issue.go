@@ -31,6 +31,7 @@ type ActionAdditionalData interface {
 
 type ActionCloseIssueByCommit struct {
 	CommitID string
+	Repo     *repo_model.Repository
 }
 
 func (ActionCloseIssueByCommit) isActionAdditionalData() {}
@@ -208,7 +209,8 @@ func MailParticipants(ctx context.Context, issue *issues_model.Issue, doer *user
 			Comment:               nil,
 			ForceDoerNotification: forceDoerNotification,
 			ActionAdditionalData:  additionalData,
-		}, mentions); err != nil {
+		}, mentions,
+	); err != nil {
 		log.Error("mailIssueCommentToParticipants: %v", err)
 	}
 	return nil

@@ -5,9 +5,12 @@
 package migrations
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"forgejo.org/modules/migration"
+	"forgejo.org/services/migrations/allowlist"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,6 +47,8 @@ func (nullUploader) SyncTags() error {
 func (nullUploader) CreateLabels(...*migration.Label) error {
 	return nil
 }
+
+func (nullUploader) EnableCommentReplyTo() {}
 
 func (nullUploader) CreateIssues(...*migration.Issue) error {
 	return nil
@@ -118,4 +123,18 @@ func TestMigrateRepository(t *testing.T) {
 	}, messenger))
 
 	assert.Empty(t, messages)
+}
+
+func TestMigrationUserAgent(t *testing.T) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userAgent := r.Header.Get("User-Agent")
+		assert.Equal(t, "Forgejo-migration-http-client/1.1", userAgent)
+	}))
+	defer testServer.Close()
+
+	client := allowlist.NewMigrationHTTPClient()
+
+	req, err := http.NewRequest("GET", testServer.URL, nil)
+	require.NoError(t, err)
+	client.Do(req)
 }

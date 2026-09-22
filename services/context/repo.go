@@ -36,10 +36,14 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
 	asymkey_service "forgejo.org/services/asymkey"
+	funding_service "forgejo.org/services/funding"
 	redirect_service "forgejo.org/services/redirect"
 
 	"github.com/editorconfig/editorconfig-core-go/v2"
 )
+
+// The name of the special {owner}/.profile repository.
+const OwnerProfileRepositoryName = ".profile"
 
 // PullRequest contains information to make a pull request
 type PullRequest struct {
@@ -75,7 +79,7 @@ type Repository struct {
 
 // CanWriteToBranch checks if the branch is writable by the user
 func (r *Repository) CanWriteToBranch(ctx context.Context, user *user_model.User, branch string) bool {
-	return issues_model.CanMaintainerWriteToBranch(ctx, r.Permission, branch, user)
+	return issues_model.CanMaintainerWriteToBranch(ctx, r.Permission, branch, user, access_model.GetUserRepoPermission)
 }
 
 // CanEnableEditor returns true if repository is editable and user has proper access level.
@@ -720,6 +724,22 @@ func RepoAssignment(ctx *Context) context.CancelFunc {
 		return cancel
 	}
 
+	funding, err := funding_service.GetFundingFromDefaultBranch(ctx, ctx.Repo.Repository)
+	if err != nil && !funding_service.IsNotExistError(err) {
+		ctx.ServerError("GetFundingFromDefaultBranch", err)
+		return cancel
+	}
+	if funding != nil && len(funding.Entries) > 0 {
+		ctx.Data["Funding"] = funding.Entries
+		ctx.Data["FundingConfig"] = funding.ConfigPath
+		ctx.Data["FundingHasErrors"] = len(funding.Errors) > 0
+		if ctx.Repo.Repository.Name == OwnerProfileRepositoryName {
+			ctx.Data["FundingTarget"] = ctx.Repo.Repository.Owner.DisplayName()
+		} else {
+			ctx.Data["FundingTarget"] = fmt.Sprintf("%s/%s", ctx.Repo.Repository.OwnerName, ctx.Repo.Repository.Name)
+		}
+	}
+
 	branchOpts := git_model.FindBranchOptions{
 		RepoID:          ctx.Repo.Repository.ID,
 		IsDeletedBranch: optional.Some(false),
@@ -1082,7 +1102,8 @@ func RepoRefByType(refType RepoRefType, ignoreNotExistErr ...bool) func(*Context
 					ctx.Repo.RepoLink,
 					util.PathEscapeSegments(prefix),
 					ctx.Repo.BranchNameSubURL(),
-					util.PathEscapeSegments(ctx.Repo.TreePath)))
+					util.PathEscapeSegments(ctx.Repo.TreePath),
+				))
 				return cancel
 			}
 		}

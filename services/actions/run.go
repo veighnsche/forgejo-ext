@@ -12,13 +12,88 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
+	"forgejo.org/modules/util"
+	notify_service "forgejo.org/services/notify"
+
+	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
 )
+
+// InsertRun inserts a new run, and all its jobs, into the database. In the event that all the `if` clauses of the jobs
+// are evaluated at this stage and are `false`,
+func InsertRun(ctx context.Context, run *actions_model.ActionRun, sw []*jobparser.SingleWorkflow) error {
+	return db.WithTx(ctx, func(ctx context.Context) error {
+		calculateWarnings(run, sw)
+
+		jobs, err := convertSingleWorkflowToJobs(run, sw)
+		if err != nil {
+			return err
+		}
+
+		if err := actions_model.InsertRunWithoutNotification(ctx, run, jobs); err != nil {
+			return fmt.Errorf("InsertRunWithoutNotification: %w", err)
+		}
+
+		if err = propagateNextRunAttempt(ctx, run.ID); err != nil {
+			return fmt.Errorf("failed to propagate next attempt of run %d: %w", run.ID, err)
+		}
+
+		for _, job := range jobs {
+			if err = PropagateNextJobAttempt(ctx, job.ID); err != nil {
+				return fmt.Errorf("failed to propagate new attempt of job %d: %w", job.ID, err)
+			}
+		}
+
+		// Some jobs might have been immediately set to Skipped when they were inserted.  Other jobs may be
+		// dependent on those skipped jobs.  While we're still in this transaction and before these jobs are visible,
+		// run the job emitter which can recursively evaluate this state and update dependent runs status to either
+		// skipped or waiting, depending on their 'if':
+		if !run.NeedApproval { // don't unblock jobs if the run needs approval
+			if err := checkJobsOfRun(ctx, run.ID, 0); err != nil {
+				return fmt.Errorf("check jobs of run: %w", err)
+			}
+		}
+
+		// Normally, the status of a job is input to InsertRun as Waiting, and remains that way. But InsertRunJobs can
+		// evaluate the 'if' clauses of each job, and if every job is skipped then the run status needs to be updated.
+		if err := RefreshAndPropagateRunStatus(ctx, run.ID); err != nil {
+			return fmt.Errorf("could not refresh and propagate the status of run %d: %w", run.ID, err)
+		}
+
+		// checkJobsOfRun() and RefreshAndPropagateRunStatus() above can lead to an update of the
+		// run. But as they load the run from the database, and might even write directly to the
+		// database, the changes are not reflected in the `run` variable. Therefore, we have to
+		// refresh it.
+		dbRun, err := actions_model.GetRunByID(ctx, run.ID)
+		if err != nil {
+			return fmt.Errorf("could not load run %d: %w", run.ID, err)
+		}
+		*run = *dbRun
+
+		return nil
+	})
+}
+
+func propagateNextRunAttempt(ctx context.Context, runID int64) error {
+	run, err := actions_model.GetRunByID(ctx, runID)
+	if err != nil {
+		return fmt.Errorf("could not load run %d: %w", runID, err)
+	}
+
+	// Notifications expect a fully loaded run.
+	if err := run.LoadAttributes(ctx); err != nil {
+		return fmt.Errorf("could not load attributes of run %d: %w", run.ID, err)
+	}
+
+	notify_service.NewWorkflowRunAttempt(ctx, run)
+
+	return nil
+}
 
 func killRun(ctx context.Context, run *actions_model.ActionRun, newStatus actions_model.Status) error {
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		jobs, err := actions_model.GetRunJobsByRunID(ctx, run.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not get jobs of run %d: %w", run.ID, err)
 		}
 		for _, job := range jobs {
 			if err := cancelSingleJob(ctx, job, newStatus); err != nil {
@@ -30,6 +105,10 @@ func killRun(ctx context.Context, run *actions_model.ActionRun, newStatus action
 			if err := actions_model.UpdateRunApprovalByID(ctx, run.ID, actions_model.DoesNotNeedApproval, 0); err != nil {
 				return err
 			}
+		}
+
+		if err = RefreshAndPropagateRunStatus(ctx, run.ID); err != nil {
+			return fmt.Errorf("could not refresh and propagate the status of run %d: %w", run.ID, err)
 		}
 
 		CreateCommitStatus(ctx, jobs...)
@@ -50,16 +129,31 @@ func ApproveRun(ctx context.Context, run *actions_model.ActionRun, doerID int64)
 		}
 		for _, job := range jobs {
 			if len(job.Needs) == 0 && job.Status.IsBlocked() {
+				// Capture the current status because it is required for sending notifications.
+				priorStatus := job.Status
+
 				job.Status = actions_model.StatusWaiting
-				_, err := UpdateRunJob(ctx, job, nil, "status")
+				_, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, nil, "status")
 				if err != nil {
-					return err
+					return fmt.Errorf("could not update job %d: %w", job.ID, err)
+				}
+
+				if err := PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
+					return fmt.Errorf("could not propagate the status of job %d: %w", job.ID, err)
 				}
 			}
 		}
 		CreateCommitStatus(ctx, jobs...)
 
-		return actions_model.UpdateRunApprovalByID(ctx, run.ID, actions_model.DoesNotNeedApproval, doerID)
+		if err = RefreshAndPropagateRunStatus(ctx, run.ID); err != nil {
+			return fmt.Errorf("could not refresh and propagate the status of run %d: %w", run.ID, err)
+		}
+
+		if err = actions_model.UpdateRunApprovalByID(ctx, run.ID, actions_model.DoesNotNeedApproval, doerID); err != nil {
+			return fmt.Errorf("failed to update the approval status of run %d: %w", run.ID, err)
+		}
+
+		return nil
 	})
 }
 
@@ -70,15 +164,15 @@ func FailRunPreExecutionError(ctx context.Context, run *actions_model.ActionRun,
 	}
 
 	return db.WithTx(ctx, func(ctx context.Context) error {
-		run.Status = actions_model.StatusFailure
+		// The run cannot be marked as failed without marking its job as failed because the run's
+		// status is a product of the statuses of its jobs. killRun() will take care of it.
 		run.PreExecutionErrorCode = errorCode
 		run.PreExecutionErrorDetails = details
-		if err := actions_model.UpdateRunWithoutNotification(ctx, run,
-			"pre_execution_error_code", "pre_execution_error_details", "status"); err != nil {
+		if err := actions_model.UpdateRun(ctx, run, []string{"pre_execution_error_code", "pre_execution_error_details"}...); err != nil {
 			return err
 		}
 
-		// Also mark every pending job as Failed so nothing remains in a waiting/blocked state.
+		// Mark the run and every pending job as failed so nothing remains in a waiting/blocked state.
 		return killRun(ctx, run, actions_model.StatusFailure)
 	})
 }
@@ -94,7 +188,7 @@ func consistencyCheckRun(ctx context.Context, run *actions_model.ActionRun) erro
 	for _, job := range jobs {
 		if unknownJobIDs, ok := job.AllNeedsExist(validJobIDs); !ok {
 			return FailRunPreExecutionError(ctx, run, actions_model.ErrorCodeUnknownJobInNeeds,
-				[]any{job.JobID, strings.Join(unknownJobIDs, ", ")})
+				[]any{job.JobID, strings.Join(util.ConvertSlice[actions_model.JobIdentifier, string](unknownJobIDs), ", ")})
 		}
 		if stop, err := checkJobWillRevisit(ctx, job); err != nil {
 			return err
@@ -131,7 +225,7 @@ func checkJobWillRevisit(ctx context.Context, job *actions_model.ActionRunJob) (
 		return false, nil
 	}
 
-	requiredJob := matrixNeeds.Job
+	requiredJob := actions_model.LocalJobIdentifier(matrixNeeds.Job)
 	needs := job.Needs
 	if slices.Contains(needs, requiredJob) {
 		// Looks good, the needed job is listed in `needs`.  It's possible that the matrix may be incomplete by
@@ -148,7 +242,7 @@ func checkJobWillRevisit(ctx context.Context, job *actions_model.ActionRunJob) (
 	if err := FailRunPreExecutionError(ctx, job.Run, actions_model.ErrorCodeIncompleteMatrixMissingJob, []any{
 		job.JobID,
 		requiredJob,
-		strings.Join(needs, ", "),
+		strings.Join(util.ConvertSlice[actions_model.LocalJobIdentifier, string](needs), ", "),
 	}); err != nil {
 		return false, err
 	}
@@ -233,7 +327,7 @@ func PrioritizeRun(ctx context.Context, run *actions_model.ActionRun) error {
 		}
 
 		run.Prioritize = true
-		if err := actions_model.UpdateRunWithoutNotification(ctx, run, "prioritize"); err != nil {
+		if err := actions_model.UpdateRun(ctx, run, []string{"prioritize"}...); err != nil {
 			return fmt.Errorf("could not update workflow run %d to prioritize: %w", run.ID, err)
 		}
 
@@ -258,7 +352,7 @@ func DeprioritizeRun(ctx context.Context, run *actions_model.ActionRun) error {
 		}
 
 		run.Prioritize = false
-		if err := actions_model.UpdateRunWithoutNotification(ctx, run, "prioritize"); err != nil {
+		if err := actions_model.UpdateRun(ctx, run, []string{"prioritize"}...); err != nil {
 			return fmt.Errorf("could not update workflow run %d to deprioritize: %w", run.ID, err)
 		}
 
@@ -289,13 +383,71 @@ var recalculateRunPriorities = func(ctx context.Context, repoID int64) error {
 				continue
 			}
 
-			if err = actions_model.UpdateRunWithoutNotification(ctx, run, "priority"); err != nil {
+			if err = actions_model.UpdateRun(ctx, run, []string{"priority"}...); err != nil {
 				return fmt.Errorf("failed to update reprioritized workflow run %d: %w", run.ID, err)
 			}
 		}
 
 		// In the future notify webhook listeners. Pass *all* runs, not only updated runs to provide listeners a
 		// complete view.
+
+		return nil
+	})
+}
+
+func InitiateNextRunAttempt(ctx context.Context, run *actions_model.ActionRun) error {
+	return db.WithTx(ctx, func(ctx context.Context) error {
+		if err := run.PrepareNextAttempt(); err != nil {
+			return fmt.Errorf("could not prepare next attempt of run %d: %w", run.ID, err)
+		}
+
+		if err := actions_model.UpdateRun(ctx, run); err != nil {
+			return fmt.Errorf("unable to update run %d: %w", run.ID, err)
+		}
+
+		if err := propagateNextRunAttempt(ctx, run.ID); err != nil {
+			return fmt.Errorf("failed to propagate next attempt of run %d: %w", run.ID, err)
+		}
+
+		return nil
+	})
+}
+
+// RefreshAndPropagateRunStatus refreshes the status of a run and notifies subscribers if the
+// status has changed — but only then.
+func RefreshAndPropagateRunStatus(ctx context.Context, runID int64) error {
+	return db.WithTx(ctx, func(ctx context.Context) error {
+		run, err := actions_model.GetRunByID(ctx, runID)
+		if err != nil {
+			return fmt.Errorf("could not load run %d: %w", runID, err)
+		}
+
+		jobs, err := actions_model.GetRunJobsByRunID(ctx, run.ID)
+		if err != nil {
+			return fmt.Errorf("could not get jobs of run %d: %w", run.ID, err)
+		}
+
+		// If the status has not changed, updating the run or triggering notifications is
+		// unnecessary.
+		priorStatus := run.Status
+		if !run.RefreshStatus(jobs) {
+			return nil
+		}
+
+		if err = actions_model.UpdateRun(ctx, run); err != nil {
+			return fmt.Errorf("could not update run %d: %w", run.ID, err)
+		}
+
+		// Notifications expect an ActionRun with all its attributes loaded.
+		if err = run.LoadAttributes(ctx); err != nil {
+			return fmt.Errorf("failed to load attributes of run %d: %w", run.ID, err)
+		}
+
+		if !run.Status.IsDone() {
+			notify_service.WorkflowRunStatusChanged(ctx, run, priorStatus)
+		} else {
+			notify_service.WorkflowRunCompleted(ctx, run, priorStatus)
+		}
 
 		return nil
 	})

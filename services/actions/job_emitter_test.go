@@ -15,9 +15,10 @@ import (
 	"forgejo.org/modules/test"
 	notify_service "forgejo.org/services/notify"
 
-	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 )
@@ -31,18 +32,18 @@ func Test_jobStatusResolver_Resolve(t *testing.T) {
 		{
 			name: "no blocked",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusWaiting, Needs: []string{}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusWaiting, Needs: []string{}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusWaiting, Needs: []string{}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusWaiting, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusWaiting, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusWaiting, Needs: []actions_model.LocalJobIdentifier{}},
 			},
 			want: map[int64]actions_model.Status{},
 		},
 		{
 			name: "single blocked",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusWaiting, Needs: []string{}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"1"}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusWaiting, Needs: []actions_model.LocalJobIdentifier{}},
 			},
 			want: map[int64]actions_model.Status{
 				2: actions_model.StatusWaiting,
@@ -51,9 +52,9 @@ func Test_jobStatusResolver_Resolve(t *testing.T) {
 		{
 			name: "multiple blocked",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"1"}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"1"}},
 			},
 			want: map[int64]actions_model.Status{
 				2: actions_model.StatusWaiting,
@@ -63,9 +64,9 @@ func Test_jobStatusResolver_Resolve(t *testing.T) {
 		{
 			name: "chain blocked",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []string{"2"}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusFailure, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"1"}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"2"}},
 			},
 			want: map[int64]actions_model.Status{
 				// Resolve() does only one update pass and does not update jobs recursively. Therefore, job 3, which
@@ -76,17 +77,17 @@ func Test_jobStatusResolver_Resolve(t *testing.T) {
 		{
 			name: "loop need",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "1", Status: actions_model.StatusBlocked, Needs: []string{"3"}},
-				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []string{"1"}},
-				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []string{"2"}},
+				{ID: 1, JobID: "1", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"3"}},
+				{ID: 2, JobID: "2", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"1"}},
+				{ID: 3, JobID: "3", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"2"}},
 			},
 			want: map[int64]actions_model.Status{},
 		},
 		{
 			name: "`if` is not empty and all jobs in `needs` completed successfully",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []string{"job1"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"job1"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -97,15 +98,16 @@ jobs:
     if: ${{ always() && needs.job1.result == 'success' }}
     steps:
       - run: echo "will be checked by act_runner"
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{2: actions_model.StatusWaiting},
 		},
 		{
 			name: "`if` is not empty and not all jobs in `needs` completed successfully",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []string{"job1"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1", Status: actions_model.StatusFailure, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"job1"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -116,15 +118,16 @@ jobs:
     if: ${{ always() && needs.job1.result == 'failure' }}
     steps:
       - run: echo "will be checked by act_runner"
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{2: actions_model.StatusWaiting},
 		},
 		{
 			name: "`if` is empty and not all jobs in `needs` completed successfully",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []string{"job1"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job1", Status: actions_model.StatusFailure, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "job2", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"job1"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -134,7 +137,8 @@ jobs:
     needs: job1
     steps:
       - run: echo "should be skipped"
-`)},
+`,
+				)},
 			},
 			// Status goes to waiting for `prepareJobForEmitting` to evaluate `if`, even in default condition, so one
 			// codepath always handles this consistently.
@@ -143,9 +147,9 @@ jobs:
 		{
 			name: "unblocked workflow call outer job with success",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobNamespace: "ns1", JobID: "innerjob1", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobNamespace: "ns1", JobID: "innerjob2", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"__namespace.ns1.innerjob1", "__namespace.ns1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -155,7 +159,8 @@ jobs:
     uses: ./.forgejo/workflows/reusable.yml
 __metadata:
   workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{
 				3: actions_model.StatusSuccess,
@@ -164,9 +169,9 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job with success and skip",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSkipped, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobNamespace: "ns1", JobID: "innerjob1", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobNamespace: "ns1", JobID: "innerjob2", Status: actions_model.StatusSkipped, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"__namespace.ns1.innerjob1", "__namespace.ns1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -176,7 +181,8 @@ jobs:
     uses: ./.forgejo/workflows/reusable.yml
 __metadata:
   workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{
 				3: actions_model.StatusSuccess,
@@ -185,9 +191,9 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job with only skip",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSkipped, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusSkipped, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobNamespace: "ns1", JobID: "innerjob1", Status: actions_model.StatusSkipped, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobNamespace: "ns1", JobID: "innerjob2", Status: actions_model.StatusSkipped, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"__namespace.ns1.innerjob1", "__namespace.ns1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -197,7 +203,8 @@ jobs:
     uses: ./.forgejo/workflows/reusable.yml
 __metadata:
   workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{
 				3: actions_model.StatusSkipped,
@@ -206,8 +213,8 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job, incomplete `with`",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job0", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job0"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job0", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"job0"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -223,7 +230,8 @@ incomplete_with_needs:
   output: something
 __metadata:
   workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{
 				2: actions_model.StatusWaiting,
@@ -232,8 +240,8 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job, incomplete `strategy.matrix`",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job0", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job0"}, WorkflowPayload: []byte(
+				{ID: 1, JobID: "job0", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"job0"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -249,7 +257,8 @@ incomplete_matrix_needs:
   output: something
 __metadata:
   workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{
 				2: actions_model.StatusWaiting,
@@ -258,9 +267,9 @@ __metadata:
 		{
 			name: "unblocked workflow call outer job with internal failure",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobNamespace: "ns1", JobID: "innerjob1", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobNamespace: "ns1", JobID: "innerjob2", Status: actions_model.StatusFailure, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"__namespace.ns1.innerjob1", "__namespace.ns1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -270,18 +279,19 @@ jobs:
     uses: ./.forgejo/workflows/reusable.yml
 __metadata:
   workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{
 				3: actions_model.StatusFailure,
 			},
 		},
 		{
-			name: "unblocked workflow call outer job with internal failure",
+			name: "unblocked workflow call outer job with internal skip & failure",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "job1.innerjob1", Status: actions_model.StatusSkipped, Needs: []string{}},
-				{ID: 2, JobID: "job1.innerjob2", Status: actions_model.StatusFailure, Needs: []string{}},
-				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []string{"job1.innerjob1", "job1.innerjob2"}, WorkflowPayload: []byte(
+				{ID: 1, JobNamespace: "ns1", JobID: "innerjob1", Status: actions_model.StatusSkipped, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobNamespace: "ns1", JobID: "innerjob2", Status: actions_model.StatusFailure, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 3, JobID: "job1", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"__namespace.ns1.innerjob1", "__namespace.ns1.innerjob2"}, WorkflowPayload: []byte(
 					`
 name: test
 on: push
@@ -291,7 +301,8 @@ jobs:
     uses: ./.forgejo/workflows/reusable.yml
 __metadata:
   workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
-`)},
+`,
+				)},
 			},
 			want: map[int64]actions_model.Status{
 				3: actions_model.StatusFailure,
@@ -300,16 +311,16 @@ __metadata:
 		{
 			name: "blocked if needs are unknown",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "build", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 2, JobID: "test", Status: actions_model.StatusBlocked, Needs: []string{"build", "unknown"}},
+				{ID: 1, JobID: "build", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 2, JobID: "test", Status: actions_model.StatusBlocked, Needs: []actions_model.LocalJobIdentifier{"build", "unknown"}},
 			},
 			want: map[int64]actions_model.Status{},
 		},
 		{
 			name: "blocked if needs are unknown despite always()",
 			jobs: actions_model.ActionJobList{
-				{ID: 1, JobID: "build", Status: actions_model.StatusSuccess, Needs: []string{}},
-				{ID: 45, JobID: "test", Needs: []string{"build", "unknown"}, Status: actions_model.StatusBlocked, WorkflowPayload: []byte(`
+				{ID: 1, JobID: "build", Status: actions_model.StatusSuccess, Needs: []actions_model.LocalJobIdentifier{}},
+				{ID: 45, JobID: "test", Needs: []actions_model.LocalJobIdentifier{"build", "unknown"}, Status: actions_model.StatusBlocked, WorkflowPayload: []byte(`
 on: push
 jobs:
   test:
@@ -367,20 +378,6 @@ jobs:
     steps: []
 `
 
-type callArgsActionRunNowDone struct {
-	run         *actions_model.ActionRun
-	priorStatus actions_model.Status
-	lastRun     *actions_model.ActionRun
-}
-type mockNotifier struct {
-	notify_service.NullNotifier
-	calls []*callArgsActionRunNowDone
-}
-
-func (m *mockNotifier) ActionRunNowDone(ctx context.Context, run *actions_model.ActionRun, priorStatus actions_model.Status, lastRun *actions_model.ActionRun) {
-	m.calls = append(m.calls, &callArgsActionRunNowDone{run, priorStatus, lastRun})
-}
-
 func Test_prepareJobForEmitting(t *testing.T) {
 	// Shouldn't get any decoding errors during this test -- pop them up from a log warning to a test fatal error.
 	defer test.MockVariableValue(&model.OnDecodeNodeError, func(node yaml.Node, out any, err error) {
@@ -402,17 +399,18 @@ func Test_prepareJobForEmitting(t *testing.T) {
 		preExecutionError             actions_model.PreExecutionError
 		preExecutionErrorDetails      []any
 		runsOn                        map[string][]string
-		needs                         map[string][]string
+		needs                         map[string][]actions_model.LocalJobIdentifier
 		expectIncompleteJob           []string
 		localReusableWorkflowCallArgs *localReusableWorkflowCallArgs
 		actionRunStatusChange         actions_model.Status
+		notificationsVerifier         func(notifier *notify_service.MockNotifier)
 	}{
 		{
 			name:        "matrix expanded to 3 new jobs",
 			runJobID:    601,
 			consumed:    true,
 			runJobNames: []string{"define-matrix", "produce-artifacts (blue)", "produce-artifacts (green)", "produce-artifacts (red)"},
-			needs: map[string][]string{
+			needs: map[string][]actions_model.LocalJobIdentifier{
 				"define-matrix":             nil,
 				"produce-artifacts (blue)":  {"define-matrix"},
 				"produce-artifacts (green)": {"define-matrix"},
@@ -580,10 +578,10 @@ func Test_prepareJobForEmitting(t *testing.T) {
 				"inner my-workflow-input",
 				"perform-workflow-call",
 			},
-			needs: map[string][]string{
+			needs: map[string][]actions_model.LocalJobIdentifier{
 				"define-workflow-call":    nil,
-				"inner my-workflow-input": {"define-workflow-call"},
-				"perform-workflow-call":   {"define-workflow-call", "perform-workflow-call.inner_job"},
+				"inner my-workflow-input": {"__namespace..define-workflow-call"},
+				"perform-workflow-call":   {"define-workflow-call", "__namespace.c899b6b202f3150372a11cf825e2c643434dc255afc960fadec5e9298eb8cac1.inner_job"},
 			},
 		},
 		// Before reusable workflow expansion, there weren't any cases where evaluating a job in the job emitter could
@@ -603,16 +601,16 @@ func Test_prepareJobForEmitting(t *testing.T) {
 				"define-workflow-call":                   {"fedora"},
 				"perform-workflow-call":                  {},
 				"inner define-runs-on my-workflow-input": {"docker"},
-				"inner incomplete-job my-workflow-input": {"${{ needs[format('{0}.{1}', 'perform-workflow-call', 'define-runs-on')].outputs.scalar-value }}"},
+				"inner incomplete-job my-workflow-input": {"${{ needs.define-runs-on.outputs.scalar-value }}"},
 			},
-			needs: map[string][]string{
+			needs: map[string][]actions_model.LocalJobIdentifier{
 				"define-workflow-call":                   nil,
-				"inner define-runs-on my-workflow-input": {"define-workflow-call"},
-				"inner incomplete-job my-workflow-input": {"define-workflow-call", "perform-workflow-call.define-runs-on"},
+				"inner define-runs-on my-workflow-input": {"__namespace..define-workflow-call"},
+				"inner incomplete-job my-workflow-input": {"__namespace..define-workflow-call", "define-runs-on"},
 				"perform-workflow-call": {
 					"define-workflow-call",
-					"perform-workflow-call.define-runs-on",
-					"perform-workflow-call.scalar-job",
+					"__namespace.c899b6b202f3150372a11cf825e2c643434dc255afc960fadec5e9298eb8cac1.define-runs-on",
+					"__namespace.c899b6b202f3150372a11cf825e2c643434dc255afc960fadec5e9298eb8cac1.scalar-job",
 				},
 			},
 			expectIncompleteJob: []string{"inner incomplete-job my-workflow-input"},
@@ -622,6 +620,22 @@ func Test_prepareJobForEmitting(t *testing.T) {
 			runJobID:                 634,
 			preExecutionError:        actions_model.ErrorCodeIncompleteWithMissingJob,
 			preExecutionErrorDetails: []any{"perform-workflow-call", "oops-i-misspelt-the-job-id", "define-workflow-call"},
+			notificationsVerifier: func(notifier *notify_service.MockNotifier) {
+				notifier.AssertNumberOfCalls(t, "NewWorkflowJobAttempt", 0)
+				notifier.AssertNumberOfCalls(t, "WorkflowJobStatusChanged", 0)
+				notifier.AssertNumberOfCalls(t, "WorkflowJobCompleted", 0)
+				notifier.AssertNumberOfCalls(t, "NewWorkflowRunAttempt", 0)
+				notifier.AssertNumberOfCalls(t, "WorkflowRunStatusChanged", 0)
+				notifier.AssertNumberOfCalls(t, "WorkflowRunCompleted", 1)
+
+				notifier.AssertCalled(
+					t, "WorkflowRunCompleted", mock.Anything,
+					mock.MatchedBy(func(run *actions_model.ActionRun) bool {
+						return run.Status == actions_model.StatusFailure
+					}),
+					actions_model.StatusRunning,
+				)
+			},
 		},
 		{
 			name:                     "missing needs output for workflow call evaluation",
@@ -659,6 +673,22 @@ func Test_prepareJobForEmitting(t *testing.T) {
 				// job2 which expanded into an empty matrix is gone
 			},
 			actionRunStatusChange: actions_model.StatusSuccess,
+			notificationsVerifier: func(notifier *notify_service.MockNotifier) {
+				notifier.AssertNumberOfCalls(t, "NewWorkflowJobAttempt", 0)
+				notifier.AssertNumberOfCalls(t, "WorkflowJobStatusChanged", 0)
+				notifier.AssertNumberOfCalls(t, "WorkflowJobCompleted", 0)
+				notifier.AssertNumberOfCalls(t, "NewWorkflowRunAttempt", 0)
+				notifier.AssertNumberOfCalls(t, "WorkflowRunStatusChanged", 0)
+				notifier.AssertNumberOfCalls(t, "WorkflowRunCompleted", 1)
+
+				notifier.AssertCalled(
+					t, "WorkflowRunCompleted", mock.Anything,
+					mock.MatchedBy(func(run *actions_model.ActionRun) bool {
+						return run.Status == actions_model.StatusSuccess
+					}),
+					actions_model.StatusRunning,
+				)
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -666,7 +696,15 @@ func Test_prepareJobForEmitting(t *testing.T) {
 			defer unittest.OverrideFixtures("services/actions/Test_prepareJobForEmitting")()
 			require.NoError(t, unittest.PrepareTestDatabase())
 
-			notifier := &mockNotifier{}
+			notifier := notify_service.NewMockNotifier(t)
+			notifier.On("Run").Return().Maybe()
+			notifier.On("NewWorkflowJobAttempt", mock.Anything, mock.Anything).Return().Maybe()
+			notifier.On("WorkflowJobStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
+			notifier.On("WorkflowJobCompleted", mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
+			notifier.On("NewWorkflowRunAttempt", mock.Anything, mock.Anything).Return().Maybe()
+			notifier.On("WorkflowRunStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
+			notifier.On("WorkflowRunCompleted", mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
+
 			notify_service.RegisterNotifier(notifier)
 			defer notify_service.UnregisterNotifier(notifier)
 
@@ -721,12 +759,6 @@ func Test_prepareJobForEmitting(t *testing.T) {
 					assert.EqualValues(t, 0, actionRun.PreExecutionErrorCode, "PreExecutionError Details: %#v", actionRun.PreExecutionErrorDetails)
 					if tt.actionRunStatusChange != 0 {
 						assert.Equal(t, tt.actionRunStatusChange, actionRun.Status)
-						require.Len(t, notifier.calls, 1)
-						call := notifier.calls[0]
-						assert.Equal(t, actionRun.ID, call.run.ID)
-						assert.Nil(t, call.lastRun)
-						assert.Equal(t, actions_model.StatusRunning, call.priorStatus)
-						assert.Equal(t, tt.actionRunStatusChange, call.run.Status)
 					}
 
 					// compare jobs that exist with `runJobNames` to ensure new jobs are inserted:
@@ -797,6 +829,10 @@ func Test_prepareJobForEmitting(t *testing.T) {
 				} else {
 					assert.Equal(t, behaviourExecuteJob, behaviour)
 				}
+			}
+
+			if tt.notificationsVerifier != nil {
+				tt.notificationsVerifier(notifier)
 			}
 		})
 	}
@@ -894,6 +930,15 @@ jobs:
           echo "Argument: ${{ inputs.argument }}"
 `
 
+	notifier := notify_service.NewMockNotifier(t)
+	notifier.On("Run").Return().Maybe()
+	notifier.On("NewWorkflowJobAttempt", mock.Anything, mock.Anything).Return(nil)
+	notifier.On("WorkflowJobStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	notifier.On("WorkflowJobCompleted", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	notify_service.RegisterNotifier(notifier)
+	defer notify_service.UnregisterNotifier(notifier)
+
 	defer test.MockVariableValue(&lazyRepoExpandLocalReusableWorkflow,
 		func(ctx context.Context, repoID int64, commitSHA string) (jobparser.LocalWorkflowFetcher, CleanupFunc) {
 			fetcher := func(job *jobparser.Job, path string) ([]byte, error) {
@@ -914,25 +959,65 @@ jobs:
 	require.NoError(t, err)
 	assert.Len(t, jobs, 5)
 
-	assert.Equal(t, "a", jobs[0].JobID)
-	assert.Equal(t, actions_model.StatusSuccess, jobs[0].Status)
+	assert.Equal(t, actions_model.JobIdentifier("a"), jobs[0].JobID)
+	assert.Equal(t, actions_model.StatusSuccess.String(), jobs[0].Status.String())
 
-	assert.Equal(t, "b", jobs[1].JobID)
-	assert.Equal(t, actions_model.StatusSuccess, jobs[1].Status)
+	assert.Equal(t, actions_model.JobIdentifier("b"), jobs[1].JobID)
+	assert.Equal(t, actions_model.StatusSuccess.String(), jobs[1].Status.String())
 
-	assert.Equal(t, "b.reusable", jobs[2].JobID)
-	assert.Equal(t, actions_model.StatusSuccess, jobs[2].Status)
+	assert.Equal(t, actions_model.JobIdentifier("reusable"), jobs[2].JobID)
+	assert.Equal(t, actions_model.JobNamespace("namespace-b"), jobs[2].JobNamespace)
+	assert.Equal(t, actions_model.StatusSuccess.String(), jobs[2].Status.String())
 
-	assert.Equal(t, "c", jobs[3].JobID)
-	assert.Equal(t, actions_model.StatusBlocked, jobs[3].Status)
+	assert.Equal(t, actions_model.JobIdentifier("c"), jobs[3].JobID)
+	assert.Equal(t, actions_model.StatusBlocked.String(), jobs[3].Status.String())
 
-	assert.Equal(t, "c.reusable", jobs[4].JobID)
-	assert.Equal(t, actions_model.StatusWaiting, jobs[4].Status)
+	assert.Equal(t, actions_model.JobIdentifier("reusable"), jobs[4].JobID)
+	assert.Equal(t, actions_model.StatusWaiting.String(), jobs[4].Status.String())
+
+	notifier.AssertNumberOfCalls(t, "NewWorkflowJobAttempt", 2)
+	notifier.AssertNumberOfCalls(t, "WorkflowJobStatusChanged", 1)
+	notifier.AssertNumberOfCalls(t, "WorkflowJobCompleted", 1)
+	notifier.AssertCalled(
+		t, "NewWorkflowJobAttempt", mock.Anything,
+		mock.MatchedBy(func(job *actions_model.ActionRunJob) bool {
+			return job.ID == jobs[3].ID && job.JobID == actions_model.JobIdentifier("c") && job.Status == actions_model.StatusBlocked
+		}),
+	)
+	notifier.AssertCalled(
+		t, "NewWorkflowJobAttempt", mock.Anything,
+		mock.MatchedBy(func(job *actions_model.ActionRunJob) bool {
+			return job.ID == jobs[4].ID && job.JobID == actions_model.JobIdentifier("reusable") && job.Status == actions_model.StatusBlocked
+		}),
+	)
+	notifier.AssertCalled(
+		t, "WorkflowJobStatusChanged", mock.Anything,
+		mock.MatchedBy(func(job *actions_model.ActionRunJob) bool {
+			return job.ID == jobs[4].ID && job.JobID == actions_model.JobIdentifier("reusable") && job.Status == actions_model.StatusWaiting
+		}),
+		actions_model.StatusBlocked,
+	)
+	notifier.AssertCalled(
+		t, "WorkflowJobCompleted", mock.Anything,
+		mock.MatchedBy(func(job *actions_model.ActionRunJob) bool {
+			return job.ID == jobs[1].ID && job.JobID == actions_model.JobIdentifier("b") && job.Status == actions_model.StatusSuccess
+		}),
+		actions_model.StatusBlocked,
+	)
 }
 
 func Test_checkJobsOfRun_ExpandsMatrixWithCorrectOutputJobStatuses(t *testing.T) {
 	defer unittest.OverrideFixtures("services/actions/Test_checkJobsOfRun")()
 	require.NoError(t, unittest.PrepareTestDatabase())
+
+	notifier := notify_service.NewMockNotifier(t)
+	notifier.On("Run").Return().Maybe()
+	notifier.On("NewWorkflowJobAttempt", mock.Anything, mock.Anything).Return()
+	notifier.On("WorkflowJobStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return()
+	notifier.On("WorkflowRunStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return()
+
+	notify_service.RegisterNotifier(notifier)
+	defer notify_service.UnregisterNotifier(notifier)
 
 	jobs, err := actions_model.GetRunJobsByRunID(t.Context(), 900)
 	require.NoError(t, err)
@@ -957,4 +1042,9 @@ func Test_checkJobsOfRun_ExpandsMatrixWithCorrectOutputJobStatuses(t *testing.T)
 			assert.Fail(t, "unexpected job name")
 		}
 	}
+
+	notifier.AssertNumberOfCalls(t, "NewWorkflowJobAttempt", 3)
+	notifier.AssertNumberOfCalls(t, "WorkflowJobStatusChanged", 3)
+	notifier.AssertNumberOfCalls(t, "WorkflowJobCompleted", 0)
+	notifier.AssertNumberOfCalls(t, "WorkflowRunStatusChanged", 1)
 }

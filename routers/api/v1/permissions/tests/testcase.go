@@ -37,9 +37,10 @@ func getReferenceOrZero[T any](s *T) T {
 type doer struct {
 	name *string
 
-	admin          *bool
-	authentication *string
-	scope          *string
+	admin                 *bool
+	canCreateOrganization *bool
+	authentication        *string
+	scope                 *string
 
 	actions                  *bool
 	actionsRepoID            *int64
@@ -50,9 +51,10 @@ func (o doer) Clone() doer {
 	return doer{
 		name: pointerToCopyOrNil(o.name),
 
-		admin:          pointerToCopyOrNil(o.admin),
-		authentication: pointerToCopyOrNil(o.authentication),
-		scope:          pointerToCopyOrNil(o.scope),
+		admin:                 pointerToCopyOrNil(o.admin),
+		canCreateOrganization: pointerToCopyOrNil(o.canCreateOrganization),
+		authentication:        pointerToCopyOrNil(o.authentication),
+		scope:                 pointerToCopyOrNil(o.scope),
 
 		actions:                  pointerToCopyOrNil(o.actions),
 		actionsRepoID:            pointerToCopyOrNil(o.actionsRepoID),
@@ -67,6 +69,9 @@ func (o doer) String() string {
 	}
 	if o.admin != nil {
 		str = append(str, fmt.Sprintf("doer.admin:%v", *o.admin))
+	}
+	if o.canCreateOrganization != nil {
+		str = append(str, fmt.Sprintf("doer.canCreateOrganization:%v", *o.canCreateOrganization))
 	}
 	if o.authentication != nil {
 		str = append(str, "doer.authentication:"+*o.authentication)
@@ -92,6 +97,7 @@ type repository struct {
 	init          *bool
 	archived      *bool
 	disabledUnits *[]unit_model.Type
+	collaborator  *string
 }
 
 func (o repository) Clone() repository {
@@ -106,6 +112,7 @@ func (o repository) Clone() repository {
 		init:          pointerToCopyOrNil(o.init),
 		archived:      pointerToCopyOrNil(o.archived),
 		disabledUnits: disabledUnits,
+		collaborator:  pointerToCopyOrNil(o.collaborator),
 	}
 }
 
@@ -125,6 +132,9 @@ func (o repository) String() string {
 	}
 	if o.disabledUnits != nil {
 		str = append(str, fmt.Sprintf("repository.disabledUnits:%v", *o.disabledUnits))
+	}
+	if o.collaborator != nil {
+		str = append(str, fmt.Sprintf("repository.collaborator:%v", *o.collaborator))
 	}
 	return strings.Join(str, " ")
 }
@@ -210,6 +220,26 @@ func (o *sharedData) SetDoerAdminDefault(admin bool) *sharedData {
 
 func (o *sharedData) SetDoerAdmin(admin bool) *sharedData {
 	o.doer.admin = &admin
+	return o
+}
+
+func (o sharedData) DoerCanCreateOrganization() bool {
+	return getReferenceOrZero(o.doer.canCreateOrganization)
+}
+
+func (o sharedData) HasDoerCanCreateOrganization() bool {
+	return o.doer.canCreateOrganization != nil
+}
+
+func (o *sharedData) SetDoerCanCreateOrganizationDefault(canCreateOrganization bool) *sharedData {
+	if !o.HasDoerCanCreateOrganization() {
+		o.SetDoerCanCreateOrganization(canCreateOrganization)
+	}
+	return o
+}
+
+func (o *sharedData) SetDoerCanCreateOrganization(canCreateOrganization bool) *sharedData {
+	o.doer.canCreateOrganization = &canCreateOrganization
 	return o
 }
 
@@ -418,6 +448,26 @@ func (o *sharedData) SetRepositoryDisabledUnitsDefault(disabledUnits []unit_mode
 
 func (o *sharedData) SetRepositoryDisabledUnits(disabledUnits []unit_model.Type) *sharedData {
 	o.repository.disabledUnits = &disabledUnits
+	return o
+}
+
+func (o sharedData) RepositoryCollaborator() string {
+	return getReferenceOrZero(o.repository.collaborator)
+}
+
+func (o sharedData) HasRepositoryCollaborator() bool {
+	return o.repository.collaborator != nil
+}
+
+func (o *sharedData) SetRepositoryCollaboratorDefault(collaborator string) *sharedData {
+	if !o.HasRepositoryCollaborator() {
+		o.SetRepositoryCollaborator(collaborator)
+	}
+	return o
+}
+
+func (o *sharedData) SetRepositoryCollaborator(collaborator string) *sharedData {
+	o.repository.collaborator = &collaborator
 	return o
 }
 

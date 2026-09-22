@@ -13,9 +13,9 @@ import (
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/actions"
-	"forgejo.org/modules/cache"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/sync"
 	"forgejo.org/modules/util"
 	actions_service "forgejo.org/services/actions"
 
@@ -37,7 +37,7 @@ var _ runnerv1connect.RunnerServiceClient = (*Service)(nil)
 
 type Service struct {
 	runnerv1connect.UnimplementedRunnerServiceHandler
-	runnerRequestKeyMutexMap cache.MutexMap
+	runnerRequestKeyMutexMap sync.MutexMap
 }
 
 // Register for new runner.
@@ -186,7 +186,7 @@ func (s *Service) FetchTask(
 		// it means there may still be some tasks not be assigned.
 		// try to pick a task for the runner that send the request.
 		if t, err := actions_service.PickTask(ctx, runner, requestKey, nil); err != nil {
-			if !(actions_service.IsNoTaskAvailable(err)) {
+			if !actions_service.IsNoTaskAvailable(err) {
 				log.Error("pick task failed: %v", err)
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("pick task: %w", err))
 			}
@@ -198,7 +198,7 @@ func (s *Service) FetchTask(
 			for taskCapacity > 0 {
 				t, err := actions_service.PickTask(ctx, runner, requestKey, nil)
 				if err != nil {
-					if !(actions_service.IsNoTaskAvailable(err)) {
+					if !actions_service.IsNoTaskAvailable(err) {
 						// Don't return an error to the client/runner -- we've already assigned one-or-more tasks to the runner
 						// and if we don't return them, they can't be picked up by another runner and will become zombie tasks.
 						// Log the error and return the tasks we've assigned so far.
@@ -256,7 +256,7 @@ func (*Service) FetchSingleTask(
 		}
 
 		if t, err := actions_service.PickTask(ctx, runner, requestKey, handle); err != nil {
-			if !(actions_service.IsNoTaskAvailable(err)) {
+			if !actions_service.IsNoTaskAvailable(err) {
 				log.Error("pick task failed: %v", err)
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("pick task: %w", err))
 			}
@@ -408,6 +408,53 @@ func (*Service) UpdateLog(
 	}
 
 	return res, nil
+}
+
+// UpdateStepSummary stores the step summaries (GITHUB_STEP_SUMMARY markdown) of the task.
+func (*Service) UpdateStepSummary(
+	ctx context.Context,
+	req *connect.Request[runnerv1.UpdateStepSummaryRequest],
+) (*connect.Response[runnerv1.UpdateStepSummaryResponse], error) {
+	runner := GetRunner(ctx)
+
+	task, err := actions_model.GetTaskByID(ctx, req.Msg.TaskId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get task: %w", err))
+	} else if runner.ID != task.RunnerID {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("invalid runner for task"))
+	}
+
+	if len(req.Msg.Summaries) == 0 {
+		return connect.NewResponse(&runnerv1.UpdateStepSummaryResponse{}), nil
+	}
+
+	steps, err := actions_model.GetTaskStepsByTaskID(ctx, task.ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get task steps: %w", err))
+	}
+	stepsByIndex := make(map[int64]*actions_model.ActionTaskStep, len(steps))
+	for _, step := range steps {
+		stepsByIndex[step.Index] = step
+	}
+
+	summaries := make([]*actions_model.ActionTaskStepSummary, 0, len(req.Msg.Summaries))
+	for _, summary := range req.Msg.Summaries {
+		step, ok := stepsByIndex[summary.StepNumber]
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown step number %d for task %d", summary.StepNumber, task.ID))
+		}
+		summaries = append(summaries, &actions_model.ActionTaskStepSummary{
+			StepID:  step.ID,
+			TaskID:  task.ID,
+			RepoID:  task.RepoID,
+			Content: summary.Content,
+		})
+	}
+	if err := actions_model.SaveTaskStepSummaries(ctx, summaries...); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("save step summaries: %w", err))
+	}
+
+	return connect.NewResponse(&runnerv1.UpdateStepSummaryResponse{}), nil
 }
 
 func recoverTasks(ctx context.Context, runner *actions_model.ActionRunner, requestKey string) ([]*runnerv1.Task, error) {

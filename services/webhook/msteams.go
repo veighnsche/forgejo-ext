@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	actions_model "forgejo.org/models/actions"
 	webhook_model "forgejo.org/models/webhook"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
@@ -205,14 +206,14 @@ type (
 )
 
 var (
-	defaultStyle   = "default"   // default colour
-	emphasisStyle  = "emphasis"  // darker
-	accentStyle    = "accent"    // blue-purple
-	goodStyle      = "good"      // green
-	attentionStyle = "attention" // red
-	warningStyle   = "warning"   // yellow
-	// informativeStyle = "informative" // gray with white text
-	// subtleStyle      = "subtle"      // gray with dark text
+	defaultStyle     = "default"     // default colour
+	emphasisStyle    = "emphasis"    // darker
+	accentStyle      = "accent"      // blue-purple
+	goodStyle        = "good"        // green
+	attentionStyle   = "attention"   // red
+	warningStyle     = "warning"     // yellow
+	informativeStyle = "informative" // gray with white text
+	subtleStyle      = "subtle"      // gray with dark text
 )
 
 func capitalise(s string) string {
@@ -243,6 +244,7 @@ func makeBadgeRow(badgeText, badgeIcon, badgeStyle string, refInfo ...string) MS
 			Size:     "Small",
 			IsSubtle: new(true),
 			Spacing:  "None",
+			Wrap:     new(true),
 		})
 	}
 
@@ -396,6 +398,7 @@ func (m msteamsConvertor) Push(p *api.PushPayload) (MSTeamsPayload, error) {
 							Text:     strings.TrimRight(commit.Message, "\r\n"),
 							Size:     "Small",
 							MaxLines: 3,
+							Wrap:     new(true),
 						},
 					},
 				},
@@ -489,7 +492,7 @@ func (m msteamsConvertor) Push(p *api.PushPayload) (MSTeamsPayload, error) {
 							Items: []any{
 								MSTeamsTextBlock{
 									Type: "TextBlock",
-									Text: "Collapse",
+									Text: "*Collapse*",
 									Size: "Small",
 								},
 							},
@@ -1013,6 +1016,48 @@ func (m msteamsConvertor) Action(p *api.ActionPayload) (MSTeamsPayload, error) {
 	), nil
 }
 
+func (m msteamsConvertor) WorkflowJob(p *api.WorkflowJobPayload) (MSTeamsPayload, error) {
+	var title string
+	var badgeStyle string
+
+	switch p.Job.Status {
+	case actions_model.StatusBlocked.String():
+		title = fmt.Sprintf("Workflow job %[1]q is blocked, triggered", p.Job.Name)
+		badgeStyle = warningStyle
+	case actions_model.StatusCancelled.String():
+		title = fmt.Sprintf("Workflow job %[1]q was cancelled, triggered", p.Job.Name)
+		badgeStyle = informativeStyle
+	case actions_model.StatusFailure.String():
+		title = fmt.Sprintf("Workflow job %[1]q has failed, triggered", p.Job.Name)
+		badgeStyle = attentionStyle
+	case actions_model.StatusRunning.String():
+		title = fmt.Sprintf("Workflow job %[1]q has started running, triggered", p.Job.Name)
+		badgeStyle = defaultStyle
+	case actions_model.StatusSkipped.String():
+		title = fmt.Sprintf("Workflow job %[1]q was skipped, triggered", p.Job.Name)
+		badgeStyle = subtleStyle
+	case actions_model.StatusSuccess.String():
+		title = fmt.Sprintf("Workflow job %[1]q has completed successfully, triggered", p.Job.Name)
+		badgeStyle = goodStyle
+	case actions_model.StatusWaiting.String():
+		title = fmt.Sprintf("[%[2]s] Workflow job %[1]q is waiting, triggered", p.Job.Name, p.Repository.FullName)
+		badgeStyle = accentStyle
+	}
+
+	body := []MSTeamsContainer{
+		makeBadgeRow(
+			p.Job.Status,
+			"PlayCircle",
+			badgeStyle,
+			fmt.Sprintf("Repository: %s", p.Repository.FullName),
+			fmt.Sprintf("Run: %s", p.Run.Title),
+			fmt.Sprintf("Job: %s", p.Job.Name),
+		),
+	}
+
+	return createMSTeamsPayload(p.Repository, p.Run.TriggerUser, title, body, p.Job.HTMLURL, defaultStyle), nil
+}
+
 func createMSTeamsPayload(r *api.Repository, s *api.User, actionTitle string, bodySections []MSTeamsContainer, actionTarget, style string) MSTeamsPayload {
 	// Update header adding the repository name and link
 	var updatedRepo string
@@ -1032,6 +1077,7 @@ func createMSTeamsPayload(r *api.Repository, s *api.User, actionTitle string, bo
 				Weight:   "Bolder",
 				Size:     "Small",
 				IsSubtle: new(true),
+				Wrap:     new(true),
 			},
 		},
 	}
@@ -1055,6 +1101,7 @@ func createMSTeamsPayload(r *api.Repository, s *api.User, actionTitle string, bo
 				Type:  "TextBlock",
 				Style: "heading",
 				Text:  actionTitle,
+				Wrap:  new(true),
 			},
 		},
 	}

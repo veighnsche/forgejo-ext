@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -51,13 +52,19 @@ func Teams(ctx *context.Context) {
 	ctx.Data["Title"] = org.FullName
 	ctx.Data["PageIsOrgTeams"] = true
 
+	doerIsMember := make(map[int64]bool)
 	for _, t := range ctx.Org.Teams {
 		if err := t.LoadMembers(ctx); err != nil {
 			ctx.ServerError("GetMembers", err)
 			return
 		}
+		// since LoadMembers above isn't paginated, we can compute whether
+		// the user is a member simply by looking for them in the returned members.
+		// TODO: compute this information via org.GetUserTeams once we limit the number of loaded users, for https://codeberg.org/forgejo/forgejo/issues/12448
+		doerIsMember[t.ID] = slices.IndexFunc(t.Members, func(u *user_model.User) bool { return u.ID == ctx.Doer.ID }) != -1
 	}
 	ctx.Data["Teams"] = ctx.Org.Teams
+	ctx.Data["DoerIsMember"] = doerIsMember
 
 	err := shared_user.LoadHeaderCount(ctx)
 	if err != nil {
@@ -397,13 +404,21 @@ func TeamMembers(ctx *context.Context) {
 		ctx.ServerError("GetInvitesByTeamID", err)
 		return
 	}
+	pendingInvites := make([]*org_model.TeamInvite, 0, len(invites))
+	expiredInvites := make([]*org_model.TeamInvite, 0, len(invites))
 	for _, invite := range invites {
 		if invite.LoadInvitedUser(ctx) != nil {
 			ctx.ServerError("LoadInvitedUser", err)
 			return
 		}
+		if invite.IsExpired() {
+			expiredInvites = append(expiredInvites, invite)
+		} else {
+			pendingInvites = append(pendingInvites, invite)
+		}
 	}
-	ctx.Data["Invites"] = invites
+	ctx.Data["PendingInvites"] = pendingInvites
+	ctx.Data["ExpiredInvites"] = expiredInvites
 	ctx.Data["IsEmailInviteEnabled"] = setting.MailService != nil
 
 	ctx.HTML(http.StatusOK, tplTeamMembers)
@@ -582,7 +597,7 @@ func DeleteTeam(ctx *context.Context) {
 func TeamInvite(ctx *context.Context) {
 	invite, org, team, inviter, err := getTeamInviteFromContext(ctx)
 	if err != nil {
-		if org_model.IsErrTeamInviteNotFound(err) {
+		if org_model.IsErrTeamInviteNotFound(err) || org_model.IsErrTeamInviteExpired(err) {
 			ctx.NotFound("ErrTeamInviteNotFound", err)
 		} else {
 			ctx.ServerError("getTeamInviteFromContext", err)
@@ -596,11 +611,18 @@ func TeamInvite(ctx *context.Context) {
 		return
 	}
 
+	hiddenMembership, err := org_model.IsPrivateMembership(ctx, org.ID, ctx.Doer.ID)
+	if err != nil {
+		ctx.ServerError("IsPrivateMembership", err)
+		return
+	}
+
 	ctx.Data["Title"] = ctx.Tr("org.teams.invite_team_member", team.Name)
 	ctx.Data["Invite"] = invite
 	ctx.Data["Organization"] = org
 	ctx.Data["Team"] = team
 	ctx.Data["Inviter"] = inviter
+	ctx.Data["HiddenMembership"] = hiddenMembership
 
 	ctx.HTML(http.StatusOK, tplTeamInvite)
 }
@@ -609,7 +631,7 @@ func TeamInvite(ctx *context.Context) {
 func TeamInvitePost(ctx *context.Context) {
 	invite, org, team, _, err := getTeamInviteFromContext(ctx)
 	if err != nil {
-		if org_model.IsErrTeamInviteNotFound(err) {
+		if org_model.IsErrTeamInviteNotFound(err) || org_model.IsErrTeamInviteExpired(err) {
 			ctx.NotFound("ErrTeamInviteNotFound", err)
 		} else {
 			ctx.ServerError("getTeamInviteFromContext", err)
@@ -628,10 +650,29 @@ func TeamInvitePost(ctx *context.Context) {
 		return
 	}
 
+	hideMembership := ctx.FormBool("hide_membership")
+	err = org_model.ChangeOrgUserStatus(ctx, org.ID, ctx.Doer.ID, !hideMembership)
+	if err != nil {
+		ctx.ServerError("ChangeOrgUserStatus", err)
+		return
+	}
+
 	if err := org_model.RemoveInviteByID(ctx, invite.ID, team.ID); err != nil {
 		log.Error("RemoveInviteByID: %v", err)
 	}
 
+	// if there is another invite in the same org for the same user, redirect them to that
+	if linkedToUser {
+		nextInvite, err := org_model.GetInviteByOrgAndUser(ctx, org.ID, invitedUserID)
+		if err != nil && !org_model.IsErrTeamInviteNotFound(err) {
+			log.Error("GetInviteByOrgAndUser: %v", err)
+		}
+		if nextInvite != nil {
+			ctx.Redirect("/org/invite/" + nextInvite.Token)
+			return
+		}
+	}
+	// otherwise redirect them to the page of the team they joined
 	ctx.Redirect(org.OrganisationLink() + "/teams/" + url.PathEscape(team.LowerName))
 }
 
@@ -639,6 +680,10 @@ func getTeamInviteFromContext(ctx *context.Context) (*org_model.TeamInvite, *org
 	invite, err := org_model.GetInviteByToken(ctx, ctx.Params("token"))
 	if err != nil {
 		return nil, nil, nil, nil, err
+	}
+
+	if invite.IsExpired() {
+		return nil, nil, nil, nil, org_model.ErrTeamInviteExpired{Token: invite.Token}
 	}
 
 	inviter, err := user_model.GetUserByID(ctx, invite.InviterID)

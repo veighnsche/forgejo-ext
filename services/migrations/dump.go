@@ -422,56 +422,15 @@ func (g *RepositoryDumper) CreateComments(comments ...*base.Comment) error {
 	return g.createItems(g.commentDir(), g.commentFiles, commentsMap)
 }
 
+// EnableCommentReplyTo is a no-op: comments are dumped with their raw content and
+// their Meta["ReplyTo"] untouched.
+func (g *RepositoryDumper) EnableCommentReplyTo() {}
+
 func (g *RepositoryDumper) handlePullRequest(pr *base.PullRequest) error {
 	// SECURITY: this pr must have been ensured safe
 	if !pr.EnsuredSafe {
 		log.Error("PR #%d in %s/%s has not been checked for safety ... We will ignore this.", pr.Number, g.repoOwner, g.repoName)
 		return fmt.Errorf("unsafe PR #%d", pr.Number)
-	}
-
-	// First we download the patch file
-	err := func() error {
-		// if the patchURL is empty there is nothing to download
-		if pr.PatchURL == "" {
-			return nil
-		}
-
-		// SECURITY: We will assume that the pr.PatchURL has been checked
-		// pr.PatchURL maybe a local file - but note EnsureSafe should be asserting that this safe
-		u, err := g.setURLToken(pr.PatchURL)
-		if err != nil {
-			return err
-		}
-
-		// SECURITY: We will assume that the pr.PatchURL has been checked
-		// pr.PatchURL maybe a local file - but note EnsureSafe should be asserting that this safe
-		resp, err := http.Get(u) // TODO: This probably needs to use the downloader as there may be rate limiting issues here
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		pullDir := filepath.Join(g.gitPath(), "pulls")
-		if err = os.MkdirAll(pullDir, os.ModePerm); err != nil {
-			return err
-		}
-		fPath := filepath.Join(pullDir, fmt.Sprintf("%d.patch", pr.Number))
-		f, err := os.Create(fPath)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		// TODO: Should there be limits on the size of this file?
-		if _, err = io.Copy(f, resp.Body); err != nil {
-			return err
-		}
-		pr.PatchURL = "git/pulls/" + fmt.Sprintf("%d.patch", pr.Number)
-
-		return nil
-	}()
-	if err != nil {
-		log.Error("PR #%d in %s/%s unable to download patch: %v", pr.Number, g.repoOwner, g.repoName, err)
-		return err
 	}
 
 	isFork := pr.IsForkPullRequest()
@@ -491,7 +450,7 @@ func (g *RepositoryDumper) handlePullRequest(pr *base.PullRequest) error {
 	if pr.Head.CloneURL == "" || pr.Head.Ref == "" {
 		// Set head information if pr.Head.SHA is available
 		if pr.Head.SHA != "" {
-			_, _, err = git.NewCommand(g.ctx, "update-ref", "--no-deref").AddDynamicArguments(pr.GetGitRefName(), pr.Head.SHA).RunStdString(&git.RunOpts{Dir: g.gitPath()})
+			_, _, err := git.NewCommand(g.ctx, "update-ref", "--no-deref").AddDynamicArguments(pr.GetGitRefName(), pr.Head.SHA).RunStdString(&git.RunOpts{Dir: g.gitPath()})
 			if err != nil {
 				log.Error("PR #%d in %s/%s unable to update-ref for pr HEAD: %v", pr.Number, g.repoOwner, g.repoName, err)
 			}
@@ -521,7 +480,7 @@ func (g *RepositoryDumper) handlePullRequest(pr *base.PullRequest) error {
 	if !ok {
 		// Set head information if pr.Head.SHA is available
 		if pr.Head.SHA != "" {
-			_, _, err = git.NewCommand(g.ctx, "update-ref", "--no-deref").AddDynamicArguments(pr.GetGitRefName(), pr.Head.SHA).RunStdString(&git.RunOpts{Dir: g.gitPath()})
+			_, _, err := git.NewCommand(g.ctx, "update-ref", "--no-deref").AddDynamicArguments(pr.GetGitRefName(), pr.Head.SHA).RunStdString(&git.RunOpts{Dir: g.gitPath()})
 			if err != nil {
 				log.Error("PR #%d in %s/%s unable to update-ref for pr HEAD: %v", pr.Number, g.repoOwner, g.repoName, err)
 			}
@@ -556,7 +515,7 @@ func (g *RepositoryDumper) handlePullRequest(pr *base.PullRequest) error {
 			fetchArg = git.BranchPrefix + fetchArg
 		}
 
-		_, _, err = git.NewCommand(g.ctx, "fetch", "--no-tags").AddDashesAndList(remote, fetchArg).RunStdString(&git.RunOpts{Dir: g.gitPath()})
+		_, _, err := git.NewCommand(g.ctx, "fetch", "--no-tags").AddDashesAndList(remote, fetchArg).RunStdString(&git.RunOpts{Dir: g.gitPath()})
 		if err != nil {
 			log.Error("Fetch branch from %s failed: %v", pr.Head.CloneURL, err)
 			// We need to continue here so that the Head.Ref is reset and we attempt to set the gitref for the PR
@@ -580,7 +539,7 @@ func (g *RepositoryDumper) handlePullRequest(pr *base.PullRequest) error {
 		pr.Head.SHA = headSha
 	}
 	if pr.Head.SHA != "" {
-		_, _, err = git.NewCommand(g.ctx, "update-ref", "--no-deref").AddDynamicArguments(pr.GetGitRefName(), pr.Head.SHA).RunStdString(&git.RunOpts{Dir: g.gitPath()})
+		_, _, err := git.NewCommand(g.ctx, "update-ref", "--no-deref").AddDynamicArguments(pr.GetGitRefName(), pr.Head.SHA).RunStdString(&git.RunOpts{Dir: g.gitPath()})
 		if err != nil {
 			log.Error("unable to set %s as the local head for PR #%d from %s in %s/%s. Error: %v", pr.Head.SHA, pr.Number, pr.Head.Ref, g.repoOwner, g.repoName, err)
 		}

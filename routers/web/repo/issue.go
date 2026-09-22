@@ -50,6 +50,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	"forgejo.org/routers/utils"
+	"forgejo.org/routers/web/feed"
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/context/upload"
@@ -2083,6 +2084,11 @@ func ViewIssue(ctx *context.Context) {
 		pinAllowed = true
 	}
 
+	if setting.Other.EnableFeed {
+		ctx.Data["EnableFeed"] = true
+		ctx.Data["FeedURL"] = issue.HTMLURL()
+	}
+
 	ctx.Data["Participants"] = participants
 	ctx.Data["NumParticipants"] = len(participants)
 	ctx.Data["Issue"] = issue
@@ -2122,6 +2128,22 @@ func ViewIssue(ctx *context.Context) {
 	ctx.Data["Tags"] = tags
 
 	ctx.HTML(http.StatusOK, tplIssueView)
+}
+
+// IssueFeedRSS get feeds for issues in RSS format
+func IssueFeedRSS(ctx *context.Context) {
+	issueFeed(ctx, "rss")
+}
+
+// IssueFeedAtom get feeds for issues in Atom format
+func IssueFeedAtom(ctx *context.Context) {
+	issueFeed(ctx, "atom")
+}
+
+func issueFeed(ctx *context.Context, formatType string) {
+	issue := GetActionIssue(ctx)
+
+	feed.ShowIssueFeed(ctx, issue, formatType)
 }
 
 // checkBlockedByIssues return canRead and notPermitted
@@ -2570,7 +2592,8 @@ func UpdatePullReviewRequest(ctx *context.Context) {
 			if team.OrgID != issue.Repo.OwnerID {
 				log.Warn(
 					"UpdatePullReviewRequest: refusing to add team review request for UID[%d] team %s to %s#%d owned by UID[%d]",
-					team.OrgID, team.Name, issue.Repo.FullName(), issue.Index, issue.Repo.ID)
+					team.OrgID, team.Name, issue.Repo.FullName(), issue.Index, issue.Repo.ID,
+				)
 				ctx.Status(http.StatusForbidden)
 				return
 			}
@@ -3077,7 +3100,7 @@ func UpdateIssueStatus(ctx *context.Context) {
 			continue
 		}
 		if issue.IsClosed != isClosed {
-			if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer, "", isClosed); err != nil {
+			if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer, &issues_model.PRNotificationInfo{MergedCommitID: ""}, isClosed); err != nil {
 				if issues_model.IsErrDependenciesLeft(err) {
 					ctx.JSON(http.StatusPreconditionFailed, map[string]any{
 						"error": ctx.Tr("repo.issues.dependency.issue_batch_close_blocked", issue.Index),
@@ -3222,7 +3245,7 @@ func NewComment(ctx *context.Context) {
 				ctx.Flash.Info(ctx.Tr("repo.pulls.open_unmerged_pull_exists", pr.Index))
 			} else {
 				isClosed := form.Status == "close"
-				if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer, "", isClosed); err != nil {
+				if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer, &issues_model.PRNotificationInfo{MergedCommitID: ""}, isClosed); err != nil {
 					if errors.Is(err, user_model.ErrBlockedByUser) {
 						if issue.IsPull {
 							ctx.JSONError(ctx.Tr("repo.pulls.blocked_by_user"))

@@ -55,7 +55,7 @@ func (m *mailNotifier) NewIssue(ctx context.Context, issue *issues_model.Issue, 
 	}
 }
 
-func (m *mailNotifier) IssueChangeStatus(ctx context.Context, doer *user_model.User, commitID string, issue *issues_model.Issue, actionComment *issues_model.Comment, isClosed bool) {
+func (m *mailNotifier) IssueChangeStatus(ctx context.Context, doer *user_model.User, prInfo *issues_model.PRNotificationInfo, issue *issues_model.Issue, actionComment *issues_model.Comment, isClosed bool) {
 	var actionType activities_model.ActionType
 	var actionAdditionalData ActionAdditionalData
 	if issue.IsPull {
@@ -67,10 +67,10 @@ func (m *mailNotifier) IssueChangeStatus(ctx context.Context, doer *user_model.U
 	} else {
 		if isClosed {
 			actionType = activities_model.ActionCloseIssue
-			if commitID != "" {
+			if prInfo.MergedCommitID != "" {
 				// An issue being closed *and* a commitID being present means that the issue was closed by a PR or
 				// commit message that closed it by reference.
-				actionAdditionalData = ActionCloseIssueByCommit{CommitID: commitID}
+				actionAdditionalData = ActionCloseIssueByCommit{CommitID: prInfo.MergedCommitID, Repo: prInfo.BaseRepo}
 			}
 		} else {
 			actionType = activities_model.ActionReopenIssue
@@ -216,12 +216,24 @@ func (m *mailNotifier) NewUserSignUp(ctx context.Context, newUser *user_model.Us
 	MailNewUser(ctx, newUser)
 }
 
-func (m *mailNotifier) ActionRunNowDone(ctx context.Context, run *actions_model.ActionRun, priorStatus actions_model.Status, lastRun *actions_model.ActionRun) {
-	// Only send a mail on a successful run when the workflow recovered (i.e., the run before failed).
-	if !run.Status.IsFailure() && (lastRun == nil || !lastRun.Status.IsFailure()) {
-		return
+func (m *mailNotifier) NewWorkflowJobAttempt(ctx context.Context, job *actions_model.ActionRunJob) {
+	if err := sendActionRunJobFailureNotification(ctx, job); err != nil {
+		log.Error("SendActionRunJobFailureNotification: %v", err)
 	}
-	if err := MailActionRun(run, priorStatus, lastRun); err != nil {
-		log.Error("MailActionRunNowDone: %v", err)
+}
+
+func (m *mailNotifier) WorkflowJobStatusChanged(
+	ctx context.Context, job *actions_model.ActionRunJob, _ actions_model.Status,
+) {
+	if err := sendActionRunJobFailureNotification(ctx, job); err != nil {
+		log.Error("SendActionRunJobFailureNotification: %v", err)
+	}
+}
+
+func (m *mailNotifier) WorkflowJobCompleted(
+	ctx context.Context, job *actions_model.ActionRunJob, _ actions_model.Status,
+) {
+	if err := sendActionRunJobFailureNotification(ctx, job); err != nil {
+		log.Error("SendActionRunJobFailureNotification: %v", err)
 	}
 }

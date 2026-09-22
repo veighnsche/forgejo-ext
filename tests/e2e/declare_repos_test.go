@@ -6,6 +6,7 @@ package e2e
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/indexer/stats"
+	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	issue_service "forgejo.org/services/issue"
 	files_service "forgejo.org/services/repository/files"
@@ -189,11 +191,59 @@ body:
 				return sb.String()
 			}())
 	})
+	newRepo(t, 2, "funding_basic_complete", nil, []FileChanges{{
+		Filename: ".forgejo/FUNDING.yml",
+		Versions: []string{`
+community_bridge: example
+github:
+  - example
+  - example2
+issuehunt: example
+ko_fi: [example, example_2_electric_boogaloo]
+liberapay: example
+patreon: example
+open_collective: example
+buy_me_a_coffee: example
+thanks_dev: u/gh/example
+tidelift: npm/example
+custom: ["https://example.com", 😀.com]
+`},
+	}}, nil)
+	newRepo(t, 2, "funding_some_valid", nil, []FileChanges{{
+		Filename: ".forgejo/FUNDING.yml",
+		Versions: []string{`
+ko_fi: 1337
+custom: ["https://example.com"]
+ko-fi: example
+`},
+	}}, nil)
+	newRepo(t, 2, "funding_with_a_really_ridiculously_long_title_that_doesnt_really_happen_all_that_often_normally_but_could_really_mess_with_things_if_not_handled_properly", nil, []FileChanges{{
+		Filename: ".forgejo/FUNDING.yml",
+		Versions: []string{`
+custom: example.com
+`},
+	}}, nil)
+	newRepo(t, 6, ".profile", nil, []FileChanges{{
+		Filename: ".forgejo/FUNDING.yml",
+		Versions: []string{`
+ko_fi: example
+liberapay: example
+custom: "http://localhost:3003/"
+`},
+	}}, nil)
+	newRepo(t, 39, ".profile", nil, []FileChanges{{
+		Filename: "FUNDING.yml",
+		Versions: []string{`
+ko_fi: example
+liberapay: example
+custom: "http://localhost:3003/"
+`},
+	}}, nil)
 	// add your repo declarations here
 }
 
 func readStringFile(t *testing.T, fn string) string {
-	c, err := os.ReadFile(fn)
+	c, err := os.ReadFile(filepath.Join(setting.AppWorkPath, fn))
 	require.NoError(t, err)
 	return string(c)
 }

@@ -229,8 +229,17 @@ func webAuth(authMethod auth_service.Method) func(*context.Context) {
 		ctx.Doer = ar.User()
 		ctx.IsSigned = ar.User() != nil
 		ctx.Authentication = ar
-		if ctx.Doer == nil {
-			// ensure the session uid is deleted
+		if ctx.Doer == nil && ctx.InteractiveReauthenticationPossible {
+			// The request is not authenticated, and session authentication was attempted. Clear "uid" from the session.
+			// The purpose of this behaviour isn't clear as it is retained through multiple refactorings, originally
+			// introduced in https://codeberg.org/forgejo/forgejo/commit/17c5c654a57ecf51c8c7c8ecfc6c86ae313d4000; it
+			// may not be meaningful with separated auth methods on different HTTP routes.  It is retained here as it
+			// seems like a reasonable security precaution.
+			//
+			// Session value is only removed when InteractiveReauthenticationPossible is set, which indicates session
+			// auth was attempted on this request.  Without this check, an in-browser extension using git http w/ basic
+			// auth (example: Floccus) will clear the session every time it receives a 401 response (example: starting
+			// an auth workflow).
 			_ = ctx.Session.Delete("uid")
 		}
 	}
@@ -318,7 +327,7 @@ func verifyAuthWithOptions(options *common.VerifyOptions) func(ctx *context.Cont
 		}
 
 		// Redirect to log in page if auto-signin info is provided and has not signed in.
-		if !options.SignOutRequired && !ctx.IsSigned &&
+		if !options.SignOutRequired && !ctx.IsSigned && ctx.InteractiveReauthenticationPossible &&
 			ctx.GetSiteCookie(setting.CookieRememberName) != "" {
 			if ctx.Req.URL.Path != "/user/events" {
 				middleware.SetRedirectToCookie(ctx.Resp, setting.AppSubURL+ctx.Req.URL.RequestURI())
@@ -426,7 +435,8 @@ func Routes() *web.Route {
 		"/login/oauth/userinfo",
 		gzipMid, sessioner, context.Contexter(),
 		oauth2Enabled, optionsCorsHandler(), ignoreCSRF, webAuth(&auth_method.OAuth2{}),
-		auth.InfoOAuth)
+		auth.InfoOAuth,
+	)
 
 	routes.NotFound(
 		gzipMid, sessioner, context.Contexter(), webAuth(buildAuthGroup()),
@@ -439,7 +449,8 @@ func Routes() *web.Route {
 				panic("missing middleware context.Contexter()")
 			}
 			ctx.NotFound("", nil)
-		})
+		},
+	)
 
 	return routes
 }
@@ -1131,6 +1142,8 @@ func registerRoutes(m *web.Route) {
 					m.Post("/initialize", web.Bind(forms.InitializeLabelsForm{}), org.InitializeLabels)
 				})
 
+				m.Get("/repos", org_setting.Repos)
+
 				m.Group("/actions", func() {
 					m.Get("", org_setting.RedirectToDefaultSetting)
 					addSettingsRunnersRoutes()
@@ -1366,6 +1379,14 @@ func registerRoutes(m *web.Route) {
 				m.Get("/summary-card", repo.DrawIssueSummaryCard)
 			})
 		})
+		m.Group("/pulls/{index}", func() {
+			m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
+			m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
+		}, ctxDataSet("EnableFeed", setting.Other.EnableFeed))
+		m.Group("/issues/{index}", func() {
+			m.Get(".rss", feedEnabled, repo.IssueFeedRSS)
+			m.Get(".atom", feedEnabled, repo.IssueFeedAtom)
+		}, ctxDataSet("EnableFeed", setting.Other.EnableFeed))
 		m.Get("/-/summary-card", repo.DrawRepoSummaryCard)
 	}, ignSignIn, context.RepoAssignment, context.UnitTypes()) // for "/{username}/{reponame}" which doesn't require authentication
 
@@ -1551,6 +1572,7 @@ func registerRoutes(m *web.Route) {
 			})
 			m.Get("/labels", reqRepoIssuesOrPullsReader, repo.RetrieveLabels, repo.Labels)
 			m.Get("/milestones", reqRepoIssuesOrPullsReader, repo.Milestones)
+			m.Get("/issues/suggestions", reqRepoIssuesOrPullsReader, repo.IssueSuggestions)
 		}, context.RepoRef())
 
 		if setting.Packages.Enabled {

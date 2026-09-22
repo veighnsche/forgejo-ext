@@ -508,12 +508,35 @@ type ActionPayload struct {
 	// the status of this run before it completed
 	// this must be a not done status
 	PriorStatus string `json:"prior_status"`
-	// the last run for the same workflow
-	// could be nil when Run is the first for it's workflow
-	LastRun *ActionRun `json:"last_run,omitempty"`
 }
 
 // JSONPayload return payload information
 func (p *ActionPayload) JSONPayload() ([]byte, error) {
+	return json.MarshalIndent(p, "", "  ")
+}
+
+type HookWorkflowJobAction string
+
+const (
+	HookNewWorkflowJobAttempt    HookWorkflowJobAction = "new_job_attempt"
+	HookWorkflowJobStatusChanged HookWorkflowJobAction = "job_status_changed"
+	HookWorkflowJobCompleted     HookWorkflowJobAction = "job_completed"
+)
+
+var _ Payloader = &WorkflowJobPayload{}
+
+type WorkflowJobPayload struct {
+	// Action that caused the webhook to trigger.
+	Action HookWorkflowJobAction `json:"action"`
+	// Job that triggered the webhook.
+	Job *ActionRunJob `json:"job"`
+	// Run that the job is part of.
+	Run *ActionRun `json:"run"`
+	// Repository that the job is run for.
+	Repository *Repository `json:"repository"`
+}
+
+// JSONPayload return payload information
+func (p *WorkflowJobPayload) JSONPayload() ([]byte, error) {
 	return json.MarshalIndent(p, "", "  ")
 }

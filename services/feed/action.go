@@ -210,7 +210,7 @@ func (a *actionNotifier) NewIssue(ctx context.Context, issue *issues_model.Issue
 }
 
 // IssueChangeStatus notifies close or reopen issue to notifiers
-func (a *actionNotifier) IssueChangeStatus(ctx context.Context, doer *user_model.User, commitID string, issue *issues_model.Issue, actionComment *issues_model.Comment, closeOrReopen bool) {
+func (a *actionNotifier) IssueChangeStatus(ctx context.Context, doer *user_model.User, prInfo *issues_model.PRNotificationInfo, issue *issues_model.Issue, actionComment *issues_model.Comment, closeOrReopen bool) {
 	// Compose comment action, could be plain comment, close or reopen issue/pull request.
 	// This object will be used to notify watchers in the end of function.
 	act := QueueableAction{
@@ -552,16 +552,7 @@ func abbreviatedComment(comment string) string {
 		return ""
 	}
 
-	truncatedContent, truncatedRight := util.SplitStringAtByteN(firstLine, 200)
-	if truncatedRight != "" {
-		// in case the content is in a Latin family language, we remove the last broken word.
-		lastSpaceIdx := strings.LastIndex(truncatedContent, " ")
-		if lastSpaceIdx != -1 && (len(truncatedContent)-lastSpaceIdx < 15) {
-			truncatedContent = truncatedContent[:lastSpaceIdx] + "…"
-		}
-	}
-
-	return truncatedContent
+	return util.TruncateStringAtWordBoundary(firstLine, 200)
 }
 
 // Return a clone of the incoming repository.PushCommits that is appropriately tweaked for the activity feed. The struct

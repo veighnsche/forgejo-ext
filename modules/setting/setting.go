@@ -161,6 +161,7 @@ func loadCommonSettingsFrom(cfg ConfigProvider) error {
 	loadMarkupFrom(cfg)
 	loadQuotaFrom(cfg)
 	loadOtherFrom(cfg)
+	loadCustomFundingProvidersFrom(cfg)
 	return nil
 }
 
@@ -229,7 +230,6 @@ func LoadSettings() {
 	LoadQueueSettings()
 	loadProjectFrom(CfgProvider)
 	loadMimeTypeMapFrom(CfgProvider)
-	loadF3From(CfgProvider)
 	loadAuthorizedIntegrationFrom(CfgProvider)
 }
 

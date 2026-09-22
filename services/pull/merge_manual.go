@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"forgejo.org/models"
 	"forgejo.org/models/db"
@@ -21,8 +22,7 @@ import (
 
 // MergedManually mark pr as merged manually
 func MergedManually(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, baseGitRepo *git.Repository, commitID string) error {
-	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
-	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
+	defer pullWorkingPool.Lock(fmt.Sprint(pr.ID))()
 
 	if err := db.WithTx(ctx, func(ctx context.Context) error {
 		if err := pr.LoadBaseRepo(ctx); err != nil {
@@ -39,8 +39,13 @@ func MergedManually(ctx context.Context, pr *issues_model.PullRequest, doer *use
 			return models.ErrInvalidMergeStyle{ID: pr.BaseRepo.ID, Style: repo_model.MergeStyleManuallyMerged}
 		}
 
+		// Accept full or abbreviated commit IDs, any case. Lowercase first so
+		// IsValid's [0-9a-f]{4..FullLength} regex accepts uppercase input;
+		// GetCommit then resolves the short form and rejects ambiguous prefixes.
 		objectFormat := git.ObjectFormatFromName(pr.BaseRepo.ObjectFormatName)
-		if len(commitID) != objectFormat.FullLength() {
+		commitID = strings.TrimSpace(commitID)
+		commitID = strings.ToLower(commitID)
+		if !objectFormat.IsValid(commitID) {
 			return errors.New("Wrong commit ID")
 		}
 

@@ -36,30 +36,35 @@ type mockNotifier struct {
 
 var _ notify_service.Notifier = &mockNotifier{}
 
-func (m *mockNotifier) ActionRunNowDone(ctx context.Context, run *actions_model.ActionRun, priorStatus actions_model.Status, lastRun *actions_model.ActionRun) {
+func (m *mockNotifier) ActionRunNowDone(ctx context.Context, run *actions_model.ActionRun, priorStatus actions_model.Status) {
 	switch m.testIdx {
 	case 0:
 		// we accept the first id as okay and just check that the following ones make sense
 		m.runID = run.ID
 		assert.Equal(m.t, actions_model.StatusSuccess, run.Status)
-		assert.Equal(m.t, actions_model.StatusRunning, priorStatus)
-		assert.Nil(m.t, lastRun)
+		assert.Equal(m.t, actions_model.StatusWaiting, priorStatus)
 		assert.True(m.t, run.NotifyEmail)
 	case 1:
 		assert.Equal(m.t, m.runID, run.ID)
 		assert.Equal(m.t, actions_model.StatusFailure, run.Status)
-		assert.Equal(m.t, actions_model.StatusRunning, priorStatus)
+		assert.Equal(m.t, actions_model.StatusWaiting, priorStatus)
 		assert.True(m.t, run.NotifyEmail)
 	case 2:
 		assert.Equal(m.t, m.runID, run.ID)
 		assert.Equal(m.t, actions_model.StatusCancelled, run.Status)
-		assert.Equal(m.t, actions_model.StatusRunning, priorStatus)
+		assert.Equal(m.t, actions_model.StatusWaiting, priorStatus)
 		assert.True(m.t, run.NotifyEmail)
 	default:
 		assert.Fail(m.t, "too many notifications")
 	}
 	m.runID++
 	m.testIdx++
+}
+
+func (m *mockNotifier) WorkflowRunCompleted(
+	ctx context.Context, run *actions_model.ActionRun, priorStatus actions_model.Status,
+) {
+	m.ActionRunNowDone(ctx, run, priorStatus)
 }
 
 // ensure all tests have been run

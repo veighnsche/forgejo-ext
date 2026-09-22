@@ -35,7 +35,6 @@
     {
       "description": "Schedule some deps less frequently",
       "matchPackageNames": [
-        "code.forgejo.org/f3/gof3/**",
         "github.com/google/pprof"
       ],
       "extends": ["schedule:quarterly"]
@@ -50,6 +49,7 @@
       "groupName": "devcontainer packages",
       "extends": ["schedule:quarterly"],
       "automerge": true,
+      "rebaseWhen": "conflicted",
       "matchPackageNames": [
         "ghcr.io/devcontainers/features/**",
         "ghcr.io/devcontainers-contrib/features/**"
@@ -59,6 +59,7 @@
       "description": "x/tools/* are used in the CI only and upgraded together",
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "automerge": true,
+      "rebaseWhen": "conflicted",
       "groupName": "x/tools",
       "matchPackageNames": ["golang.org/x/tools{/,}**"]
     },
@@ -93,7 +94,8 @@
         "swagger-ui-dist"
       ],
       "matchUpdateTypes": ["patch"],
-      "automerge": true
+      "automerge": true,
+      "rebaseWhen": "conflicted"
     },
     {
       "description": "Add reviewer and additional labels to renovate PRs",
@@ -136,7 +138,8 @@
         "vite-string-plugin",
         "yamllint"
       ],
-      "automerge": true
+      "automerge": true,
+      "rebaseWhen": "conflicted"
     },
     {
       "description": "Run end-to-end tests for some dependencies",

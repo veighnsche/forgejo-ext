@@ -7,7 +7,7 @@
 // @watch end
 
 import {expect} from '@playwright/test';
-import {test} from './utils_e2e.ts';
+import {test, dynamic_id} from './utils_e2e.ts';
 import {screenshot} from './shared/screenshots.ts';
 import {validate_form} from './shared/forms.ts';
 
@@ -67,5 +67,111 @@ test.describe('repo branch protection settings', () => {
     await page.waitForLoadState();
     await expect(page.locator('.repo-setting-content .header')).toContainText('Protection rules for branch', {ignoreCase: true, useInnerText: true});
     await screenshot(page);
+  });
+});
+
+test.describe('repo actions secrets settings', () => {
+  const secretName = dynamic_id().replaceAll('-', '_').toUpperCase();
+
+  test('create secret', async ({page}) => {
+    const response = await page.goto('/user2/repo1/settings/actions/secrets');
+    expect(response?.status()).toBe(200);
+
+    await page.getByText('Add secret').click();
+    const modal = page.locator('#add-secret-modal');
+    await expect(modal).toBeVisible();
+
+    await modal.getByLabel('Name').fill(secretName);
+    await modal.getByLabel('Value').fill('All Right Then, Keep Your Secrets');
+    await modal.getByText('Confirm').click();
+
+    await expect(page.getByText(secretName, {exact: true})).toBeVisible();
+  });
+
+  test('delete secret', async ({page}) => {
+    const response = await page.goto('/user2/repo1/settings/actions/secrets');
+    expect(response?.status()).toBe(200);
+
+    const deleteButton = page.locator('.flex-item').filter({hasText: secretName}).getByLabel('Remove secret');
+    await deleteButton.click();
+    const modal = page.locator('#delete-secret');
+    await expect(modal).toBeVisible();
+
+    await modal.getByText('Confirm').click();
+    await expect(page.getByText('There are no secrets yet.')).toBeVisible();
+  });
+});
+
+test.describe('repo actions variables settings', () => {
+  const variableName = dynamic_id().replaceAll('-', '_').toUpperCase();
+
+  test('create variable', async ({page}) => {
+    const response = await page.goto('/user2/repo1/settings/actions/variables');
+    expect(response?.status()).toBe(200);
+
+    await page.getByText('Add variable').click();
+    const modal = page.locator('#edit-variable-modal');
+    await expect(modal).toBeVisible();
+
+    await modal.getByLabel('Name').fill(variableName);
+    await modal.getByLabel('Value').fill("Will Frogejo cease to exist if there's a Forgejo trademark?");
+    await modal.getByText('Confirm').click();
+
+    await expect(page.getByText(variableName, {exact: true})).toBeVisible();
+  });
+
+  test('delete variable', async ({page}) => {
+    const response = await page.goto('/user2/repo1/settings/actions/variables');
+    expect(response?.status()).toBe(200);
+
+    const deleteButton = page.locator('.flex-item').filter({hasText: variableName}).getByLabel('Remove variable');
+    await deleteButton.click();
+    const modal = page.locator('#delete-variable');
+    await expect(modal).toBeVisible();
+
+    await modal.getByText('Confirm').click();
+    await expect(page.getByText('There are no variables yet.')).toBeVisible();
+  });
+});
+
+test.describe('repo collaboration settings', () => {
+  test('add collaborator', async ({page}) => {
+    const response = await page.goto('/user2/repo1/settings/collaboration');
+    expect(response?.status()).toBe(200);
+
+    await page.getByPlaceholder('Search users…').fill('user5');
+    await page.getByRole('button', {name: 'Add collaborator'}).click();
+
+    await expect(page.getByRole('link', {name: 'user5 (User Five)'})).toBeVisible();
+  });
+
+  test('change access mode', async ({page}) => {
+    const response = await page.goto('/user2/repo1/settings/collaboration');
+    expect(response?.status()).toBe(200);
+
+    const opener = page.getByRole('group', {name: 'Change access mode'}).locator('summary');
+    await expect(opener).toHaveText('Write');
+
+    // Check that opener and rmButton are same height
+    const rmButton = page.getByRole('button', {name: 'Remove'});
+    expect((await opener.boundingBox()).height).toBe((await rmButton.boundingBox()).height);
+
+    const dropdownEl = page.getByRole('group', {name: 'Change access mode'});
+    await dropdownEl.click();
+    await page.getByRole('button', {name: 'Read'}).click();
+
+    await expect(page.getByRole('group', {name: 'Change access mode'}).locator('summary')).toHaveText('Read');
+  });
+
+  test('remove collaborator', async ({page}) => {
+    const response = await page.goto('/user2/repo1/settings/collaboration');
+    expect(response?.status()).toBe(200);
+
+    await page.getByRole('button', {name: 'Remove'}).click();
+    const modal = page.locator('#delete-collaborator');
+    await expect(modal).toBeVisible();
+    await modal.getByRole('button', {name: 'Yes'}).click();
+
+    await expect(page.getByText('There are no collaborators yet.')).toBeVisible();
   });
 });

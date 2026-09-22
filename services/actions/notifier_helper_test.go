@@ -21,8 +21,8 @@ import (
 	"forgejo.org/modules/test"
 	webhook_module "forgejo.org/modules/webhook"
 
-	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -83,7 +83,7 @@ func TestActionsNotifier_IssueCommentOnForkPullRequestEvent(t *testing.T) {
 			},
 		},
 	}
-	input := &notifyInput{
+	input := &NotifyInput{
 		Repo:        repo,
 		Doer:        doer,
 		Event:       webhook_module.HookEventIssueComment,
@@ -128,7 +128,7 @@ func testActionsNotifierPullRequestWithDoer(t *testing.T, repo *repo_model.Repos
 		Name: "pull_request",
 	}
 	detectedWorkflows := []*actions_module.DetectedWorkflow{dw}
-	input := &notifyInput{
+	input := &NotifyInput{
 		Repo:        repo,
 		Doer:        doer,
 		Event:       event,
@@ -432,5 +432,5 @@ func TestActionsNotifier_PermissionsWarning(t *testing.T) {
 	assert.EqualValues(t, 0, run.PreExecutionErrorCode, "pre execution error details: %#v", run.PreExecutionErrorDetails)
 
 	assert.Equal(t, []actions_model.PreExecutionWarning{1}, run.PreExecutionWarningCodes)
-	assert.Equal(t, [][]any{{"j1", "https://forgejo.org/docs/latest/user/authorized-integrations/"}}, run.PreExecutionWarningDetails)
+	assert.Equal(t, [][]any{{"j1", "https://forgejo.org/docs/latest/user/api/authorized-integrations/"}}, run.PreExecutionWarningDetails)
 }

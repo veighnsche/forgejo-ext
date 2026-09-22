@@ -16,9 +16,9 @@ import (
 	api "forgejo.org/modules/structs"
 	webhook_module "forgejo.org/modules/webhook"
 
-	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
-	"code.forgejo.org/forgejo/runner/v12/act/workflowpattern"
+	"code.forgejo.org/forgejo/runner/v13/act/jobparser"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/workflowpattern"
 	"github.com/gobwas/glob"
 	"go.yaml.in/yaml/v3"
 )
@@ -30,6 +30,7 @@ type DetectedWorkflow struct {
 	Content             []byte
 	EventDetectionError error
 	NeedApproval        actions_model.ApprovalType
+	SourceCommit        *git.Commit
 }
 
 // GetWorkflowPath returns the full path to the workflow from the repository root, for example,
@@ -181,6 +182,7 @@ func DetectWorkflows(
 					EntryDirectory: directory,
 					TriggerEvent:   evt,
 					Content:        content,
+					SourceCommit:   commit, // to support pull_request_target, maintain a reference to the commit the workflow was read from
 				}
 				workflows = append(workflows, dwf)
 			}

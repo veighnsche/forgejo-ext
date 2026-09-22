@@ -34,7 +34,7 @@ import (
 )
 
 // TODO: use clustered lock (unique queue? or *abuse* cache)
-var pullWorkingPool = sync.NewExclusivePool()
+var pullWorkingPool = sync.MutexMap{}
 
 // NewPullRequest creates new pull request with labels for repository.
 func NewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *issues_model.Issue, labelIDs []int64, uuids []string, pr *issues_model.PullRequest, assigneeIDs []int64) error {
@@ -166,8 +166,7 @@ func NewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *iss
 
 // ChangeTargetBranch changes the target branch of this pull request, as the given user.
 func ChangeTargetBranch(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, targetBranch string) (err error) {
-	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
-	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
+	defer pullWorkingPool.Lock(fmt.Sprint(pr.ID))()
 
 	// Current target branch is already the same
 	if pr.BaseBranch == targetBranch {
@@ -342,6 +341,8 @@ func TestPullRequest(ctx context.Context, doer *user_model.User, repoID, olderTh
 		if err == nil {
 			for _, pr := range prs {
 				ValidatePullRequest(ctx, pr, newCommitID, oldCommitID, doer)
+
+				pr.HeadCommitID = newCommitID
 				notify_service.PullRequestSynchronized(ctx, doer, pr)
 			}
 		}
@@ -541,7 +542,7 @@ func CloseBranchPulls(ctx context.Context, doer *user_model.User, repoID int64, 
 
 	var errs errlist
 	for _, pr := range prs {
-		if err = issue_service.ChangeStatus(ctx, pr.Issue, doer, "", true); err != nil && !issues_model.IsErrPullWasClosed(err) && !issues_model.IsErrDependenciesLeft(err) {
+		if err = issue_service.ChangeStatus(ctx, pr.Issue, doer, &issues_model.PRNotificationInfo{MergedCommitID: ""}, true); err != nil && !issues_model.IsErrPullWasClosed(err) && !issues_model.IsErrDependenciesLeft(err) {
 			errs = append(errs, err)
 		}
 	}
@@ -575,7 +576,7 @@ func CloseRepoBranchesPulls(ctx context.Context, doer *user_model.User, repo *re
 			if pr.BaseRepoID == repo.ID {
 				continue
 			}
-			if err = issue_service.ChangeStatus(ctx, pr.Issue, doer, "", true); err != nil && !issues_model.IsErrPullWasClosed(err) {
+			if err = issue_service.ChangeStatus(ctx, pr.Issue, doer, &issues_model.PRNotificationInfo{MergedCommitID: ""}, true); err != nil && !issues_model.IsErrPullWasClosed(err) {
 				errs = append(errs, err)
 			}
 		}

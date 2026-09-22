@@ -119,8 +119,8 @@ func TestMain(m *testing.M) {
 	// integration test settings...
 	if setting.CfgProvider != nil {
 		testingCfg := setting.CfgProvider.Section("integration-tests")
-		testlogger.SlowTest = testingCfg.Key("SLOW_TEST").MustDuration(testlogger.SlowTest)
-		testlogger.SlowFlush = testingCfg.Key("SLOW_FLUSH").MustDuration(testlogger.SlowFlush)
+		testlogger.SlowTest, _ = testingCfg.Key("SLOW_TEST").MustDuration(testlogger.SlowTest)
+		testlogger.SlowFlush, _ = testingCfg.Key("SLOW_FLUSH").MustDuration(testlogger.SlowFlush)
 	}
 
 	if os.Getenv("GITEA_SLOW_TEST_TIME") != "" {
@@ -800,7 +800,8 @@ func newAITester(t *testing.T, setupAI ...func(*auth.AuthorizedIntegration)) *Au
 		&auth_service.GetAuthorizedIntegrationHTTPClient,
 		func() *http.Client {
 			return ait.testServer.Client()
-		})
+		},
+	)
 
 	ait.authorizedIntegration = &auth.AuthorizedIntegration{
 		UserID:   2,

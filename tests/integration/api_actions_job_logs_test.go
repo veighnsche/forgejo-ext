@@ -17,6 +17,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/actions"
+	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
@@ -237,6 +238,109 @@ jobs:
 			)
 			req.AddTokenAuth(token)
 			MakeRequest(t, req, http.StatusNotFound)
+		})
+
+		t.Run("format=ndjson: 200 NDJSON every line", func(t *testing.T) {
+			req := NewRequestf(t, "GET",
+				"/api/v1/repos/%s/actions/jobs/%d/logs?format=ndjson",
+				repoA.FullName(), jobID,
+			)
+			req.AddTokenAuth(token)
+			resp := MakeRequest(t, req, http.StatusOK)
+			assert.Contains(t, resp.Header().Get("Content-Type"), "application/x-ndjson")
+			assert.Empty(t, resp.Header().Get("Accept-Ranges"))
+
+			lines := strings.Split(strings.TrimRight(resp.Body.String(), "\n"), "\n")
+			require.Len(t, lines, len(outcome.logRows))
+
+			type jsonLine struct {
+				Time    time.Time `json:"time"`
+				Content string    `json:"content"`
+			}
+			var l0 jsonLine
+			require.NoError(t, json.Unmarshal([]byte(lines[0]), &l0))
+			assert.Equal(t, "setup banner line", l0.Content)
+			assert.False(t, l0.Time.IsZero())
+		})
+
+		t.Run("q=error: 200 with only matching lines", func(t *testing.T) {
+			req := NewRequestf(t, "GET",
+				"/api/v1/repos/%s/actions/jobs/%d/logs?q=error",
+				repoA.FullName(), jobID,
+			)
+			req.AddTokenAuth(token)
+			resp := MakeRequest(t, req, http.StatusOK)
+			assert.Empty(t, resp.Header().Get("Accept-Ranges"),
+				"filtered responses must not advertise Range support")
+			body := strings.TrimSpace(resp.Body.String())
+			lines := strings.Split(body, "\n")
+			require.Len(t, lines, 1)
+			assert.Contains(t, lines[0], "step error: boom")
+		})
+
+		t.Run("q=ERROR: 200 empty without qi", func(t *testing.T) {
+			req := NewRequestf(t, "GET",
+				"/api/v1/repos/%s/actions/jobs/%d/logs?q=ERROR",
+				repoA.FullName(), jobID,
+			)
+			req.AddTokenAuth(token)
+			resp := MakeRequest(t, req, http.StatusOK)
+			assert.Empty(t, strings.TrimSpace(resp.Body.String()),
+				"case-sensitive q should miss the lowercase 'error'")
+		})
+
+		t.Run("q=ERROR&qi=true: 200 with match (case-insensitive)", func(t *testing.T) {
+			req := NewRequestf(t, "GET",
+				"/api/v1/repos/%s/actions/jobs/%d/logs?q=ERROR&qi=true",
+				repoA.FullName(), jobID,
+			)
+			req.AddTokenAuth(token)
+			resp := MakeRequest(t, req, http.StatusOK)
+			body := strings.TrimSpace(resp.Body.String())
+			assert.Contains(t, body, "step error: boom")
+		})
+
+		t.Run("step=1 & q=error: composed substring within step window", func(t *testing.T) {
+			req := NewRequestf(t, "GET",
+				"/api/v1/repos/%s/actions/jobs/%d/logs?step=1&q=error",
+				repoA.FullName(), jobID,
+			)
+			req.AddTokenAuth(token)
+			resp := MakeRequest(t, req, http.StatusOK)
+			body := strings.TrimSpace(resp.Body.String())
+			assert.Contains(t, body, "step error: boom")
+			assert.NotContains(t, body, "setup banner line")
+			assert.NotContains(t, body, "complete banner line")
+		})
+
+		t.Run("step=0 & q=error: no match within setup window", func(t *testing.T) {
+			req := NewRequestf(t, "GET",
+				"/api/v1/repos/%s/actions/jobs/%d/logs?step=0&q=error",
+				repoA.FullName(), jobID,
+			)
+			req.AddTokenAuth(token)
+			resp := MakeRequest(t, req, http.StatusOK)
+			assert.Empty(t, strings.TrimSpace(resp.Body.String()))
+		})
+
+		t.Run("format=ndjson & q=error: NDJSON of matching lines only", func(t *testing.T) {
+			req := NewRequestf(t, "GET",
+				"/api/v1/repos/%s/actions/jobs/%d/logs?format=ndjson&q=error",
+				repoA.FullName(), jobID,
+			)
+			req.AddTokenAuth(token)
+			resp := MakeRequest(t, req, http.StatusOK)
+			assert.Contains(t, resp.Header().Get("Content-Type"), "application/x-ndjson")
+
+			lines := strings.Split(strings.TrimRight(resp.Body.String(), "\n"), "\n")
+			require.Len(t, lines, 1)
+			type jsonLine struct {
+				Time    time.Time `json:"time"`
+				Content string    `json:"content"`
+			}
+			var l jsonLine
+			require.NoError(t, json.Unmarshal([]byte(lines[0]), &l))
+			assert.Equal(t, "step error: boom", l.Content)
 		})
 
 		httpContextA := NewAPITestContext(t, user2.Name, repoA.Name, auth_model.AccessTokenScopeWriteUser)

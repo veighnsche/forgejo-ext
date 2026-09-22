@@ -108,7 +108,8 @@ func TestE2e(t *testing.T) {
 			// Add test-specific fixures or config options.
 			// Note: this breaks test execution through Playwright Extension for VSCode
 			// Note: these tests only work properly via `make test-e2e-sqlite#filename`
-			if testname == "buttons.test.e2e" || testname == "dropdown.test.e2e" || testname == "modal.test.e2e" {
+			if testname == "buttons.test.e2e" || testname == "dropdown.test.e2e" || testname == "modal.test.e2e" || testname == "hashbox.test.e2e" {
+				// Allow access to /-/demo/
 				defer test.MockVariableValue(&setting.IsProd, false)()
 				defer test.MockVariableValue(&testE2eWebRoutes, routers.NormalRoutes())()
 			}
@@ -135,6 +136,7 @@ func TestE2e(t *testing.T) {
 				cmd := exec.Command(runArgs[0], thisTest...)
 				cmd.Env = os.Environ()
 				cmd.Env = append(cmd.Env, fmt.Sprintf("GITEA_URL=%s", setting.AppURL))
+				cmd.Dir = setting.AppWorkPath
 
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr

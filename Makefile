@@ -38,17 +38,17 @@ XGO_VERSION := go-1.21.x
 
 AIR_PACKAGE ?= github.com/air-verse/air@v1 # renovate: datasource=go
 EDITORCONFIG_CHECKER_PACKAGE ?= github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@v3.7.0 # renovate: datasource=go
-GOFUMPT_PACKAGE ?= mvdan.cc/gofumpt@v0.9.2 # renovate: datasource=go
+GOFUMPT_PACKAGE ?= mvdan.cc/gofumpt@v0.11.0 # renovate: datasource=go
 GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.1 # renovate: datasource=go
 GXZ_PACKAGE ?= github.com/ulikunitz/xz/cmd/gxz@v0.5.15 # renovate: datasource=go
-SWAGGER_PACKAGE ?= github.com/go-swagger/go-swagger/cmd/swagger@v0.34.0 # renovate: datasource=go
+SWAGGER_PACKAGE ?= github.com/go-swagger/go-swagger/cmd/swagger@v0.36.4 # renovate: datasource=go
 XGO_PACKAGE ?= src.techknowlogick.com/xgo@latest
 GO_LICENSES_PACKAGE ?= github.com/google/go-licenses/v2@v2.0.1 # renovate: datasource=go
 GOVULNCHECK_PACKAGE ?= golang.org/x/vuln/cmd/govulncheck@v1 # renovate: datasource=go
-DEADCODE_PACKAGE ?= golang.org/x/tools/cmd/deadcode@v0.46.0 # renovate: datasource=go
+DEADCODE_PACKAGE ?= golang.org/x/tools/cmd/deadcode@v0.49.0 # renovate: datasource=go
 ERRORTYPE_PACKAGE ?= fillmore-labs.com/errortype@v0.0.11 # renovate: datasource=go
-RENOVATE_NPM_PACKAGE ?= renovate@43.281.1 # renovate: datasource=docker packageName=data.forgejo.org/renovate/renovate
-MOCKERY_PACKAGE ?= github.com/vektra/mockery/v3@v3.7.2 # renovate: datasource=go
+RENOVATE_NPM_PACKAGE ?= renovate@44.65.5 # renovate: datasource=docker packageName=data.forgejo.org/renovate/renovate
+MOCKERY_PACKAGE ?= github.com/vektra/mockery/v3@v3.7.4 # renovate: datasource=go
 
 # https://github.com/disposable-email-domains/disposable-email-domains/commits/main/
 DISPOSABLE_EMAILS_SHA ?= 0c27e671231d27cf66370034d7f6818037416989 # renovate: ...
@@ -352,10 +352,10 @@ clean-no-bindata:
 	rm -rf $(EXECUTABLE) $(DIST) \
 		integrations*.test \
 		e2e*.test \
-		tests/integration/gitea-integration-* \
+		tests/integration/*-integration-* \
 		tests/integration/indexers-* \
 		tests/mysql.ini tests/pgsql.ini man/ \
-		tests/e2e/gitea-e2e-*/ \
+		tests/e2e/*-e2e-*/ \
 		tests/e2e/indexers-*/ \
 		tests/e2e/reports/ tests/e2e/test-artifacts/ tests/e2e/test-snapshots/
 
@@ -571,12 +571,12 @@ test: test-frontend test-backend
 .PHONY: test-backend
 test-backend: | compute-go-test-packages
 	@echo "Running go test with $(GOTESTFLAGS) -tags '$(TEST_TAGS)'..."
-	@TZ=UTC GITEA_ROOT="$(CURDIR)" $(GOTEST) $(GOTESTFLAGS) -tags='$(TEST_TAGS)' $(GO_TEST_PACKAGES)
+	@TZ=UTC PROJECT_ROOT="$(CURDIR)" $(GOTEST) $(GOTESTFLAGS) -tags='$(TEST_TAGS)' $(GO_TEST_PACKAGES)
 
 .PHONY: test-remote-cacher
 test-remote-cacher:
 	@echo "Running go test with $(GOTESTFLAGS) -tags '$(TEST_TAGS)'..."
-	GITEA_ROOT="$(CURDIR)" $(GOTEST) $(GOTESTFLAGS) -tags='$(TEST_TAGS)' $(GO_TEST_REMOTE_CACHER_PACKAGES)
+	PROJECT_ROOT="$(CURDIR)" $(GOTEST) $(GOTESTFLAGS) -tags='$(TEST_TAGS)' $(GO_TEST_REMOTE_CACHER_PACKAGES)
 
 .PHONY: test-frontend
 test-frontend: node_modules
@@ -601,39 +601,53 @@ test-check:
 .PHONY: test\#%
 test\#%: | compute-go-test-packages
 	@echo "Running go test with $(GOTESTFLAGS) -tags '$(TEST_TAGS)'..."
-	@TZ=UTC GITEA_ROOT="$(CURDIR)" $(GOTEST) $(GOTESTFLAGS) -tags='$(TEST_TAGS)' -run $(subst .,/,$*) $(GO_TEST_PACKAGES)
+	@TZ=UTC PROJECT_ROOT="$(CURDIR)" $(GOTEST) $(GOTESTFLAGS) -tags='$(TEST_TAGS)' -run $(subst .,/,$*) $(GO_TEST_PACKAGES)
 
+.PHONY: coverage-reset
 coverage-reset:
 	rm -fr coverage
 
+.PHONY: coverage-merge
 coverage-merge:
 	rm -fr coverage/merged ; mkdir -p coverage/merged
 	$(GO) tool covdata merge -i `find coverage/data -name 'covmeta.*' | sed -e 's|/covmeta.*|,|' | tr -d '\n' | sed -e 's/,$$//'` -o coverage/merged
 
+.PHONY: coverage-convert
 coverage-convert: coverage-merge
 	$(GO) tool covdata textfmt -i=coverage/merged -o=coverage/textfmt.out
 
+.PHONY: coverage-show-html
 coverage-show-html: coverage-convert
 	( cd coverage ; $(GO) tool cover -html=textfmt.out -o coverage.html )
 	xdg-open coverage/coverage.html
 
+.PHONY: coverage-show-percentage
 coverage-show-percentage: coverage-convert
 	go tool cover -func=coverage/textfmt.out
 
+.PHONY: coverage-run
 coverage-run: | compute-go-test-packages
 	contrib/coverage-helper.sh test_packages $(COVERAGE_TEST_PACKAGES)
 
+.PHONY: coverage-run-%
 coverage-run-%: coverage-run-migration-% coverage-run-integration-%
 	echo $@ done
 
+.PHONY: coverage-run-migration-%
 coverage-run-migration-%: generate-ini-% | compute-migration-packages
-	$(MAKE) GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/$*.ini COVERAGE_TEST_ARGS= COVERAGE_TEST_PACKAGES=forgejo.org/tests/integration/migration-test coverage-run
+	$(MAKE) PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/$*.ini COVERAGE_TEST_ARGS= COVERAGE_TEST_PACKAGES=forgejo.org/tests/integration/migration-test coverage-run
 	for pkg in $(MIGRATION_PACKAGES); do \
-		$(MAKE) GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/$*.ini COVERAGE_TEST_DATABASE=$* COVERAGE_TEST_ARGS= COVERAGE_TEST_PACKAGES=$$pkg coverage-run ; \
+		$(MAKE) PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/$*.ini COVERAGE_TEST_NAME=$* COVERAGE_TEST_ARGS= COVERAGE_TEST_PACKAGES=$$pkg coverage-run ; \
 	done
 
+.PHONY: coverage-run-integration-%
 coverage-run-integration-%: generate-ini-%
-	$(MAKE) GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/$*.ini COVERAGE_TEST_DATABASE=$* COVERAGE_TEST_PACKAGES=forgejo.org/tests/integration coverage-run
+	$(MAKE) PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/$*.ini COVERAGE_TEST_NAME=$* COVERAGE_TEST_PACKAGES=forgejo.org/tests/integration coverage-run
+
+COVERAGE_E2E_RUN ?= -test.run TestE2e
+
+coverage-run-e2e: playwright generate-ini-sqlite
+		$(MAKE) PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini COVERAGE_TEST_NAME=e2e PLAYWRIGHT_PROJECT=firefox COVERAGE_TEST_PACKAGES=forgejo.org/tests/e2e COVERAGE_TEST_ARGS="${COVERAGE_E2E_RUN} ${COVERAGE_TEST_ARGS}" coverage-run
 
 .PHONY: tidy
 tidy:
@@ -668,11 +682,11 @@ generate-ini-sqlite:
 
 .PHONY: test-sqlite
 test-sqlite: integrations.sqlite.test generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX)
 
 .PHONY: test-sqlite\#%
 test-sqlite\#%: integrations.sqlite.test generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run $(subst .,/,$*)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run $(subst .,/,$*)
 
 .PHONY: test-sqlite-migration
 test-sqlite-migration:  migrations.sqlite.test migrations.individual.sqlite.test
@@ -691,11 +705,11 @@ generate-ini-mysql:
 
 .PHONY: test-mysql
 test-mysql: integrations.mysql.test generate-ini-mysql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.mysql.test $(GOTESTCOMPILEDRUNSUFFIX)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.mysql.test $(GOTESTCOMPILEDRUNSUFFIX)
 
 .PHONY: test-mysql\#%
 test-mysql\#%: integrations.mysql.test generate-ini-mysql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.mysql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run $(subst .,/,$*)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.mysql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run $(subst .,/,$*)
 
 .PHONY: test-mysql-migration
 test-mysql-migration: migrations.mysql.test migrations.individual.mysql.test
@@ -717,11 +731,11 @@ generate-ini-pgsql:
 
 .PHONY: test-pgsql
 test-pgsql: integrations.pgsql.test generate-ini-pgsql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX)
 
 .PHONY: test-pgsql\#%
 test-pgsql\#%: integrations.pgsql.test generate-ini-pgsql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run $(subst .,/,$*)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./integrations.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run $(subst .,/,$*)
 
 .PHONY: test-pgsql-migration
 test-pgsql-migration: migrations.pgsql.test migrations.individual.pgsql.test
@@ -740,47 +754,47 @@ test-e2e: test-e2e-sqlite
 
 .PHONY: test-e2e-sqlite
 test-e2e-sqlite: playwright e2e.sqlite.test generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e
 
 .PHONY: test-e2e-sqlite\#%
 test-e2e-sqlite\#%: playwright e2e.sqlite.test generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e/$*
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e/$*
 
 .PHONY: test-e2e-sqlite-firefox\#%
 test-e2e-sqlite-firefox\#%: playwright e2e.sqlite.test generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini PLAYWRIGHT_PROJECT=firefox $(GOTESTCOMPILEDRUNPREFIX) ./e2e.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e/$*
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini PLAYWRIGHT_PROJECT=firefox $(GOTESTCOMPILEDRUNPREFIX) ./e2e.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e/$*
 
 .PHONY: test-e2e-mysql
 test-e2e-mysql: playwright e2e.mysql.test generate-ini-mysql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.mysql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.mysql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e
 
 .PHONY: test-e2e-mysql\#%
 test-e2e-mysql\#%: playwright e2e.mysql.test generate-ini-mysql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.mysql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e/$*
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.mysql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e/$*
 
 .PHONY: test-e2e-pgsql
-GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.initest-e2e-pgsql: playwright e2e.pgsql.test generate-ini-pgsql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e
+PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.initest-e2e-pgsql: playwright e2e.pgsql.test generate-ini-pgsql
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e
 
 .PHONY: test-e2e-pgsql\#%
 test-e2e-pgsql\#%: playwright e2e.pgsql.test generate-ini-pgsql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e/$*
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./e2e.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX) -test.run TestE2e/$*
 
 .PHONY: test-e2e-debugserver
 test-e2e-debugserver: e2e.sqlite.test generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini ./e2e.sqlite.test -test.run TestDebugserver -test.timeout 24h
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini ./e2e.sqlite.test -test.run TestDebugserver -test.timeout 24h
 
 .PHONY: bench-sqlite
 bench-sqlite: integrations.sqlite.test generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini ./integrations.sqlite.test -test.cpuprofile=cpu.out -test.run DontRunTests -test.bench .
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini ./integrations.sqlite.test -test.cpuprofile=cpu.out -test.run DontRunTests -test.bench .
 
 .PHONY: bench-mysql
 bench-mysql: integrations.mysql.test generate-ini-mysql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/mysql.ini ./integrations.mysql.test -test.cpuprofile=cpu.out -test.run DontRunTests -test.bench .
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/mysql.ini ./integrations.mysql.test -test.cpuprofile=cpu.out -test.run DontRunTests -test.bench .
 
 .PHONY: bench-pgsql
 bench-pgsql: integrations.pgsql.test generate-ini-pgsql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/pgsql.ini ./integrations.pgsql.test -test.cpuprofile=cpu.out -test.run DontRunTests -test.bench .
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/pgsql.ini ./integrations.pgsql.test -test.cpuprofile=cpu.out -test.run DontRunTests -test.bench .
 
 integrations.mysql.test: git-check $(GO_SOURCES)
 	$(GOTEST) $(GOTESTFLAGS) -c forgejo.org/tests/integration -o integrations.mysql.test
@@ -794,47 +808,47 @@ integrations.sqlite.test: git-check $(GO_SOURCES)
 .PHONY: migrations.mysql.test
 migrations.mysql.test: $(GO_SOURCES) generate-ini-mysql
 	$(GOTEST) $(GOTESTFLAGS) -c forgejo.org/tests/integration/migration-test -o migrations.mysql.test
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./migrations.mysql.test $(GOTESTCOMPILEDRUNSUFFIX)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/mysql.ini $(GOTESTCOMPILEDRUNPREFIX) ./migrations.mysql.test $(GOTESTCOMPILEDRUNSUFFIX)
 
 .PHONY: migrations.pgsql.test
 migrations.pgsql.test: $(GO_SOURCES) generate-ini-pgsql
 	$(GOTEST) $(GOTESTFLAGS) -c forgejo.org/tests/integration/migration-test -o migrations.pgsql.test
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./migrations.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/pgsql.ini $(GOTESTCOMPILEDRUNPREFIX) ./migrations.pgsql.test $(GOTESTCOMPILEDRUNSUFFIX)
 
 .PHONY: migrations.sqlite.test
 migrations.sqlite.test: $(GO_SOURCES) generate-ini-sqlite
 	$(GOTEST) $(GOTESTFLAGS) -c forgejo.org/tests/integration/migration-test -o migrations.sqlite.test -tags '$(TEST_TAGS)'
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./migrations.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX)
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini $(GOTESTCOMPILEDRUNPREFIX) ./migrations.sqlite.test $(GOTESTCOMPILEDRUNSUFFIX)
 
 .PHONY: migrations.individual.mysql.test
 migrations.individual.mysql.test: $(GO_SOURCES) | compute-migration-packages
 	for pkg in $(MIGRATION_PACKAGES); do \
-		GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/mysql.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' $$pkg || exit 1; \
+		PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/mysql.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' $$pkg || exit 1; \
 	done
 
 .PHONY: migrations.individual.sqlite.test\#%
 migrations.individual.sqlite.test\#%: $(GO_SOURCES) generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' forgejo.org/models/gitea_migrations/$*
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' forgejo.org/models/gitea_migrations/$*
 
 .PHONY: migrations.individual.pgsql.test
 migrations.individual.pgsql.test: $(GO_SOURCES) | compute-migration-packages
 	for pkg in $(MIGRATION_PACKAGES); do \
-		GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/pgsql.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' $$pkg || exit 1;\
+		PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/pgsql.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' $$pkg || exit 1;\
 	done
 
 .PHONY: migrations.individual.pgsql.test\#%
 migrations.individual.pgsql.test\#%: $(GO_SOURCES) generate-ini-pgsql
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/pgsql.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' forgejo.org/models/gitea_migrations/$*
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/pgsql.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' forgejo.org/models/gitea_migrations/$*
 
 .PHONY: migrations.individual.sqlite.test
 migrations.individual.sqlite.test: $(GO_SOURCES) generate-ini-sqlite | compute-migration-packages
 	for pkg in $(MIGRATION_PACKAGES); do \
-		GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' $$pkg || exit 1; \
+		PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' $$pkg || exit 1; \
 	done
 
 .PHONY: migrations.individual.sqlite.test\#%
 migrations.individual.sqlite.test\#%: $(GO_SOURCES) generate-ini-sqlite
-	GITEA_ROOT="$(CURDIR)" GITEA_CONF=tests/sqlite.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' forgejo.org/models/gitea_migrations/$*
+	PROJECT_ROOT="$(CURDIR)" PROJECT_CONF=tests/sqlite.ini $(GOTEST) $(GOTESTFLAGS) -tags '$(TEST_TAGS)' forgejo.org/models/gitea_migrations/$*
 
 e2e.mysql.test: $(GO_SOURCES)
 	$(GOTEST) $(GOTESTFLAGS) -c forgejo.org/tests/e2e -o e2e.mysql.test
@@ -854,7 +868,7 @@ check: test
 
 .PHONY: install $(TAGS_PREREQ)
 install: $(wildcard *.go) | verify-version
-	CGO_CFLAGS="$(CGO_CFLAGS)" $(GO) install -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)'
+	CGO_CFLAGS="$(CGO_CFLAGS)" $(GO) install $(GOFLAGS) $(EXTRA_GOFLAGS) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)'
 
 .PHONY: build
 build: frontend backend

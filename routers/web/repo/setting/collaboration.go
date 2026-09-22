@@ -127,18 +127,19 @@ func CollaborationPost(ctx *context.Context) {
 
 // ChangeCollaborationAccessMode response for changing access of a collaboration
 func ChangeCollaborationAccessMode(ctx *context.Context) {
-	if err := repo_model.ChangeCollaborationAccessMode(
+	if err := repo_module.ChangeCollaborationAccessMode(
 		ctx,
 		ctx.Repo.Repository,
 		ctx.FormInt64("uid"),
-		perm.AccessMode(ctx.FormInt("mode"))); err != nil {
+		perm.AccessMode(ctx.FormInt("mode")),
+	); err != nil {
 		log.Error("ChangeCollaborationAccessMode: %v", err)
 	}
 }
 
 // DeleteCollaboration delete a collaboration for a repository
 func DeleteCollaboration(ctx *context.Context) {
-	if err := repo_service.DeleteCollaboration(ctx, ctx.Repo.Repository, ctx.FormInt64("id")); err != nil {
+	if err := repo_module.DeleteCollaboration(ctx, ctx.Repo.Repository, ctx.FormInt64("id")); err != nil {
 		ctx.Flash.Error("DeleteCollaboration: " + err.Error())
 	} else {
 		ctx.Flash.Success(ctx.Tr("repo.settings.remove_collaborator_success"))

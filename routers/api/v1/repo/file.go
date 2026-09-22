@@ -74,11 +74,6 @@ func GetRawFile(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	if ctx.Repo().Repository.IsEmpty {
-		ctx.NotFound()
-		return
-	}
-
 	blob, entry, lastModified := getBlobForEntry(ctx)
 	if ctx.Written() {
 		return
@@ -127,11 +122,6 @@ func GetRawFileOrLFS(ctx *context.APIContext) {
 	//       type: file
 	//   "404":
 	//     "$ref": "#/responses/notFound"
-
-	if ctx.Repo().Repository.IsEmpty {
-		ctx.NotFound()
-		return
-	}
 
 	blob, entry, lastModified := getBlobForEntry(ctx)
 	if ctx.Written() {
@@ -310,9 +300,10 @@ func archiveDownload(ctx *context.APIContext) {
 
 	aReq, err := archiver_service.NewRequest(ctx, ctx.Repo().Repository.ID, ctx.Repo().GitRepo, strings.TrimSuffix(uri, ext), tp)
 	if err != nil {
-		if errors.Is(err, archiver_service.ErrUnknownArchiveFormat{}) {
+		if archiver_service.IsUnknownArchiveFormatError(err) {
+			// Unreachable because archiver_service.ParseFileName performs the same check
 			ctx.Error(http.StatusBadRequest, "unknown archive format", err)
-		} else if errors.Is(err, archiver_service.RepoRefNotFoundError{}) {
+		} else if archiver_service.IsRepoRefNotFoundError(err) {
 			ctx.Error(http.StatusNotFound, "unrecognized reference", err)
 		} else {
 			ctx.ServerError("archiver_service.NewRequest", err)

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	actions_model "forgejo.org/models/actions"
 	auth_model "forgejo.org/models/auth"
@@ -22,6 +23,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/optional"
+	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
 	apiv1_permissions "forgejo.org/routers/api/v1/permissions"
 	"forgejo.org/services/auth"
@@ -75,6 +77,42 @@ func fixtureCreateIssue(t *testing.T, user *user_model.User, repo *repo_model.Re
 	return issue
 }
 
+func fixtureEditIssueOption(t *testing.T, fields string) api.EditIssueOption {
+	var opt api.EditIssueOption
+	for field := range strings.SplitSeq(fields, ",") {
+		switch field {
+		case "title":
+			opt.Title = "TITLE"
+		case "body":
+			body := "BODY"
+			opt.Body = &body
+		case "ref":
+			ref := "REF"
+			opt.Ref = &ref
+		case "assignees":
+			opt.Assignees = []string{"user1", "user2"}
+		case "milestone":
+			milestone := int64(13245)
+			opt.Milestone = &milestone
+		case "state":
+			state := "closed"
+			opt.State = &state
+		case "due_date":
+			deadline := time.Now()
+			opt.Deadline = &deadline
+		case "unset_due_date":
+			removeDeadline := true
+			opt.RemoveDeadline = &removeDeadline
+		case "updated_at":
+			updated := time.Now()
+			opt.Updated = &updated
+		default:
+			panic(fmt.Sprintf("unexpected field name %s", field))
+		}
+	}
+	return opt
+}
+
 func fixtureGetUser(t *testing.T, name string) *user_model.User {
 	t.Helper()
 	existingUser, err := user_model.GetUserByName(t.Context(), name)
@@ -101,7 +139,10 @@ func fixtureCreateUser(t *testing.T, user *user_model.User) *user_model.User {
 	overwriteDefault := &user_model.CreateUserOverwriteOptions{}
 	visibility := user.Visibility
 	overwriteDefault.Visibility = &visibility
+	allowCreateOrganization := user.AllowCreateOrganization
+	overwriteDefault.AllowCreateOrganization = optional.Some(allowCreateOrganization)
 	require.NoError(t, user_model.CreateUser(t.Context(), user, overwriteDefault))
+	user.AllowCreateOrganization = allowCreateOrganization
 	return user
 }
 
@@ -111,7 +152,7 @@ func fixtureCreateOrg(t *testing.T, org *org_model.Organization, owner *user_mod
 		return existing
 	}
 	owner = fixtureCreateUser(t, owner)
-	require.NoError(t, org_model.CreateOrganization(t.Context(), org, owner))
+	require.NoError(t, org_model.CreateOrganization(t.Context(), org, owner), "owner: %+v", owner)
 	return org
 }
 
@@ -276,8 +317,9 @@ func fixtureSetDoerRegularUser(t *testing.T, permissions *apiv1_permissions.Perm
 	}
 	if !data.Anonymous() {
 		user := &user_model.User{
-			Name:    data.DoerName(),
-			IsAdmin: data.DoerAdmin(),
+			Name:                    data.DoerName(),
+			IsAdmin:                 data.DoerAdmin(),
+			AllowCreateOrganization: data.DoerCanCreateOrganization(),
 		}
 		fixtureCreateUser(t, user)
 		permissions.SetDoer(user)
@@ -363,14 +405,14 @@ func fixtureCreatePullRequest(t *testing.T, permissions *apiv1_permissions.Permi
 	require.NoError(t, pull_service.PushToBaseRepo(ctx, pr))
 }
 
-func fixtureSetRepository(t *testing.T, permissions *apiv1_permissions.Permissions, name string, init, private, archived bool) {
+func fixtureSetRepository(t *testing.T, permissions *apiv1_permissions.Permissions, name string, init, private, archived bool, collaboratorName string) {
 	t.Helper()
 	if name == "" {
 		return
 	}
 	if repository := permissions.Repository(); repository != nil {
 		if repository.FullName() != name {
-			panic(fmt.Sprintf("attempting to override already repository %s with %s", repository.FullName(), name))
+			panic(fmt.Sprintf("attempting to override existing repository %s with %s", repository.FullName(), name))
 		}
 		return
 	}
@@ -383,6 +425,10 @@ func fixtureSetRepository(t *testing.T, permissions *apiv1_permissions.Permissio
 	}
 	if init {
 		opts.Files = forgery.FilesInit{}
+	}
+	if len(collaboratorName) > 0 {
+		collaborator := fixtureCreateUser(t, &user_model.User{Name: collaboratorName})
+		opts.Collaborators = map[*user_model.User]perm.AccessMode{collaborator: perm.AccessModeWrite}
 	}
 	repository := forgery.CreateRepository(t, owner, opts)
 	// some of it is redundant with the config but that makes
@@ -416,6 +462,14 @@ func fixtureSetIssue(t *testing.T, permissions *apiv1_permissions.Permissions, i
 		issue = fixtureCreateIssue(t, author, permissions.Repository(), issueName, "issue description")
 	}
 	return issue
+}
+
+func fixtureLockIssue(t *testing.T, permissions *apiv1_permissions.Permissions, issue *issues_model.Issue) {
+	require.NoError(t, issues_model.LockIssue(t.Context(), &issues_model.IssueLockOptions{
+		Doer:   permissions.Doer(),
+		Issue:  issue,
+		Reason: "because",
+	}))
 }
 
 func fixtureGetComment(t *testing.T, content string) *issues_model.Comment {

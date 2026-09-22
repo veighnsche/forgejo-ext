@@ -619,7 +619,7 @@ func TestRenamedFileHistory(t *testing.T) {
 
 			renameNotice := htmlDoc.doc.Find(".ui.bottom.attached.header")
 			assert.Equal(t, 1, renameNotice.Length())
-			assert.Contains(t, renameNotice.Text(), "Renamed from licnse (Browse further)")
+			assert.Contains(t, renameNotice.Text(), "Renamed from licnse (Previous history)")
 
 			oldFileHistoryLink, ok := renameNotice.Find("a").Attr("href")
 			assert.True(t, ok)
@@ -636,7 +636,7 @@ func TestRenamedFileHistory(t *testing.T) {
 			resp = MakeRequest(t, NewRequest(t, "GET", "/user2/repo59/commits/branch/master/license?page=2"), http.StatusOK)
 			page2 := NewHTMLParser(t, resp.Body)
 
-			// Browse further is only shown on 2nd page
+			// Show previous history link is only shown on 2nd page
 			browseFurtherSel := ".ui.bottom.attached.header a[href='/user2/repo59/commits/commit/80b83c5c8220c3aa3906e081f202a2a7563ec879/licnse']"
 			page1.AssertElement(t, browseFurtherSel, false)
 			page2.AssertElement(t, browseFurtherSel, true)
@@ -702,7 +702,7 @@ func TestRenamedFileHistory(t *testing.T) {
 
 			renameNotice := htmlDoc.doc.Find(".ui.bottom.attached.header")
 			assert.Equal(t, 1, renameNotice.Length())
-			assert.Contains(t, renameNotice.Text(), "Renamed from #beep (Browse further)")
+			assert.Contains(t, renameNotice.Text(), "Renamed from #beep (Previous history)")
 
 			oldFileHistoryLink, ok := renameNotice.Find("a").Attr("href")
 			assert.True(t, ok)
@@ -1385,5 +1385,54 @@ git add README.md
 git commit -m "first commit"
 git remote add origin http://localhost/user2/%s.git
 git push -u origin main`, init, repo.Name), portMatcher.ReplaceAllString(htmlDoc.Find(".empty-repo-guide code").First().Text(), "localhost"))
+	})
+}
+
+func TestViewRepoSize(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	checkSizeSpanOfRepo := func(repo string, t *testing.T) string {
+		req := NewRequest(t, "GET", repo)
+		resp := MakeRequest(t, req, http.StatusOK)
+
+		htmlDoc := NewHTMLParser(t, resp.Body)
+		sizeSpan := htmlDoc.doc.Find("span[data-test-name='repo-size']")
+		require.NotNil(t, sizeSpan)
+
+		attr, exists := sizeSpan.Attr("data-tooltip-content")
+		assert.True(t, exists)
+		return attr
+	}
+
+	t.Run("LFS enabled", func(t *testing.T) {
+		defer test.MockVariableValue(&setting.LFS.StartServer, true)()
+
+		t.Run("LFS-less repo", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			attr := checkSizeSpanOfRepo("/user2/repo1", t)
+			assert.Equal(t, "git: 6.3 KiB, lfs: 0 B", attr)
+		})
+
+		t.Run("LFS repo", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			attr := checkSizeSpanOfRepo("/user2/lfs", t)
+			assert.Equal(t, "git: 10 B, lfs: 1 B", attr)
+		})
+	})
+
+	t.Run("LFS disabled", func(t *testing.T) {
+		defer test.MockVariableValue(&setting.LFS.StartServer, false)()
+
+		t.Run("LFS-less repo", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			attr := checkSizeSpanOfRepo("/user2/repo1", t)
+			assert.Equal(t, "git: 6.3 KiB", attr)
+		})
+
+		t.Run("LFS repo", func(t *testing.T) {
+			defer tests.PrintCurrentTest(t)()
+			attr := checkSizeSpanOfRepo("/user2/lfs", t)
+			assert.Equal(t, "git: 10 B, lfs: 1 B", attr)
+		})
 	})
 }
