@@ -126,7 +126,8 @@ func MembersAction(ctx *context.Context) {
 		var u *user_model.User
 		u, err = user_model.GetUserByName(ctx, uname)
 		if err != nil {
-			ctx.ServerError("GetUserByName", err)
+			ctx.Flash.Error(ctx.Tr("form.user_not_exist"))
+			ctx.Redirect(ctx.Org.OrgLink + "/members")
 			return
 		}
 
