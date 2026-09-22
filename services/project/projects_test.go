@@ -329,7 +329,7 @@ func TestNewProject(t *testing.T) {
 	})
 
 	t.Run("invalid project type", func(t *testing.T) {
-		invalidProjectType := project_module.APIOwnerType("99")
+		invalidOwnerType := project_module.APIOwnerType("99")
 		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",
 			Description:  "Test",
@@ -337,7 +337,7 @@ func TestNewProject(t *testing.T) {
 			CardType:     project_module.APICardTypeTextOnly.String(),
 		}
 
-		_, err := NewProject(&opts, user2, nilRepo, invalidProjectType)
+		_, err := NewProject(&opts, user2, nilRepo, invalidOwnerType)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "Field APIOwnerType")
 	})

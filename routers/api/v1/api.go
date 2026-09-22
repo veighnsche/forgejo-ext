@@ -214,7 +214,7 @@ func reqValidCommentID(idParam string) func(*context.APIContext) {
 	}
 }
 
-func setProjectType(ownerType project_module.APIOwnerType) func(ctx *context.APIContext) {
+func setOwnerType(ownerType project_module.APIOwnerType) func(ctx *context.APIContext) {
 	return func(ctx *context.APIContext) {
 		ctx.Data["OwnerType"] = ownerType
 	}
@@ -1417,13 +1417,13 @@ func Routes() *web.Route {
 		// Projects
 		m.Group("/orgs/{org}", func() {
 			addProjectsRoutes(m, org.NewProjectAPI())
-		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryProject), setProjectType(project_module.APIOwnerTypeOrganization), orgAssignment, checkTokenPublicOnly())
+		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryProject), setOwnerType(project_module.APIOwnerTypeOrganization), orgAssignment, checkTokenPublicOnly())
 		m.Group("/users/{username}", func() {
 			addProjectsRoutes(m, user.NewProjectAPI())
-		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryProject), setProjectType(project_module.APIOwnerTypeIndividual), context.UserAssignmentAPI(), checkTokenPublicOnly())
+		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryProject), setOwnerType(project_module.APIOwnerTypeIndividual), context.UserAssignmentAPI(), checkTokenPublicOnly())
 		m.Group("/repos/{username}/{reponame}", func() {
 			addProjectsRoutes(m, repo.NewProjectAPI())
-		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryProject), setProjectType(project_module.APIOwnerTypeRepository), repoAndOwnerAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
+		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryProject), setOwnerType(project_module.APIOwnerTypeRepository), repoAndOwnerAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
 
 		m.Group("/admin", func() {
 			m.Group("/cron", func() {

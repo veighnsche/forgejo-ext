@@ -31,12 +31,12 @@ type runOpts struct {
 	repo          string
 	projectID     int64
 	shouldSucceed bool
-	projectType   project_module.APIOwnerType
+	ownerType     project_module.APIOwnerType
 }
 
 func getProjectAPIBaseString(opts *runOpts) string {
 	var projectAPIBaseString string
-	switch opts.projectType {
+	switch opts.ownerType {
 	case project_module.APIOwnerTypeIndividual:
 		projectAPIBaseString = "/api/v1/users/" + opts.owner
 	case project_module.APIOwnerTypeOrganization:
@@ -129,10 +129,10 @@ func TestProjectAPIListProjectsPagination(t *testing.T) {
 		n := fmt.Sprintf("project-%d", i)
 		projects = append(projects,
 			createProject(t, &runOpts{
-				token:       token,
-				owner:       user.LowerName,
-				repo:        repo.LowerName,
-				projectType: project_module.APIOwnerTypeRepository,
+				token:     token,
+				owner:     user.LowerName,
+				repo:      repo.LowerName,
+				ownerType: project_module.APIOwnerTypeRepository,
 			}, n))
 	}
 
@@ -184,10 +184,10 @@ func TestProjectAPIListProjectColumnsPagination(t *testing.T) {
 
 	// create project
 	project := createProject(t, &runOpts{
-		token:       token,
-		owner:       user.LowerName,
-		repo:        repo.LowerName,
-		projectType: project_module.APIOwnerTypeRepository,
+		token:     token,
+		owner:     user.LowerName,
+		repo:      repo.LowerName,
+		ownerType: project_module.APIOwnerTypeRepository,
 	}, "test-project")
 
 	// create columns
@@ -197,11 +197,11 @@ func TestProjectAPIListProjectColumnsPagination(t *testing.T) {
 		n := fmt.Sprintf("column-%d", i)
 		columns = append(columns,
 			createProjectColumn(t, &runOpts{
-				token:       token,
-				owner:       user.LowerName,
-				repo:        repo.LowerName,
-				projectType: project_module.APIOwnerTypeRepository,
-				projectID:   project.ID,
+				token:     token,
+				owner:     user.LowerName,
+				repo:      repo.LowerName,
+				ownerType: project_module.APIOwnerTypeRepository,
+				projectID: project.ID,
 			}, n))
 	}
 
@@ -257,19 +257,19 @@ func TestProjectAPIListProjectIssuesPagination(t *testing.T) {
 
 	// create project
 	project := createProject(t, &runOpts{
-		token:       token,
-		owner:       user.LowerName,
-		repo:        repo.LowerName,
-		projectType: project_module.APIOwnerTypeRepository,
+		token:     token,
+		owner:     user.LowerName,
+		repo:      repo.LowerName,
+		ownerType: project_module.APIOwnerTypeRepository,
 	}, "test-project")
 
 	// create column
 	column := createProjectColumn(t, &runOpts{
-		token:       token,
-		owner:       user.LowerName,
-		repo:        repo.LowerName,
-		projectType: project_module.APIOwnerTypeRepository,
-		projectID:   project.ID,
+		token:     token,
+		owner:     user.LowerName,
+		repo:      repo.LowerName,
+		ownerType: project_module.APIOwnerTypeRepository,
+		projectID: project.ID,
 	}, "test-column")
 
 	// create issues
@@ -280,11 +280,11 @@ func TestProjectAPIListProjectIssuesPagination(t *testing.T) {
 		issues = append(issues,
 			createProjectIssue(t,
 				&runOpts{
-					token:       token,
-					owner:       user.LowerName,
-					repo:        repo.LowerName,
-					projectID:   project.ID,
-					projectType: project_module.APIOwnerTypeRepository,
+					token:     token,
+					owner:     user.LowerName,
+					repo:      repo.LowerName,
+					projectID: project.ID,
+					ownerType: project_module.APIOwnerTypeRepository,
 				}, column.ID, n))
 	}
 
@@ -368,7 +368,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	}
 
 	// Create, Get project for an owner
-	project := createProject(t, &runOpts{token: writeToken, owner: user2.Name, projectType: project_module.APIOwnerTypeIndividual}, "Project 1")
+	project := createProject(t, &runOpts{token: writeToken, owner: user2.Name, ownerType: project_module.APIOwnerTypeIndividual}, "Project 1")
 
 	assert.NotZero(t, project.ID)
 	assert.Equal(t, "Project 1", project.Title)
@@ -395,7 +395,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
-		project := createProject(t, &runOpts{token: writeToken, owner: user2.Name, repo: repo1.Name, projectType: project_module.APIOwnerTypeRepository}, "Project 2")
+		project := createProject(t, &runOpts{token: writeToken, owner: user2.Name, repo: repo1.Name, ownerType: project_module.APIOwnerTypeRepository}, "Project 2")
 
 		assert.NotZero(t, project.ID)
 		assert.Equal(t, "Project 2", project.Title)
@@ -417,10 +417,10 @@ func TestProjectAPICRUD(t *testing.T) {
 
 	// First column is always default column
 	projectColumn1 := createProjectColumn(t, &runOpts{
-		token:       writeToken,
-		owner:       user2.Name,
-		projectType: project_module.APIOwnerTypeIndividual,
-		projectID:   project.ID,
+		token:     writeToken,
+		owner:     user2.Name,
+		ownerType: project_module.APIOwnerTypeIndividual,
+		projectID: project.ID,
 	}, "Col1")
 
 	// Color can be nil
@@ -431,10 +431,10 @@ func TestProjectAPICRUD(t *testing.T) {
 	assert.NotNil(t, projectColumn1.Sorting) // Sorting is zero by default, but "NOT NULL" according to DB model
 
 	projectColumn2 := createProjectColumn(t, &runOpts{
-		token:       writeToken,
-		owner:       user2.Name,
-		projectType: project_module.APIOwnerTypeIndividual,
-		projectID:   project.ID,
+		token:     writeToken,
+		owner:     user2.Name,
+		ownerType: project_module.APIOwnerTypeIndividual,
+		projectID: project.ID,
 	}, "Col2")
 
 	assert.NotZero(t, projectColumn2.ID)
@@ -447,11 +447,11 @@ func TestProjectAPICRUD(t *testing.T) {
 	// Add issue to a project, to the default column
 	projectIssue1 := createProjectIssue(t,
 		&runOpts{
-			token:       writeToken,
-			owner:       user2.Name,
-			repo:        repo.Name,
-			projectID:   project.ID,
-			projectType: project_module.APIOwnerTypeIndividual,
+			token:     writeToken,
+			owner:     user2.Name,
+			repo:      repo.Name,
+			projectID: project.ID,
+			ownerType: project_module.APIOwnerTypeIndividual,
 		}, 0, "TestIssue")
 
 	assert.NotZero(t, projectIssue1.ID)
@@ -462,11 +462,11 @@ func TestProjectAPICRUD(t *testing.T) {
 	// Add issue directly to a column of a project
 	projectIssue2 := createProjectIssue(t,
 		&runOpts{
-			token:       writeToken,
-			owner:       user2.Name,
-			repo:        repo.Name,
-			projectID:   project.ID,
-			projectType: project_module.APIOwnerTypeIndividual,
+			token:     writeToken,
+			owner:     user2.Name,
+			repo:      repo.Name,
+			projectID: project.ID,
+			ownerType: project_module.APIOwnerTypeIndividual,
 		}, projectColumn1.ID, "TestIssue2")
 
 	assert.NotZero(t, projectIssue2.ID)
@@ -951,7 +951,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 	// Run actions
 	runOpts.owner = pubUser2Org.Name
-	runOpts.projectType = project_module.APIOwnerTypeOrganization
+	runOpts.ownerType = project_module.APIOwnerTypeOrganization
 	runProjectWriteActions(t, runOpts, projectOpts)
 
 	// Case: Limited Org where User2 is owner
@@ -996,14 +996,14 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	// Run actions
 	runOpts.owner = user2.Name
 	runOpts.repo = user2Repo.Name
-	runOpts.projectType = project_module.APIOwnerTypeRepository
+	runOpts.ownerType = project_module.APIOwnerTypeRepository
 	runProjectWriteActions(t, runOpts, projectOpts)
 
 	// Case: Project where User2 is owner
 	// Run actions
 	runOpts.owner = user2.Name
 	runOpts.repo = ""
-	runOpts.projectType = project_module.APIOwnerTypeIndividual
+	runOpts.ownerType = project_module.APIOwnerTypeIndividual
 	runProjectWriteActions(t, runOpts, projectOpts)
 
 	// Case: Public Org where User2 team member with write access
@@ -1030,7 +1030,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "PUT", pubUser1OrgTeam.ID)
 
 	runOpts.owner = pubUser1Org.Name
-	runOpts.projectType = project_module.APIOwnerTypeOrganization
+	runOpts.ownerType = project_module.APIOwnerTypeOrganization
 	runOpts.token = adminWriteToken
 	runProjectWriteActions(t, runOpts, projectOpts)
 
@@ -1105,7 +1105,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	// Run actions
 	runOpts.owner = user1.Name
 	runOpts.repo = repoOpts.Name
-	runOpts.projectType = project_module.APIOwnerTypeRepository
+	runOpts.ownerType = project_module.APIOwnerTypeRepository
 	runProjectWriteActions(t, runOpts, projectOpts)
 
 	// Case: Repo where User2 is not owner
@@ -1123,7 +1123,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "DELETE", pubUser1OrgTeam.ID)
 	runOpts.owner = pubUser1Org.Name
 	runOpts.repo = ""
-	runOpts.projectType = project_module.APIOwnerTypeOrganization
+	runOpts.ownerType = project_module.APIOwnerTypeOrganization
 	runProjectWriteActions(t, runOpts, projectOpts)
 
 	// Case: Limited Org where User2 is not member
