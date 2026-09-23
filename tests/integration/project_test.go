@@ -2231,3 +2231,23 @@ func TestProjectWebCRUD(t *testing.T) {
 		ID: project.ID,
 	})
 }
+
+func TestReqProjectIDAssignableToIssue(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	// create test user, organization, repository and projects
+	user := forgery.CreateUser(t, nil)
+	user2 := forgery.CreateUser(t, nil)
+	repo := forgery.CreateRepository(t, user, nil)
+	repo2 := forgery.CreateRepository(t, user2, nil)
+	repoProject := forgery.CreateProject(t, repo, nil)
+	repoProject2 := forgery.CreateProject(t, repo2, nil)
+
+	session := loginUser(t, user.Name)
+	//closeURL := fmt.Sprintf("%s/%d/close", projectsURL, project1.ID)
+	path := fmt.Sprintf("/%s/%s/pulls/projects?id=%d", user.Name, repo.Name, repoProject.ID)
+	sessionPOST(t, session, path, http.StatusOK)
+
+	path2 := fmt.Sprintf("/%s/%s/pulls/projects?id=%d", user.Name, repo.Name, repoProject2.ID)
+	sessionPOST(t, session, path2, http.StatusInternalServerError)
+}

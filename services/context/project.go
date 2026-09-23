@@ -17,14 +17,16 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
 	project_module "forgejo.org/modules/project"
+	project_service "forgejo.org/services/project"
 )
 
+// ReqProjectIDAssignableToIssueAndSetData is only used when a Repo is set
 func ReqProjectIDAssignableToIssueAndSetData(ctx *Context, projectID int64) {
-	project := getProjectID(ctx, projectID)
+	project := getProjectByID(ctx, projectID)
 	if ctx.Written() {
 		return
 	}
-	reqProjectAssignableToIssue(ctx, project)
+	reqPermissionToAssignProjectToIssue(ctx, project.Type)
 	if ctx.Written() {
 		return
 	}
@@ -32,16 +34,18 @@ func ReqProjectIDAssignableToIssueAndSetData(ctx *Context, projectID int64) {
 	ctx.Data["project_id"] = project.ID
 }
 
+// ReqProjectIDAssignableToIssue is only used when a Repo is set
 func ReqProjectIDAssignableToIssue(ctx *Context, projectID int64) {
-	project := getProjectID(ctx, projectID)
+	project := getProjectByID(ctx, projectID)
 	if ctx.Written() {
 		return
 	}
-	reqProjectAssignableToIssue(ctx, project)
+	reqPermissionToAssignProjectToIssue(ctx, project.Type)
 }
 
-func getProjectID(ctx *Context, projectID int64) *project_model.Project {
-	project, err := project_model.GetProjectByID(ctx, projectID)
+// getProjectByID relies on the fact, that ctx.Repo.Repository is always set
+func getProjectByID(ctx *Context, projectID int64) *project_model.Project {
+	project, err := project_service.GetProjectByIDForOwner(ctx, projectID, ctx.Repo.Repository.ID)
 	if err != nil {
 		if project_model.IsErrProjectNotExist(err) {
 			ctx.NotFound(fmt.Sprintf("project %d is not found", projectID), nil)
@@ -52,20 +56,6 @@ func getProjectID(ctx *Context, projectID int64) *project_model.Project {
 		return nil
 	}
 	return project
-}
-
-func reqProjectAssignableToIssue(ctx *Context, project *project_model.Project) {
-	reqValidAndConsistentProject(ctx, project)
-	if ctx.Written() {
-		return
-	}
-	reqPermissionToAssignProjectToIssue(ctx, project.Type)
-}
-
-func reqValidAndConsistentProject(ctx *Context, project *project_model.Project) {
-	if project.RepoID != ctx.Repo.Repository.ID && project.OwnerID != ctx.Repo.Repository.OwnerID {
-		ctx.NotFound(fmt.Sprintf("project %d does not belong", project.ID), nil)
-	}
 }
 
 func reqPermissionToAssignProjectToIssue(ctx *Context, ownerType project_module.OwnerType) {
@@ -101,10 +91,6 @@ func reqPermissionToAssignProjectToIssue(ctx *Context, ownerType project_module.
 		ctx.ServerError(fmt.Sprintf("unexpected project type %v", ownerType), nil)
 	}
 }
-
-// TODO: the code above was moved here recently in upstream.
-// TODO: our project API stuff is below
-// TODO: check what can be removed, merged, re-used
 
 type Project struct {
 	ProjectID       int64

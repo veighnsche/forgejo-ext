@@ -4,7 +4,6 @@
 package project
 
 import (
-	"errors"
 	"testing"
 
 	"forgejo.org/models/db"
@@ -470,7 +469,7 @@ func TestMoveIssuesOnProjectColumnErrors(t *testing.T) {
 	}
 }
 
-func TestGetProjectByIDForOwnerErrors(t *testing.T) {
+func TestGetProjectByIDForOwner(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// prepare individual, repository, organization project
@@ -504,6 +503,12 @@ func TestGetProjectByIDForOwnerErrors(t *testing.T) {
 	require.NoError(t, CreateProject(t.Context(), project))
 	require.NoError(t, CreateProject(t.Context(), repoProject))
 	require.NoError(t, CreateProject(t.Context(), orgProject))
+
+	t.Run("valid project", func(t *testing.T) {
+		wantProject, err := GetProjectByIDForOwner(t.Context(), project.ID, ownerID)
+		require.NoError(t, err)
+		assert.Equal(t, wantProject.Title, projectTitle)
+	})
 
 	t.Run("individual, wrong owner", func(t *testing.T) {
 		_, err := GetProjectByIDForOwner(t.Context(), project.ID, 99)
@@ -583,7 +588,7 @@ func TestUpdateProject(t *testing.T) {
 	})
 }
 
-func TestCRUDProject(t *testing.T) {
+func TestCUDProject(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	project := &project_model.Project{
@@ -602,46 +607,8 @@ func TestCRUDProject(t *testing.T) {
 	err := CreateProject(t.Context(), project)
 	require.NoError(t, err)
 
-	wantProject, err := GetProjectByIDForOwner(t.Context(), project.ID, ownerID)
-	require.NoError(t, err)
+	wantProject := unittest.AssertExistsAndLoadBean(t, &project_model.Project{ID: project.ID})
 	assert.Equal(t, wantProject.Title, projectTitle)
-
-	t.Run("Wrong OwnerID", func(t *testing.T) {
-		repoProject := &project_model.Project{
-			RepoID:       repoID,
-			Title:        projectTitle,
-			Type:         projectTypeRepo.ToOwnerType(),
-			Description:  projectDescription,
-			CreatorID:    ownerID,
-			TemplateType: templateType,
-			CardType:     cardType,
-		}
-
-		orgProject := &project_model.Project{
-			OwnerID:      orgOwnerID,
-			Title:        projectTitle,
-			Type:         projectTypeOrg.ToOwnerType(),
-			Description:  projectDescription,
-			CreatorID:    ownerID,
-			TemplateType: templateType,
-			CardType:     cardType,
-		}
-
-		err := CreateProject(t.Context(), repoProject)
-		require.NoError(t, err)
-
-		err = CreateProject(t.Context(), orgProject)
-		require.NoError(t, err)
-
-		_, err = GetProjectByIDForOwner(t.Context(), project.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
-
-		_, err = GetProjectByIDForOwner(t.Context(), repoProject.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
-
-		_, err = GetProjectByIDForOwner(t.Context(), orgProject.ID, 99)
-		assert.True(t, errors.Is(err, util.ErrInvalidArgument))
-	})
 
 	// update project
 	updated := &project_structs.CreateOrUpdateProjectOptions{
