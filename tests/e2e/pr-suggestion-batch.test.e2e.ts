@@ -10,16 +10,16 @@
 // routers/web/repo/pull_review.go
 // @watch end
 
-import {expect} from '@playwright/test';
+import {expect, type Page} from '@playwright/test';
 import {test, create_temp_user, dynamic_id} from './utils_e2e.ts';
 
-// Creates a code-comment carrying a single ```suggestion block on a proposed-side line, via the Files-changed UI.
-async function addSuggestion(page, lineText: string, body: string) {
-  const row = page.getByText(lineText, {exact: true}).locator('xpath=ancestor::tr[1]');
-  await row.locator('button.add-code-comment').click();
-  const form = row.locator('xpath=following-sibling::tr[1]').locator('.comment-code-cloud form');
-  await form.locator('textarea.markdown-text-editor').fill(body);
-  await form.getByText('Add single comment').click();
+// Comments on the diff line showing `lineText` with a single ```suggestion block.
+async function addSuggestion(page: Page, lineText: string, body: string) {
+  const line = page.getByRole('row').filter({has: page.getByText(lineText, {exact: true})});
+  await line.getByRole('button', {name: 'Add line comment'}).click();
+  // Each existing conversation carries a hidden reply form with the same placeholder; target the open one.
+  await page.getByPlaceholder('Leave a comment').filter({visible: true}).fill(body);
+  await page.getByRole('button', {name: 'Add single comment'}).click();
 }
 
 test('PR: batch apply suggestions (create, edit, batch, discard, apply)', async ({browser, request}, workerInfo) => {
@@ -54,44 +54,47 @@ test('PR: batch apply suggestions (create, edit, batch, discard, apply)', async 
     await expect(firstDiff.locator('tr.add-code')).toContainText('Line 20--batched');
 
     await addSuggestion(page, 'Line 50', '```suggestion\nLine 50--batched\n```');
+    const addToBatch = page.getByRole('button', {name: 'Add suggestion to batch'});
+    const removeFromBatch = page.getByRole('button', {name: 'Remove from batch'});
     await expect(page.locator('.suggestion-diff')).toHaveCount(2);
-    await expect(page.locator('.add-suggestion-batch')).toHaveCount(2);
+    await expect(addToBatch).toHaveCount(2);
 
+    // Editing a suggestion re-renders its diff and keeps its batch button, without a page reload.
     const firstComment = page.locator('.comment').filter({hasText: 'Line 20--batched'});
-    await firstComment.locator('details.dropdown summary').click();
-    await firstComment.locator('details.dropdown .content .edit-content').click();
-    const editZone = firstComment.locator('.edit-content-zone');
-    await editZone.locator('textarea.markdown-text-editor').fill('```suggestion\nLine 20--edited\n```');
-    await editZone.locator('button[data-button-name="save-edit"]').click();
-    await expect(page.locator('.suggestion-diff').first().locator('tr.add-code')).toContainText('Line 20--edited');
-    await expect(page.locator('.add-suggestion-batch')).toHaveCount(2);
+    await firstComment.getByLabel('Comment menu').click();
+    await firstComment.getByRole('button', {name: 'Edit', exact: true}).click();
+    await firstComment.getByRole('textbox').fill('```suggestion\nLine 20--edited\n```');
+    await firstComment.getByRole('button', {name: 'Save'}).click();
+    await expect(firstDiff.locator('tr.add-code')).toContainText('Line 20--edited');
+    await expect(addToBatch).toHaveCount(2);
 
     // Starting a batch is exclusive: single-applies and the review box hide, the batch bar shows the count.
-    const addButtons = page.locator('.add-suggestion-batch');
-    const singleApply = page.locator('.apply-suggestion-single').first();
+    const applySingle = page.getByRole('button', {name: 'Apply suggestion'}).first();
     const reviewBox = page.locator('#review-box');
-    const bar = page.locator('#suggestion-batch-bar');
-    await addButtons.nth(0).click();
-    await addButtons.nth(1).click();
-    await expect(singleApply).toBeHidden();
+    const discard = page.getByRole('button', {name: 'Discard'});
+    const commitBatch = page.getByRole('button', {name: 'Commit suggestions'});
+    await addToBatch.first().click();
+    await addToBatch.first().click(); // each click relabels the button, so the next one is again the first
+    await expect(removeFromBatch).toHaveCount(2);
+    await expect(applySingle).toBeHidden();
     await expect(reviewBox).toBeHidden();
-    await expect(bar).toBeVisible();
-    await expect(bar.locator('.batch-count')).toHaveText('2');
+    await expect(commitBatch).toBeVisible();
+    await expect(commitBatch).toHaveText('Commit suggestions (2)');
 
     // Discarding the batch restores the single-apply flow.
-    await bar.locator('.clear-suggestion-batch').click();
-    await expect(bar).toBeHidden();
-    await expect(singleApply).toBeVisible();
+    await discard.click();
+    await expect(commitBatch).toBeHidden();
+    await expect(addToBatch).toHaveCount(2);
+    await expect(applySingle).toBeVisible();
     await expect(reviewBox).toBeVisible();
 
     // Rebuild the batch and commit it through the shared apply modal.
-    await addButtons.nth(0).click();
-    await addButtons.nth(1).click();
-    await expect(bar.locator('.batch-count')).toHaveText('2');
-    await bar.locator('.commit-suggestion-batch').click();
-    const modal = page.locator('#apply-suggestion-modal');
+    await addToBatch.first().click();
+    await addToBatch.first().click();
+    await commitBatch.click();
+    const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
-    await modal.locator('.ok.button').click();
+    await modal.getByRole('button', {name: 'Apply suggestion'}).click();
 
     // The batch lands as a single commit on the head branch, carrying the edited content.
     const headContent = async () => {
