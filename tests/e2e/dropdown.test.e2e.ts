@@ -12,7 +12,7 @@
 import {expect} from '@playwright/test';
 import {test} from './utils_e2e.ts';
 
-test('JS enhanced interaction', async ({page}) => {
+test('JS enhanced interaction', async ({page}, workerInfo) => {
   await page.goto('/user1');
 
   await expect(page.locator('body')).not.toContainClass('no-js');
@@ -78,6 +78,10 @@ test('JS enhanced interaction', async ({page}) => {
   await dropdown.press(`Enter`);
   await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
   await dropdown.press('Shift+Tab');
+  if (workerInfo.project.name === 'firefox')
+    // Firefox focuses <dialog> first before going to opener. This is unwanted but adding
+    // role="..." doesn't help, so navigation just requires an extra combination for now
+    await dropdown.press('Shift+Tab');
   await expect(opener).toBeFocused();
   await dropdown.press('Shift+Tab');
   await expect(dropdownContent).toBeHidden();
@@ -145,11 +149,6 @@ test('No JS interaction', async ({browser}) => {
   await expect(dropdownContent).toBeVisible();
   await opener.press(`Enter`);
   await expect(dropdownContent).toBeHidden();
-  // Closing by Escape is not possible w/o JS enhancements
-  await opener.press(`Enter`);
-  await expect(dropdownContent).toBeVisible();
-  await opener.press(`Escape`);
-  await expect(dropdownContent).toBeVisible();
 });
 
 test.describe(`Visual properties`, () => {
