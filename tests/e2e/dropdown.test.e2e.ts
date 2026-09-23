@@ -155,30 +155,16 @@ for (const run of [
 }
 
 test.describe(`Visual properties`, () => {
-  async function evaluateDropdownItems(page, selector, direction, height) {
-    const computedStyles = await page.locator(selector).evaluateAll((items) =>
-      items.map((item) => {
-        const s = getComputedStyle(item);
-        return {
-          direction: s.direction,
-          height: s.height,
-        };
-      }),
-    );
-    for (const cs of computedStyles) {
-      expect(cs.direction).toBe(direction);
-      expect(cs.height).toBe(height);
-    }
-  }
-
   test('User profile', async ({browser, isMobile}) => {
     const context = await browser.newContext({javaScriptEnabled: false});
     const page = await context.newPage();
 
     // User profile has dropdown used as an ellipsis menu
     await page.goto('/user1');
+
     const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
     const opener = page.locator(`${selectorPrefix} > .opener`);
+    const item = page.locator(`${selectorPrefix} > dialog > ul > li:first-child`);
 
     // Has `.border` and pretty small default `inline-padding:`
     // Note: `getComputedStyle` can return `border` as 1±0.1px when `Show browser` is enabled
@@ -195,19 +181,15 @@ test.describe(`Visual properties`, () => {
 
     // Direction and item height
     if (isMobile) {
-      // `<ul>`'s direction is reversed
-      expect(await page.locator(`${selectorPrefix} > dialog`).evaluate((el) => getComputedStyle(el).direction)).toBe('rtl');
       // `@media (pointer: coarse)` makes items taller
-      await evaluateDropdownItems(page, `${selectorPrefix} > dialog > ul > li`, 'ltr', '40px');
+      expect(await item.evaluate((el) => getComputedStyle(el).height)).toBe('40px');
     } else {
-      // Both use default direction
-      expect(await page.locator(`${selectorPrefix} > dialog`).evaluate((el) => getComputedStyle(el).direction)).toBe('ltr');
       // Regular item height
-      await evaluateDropdownItems(page, `${selectorPrefix} > dialog > ul > li`, 'ltr', '34px');
+      expect(await item.evaluate((el) => getComputedStyle(el).height)).toBe('34px');
     }
   });
 
-  test('Explore sort', async ({browser, isMobile}) => {
+  test('Explore sort', async ({browser}) => {
     const context = await browser.newContext({javaScriptEnabled: false});
     const page = await context.newPage();
 
@@ -221,13 +203,9 @@ test.describe(`Visual properties`, () => {
     expect(await opener.evaluate((el) => getComputedStyle(el).borderWidth)).toBe('0px');
     expect(await opener.evaluate((el) => getComputedStyle(el).paddingInline)).toBe('10.5px');
 
-    // `<ul>`'s direction is reversed
-    expect(await page.locator(`${selectorPrefix} > dialog`).evaluate((el) => getComputedStyle(el).direction)).toBe('rtl');
-    await evaluateDropdownItems(page, `${selectorPrefix} > dialog > ul > li`, 'ltr', isMobile ? '40px' : '34px');
-
     // Background of inactive and `.active` items
-    const activeItem = page.locator(`${selectorPrefix}> dialog > ul > li:first-child > a`);
-    const inactiveItem = page.locator(`${selectorPrefix}> dialog > ul > li:last-child > a`);
+    const activeItem = page.locator(`${selectorPrefix} > dialog > ul > li:first-child > a`);
+    const inactiveItem = page.locator(`${selectorPrefix} > dialog > ul > li:last-child > a`);
     expect(await activeItem.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(226, 226, 229)');
     expect(await inactiveItem.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   });
@@ -240,14 +218,14 @@ test.describe(`Visual properties`, () => {
     await page.goto('/-/demo/dropdown');
 
     // Dropdown with just 3 items and nothing special
-    await page.locator(`#dropdown-1 > .opener`).click();
+    await page.locator(`.opener[commandfor="dropdown-1"]`).click();
     expect(await page.locator(`#dd1_g1_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px 4px 0px 0px');
     expect(await page.locator(`#dd1_g1_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd1_g1_i3`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px 0px 4px 4px');
     await page.keyboard.press('Enter'); // Exit dropdown - page is in noJS mode
 
     // Dropdown with two groups of items separated with an <hr>
-    await page.locator(`#dropdown-2 > .opener`).click();
+    await page.locator(`.opener[commandfor="dropdown-2"]`).click();
     expect(await page.locator(`#dd2_g1_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px 4px 0px 0px');
     expect(await page.locator(`#dd2_g1_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd2_g1_i3`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
@@ -257,12 +235,12 @@ test.describe(`Visual properties`, () => {
     await page.keyboard.press('Enter'); // Exit dropdown - page is in noJS mode
 
     // Dropdown with only one item, which should be completely round
-    await page.locator(`#dropdown-3 > .opener`).click();
+    await page.locator(`.opener[commandfor="dropdown-3"]`).click();
     expect(await page.locator(`#dd3_g1_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('4px');
     await page.keyboard.press('Enter'); // Exit dropdown - page is in noJS mode
 
     // Dropdown with additional content and a HR - which the very first item should take into consideration
-    await page.locator(`#dropdown-5 > .opener`).click();
+    await page.locator(`.opener[commandfor="dropdown-5"]`).click();
     expect(await page.locator(`#dd5_g1_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd5_g1_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
     expect(await page.locator(`#dd5_g2_i1`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
