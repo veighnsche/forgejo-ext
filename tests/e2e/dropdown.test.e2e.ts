@@ -12,144 +12,147 @@
 import {expect} from '@playwright/test';
 import {test} from './utils_e2e.ts';
 
-test('JS enhanced interaction', async ({page}, workerInfo) => {
-  await page.goto('/user1');
+for (const run of [
+  {title: 'JS off', useJs: false},
+  {title: 'JS on', useJs: true},
+]) {
+  test.describe(run.title, () => {
+    test.use({javaScriptEnabled: run.useJs});
 
-  await expect(page.locator('body')).not.toContainClass('no-js');
-  const nojsNotice = page.locator('body .full noscript');
-  await expect(nojsNotice).toBeHidden();
+    const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
+    test('Click open/close', async ({page}) => {
+      await page.goto('/user1');
 
-  // Open and close by clicking opener
-  const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
-  const dropdown = page.locator(selectorPrefix);
-  const opener = page.locator(`${selectorPrefix} > .opener`);
-  const dropdownContent = page.locator(`${selectorPrefix} > dialog`);
-  await expect(dropdownContent).toBeHidden();
-  await opener.click();
-  await expect(dropdownContent).toBeVisible();
-  await opener.click();
-  await expect(dropdownContent).toBeHidden();
+      // Open and close by clicking opener
+      const opener = page.locator(`${selectorPrefix} > .opener`);
+      const dropdownContent = page.locator(`${selectorPrefix} > dialog`);
+      await expect(dropdownContent).toBeHidden();
+      await opener.click();
+      await expect(dropdownContent).toBeVisible();
+      await opener.click();
+      await expect(dropdownContent).toBeHidden();
 
-  // Close by clicking elsewhere
-  const elsewhere = page.locator('.username');
-  await expect(dropdownContent).toBeHidden();
-  await opener.click();
-  await expect(dropdownContent).toBeVisible();
-  await elsewhere.click();
-  await expect(dropdownContent).toBeHidden();
+      // Open by clicking opener, then close by clicking elsewhere
+      const elsewhere = page.locator('.username');
+      await expect(dropdownContent).toBeHidden();
+      await opener.click();
+      await expect(dropdownContent).toBeVisible();
+      await elsewhere.click();
+      await expect(dropdownContent).toBeHidden();
+    });
 
-  // Open and close with keypressing
-  await opener.focus();
-  // Open with Enter, close with Space
-  await opener.press(`Enter`);
-  await expect(dropdownContent).toBeVisible();
-  await opener.press(`Space`);
-  await expect(dropdownContent).toBeHidden();
-  // Open with Space, close with Enter
-  await opener.press(`Space`);
-  await expect(dropdownContent).toBeVisible();
-  await opener.press(`Enter`);
-  await expect(dropdownContent).toBeHidden();
-  // Open with Enter, close with Enter
-  await opener.press(`Enter`);
-  await expect(dropdownContent).toBeVisible();
-  await opener.press(`Escape`);
-  await expect(dropdownContent).toBeHidden();
+    test('Enter/Space/Escape open/close', async ({page}) => {
+      await page.goto('/user1');
 
-  // Open and navigate with ArrowDown, close with Tab
-  await opener.focus();
-  await dropdown.press(`ArrowDown`);
-  await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
-  await dropdown.press(`ArrowDown`);
-  await expect(page.locator(`a[href$=".atom"]`)).toBeFocused();
-  await dropdown.press(`ArrowDown`);
-  await expect(page.locator(`a[href$=".keys"]`)).toBeFocused();
-  await dropdown.press(`ArrowDown`);
-  await expect(page.locator(`a[href$=".gpg"]`)).toBeFocused();
-  // ArrowDown won't move us farther than the last dropdown item
-  await dropdown.press(`ArrowDown`);
-  await expect(page.locator(`a[href$=".gpg"]`)).toBeFocused();
-  // Pressing Tab on last item will move us away from the dropdown and close the dropdown
-  await dropdown.press(`Tab`);
-  await expect(dropdownContent).toBeHidden();
+      const opener = page.locator(`${selectorPrefix} > .opener`);
+      const dropdownContent = page.locator(`${selectorPrefix} > dialog`);
 
-  // Navigate and close with Shift+Tab
-  await opener.focus();
-  await dropdown.press(`Enter`);
-  await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
-  await dropdown.press('Shift+Tab');
-  if (workerInfo.project.name === 'firefox')
-    // Firefox focuses <dialog> first before going to opener. This is unwanted but adding
-    // role="..." doesn't help, so navigation just requires an extra combination for now
-    await dropdown.press('Shift+Tab');
-  await expect(opener).toBeFocused();
-  await dropdown.press('Shift+Tab');
-  await expect(dropdownContent).toBeHidden();
+      await opener.focus();
+      // Open with Enter, close with Space
+      await opener.press(`Enter`);
+      await expect(dropdownContent).toBeVisible();
+      await opener.press(`Space`);
+      await expect(dropdownContent).toBeHidden();
 
-  // Navigate with ArrowUp
-  await opener.focus();
-  await dropdown.press(`ArrowDown`);
-  await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
-  await dropdown.press(`ArrowDown`);
-  await expect(page.locator(`a[href$=".atom"]`)).toBeFocused();
-  await dropdown.press(`ArrowUp`);
-  await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
-  // Pressing ArrowUp on first item will move us to opener, but no farther from here
-  await dropdown.press(`ArrowUp`);
-  await expect(opener).toBeFocused();
-  await dropdown.press(`Escape`);
-  await expect(dropdownContent).toBeHidden();
+      // Open with Space, close with Enter
+      await opener.press(`Space`);
+      await expect(dropdownContent).toBeVisible();
+      await opener.press(`Enter`);
+      await expect(dropdownContent).toBeHidden();
 
-  // Open and then close by opening a different dropdown
-  const languageMenu = page.locator('.language-menu');
-  await opener.click();
-  await expect(dropdownContent).toBeVisible();
-  await expect(languageMenu).toBeHidden();
-  await page.locator('.language.dropdown').click();
-  await expect(dropdownContent).toBeHidden();
-  await expect(languageMenu).toBeVisible();
-});
+      // Open with Enter, close with Enter
+      await opener.press(`Enter`);
+      await expect(dropdownContent).toBeVisible();
+      await opener.press(`Escape`);
+      await expect(dropdownContent).toBeHidden();
+    });
 
-test('No JS interaction', async ({browser}) => {
-  const context = await browser.newContext({javaScriptEnabled: false});
-  const nojsPage = await context.newPage();
-  await nojsPage.goto('/user1');
+    test('Close by opening a different dropdown', async ({page}) => {
+      await page.goto('/user1');
 
-  const nojsNotice = nojsPage.locator('body .full noscript');
-  await expect(nojsNotice).toBeVisible();
-  await expect(nojsPage.locator('body')).toContainClass('no-js');
+      const opener = page.locator(`${selectorPrefix} > .opener`);
+      const dropdownContent = page.locator(`${selectorPrefix} > dialog`);
 
-  // Open and close by clicking opener
-  const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
-  const opener = nojsPage.locator(`${selectorPrefix} > .opener`);
-  const dropdownContent = nojsPage.locator(`${selectorPrefix} > dialog`);
-  await expect(dropdownContent).toBeHidden();
-  await opener.click();
-  await expect(dropdownContent).toBeVisible();
-  await opener.click();
-  await expect(dropdownContent).toBeHidden();
+      // Open and then close by opening a different dropdown
+      const languageMenu = page.locator('.language-menu');
+      await opener.click();
+      await expect(dropdownContent).toBeVisible();
+      await expect(languageMenu).toBeHidden();
+      await page.locator('.language.dropdown').click();
+      await expect(dropdownContent).toBeHidden();
+      if (run.useJs)
+        // languageMenu won't open w/o JS because it is a legacy dropdown
+        await expect(languageMenu).toBeVisible();
+    });
 
-  // Close by clicking elsewhere (by hitting ::before with increased z-index)
-  const elsewhere = nojsPage.locator('#navbar');
-  await expect(dropdownContent).toBeHidden();
-  await opener.click();
-  await expect(dropdownContent).toBeVisible();
-  // eslint-disable-next-line playwright/no-force-option
-  await elsewhere.click({force: true});
-  await expect(dropdownContent).toBeHidden();
+    test('Tab navigation', async ({page}, workerInfo) => {
+      test.skip(!run.useJs, 'Proper "close on Shift+Tab" relies on focusout JS event');
 
-  // Open and close with keypressing
-  // Open with Enter, close with Space
-  await opener.press(`Enter`);
-  await expect(dropdownContent).toBeVisible();
-  await opener.press(`Space`);
-  await expect(dropdownContent).toBeHidden();
-  // Open with Space, close with Enter
-  await opener.press(`Space`);
-  await expect(dropdownContent).toBeVisible();
-  await opener.press(`Enter`);
-  await expect(dropdownContent).toBeHidden();
-});
+      await page.goto('/user1');
+
+      const opener = page.locator(`${selectorPrefix} > .opener`);
+      const dropdown = page.locator(selectorPrefix);
+      const dropdownContent = page.locator(`${selectorPrefix} > dialog`);
+
+      // Navigate and close with Shift+Tab
+      await opener.focus();
+      await dropdown.press(`Enter`);
+      await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
+      await dropdown.press('Shift+Tab');
+      if (workerInfo.project.name === 'firefox')
+        // Firefox focuses <dialog> first before going to opener. This is unwanted but adding
+      // role="..." doesn't help, so navigation just requires an extra combination for now
+      await dropdown.press('Shift+Tab');
+      await expect(opener).toBeFocused();
+      await dropdown.press('Shift+Tab');
+      if (workerInfo.project.name === 'firefox')
+        // Ditto
+      await dropdown.press('Shift+Tab');
+      await expect(dropdownContent).toBeHidden();
+    });
+
+    test('Arrow key interaction', async ({page}) => {
+      test.skip(!run.useJs, 'Arrow key interaction is JS only functionality');
+
+      await page.goto('/user1');
+
+      const opener = page.locator(`${selectorPrefix} > .opener`);
+      const dropdown = page.locator(selectorPrefix);
+      const dropdownContent = page.locator(`${selectorPrefix} > dialog`);
+
+      // Open and navigate with ArrowDown, close with ArrowUp
+      await opener.focus();
+      await dropdown.press(`ArrowDown`);
+      await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
+      await dropdown.press(`ArrowDown`);
+      await expect(page.locator(`a[href$=".atom"]`)).toBeFocused();
+      await dropdown.press(`ArrowDown`);
+      await expect(page.locator(`a[href$=".keys"]`)).toBeFocused();
+      await dropdown.press(`ArrowDown`);
+      await expect(page.locator(`a[href$=".gpg"]`)).toBeFocused();
+      // ArrowDown won't move us farther than the last dropdown item
+      await dropdown.press(`ArrowDown`);
+      await expect(page.locator(`a[href$=".gpg"]`)).toBeFocused();
+      // Pressing Tab on last item will move us away from the dropdown and close the dropdown
+      await dropdown.press(`Tab`);
+      await expect(dropdownContent).toBeHidden();
+
+      // Open with ArrowDown, close with with ArrowUp
+      await opener.focus();
+      await dropdown.press(`ArrowDown`);
+      await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
+      await dropdown.press(`ArrowDown`);
+      await expect(page.locator(`a[href$=".atom"]`)).toBeFocused();
+      await dropdown.press(`ArrowUp`);
+      await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
+      // Pressing ArrowUp on first item will move us to opener, but no farther from here
+      await dropdown.press(`ArrowUp`);
+      await expect(opener).toBeFocused();
+      await dropdown.press(`Escape`);
+      await expect(dropdownContent).toBeHidden();
+    });
+  });
+}
 
 test.describe(`Visual properties`, () => {
   async function evaluateDropdownItems(page, selector, direction, height) {
