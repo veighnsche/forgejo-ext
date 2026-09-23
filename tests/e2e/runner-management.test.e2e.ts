@@ -263,29 +263,32 @@ test.describe('Runners of user2', () => {
   test('delete runner', async ({page}) => {
     await page.goto('/user/settings/actions/runners');
 
+    const area = page.locator('.page-content');
+
     // We have to create a new runner because changes to fixtures affect the remainder of the tests in this file.
-    await page.getByRole('link', {name: 'Create new runner'}).click();
-    await page.getByRole('textbox', {name: 'Name *'}).fill('runner-660332');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Description of runner-660332');
-    await page.getByRole('button', {name: 'Create'}).click();
+    await area.getByRole('link', {name: 'Create new runner'}).click();
+    await area.getByRole('textbox', {name: 'Name *'}).fill('runner-660332');
+    await area.getByRole('textbox', {name: 'Description'}).fill('Description of runner-660332');
+    await area.getByRole('button', {name: 'Create'}).click();
 
     // Go back to list of runners.
-    await page.getByRole('link', {name: 'Runners', exact: true}).click();
+    await area.getByRole('link', {name: 'Runners', exact: true}).click();
+    const runnerList = page.locator('.runner-list');
 
-    await expect(page.getByRole('heading', {name: 'Manage runners'})).toBeVisible();
-    await expect(page.getByRole('document')).toContainText('runner-660332');
+    await expect(area.getByRole('heading', {name: 'Manage runners'})).toBeVisible();
+    await expect(runnerList).toContainText('runner-660332');
 
     // Delete the runner that was just created.
-    await page.getByRole('button', {name: 'Delete runner-660332'}).click();
+    await runnerList.getByRole('button', {name: 'Delete runner-660332'}).click();
 
     // Confirm deletion
-    await expect(page.getByRole('document')).toContainText('Confirm to delete this runner');
+    await expect(runnerList).toContainText('Confirm to delete this runner');
 
-    await page.getByRole('button', {name: 'Yes', exact: true}).click();
+    await runnerList.getByRole('button', {name: 'Yes', exact: true}).click();
 
     // Verify that the runner is gone.
-    await expect(page.locator('#flash-message')).toHaveText('Runner deleted successfully');
-    await expect(page.getByRole('document')).not.toContainText('runner-660332');
+    await expect(runnerList.locator('#flash-message')).toHaveText('Runner deleted successfully');
+    await expect(runnerList).not.toContainText('runner-660332');
   });
 });
 
