@@ -1,4 +1,4 @@
-import {emojiKeys, emojiHTML, emojiString} from './emoji.js';
+import {emojiKeys, emojiHTML, emojiString} from './emoji.ts';
 import {htmlEscape} from 'escape-goat';
 
 function makeCollections({mentions, emoji}) {

@@ -11,6 +11,7 @@
     "moduleResolution": "Bundler",
     "lib": ["dom", "dom.iterable", "dom.asynciterable", "esnext"],
     "allowImportingTsExtensions": true,
+    "allowArbitraryExtensions": true,
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "alwaysStrict": true,

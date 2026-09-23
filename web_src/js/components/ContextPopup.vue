@@ -2,7 +2,7 @@
 import {SvgIcon} from '../svg.js';
 import {contrastColor} from '../utils/color.js';
 import {GET} from '../modules/fetch.js';
-import {emojiHTML} from '../features/emoji.js';
+import {emojiHTML} from '../features/emoji.ts';
 import {htmlEscape} from 'escape-goat';
 
 const {appSubUrl, i18n} = window.config;

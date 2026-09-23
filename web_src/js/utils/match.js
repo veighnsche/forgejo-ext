@@ -1,4 +1,4 @@
-import {emojiKeys} from '../features/emoji.js';
+import {emojiKeys} from '../features/emoji.ts';
 import {GET} from '../modules/fetch.js';
 
 const maxMatches = 6;

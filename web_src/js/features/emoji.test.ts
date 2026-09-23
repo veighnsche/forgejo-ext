@@ -1,4 +1,5 @@
-import {emojiString, emojiHTML} from './features/emoji.js';
+import {expect, test} from 'vitest';
+import {emojiString, emojiHTML} from './emoji.ts';
 
 test('emojiString', () => {
   expect(emojiString('+1')).toEqual('👍');

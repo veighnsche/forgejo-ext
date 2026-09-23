@@ -1,6 +1,6 @@
 import $ from 'jquery';
 import {htmlEscape} from 'escape-goat';
-import {emojiHTML} from './emoji.js';
+import {emojiHTML} from './emoji.ts';
 
 const {appSubUrl} = window.config;
 
