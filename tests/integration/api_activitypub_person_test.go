@@ -110,7 +110,7 @@ func TestActivityPubPersonInbox(t *testing.T) {
 		// invalid request is rejected
 		resp, err := c.Post([]byte{}, user2inboxurl)
 		require.NoError(t, err)
-		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 }
 
