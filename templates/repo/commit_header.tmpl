@@ -138,7 +138,7 @@
 	<div class="branch-and-tag-area ui attached segment {{$class}}" data-text-default-branch-tooltip="{{ctx.Locale.Tr "repo.commit.contained_in_default_branch"}}">
 		<details>
 			<summary class="load-branches-and-tags" data-text="{{ctx.Locale.Tr "repo.commit.contained_in"}}" data-fetch-url="{{.RepoLink}}/commit/{{.CommitID}}/load-branches-and-tags">{{ctx.Locale.Tr "repo.commit.load_referencing_branches_and_tags"}}</summary>
-			<div class="branch-and-tag-detail tw-hidden">
+			<div class="branch-and-tag-detail">
 				<div class="tw-flex tw-mt-2">
 					<div class="tw-p-1">{{svg "octicon-git-branch"}}</div>
 					<div class="branch-area flex-text-block tw-flex-wrap tw-flex-1"></div>

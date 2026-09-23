@@ -1,18 +1,17 @@
-import {hideElem, showElem, toggleElem} from '../utils/dom.js';
+import {toggleElem} from '../utils/dom.js';
 import {GET} from '../modules/fetch.js';
 
 async function loadBranchesAndTags(area, btn) {
   const state = btn.getAttribute('data-state');
-  if (state == 'fetching' || state == 'fetched') return;
+  if (state === 'fetching' || state === 'fetched') return;
   try {
     btn.setAttribute('data-state', 'fetching');
     const res = await GET(btn.getAttribute('data-fetch-url'));
     const data = await res.json();
     addTags(area, data.tags);
     addBranches(area, data.branches, data.default_branch);
-    showElem(area.querySelectorAll('.branch-and-tag-detail'));
   } finally {
-    btn.innerText = btn.getAttribute('data-text')
+    btn.textContent = btn.getAttribute('data-text');
     btn.setAttribute('data-state', 'fetched');
   }
 }
