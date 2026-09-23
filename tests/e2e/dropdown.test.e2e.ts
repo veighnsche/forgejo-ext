@@ -20,6 +20,7 @@ for (const run of [
     test.use({javaScriptEnabled: run.useJs});
 
     const selectorPrefix = '#profile-avatar-card .dialog-dropdown';
+
     test('Click open/close', async ({page}) => {
       await page.goto('/user1');
 
@@ -80,9 +81,10 @@ for (const run of [
       await expect(languageMenu).toBeHidden();
       await page.locator('.language.dropdown').click();
       await expect(dropdownContent).toBeHidden();
-      if (run.useJs)
+      if (run.useJs) {
         // languageMenu won't open w/o JS because it is a legacy dropdown
         await expect(languageMenu).toBeVisible();
+      }
     });
 
     test('Tab navigation', async ({page}, workerInfo) => {
@@ -99,15 +101,17 @@ for (const run of [
       await dropdown.press(`Enter`);
       await expect(page.locator(`a[href$=".rss"]`)).toBeFocused();
       await dropdown.press('Shift+Tab');
-      if (workerInfo.project.name === 'firefox')
+      if (workerInfo.project.name === 'firefox') {
         // Firefox focuses <dialog> first before going to opener. This is unwanted but adding
-      // role="..." doesn't help, so navigation just requires an extra combination for now
-      await dropdown.press('Shift+Tab');
+        // role="..." doesn't help, so navigation just requires an extra combination for now
+        await dropdown.press('Shift+Tab');
+      }
       await expect(opener).toBeFocused();
       await dropdown.press('Shift+Tab');
-      if (workerInfo.project.name === 'firefox')
+      if (workerInfo.project.name === 'firefox') {
         // Ditto
-      await dropdown.press('Shift+Tab');
+        await dropdown.press('Shift+Tab');
+      }
       await expect(dropdownContent).toBeHidden();
     });
 
