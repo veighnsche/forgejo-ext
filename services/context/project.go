@@ -209,20 +209,16 @@ func HasReadProjectPermission(ctx context.Context, doer, contextUser *user_model
 		return true, nil
 	}
 	switch ownerType {
-	// If creation target is org, doer must be org owner, org admin, team member with valid team perms or site admin
+	// If read target is org, doer must be at least org member
 	case project_module.TypeOrganization:
 		isMember, err := organization.IsOrganizationMember(ctx, contextUser.ID, doer.ID)
 		if err != nil {
 			return false, err
 		}
-		isOrgAdmin, err := organization.IsOrganizationAdmin(ctx, contextUser.ID, doer.ID)
-		if err != nil {
-			return false, err
-		}
-		if !isMember && !isOrgAdmin {
+		if !isMember {
 			return false, nil
 		}
-	// If creation target is user, doer and context user must be identical or site admin
+	// If read target is user, doer and context user must be identical or site admin
 	case project_module.TypeIndividual:
 		if contextUser.ID != doer.ID {
 			if !contextUser.Visibility.IsPublic() {
