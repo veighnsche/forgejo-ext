@@ -316,11 +316,11 @@ func ProjectAssignment(ctx *APIContext) {
 	columnID := ctx.ParamsInt64("column_id")
 	issueID := ctx.ParamsInt64("issue_id")
 
-	ctx.Project = &Project{
+	ctx.SetProject(&Project{
 		ProjectID:       projectID,
 		ProjectColumnID: columnID,
 		ProjectIssueID:  issueID,
-	}
+	})
 }
 
 func ReqProjectReadPermissions(ctx *APIContext) {

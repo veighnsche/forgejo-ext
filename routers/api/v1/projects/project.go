@@ -49,7 +49,7 @@ func getOwnerTypeAndOwnerAndRepoFromData(ctx *context.APIContext) (
 }
 
 func getValidColumnOrIssue(ctx *context.APIContext, getColumn, getIssue bool) (*project_model.Column, *project_model.ProjectIssue) {
-	if ctx.Project.ProjectID == 0 {
+	if ctx.Project().ProjectID == 0 {
 		ctx.Error(http.StatusBadRequest, "Invalid Arguments", "Project ID must not be zero")
 		return nil, nil
 	}
@@ -59,7 +59,7 @@ func getValidColumnOrIssue(ctx *context.APIContext, getColumn, getIssue bool) (*
 
 	// Did we get the right columnID?
 	if getColumn {
-		projectColumn, err = project_service.GetValidProjectColumnByID(ctx, ctx.Project.ProjectID, ctx.Project.ProjectColumnID)
+		projectColumn, err = project_service.GetValidProjectColumnByID(ctx, ctx.Project().ProjectID, ctx.Project().ProjectColumnID)
 		if err != nil {
 			if errors.Is(err, validation.ErrNotValid{}) {
 				ctx.Error(http.StatusBadRequest, "Invalid Arguments", err)
@@ -74,7 +74,7 @@ func getValidColumnOrIssue(ctx *context.APIContext, getColumn, getIssue bool) (*
 
 	// Did we get the right issueID?
 	if getIssue {
-		projectIssue, err = project_service.GetValidProjectIssueByID(ctx, ctx.Project.ProjectID, ctx.Project.ProjectColumnID, ctx.Project.ProjectIssueID)
+		projectIssue, err = project_service.GetValidProjectIssueByID(ctx, ctx.Project().ProjectID, ctx.Project().ProjectColumnID, ctx.Project().ProjectIssueID)
 		if err != nil {
 			if errors.Is(err, validation.ErrNotValid{}) {
 				ctx.Error(http.StatusBadRequest, "Invalid Arguments", err)
@@ -134,9 +134,9 @@ func GetProject(ctx *context.APIContext) {
 	var err error
 	var project *project_model.Project
 	if repo != nil {
-		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project.ProjectID, repo.ID)
+		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, repo.ID)
 	} else {
-		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project.ProjectID, owner.ID)
+		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, owner.ID)
 	}
 	project_service.SetProjectOwnerAndRepo(project, owner, repo)
 	if err != nil {
@@ -160,9 +160,9 @@ func UpdateProject(ctx *context.APIContext) {
 	var err error
 	var project *project_model.Project
 	if repo != nil {
-		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project.ProjectID, repo.ID)
+		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, repo.ID)
 	} else {
-		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project.ProjectID, owner.ID)
+		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, owner.ID)
 	}
 	if err != nil {
 		if errors.Is(err, project_model.ErrProjectNotExist{}) {
@@ -183,7 +183,7 @@ func UpdateProject(ctx *context.APIContext) {
 
 // DeleteProject deletes a project by ID
 func DeleteProject(ctx *context.APIContext) {
-	err := project_service.DeleteProjectByID(ctx, ctx.Project.ProjectID, optional.None[int64]())
+	err := project_service.DeleteProjectByID(ctx, ctx.Project().ProjectID, optional.None[int64]())
 	if err != nil {
 		ctx.ServerError("Delete Project", err)
 		return
@@ -196,7 +196,7 @@ func DeleteProject(ctx *context.APIContext) {
 func ListProjectIssues(ctx *context.APIContext) {
 	// get project issues
 	listOptions := utils.GetListOptions(ctx)
-	projectIssues, total, err := project_service.ListProjectIssues(ctx, ctx.Project.ProjectID, listOptions)
+	projectIssues, total, err := project_service.ListProjectIssues(ctx, ctx.Project().ProjectID, listOptions)
 	if err != nil {
 		ctx.ServerError("Delete Project", err)
 		return
@@ -217,7 +217,7 @@ func CreateProjectIssue(ctx *context.APIContext) {
 		return
 	}
 
-	projIssue, err := project_service.CreateIssueInProject(ctx, issue, ctx.Doer(), ctx.Project.ProjectID, 0)
+	projIssue, err := project_service.CreateIssueInProject(ctx, issue, ctx.Doer(), ctx.Project().ProjectID, 0)
 	if err != nil {
 		ctx.ServerError("CreateProjectIssue", err)
 		return
@@ -230,7 +230,7 @@ func CreateProjectIssue(ctx *context.APIContext) {
 func ListProjectColumns(ctx *context.APIContext) {
 	listOptions := utils.GetListOptions(ctx)
 	cols, total, err := db.FindAndCount[project_model.Column](ctx, project_model.FindColumnOptions{
-		ListOptions: listOptions, ProjectID: ctx.Project.ProjectID,
+		ListOptions: listOptions, ProjectID: ctx.Project().ProjectID,
 	})
 	if err != nil {
 		ctx.ServerError("ListColumns", err)
@@ -246,7 +246,7 @@ func ListProjectColumns(ctx *context.APIContext) {
 func CreateProjectColumn(ctx *context.APIContext) {
 	form := web.GetForm(ctx).(*api.CreateProjectColumnOptions)
 
-	col := project_service.NewColumn(form, ctx.Project.ProjectID)
+	col := project_service.NewColumn(form, ctx.Project().ProjectID)
 	err := project_service.CreateColumnInProject(ctx, col)
 	if err != nil {
 		ctx.ServerError("CreateColumn", err)
@@ -274,7 +274,7 @@ func UpdateProjectColumn(ctx *context.APIContext) {
 		return
 	}
 
-	if err := project_service.UpdateColumnInProject(ctx, projectColumn, form, ctx.Project.ProjectID, ctx.Project.ProjectColumnID); err != nil {
+	if err := project_service.UpdateColumnInProject(ctx, projectColumn, form, ctx.Project().ProjectID, ctx.Project().ProjectColumnID); err != nil {
 		ctx.ServerError("UpdateColumn", err)
 		return
 	}
@@ -288,7 +288,7 @@ func DeleteProjectColumn(ctx *context.APIContext) {
 		return
 	}
 
-	if err := project_service.DeleteColumnInProject(ctx, ctx.Project.ProjectColumnID); err != nil {
+	if err := project_service.DeleteColumnInProject(ctx, ctx.Project().ProjectColumnID); err != nil {
 		ctx.ServerError("DeleteColumn", err)
 		return
 	}
@@ -304,7 +304,7 @@ func ListProjectColumnIssues(ctx *context.APIContext) {
 
 	// get project issues
 	listOptions := utils.GetListOptions(ctx)
-	projectIssues, total, err := project_service.ListProjectIssuesByColumn(ctx, ctx.Project.ProjectColumnID, listOptions)
+	projectIssues, total, err := project_service.ListProjectIssuesByColumn(ctx, ctx.Project().ProjectColumnID, listOptions)
 	if err != nil {
 		ctx.ServerError("List Project Column Issues", err)
 		return
@@ -355,7 +355,7 @@ func CreateProjectColumnIssue(ctx *context.APIContext) {
 	}
 
 	// create project issue
-	projIssue, err := project_service.CreateIssueInProject(ctx, issue, ctx.Doer(), ctx.Project.ProjectID, ctx.Project.ProjectColumnID)
+	projIssue, err := project_service.CreateIssueInProject(ctx, issue, ctx.Doer(), ctx.Project().ProjectID, ctx.Project().ProjectColumnID)
 	if err != nil {
 		ctx.ServerError("CreateProjectColumnIssue", err)
 		return
@@ -409,7 +409,7 @@ func UpdateProjectColumnIssue(ctx *context.APIContext) {
 	}
 
 	// get new column
-	column, err := project_service.GetValidProjectColumnByID(ctx, ctx.Project.ProjectID, newColumnID)
+	column, err := project_service.GetValidProjectColumnByID(ctx, ctx.Project().ProjectID, newColumnID)
 	if err != nil {
 		ctx.ServerError("Update Project Column Issue", err)
 		return
@@ -461,7 +461,7 @@ func DeleteProjectColumnIssue(ctx *context.APIContext) {
 	}
 
 	// remove project issue
-	if err := project_service.RemoveIssueFromProject(ctx, issue, ctx.Doer(), ctx.Project.ProjectColumnID); err != nil {
+	if err := project_service.RemoveIssueFromProject(ctx, issue, ctx.Doer(), ctx.Project().ProjectColumnID); err != nil {
 		ctx.ServerError("Delete Project Column Issue REMOVE", err)
 		return
 	}

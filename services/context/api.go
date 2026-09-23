@@ -55,7 +55,7 @@ type APIContext struct {
 	comments   map[int64]*issues_model.Comment
 	org        *APIOrganization
 	pkg        *Package
-	Project    *Project
+	project    *Project
 	quotaGroup *quota_model.Group
 	quotaRule  *quota_model.Rule
 	publicOnly bool // Whether the request is for a public endpoint
@@ -401,6 +401,14 @@ func (ctx *APIContext) InternalServerError(err error) {
 
 func (ctx *APIContext) GetError() error {
 	return errors.New("unexpected call to APIContext.GetError")
+}
+
+func (ctx *APIContext) Project() *Project {
+	return ctx.project
+}
+
+func (ctx *APIContext) SetProject(p *Project) {
+	ctx.project = p
 }
 
 type apiContextKeyType struct{}
