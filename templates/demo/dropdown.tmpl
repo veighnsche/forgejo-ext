@@ -5,9 +5,16 @@
 	<p>
 		a.k.a. overflow menu, ellipsis menu
 	</p>
-
 	<p>
-		Note: in this page some items have IDs. They are only used by end-to-end Playwright tests. Usually they would not be needed. Adding specific IDs or attributes only for testing outside of demo pages is discouraged.
+		Openers are implemented as <code class="inline-code-block">&lt;button&gt;</code> with required class <code class="inline-code-block">opener</code>.
+		<br>
+		Optional style classes: <code class="inline-code-block">border</code>, <code class="inline-code-block">options</code>, see examples below.
+	</p>
+	<p>
+		Toggleable content is implemented as <code class="inline-code-block">&lt;dialog&gt;</code> with no required classes but a mandatory <code class="inline-code-block">id</code> attribute so it can be identified by it's opener.
+	</p>
+	<p>
+		Both opener and content elements are wrapped in a <code class="inline-code-block">&lt;div&gt;</code> with style <code class="inline-code-block">dialog-dropdown</code>. Additionally, when placed in line with other supported elements, they can all be wrapped in a <code class="inline-code-block">&lt;div&gt;</code> with style <code class="inline-code-block">button-sequence</code> to provide consistent height and spacing that adjust depending on user input method.
 	</p>
 
 	<h2>Options</h2>
