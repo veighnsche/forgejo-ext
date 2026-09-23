@@ -29,13 +29,7 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	unittest.MainTest(m, &unittest.TestOptions{
-		FixtureFiles: []string{
-			"user.yml",
-			"federation_host.yml",
-			"federated_user.yml",
-		},
-	})
+	unittest.MainTest(m, &unittest.TestOptions{})
 }
 
 func TestVerifyKeyIDMatchesActorID(t *testing.T) {

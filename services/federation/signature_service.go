@@ -236,7 +236,7 @@ func getKeyID(r *http.Request) (string, error) {
 }
 
 // Finds the ID of requester and actor and compares them
-// Only use after http signatur verification
+// This function should only be called **after** http signature verification
 func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity *ap.Activity) error {
 	// skip if key veryfication is not enforced
 	if !setting.Federation.SignatureEnforced {
