@@ -31,6 +31,8 @@ func (Project) CreateProject(ctx *context.APIContext) {
 	// responses:
 	//   "201":
 	//     "$ref": "#/responses/Project"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
 
 	projects.CreateProject(ctx)
 }
