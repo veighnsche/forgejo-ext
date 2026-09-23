@@ -17,8 +17,9 @@ import {screenshot} from './shared/screenshots.ts';
 
 test.use({user: 'user2'});
 
+// Editing the root README.md file for image preview
 test('Markdown image preview behaviour', async ({page}) => {
-  // Editing the root README.md file for image preview
+  // Note: branch master will redirect to a dyn-id- one
   const editPath = '/user2/repo1/src/branch/master/README.md';
 
   const response = await page.goto(editPath, {waitUntil: 'domcontentloaded'});
@@ -38,8 +39,9 @@ test('Markdown image preview behaviour', async ({page}) => {
   await page.locator('button[data-tab="preview"]').click();
 
   // Check for the image preview via the expected attribute
-  const preview = page.locator('div[data-tab="preview"] p[dir="auto"] a');
-  await expect(preview).toHaveAttribute('href', 'http://localhost:3003/user2/repo1/media/branch/master/assets/logo.svg');
+  const preview = page.locator('div[data-tab="preview"] p[dir="auto"]');
+  await expect(preview.locator('a[href^="http://localhost:3003/user2/repo1/media/branch/dyn-id-"]')).toHaveCount(1);
+  await expect(preview.locator('a[href$="/assets/logo.svg"]')).toHaveCount(1);
   await screenshot(page);
 });
 
@@ -466,12 +468,12 @@ test.describe('Markdown insert link', () => {
 
       const area = page.locator(selector);
 
-    if (isEditing) {
-      // Preparations for evaluating comment editing
-      await area.locator('.comment-header-right.actions .dialog-dropdown .opener').click();
-      await area.locator('.comment-header-right.actions .dialog-dropdown dialog .edit-content').click();
-      expectedContent = `good work!${expectedContent}`;
-    }
+      if (isEditing) {
+        // Preparations for evaluating comment editing
+        await area.locator('.comment-header-right.actions .dialog-dropdown .opener').click();
+        await area.locator('.comment-header-right.actions .dialog-dropdown dialog .edit-content').click();
+        expectedContent = `good work!${expectedContent}`;
+      }
 
       const newLinkButton = area.locator('button[data-md-action="new-link"]');
       await newLinkButton.click();
@@ -528,12 +530,12 @@ test.describe('Markdown insert link', () => {
       await newLinkModal.locator('button[data-selector-name="ok-button"]').click();
       await expect(newLinkModal).toBeHidden();
 
-    await expect(textarea).toHaveValue(expectedContent);
-    await screenshot(page);
-  }
+      await expect(textarea).toHaveValue(expectedContent);
+      await screenshot(page);
+    }
 
-  const response = await page.goto('/user2/repo1/issues/1');
-  expect(response?.status()).toBe(200);
+    const response = await page.goto('/user2/repo1/issues/1');
+    expect(response?.status()).toBe(200);
 
     await expect(async () => {
       await evaluateLinkInsertion(page, '#comment-form', false);
