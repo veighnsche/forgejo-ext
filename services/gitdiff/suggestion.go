@@ -151,10 +151,10 @@ func splitLines(content string) []string {
 // original lines (at startLine) with the suggestion lines, suitable for ParsePatch.
 func synthesizeSuggestionPatch(treePath string, startLine uint64, original, suggestion []string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "diff --git a/%s b/%s\n", treePath, treePath)
-	fmt.Fprintf(&b, "--- a/%s\n", treePath)
-	fmt.Fprintf(&b, "+++ b/%s\n", treePath)
-	fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", startLine, len(original), startLine, len(suggestion))
+	b.WriteString(fmt.Sprintf("diff --git a/%s b/%s\n", treePath, treePath))
+	b.WriteString(fmt.Sprintf("--- a/%s\n", treePath))
+	b.WriteString(fmt.Sprintf("+++ b/%s\n", treePath))
+	b.WriteString(fmt.Sprintf("@@ -%d,%d +%d,%d @@\n", startLine, len(original), startLine, len(suggestion)))
 	for _, line := range original {
 		b.WriteString("-")
 		b.WriteString(line)
