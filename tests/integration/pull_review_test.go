@@ -3390,7 +3390,7 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 			assert.NotContains(t, msg, fmt.Sprintf("Co-authored-by: %s <%s>", tester.user.Name, tester.user.Email))
 		})
 
-		t.Run("batch larger than the configured limit is rejected", func(t *testing.T) {
+		t.Run("batch larger than the limit is rejected", func(t *testing.T) {
 			defer tests.PrintCurrentTest(t)()
 			tester := newSuggestionTester(t)
 			content := tester.fileContent
@@ -3404,8 +3404,12 @@ func TestPullReviewApplySuggestionBatch(t *testing.T) {
 			c2 := tester.suggestionComment("file1.md", "proposed", 50, 0, "```suggestion\nLine 50--over-limit\n```")
 
 			before := len(branchCommits(tester, branch))
-			defer test.MockVariableValue(&setting.Repository.PullRequest.MaxBatchApplySuggestions, 1)()
-			applyBatch(tester, []int64{c1.ID, c2.ID}, http.StatusBadRequest)
+			// 101 ids, one over the handler's limit: rejected on size alone, before any comment is looked up
+			ids := []int64{c1.ID, c2.ID}
+			for i := int64(1); len(ids) < 101; i++ {
+				ids = append(ids, c2.ID+i)
+			}
+			applyBatch(tester, ids, http.StatusBadRequest)
 
 			// nothing is committed: content unchanged and no new commit on the branch
 			got := fileContentAtBranch(tester, branch, "file1.md")

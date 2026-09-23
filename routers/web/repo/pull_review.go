@@ -283,6 +283,9 @@ func headBranchIsEditable(ctx *context.Context, issue *issues_model.Issue) (bool
 		pull.Flow != issues_model.PullRequestFlowAGit, nil
 }
 
+// Maximum number of suggestions per apply request.
+const maxBatchApplySuggestions = 100
+
 // ApplySuggestion applies a single ```suggestion block from a review comment onto the PR head branch.
 func ApplySuggestion(ctx *context.Context) {
 	var form struct {
@@ -291,7 +294,7 @@ func ApplySuggestion(ctx *context.Context) {
 		CommitMessage string  `json:"commit_message"`
 	}
 	if err := json.NewDecoder(ctx.Req.Body).Decode(&form); err != nil ||
-		len(form.CommentIDs) == 0 || len(form.CommentIDs) > setting.Repository.PullRequest.MaxBatchApplySuggestions {
+		len(form.CommentIDs) == 0 || len(form.CommentIDs) > maxBatchApplySuggestions {
 		ctx.Error(http.StatusBadRequest)
 		return
 	}

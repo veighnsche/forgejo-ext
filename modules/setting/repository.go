@@ -97,7 +97,6 @@ var (
 			DefaultUpdateStyle                       string
 			PopulateSquashCommentWithCommitMessages  bool
 			RetargetChildrenOnMerge                  bool
-			MaxBatchApplySuggestions                 int
 		} `ini:"repository.pull-request"`
 
 		// Issue Setting
@@ -228,7 +227,6 @@ var (
 			DefaultUpdateStyle                       string
 			PopulateSquashCommentWithCommitMessages  bool
 			RetargetChildrenOnMerge                  bool
-			MaxBatchApplySuggestions                 int
 		}{
 			WorkInProgressPrefixes: []string{"WIP:", "[WIP]"},
 			// Same as GitHub. See
@@ -244,7 +242,6 @@ var (
 			DefaultUpdateStyle:                       "merge",
 			PopulateSquashCommentWithCommitMessages:  false,
 			RetargetChildrenOnMerge:                  true,
-			MaxBatchApplySuggestions:                 100,
 		},
 
 		// Issue settings
