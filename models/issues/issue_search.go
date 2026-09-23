@@ -16,6 +16,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/setting"
 
 	"code.forgejo.org/xorm/xorm"
 	"xorm.io/builder"
@@ -232,6 +233,10 @@ func applyRepoConditions(sess *xorm.Session, opts *IssuesOptions) {
 }
 
 func applyConditions(sess *xorm.Session, opts *IssuesOptions) {
+	if setting.Database.Type.IsMySQL() {
+		sess.IndexHint("USE", "", "UQE_issue_repo_index")
+	}
+
 	if len(opts.IssueIDs) > 0 {
 		sess.In("issue.id", opts.IssueIDs)
 	}
