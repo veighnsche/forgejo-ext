@@ -98,9 +98,7 @@ func TestActivityPubRepositoryInboxValid(t *testing.T) {
 			"actor":     federatedSrv.URL + "/api/v1/activitypub/user-id/15",
 			"object":    localRepo2,
 		})
-		if err != nil {
-			require.Errorf(t, err, "failed to marshal: activityUser15LikesRepo2")
-		}
+		require.NoErrorf(t, err, "failed to marshal: activityUser15LikesRepo2")
 		t.Logf("activity: %s", activity1)
 		resp, err := c.Post(activity1, localRepoInbox)
 

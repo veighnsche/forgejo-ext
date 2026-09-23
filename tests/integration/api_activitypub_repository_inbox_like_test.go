@@ -58,9 +58,7 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 			"actor":     distantActorUser15,
 			"object":    localRepo2,
 		})
-		if err != nil {
-			require.Errorf(t, err, "failed to marshal: activityUser15LikesRepo2")
-		}
+		require.NoErrorf(t, err, "failed to marshal: activityUser15LikesRepo2")
 		t.Logf("activity: %s", activityUser15LikesRepo2)
 		resp, err := c.Post(activityUser15LikesRepo2, localRepo2Inbox)
 
