@@ -330,7 +330,7 @@ func ApplySuggestion(ctx *context.Context) {
 		}
 		// Every comment must belong to the pull request addressed by the URL.
 		if comment.IssueID != pr.IssueID {
-			ctx.NotFound("comment does not belong to this pull request", errors.New("comment's pull request does not match the URL"))
+			ctx.NotFound("comment does not belong to this pull request", nil)
 			return
 		}
 		comment.Issue = pr.Issue // reuse the single loaded issue (resolveSuggestionConversation needs it)
