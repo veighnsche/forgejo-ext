@@ -281,6 +281,11 @@ func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity 
 }
 
 func VerifyRequestDigest(req *http.Request) error {
+	// skip if Get request
+	if req.Method == "GET" || req.Method == "" {
+		return nil
+	}
+
 	digest := req.Header.Get("Digest")
 	if digest == "" {
 		return fmt.Errorf("Error: no digest in Header")
