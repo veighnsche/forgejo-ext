@@ -96,6 +96,9 @@ type ErrLFSFileLocked struct {
 // IsErrLFSFileLocked checks if an error is a ErrLFSFileLocked.
 func IsErrLFSFileLocked(err error) bool {
 	_, ok := err.(ErrLFSFileLocked)
+
+	// TODO: remove
+
 	return ok
 }
 
