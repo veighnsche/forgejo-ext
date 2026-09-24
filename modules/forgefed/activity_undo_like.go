@@ -50,7 +50,7 @@ func NewForgeUndoLike(like ForgeLike, startTime time.Time) (ForgeUndoLike, error
 func (undo ForgeUndoLike) Like() (ap.Like, error) {
 	like, ok := undo.Object.(ap.Like)
 	if !ok {
-		return ap.Like{}, errors.New("object is not of type Like - type assertion failed")
+		return ap.Like{}, errors.New("the object in the undo like is not a like object")
 	}
 	return like, nil
 }
