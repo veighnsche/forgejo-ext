@@ -304,7 +304,12 @@ func ListProjectColumnIssues(ctx *context.APIContext) {
 
 	// get project issues
 	listOptions := utils.GetListOptions(ctx)
-	projectIssues, total, err := project_service.ListProjectIssuesByColumn(ctx, ctx.Project().ProjectColumnID, listOptions)
+	projectIssues, total, err := db.FindAndCount[project_model.ProjectIssue](ctx,
+		project_model.FindProjectIssueOptions{
+			ListOptions:     listOptions,
+			ProjectID:       ctx.Project().ProjectID,
+			ProjectColumnID: ctx.Project().ProjectColumnID,
+		})
 	if err != nil {
 		ctx.ServerError("List Project Column Issues", err)
 		return

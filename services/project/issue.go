@@ -30,25 +30,6 @@ func ValidIssueIDs(ctx context.Context, ownerID int64, issues issues_model.Issue
 	return nil
 }
 
-// ListProjectIssues Get list of ProjectIssues of project
-// TODO: remove listOptions parameter, maybe remove complete function
-func ListProjectIssuesByColumn(ctx context.Context, columnID int64, listOptions db.ListOptions) ([]*project_model.ProjectIssue, int64, error) {
-	col, err := project_model.GetColumn(ctx, columnID)
-	if err != nil {
-		return nil, 0, err
-	}
-	issues, total, err := db.FindAndCount[project_model.ProjectIssue](ctx,
-		project_model.FindProjectIssueOptions{
-			ListOptions:     listOptions,
-			ProjectID:       col.ProjectID,
-			ProjectColumnID: col.ID,
-		})
-	if err != nil {
-		return nil, 0, err
-	}
-	return issues, total, nil
-}
-
 // getProjectIssueByID Gets a single ProjectIssue by its ID
 func getProjectIssueByID(ctx context.Context, issueID int64) (*project_model.ProjectIssue, error) {
 	issue, err := project_model.GetProjectIssue(ctx, issueID)
