@@ -2232,7 +2232,7 @@ func TestProjectWebCRUD(t *testing.T) {
 	})
 }
 
-func TestReqProjectIDAssignableToIssue(t *testing.T) {
+func TestPostIssuePullProjectEndpoint(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	// create test user, organization, repository and projects
@@ -2249,5 +2249,5 @@ func TestReqProjectIDAssignableToIssue(t *testing.T) {
 	sessionPOST(t, session, path, http.StatusOK)
 
 	path2 := fmt.Sprintf("/%s/%s/pulls/projects?id=%d", user.Name, repo.Name, repoProject2.ID)
-	sessionPOST(t, session, path2, http.StatusInternalServerError)
+	sessionPOST(t, session, path2, http.StatusNotFound)
 }
