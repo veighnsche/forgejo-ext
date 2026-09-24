@@ -133,7 +133,7 @@ func SendLikeActivities(ctx context.Context, doer user.User, repoID int64) error
 	if err != nil {
 		return err
 	}
-	apclient, err := apclientFactory.WithKeys(ctx, &doer, doer.APActorID()+"#main-key", hosts)
+	apclient, err := apclientFactory.WithKeys(ctx, &doer, doer.KeyID(), hosts)
 	if err != nil {
 		return err
 	}
