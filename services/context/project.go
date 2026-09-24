@@ -12,7 +12,6 @@ import (
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	project_model "forgejo.org/models/project"
-	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
@@ -127,28 +126,6 @@ func hasProjectPermission(ctx go_ctx.Context, doer, contextUser *user_model.User
 	return hasReadProjectPermission(ctx, doer, contextUser)
 }
 
-func hasRepoWriteProjectPermission(ctx go_ctx.Context, repo *repo_model.Repository, repoWriter, repoAdmin bool) (bool, error) {
-	if repo.UnitEnabled(ctx, unit_model.TypeProjects) {
-		if !repoWriter && !repoAdmin {
-			return false, nil
-		}
-	} else {
-		return false, errors.New("HasRepoProjectPermission, Projects not enabled")
-	}
-	return true, nil
-}
-
-func hasRepoReadProjectPermission(ctx go_ctx.Context, repo *repo_model.Repository, repoReader, repoAdmin bool) (bool, error) {
-	if repo.UnitEnabled(ctx, unit_model.TypeProjects) {
-		if !repoReader && !repoAdmin {
-			return false, nil
-		}
-	} else {
-		return false, errors.New("HasRepoProjectPermission, Projects not enabled")
-	}
-	return true, nil
-}
-
 // hasWriteProjectPermission checks if the doer has permission to write
 func hasWriteProjectPermission(ctx go_ctx.Context, doer, contextUser *user_model.User) (bool, error) {
 	ownerType := GetOwnerType(contextUser.IsOrganization(), false)
@@ -250,15 +227,17 @@ func hasPerms(ctx *APIContext, write bool) (bool, error) {
 	case project_module.APIOwnerTypeOrganization:
 		hasPermission, err = hasProjectPermission(ctx, ctx.Doer(), ctx.User(), write)
 	case project_module.APIOwnerTypeRepository:
-		repoWriter := ctx.Repository().IsPrivate
-		if write {
-			repoWriter = ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
-			isAdmin := ctx.IsUserRepoAdmin() || ctx.IsUserSiteAdmin() || ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
-			hasPermission, err = hasRepoWriteProjectPermission(ctx, ctx.Repository(), repoWriter, isAdmin)
+		if ctx.Repository().UnitEnabled(ctx, unit_model.TypeProjects) {
+			repoWriter := ctx.IsUserRepoAdmin() || ctx.IsUserSiteAdmin() || ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
+			if write && repoWriter {
+				hasPermission = true
+			}
+			if !write {
+				repoReader := ctx.Repo().CanRead(unit_model.TypeProjects)
+				hasPermission = repoReader || repoWriter
+			}
 		} else {
-			repoReader := ctx.Repository().IsPrivate
-			admin := ctx.IsUserRepoAdmin() || ctx.IsUserSiteAdmin() || ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
-			hasPermission, err = hasRepoReadProjectPermission(ctx, ctx.Repo().Repository, repoReader, admin)
+			return false, errors.New("repo projects not enabled")
 		}
 	}
 	if err != nil {

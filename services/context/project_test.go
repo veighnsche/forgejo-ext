@@ -3,7 +3,6 @@ package context
 import (
 	"testing"
 
-	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 
@@ -23,8 +22,6 @@ func TestHasProjectPermission(t *testing.T) {
 	// user2 is writer in org3 and owner of repo1, not owner of repo3
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	org3 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 3})
-	repo1 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
-	repo3 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
 	// user11 is member of org17 and in team with read perms
 	user11 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 11})
 	org17 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 17})
@@ -44,17 +41,6 @@ func TestHasProjectPermission(t *testing.T) {
 	hasPerm, err = hasWriteProjectPermission(t.Context(), user2, org3)
 	require.NoError(t, err)
 	assert.True(t, hasPerm)
-
-	// Repo Owner (user2) -> repo1
-	hasPerm, err = hasRepoWriteProjectPermission(t.Context(), repo1, false, true)
-	require.NoError(t, err)
-	assert.True(t, hasPerm)
-
-	// Negative Cases
-	// User2 -> repo3 (not owner)
-	hasPerm, err = hasRepoWriteProjectPermission(t.Context(), repo3, false, false)
-	require.NoError(t, err)
-	assert.False(t, hasPerm)
 
 	// User2 -> org17 (not member)
 	hasPerm, err = hasWriteProjectPermission(t.Context(), user2, org17)
