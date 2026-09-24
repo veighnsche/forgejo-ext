@@ -20,9 +20,9 @@ import (
 	project_service "forgejo.org/services/project"
 )
 
-// ReqProjectIDAssignableToIssueAndSetData is only used when a Repo is set
+// ReqProjectIDAssignableToIssueAndSetData expects a repository to be set in context
 func ReqProjectIDAssignableToIssueAndSetData(ctx *Context, projectID int64) {
-	project := getProjectByID(ctx, projectID)
+	project := getProjectAndEnsureOwner(ctx, projectID)
 	if ctx.Written() {
 		return
 	}
@@ -34,18 +34,18 @@ func ReqProjectIDAssignableToIssueAndSetData(ctx *Context, projectID int64) {
 	ctx.Data["project_id"] = project.ID
 }
 
-// ReqProjectIDAssignableToIssue is only used when a Repo is set
+// ReqProjectIDAssignableToIssue expects a repository to be set in context
 func ReqProjectIDAssignableToIssue(ctx *Context, projectID int64) {
-	project := getProjectByID(ctx, projectID)
+	project := getProjectAndEnsureOwner(ctx, projectID)
 	if ctx.Written() {
 		return
 	}
 	reqPermissionToAssignProjectToIssue(ctx, project.Type)
 }
 
-// getProjectByID relies on the fact, that ctx.Repo.Repository is always set
-func getProjectByID(ctx *Context, projectID int64) *project_model.Project {
-	project, err := project_service.GetProjectByIDForOwner(ctx, projectID, ctx.Repo.Repository.ID)
+// getProjectAndEnsureOwner relies on the fact, that ctx.Repo.Repository is always set
+func getProjectAndEnsureOwner(ctx *Context, projectID int64) *project_model.Project {
+	project, err := project_model.GetProjectByID(ctx, projectID)
 	if err != nil {
 		if project_model.IsErrProjectNotExist(err) {
 			ctx.NotFound(fmt.Sprintf("project %d is not found", projectID), nil)
@@ -53,6 +53,16 @@ func getProjectByID(ctx *Context, projectID int64) *project_model.Project {
 		}
 		log.Error("project_model.GetProjectByID(%d): %v", projectID, err)
 		ctx.ServerError(fmt.Sprintf("project_model.GetProjectByID(%d)", projectID), err)
+		return nil
+	}
+	ownerID := ctx.Repo.Repository.OwnerID
+	if project.Type == project_module.TypeRepository {
+		ownerID = ctx.Repo.Repository.ID
+	}
+	err = project_service.EnsureProjectOwnedBy(project, ownerID)
+	if err != nil {
+		log.Error("project_model.GetProjectByID(%d): %v", projectID, err)
+		ctx.NotFound(fmt.Sprintf("project %d did not belong to owner %d", projectID, ownerID), nil)
 		return nil
 	}
 	return project
