@@ -159,31 +159,9 @@ func hasWriteProjectPermission(ctx go_ctx.Context, doer, contextUser *user_model
 	switch ownerType {
 	// If creation target is org, doer must be org owner, org admin, team member with valid team perms or site admin
 	case project_module.TypeOrganization:
-		var validTeamPermission bool
-		isOwner, err := organization.IsOrganizationOwner(ctx, contextUser.ID, doer.ID)
-		if err != nil {
-			return false, err
-		}
-		isOrgAdmin, err := organization.IsOrganizationAdmin(ctx, contextUser.ID, doer.ID)
-		if err != nil {
-			return false, err
-		}
-		teams, err := organization.GetUserOrgTeams(ctx, contextUser.ID, doer.ID)
-		if err != nil {
-			return false, err
-		}
-		for _, team := range teams {
-			for _, unit := range team.Units {
-				if unit.AccessMode >= perm.AccessModeWrite && unit.Type == unit_model.TypeProjects {
-					validTeamPermission = true
-					break
-				}
-			}
-			if validTeamPermission {
-				break
-			}
-		}
-		if !isOwner && !isOrgAdmin && !validTeamPermission {
+		org := Organization{Organization: (*organization.Organization)(contextUser)}
+		hasWritePerm := org.Organization.UnitPermission(ctx, doer, unit_model.TypeProjects) >= perm.AccessModeWrite
+		if !hasWritePerm {
 			return false, nil
 		}
 	// If creation target is user, doer and context user must be identical or site admin
