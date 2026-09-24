@@ -2244,7 +2244,6 @@ func TestPostIssuePullProjectEndpoint(t *testing.T) {
 	repoProject2 := forgery.CreateProject(t, repo2, nil)
 
 	session := loginUser(t, user.Name)
-	// closeURL := fmt.Sprintf("%s/%d/close", projectsURL, project1.ID)
 	path := fmt.Sprintf("/%s/%s/pulls/projects?id=%d", user.Name, repo.Name, repoProject.ID)
 	sessionPOST(t, session, path, http.StatusOK)
 

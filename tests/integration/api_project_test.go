@@ -133,7 +133,7 @@ func TestProjectAPIListProjectsPagination(t *testing.T) {
 	gotProjects := []*api.Project{}
 	for i := range numProjects {
 		var projResp []*api.Project
-		resp := requestWithAuthChecked(
+		resp := requestWithAuth(
 			t, token, "GET",
 			fmt.Sprintf(
 				"/api/v1/repos/%v/%v/projects?page=%d&limit=%d",
@@ -143,8 +143,8 @@ func TestProjectAPIListProjectsPagination(t *testing.T) {
 				limit,
 			),
 			http.StatusOK,
-			&projResp,
 		)
+		DecodeJSON(t, resp, &projResp)
 		numCalls++
 
 		assert.Equal(t, strconv.Itoa(numProjects), resp.Result().Header.Get("X-Total-Count"))
@@ -197,7 +197,7 @@ func TestProjectAPIListProjectColumnsPagination(t *testing.T) {
 	gotColumns := []api.ProjectColumn{}
 	for i := range numColumns {
 		var colResp []api.ProjectColumn
-		resp := requestWithAuthChecked(
+		resp := requestWithAuth(
 			t, token, "GET",
 			fmt.Sprintf(
 				"/api/v1/repos/%v/%v/projects/%d/columns?page=%d&limit=%d",
@@ -208,8 +208,8 @@ func TestProjectAPIListProjectColumnsPagination(t *testing.T) {
 				limit,
 			),
 			http.StatusOK,
-			&colResp,
 		)
+		DecodeJSON(t, resp, &colResp)
 		numCalls++
 
 		assert.Equal(t, strconv.Itoa(numColumns), resp.Result().Header.Get("X-Total-Count"))
@@ -276,7 +276,7 @@ func TestProjectAPIListProjectIssuesPagination(t *testing.T) {
 		gotIssues := []api.ProjectIssue{}
 		for i := range numIssues {
 			var issueResp []api.ProjectIssue
-			resp := requestWithAuthChecked(
+			resp := requestWithAuth(
 				t, token, "GET",
 				fmt.Sprintf(
 					"%s?page=%d&limit=%d",
@@ -285,8 +285,8 @@ func TestProjectAPIListProjectIssuesPagination(t *testing.T) {
 					limit,
 				),
 				http.StatusOK,
-				&issueResp,
 			)
+			DecodeJSON(t, resp, &issueResp)
 			numCalls++
 
 			assert.Equal(t, strconv.Itoa(numIssues), resp.Result().Header.Get("X-Total-Count"))
@@ -364,8 +364,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	assert.Equal(t, project_module.APICardTypeTextOnly.String(), project.CardType)
 
 	userGetEndpoint := fmt.Sprintf("/api/v1/users/%v", user.Name)
-	resp := getProject(t, readToken, userGetEndpoint, project.ID)
-	assert.Equal(t, http.StatusOK, resp.Code)
+	resp := getProject(t, readToken, userGetEndpoint, project.ID, http.StatusOK)
 	var projResp api.Project
 	DecodeJSON(t, resp, &projResp)
 
@@ -386,8 +385,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		assert.Equal(t, project_module.APICardTypeTextOnly.String(), project.CardType)
 
 		repoGetEndpoint := fmt.Sprintf("/api/v1/repos/%v/%v", user.Name, repo.LowerName)
-		resp = getProject(t, readToken, repoGetEndpoint, project.ID)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		resp = getProject(t, readToken, repoGetEndpoint, project.ID, http.StatusOK)
 
 		var projResp2 api.Project
 		DecodeJSON(t, resp, &projResp2)
@@ -656,8 +654,7 @@ func TestProjectAPICRUD(t *testing.T) {
 
 		var projResp []*api.Project
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects", user.Name)
-		resp := requestWithAuth(t, readToken, "GET", endpoint)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		resp := requestWithAuth(t, readToken, "GET", endpoint, http.StatusOK)
 		DecodeJSON(t, resp, &projResp)
 
 		// there are already some projects in the db for user2
@@ -674,8 +671,7 @@ func TestProjectAPICRUD(t *testing.T) {
 
 		var projResp []api.Project
 		endpoint := fmt.Sprintf("/api/v1/repos/%v/%v/projects", user.Name, repo.Name)
-		resp := requestWithAuth(t, readToken, "GET", endpoint)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		resp := requestWithAuth(t, readToken, "GET", endpoint, http.StatusOK)
 		DecodeJSON(t, resp, &projResp)
 
 		assert.NotEmpty(t, projResp)
@@ -687,8 +683,7 @@ func TestProjectAPICRUD(t *testing.T) {
 
 		var colResp []api.ProjectColumn
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects/%v/columns", user.Name, project.ID)
-		resp := requestWithAuth(t, readToken, "GET", endpoint)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		resp := requestWithAuth(t, readToken, "GET", endpoint, http.StatusOK)
 		DecodeJSON(t, resp, &colResp)
 
 		// We make sure the order is fixed
@@ -702,8 +697,7 @@ func TestProjectAPICRUD(t *testing.T) {
 
 		var issueResp []*api.ProjectIssue
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects/%v/columns/%v/issues", user.Name, project.ID, projectColumn1.ID)
-		resp := requestWithAuth(t, readToken, "GET", endpoint)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		resp := requestWithAuth(t, readToken, "GET", endpoint, http.StatusOK)
 		DecodeJSON(t, resp, &issueResp)
 
 		if !slices.ContainsFunc(issueResp, func(p *api.ProjectIssue) bool {
@@ -719,8 +713,7 @@ func TestProjectAPICRUD(t *testing.T) {
 
 		var issueResp []*api.ProjectIssue
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects/%v/issues", user.Name, project.ID)
-		resp := requestWithAuth(t, readToken, "GET", endpoint)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		resp := requestWithAuth(t, readToken, "GET", endpoint, http.StatusOK)
 		DecodeJSON(t, resp, &issueResp)
 
 		if !slices.ContainsFunc(issueResp, func(p *api.ProjectIssue) bool {
@@ -735,8 +728,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects/%v/columns/%v/issues/%v", user.Name, project.ID, projectColumn1.ID, projectIssue1.ID)
-		resp := requestWithAuth(t, writeToken, "DELETE", endpoint)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		requestWithAuth(t, writeToken, "DELETE", endpoint, http.StatusOK)
 
 		unittest.AssertNotExistsBean(t, &project_model.ProjectIssue{
 			ID:        projectIssue1.ID,
@@ -750,8 +742,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 		// cannot delete default column -> delete column 2
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects/%v/columns/%v", user.Name, project.ID, projectColumn2.ID)
-		resp := requestWithAuth(t, writeToken, "DELETE", endpoint)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		requestWithAuth(t, writeToken, "DELETE", endpoint, http.StatusOK)
 
 		unittest.AssertNotExistsBean(t, &project_model.Column{
 			ID:        projectColumn2.ID,
@@ -764,8 +755,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects/%v", user.Name, project.ID)
-		resp := requestWithAuth(t, writeToken, "DELETE", endpoint)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		requestWithAuth(t, writeToken, "DELETE", endpoint, http.StatusOK)
 
 		unittest.AssertNotExistsBean(t, &project_model.Project{
 			ID: project.ID,
@@ -775,61 +765,49 @@ func TestProjectAPICRUD(t *testing.T) {
 
 func createOrg(t *testing.T, token string, opts *api.CreateOrgOption) *httptest.ResponseRecorder {
 	endpoint := "/api/v1/orgs"
-	return jsonRequestWithAuth(t, token, "POST", endpoint, -1, opts)
+	return jsonRequestWithAuth(t, token, "POST", endpoint, NoExpectedStatus, opts)
 }
 
 func createTeamForOrg(t *testing.T, token, orgName string, opts *api.CreateTeamOption) *httptest.ResponseRecorder {
 	endpoint := fmt.Sprintf("/api/v1/orgs/%v/teams", orgName)
-	return jsonRequestWithAuth(t, token, "POST", endpoint, -1, opts)
+	return jsonRequestWithAuth(t, token, "POST", endpoint, NoExpectedStatus, opts)
 }
 
 func addOrRemoveTeamUser(t *testing.T, token, userName, method string, teamID int64) *httptest.ResponseRecorder {
 	endpoint := fmt.Sprintf("/api/v1//teams/%v/members/%v", teamID, userName)
-	return requestWithAuth(t, token, method, endpoint)
+	return requestWithAuth(t, token, method, endpoint, NoExpectedStatus)
 }
 
 func addorRemoveCollaboratorToRepo(t *testing.T, token, owner, repoName, user, method string, opts *api.AddCollaboratorOption) *httptest.ResponseRecorder {
 	endpoint := fmt.Sprintf("/api/v1/repos/%v/%v/collaborators/%v", owner, repoName, user)
-	return jsonRequestWithAuth(t, token, method, endpoint, -1, opts)
+	return jsonRequestWithAuth(t, token, method, endpoint, NoExpectedStatus, opts)
 }
 
 func createUserRepo(t *testing.T, token string, opts *api.CreateRepoOption) *httptest.ResponseRecorder {
 	endpoint := "/api/v1/user/repos"
-	return jsonRequestWithAuth(t, token, "POST", endpoint, -1, opts)
+	return jsonRequestWithAuth(t, token, "POST", endpoint, NoExpectedStatus, opts)
 }
 
-func getProject(t *testing.T, token, projectAPIBaseString string, pID int64) *httptest.ResponseRecorder {
-	return projectsIDEndpoint(t, token, "GET", projectAPIBaseString, pID)
+func getProject(t *testing.T, token, projectAPIBaseString string, pID int64, status int) *httptest.ResponseRecorder {
+	return projectsIDEndpoint(t, token, "GET", projectAPIBaseString, pID, status)
 }
 
-func deleteProject(t *testing.T, token, projectAPIBaseString string, pID int64) *httptest.ResponseRecorder {
-	return projectsIDEndpoint(t, token, "DELETE", projectAPIBaseString, pID)
+func deleteProject(t *testing.T, token, projectAPIBaseString string, pID int64, status int) *httptest.ResponseRecorder {
+	return projectsIDEndpoint(t, token, "DELETE", projectAPIBaseString, pID, status)
 }
 
-func projectsIDEndpoint(t *testing.T, token, method, projectAPIBaseString string, pID int64) *httptest.ResponseRecorder {
+func projectsIDEndpoint(t *testing.T, token, method, projectAPIBaseString string, pID int64, status int) *httptest.ResponseRecorder {
 	projectAPIString := fmt.Sprintf("%v/projects/%v", projectAPIBaseString, pID)
-	return requestWithAuth(t, token, method, projectAPIString)
+	return requestWithAuth(t, token, method, projectAPIString, status)
 }
 
-func requestWithAuth(t *testing.T, token, method, endpoint string) *httptest.ResponseRecorder {
-	req := NewRequest(
-		t, method,
-		endpoint,
-	).AddTokenAuth(token)
-	resp := MakeRequest(t, req, -1) // We don't want an error here. Instead we'll look at the response later
-	return resp
-}
-
-func requestWithAuthChecked[T any](
+func requestWithAuth(
 	t *testing.T,
 	token, method, endpoint string,
 	status int,
-	retval *T,
 ) *httptest.ResponseRecorder {
-	resp := requestWithAuth(t, token, method, endpoint)
-	require.Equal(t, status, resp.Code)
-	DecodeJSON(t, resp, retval)
-	return resp
+	req := NewRequest(t, method, endpoint).AddTokenAuth(token)
+	return MakeRequest(t, req, status)
 }
 
 func jsonRequestWithAuth(t *testing.T, token, method, endpoint string, statusCode int, opts any) *httptest.ResponseRecorder {
@@ -846,15 +824,14 @@ func runProjectWriteActions(t *testing.T, runOpts *runOpts, projectOpts *api.Cre
 	projectAPIBaseString := getProjectAPIBaseString(runOpts)
 	// Create Project
 	endpoint := projectAPIBaseString + "/projects"
-	resp := jsonRequestWithAuth(t, runOpts.token, "POST", endpoint, -1, projectOpts)
+	resp := jsonRequestWithAuth(t, runOpts.token, "POST", endpoint, NoExpectedStatus, projectOpts)
 	var proj *api.Project
 	if runOpts.shouldSucceed {
 		require.Equal(t, http.StatusCreated, resp.Code)
 		DecodeJSON(t, resp, &proj)
 		assert.Equal(t, projectOpts.Title, proj.Title)
 		// Delete Project
-		resp = deleteProject(t, runOpts.token, projectAPIBaseString, proj.ID)
-		assert.Equal(t, http.StatusOK, resp.Code)
+		deleteProject(t, runOpts.token, projectAPIBaseString, proj.ID, http.StatusOK)
 	} else {
 		assert.NotEqual(t, http.StatusCreated, resp.Code)
 	}
@@ -863,7 +840,7 @@ func runProjectWriteActions(t *testing.T, runOpts *runOpts, projectOpts *api.Cre
 func runProjectReadActions(t *testing.T, opts *runOpts) {
 	projectAPIBaseString := getProjectAPIBaseString(opts)
 	// Get Project
-	resp := getProject(t, opts.token, projectAPIBaseString, opts.projectID)
+	resp := getProject(t, opts.token, projectAPIBaseString, opts.projectID, NoExpectedStatus)
 	if opts.shouldSucceed {
 		assert.Equal(t, http.StatusOK, resp.Code)
 	} else {
@@ -1192,7 +1169,6 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		endpoint := baseString + "/projects"
 		resp := jsonRequestWithAuth(t, adminWriteToken, "POST", endpoint, http.StatusCreated, projectOpts)
 		DecodeJSON(t, resp, &delProj)
-		resp = deleteProject(t, userWriteToken, baseString, delProj.ID)
-		assert.Equal(t, http.StatusForbidden, resp.Code)
+		deleteProject(t, userWriteToken, baseString, delProj.ID, http.StatusForbidden)
 	})
 }
