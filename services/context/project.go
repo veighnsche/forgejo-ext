@@ -120,14 +120,14 @@ func GetOwnerType(isOrg, isRepo bool) project_module.OwnerType {
 	return t
 }
 
-func HasProjectPermission(ctx context.Context, doer, contextUser *user_model.User, write bool) (bool, error) {
+func hasProjectPermission(ctx go_ctx.Context, doer, contextUser *user_model.User, write bool) (bool, error) {
 	if write {
-		return HasWriteProjectPermission(ctx, doer, contextUser)
+		return hasWriteProjectPermission(ctx, doer, contextUser)
 	}
-	return HasReadProjectPermission(ctx, doer, contextUser)
+	return hasReadProjectPermission(ctx, doer, contextUser)
 }
 
-func HasRepoWriteProjectPermission(ctx context.Context, repo *repo_model.Repository, repoWriter, repoAdmin bool) (bool, error) {
+func hasRepoWriteProjectPermission(ctx go_ctx.Context, repo *repo_model.Repository, repoWriter, repoAdmin bool) (bool, error) {
 	if repo.UnitEnabled(ctx, unit_model.TypeProjects) {
 		if !repoWriter && !repoAdmin {
 			return false, nil
@@ -138,7 +138,7 @@ func HasRepoWriteProjectPermission(ctx context.Context, repo *repo_model.Reposit
 	return true, nil
 }
 
-func HasRepoReadProjectPermission(ctx context.Context, repo *repo_model.Repository, repoReader, repoAdmin bool) (bool, error) {
+func hasRepoReadProjectPermission(ctx go_ctx.Context, repo *repo_model.Repository, repoReader, repoAdmin bool) (bool, error) {
 	if repo.UnitEnabled(ctx, unit_model.TypeProjects) {
 		if !repoReader && !repoAdmin {
 			return false, nil
@@ -149,8 +149,8 @@ func HasRepoReadProjectPermission(ctx context.Context, repo *repo_model.Reposito
 	return true, nil
 }
 
-// HasWriteProjectPermission checks if the doer has permission to write
-func HasWriteProjectPermission(ctx context.Context, doer, contextUser *user_model.User) (bool, error) {
+// hasWriteProjectPermission checks if the doer has permission to write
+func hasWriteProjectPermission(ctx go_ctx.Context, doer, contextUser *user_model.User) (bool, error) {
 	ownerType := GetOwnerType(contextUser.IsOrganization(), false)
 	if doer.IsAdmin {
 		// All perms granted
@@ -197,8 +197,8 @@ func HasWriteProjectPermission(ctx context.Context, doer, contextUser *user_mode
 	return true, nil
 }
 
-// HasReadProjectPermission checks if the doer has permission to read
-func HasReadProjectPermission(ctx context.Context, doer, contextUser *user_model.User) (bool, error) {
+// hasReadProjectPermission checks if the doer has permission to read
+func hasReadProjectPermission(ctx go_ctx.Context, doer, contextUser *user_model.User) (bool, error) {
 	ownerType := GetOwnerType(contextUser.IsOrganization(), false)
 	if doer.IsAdmin {
 		// All perms granted

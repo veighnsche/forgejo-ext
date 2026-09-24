@@ -31,38 +31,38 @@ func TestHasProjectPermission(t *testing.T) {
 
 	// Positive Cases
 	// user2 -> user2
-	hasPerm, err := HasWriteProjectPermission(t.Context(), user2, user2)
+	hasPerm, err := hasWriteProjectPermission(t.Context(), user2, user2)
 	require.NoError(t, err)
 	assert.True(t, hasPerm)
 
 	// Site Admin (user1) -> org3
-	hasPerm, err = HasWriteProjectPermission(t.Context(), user1, org3)
+	hasPerm, err = hasWriteProjectPermission(t.Context(), user1, org3)
 	require.NoError(t, err)
 	assert.True(t, hasPerm)
 
 	// Org Writer (user2) -> org3
-	hasPerm, err = HasWriteProjectPermission(t.Context(), user2, org3)
+	hasPerm, err = hasWriteProjectPermission(t.Context(), user2, org3)
 	require.NoError(t, err)
 	assert.True(t, hasPerm)
 
 	// Repo Owner (user2) -> repo1
-	hasPerm, err = HasRepoWriteProjectPermission(t.Context(), repo1, false, true)
+	hasPerm, err = hasRepoWriteProjectPermission(t.Context(), repo1, false, true)
 	require.NoError(t, err)
 	assert.True(t, hasPerm)
 
 	// Negative Cases
 	// User2 -> repo3 (not owner)
-	hasPerm, err = HasRepoWriteProjectPermission(t.Context(), repo3, false, false)
+	hasPerm, err = hasRepoWriteProjectPermission(t.Context(), repo3, false, false)
 	require.NoError(t, err)
 	assert.False(t, hasPerm)
 
 	// User2 -> org17 (not member)
-	hasPerm, err = HasWriteProjectPermission(t.Context(), user2, org17)
+	hasPerm, err = hasWriteProjectPermission(t.Context(), user2, org17)
 	require.NoError(t, err)
 	assert.False(t, hasPerm)
 
 	// Team Member with low perms (user11) -> org repo (low permissions)
-	hasPerm, err = HasWriteProjectPermission(t.Context(), user11, org17)
+	hasPerm, err = hasWriteProjectPermission(t.Context(), user11, org17)
 	require.NoError(t, err)
 	assert.False(t, hasPerm)
 }
