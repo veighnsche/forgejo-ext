@@ -1,10 +1,10 @@
 // Copyright 2025 The Forgejo Authors. All rights reserved.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Details can be opened by clicking summary or by pressing Space or Enter while
-// being focused on summary. But without JS options for closing it are limited.
-// Event listeners in this file provide more convenient options for that:
-// click iteration with anything on the page and pressing Escape.
+// <dialog>-based dropdowns can be opened and closed with a wide variety of ways.
+// Event listeners in this file provide more a few more options for that:
+// - close on focusout, by clicking elsewhere or navigating away with Tab/Shift+Tab
+// - open with ArrowDown, navigate with ArrowUp/Down, close by ArrowUp on first item
 
 export function initDropdowns() {
   // Close open dropdown when it is unfocused (e.g. when user pressed Tab or Shift+Tab),
@@ -29,19 +29,6 @@ export function initDropdowns() {
     if (!['ArrowUp', 'ArrowDown'].includes(event.key)) {
       // This eventListener is only concerned about a few keys
       return;
-    }
-
-    if (document.activeElement.localName === 'summary' && event.key === 'ArrowDown') {
-      const parentDropdown = document.activeElement.parentElement as HTMLDetailsElement;
-      if (parentDropdown.classList.contains('dropdown')) {
-        // User pressed ArrowDown on a focused summary of a closed dropdown.
-        // We'll open the dropdown and focus it's first item
-        parentDropdown.setAttribute('open', 'true');
-        const firstFocusable = parentDropdown.querySelector<HTMLElement>('.content > ul > li :is(a, button, input)');
-        firstFocusable?.focus();
-        event.preventDefault();
-        return;
-      }
     }
 
     if (document.activeElement.localName === 'button' && event.key === 'ArrowDown') {
