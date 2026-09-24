@@ -381,6 +381,8 @@ test.describe('Comment history', () => {
     await page.click('.comment-container .dialog-dropdown dialog .edit-content');
     await editorTextarea.fill(dynamic_id());
     await page.click('.comment-container .edit .save');
+    // Programmatically requesting page.reload() is too quick and can result in edit save request being aborted, especially on Firefox. Wait for JS to update attribute with contentVersion value from server reply
+    await expect(page.locator('.edit-content-zone:has([id="_combo_markdown_editor_1"])')).toHaveAttribute('data-content-version', '1');
 
     // Reload the page so the edited bit is rendered.
     await page.reload();
