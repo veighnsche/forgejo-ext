@@ -26,7 +26,7 @@ export function initDropdowns() {
 
   // Keyboard interaction with dropdowns
   document.addEventListener('keydown', (event: KeyboardEvent) => {
-    if (!['Escape', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+    if (!['ArrowUp', 'ArrowDown'].includes(event.key)) {
       // This eventListener is only concerned about a few keys
       return;
     }
@@ -59,12 +59,6 @@ export function initDropdowns() {
 
     const dropdown = document.querySelector<HTMLDialogElement>('.dialog-dropdown > dialog:popover-open');
     if (dropdown !== null) {
-      if (event.key === 'Escape') {
-        // Pressing Escape while having an open dropdown closes it
-        dropdown.hidePopover();
-        return;
-      }
-
       // Knowing document.activeElement, find the <li> that contains it
       const dropdownItems = dropdown.querySelectorAll<HTMLLIElement>('dialog > ul > li');
       let activeLi: HTMLLIElement, activeLiIndex: number;
