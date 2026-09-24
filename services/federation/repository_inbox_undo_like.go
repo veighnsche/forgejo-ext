@@ -81,7 +81,11 @@ func SendUndoLikeActivities(ctx context.Context, doer user.User, repoID int64) e
 			return fmt.Errorf("invalid repository URL: %w", err)
 		}
 		hosts = append(hosts, hostURL)
-		undoLikeActivity, err := fm.NewForgeUndoLike(doer.APActorID(), target, time.Now())
+		likeActivity, err := fm.NewForgeLike(doer.APActorID(), target, time.Time{})
+		if err != nil {
+			return err
+		}
+		undoLikeActivity, err := fm.NewForgeUndoLike(likeActivity, time.Now())
 		if err != nil {
 			return err
 		}
