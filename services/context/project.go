@@ -4,7 +4,7 @@
 package context
 
 import (
-	"context"
+	go_ctx "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -216,10 +216,8 @@ func hasReadProjectPermission(ctx go_ctx.Context, doer, contextUser *user_model.
 		}
 	// If read target is user, doer and context user must be identical or site admin
 	case project_module.TypeIndividual:
-		if contextUser.ID != doer.ID {
-			if !contextUser.Visibility.IsPublic() {
-				return false, nil
-			}
+		if contextUser.ID != doer.ID && !contextUser.Visibility.IsPublic() {
+			return false, nil
 		}
 	default:
 		return false, nil
@@ -265,40 +263,25 @@ type ProjectAPI interface {
 	DeleteProjectColumnIssue(ctx *APIContext)
 }
 
-func hasWritePerms(ctx *APIContext) (bool, error) {
+func hasPerms(ctx *APIContext, write bool) (bool, error) {
 	var err error
 	var hasPermission bool
 	switch ctx.Data["OwnerType"] {
 	case project_module.APIOwnerTypeIndividual:
-		hasPermission, err = HasProjectPermission(ctx, ctx.Doer(), ctx.User(), true)
+		hasPermission, err = hasProjectPermission(ctx, ctx.Doer(), ctx.User(), write)
 	case project_module.APIOwnerTypeOrganization:
-		hasPermission, err = HasProjectPermission(ctx, ctx.Doer(), ctx.User(), true)
+		hasPermission, err = hasProjectPermission(ctx, ctx.Doer(), ctx.User(), write)
 	case project_module.APIOwnerTypeRepository:
-		repoWriter := ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
-		isAdmin := ctx.IsUserRepoAdmin() || ctx.IsUserSiteAdmin() || ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
-		hasPermission, err = HasRepoWriteProjectPermission(ctx, ctx.Repository(), repoWriter, isAdmin)
-	}
-	if err != nil {
-		return false, err
-	}
-	if !hasPermission {
-		return false, nil
-	}
-	return true, nil
-}
-
-func hasReadPerms(ctx *APIContext) (bool, error) {
-	var err error
-	var hasPermission bool
-	switch ctx.Data["OwnerType"] {
-	case project_module.APIOwnerTypeIndividual:
-		hasPermission, err = HasProjectPermission(ctx, ctx.Doer(), ctx.User(), false)
-	case project_module.APIOwnerTypeOrganization:
-		hasPermission, err = HasProjectPermission(ctx, ctx.Doer(), ctx.User(), false)
-	case project_module.APIOwnerTypeRepository:
-		repoReader := ctx.Repository().IsPrivate
-		admin := ctx.IsUserRepoAdmin() || ctx.IsUserSiteAdmin() || ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
-		hasPermission, err = HasRepoReadProjectPermission(ctx, ctx.Repo().Repository, repoReader, admin)
+		repoWriter := ctx.Repository().IsPrivate
+		if write {
+			repoWriter = ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
+			isAdmin := ctx.IsUserRepoAdmin() || ctx.IsUserSiteAdmin() || ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
+			hasPermission, err = hasRepoWriteProjectPermission(ctx, ctx.Repository(), repoWriter, isAdmin)
+		} else {
+			repoReader := ctx.Repository().IsPrivate
+			admin := ctx.IsUserRepoAdmin() || ctx.IsUserSiteAdmin() || ctx.IsUserRepoWriter([]unit_model.Type{unit_model.TypeProjects})
+			hasPermission, err = hasRepoReadProjectPermission(ctx, ctx.Repo().Repository, repoReader, admin)
+		}
 	}
 	if err != nil {
 		return false, err
@@ -334,12 +317,11 @@ func ProjectAssignment(ctx *APIContext) {
 }
 
 func ReqProjectReadPermissions(ctx *APIContext) {
-	hasRead, err := hasReadPerms(ctx)
+	hasRead, err := hasPerms(ctx, false)
 	if err != nil {
 		ctx.ServerError("hasReadPerms", err)
 		return
 	}
-
 	if !hasRead {
 		// forbidden
 		ctx.Error(http.StatusForbidden, "ProjectHasRead", "The user did not have sufficient permissions")
@@ -348,7 +330,7 @@ func ReqProjectReadPermissions(ctx *APIContext) {
 }
 
 func ReqProjectWritePermissions(ctx *APIContext) {
-	hasWrite, err := hasWritePerms(ctx)
+	hasWrite, err := hasPerms(ctx, true)
 	if err != nil {
 		ctx.ServerError("hasWritePerms", err)
 		return
