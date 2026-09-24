@@ -280,6 +280,8 @@ func VerifyKeyIDMatchesActorID(ctx context.Context, req *http.Request, activity 
 	return nil
 }
 
+// Calculates the reqest content-digest using the algorythm specified in the digest header
+// and compares it with the value from the header
 func VerifyRequestDigest(req *http.Request) error {
 	// skip if Get request
 	if req.Method == "GET" || req.Method == "" {
@@ -339,6 +341,7 @@ var crytoAlgoyithms = []crypto.Hash{
 	crypto.BLAKE2b_512,
 }
 
+// Matches crypto algorythm from string
 func matchCryptoAlgorithm(algo string) (crypto.Hash, error) {
 	for _, h := range crytoAlgoyithms {
 		if strings.EqualFold(strings.Replace(algo, "_", "-", 1), h.String()) {
