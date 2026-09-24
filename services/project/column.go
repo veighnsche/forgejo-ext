@@ -71,11 +71,14 @@ func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
 
 // UpdateColumnInProject allow full updates of the column, including default and sorting
 func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form *project_structs.CreateProjectColumnOptions, projectID, columnID int64) error {
-	if form.Title != "" {
+	changed := false
+	if form.Title != "" && form.Title != col.Title {
 		col.Title = form.Title
+		changed = true
 	}
-	if form.Color != "" {
+	if form.Color != "" && form.Color != col.Color {
 		col.Color = form.Color
+		changed = true
 	}
 	if form.Default && !col.Default {
 		if err := SetDefaultColumn(ctx, projectID, columnID); err != nil {
@@ -83,6 +86,7 @@ func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form 
 		}
 	}
 	if form.Sorting != col.Sorting {
+		changed = true
 		cols, err := db.Find[project_model.Column](ctx, project_model.FindColumnOptions{
 			ListOptions: db.ListOptionsAll, ProjectID: projectID,
 		})
@@ -91,7 +95,6 @@ func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form 
 		}
 		sorting := make(map[int64]int64, 0)
 		for _, subCol := range cols {
-			// TODO: test/fix this
 			if subCol.ID == col.ID {
 				// move column to new sorting position
 				sorting[int64(form.Sorting)] = subCol.ID
@@ -108,7 +111,10 @@ func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form 
 		}
 		col.Sorting = form.Sorting // UpdateColumn below sets Sorting again, make sure it's up to date
 	}
-	// TODO: check if something actually has to be changed?
+	if !changed {
+		// no further changes necessary
+		return nil
+	}
 	err := project_model.UpdateColumn(ctx, col)
 	if err != nil {
 		return fmt.Errorf("could not edit column for project %d: %w", col.ProjectID, err)
