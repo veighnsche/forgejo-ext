@@ -43,8 +43,8 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 		ctx, _ := contexttest.MockAPIContext(t, localRepo2Inbox)
 		cf, err := activitypub.NewClientFactoryWithTimeout(60 * time.Second)
 		require.NoError(t, err)
-		c, err := cf.WithKeysDirect(ctx, mock.Persons[0].PrivKey,
-			mock.Persons[0].KeyID(federatedSrv.URL), nil)
+
+		c, err := cf.WithKeysDirect(ctx, mock.Persons[0].PrivKey, mock.Persons[0].KeyID(federatedSrv.URL), nil)
 		require.NoError(t, err)
 
 		distantActorUser15 := fmt.Sprintf("%s/api/v1/activitypub/user-id/15", federatedSrv.URL)
@@ -58,10 +58,9 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 			"actor":     distantActorUser15,
 			"object":    localRepo2,
 		})
-		require.NoErrorf(t, err, "failed to marshal: activityUser15LikesRepo2")
-		t.Logf("activity: %s", activityUser15LikesRepo2)
-		resp, err := c.Post(activityUser15LikesRepo2, localRepo2Inbox)
+		require.NoError(t, err, "failed to marshal: activityUser15LikesRepo2")
 
+		resp, err := c.Post(activityUser15LikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
@@ -79,12 +78,12 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 			"actor":     distantActorUser30,
 			"object":    localRepo2,
 		})
-		if err != nil {
-			require.Errorf(t, err, "failed to marshal: activityUser30LikesRepo2")
-		}
+		require.Error(t, err, "failed to marshal: activityUser30LikesRepo2")
+
 		resp, err = c.Post(activityUser30LikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
 		federatedUser = unittest.AssertExistsAndLoadBean(t, &user.FederatedUser{ExternalID: "30", FederationHostID: federationHost.ID})
 		unittest.AssertExistsAndLoadBean(t, &user.User{ID: federatedUser.UserID})
 		repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
@@ -97,12 +96,12 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 			"actor":     distantActorUser30,
 			"object":    localRepo2,
 		})
-		if err != nil {
-			require.Errorf(t, err, "failed to marshal: secondActivityUser30LikesRepo2")
-		}
+		require.Error(t, err, "failed to marshal: secondActivityUser30LikesRepo2")
+
 		resp, err = c.Post(secondActivityUser30LikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
+
 		repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
 		assert.Equal(t, 3, repo2.NumStars)
 

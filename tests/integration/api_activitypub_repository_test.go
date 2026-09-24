@@ -51,7 +51,6 @@ func TestActivityPubRepository(t *testing.T) {
 		var repository forgefed_modules.Repository
 		err = repository.UnmarshalJSON(resp)
 		require.NoError(t, err)
-
 		assert.Regexp(t, localRepository, repository.GetID().String())
 	})
 }
@@ -99,9 +98,8 @@ func TestActivityPubRepositoryInboxValid(t *testing.T) {
 			"object":    localRepo2,
 		})
 		require.NoErrorf(t, err, "failed to marshal: activityUser15LikesRepo2")
-		t.Logf("activity: %s", activity1)
-		resp, err := c.Post(activity1, localRepoInbox)
 
+		resp, err := c.Post(activity1, localRepoInbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})

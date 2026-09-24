@@ -20,6 +20,7 @@ import (
 	"forgejo.org/tests"
 
 	ap "github.com/go-ap/activitypub"
+	"github.com/stretchr/testify/require"
 )
 
 func TestActivityPubRepoFollowing(t *testing.T) {
@@ -64,19 +65,16 @@ func TestActivityPubRepoFollowing(t *testing.T) {
 		// Verify distant server received a like activity
 		like := fm.ForgeLike{}
 		err := like.UnmarshalJSON([]byte(mock.LastPost))
-		if err != nil {
-			t.Errorf("Error unmarshalling ForgeLike: %q", err)
-		}
-		if isValid, err := validation.IsValid(like); !isValid {
-			t.Errorf("ForgeLike is not valid: %q", err)
-		}
-		activityType := like.Type
-		object := like.Object.GetLink().String()
-		isLikeType := activityType == ap.LikeType
-		isCorrectObject := strings.HasSuffix(object, "/api/v1/activitypub/repository-id/1")
-		if !isLikeType || !isCorrectObject {
-			t.Error("Activity is not a like for this repo")
-		}
+		require.NoErrorf(t, err, "Error unmarshalling ForgeLike: %q", err)
+
+		isValid, err := validation.IsValid(like)
+		require.NoError(t, err, "ForgeLike is not valid")
+		require.True(t, isValid, "ForgeLike is not valid")
+		require.Equal(t, ap.LikeType, like.Type, "Activity is not a like for this repo")
+
+		iri := like.Object.GetLink().String()
+		isCorrectObject := strings.HasSuffix(iri, "/api/v1/activitypub/repository-id/1")
+		require.True(t, isCorrectObject, "Activity is not a Like for this repo")
 	})
 
 	t.Run("Unstar a repo having a following staring repo", func(t *testing.T) {
@@ -96,19 +94,16 @@ func TestActivityPubRepoFollowing(t *testing.T) {
 
 		// Verify distant server received a undoLike activity
 		undoLike, err := fm.NewForgeUndoLikeFromActivity(&activity)
-		if err != nil {
-			t.Errorf("Error converting ForgeUndoLike from activity: %q", err)
-		}
-		if isValid, err := validation.IsValid(undoLike); !isValid {
-			t.Errorf("ForgeUndoLike is not valid: %q", err)
-		}
+		require.NoErrorf(t, err, "Error converting ForgeUndoLike from activity: %q", err)
 
-		likeActivity := undoLike.Object.(ap.Activity)
-		iri := likeActivity.Object.GetLink().String()
+		isValid, err := validation.IsValid(undoLike)
+		require.NoErrorf(t, err, "ForgeUndoLike is not valid")
+		require.Truef(t, isValid, "ForgeUndoLike is not valid: %q", err)
+
+		like := undoLike.Object.(ap.Activity)
+
+		iri := like.Object.GetLink().String()
 		isCorrectObject := strings.HasSuffix(iri, "/api/v1/activitypub/repository-id/1")
-
-		if !isCorrectObject {
-			t.Error("Activity is not a Undolike for this repo")
-		}
+		require.True(t, isCorrectObject, "Activity is not a UndoLike for this repo")
 	})
 }

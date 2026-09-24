@@ -41,8 +41,8 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 		ctx, _ := contexttest.MockAPIContext(t, localRepo2Inbox)
 		cf, err := activitypub.NewClientFactoryWithTimeout(60 * time.Second)
 		require.NoError(t, err)
-		c, err := cf.WithKeysDirect(ctx, mock.Persons[0].PrivKey,
-			mock.Persons[0].KeyID(federatedSrv.URL), nil)
+
+		c, err := cf.WithKeysDirect(ctx, mock.Persons[0].PrivKey, mock.Persons[0].KeyID(federatedSrv.URL), nil)
 		require.NoError(t, err)
 
 		// The user id 15 sends like activity for repo id 2
@@ -53,11 +53,12 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 			"actor":     distantActorUser15,
 			"object":    localRepo2,
 		})
-		require.NoErrorf(t, err, "failed to marshal: activityUser15LikesRepo2")
-		t.Logf("activity: %s", activityUser15LikesRepo2)
+		require.NoError(t, err, "failed to marshal: activityUser15LikesRepo2")
+
 		resp, err := c.Post(activityUser15LikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
 		repo2 := unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
 		assert.Equal(t, 2, repo2.NumStars)
 
@@ -72,13 +73,13 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 				"object": localRepo2,
 			},
 		})
-		if err != nil {
-			require.Errorf(t, err, "failed to marshal: activityUser15UndoLikesRepo2")
-		}
+		require.Error(t, err, "failed to marshal: activityUser15UndoLikesRepo2")
+
 		// test it
 		resp, err = c.Post(activityUser15UndoLikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 		repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
 		assert.Equal(t, 1, repo2.NumStars)
 
@@ -94,9 +95,8 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 			"actor":     distantActorUser15,
 			"object":    localRepo2,
 		})
-		if err != nil {
-			require.Errorf(t, err, "failed to marshal: secondActivityUser15LikesRepo2")
-		}
+		require.Error(t, err, "failed to marshal: secondActivityUser15LikesRepo2")
+
 		resp, err = c.Post(secondActivityUser15LikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
@@ -112,10 +112,10 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 				"object": localRepo2Inbox,
 			},
 		})
-		if err != nil {
-			require.Errorf(t, err, "failed to marshal: activityUser30UndoLikesRepo2")
-		}
-		t.Logf("activity: %s", activityUser30UndoLikesRepo2)
+
+		require.Error(t, err, "failed to marshal: activityUser30UndoLikesRepo2")
+
+		// Replay activityUser30UndoLikesRepo2
 		resp, err = c.Post(activityUser30UndoLikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
