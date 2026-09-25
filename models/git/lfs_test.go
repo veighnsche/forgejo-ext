@@ -24,7 +24,7 @@ func TestIterateRepositoryIDsWithLFSMetaObjects(t *testing.T) {
 		repoid int64
 		count  int64
 	}
-	expected := []repocount{{1, 1}, {54, 4}}
+	expected := []repocount{{1, 1}, {54, 6}}
 
 	t.Run("Normal batch size", func(t *testing.T) {
 		defer test.MockVariableValue(&setting.Database.IterateBufferSize, 20)()
@@ -54,7 +54,7 @@ func TestIterateRepositoryIDsWithLFSMetaObjects(t *testing.T) {
 func TestIterateLFSMetaObjectsForRepo(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
-	expectedIDs := []int64{1, 2, 3, 4}
+	expectedIDs := []int64{1, 2, 3, 4, 5, 6}
 
 	t.Run("Normal batch size", func(t *testing.T) {
 		defer test.MockVariableValue(&setting.Database.IterateBufferSize, 20)()

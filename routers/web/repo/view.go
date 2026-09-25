@@ -466,7 +466,9 @@ func renderFile(ctx *context.Context, entry *git.TreeEntry) {
 	isDisplayingSource := ctx.FormString("display") == "source"
 	isDisplayingRendered := !isDisplayingSource
 
-	if fInfo.isLFSFile {
+	// "/raw" (aka. the pointer) should only be actually shown if showing "/media"
+	// is futile because of e.g. no LFS.
+	if fInfo.isLFSFile && setting.LFS.StartServer {
 		ctx.Data["RawFileLink"] = ctx.Repo.RepoLink + "/media/" + ctx.Repo.BranchNameSubURL() + "/" + util.PathEscapeSegments(ctx.Repo.TreePath)
 	}
 

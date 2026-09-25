@@ -30,6 +30,6 @@ func TestNodeinfo(t *testing.T) {
 	assert.True(t, nodeinfo.OpenRegistrations)
 	assert.Equal(t, "forgejo", nodeinfo.Software.Name)
 	assert.Equal(t, 31, nodeinfo.Usage.Users.Total)
-	assert.Equal(t, 23, nodeinfo.Usage.LocalPosts)
+	assert.Equal(t, 25, nodeinfo.Usage.LocalPosts)
 	assert.Equal(t, 4, nodeinfo.Usage.LocalComments)
 }
