@@ -48,11 +48,8 @@ func Test_NewForgeUndoLike(t *testing.T) {
 		`"actor":"https://repo.prod.meissa.de/api/v1/activitypub/user-id/1",` +
 		`"object":"https://codeberg.org/api/v1/activitypub/repository-id/1"}}`)
 
-	like, err := forgefed.NewForgeLike(actorIRI, objectIRI, time.Time{})
-	require.NoError(t, err)
-
 	startTime, _ := time.Parse("2006-Jan-02", "2024-Mar-27")
-	sut, err := forgefed.NewForgeUndoLike(like, startTime)
+	sut, err := forgefed.NewForgeUndoLike(actorIRI, objectIRI, startTime)
 	require.NoError(t, err)
 
 	got, err := sut.MarshalJSON()
