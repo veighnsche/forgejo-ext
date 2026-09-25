@@ -111,16 +111,6 @@ func TestGetSearchOpts(t *testing.T) {
 	assert.Equal(t, projectTypeRepo, opts.Type.ToAPIOwnerType())
 }
 
-func TestListProjects(t *testing.T) {
-	require.NoError(t, unittest.PrepareTestDatabase())
-	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: ownerID})
-	projects, total, err := ListProjects(t.Context(), owner, nil, project_module.APIOwnerTypeIndividual, db.ListOptionsAll)
-	require.NoError(t, err)
-	assert.EqualValues(t, 4, projects[0].ID)
-	assert.Equal(t, owner, projects[0].Owner)
-	assert.EqualValues(t, 3, total)
-}
-
 func TestListProjectByOptions(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	opts := &project_model.SearchOptions{

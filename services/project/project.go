@@ -147,41 +147,6 @@ func SetProjectOwnerAndRepo(
 	}
 }
 
-// ListProjects lists all projects, optionally sets repo in returned projects.
-func ListProjects(
-	ctx context.Context,
-	owner *user_model.User,
-	repo *repo_model.Repository,
-	ownerType project_module.APIOwnerType,
-	listOptions db.ListOptions,
-) ([]*project_model.Project, int64, error) {
-	// get projects
-	opts := project_model.SearchOptions{
-		ListOptions: listOptions,
-		Type:        ownerType.ToOwnerType(),
-	}
-	if ownerType == project_module.APIOwnerTypeRepository {
-		opts.RepoID = repo.ID
-	} else {
-		opts.OwnerID = owner.ID
-	}
-	projects, total, err := db.FindAndCount[project_model.Project](ctx, opts)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	// set owner and repo in projects if set by caller
-	for _, p := range projects {
-		if ownerType == project_module.APIOwnerTypeRepository {
-			SetProjectOwnerAndRepo(p, nil, repo)
-		} else {
-			SetProjectOwnerAndRepo(p, owner, nil)
-		}
-	}
-
-	return projects, total, nil
-}
-
 // GetProjectByIDForOwner Fetches a Project by its ID from the DB
 // and checks if it belongs to the given owner
 func GetProjectByIDForOwner(ctx context.Context, projectID, ownerID int64) (*project_model.Project, error) {

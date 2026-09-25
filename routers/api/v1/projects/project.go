@@ -114,13 +114,30 @@ func CreateProject(ctx *context.APIContext) {
 func ListProjects(ctx *context.APIContext) {
 	ownerType, owner, repo := getOwnerTypeAndOwnerAndRepoFromData(ctx)
 
-	// Get the projects
+	// get projects
 	listOptions := utils.GetListOptions(ctx)
-	projects, total, err := project_service.ListProjects(ctx,
-		owner, repo, ownerType, listOptions)
+	opts := project_model.SearchOptions{
+		ListOptions: listOptions,
+		Type:        ownerType.ToOwnerType(),
+	}
+	if ownerType == project_module.APIOwnerTypeRepository {
+		opts.RepoID = repo.ID
+	} else {
+		opts.OwnerID = owner.ID
+	}
+	projects, total, err := db.FindAndCount[project_model.Project](ctx, opts)
 	if err != nil {
 		ctx.ServerError("Get Projects", err)
 		return
+	}
+
+	// set owner and repo in projects if set by caller
+	for _, p := range projects {
+		if ownerType == project_module.APIOwnerTypeRepository {
+			project_service.SetProjectOwnerAndRepo(p, nil, repo)
+		} else {
+			project_service.SetProjectOwnerAndRepo(p, owner, nil)
+		}
 	}
 
 	ctx.SetLinkHeader(int(total), listOptions.PageSize)
