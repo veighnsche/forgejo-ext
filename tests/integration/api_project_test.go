@@ -12,7 +12,10 @@ import (
 	"testing"
 
 	auth_model "forgejo.org/models/auth"
+	"forgejo.org/models/organization"
+	"forgejo.org/models/perm"
 	project_model "forgejo.org/models/project"
+	"forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/structs"
@@ -764,11 +767,6 @@ func TestProjectAPICRUD(t *testing.T) {
 	})
 }
 
-func createTeamForOrg(t *testing.T, token, orgName string, opts *api.CreateTeamOption) *httptest.ResponseRecorder {
-	endpoint := fmt.Sprintf("/api/v1/orgs/%v/teams", orgName)
-	return jsonRequestWithAuth(t, token, "POST", endpoint, NoExpectedStatus, opts)
-}
-
 func addOrRemoveTeamUser(t *testing.T, token, userName, method string, teamID int64) *httptest.ResponseRecorder {
 	endpoint := fmt.Sprintf("/api/v1//teams/%v/members/%v", teamID, userName)
 	return requestWithAuth(t, token, method, endpoint, NoExpectedStatus)
@@ -970,19 +968,22 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	})
 
 	// public user1 org, with user2 write access
-	pubOrgTeamOpts := &api.CreateTeamOption{
-		Name:       "CanWriteProjects",
-		Permission: "write",
-		UnitsMap:   map[string]string{"project": "write"},
-	}
 	pubUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
 		Visibility: structs.VisibleTypePublic,
 	})
 
-	var pubUser1OrgTeam *api.Team
-	resp := createTeamForOrg(t, adminWriteToken, pubUser1Org.Name, pubOrgTeamOpts)
-	require.Equal(t, http.StatusCreated, resp.Code)
-	DecodeJSON(t, resp, &pubUser1OrgTeam)
+	pubOrgTeamOpts := &forgery.CreateTeamOptions{
+		Name: "CanWriteProjects",
+		Mode: perm.AccessModeWrite,
+		Units: []*organization.TeamUnit{
+			{
+				OrgID:      pubUser1Org.ID,
+				Type:       unit.TypeProjects,
+				AccessMode: perm.AccessModeWrite,
+			},
+		},
+	}
+	pubUser1OrgTeam := forgery.CreateTeam(t, pubUser1Org, pubOrgTeamOpts)
 
 	_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "PUT", pubUser1OrgTeam.ID)
 
@@ -1000,19 +1001,22 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	})
 
 	// limited user1 org with user2 write access
-	limOrgTeamOpts := &api.CreateTeamOption{
-		Name:       "CanWriteProjects",
-		Permission: "write",
-		UnitsMap:   map[string]string{"project": "write"},
-	}
 	limUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
 		Visibility: structs.VisibleTypeLimited,
 	})
 
-	var limUser1OrgTeam *api.Team
-	resp = createTeamForOrg(t, adminWriteToken, limUser1Org.Name, limOrgTeamOpts)
-	require.Equal(t, http.StatusCreated, resp.Code)
-	DecodeJSON(t, resp, &limUser1OrgTeam)
+	limOrgTeamOpts := &forgery.CreateTeamOptions{
+		Name: "CanWriteProjects",
+		Mode: perm.AccessModeWrite,
+		Units: []*organization.TeamUnit{
+			{
+				OrgID:      limUser1Org.ID,
+				Type:       unit.TypeProjects,
+				AccessMode: perm.AccessModeWrite,
+			},
+		},
+	}
+	limUser1OrgTeam := forgery.CreateTeam(t, limUser1Org, limOrgTeamOpts)
 
 	_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "PUT", limUser1OrgTeam.ID)
 
@@ -1030,19 +1034,22 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	})
 
 	// private user1 org with user2 write access
-	privOrgTeamOpts := &api.CreateTeamOption{
-		Name:       "CanWriteProjects",
-		Permission: "write",
-		UnitsMap:   map[string]string{"project": "write"},
-	}
 	privUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
 		Visibility: structs.VisibleTypePrivate,
 	})
 
-	var privUser1OrgTeam *api.Team
-	resp = createTeamForOrg(t, adminWriteToken, privUser1Org.Name, privOrgTeamOpts)
-	require.Equal(t, http.StatusCreated, resp.Code)
-	DecodeJSON(t, resp, &privUser1OrgTeam)
+	privOrgTeamOpts := &forgery.CreateTeamOptions{
+		Name: "CanWriteProjects",
+		Mode: perm.AccessModeWrite,
+		Units: []*organization.TeamUnit{
+			{
+				OrgID:      privUser1Org.ID,
+				Type:       unit.TypeProjects,
+				AccessMode: perm.AccessModeWrite,
+			},
+		},
+	}
+	privUser1OrgTeam := forgery.CreateTeam(t, privUser1Org, privOrgTeamOpts)
 
 	_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "PUT", privUser1OrgTeam.ID)
 
