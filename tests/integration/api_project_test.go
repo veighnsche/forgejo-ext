@@ -892,10 +892,6 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		CardType:     "text_only",
 		Status:       "open",
 	}
-	runOpts := &runOpts{
-		token:         userWriteToken,
-		shouldSucceed: true,
-	}
 
 	// Case: Public Org where User2 is owner
 	t.Run("Public Org where User2 is owner", func(t *testing.T) {
@@ -912,8 +908,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		DecodeJSON(t, resp, &pubUser2Org)
 
 		// Run actions
-		runOpts.owner = pubUser2Org.Name
-		runOpts.ownerType = project_module.APIOwnerTypeOrganization
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         pubUser2Org.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -932,7 +932,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		DecodeJSON(t, resp, &limUser2Org)
 
 		// Run actions
-		runOpts.owner = limUser2Org.Name
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         limUser2Org.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -951,7 +956,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		DecodeJSON(t, resp, &privUser2Org)
 
 		// Run actions
-		runOpts.owner = privUser2Org.Name
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         privUser2Org.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -968,9 +978,13 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		DecodeJSON(t, resp, &user2Repo)
 
 		// Run actions
-		runOpts.owner = user2.Name
-		runOpts.repo = user2Repo.Name
-		runOpts.ownerType = project_module.APIOwnerTypeRepository
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         user2.Name,
+			repo:          user2Repo.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeRepository,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -979,9 +993,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		// Run actions
-		runOpts.owner = user2.Name
-		runOpts.repo = ""
-		runOpts.ownerType = project_module.APIOwnerTypeIndividual
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         user2.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeIndividual,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -1012,9 +1029,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Public Org where User2 team member with write access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		runOpts.owner = pubUser1Org.Name
-		runOpts.ownerType = project_module.APIOwnerTypeOrganization
-		runOpts.token = adminWriteToken
+		runOpts := &runOpts{
+			token:         adminWriteToken,
+			owner:         pubUser1Org.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -1045,7 +1065,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Limited Org where User2 team member with write access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		runOpts.owner = limUser1Org.Name
+		runOpts := &runOpts{
+			token:         adminWriteToken,
+			owner:         limUser1Org.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -1076,7 +1101,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Private Org where User2 team member with write access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		runOpts.owner = privUser1Org.Name
+		runOpts := &runOpts{
+			token:         adminWriteToken,
+			owner:         privUser1Org.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -1100,9 +1130,13 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		addorRemoveCollaboratorToRepo(t, adminWriteToken, user1.Name, repoOpts.Name, user2.Name, "PUT", collabOpts)
 
 		// Run actions
-		runOpts.owner = user1.Name
-		runOpts.repo = repoOpts.Name
-		runOpts.ownerType = project_module.APIOwnerTypeRepository
+		runOpts := &runOpts{
+			token:         adminWriteToken,
+			owner:         user1.Name,
+			repo:          repoOpts.Name,
+			shouldSucceed: true,
+			ownerType:     project_module.APIOwnerTypeRepository,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -1111,8 +1145,13 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		addorRemoveCollaboratorToRepo(t, adminWriteToken, user1.Name, repoOpts.Name, user2.Name, "DELETE", collabOpts)
-		runOpts.shouldSucceed = false
-		runOpts.token = userWriteToken
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         user1.Name,
+			repo:          repoOpts.Name,
+			shouldSucceed: false,
+			ownerType:     project_module.APIOwnerTypeRepository,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -1123,6 +1162,13 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		readPerm := "read"
 		collabOpts.Permission = &readPerm
 		addorRemoveCollaboratorToRepo(t, adminWriteToken, user1.Name, repoOpts.Name, user2.Name, "PUT", collabOpts)
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         user1.Name,
+			repo:          repoOpts.Name,
+			shouldSucceed: false,
+			ownerType:     project_module.APIOwnerTypeRepository,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -1131,9 +1177,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "DELETE", pubUser1OrgTeam.ID)
-		runOpts.owner = pubUser1Org.Name
-		runOpts.repo = ""
-		runOpts.ownerType = project_module.APIOwnerTypeOrganization
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         pubUser1Org.Name,
+			shouldSucceed: false,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
@@ -1142,7 +1191,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "DELETE", limUser1OrgTeam.ID)
-		runOpts.owner = limUser1Org.Name
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         limUser1Org.Name,
+			shouldSucceed: false,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 		runOpts.token = userReadToken
 		runProjectReadActions(t, runOpts)
@@ -1153,8 +1207,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "DELETE", privUser1OrgTeam.ID)
-		runOpts.owner = privUser1Org.Name
-		runOpts.token = userWriteToken
+		runOpts := &runOpts{
+			token:         userWriteToken,
+			owner:         privUser1Org.Name,
+			shouldSucceed: false,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 		runOpts.token = userReadToken
 		runProjectReadActions(t, runOpts)
@@ -1165,6 +1223,12 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		var delProj *api.Project
+		runOpts := &runOpts{
+			token:         userReadToken,
+			owner:         privUser1Org.Name,
+			shouldSucceed: false,
+			ownerType:     project_module.APIOwnerTypeOrganization,
+		}
 		baseString := getProjectAPIBaseString(runOpts)
 		endpoint := baseString + "/projects"
 		resp := jsonRequestWithAuth(t, adminWriteToken, "POST", endpoint, http.StatusCreated, projectOpts)
