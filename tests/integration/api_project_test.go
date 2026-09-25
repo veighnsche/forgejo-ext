@@ -17,8 +17,8 @@ import (
 	project_model "forgejo.org/models/project"
 	"forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
+	user_model "forgejo.org/models/user"
 	project_module "forgejo.org/modules/project"
-	"forgejo.org/modules/structs"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/services/convert"
 	"forgejo.org/tests"
@@ -767,11 +767,6 @@ func TestProjectAPICRUD(t *testing.T) {
 	})
 }
 
-func addOrRemoveTeamUser(t *testing.T, token, userName, method string, teamID int64) *httptest.ResponseRecorder {
-	endpoint := fmt.Sprintf("/api/v1//teams/%v/members/%v", teamID, userName)
-	return requestWithAuth(t, token, method, endpoint, NoExpectedStatus)
-}
-
 func addorRemoveCollaboratorToRepo(t *testing.T, token, owner, repoName, user, method string, opts *api.AddCollaboratorOption) *httptest.ResponseRecorder {
 	endpoint := fmt.Sprintf("/api/v1/repos/%v/%v/collaborators/%v", owner, repoName, user)
 	return jsonRequestWithAuth(t, token, method, endpoint, NoExpectedStatus, opts)
@@ -887,7 +882,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		pubUser2Org := forgery.CreateOrganisation(t, user2, &forgery.CreateOrganisationOptions{
-			Visibility: structs.VisibleTypePublic,
+			Visibility: api.VisibleTypePublic,
 		})
 
 		// Run actions
@@ -905,7 +900,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		limUser2Org := forgery.CreateOrganisation(t, user2, &forgery.CreateOrganisationOptions{
-			Visibility: structs.VisibleTypeLimited,
+			Visibility: api.VisibleTypeLimited,
 		})
 
 		// Run actions
@@ -923,7 +918,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		privUser2Org := forgery.CreateOrganisation(t, user2, &forgery.CreateOrganisationOptions{
-			Visibility: structs.VisibleTypeLimited,
+			Visibility: api.VisibleTypeLimited,
 		})
 
 		// Run actions
@@ -967,30 +962,29 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
-	// public user1 org, with user2 write access
-	pubUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
-		Visibility: structs.VisibleTypePublic,
-	})
-
-	pubOrgTeamOpts := &forgery.CreateTeamOptions{
-		Name: "CanWriteProjects",
-		Mode: perm.AccessModeWrite,
-		Units: []*organization.TeamUnit{
-			{
-				OrgID:      pubUser1Org.ID,
-				Type:       unit.TypeProjects,
-				AccessMode: perm.AccessModeWrite,
-			},
-		},
-	}
-	pubUser1OrgTeam := forgery.CreateTeam(t, pubUser1Org, pubOrgTeamOpts)
-
-	_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "PUT", pubUser1OrgTeam.ID)
-
 	// Case: Public Org where User2 team member with write access
 	t.Run("Public Org where User2 team member with write access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
+		// public user1 org, with user2 write access
+		pubUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+			Visibility: api.VisibleTypePublic,
+		})
+		pubOrgTeamOpts := &forgery.CreateTeamOptions{
+			Name: "CanWriteProjects",
+			Mode: perm.AccessModeWrite,
+			Units: []*organization.TeamUnit{
+				{
+					OrgID:      pubUser1Org.ID,
+					Type:       unit.TypeProjects,
+					AccessMode: perm.AccessModeWrite,
+				},
+			},
+			Members: []*user_model.User{user2},
+		}
+		forgery.CreateTeam(t, pubUser1Org, pubOrgTeamOpts)
+
+		// Run actions
 		runOpts := &runOpts{
 			token:         adminWriteToken,
 			owner:         pubUser1Org.Name,
@@ -1000,30 +994,30 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
-	// limited user1 org with user2 write access
-	limUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
-		Visibility: structs.VisibleTypeLimited,
-	})
-
-	limOrgTeamOpts := &forgery.CreateTeamOptions{
-		Name: "CanWriteProjects",
-		Mode: perm.AccessModeWrite,
-		Units: []*organization.TeamUnit{
-			{
-				OrgID:      limUser1Org.ID,
-				Type:       unit.TypeProjects,
-				AccessMode: perm.AccessModeWrite,
-			},
-		},
-	}
-	limUser1OrgTeam := forgery.CreateTeam(t, limUser1Org, limOrgTeamOpts)
-
-	_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "PUT", limUser1OrgTeam.ID)
-
 	// Case: Limited Org where User2 team member with write access
 	t.Run("Limited Org where User2 team member with write access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
+		// limited user1 org with user2 write access
+		limUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+			Visibility: api.VisibleTypeLimited,
+		})
+
+		limOrgTeamOpts := &forgery.CreateTeamOptions{
+			Name: "CanWriteProjects",
+			Mode: perm.AccessModeWrite,
+			Units: []*organization.TeamUnit{
+				{
+					OrgID:      limUser1Org.ID,
+					Type:       unit.TypeProjects,
+					AccessMode: perm.AccessModeWrite,
+				},
+			},
+			Members: []*user_model.User{user2},
+		}
+		forgery.CreateTeam(t, limUser1Org, limOrgTeamOpts)
+
+		// Run actions
 		runOpts := &runOpts{
 			token:         adminWriteToken,
 			owner:         limUser1Org.Name,
@@ -1033,30 +1027,30 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
-	// private user1 org with user2 write access
-	privUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
-		Visibility: structs.VisibleTypePrivate,
-	})
-
-	privOrgTeamOpts := &forgery.CreateTeamOptions{
-		Name: "CanWriteProjects",
-		Mode: perm.AccessModeWrite,
-		Units: []*organization.TeamUnit{
-			{
-				OrgID:      privUser1Org.ID,
-				Type:       unit.TypeProjects,
-				AccessMode: perm.AccessModeWrite,
-			},
-		},
-	}
-	privUser1OrgTeam := forgery.CreateTeam(t, privUser1Org, privOrgTeamOpts)
-
-	_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "PUT", privUser1OrgTeam.ID)
-
 	// Case: Private Org where User2 team member with write access
 	t.Run("Private Org where User2 team member with write access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
+		// private user1 org with user2 write access
+		privUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+			Visibility: api.VisibleTypePrivate,
+		})
+
+		privOrgTeamOpts := &forgery.CreateTeamOptions{
+			Name: "CanWriteProjects",
+			Mode: perm.AccessModeWrite,
+			Units: []*organization.TeamUnit{
+				{
+					OrgID:      privUser1Org.ID,
+					Type:       unit.TypeProjects,
+					AccessMode: perm.AccessModeWrite,
+				},
+			},
+			Members: []*user_model.User{user2},
+		}
+		forgery.CreateTeam(t, privUser1Org, privOrgTeamOpts)
+
+		// Run actions
 		runOpts := &runOpts{
 			token:         adminWriteToken,
 			owner:         privUser1Org.Name,
@@ -1129,7 +1123,9 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Public Org where User2 is not member", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "DELETE", pubUser1OrgTeam.ID)
+		pubUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+			Visibility: api.VisibleTypePublic,
+		})
 		runOpts := &runOpts{
 			token:         userWriteToken,
 			owner:         pubUser1Org.Name,
@@ -1143,7 +1139,9 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Limited Org where User2 is not member", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "DELETE", limUser1OrgTeam.ID)
+		limUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+			Visibility: api.VisibleTypeLimited,
+		})
 		runOpts := &runOpts{
 			token:         userWriteToken,
 			owner:         limUser1Org.Name,
@@ -1159,7 +1157,9 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Private Org where User2 is not member", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		_ = addOrRemoveTeamUser(t, adminWriteToken, user2.Name, "DELETE", privUser1OrgTeam.ID)
+		privUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+			Visibility: api.VisibleTypePrivate,
+		})
 		runOpts := &runOpts{
 			token:         userWriteToken,
 			owner:         privUser1Org.Name,
@@ -1175,6 +1175,9 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Project where User2 is not owner", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
+		privUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+			Visibility: api.VisibleTypePrivate,
+		})
 		var delProj *api.Project
 		runOpts := &runOpts{
 			token:         userReadToken,
