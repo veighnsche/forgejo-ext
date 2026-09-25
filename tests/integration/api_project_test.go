@@ -15,6 +15,7 @@ import (
 	project_model "forgejo.org/models/project"
 	"forgejo.org/models/unittest"
 	project_module "forgejo.org/modules/project"
+	"forgejo.org/modules/structs"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/services/convert"
 	"forgejo.org/tests"
@@ -763,11 +764,6 @@ func TestProjectAPICRUD(t *testing.T) {
 	})
 }
 
-func createOrg(t *testing.T, token string, opts *api.CreateOrgOption) *httptest.ResponseRecorder {
-	endpoint := "/api/v1/orgs"
-	return jsonRequestWithAuth(t, token, "POST", endpoint, NoExpectedStatus, opts)
-}
-
 func createTeamForOrg(t *testing.T, token, orgName string, opts *api.CreateTeamOption) *httptest.ResponseRecorder {
 	endpoint := fmt.Sprintf("/api/v1/orgs/%v/teams", orgName)
 	return jsonRequestWithAuth(t, token, "POST", endpoint, NoExpectedStatus, opts)
@@ -897,15 +893,9 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Public Org where User2 is owner", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		pubOrgOpts := &api.CreateOrgOption{
-			UserName:   "pubUser2Org",
-			Email:      "test@example.com",
-			Visibility: "public",
-		}
-		resp := createOrg(t, userWriteToken, pubOrgOpts)
-		var pubUser2Org *api.Organization
-		require.Equal(t, http.StatusCreated, resp.Code)
-		DecodeJSON(t, resp, &pubUser2Org)
+		pubUser2Org := forgery.CreateOrganisation(t, user2, &forgery.CreateOrganisationOptions{
+			Visibility: structs.VisibleTypePublic,
+		})
 
 		// Run actions
 		runOpts := &runOpts{
@@ -921,15 +911,9 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Limited Org where User2 is owner", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		limOrgOpts := &api.CreateOrgOption{
-			UserName:   "limUser2Org",
-			Email:      "test@example.com",
-			Visibility: "limited",
-		}
-		resp := createOrg(t, userWriteToken, limOrgOpts)
-		var limUser2Org *api.Organization
-		require.Equal(t, http.StatusCreated, resp.Code)
-		DecodeJSON(t, resp, &limUser2Org)
+		limUser2Org := forgery.CreateOrganisation(t, user2, &forgery.CreateOrganisationOptions{
+			Visibility: structs.VisibleTypeLimited,
+		})
 
 		// Run actions
 		runOpts := &runOpts{
@@ -945,15 +929,9 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Private Org where User2 is owner", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		privOrgOpts := &api.CreateOrgOption{
-			UserName:   "privUser2Org",
-			Email:      "test@example.com",
-			Visibility: "limited",
-		}
-		resp := createOrg(t, userWriteToken, privOrgOpts)
-		var privUser2Org *api.Organization
-		require.Equal(t, http.StatusCreated, resp.Code)
-		DecodeJSON(t, resp, &privUser2Org)
+		privUser2Org := forgery.CreateOrganisation(t, user2, &forgery.CreateOrganisationOptions{
+			Visibility: structs.VisibleTypeLimited,
+		})
 
 		// Run actions
 		runOpts := &runOpts{
@@ -1003,23 +981,17 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	})
 
 	// public user1 org, with user2 write access
-	pubOrgOpts := &api.CreateOrgOption{
-		UserName:   "pubUser1Org",
-		Email:      "test@example.com",
-		Visibility: "public",
-	}
 	pubOrgTeamOpts := &api.CreateTeamOption{
 		Name:       "CanWriteProjects",
 		Permission: "write",
 		UnitsMap:   map[string]string{"project": "write"},
 	}
-	resp := createOrg(t, adminWriteToken, pubOrgOpts)
-	var pubUser1Org *api.Organization
-	require.Equal(t, http.StatusCreated, resp.Code)
-	DecodeJSON(t, resp, &pubUser1Org)
+	pubUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+		Visibility: structs.VisibleTypePublic,
+	})
 
 	var pubUser1OrgTeam *api.Team
-	resp = createTeamForOrg(t, adminWriteToken, pubUser1Org.Name, pubOrgTeamOpts)
+	resp := createTeamForOrg(t, adminWriteToken, pubUser1Org.Name, pubOrgTeamOpts)
 	require.Equal(t, http.StatusCreated, resp.Code)
 	DecodeJSON(t, resp, &pubUser1OrgTeam)
 
@@ -1039,20 +1011,14 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	})
 
 	// limited user1 org with user2 write access
-	limOrgOpts := &api.CreateOrgOption{
-		UserName:   "limUser1Org",
-		Email:      "test@example.com",
-		Visibility: "limited",
-	}
 	limOrgTeamOpts := &api.CreateTeamOption{
 		Name:       "CanWriteProjects",
 		Permission: "write",
 		UnitsMap:   map[string]string{"project": "write"},
 	}
-	resp = createOrg(t, adminWriteToken, limOrgOpts)
-	var limUser1Org *api.Organization
-	require.Equal(t, http.StatusCreated, resp.Code)
-	DecodeJSON(t, resp, &limUser1Org)
+	limUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+		Visibility: structs.VisibleTypeLimited,
+	})
 
 	var limUser1OrgTeam *api.Team
 	resp = createTeamForOrg(t, adminWriteToken, limUser1Org.Name, limOrgTeamOpts)
@@ -1075,20 +1041,14 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	})
 
 	// private user1 org with user2 write access
-	privOrgOpts := &api.CreateOrgOption{
-		UserName:   "privUser1Org",
-		Email:      "test@example.com",
-		Visibility: "private",
-	}
 	privOrgTeamOpts := &api.CreateTeamOption{
 		Name:       "CanWriteProjects",
 		Permission: "write",
 		UnitsMap:   map[string]string{"project": "write"},
 	}
-	resp = createOrg(t, adminWriteToken, privOrgOpts)
-	var privUser1Org *api.Organization
-	require.Equal(t, http.StatusCreated, resp.Code)
-	DecodeJSON(t, resp, &privUser1Org)
+	privUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
+		Visibility: structs.VisibleTypePrivate,
+	})
 
 	var privUser1OrgTeam *api.Team
 	resp = createTeamForOrg(t, adminWriteToken, privUser1Org.Name, privOrgTeamOpts)
