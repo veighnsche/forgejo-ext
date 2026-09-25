@@ -47,7 +47,7 @@ func TestTranslatePreExecutionWarning(t *testing.T) {
 					{"job1", "https://forgejo.org/docs/foo/user/api/authorized-integrations/"},
 				},
 			},
-			expected: []template.HTML{"Job <code>job1</code> or its workflow has a <code>permissions</code> field, which is not supported in Forgejo and will be ignored. Use <a href=\"https://forgejo.org/docs/foo/user/api/authorized-integrations/\">Authorized Integrations</a> to grant capabilities to this job instead."},
+			expected: []template.HTML{"Job <code>job1</code> or its workflow has a <code>permissions</code> field, which is not supported in Forgejo and will be ignored. Use <a href=\"https://forgejo.org/docs/foo/user/api/authorized-integrations/\">Authorized integrations</a> to grant capabilities to this job instead."},
 		},
 		{
 			name: "WarningCodePermissionsEncoding",
