@@ -470,7 +470,7 @@ func hookPrintMessages(messages []private.HookPostReceiveMessage) {
 			}
 			if msg.AgitRef != "" {
 				// Recently created AGit pull request
-				fmt.Fprint(os.Stderr, "\nAGit configuration for git push/pull:\n")
+				fmt.Fprintf(os.Stderr, "\nAGit configuration for git push/pull (for a local branch named %q):\n", msg.Branch)
 				fmt.Fprintf(os.Stderr, "  git config set branch.%s.merge %s\n", msg.Branch, msg.AgitRef)
 				fmt.Fprintf(os.Stderr, "  git config set branch.%s.remote origin\n", msg.Branch)
 			}

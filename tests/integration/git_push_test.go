@@ -438,10 +438,11 @@ func TestGitPushAGit(t *testing.T) {
 
 		newAgitPR := func(repoPath string) (string, error) {
 			branchName := "agit-pr"
+			topicName := "agit-topic"
 			doGitCreateBranch(repoPath, branchName)(t)
 			doGitAddSomeCommits(repoPath, branchName)(t)
 			_, stdErr, err := git.NewCommand(git.DefaultContext, "push", "origin").
-				AddDynamicArguments(fmt.Sprintf("%s:refs/for/main/%s", branchName, branchName)).RunStdString(&git.RunOpts{Dir: repoPath})
+				AddDynamicArguments(fmt.Sprintf("%s:refs/for/main/%s", branchName, topicName)).RunStdString(&git.RunOpts{Dir: repoPath})
 			if err != nil {
 				return "", err
 			}
@@ -450,7 +451,7 @@ func TestGitPushAGit(t *testing.T) {
 			matches := prRegex.FindStringSubmatch(stdErr)
 			require.Len(t, matches, 2, stdErr)
 
-			assert.Contains(t, stdErr, fmt.Sprintf("git config set branch.%s.merge %s", branchName, matches[0]))
+			assert.Contains(t, stdErr, fmt.Sprintf("git config set branch.%s.merge %s", topicName, matches[0]))
 			return matches[1], nil
 		}
 		fetchAgitPR := func(repoPath, branchName, prIndex string) error {
