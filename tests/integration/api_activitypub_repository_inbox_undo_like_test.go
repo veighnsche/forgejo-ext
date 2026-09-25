@@ -73,9 +73,8 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 				"object": localRepo2,
 			},
 		})
-		require.Error(t, err, "failed to marshal: activityUser15UndoLikesRepo2")
+		require.NoError(t, err, "failed to marshal: activityUser15UndoLikesRepo2")
 
-		// test it
 		resp, err = c.Post(activityUser15UndoLikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -95,7 +94,7 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 			"actor":     distantActorUser15,
 			"object":    localRepo2,
 		})
-		require.Error(t, err, "failed to marshal: secondActivityUser15LikesRepo2")
+		require.NoError(t, err, "failed to marshal: secondActivityUser15LikesRepo2")
 
 		resp, err = c.Post(secondActivityUser15LikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
@@ -112,8 +111,7 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 				"object": localRepo2Inbox,
 			},
 		})
-
-		require.Error(t, err, "failed to marshal: activityUser30UndoLikesRepo2")
+		require.NoError(t, err, "failed to marshal: activityUser30UndoLikesRepo2")
 
 		// Replay activityUser30UndoLikesRepo2
 		resp, err = c.Post(activityUser30UndoLikesRepo2, localRepo2Inbox)

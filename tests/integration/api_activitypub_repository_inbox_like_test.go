@@ -78,7 +78,7 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 			"actor":     distantActorUser30,
 			"object":    localRepo2,
 		})
-		require.Error(t, err, "failed to marshal: activityUser30LikesRepo2")
+		require.NoError(t, err, "failed to marshal: activityUser30LikesRepo2")
 
 		resp, err = c.Post(activityUser30LikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 			"actor":     distantActorUser30,
 			"object":    localRepo2,
 		})
-		require.Error(t, err, "failed to marshal: secondActivityUser30LikesRepo2")
+		require.NoError(t, err, "failed to marshal: secondActivityUser30LikesRepo2")
 
 		resp, err = c.Post(secondActivityUser30LikesRepo2, localRepo2Inbox)
 		require.NoError(t, err)
