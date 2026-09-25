@@ -767,11 +767,6 @@ func TestProjectAPICRUD(t *testing.T) {
 	})
 }
 
-func addorRemoveCollaboratorToRepo(t *testing.T, token, owner, repoName, user, method string, opts *api.AddCollaboratorOption) *httptest.ResponseRecorder {
-	endpoint := fmt.Sprintf("/api/v1/repos/%v/%v/collaborators/%v", owner, repoName, user)
-	return jsonRequestWithAuth(t, token, method, endpoint, NoExpectedStatus, opts)
-}
-
 func getProject(t *testing.T, token, projectAPIBaseString string, pID int64, status int) *httptest.ResponseRecorder {
 	return projectsIDEndpoint(t, token, "GET", projectAPIBaseString, pID, status)
 }
@@ -1060,21 +1055,16 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		runProjectWriteActions(t, runOpts, projectOpts)
 	})
 
-	repoOpts := &api.CreateRepoOption{
-		Name: "user1Repo",
-	}
-	writePerm := "write"
-	collabOpts := &api.AddCollaboratorOption{
-		Permission: &writePerm,
-	}
-
 	// Case: Repo where User2 is not owner, collaborator with write/read access
 	t.Run("Repo where User2 is not owner, collaborator with write/read access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		user1Repo := forgery.CreateRepository(t, user1, nil)
-
-		addorRemoveCollaboratorToRepo(t, adminWriteToken, user1.Name, repoOpts.Name, user2.Name, "PUT", collabOpts)
+		user1Repo := forgery.CreateRepository(t, user1, &forgery.CreateRepositoryOptions{
+			Collaborators: map[*user_model.User]perm.AccessMode{
+				user1: perm.AccessModeWrite,
+			},
+		},
+		)
 
 		// Run actions
 		runOpts := &runOpts{
@@ -1091,11 +1081,11 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Repo where User2 is not owner", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		addorRemoveCollaboratorToRepo(t, adminWriteToken, user1.Name, repoOpts.Name, user2.Name, "DELETE", collabOpts)
+		user1Repo := forgery.CreateRepository(t, user1, nil)
 		runOpts := &runOpts{
 			token:         userWriteToken,
 			owner:         user1.Name,
-			repo:          repoOpts.Name,
+			repo:          user1Repo.Name,
 			shouldSucceed: false,
 			ownerType:     project_module.APIOwnerTypeRepository,
 		}
@@ -1106,13 +1096,18 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Repo where User2 is collaborator with read access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		readPerm := "read"
-		collabOpts.Permission = &readPerm
-		addorRemoveCollaboratorToRepo(t, adminWriteToken, user1.Name, repoOpts.Name, user2.Name, "PUT", collabOpts)
+		user1Repo := forgery.CreateRepository(t, user1, &forgery.CreateRepositoryOptions{
+			Collaborators: map[*user_model.User]perm.AccessMode{
+				user1: perm.AccessModeRead,
+			},
+		},
+		)
+
+		// Run actions
 		runOpts := &runOpts{
 			token:         userWriteToken,
 			owner:         user1.Name,
-			repo:          repoOpts.Name,
+			repo:          user1Repo.Name,
 			shouldSucceed: false,
 			ownerType:     project_module.APIOwnerTypeRepository,
 		}
