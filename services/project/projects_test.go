@@ -722,17 +722,22 @@ func TestCUDProject(t *testing.T) {
 		assert.Contains(t, defaultIssues, pI1)
 		assert.Contains(t, defaultIssues, pI2)
 
-		// Show all issues
-		issuesBefore, _, err := ListProjectIssues(t.Context(), project.ID, db.ListOptionsAll)
+		// Remove an issue
+		issuesBefore, err := db.Find[project_model.ProjectIssue](t.Context(), project_model.FindProjectIssueOptions{
+			ListOptions: db.ListOptionsAll,
+			ProjectID:   project.ID,
+		})
 		require.NoError(t, err)
 
-		// Remove an issue
 		issue1 := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		err = RemoveIssueFromProject(t.Context(), issue1, user, column1.ID)
 		require.NoError(t, err)
 
-		issuesAfter, _, err := ListProjectIssues(t.Context(), project.ID, db.ListOptionsAll)
+		issuesAfter, err := db.Find[project_model.ProjectIssue](t.Context(), project_model.FindProjectIssueOptions{
+			ListOptions: db.ListOptionsAll,
+			ProjectID:   project.ID,
+		})
 		require.NoError(t, err)
 
 		assert.Less(t, len(issuesAfter), len(issuesBefore))
@@ -741,7 +746,10 @@ func TestCUDProject(t *testing.T) {
 		_, err = CreateIssueInProject(t.Context(), issue1, user, project.ID, column1.ID)
 		require.NoError(t, err)
 
-		issuesAfter, _, err = ListProjectIssues(t.Context(), project.ID, db.ListOptionsAll)
+		issuesAfter, err = db.Find[project_model.ProjectIssue](t.Context(), project_model.FindProjectIssueOptions{
+			ListOptions: db.ListOptionsAll,
+			ProjectID:   project.ID,
+		})
 		require.NoError(t, err)
 
 		assert.Len(t, issuesAfter, len(issuesBefore))

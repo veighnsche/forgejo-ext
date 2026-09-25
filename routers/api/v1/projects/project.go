@@ -196,7 +196,10 @@ func DeleteProject(ctx *context.APIContext) {
 func ListProjectIssues(ctx *context.APIContext) {
 	// get project issues
 	listOptions := utils.GetListOptions(ctx)
-	projectIssues, total, err := project_service.ListProjectIssues(ctx, ctx.Project().ProjectID, listOptions)
+	projectIssues, total, err := db.FindAndCount[project_model.ProjectIssue](ctx, project_model.FindProjectIssueOptions{
+		ListOptions: listOptions,
+		ProjectID:   ctx.Project().ProjectID,
+	})
 	if err != nil {
 		ctx.ServerError("Delete Project", err)
 		return

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 
-	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
 	project_model "forgejo.org/models/project"
 	user_model "forgejo.org/models/user"
@@ -57,15 +56,6 @@ func GetValidProjectIssueByID(ctx context.Context, projectID, columnID, issueID 
 		}
 	}
 	return i, nil
-}
-
-// ListProjectIssues Gets a list of ProjectIssues for a projectID, also returns the total count in that list
-func ListProjectIssues(ctx context.Context, projectID int64, listOptions db.ListOptions) ([]*project_model.ProjectIssue, int64, error) {
-	issues, total, err := project_model.GetProjectIssues(ctx, projectID, listOptions)
-	if err != nil {
-		return nil, 0, fmt.Errorf("could not get issues for project %d: %w", projectID, err)
-	}
-	return issues, total, nil
 }
 
 // CreateIssueInProject Create a ProjectIssue in a Project in the column with the given ID
