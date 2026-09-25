@@ -779,11 +779,6 @@ func addorRemoveCollaboratorToRepo(t *testing.T, token, owner, repoName, user, m
 	return jsonRequestWithAuth(t, token, method, endpoint, NoExpectedStatus, opts)
 }
 
-func createUserRepo(t *testing.T, token string, opts *api.CreateRepoOption) *httptest.ResponseRecorder {
-	endpoint := "/api/v1/user/repos"
-	return jsonRequestWithAuth(t, token, "POST", endpoint, NoExpectedStatus, opts)
-}
-
 func getProject(t *testing.T, token, projectAPIBaseString string, pID int64, status int) *httptest.ResponseRecorder {
 	return projectsIDEndpoint(t, token, "GET", projectAPIBaseString, pID, status)
 }
@@ -947,13 +942,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Repo where User2 is owner", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		repoOpts := &api.CreateRepoOption{
-			Name: "user2Repo",
-		}
-		resp := createUserRepo(t, userWriteToken, repoOpts)
-		var user2Repo *api.Repository
-		require.Equal(t, http.StatusCreated, resp.Code)
-		DecodeJSON(t, resp, &user2Repo)
+		user2Repo := forgery.CreateRepository(t, user2, nil)
 
 		// Run actions
 		runOpts := &runOpts{
@@ -1082,10 +1071,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	t.Run("Repo where User2 is not owner, collaborator with write/read access", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		resp := createUserRepo(t, adminWriteToken, repoOpts)
-		var user1Repo *api.Repository
-		require.Equal(t, http.StatusCreated, resp.Code)
-		DecodeJSON(t, resp, &user1Repo)
+		user1Repo := forgery.CreateRepository(t, user1, nil)
 
 		addorRemoveCollaboratorToRepo(t, adminWriteToken, user1.Name, repoOpts.Name, user2.Name, "PUT", collabOpts)
 
@@ -1093,7 +1079,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		runOpts := &runOpts{
 			token:         adminWriteToken,
 			owner:         user1.Name,
-			repo:          repoOpts.Name,
+			repo:          user1Repo.Name,
 			shouldSucceed: true,
 			ownerType:     project_module.APIOwnerTypeRepository,
 		}
