@@ -484,3 +484,24 @@ test.describe('Markdown rendered on preview', () => {
     await expect(link).toHaveText('@limited_org');
   });
 });
+
+test('Reference in a new issue', async ({page}) => {
+  await page.goto('/user2/repo2/issues/1');
+
+  const dropdownWrap = page.locator('.first.comment .comment-header .dialog-dropdown');
+  const dropdownContent = dropdownWrap.locator('dialog');
+  const modal = page.locator('#reference-issue-modal');
+
+  // Open comment actions
+  await dropdownWrap.locator('.opener').click();
+  await expect(dropdownContent).toBeVisible();
+
+  // Clicking "Reference in a new issue" opens dialog and closes dropdown
+  await dropdownContent.locator('.reference-issue').click();
+  await expect(modal).toBeVisible();
+  await expect(dropdownContent).toBeHidden();
+
+  // Pressing Escape closes the modal
+  await page.keyboard.press('Escape');
+  await expect(modal).toBeHidden();
+});
