@@ -132,7 +132,7 @@ func assertActionEqual(t *testing.T, expectedRun *actions_model.ActionRun, actua
 	assert.Equal(t, expectedRun.Index, actualRun.Index)
 	assert.Equal(t, expectedRun.RepoID, actualRun.Repo.ID)
 	// convert to unix because of time zones
-	assert.Equal(t, expectedRun.Stopped.AsTime().Unix(), actualRun.Stopped.Unix())
+	assert.Equal(t, expectedRun.Stopped.AsTime().Unix(), actualRun.Stopped.ValueOrZeroValue().Unix())
 	assert.Equal(t, expectedRun.Title, actualRun.Title)
 	assert.Equal(t, expectedRun.WorkflowID, actualRun.WorkflowID)
 }
@@ -413,7 +413,7 @@ func TestWebhookNotifier_NewWorkflowJobAttempt(t *testing.T) {
 	assert.Equal(t, structs.HookNewWorkflowJobAttempt, payloadContent.Action)
 	assert.Equal(t, job.ID, payloadContent.Job.ID)
 	assert.Equal(t, run.ID, payloadContent.Run.ID)
-	assert.Equal(t, repo62.ID, payloadContent.Repository.ID)
+	assert.Equal(t, repo62.ID, payloadContent.Run.Repo.ID)
 }
 
 func TestWebhookNotifier_WorkflowJobStatusChanged(t *testing.T) {
@@ -481,7 +481,7 @@ func TestWebhookNotifier_WorkflowJobStatusChanged(t *testing.T) {
 	assert.Equal(t, structs.HookWorkflowJobStatusChanged, payloadContent.Action)
 	assert.Equal(t, job.ID, payloadContent.Job.ID)
 	assert.Equal(t, run.ID, payloadContent.Run.ID)
-	assert.Equal(t, repo62.ID, payloadContent.Repository.ID)
+	assert.Equal(t, repo62.ID, payloadContent.Run.Repo.ID)
 }
 
 func TestWebhookNotifier_WorkflowJobCompleted(t *testing.T) {
@@ -549,5 +549,5 @@ func TestWebhookNotifier_WorkflowJobCompleted(t *testing.T) {
 	assert.Equal(t, structs.HookWorkflowJobCompleted, payloadContent.Action)
 	assert.Equal(t, job.ID, payloadContent.Job.ID)
 	assert.Equal(t, run.ID, payloadContent.Run.ID)
-	assert.Equal(t, repo62.ID, payloadContent.Repository.ID)
+	assert.Equal(t, repo62.ID, payloadContent.Run.Repo.ID)
 }
