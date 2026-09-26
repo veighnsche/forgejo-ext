@@ -35,7 +35,7 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 	defer federatedSrv.Close()
 
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
-		repositoryID := 2
+		repositoryID := int64(2)
 		timeNow := time.Now().UTC()
 		localRepo2 := u.JoinPath(fmt.Sprintf("/api/v1/activitypub/repository-id/%d", repositoryID)).String()
 		localRepo2Inbox := fmt.Sprintf("%s/inbox", localRepo2)
@@ -49,65 +49,77 @@ func TestActivityPubRepositoryInboxLike(t *testing.T) {
 
 		distantActorUser15 := fmt.Sprintf("%s/api/v1/activitypub/user-id/15", federatedSrv.URL)
 
-		repo2 := unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
+		repo2 := unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: repositoryID})
 		assert.Equal(t, 1, repo2.NumStars)
 
-		activityUser15LikesRepo2, err := json.Marshal(map[string]any{
-			"type":      "Like",
-			"startTime": timeNow.Format(time.RFC3339),
-			"actor":     distantActorUser15,
-			"object":    localRepo2,
+		var federationHost *forgefed.FederationHost
+
+		t.Run("Like repo", func(t *testing.T) {
+			activityUser15LikesRepo2, err := json.Marshal(map[string]any{
+				"type":      "Like",
+				"startTime": timeNow.Format(time.RFC3339),
+				"actor":     distantActorUser15,
+				"object":    localRepo2,
+			})
+			require.NoError(t, err, "failed to marshal: activityUser15LikesRepo2")
+
+			resp, err := c.Post(activityUser15LikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+			federationHost = unittest.AssertExistsAndLoadBean(t, &forgefed.FederationHost{HostFqdn: "127.0.0.1"})
+			federatedUser := unittest.AssertExistsAndLoadBean(t, &user.FederatedUser{ExternalID: "15", FederationHostID: federationHost.ID})
+			unittest.AssertExistsAndLoadBean(t, &user.User{ID: federatedUser.UserID})
+			repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: repositoryID})
+			assert.Equal(t, 2, repo2.NumStars)
 		})
-		require.NoError(t, err, "failed to marshal: activityUser15LikesRepo2")
 
-		resp, err := c.Post(activityUser15LikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		var (
+			distantActorUser30       string
+			activityUser30LikesRepo2 []byte
+		)
 
-		federationHost := unittest.AssertExistsAndLoadBean(t, &forgefed.FederationHost{HostFqdn: "127.0.0.1"})
-		federatedUser := unittest.AssertExistsAndLoadBean(t, &user.FederatedUser{ExternalID: "15", FederationHostID: federationHost.ID})
-		unittest.AssertExistsAndLoadBean(t, &user.User{ID: federatedUser.UserID})
-		repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
-		assert.Equal(t, 2, repo2.NumStars)
+		t.Run("Like repo from a different user of the same federated host", func(t *testing.T) {
+			distantActorUser30 = fmt.Sprintf("%s/api/v1/activitypub/user-id/30", federatedSrv.URL)
+			activityUser30LikesRepo2, err = json.Marshal(map[string]any{
+				"type":      "Like",
+				"startTime": timeNow.Add(time.Second).Format(time.RFC3339),
+				"actor":     distantActorUser30,
+				"object":    localRepo2,
+			})
+			require.NoError(t, err, "failed to marshal: activityUser30LikesRepo2")
 
-		// A like activity by a different user of the same federated host.
-		distantActorUser30 := fmt.Sprintf("%s/api/v1/activitypub/user-id/30", federatedSrv.URL)
-		activityUser30LikesRepo2, err := json.Marshal(map[string]any{
-			"type":      "Like",
-			"startTime": timeNow.Add(time.Second).Format(time.RFC3339),
-			"actor":     distantActorUser30,
-			"object":    localRepo2,
+			resp, err := c.Post(activityUser30LikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+			federatedUser := unittest.AssertExistsAndLoadBean(t, &user.FederatedUser{ExternalID: "30", FederationHostID: federationHost.ID})
+			unittest.AssertExistsAndLoadBean(t, &user.User{ID: federatedUser.UserID})
+			repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: repositoryID})
+			assert.Equal(t, 3, repo2.NumStars)
 		})
-		require.NoError(t, err, "failed to marshal: activityUser30LikesRepo2")
 
-		resp, err = c.Post(activityUser30LikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		t.Run("Resend a second activity", func(t *testing.T) {
+			secondActivityUser30LikesRepo2, err := json.Marshal(map[string]any{
+				"type":      "Like",
+				"startTime": timeNow.Add(time.Second).Format(time.RFC3339),
+				"actor":     distantActorUser30,
+				"object":    localRepo2,
+			})
+			require.NoError(t, err, "failed to marshal: secondActivityUser30LikesRepo2")
 
-		federatedUser = unittest.AssertExistsAndLoadBean(t, &user.FederatedUser{ExternalID: "30", FederationHostID: federationHost.ID})
-		unittest.AssertExistsAndLoadBean(t, &user.User{ID: federatedUser.UserID})
-		repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
-		assert.Equal(t, 3, repo2.NumStars)
+			resp, err := c.Post(secondActivityUser30LikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
 
-		// Resend a second activity
-		secondActivityUser30LikesRepo2, err := json.Marshal(map[string]any{
-			"type":      "Like",
-			"startTime": timeNow.Add(time.Second).Format(time.RFC3339),
-			"actor":     distantActorUser30,
-			"object":    localRepo2,
+			repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: repositoryID})
+			assert.Equal(t, 3, repo2.NumStars)
 		})
-		require.NoError(t, err, "failed to marshal: secondActivityUser30LikesRepo2")
 
-		resp, err = c.Post(secondActivityUser30LikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
-
-		repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
-		assert.Equal(t, 3, repo2.NumStars)
-
-		// Replay activityUser30LikesRepo2
-		resp, err = c.Post(activityUser30LikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
+		t.Run("Replay like", func(t *testing.T) {
+			resp, err := c.Post(activityUser30LikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
+		})
 	})
 }

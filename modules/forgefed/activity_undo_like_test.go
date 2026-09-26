@@ -39,8 +39,6 @@ func Test_NewForgeUndoLikeFromActivity(t *testing.T) {
 }
 
 func Test_NewForgeUndoLike(t *testing.T) {
-	actorIRI := "https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"
-	objectIRI := "https://codeberg.org/api/v1/activitypub/repository-id/1"
 	want := []byte(`{"type":"Undo","startTime":"2024-03-27T00:00:00Z",` +
 		`"actor":"https://repo.prod.meissa.de/api/v1/activitypub/user-id/1",` +
 		`"object":{` +
@@ -48,15 +46,16 @@ func Test_NewForgeUndoLike(t *testing.T) {
 		`"actor":"https://repo.prod.meissa.de/api/v1/activitypub/user-id/1",` +
 		`"object":"https://codeberg.org/api/v1/activitypub/repository-id/1"}}`)
 
+	actorIRI := "https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"
+	objectIRI := "https://codeberg.org/api/v1/activitypub/repository-id/1"
 	startTime, _ := time.Parse("2006-Jan-02", "2024-Mar-27")
+
 	sut, err := forgefed.NewForgeUndoLike(actorIRI, objectIRI, startTime)
 	require.NoError(t, err)
 
 	got, err := sut.MarshalJSON()
 	require.NoError(t, err)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("MarshalJSON() got = %q, want %q", got, want)
-	}
+	assert.True(t, reflect.DeepEqual(got, want), "MarshalJSON()\n got: %q,\n want: %q", got, want)
 }
 
 func Test_UndoLikeMarshalJSON(t *testing.T) {
@@ -160,119 +159,128 @@ func Test_UndoLikeUnmarshalJSON(t *testing.T) {
 				}
 				return
 			}
-			remarshalledgot, _ := got.MarshalJSON()
-			remarshalledwant, _ := test.want.MarshalJSON()
-			if !reflect.DeepEqual(remarshalledgot, remarshalledwant) {
-				t.Errorf("UnmarshalJSON() got = %#v\nwant %#v", got, test.want)
-			}
+			gotJSON, _ := got.MarshalJSON()
+			wantJSON, _ := test.want.MarshalJSON()
+			assert.True(t, reflect.DeepEqual(gotJSON, wantJSON), "UnmarshalJSON() got = %#v\nwant %#v", got, test.want)
 		})
 	}
 }
 
 func TestActivityValidationUndo(t *testing.T) {
 	startTime, _ := time.Parse("2006-Jan-02", "2024-Mar-27")
-	sut := forgefed.ForgeUndoLike{}
-	sut.Type = ap.UndoType
-	sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
-	sut.StartTime = startTime
-	sut.Object = ap.Activity{
-		Type:   ap.LikeType,
-		Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
-		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
-	}
-	res, err := validation.IsValid(sut)
-	require.NoError(t, err)
-	assert.True(t, res)
 
-	// valid even with not normalized actors
-	sut = forgefed.ForgeUndoLike{}
-	sut.Type = ap.UndoType
-	sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/USER-id/1")
-	sut.StartTime = startTime
-	sut.Object = ap.Activity{
-		Type:   ap.LikeType,
-		Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
-		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
-	}
-	res, err = validation.IsValid(sut)
-	require.NoError(t, err)
-	assert.True(t, res)
+	t.Run("Successful", func(t *testing.T) {
+		sut := forgefed.ForgeUndoLike{}
+		sut.Type = ap.UndoType
+		sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
+		sut.StartTime = startTime
+		sut.Object = ap.Activity{
+			Type:   ap.LikeType,
+			Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
+			Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
+		}
+		res, err := validation.IsValid(sut)
+		require.NoError(t, err)
+		assert.True(t, res)
+	})
 
-	sut = forgefed.ForgeUndoLike{}
-	sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
-	sut.StartTime = startTime
-	sut.Object = ap.Activity{
-		Type:   ap.LikeType,
-		Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
-		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
-	}
-	res, err = validation.IsValid(sut)
-	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Value type should not be empty\nField type contains the value <nil>, which is not in allowed subset [Undo]"})
-	assert.False(t, res)
+	t.Run("Valid even with not normalized actors", func(t *testing.T) {
+		sut := forgefed.ForgeUndoLike{}
+		sut.Type = ap.UndoType
+		sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/USER-id/1")
+		sut.StartTime = startTime
+		sut.Object = ap.Activity{
+			Type:   ap.LikeType,
+			Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
+			Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
+		}
+		res, err := validation.IsValid(sut)
+		require.NoError(t, err)
+		assert.True(t, res)
+	})
 
-	// actor missing
-	sut = forgefed.ForgeUndoLike{}
-	sut.Type = ap.UndoType
-	sut.StartTime = startTime
-	sut.Object = ap.Activity{
-		Type:   ap.LikeType,
-		Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
-		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
-	}
-	res, err = validation.IsValid(sut)
-	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Field actor must not be nil"})
-	assert.False(t, res)
+	t.Run("Type missing", func(t *testing.T) {
+		sut := forgefed.ForgeUndoLike{}
+		sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
+		sut.StartTime = startTime
+		sut.Object = ap.Activity{
+			Type:   ap.LikeType,
+			Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
+			Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
+		}
+		res, err := validation.IsValid(sut)
+		require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Value type should not be empty\nField type contains the value <nil>, which is not in allowed subset [Undo]"})
+		assert.False(t, res)
+	})
 
-	// like type missing
-	sut = forgefed.ForgeUndoLike{}
-	sut.Type = ap.UndoType
-	sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
-	sut.StartTime = startTime
-	sut.Object = ap.Activity{
-		Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
-		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
-	}
-	res, err = validation.IsValid(sut)
-	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Value object.type should not be empty\nField object.type contains the value <nil>, which is not in allowed subset [Like]"})
-	assert.False(t, res)
+	t.Run("Actor missing", func(t *testing.T) {
+		sut := forgefed.ForgeUndoLike{}
+		sut.Type = ap.UndoType
+		sut.StartTime = startTime
+		sut.Object = ap.Activity{
+			Type:   ap.LikeType,
+			Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
+			Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
+		}
+		res, err := validation.IsValid(sut)
+		require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Field actor must not be nil"})
+		assert.False(t, res)
+	})
 
-	// like actor missing
-	sut = forgefed.ForgeUndoLike{}
-	sut.Type = ap.UndoType
-	sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
-	sut.StartTime = startTime
-	sut.Object = ap.Activity{
-		Type:   ap.LikeType,
-		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
-	}
-	res, err = validation.IsValid(sut)
-	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Field object.actor must not be nil"})
-	assert.False(t, res)
+	t.Run("Like type missing", func(t *testing.T) {
+		sut := forgefed.ForgeUndoLike{}
+		sut.Type = ap.UndoType
+		sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
+		sut.StartTime = startTime
+		sut.Object = ap.Activity{
+			Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
+			Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
+		}
+		res, err := validation.IsValid(sut)
+		require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Value object.type should not be empty\nField object.type contains the value <nil>, which is not in allowed subset [Like]"})
+		assert.False(t, res)
+	})
 
-	// like object missing
-	sut = forgefed.ForgeUndoLike{}
-	sut.Type = ap.UndoType
-	sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
-	sut.StartTime = startTime
-	sut.Object = ap.Activity{
-		Type:  ap.LikeType,
-		Actor: ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
-	}
-	res, err = validation.IsValid(sut)
-	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Field object.object must not be nil"})
-	assert.False(t, res)
+	t.Run("Like actor missing", func(t *testing.T) {
+		sut := forgefed.ForgeUndoLike{}
+		sut.Type = ap.UndoType
+		sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
+		sut.StartTime = startTime
+		sut.Object = ap.Activity{
+			Type:   ap.LikeType,
+			Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
+		}
+		res, err := validation.IsValid(sut)
+		require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Field object.actor must not be nil"})
+		assert.False(t, res)
+	})
 
-	// undo actor <> like actor missing
-	sut = forgefed.ForgeUndoLike{}
-	sut.Type = ap.UndoType
-	sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
-	sut.StartTime = startTime
-	sut.Object = ap.Activity{
-		Type:   ap.LikeType,
-		Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/2"),
-		Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
-	}
-	res, err = validation.IsValid(sut)
-	require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: The undo actor and undo.object actor has to be the same"})
-	assert.False(t, res)
+	t.Run("Like object missing", func(t *testing.T) {
+		sut := forgefed.ForgeUndoLike{}
+		sut.Type = ap.UndoType
+		sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
+		sut.StartTime = startTime
+		sut.Object = ap.Activity{
+			Type:  ap.LikeType,
+			Actor: ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"),
+		}
+		res, err := validation.IsValid(sut)
+		require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: Field object.object must not be nil"})
+		assert.False(t, res)
+	})
+
+	t.Run("Undo and like actor are different", func(t *testing.T) {
+		sut := forgefed.ForgeUndoLike{}
+		sut.Type = ap.UndoType
+		sut.Actor = ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/1")
+		sut.StartTime = startTime
+		sut.Object = ap.Activity{
+			Type:   ap.LikeType,
+			Actor:  ap.IRI("https://repo.prod.meissa.de/api/v1/activitypub/user-id/2"),
+			Object: ap.IRI("https://codeberg.org/api/v1/activitypub/repository-id/1"),
+		}
+		res, err := validation.IsValid(sut)
+		require.ErrorIs(t, err, validation.ErrNotValid{Message: "forgefed.ForgeUndoLike: The undo actor and undo.object actor has to be the same"})
+		assert.False(t, res)
+	})
 }

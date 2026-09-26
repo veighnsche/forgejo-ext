@@ -33,7 +33,9 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 	defer federatedSrv.Close()
 
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
-		repositoryID := 2
+		repositoryID := int64(2)
+		distantActorUser15 := fmt.Sprintf("%s/api/v1/activitypub/user-id/15", federatedSrv.URL)
+
 		timeNow := time.Now().UTC()
 		localRepo2 := u.JoinPath(fmt.Sprintf("/api/v1/activitypub/repository-id/%d", repositoryID)).String()
 		localRepo2Inbox := fmt.Sprintf("%s/inbox", localRepo2)
@@ -45,77 +47,81 @@ func TestActivityPubRepositoryInboxUndoLike(t *testing.T) {
 		c, err := cf.WithKeysDirect(ctx, mock.Persons[0].PrivKey, mock.Persons[0].KeyID(federatedSrv.URL), nil)
 		require.NoError(t, err)
 
-		// The user id 15 sends like activity for repo id 2
-		distantActorUser15 := fmt.Sprintf("%s/api/v1/activitypub/user-id/15", federatedSrv.URL)
-		activityUser15LikesRepo2, err := json.Marshal(map[string]any{
-			"type":      "Like",
-			"startTime": timeNow.Format(time.RFC3339),
-			"actor":     distantActorUser15,
-			"object":    localRepo2,
+		t.Run("Like repo", func(t *testing.T) {
+			activityUser15LikesRepo2, err := json.Marshal(map[string]any{
+				"type":      "Like",
+				"startTime": timeNow.Format(time.RFC3339),
+				"actor":     distantActorUser15,
+				"object":    localRepo2,
+			})
+			require.NoError(t, err, "failed to marshal: activityUser15LikesRepo2")
+
+			resp, err := c.Post(activityUser15LikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+			repo2 := unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: repositoryID})
+			assert.Equal(t, 2, repo2.NumStars)
 		})
-		require.NoError(t, err, "failed to marshal: activityUser15LikesRepo2")
 
-		resp, err := c.Post(activityUser15LikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		var activityUser15UndoLikesRepo2 []byte
 
-		repo2 := unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
-		assert.Equal(t, 2, repo2.NumStars)
+		t.Run("Undo like", func(t *testing.T) {
+			activityUser15UndoLikesRepo2, err = json.Marshal(map[string]any{
+				"type":      "Undo",
+				"startTime": timeNow.Add(time.Second * 2).Format(time.RFC3339),
+				"actor":     distantActorUser15,
+				"object": map[string]any{
+					"type":   "Like",
+					"actor":  distantActorUser15,
+					"object": localRepo2,
+				},
+			})
+			require.NoError(t, err, "failed to marshal: activityUser15UndoLikesRepo2")
 
-		// The user id 15 sends undo like activity for repo id 2
-		activityUser15UndoLikesRepo2, err := json.Marshal(map[string]any{
-			"type":      "Undo",
-			"startTime": timeNow.Add(time.Second * 2).Format(time.RFC3339),
-			"actor":     distantActorUser15,
-			"object": map[string]any{
-				"type":   "Like",
-				"actor":  distantActorUser15,
-				"object": localRepo2,
-			},
+			resp, err := c.Post(activityUser15UndoLikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+			repo2 := unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: repositoryID})
+			assert.Equal(t, 1, repo2.NumStars)
 		})
-		require.NoError(t, err, "failed to marshal: activityUser15UndoLikesRepo2")
 
-		resp, err = c.Post(activityUser15UndoLikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		t.Run("Replay undo", func(t *testing.T) {
+			resp, err := c.Post(activityUser15UndoLikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
 
-		repo2 = unittest.AssertExistsAndLoadBean(t, &repo.Repository{ID: int64(repositoryID)})
-		assert.Equal(t, 1, repo2.NumStars)
+			// second undo should result in error
+			secondActivityUser15LikesRepo2, err := json.Marshal(map[string]any{
+				"type":      "Like",
+				"startTime": timeNow.Format(time.RFC3339),
+				"actor":     distantActorUser15,
+				"object":    localRepo2,
+			})
+			require.NoError(t, err, "failed to marshal: secondActivityUser15LikesRepo2")
 
-		// replay undo like activityUser15UndoLikesRepo2
-		resp, err = c.Post(activityUser15UndoLikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
-
-		// second undo should result in error
-		secondActivityUser15LikesRepo2, err := json.Marshal(map[string]any{
-			"type":      "Like",
-			"startTime": timeNow.Format(time.RFC3339),
-			"actor":     distantActorUser15,
-			"object":    localRepo2,
+			resp, err = c.Post(secondActivityUser15LikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
 		})
-		require.NoError(t, err, "failed to marshal: secondActivityUser15LikesRepo2")
 
-		resp, err = c.Post(secondActivityUser15LikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
+		t.Run("Undo with no prior like", func(t *testing.T) {
+			activityUser30UndoLikesRepo2, err := json.Marshal(map[string]any{
+				"type":      "Undo",
+				"startTime": timeNow.Add(time.Second * 2).Format(time.RFC3339),
+				"actor":     federatedSrv.URL + "/api/v1/activitypub/user-id/30",
+				"object": map[string]any{
+					"type":   "Like",
+					"actor":  federatedSrv.URL + "/api/v1/activitypub/user-id/30",
+					"object": localRepo2Inbox,
+				},
+			})
+			require.NoError(t, err, "failed to marshal: activityUser30UndoLikesRepo2")
 
-		// The user id 30 will fail, as there is no prior like
-		activityUser30UndoLikesRepo2, err := json.Marshal(map[string]any{
-			"type":      "Undo",
-			"startTime": timeNow.Add(time.Second * 2).Format(time.RFC3339),
-			"actor":     federatedSrv.URL + "/api/v1/activitypub/user-id/30",
-			"object": map[string]any{
-				"type":   "Like",
-				"actor":  federatedSrv.URL + "/api/v1/activitypub/user-id/30",
-				"object": localRepo2Inbox,
-			},
+			resp, err := c.Post(activityUser30UndoLikesRepo2, localRepo2Inbox)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
 		})
-		require.NoError(t, err, "failed to marshal: activityUser30UndoLikesRepo2")
-
-		// Replay activityUser30UndoLikesRepo2
-		resp, err = c.Post(activityUser30UndoLikesRepo2, localRepo2Inbox)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusNotAcceptable, resp.StatusCode)
 	})
 }

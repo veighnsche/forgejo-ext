@@ -12,7 +12,7 @@ import (
 	ap "github.com/go-ap/activitypub"
 )
 
-// ForgeLike activity data type
+// ForgeUndoLike activity data type
 // swagger:model
 type ForgeUndoLike struct {
 	// swagger:ignore
@@ -35,7 +35,7 @@ func NewForgeUndoLikeFromActivity(activity *ap.Activity) (ForgeUndoLike, error) 
 }
 
 func NewForgeUndoLike(actorIRI, objectIRI string, startTime time.Time) (ForgeUndoLike, error) {
-	like := ap.Activity{}
+	like := ForgeLike{}
 	like.Type = ap.LikeType
 	like.Actor = ap.IRI(actorIRI)
 	like.Object = ap.IRI(objectIRI)

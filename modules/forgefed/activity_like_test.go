@@ -24,11 +24,9 @@ func Test_NewForgeLike(t *testing.T) {
 	actorIRI := "https://repo.prod.meissa.de/api/v1/activitypub/user-id/1"
 	objectIRI := "https://codeberg.org/api/v1/activitypub/repository-id/1"
 	startTime, _ := time.Parse("2006-Jan-02", "2024-Mar-07")
-	sut, err := forgefed.NewForgeLike(actorIRI, objectIRI, startTime)
-	require.NoError(t, err, "unexpected error: %v\n", err)
 
-	valid, _ := validation.IsValid(sut)
-	assert.True(t, valid, "sut expected to be valid: %v\n", sut.Validate())
+	sut, err := forgefed.NewForgeLike(actorIRI, objectIRI, startTime)
+	require.NoError(t, err)
 
 	got, err := sut.MarshalJSON()
 	require.NoError(t, err, "MarshalJSON() error = %q", err)
@@ -108,44 +106,47 @@ func Test_LikeUnmarshalJSON(t *testing.T) {
 }
 
 func Test_ForgeLikeValidation(t *testing.T) {
-	// Successful
-	sut := new(forgefed.ForgeLike)
-	sut.UnmarshalJSON([]byte(`{"type":"Like",
-	"actor":"https://repo.prod.meissa.de/api/activitypub/user-id/1",
-	"object":"https://codeberg.org/api/activitypub/repository-id/1",
-	"startTime": "2014-12-31T23:00:00-08:00"}`))
-	valid, _ := validation.IsValid(sut)
-	assert.True(t, valid, "sut expected to be valid: %v\n", sut.Validate())
+	sut := forgefed.ForgeLike{}
 
-	// Errors
-	sut.UnmarshalJSON([]byte(`{"actor":"https://repo.prod.meissa.de/api/activitypub/user-id/1",
-	"object":"https://codeberg.org/api/activitypub/repository-id/1",
-	"startTime": "2014-12-31T23:00:00-08:00"}`))
-	validate := sut.Validate()
-	assert.Len(t, validate, 2)
-	assert.Equal(t,
-		"Field type contains the value <nil>, which is not in allowed subset [Like]",
-		validate[1])
-
-	sut.UnmarshalJSON([]byte(`{"type":"bad-type",
+	t.Run("Successful", func(t *testing.T) {
+		sut.UnmarshalJSON([]byte(`{"type":"Like",
 		"actor":"https://repo.prod.meissa.de/api/activitypub/user-id/1",
-	"object":"https://codeberg.org/api/activitypub/repository-id/1",
-	"startTime": "2014-12-31T23:00:00-08:00"}`))
-	validate = sut.Validate()
-	assert.Len(t, validate, 1)
-	assert.Equal(t,
-		"Field type contains the value bad-type, which is not in allowed subset [Like]",
-		validate[0])
+		"object":"https://codeberg.org/api/activitypub/repository-id/1",
+		"startTime": "2014-12-31T23:00:00-08:00"}`))
+		valid, err := validation.IsValid(sut)
+		assert.NoError(t, err)
+		assert.True(t, valid, "sut expected to be valid: %v\n", sut.Validate())
+	})
 
-	sut.UnmarshalJSON([]byte(`{"type":"Like",
+	t.Run("Empty type", func(t *testing.T) {
+		sut.UnmarshalJSON([]byte(`{"actor":"https://repo.prod.meissa.de/api/activitypub/user-id/1",
+		"object":"https://codeberg.org/api/activitypub/repository-id/1",
+		"startTime": "2014-12-31T23:00:00-08:00"}`))
+		validate := sut.Validate()
+		assert.Len(t, validate, 2)
+		assert.Equal(t, "Value type should not be empty", validate[0])
+		assert.Equal(t, "Field type contains the value <nil>, which is not in allowed subset [Like]", validate[1])
+	})
+
+	t.Run("Invalid type", func(t *testing.T) {
+		sut.UnmarshalJSON([]byte(`{"type":"bad-type",
 		"actor":"https://repo.prod.meissa.de/api/activitypub/user-id/1",
-	  "object":"https://codeberg.org/api/activitypub/repository-id/1",
-	  "startTime": "not a date"}`))
-	validate = sut.Validate()
-	assert.Len(t, validate, 1)
-	assert.Equal(t,
-		"StartTime was invalid.",
-		validate[0])
+		"object":"https://codeberg.org/api/activitypub/repository-id/1",
+		"startTime": "2014-12-31T23:00:00-08:00"}`))
+		validate := sut.Validate()
+		assert.Len(t, validate, 1)
+		assert.Equal(t, "Field type contains the value bad-type, which is not in allowed subset [Like]", validate[0])
+	})
+
+	t.Run("Invalid StartTime", func(t *testing.T) {
+		sut.UnmarshalJSON([]byte(`{"type":"Like",
+		"actor":"https://repo.prod.meissa.de/api/activitypub/user-id/1",
+		"object":"https://codeberg.org/api/activitypub/repository-id/1",
+		"startTime": "not a date"}`))
+		validate := sut.Validate()
+		assert.Len(t, validate, 1)
+		assert.Equal(t, "StartTime was invalid.", validate[0])
+	})
 }
 
 func TestActivityValidation_Attack(t *testing.T) {
