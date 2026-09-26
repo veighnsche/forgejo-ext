@@ -412,7 +412,7 @@ test.describe('Markdown insert table', () => {
       let expectedContent = '| Header  | Header  |\n|---------|---------|\n| Content | Content |\n| Content | Content |\n| Content | Content |\n';
 
       if (isEditing) {
-      // Preparations for evaluating comment editing
+        // Preparations for evaluating comment editing
         await area.locator('.comment-header-right.actions .dialog-dropdown .opener').click();
         await area.locator('.comment-header-right.actions .dialog-dropdown dialog .edit-content').click();
         expectedContent = `good work!${expectedContent}`;
