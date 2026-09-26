@@ -35,7 +35,7 @@ func NewForgeUndoLikeFromActivity(activity *ap.Activity) (ForgeUndoLike, error) 
 }
 
 func NewForgeUndoLike(actorIRI, objectIRI string, startTime time.Time) (ForgeUndoLike, error) {
-	like := ForgeLike{}
+	like := ap.Activity{}
 	like.Type = ap.LikeType
 	like.Actor = ap.IRI(actorIRI)
 	like.Object = ap.IRI(objectIRI)
