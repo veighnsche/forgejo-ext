@@ -282,12 +282,14 @@ test.describe('Runners of user2', () => {
     await runnerList.getByRole('button', {name: 'Delete runner-660332'}).click();
 
     // Confirm deletion
-    await expect(runnerList).toContainText('Confirm to delete this runner');
+    const modal = page.locator('#runner-delete-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('Confirm to delete this runner');
 
-    await runnerList.getByRole('button', {name: 'Yes', exact: true}).click();
+    await modal.getByRole('button', {name: 'Yes', exact: true}).click();
 
     // Verify that the runner is gone.
-    await expect(runnerList.locator('#flash-message')).toHaveText('Runner deleted successfully');
+    await expect(area.locator('#flash-message')).toHaveText('Runner deleted successfully');
     await expect(runnerList).not.toContainText('runner-660332');
   });
 });
