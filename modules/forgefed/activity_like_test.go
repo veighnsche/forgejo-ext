@@ -114,7 +114,7 @@ func Test_ForgeLikeValidation(t *testing.T) {
 		"object":"https://codeberg.org/api/activitypub/repository-id/1",
 		"startTime": "2014-12-31T23:00:00-08:00"}`))
 		valid, err := validation.IsValid(sut)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, valid, "sut expected to be valid: %v\n", sut.Validate())
 	})
 
