@@ -85,9 +85,6 @@ forgejo.org/modules/eventsource
 	Event.String
 
 forgejo.org/modules/forgefed
-	NewForgeUndoLike
-	ForgeUndoLike.UnmarshalJSON
-	ForgeUndoLike.Validate
 	NewPersonIDFromModel
 	GetItemByType
 	JSONUnmarshalerFn
