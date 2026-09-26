@@ -737,6 +737,8 @@ export function initRepoIssueReferenceIssue() {
 
     // Close the dropdown that initiated the func, otherwise popover has z-index
     // higher than anything known to mankind
+    // ToDo: can be removed after this modal is converted to modern dialog,
+    // dropdown will then begin to auto-close
     const dropdown = document.querySelector('.dialog-dropdown dialog:popover-open');
     dropdown.hidePopover();
 
