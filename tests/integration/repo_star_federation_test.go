@@ -38,8 +38,8 @@ func TestActivityPubRepoFollowing(t *testing.T) {
 
 	t.Run("Add a following repo", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
-		link := fmt.Sprintf("/%s/settings", repo.FullName())
 
+		link := fmt.Sprintf("/%s/settings", repo.FullName())
 		req := NewRequestWithValues(t, "POST", link, map[string]string{
 			"action":          "federation",
 			"following_repos": fmt.Sprintf("%s/api/v1/activitypub/repository-id/1", federatedSrv.URL),
@@ -56,16 +56,14 @@ func TestActivityPubRepoFollowing(t *testing.T) {
 
 	t.Run("Star a repo having a following repo", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
-		repoLink := fmt.Sprintf("/%s", repo.FullName())
-		link := fmt.Sprintf("%s/action/star", repoLink)
-		req := NewRequest(t, "POST", link)
 
+		req := NewRequestf(t, "POST", "/%s/action/star", repo.FullName())
 		session.MakeRequest(t, req, http.StatusOK)
 
 		// Verify distant server received a like activity
 		like := fm.ForgeLike{}
 		err := like.UnmarshalJSON([]byte(mock.LastPost))
-		require.NoErrorf(t, err, "Error unmarshalling ForgeLike: %q", err)
+		require.NoError(t, err, "Error unmarshalling ForgeLike")
 
 		isValid, err := validation.IsValid(like)
 		require.NoError(t, err, "ForgeLike is not valid")
@@ -79,29 +77,24 @@ func TestActivityPubRepoFollowing(t *testing.T) {
 
 	t.Run("Unstar a repo having a following staring repo", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
-		repoLink := fmt.Sprintf("/%s", repo.FullName())
-		link := fmt.Sprintf("%s/action/unstar", repoLink)
-		req := NewRequest(t, "POST", link)
 
+		req := NewRequestf(t, "POST", "/%s/action/unstar", repo.FullName())
 		session.MakeRequest(t, req, http.StatusOK)
 
-		// Verify distant server received a undoLike activity
+		// Verify distant server received a undoLike undoLike
 		activity := ap.Activity{}
 		err := activity.UnmarshalJSON([]byte(mock.LastPost))
-		if err != nil {
-			t.Errorf("Error unmarshalling Activity: %q", err)
-		}
+		require.NoError(t, err, "Error unmarshalling ForgeUndoLike")
 
-		// Verify distant server received a undoLike activity
 		undoLike, err := fm.NewForgeUndoLikeFromActivity(&activity)
-		require.NoErrorf(t, err, "Error converting ForgeUndoLike from activity: %q", err)
+		require.NoError(t, err)
 
 		isValid, err := validation.IsValid(undoLike)
-		require.NoErrorf(t, err, "ForgeUndoLike is not valid")
-		require.Truef(t, isValid, "ForgeUndoLike is not valid: %q", err)
+		require.NoError(t, err, "ForgeUndoLike is not valid")
+		require.True(t, isValid, "ForgeUndoLike is not valid")
+		require.Equal(t, ap.UndoType, undoLike.Type, "Activity is not an undo like for this repo")
 
 		like := undoLike.Object.(ap.Activity)
-
 		iri := like.Object.GetLink().String()
 		isCorrectObject := strings.HasSuffix(iri, "/api/v1/activitypub/repository-id/1")
 		require.True(t, isCorrectObject, "Activity is not a UndoLike for this repo")
