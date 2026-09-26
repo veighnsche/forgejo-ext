@@ -101,55 +101,55 @@ test.describe('Runners of user2', () => {
   test('Create new runner', async ({page}) => {
     await page.goto('/user/settings/actions/runners');
 
-    await expect(page.getByRole('heading', {name: 'Manage runners'})).toBeVisible();
+    const area = page.locator('.page-content');
+    await expect(area.getByRole('heading', {name: 'Manage runners'})).toBeVisible();
 
-    await page.getByRole('link', {name: 'Create new runner'}).click();
-
+    // Go to runner creation page
+    await area.getByRole('link', {name: 'Create new runner'}).click();
     await expect(page).toHaveTitle(/^New runner .*/);
 
-    // Submit an invalid form to test validation.
-    await page.getByRole('button', {name: 'Create'}).click();
-    await expect(page.getByRole('paragraph')).toHaveText('Name cannot be empty.');
+    // Submit an invalid form to test validation
+    await area.getByRole('button', {name: 'Create'}).click();
+    await expect(area.getByRole('paragraph')).toHaveText('Name cannot be empty.');
 
-    // Submit a valid form to create a runner.
-    await page.getByRole('textbox', {name: 'Name *'}).fill('runner-991301');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Description of runner-991301');
-
-    await page.getByRole('button', {name: 'Create'}).click();
+    // Submit a valid form to create a runner
+    await area.getByRole('textbox', {name: 'Name *'}).fill('runner-991301');
+    await area.getByRole('textbox', {name: 'Description'}).fill('Description of runner-991301');
+    await area.getByRole('button', {name: 'Create'}).click();
 
     // Verify set up instructions.
     await expect(page).toHaveTitle(/^Set up runner runner-991301 .*/);
-    await expect(page.getByRole('heading', {name: 'Set up runner runner-991301'})).toBeVisible();
+    await expect(area.getByRole('heading', {name: 'Set up runner runner-991301'})).toBeVisible();
 
     let runnerUUID;
     await expect(async () => {
-      await page.getByRole('button', {name: 'Copy runner UUID'}).click();
-      runnerUUID = await page.evaluate(() => navigator.clipboard.readText());
+      await area.getByRole('button', {name: 'Copy runner UUID'}).click();
+      runnerUUID = await area.evaluate(() => navigator.clipboard.readText());
       expect(runnerUUID).toMatch(uuidPattern);
     }).toPass();
 
     let runnerToken;
     await expect(async () => {
-      await page.getByRole('button', {name: 'Copy runner token'}).click();
-      runnerToken = await page.evaluate(() => navigator.clipboard.readText());
+      await area.getByRole('button', {name: 'Copy runner token'}).click();
+      runnerToken = await area.evaluate(() => navigator.clipboard.readText());
       expect(runnerToken).toMatch(tokenPattern);
     }).toPass();
 
-    await expect(page.getByRole('term')).toHaveText(['UUID', 'Token']);
-    await expect(page.getByRole('definition')).toContainText([runnerUUID, runnerToken]);
+    await expect(area.getByRole('term')).toHaveText(['UUID', 'Token']);
+    await expect(area.getByRole('definition')).toContainText([runnerUUID, runnerToken]);
 
-    await expect(page.getByRole('heading', {name: 'Using the runner configuration file'})).toBeVisible();
-    await expect(page.getByLabel('Snippet to insert into the runner configuration')).toContainText(`uuid: ${runnerUUID}`);
-    await expect(page.getByLabel('Snippet to insert into the runner configuration')).toContainText(`token: ${runnerToken}`);
+    await expect(area.getByRole('heading', {name: 'Using the runner configuration file'})).toBeVisible();
+    await expect(area.getByLabel('Snippet to insert into the runner configuration')).toContainText(`uuid: ${runnerUUID}`);
+    await expect(area.getByLabel('Snippet to insert into the runner configuration')).toContainText(`token: ${runnerToken}`);
 
-    await expect(page.getByRole('heading', {name: 'Using program options'})).toBeVisible();
-    await expect(page.getByLabel('How to invoke forgejo-runner')).toContainText(`--uuid ${runnerUUID}`);
-    await expect(page.getByLabel('How to invoke forgejo-runner')).toContainText(`echo -n "${runnerToken}"`);
+    await expect(area.getByRole('heading', {name: 'Using program options'})).toBeVisible();
+    await expect(area.getByLabel('How to invoke forgejo-runner')).toContainText(`--uuid ${runnerUUID}`);
+    await expect(area.getByLabel('How to invoke forgejo-runner')).toContainText(`echo -n "${runnerToken}"`);
 
     // Go back to list of runners.
-    await page.getByRole('link', {name: 'List of runners', exact: true}).click();
+    await area.getByRole('link', {name: 'List of runners', exact: true}).click();
 
-    await expect(page.locator(`tbody tr:has-text("${runnerUUID}")`)).toMatchAriaSnapshot(`
+    await expect(area.locator(`tbody tr:has-text("${runnerUUID}")`)).toMatchAriaSnapshot(`
       - cell "runner-991301 ${runnerUUID}":
         - link "runner-991301":
           - /url: /user/settings/actions/runners/\\d+/
@@ -421,55 +421,55 @@ test.describe('Global runners', () => {
   test('create new runner', async ({page}) => {
     await page.goto('/admin/actions/runners');
 
-    await expect(page.getByRole('heading', {name: 'Manage runners'})).toBeVisible();
+    const area = page.locator('.page-content');
+    await expect(area.getByRole('heading', {name: 'Manage runners'})).toBeVisible();
 
-    await page.getByRole('link', {name: 'Create new runner'}).click();
-
+    // Go to runner creation page
+    await area.getByRole('link', {name: 'Create new runner'}).click();
     await expect(page).toHaveTitle(/^New runner .*/);
 
-    // Submit an invalid form to test validation.
-    await page.getByRole('button', {name: 'Create'}).click();
-    await expect(page.getByRole('paragraph')).toHaveText('Name cannot be empty.');
+    // Submit an invalid form to test validation
+    await area.getByRole('button', {name: 'Create'}).click();
+    await expect(area.getByRole('paragraph')).toHaveText('Name cannot be empty.');
 
-    // Submit a valid form to create a runner.
-    await page.getByRole('textbox', {name: 'Name *'}).fill('runner-473465');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Description of runner-473465');
+    // Submit a valid form to create a runner
+    await area.getByRole('textbox', {name: 'Name *'}).fill('runner-473465');
+    await area.getByRole('textbox', {name: 'Description'}).fill('Description of runner-473465');
+    await area.getByRole('button', {name: 'Create'}).click();
 
-    await page.getByRole('button', {name: 'Create'}).click();
-
-    // Verify set up instructions.
+    // Verify set up instructions
     await expect(page).toHaveTitle(/^Set up runner runner-473465 .*/);
-    await expect(page.getByRole('heading', {name: 'Set up runner runner-473465'})).toBeVisible();
+    await expect(area.getByRole('heading', {name: 'Set up runner runner-473465'})).toBeVisible();
 
     let runnerUUID;
     await expect(async () => {
-      await page.getByRole('button', {name: 'Copy runner UUID'}).click();
+      await area.getByRole('button', {name: 'Copy runner UUID'}).click();
       runnerUUID = await page.evaluate(() => navigator.clipboard.readText());
       expect(runnerUUID).toMatch(uuidPattern);
     }).toPass();
 
     let runnerToken;
     await expect(async () => {
-      await page.getByRole('button', {name: 'Copy runner token'}).click();
+      await area.getByRole('button', {name: 'Copy runner token'}).click();
       runnerToken = await page.evaluate(() => navigator.clipboard.readText());
       expect(runnerToken).toMatch(tokenPattern);
     }).toPass();
 
-    await expect(page.getByRole('term')).toHaveText(['UUID', 'Token']);
-    await expect(page.getByRole('definition')).toContainText([runnerUUID, runnerToken]);
+    await expect(area.getByRole('term')).toHaveText(['UUID', 'Token']);
+    await expect(area.getByRole('definition')).toContainText([runnerUUID, runnerToken]);
 
-    await expect(page.getByRole('heading', {name: 'Using the runner configuration file'})).toBeVisible();
-    await expect(page.getByLabel('Snippet to insert into the runner configuration')).toContainText(`uuid: ${runnerUUID}`);
-    await expect(page.getByLabel('Snippet to insert into the runner configuration')).toContainText(`token: ${runnerToken}`);
+    await expect(area.getByRole('heading', {name: 'Using the runner configuration file'})).toBeVisible();
+    await expect(area.getByLabel('Snippet to insert into the runner configuration')).toContainText(`uuid: ${runnerUUID}`);
+    await expect(area.getByLabel('Snippet to insert into the runner configuration')).toContainText(`token: ${runnerToken}`);
 
-    await expect(page.getByRole('heading', {name: 'Using program options'})).toBeVisible();
-    await expect(page.getByLabel('How to invoke forgejo-runner')).toContainText(`--uuid ${runnerUUID}`);
-    await expect(page.getByLabel('How to invoke forgejo-runner')).toContainText(`echo -n "${runnerToken}"`);
+    await expect(area.getByRole('heading', {name: 'Using program options'})).toBeVisible();
+    await expect(area.getByLabel('How to invoke forgejo-runner')).toContainText(`--uuid ${runnerUUID}`);
+    await expect(area.getByLabel('How to invoke forgejo-runner')).toContainText(`echo -n "${runnerToken}"`);
 
     // Go back to list of runners.
-    await page.getByRole('link', {name: 'List of runners', exact: true}).click();
+    await area.getByRole('link', {name: 'List of runners', exact: true}).click();
 
-    await expect(page.locator(`tbody tr:has-text("${runnerUUID}")`)).toMatchAriaSnapshot(`
+    await expect(area.locator(`tbody tr:has-text("${runnerUUID}")`)).toMatchAriaSnapshot(`
       - cell "runner-473465 ${runnerUUID}":
         - link "runner-473465":
           - /url: /admin/actions/runners/\\d+/
