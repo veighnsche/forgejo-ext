@@ -8,12 +8,14 @@ package git
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +24,10 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
 )
+
+var ErrRedirectNotAllowed = errors.New("A redirect was encountered during cloning of this git repository. Redirects are not allowed")
+
+var redirectsRegex = regexp.MustCompile("The requested URL returned error: 3[0-9]{2}")
 
 // GPGSettings represents the default GPG settings for this repository
 type GPGSettings struct {
@@ -129,6 +135,14 @@ func Clone(ctx context.Context, from, to string, opts CloneRepoOptions) error {
 	return CloneWithArgs(ctx, globalCommandArgs, from, to, opts)
 }
 
+func enrichCloneError(err error, stderr string) error {
+	if redirectsRegex.MatchString(stderr) {
+		return ErrRedirectNotAllowed
+	}
+
+	return ConcatenateError(err, stderr)
+}
+
 // CloneWithArgs original repository to target path.
 func CloneWithArgs(ctx context.Context, args TrustedCmdArgs, from, to string, opts CloneRepoOptions) (err error) {
 	toDir := path.Dir(to)
@@ -199,7 +213,7 @@ func CloneWithArgs(ctx context.Context, args TrustedCmdArgs, from, to string, op
 		Stdout:  io.Discard,
 		Stderr:  stderr,
 	}); err != nil {
-		return ConcatenateError(err, stderr.String())
+		return enrichCloneError(err, stderr.String())
 	}
 	return nil
 }

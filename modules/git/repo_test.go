@@ -169,3 +169,14 @@ func TestInitRepositoryWithNoTemplates(t *testing.T) {
 		})
 	}
 }
+
+func TestCloneHttpRedirects(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(307)
+	}))
+
+	serverURL, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	require.ErrorIs(t, Clone(t.Context(), serverURL.String(), t.TempDir(), CloneRepoOptions{}), ErrRedirectNotAllowed)
+}
