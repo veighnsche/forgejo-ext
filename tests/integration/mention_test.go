@@ -57,7 +57,7 @@ func TestHeadMentionJS(t *testing.T) {
 			pronounsPref := p[1]
 			escapedPronouns := p[2]
 
-			t.Run(fullNameTestName+" and "+pronounsTestName+" do not overflow mention cache", func(t *testing.T) {
+			t.Run(fullNameTestName+" and "+pronounsTestName+" do not break out of mention cache", func(t *testing.T) {
 				defer tests.PrintCurrentTest(t)()
 
 				// set the user's display name
