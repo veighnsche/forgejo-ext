@@ -230,16 +230,15 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 			}
 
 			if setting.Git.PullRequestPushMessage {
+				var fullRef, branch string
+
 				// only show the agit message (git config ...) upon creation
-				fullRef := ""
-				// hard to know if the PR was created in this push, as an approximation
-				// show the message with 60s of creation
-				if pr.Issue.CreatedUnix > timeutil.TimeStampNow().Add(-60) {
+				if git.IsEmptyCommitID(opts.OldCommitIDs[i], nil) {
 					fullRef = refFullName.String()
-				}
-				_, branch, _ := strings.Cut(pr.HeadBranch, "/")
-				if branch == "" {
-					branch = "<branch>"
+					_, branch, _ = strings.Cut(pr.HeadBranch, "/")
+					if branch == "" {
+						branch = "<branch>"
+					}
 				}
 				messages = append(messages, private.HookPostReceiveMessage{
 					PullURLS:  []string{fmt.Sprintf("%s/pulls/%d", repo.HTMLURL(), pr.Index)},

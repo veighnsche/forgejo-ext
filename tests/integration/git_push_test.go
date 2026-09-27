@@ -466,6 +466,10 @@ func TestGitPushAGit(t *testing.T) {
 			if err != nil {
 				return fmt.Errorf("%s: %w", stdErr, err)
 			}
+			matches := prRegex.FindStringSubmatch(stdErr)
+			require.Len(t, matches, 2, stdErr)
+
+			assert.NotContains(t, stdErr, "git config set branch.")
 			return nil
 		}
 
