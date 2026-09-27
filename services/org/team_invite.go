@@ -36,6 +36,14 @@ func CreateTeamInviteByUser(ctx context.Context, inviter, invited *user_model.Us
 // InviteOrAddTeamMember invites the user to the team if all team changes should go through invites, or adds them directly otherwise.
 func InviteOrAddTeamMember(ctx context.Context, inviter, invited *user_model.User, team *org_model.Team) error {
 	if setting.Service.AddMembersByInvitations && inviter.ID != invited.ID {
+		isAlreadyOrgMember, err := org_model.IsOrganizationMember(ctx, team.OrgID, invited.ID)
+		if err != nil {
+			return err
+		}
+		if isAlreadyOrgMember {
+			// the user has already consented to being part of the org: we add them to the team directly
+			return models.AddTeamMember(ctx, team, invited.ID)
+		}
 		return CreateTeamInviteByUser(ctx, inviter, invited, team)
 	}
 	return models.AddTeamMember(ctx, team, invited.ID)

@@ -71,3 +71,24 @@ func Test_SelfInvite(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, isMember)
 }
+
+func Test_AddOrgMemberToTeam(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	defer test.MockVariableValue(&setting.Service.AddMembersByInvitations, true)()
+
+	team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 2})
+	invited := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 15})
+	inviter := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+
+	// user 15 is already member of the org
+	err := organization.AddOrgUser(t.Context(), team.OrgID, invited.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, InviteOrAddTeamMember(t.Context(), inviter, invited, team))
+
+	// so it doesn't get invited but directly added to the team as it is in the same org
+	unittest.AssertNotExistsBean(t, &organization.TeamInvite{TeamID: team.ID, InviterID: inviter.ID, InvitedID: optional.Some(invited.ID)})
+	isMember, err := organization.IsTeamMember(t.Context(), team.OrgID, team.ID, invited.ID)
+	require.NoError(t, err)
+	assert.True(t, isMember)
+}
