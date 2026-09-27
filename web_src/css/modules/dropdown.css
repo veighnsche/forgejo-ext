@@ -53,6 +53,11 @@
       position-area: bottom span-left;
     }
   }
+
+  &:has(> dialog:popover-open) > .opener {
+    /* Opener is more pronounced when it's dropdown is open */
+    background: var(--color-active);
+  }
 }
 
 .dialog-dropdown > .opener {
@@ -85,11 +90,6 @@
 .dialog-dropdown > .opener:hover,
 .dialog-dropdown > dialog > ul > li > :is(a, button):hover {
   background: var(--color-hover);
-}
-
-.dialog-dropdown:has(dialog:popover-open) > .opener,
-.dialog-dropdown > dialog > ul > li:focus-within > :is(a, button) {
-  background: var(--color-active);
 }
 
 .dialog-dropdown > dialog {
@@ -158,6 +158,10 @@
       background: var(--color-active);
       font-weight: var(--font-weight-medium);
     }
+  }
+
+  &:focus-within > :is(a, button) {
+    background: var(--color-active);
   }
 }
 
