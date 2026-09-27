@@ -251,7 +251,7 @@ test.describe(`Visual properties`, () => {
     expect(await page.locator(`#dd5_g2_i2`).evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px 0px 4px 4px');
 
     // Explicit label with JS off
-    const dropdown = page.locator('#dropdown-5 > summary');
+    const dropdown = page.locator('.opener[commandfor="dropdown-5"]');
     await expect(dropdown).toHaveAccessibleName('More actions');
     await expect(dropdown).toHaveAttribute('data-tooltip-from-label');
     await expect(dropdown).not.toHaveAttribute('data-tooltip-content');
@@ -259,7 +259,7 @@ test.describe(`Visual properties`, () => {
 
   test('Copies tooltip from aria-label when JS is enabled', async ({page}) => {
     await page.goto('/-/demo/dropdown');
-    const dropdown = page.locator('#dropdown-5 > summary');
+    const dropdown = page.locator('.opener[commandfor="dropdown-5"]');
     // Javascript copies the tooltip from the accessible label
     await expect(dropdown).toHaveAccessibleName('More actions');
     await expect(dropdown).toHaveAttribute('data-tooltip-content', 'More actions');
