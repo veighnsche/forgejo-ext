@@ -1,3 +1,3 @@
 {{$pronouns := .GetPronouns ctx.Data.IsSigned}}
-{{/* TrustHTML: required here to avoid double-escaping values with special HTML characters. These characters don't need escaping here, since the context is a JS string. TestHeadMentionJS ensures that values which would break out of this string are nullified before insertion into the document. */}}
+{{/* TrustHTML: required here to avoid double-escaping values with special HTML characters. Such characters don't need escaping here, since the context is a JS string, but JS characters do get escaped anyway. TestHeadMentionJS ensures that values which would break out of this string are neutralized before insertion into the document. */}}
 ['{{.Name}}', {key: '{{.Name}} {{.FullName}}', value: '{{.Name}}', name: '{{.Name}}', fullname: '{{if $pronouns}}{{ctx.Locale.Tr "name_with_pronouns.plain" (.FullName | TrustHTML) ($pronouns | TrustHTML)}}{{else}}{{.FullName}}{{end}}', avatar: '{{.AvatarLink ctx}}'}],
