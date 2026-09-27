@@ -164,41 +164,43 @@ test.describe('Runners of user2', () => {
   test('edit runner without changing its token', async ({page}) => {
     await page.goto('/user/settings/actions/runners');
 
+    const area = page.locator('.page-content');
+
     // We have to create a new runner because changes to fixtures would affect the remainder of the tests in this file.
-    await page.getByRole('link', {name: 'Create new runner'}).click();
-    await page.getByRole('textbox', {name: 'Name *'}).fill('runner-46635');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Description of runner-46635');
-    await page.getByRole('button', {name: 'Create'}).click();
+    await area.getByRole('link', {name: 'Create new runner'}).click();
+    await area.getByRole('textbox', {name: 'Name *'}).fill('runner-46635');
+    await area.getByRole('textbox', {name: 'Description'}).fill('Description of runner-46635');
+    await area.getByRole('button', {name: 'Create'}).click();
 
     // Go back to list of runners.
-    await page.getByRole('link', {name: 'Runners', exact: true}).click();
+    await area.getByRole('link', {name: 'Runners', exact: true}).click();
 
     // Edit the runner that was just created.
-    await page.getByRole('link', {name: 'Edit runner-46635'}).click();
+    await area.getByRole('link', {name: 'Edit runner-46635'}).click();
 
     await expect(page).toHaveTitle(/^Edit runner runner-46635 .*/);
-    await expect(page.getByRole('heading', {name: 'Edit runner runner-46635'})).toBeVisible();
+    await expect(area.getByRole('heading', {name: 'Edit runner runner-46635'})).toBeVisible();
 
     // Make the form invalid to test validation.
-    await page.getByRole('textbox', {name: 'Name *'}).clear();
-    await page.getByRole('button', {name: 'Save'}).click();
+    await area.getByRole('textbox', {name: 'Name *'}).clear();
+    await area.getByRole('button', {name: 'Save'}).click();
 
     await expect(page.locator('#flash-message')).toHaveText('Name cannot be empty.');
-    await expect(page.getByRole('textbox', {name: 'Name *'})).toBeEmpty();
-    await expect(page.getByRole('textbox', {name: 'Description'})).toHaveValue('Description of runner-46635');
+    await expect(area.getByRole('textbox', {name: 'Name *'})).toBeEmpty();
+    await expect(area.getByRole('textbox', {name: 'Description'})).toHaveValue('Description of runner-46635');
 
     // Submit a valid form.
-    await page.getByRole('textbox', {name: 'Name *'}).fill('runner-46636');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Description of runner-46636');
+    await area.getByRole('textbox', {name: 'Name *'}).fill('runner-46636');
+    await area.getByRole('textbox', {name: 'Description'}).fill('Description of runner-46636');
 
-    await page.getByRole('button', {name: 'Save'}).click();
+    await area.getByRole('button', {name: 'Save'}).click();
 
     // Verify that the runner's properties were updated properly.
     await expect(page).toHaveTitle(/^Runner runner-46636 .*/);
     await expect(page.locator('#flash-message')).toHaveText('Runner edited successfully');
-    await expect(page.getByRole('heading', {name: 'Runner runner-46636'})).toBeVisible();
+    await expect(area.getByRole('heading', {name: 'Runner runner-46636'})).toBeVisible();
 
-    await expect(page.getByLabel('Properties of runner-46636')).toMatchAriaSnapshot(`
+    await expect(area.getByLabel('Properties of runner-46636')).toMatchAriaSnapshot(`
       - term: UUID
       - definition: ${uuidPattern}
       - term: Type
@@ -484,41 +486,43 @@ test.describe('Global runners', () => {
   test('edit runner without changing its token', async ({page}) => {
     await page.goto('/admin/actions/runners');
 
+    const area = page.locator('.page-content');
+
     // We have to create a new runner because changes to fixtures would affect the remainder of the tests in this file.
-    await page.getByRole('link', {name: 'Create new runner'}).click();
-    await page.getByRole('textbox', {name: 'Name *'}).fill('runner-956857');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Description of runner-956857');
-    await page.getByRole('button', {name: 'Create'}).click();
+    await area.getByRole('link', {name: 'Create new runner'}).click();
+    await area.getByRole('textbox', {name: 'Name *'}).fill('runner-956857');
+    await area.getByRole('textbox', {name: 'Description'}).fill('Description of runner-956857');
+    await area.getByRole('button', {name: 'Create'}).click();
 
     // Go back to list of runners.
-    await page.getByRole('link', {name: 'Runners', exact: true}).click();
+    await area.getByRole('link', {name: 'Runners', exact: true}).click();
 
     // Edit the runner that was just created.
-    await page.getByRole('link', {name: 'Edit runner-956857'}).click();
+    await area.getByRole('link', {name: 'Edit runner-956857'}).click();
 
     await expect(page).toHaveTitle(/^Edit runner runner-956857 .*/);
-    await expect(page.getByRole('heading', {name: 'Edit runner runner-956857'})).toBeVisible();
+    await expect(area.getByRole('heading', {name: 'Edit runner runner-956857'})).toBeVisible();
 
     // Make the form invalid to test validation.
-    await page.getByRole('textbox', {name: 'Name *'}).clear();
-    await page.getByRole('button', {name: 'Save'}).click();
+    await area.getByRole('textbox', {name: 'Name *'}).clear();
+    await area.getByRole('button', {name: 'Save'}).click();
 
     await expect(page.locator('#flash-message')).toHaveText('Name cannot be empty.');
-    await expect(page.getByRole('textbox', {name: 'Name *'})).toBeEmpty();
-    await expect(page.getByRole('textbox', {name: 'Description'})).toHaveValue('Description of runner-956857');
+    await expect(area.getByRole('textbox', {name: 'Name *'})).toBeEmpty();
+    await expect(area.getByRole('textbox', {name: 'Description'})).toHaveValue('Description of runner-956857');
 
     // Submit a valid form.
-    await page.getByRole('textbox', {name: 'Name *'}).fill('runner-956858');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Description of runner-956858');
+    await area.getByRole('textbox', {name: 'Name *'}).fill('runner-956858');
+    await area.getByRole('textbox', {name: 'Description'}).fill('Description of runner-956858');
 
-    await page.getByRole('button', {name: 'Save'}).click();
+    await area.getByRole('button', {name: 'Save'}).click();
 
     // Verify that the runner's properties were updated properly.
     await expect(page).toHaveTitle(/^Runner runner-956858 .*/);
     await expect(page.locator('#flash-message')).toHaveText('Runner edited successfully');
-    await expect(page.getByRole('heading', {name: 'Runner runner-956858'})).toBeVisible();
+    await expect(area.getByRole('heading', {name: 'Runner runner-956858'})).toBeVisible();
 
-    await expect(page.getByLabel('Properties of runner-956858')).toMatchAriaSnapshot(`
+    await expect(area.getByLabel('Properties of runner-956858')).toMatchAriaSnapshot(`
       - term: UUID
       - definition: ${uuidPattern}
       - term: Type
