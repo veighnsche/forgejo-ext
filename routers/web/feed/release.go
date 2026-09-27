@@ -17,11 +17,8 @@ import (
 // shows tags and/or releases on the repo as RSS / Atom feed
 func ShowReleaseFeed(ctx *context.Context, repo *repo_model.Repository, isReleasesOnly bool, formatType string) {
 	limit := ctx.FormInt("limit")
-	if limit <= 0 {
+	if limit <= 0 || limit > setting.UI.FeedPagingNum {
 		limit = setting.UI.FeedPagingNum
-	}
-	if limit > 100 {
-		limit = 100
 	}
 	releases, err := db.Find[repo_model.Release](ctx, repo_model.FindReleasesOptions{
 		ListOptions: db.ListOptions{
