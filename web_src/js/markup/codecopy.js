@@ -19,7 +19,7 @@ export function renderCodeCopy() {
     let btn = el.nextElementSibling?.classList?.contains('code-copy') ? el.nextElementSibling : null;
     if (!btn) {
       btn = makeCodeCopyButton();
-      el.after(btn);
+      el.closest('pre').after(btn);
     }
     // remove final trailing newline introduced during HTML rendering
     btn.setAttribute('data-clipboard-text', el.textContent.replace(/\r?\n$/, ''));
