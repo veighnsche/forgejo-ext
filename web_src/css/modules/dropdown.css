@@ -144,6 +144,9 @@
     align-items: center;
     color: var(--color-text);
 
+    /* Reserve space for focus border */
+    border: 1px solid transparent;
+
     /* Interactable items should be transparent by default. <button> can also have a default background set by the browser */
     background: none;
 
@@ -160,8 +163,15 @@
     }
   }
 
+  /* Suppress both currentcolor from ua.css and dotted from normalize.css */
+  :focus-visible {
+    outline: none;
+  }
+
+  /* Apply visible border to both kinds of focus, so focused items can't be confused with .active */
   &:focus-within > :is(a, button) {
     background: var(--color-active);
+    border-color: var(--color-text-light);
   }
 }
 
