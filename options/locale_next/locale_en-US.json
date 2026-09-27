@@ -486,9 +486,9 @@
 	"mail.actions.job_failure_info_finished": "Finished: %[1]s",
 	"mail.actions.job_failure_view_results": "View results on %[1]s.",
 	"mail.issue.action.close_by_commit": "%[1]s closed %[2]s in commit %[3]s.",
-	"mail.password_change_by_admin.text_1": "An admin of this site just changed the password for your account.",
+	"mail.password_change_by_admin.text_1": "An administrator of this site just changed the password for your account.",
 	"mail.admin_action_caution.text_1": "If you asked for this, then you can safely ignore this mail.",
-	"mail.admin_action_caution.text_2": "If you did not ask for this, this change may have been accidental. Please contact the admins of this site.",
+	"mail.admin_action_caution.text_2": "If you did not ask for this, this change may have been accidental. Please contact the administrators of this site.",
 	"mail.team_invite.expiration": {
 		"one": "This invitation will expire in %d day.",
 		"other": "This invitation will expire in %d days."
