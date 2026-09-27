@@ -36,10 +36,10 @@ func microcmdUserChangePassword() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:     "password",
-				Aliases:  []string{"p"},
-				Value:    "",
-				Usage:    "New password to set for user; leave empty to use stdin",
+				Name:    "password",
+				Aliases: []string{"p"},
+				Value:   "",
+				Usage:   "New password to set for user; leave empty to use stdin",
 			},
 			&cli.BoolFlag{
 				Name:  "must-change-password",
