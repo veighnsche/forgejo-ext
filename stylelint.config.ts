@@ -1,4 +1,5 @@
 import {fileURLToPath} from 'node:url';
+import type {Config} from 'stylelint';
 
 const cssVarFiles = [
   fileURLToPath(new URL('web_src/css/base.css', import.meta.url)),
@@ -6,7 +7,6 @@ const cssVarFiles = [
   fileURLToPath(new URL('web_src/css/themes/theme-gitea-dark.css', import.meta.url)),
 ];
 
-/** @type {import('stylelint').Config} */
 export default {
   plugins: [
     'stylelint-declaration-strict-value',
@@ -265,4 +265,4 @@ export default {
     'value-keyword-case': null,
     'value-no-vendor-prefix': [true, {ignoreValues: ['box', 'inline-box']}],
   },
-};
+} satisfies Config;

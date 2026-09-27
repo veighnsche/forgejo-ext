@@ -4,7 +4,6 @@ const BASE_URL = process.env.GITEA_URL?.replace?.(/\/$/g, '') || 'http://localho
 
 /**
  * @see https://playwright.dev/docs/test-configuration
- * @type {import('@playwright/test').PlaywrightTestConfig}
  */
 export default {
   testDir: './tests/e2e/',

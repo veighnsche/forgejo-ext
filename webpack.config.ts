@@ -2,28 +2,29 @@ import fastGlob from 'fast-glob';
 import wrapAnsi from 'wrap-ansi';
 import {init as licenseChecker} from 'license-checker-rseidelsohn';
 import {VueLoaderPlugin} from 'vue-loader';
-import EsBuildLoader from 'esbuild-loader';
+import {EsbuildPlugin} from 'esbuild-loader';
 import {parse} from 'node:path';
-import webpack from 'webpack';
+import webpack, {type Configuration} from 'webpack';
 import {fileURLToPath} from 'node:url';
 import {readFileSync, writeFileSync} from 'node:fs';
 import {env} from 'node:process';
 import tailwindcss from 'tailwindcss';
-import tailwindConfig from './tailwind.config.js';
+import tailwindConfig from './tailwind.config.ts';
 import tailwindcssNesting from 'tailwindcss/nesting/index.js';
 import postcssNesting from 'postcss-nesting';
+import goJson from './assets/go-licenses.json' with {type: 'json'};
 
-const {EsbuildPlugin} = EsBuildLoader;
-const {SourceMapDevToolPlugin, DefinePlugin, ProgressPlugin} = webpack;
-const formatLicenseText = (licenseText) => wrapAnsi(licenseText || '', 80).trim();
+const {SourceMapDevToolPlugin, DefinePlugin, ProgressPlugin, ProvidePlugin} = webpack;
+
+const formatLicenseText = (licenseText: string) => wrapAnsi(licenseText || '', 80).trim();
 
 const baseDirectory = import.meta.dirname;
-const glob = (pattern) => fastGlob.sync(pattern, {
+const glob = (pattern: string): string[] => fastGlob.sync(pattern, {
   cwd: baseDirectory,
   absolute: true,
 });
 
-const themes = {};
+const themes: Record<string, [string]> = {};
 for (const path of glob('web_src/css/themes/*.css')) {
   themes[parse(path).name] = [path];
 }
@@ -44,13 +45,12 @@ if (isProduction) {
     }
 
     const line = '-'.repeat(80);
-    const goJson = readFileSync('assets/go-licenses.json', 'utf8');
-    const goModules = JSON.parse(goJson).map(({name, licenseText}) => {
-      return {name, body: formatLicenseText(licenseText)};
+    const goModules = goJson.map(({name, licenseText}) => {
+      return {name, licenseName: '', body: formatLicenseText(licenseText)};
     });
     const jsModules = Object.keys(dependencies).map((packageName) => {
       const {licenses, licenseFile} = dependencies[packageName];
-      const licenseText = (licenseFile && !licenseFile.toLowerCase().includes('readme')) ? readFileSync(licenseFile) : '[no license file]';
+      const licenseText = (licenseFile && !licenseFile?.toLowerCase().includes('readme')) ? readFileSync(licenseFile, 'utf-8') : '[no license file]';
       return {name: packageName, licenseName: licenses, body: formatLicenseText(licenseText)};
     });
     const modules = [...goModules, ...jsModules];
@@ -68,7 +68,7 @@ if (isProduction) {
 // true - all enabled, the default in development
 // reduced - minimal sourcemaps, the default in production
 // false - all disabled
-let sourceMaps;
+let sourceMaps: string;
 if ('ENABLE_SOURCEMAP' in env) {
   sourceMaps = ['true', 'false'].includes(env.ENABLE_SOURCEMAP) ? env.ENABLE_SOURCEMAP : 'reduced';
 } else {
@@ -88,7 +88,6 @@ const webComponents = new Set([
   'text-expander',
 ]);
 
-/** @type {import("webpack").Configuration} */
 export default {
   experiments: {
     css: true,
@@ -211,7 +210,7 @@ export default {
     new ProgressPlugin({
       activeModules: true,
     }),
-    new webpack.ProvidePlugin({ // for htmx extensions
+    new ProvidePlugin({ // for htmx extensions
       htmx: ['htmx.org', 'default'],
     }),
     new DefinePlugin({
@@ -260,4 +259,4 @@ export default {
     reasons: false,
     runtimeModules: false,
   },
-};
+} satisfies Configuration;

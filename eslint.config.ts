@@ -21,6 +21,7 @@ import {defineConfig} from 'eslint/config';
 export default defineConfig(
   ...tseslint.configs.recommended,
   eslintPluginImportX.flatConfigs.typescript,
+  vueScopedCss.configs.recommended,
   {
     ignores: ['web_src/js/vendor', 'web_src/fomantic', 'public/assets/js', 'tests/e2e/reports/'],
   },
@@ -36,10 +37,8 @@ export default defineConfig(
       sonarjs,
       unicorn,
       playwright,
-      toml,
       'vitest-globals': vitestGlobals,
       vue,
-      'vue-scoped-css': vueScopedCss,
       wc,
     },
 

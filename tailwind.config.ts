@@ -2,16 +2,17 @@ import {readFileSync} from 'node:fs';
 import {env} from 'node:process';
 import {parse} from 'postcss';
 import plugin from 'tailwindcss/plugin.js';
+import type {Config} from 'tailwindcss';
 
 const isProduction = env.NODE_ENV !== 'development';
 
-function extractRootVars(css) {
+function extractRootVars(css: string): string[] {
   const root = parse(css);
-  const vars = new Set();
+  const vars = new Set<string>();
   root.walkRules((rule) => {
     if (rule.selector !== ':root') return;
     rule.each((decl) => {
-      if (decl.value && decl.prop.startsWith('--')) {
+      if (decl.type === 'decl' && decl.value && decl.prop.startsWith('--')) {
         vars.add(decl.prop.substring(2));
       }
     });
@@ -107,11 +108,11 @@ export default {
       // note: required when using tailwind's transform classes
       addUtilities({
         '.transform-reset': {
-          '--tw-translate-x': 0,
-          '--tw-translate-y': 0,
-          '--tw-rotate': 0,
-          '--tw-skew-x': 0,
-          '--tw-skew-y': 0,
+          '--tw-translate-x': '0',
+          '--tw-translate-y': '0',
+          '--tw-rotate': '0',
+          '--tw-skew-x': '0',
+          '--tw-skew-y': '0',
           '--tw-scale-x': '1',
           '--tw-scale-y': '1',
         },
@@ -138,4 +139,4 @@ export default {
       });
     }),
   ],
-};
+} satisfies Config;

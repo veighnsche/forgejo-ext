@@ -720,13 +720,6 @@ export default {
   margin-inline-start: 28px;
 }
 
-@media (max-width: 767.98px) {
-  .action-commit-summary {
-    margin-inline-start: 0;
-    margin-top: 8px;
-  }
-}
-
 /* ================ */
 /* action view left */
 
