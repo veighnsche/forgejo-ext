@@ -73,6 +73,8 @@ export function initTextExpander(expander) {
 
   expander.addEventListener('text-expander-change', ({detail: {key, provide, text}}) => {
     if (key === ':') {
+      if (text.length < 1 || text[1] === ' ') return provide({matched: false});
+
       const matches = matchEmoji(text);
       if (!matches.length) return provide({matched: false});
 
