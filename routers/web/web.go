@@ -929,6 +929,7 @@ func registerRoutes(m *web.Route) {
 			m.Get("", admin.GetServiceMessage)
 			m.Post("", web.Bind(forms.ServiceMessageForm{}), admin.CreateOrUpdateServiceMessage)
 			m.Post("/delete", admin.DeleteServiceMessage)
+			m.Post("/preview", web.Bind(forms.ServiceMessageForm{}), admin.PreviewServiceMessage)
 			m.Post("/markup", web.Bind(structs.MarkupOption{}), misc.Markup)
 		})
 

@@ -11,10 +11,14 @@ Show the existing ServiceMessages (either Modal, Banner or both)
 					{{(.RenderedContent)}}
 				</div>
 				<div class="actions button-sequence">
-					<form class="ui form" method="post" action="{{AppSubUrl}}/user/confirm?sm_type=modal&redirect_to={{.CurrentURL}}">
-						<button class="ui primary ok button">{{svg "octicon-check"}} {{ctx.Locale.Tr "modal.confirm"}}</button>
-					</form>
-					<button class="ui ok button link-action" data-url="{{AppSubUrl}}/user/logout">{{svg "octicon-x"}} {{ctx.Locale.Tr "modal.cancel"}}</button>
+					{{if .IsAdminPreview }}
+						{{<button class="ui ok button link-action" data-url="{{AppSubUrl}}/admin/service_message/preview?status=closed">{{svg "octicon-x"}} {{ctx.Locale.Tr "cancel"}}</button>}}
+					{{else}}
+						<form class="ui form" method="post" action="{{AppSubUrl}}/user/confirm?sm_type=modal&redirect_to={{.CurrentURL}}">
+							<button class="ui primary ok button">{{svg "octicon-check"}} {{ctx.Locale.Tr "modal.confirm"}}</button>
+						</form>
+						<button class="ui ok button link-action" data-url="{{AppSubUrl}}/user/logout">{{svg "octicon-x"}} {{ctx.Locale.Tr "modal.cancel"}}</button>
+					{{end}}
 				</div>
 			</article>
 		</dialog>

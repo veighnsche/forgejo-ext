@@ -37,6 +37,12 @@ func TestServiceMessage(t *testing.T) {
 	assert.Equal(t, smOpts.Text, sm.Text)
 	assert.Equal(t, smOpts.Title, sm.Title)
 
+	t.Run("Preview", func(t *testing.T) {
+		// Admin clicks on preview
+		req := NewRequestWithJSON(t, "POST", "/admin/service_message/preview?sm_type=modal&status=show", &smOpts)
+		session.MakeRequest(t, req, http.StatusSeeOther)
+	})
+
 	t.Run("TestMustShow", func(t *testing.T) {
 		// ServiceMessage has been setup and is shown for the first time
 		sm := unittest.AssertExistsAndLoadBean(t, &service_message_model.ServiceMessage{Type: "modal"})

@@ -84,3 +84,35 @@ func DeleteServiceMessage(ctx *context.Context) {
 	log.Debug("Deleted Service Message %s", smType)
 	ctx.JSONRedirect(setting.AppSubURL + "/admin/service_message")
 }
+
+func PreviewServiceMessage(ctx *context.Context) {
+	if ctx.Written() {
+		return
+	}
+	form := web.GetForm(ctx).(*forms.ServiceMessageForm)
+	smType := strings.TrimSpace(ctx.FormString("sm_type"))
+	status := strings.TrimSpace(ctx.FormString("status"))
+	smOpts := service_message_module.ServiceMessageOptions{
+		Title: form.Title,
+		Text:  form.Text,
+		Type:  smType,
+	}
+	sm, err := service_message_service.NewServiceMessage(&smOpts)
+	if err != nil {
+		ctx.RenderWithErr(ctx.Tr("admin.service_message.invalid_input"), tplServiceMessage, form)
+		return
+	}
+	if status == "show" {
+		ctx.Data["IsAdminPreview"] = true
+		ctx.Data["ServiceMessageTitle"] = sm.Title
+		ctx.Data["ServiceMessageText"] = sm.Text
+		ctx.Data["RenderedContent"] = templates.RenderMarkdownToHtml(ctx, sm.Text)
+	}
+	if status == "closed" {
+		ctx.Data["IsAdminPreview"] = false
+		delete(ctx.Data, "ServiceMessageTitle")
+		delete(ctx.Data, "ServiceMessageText")
+		delete(ctx.Data, "RenderedContent")
+	}
+	ctx.Redirect(setting.AppSubURL + "/admin/service_message")
+}
