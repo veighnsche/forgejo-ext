@@ -60,6 +60,12 @@ type ErrProjectIssueNotExist struct {
 	IssueID int64
 }
 
+// IsErrProjectIssueNotExist checks if an error is a ErrProjectIssueNotExist
+func IsErrProjectIssueNotExist(err error) bool {
+	_, ok := errors.AsType[ErrProjectIssueNotExist](err)
+	return ok
+}
+
 func (err ErrProjectIssueNotExist) Error() string {
 	return fmt.Sprintf("project issue does not exist [id: %d]", err.IssueID)
 }

@@ -61,9 +61,9 @@ func getValidColumnOrIssue(ctx *context.APIContext, getColumn, getIssue bool) (*
 	if getColumn {
 		projectColumn, err = project_service.GetValidProjectColumnByID(ctx, ctx.Project().ProjectID, ctx.Project().ProjectColumnID)
 		if err != nil {
-			if errors.Is(err, validation.ErrNotValid{}) {
+			if validation.IsErrNotValid(err) {
 				ctx.Error(http.StatusBadRequest, "Invalid Arguments", err)
-			} else if errors.Is(err, project_model.ErrProjectColumnNotExist{}) {
+			} else if project_model.IsErrProjectColumnNotExist(err) {
 				ctx.NotFound("getValidColumnAndIssue", err)
 			} else {
 				ctx.ServerError("getValidColumnAndIssue", err)
@@ -76,9 +76,9 @@ func getValidColumnOrIssue(ctx *context.APIContext, getColumn, getIssue bool) (*
 	if getIssue {
 		projectIssue, err = project_service.GetValidProjectIssueByID(ctx, ctx.Project().ProjectID, ctx.Project().ProjectColumnID, ctx.Project().ProjectIssueID)
 		if err != nil {
-			if errors.Is(err, validation.ErrNotValid{}) {
+			if validation.IsErrNotValid(err) {
 				ctx.Error(http.StatusBadRequest, "Invalid Arguments", err)
-			} else if errors.Is(err, project_model.ErrProjectIssueNotExist{}) {
+			} else if project_model.IsErrProjectIssueNotExist(err) {
 				ctx.NotFound("getValidColumnAndIssue", err)
 			} else {
 				ctx.ServerError("getValidColumnAndIssue", err)
@@ -157,9 +157,9 @@ func GetProject(ctx *context.APIContext) {
 	}
 	project_service.SetProjectOwnerAndRepo(project, owner, repo)
 	if err != nil {
-		if errors.Is(err, project_model.ErrProjectNotExist{}) {
+		if project_model.IsErrProjectNotExist(err) {
 			ctx.NotFound("Get Project", err)
-		} else if errors.Is(err, validation.ErrNotValid{}) {
+		} else if validation.IsErrNotValid(err) {
 			ctx.Error(http.StatusBadRequest, "Invalid Arguments", err)
 		} else {
 			ctx.ServerError("Get Project", err)
@@ -182,9 +182,9 @@ func UpdateProject(ctx *context.APIContext) {
 		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, owner.ID)
 	}
 	if err != nil {
-		if errors.Is(err, project_model.ErrProjectNotExist{}) {
+		if project_model.IsErrProjectNotExist(err) {
 			ctx.NotFound("Update Project", err)
-		} else if errors.Is(err, validation.ErrNotValid{}) {
+		} else if validation.IsErrNotValid(err) {
 			ctx.Error(http.StatusBadRequest, "Invalid Arguments", err)
 		} else {
 			ctx.ServerError("Update Project", err)
