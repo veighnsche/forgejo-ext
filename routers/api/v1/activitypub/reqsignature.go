@@ -8,6 +8,7 @@ import (
 
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/util"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/services/federation"
 
@@ -41,7 +42,7 @@ func verifyHTTPSignature(ctx app_context.APIContext) (authenticated bool, err er
 		return false, err
 	}
 
-	err = federation.VerifyRequestDigest(r)
+	err = util.VerifyRequestDigest(r)
 	if err != nil {
 		log.Debug("For %q digest verification failed: %v", r.URL.Path, err)
 		return true, err

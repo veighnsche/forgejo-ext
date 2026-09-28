@@ -5,8 +5,6 @@ package integration
 
 import (
 	"bytes"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,7 +21,6 @@ import (
 	"forgejo.org/services/contexttest"
 	"forgejo.org/services/federation"
 
-	"github.com/42wim/httpsig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -143,7 +140,7 @@ func TestActivityPubVeryfiyReqDigest(t *testing.T) {
 			mock.Persons[0].KeyID(federatedSrv.URL),
 			localUser2Inbox,
 		)
-		req, err := createPostReq(
+		req, err := test.CreateFederationPostReq(
 			followActivity,
 			mock.Persons[0].PrivKey,
 			mock.Persons[0].KeyID(federatedSrv.URL),
@@ -171,39 +168,4 @@ func TestActivityPubVeryfiyReqDigest(t *testing.T) {
 			MakeRequest(t, &RequestWrapper{req}, http.StatusBadRequest)
 		})
 	})
-}
-
-func createPostReq(body []byte, privateKey, pubID, to string) (req *http.Request, err error) {
-	privPem, _ := pem.Decode([]byte(privateKey))
-	privParsed, err := x509.ParsePKCS1PrivateKey(privPem.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	algs := setting.HttpsigAlgs
-	digestAlg := httpsig.DigestAlgorithm(setting.Federation.DigestAlgorithm)
-	postHeaders := setting.Federation.PostHeaders
-
-	buf := bytes.NewBuffer(body)
-	req, err = http.NewRequest(http.MethodPost, to, buf)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Accept", "application/json, "+ActivityStreamsContentType)
-	req.Header.Add("Date", "Mon, 21 Sep 2026 08:56:24 GMT")
-	req.Header.Add("Host", req.URL.Host)
-	req.Header.Add("User-Agent", "Gitea/"+setting.AppVer)
-	req.Header.Add("Content-Type", ActivityStreamsContentType)
-
-	if pubID != "" {
-		signer, _, err := httpsig.NewSigner(algs, digestAlg, postHeaders, httpsig.Signature, httpsigExpirationTime)
-		if err != nil {
-			return nil, err
-		}
-		if err := signer.SignRequest(privParsed, pubID, req, body); err != nil {
-			return nil, err
-		}
-	}
-	return req, err
 }

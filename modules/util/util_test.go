@@ -5,7 +5,11 @@
 package util_test
 
 import (
+	"bytes"
+	"crypto"
 	"crypto/rand"
+	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"testing/cryptotest"
@@ -248,4 +252,67 @@ func TestOptionalArg(t *testing.T) {
 	assert.Equal(t, 100, foo(nil, 100))
 	assert.Equal(t, 42, bar(nil))
 	assert.Equal(t, 100, bar(nil, 100))
+}
+
+func TestVerifyRequestDigest(t *testing.T) {
+	mock := test.NewFederationServerMock()
+
+	body := fmt.Appendf(
+		nil,
+		`{"type":"Follow",`+
+			`"actor":"%s",`+
+			`"object":"%s"}`,
+		"someserver.com/api/v1/activiypup/user-id/123",
+		"/api/v1/activitypub/user-id/2/inbox",
+	)
+
+	req, err := test.CreateFederationPostReq(
+		body,
+		mock.Persons[0].PrivKey,
+		mock.Persons[0].KeyID("someserver.com"),
+		"/api/v1/activitypub/user-id/2/inbox",
+	)
+	require.NoError(t, err)
+
+	t.Run("valid_digest", func(t *testing.T) {
+		require.NoError(t, util.VerifyRequestDigest(req))
+	})
+
+	t.Run("forged_body", func(t *testing.T) {
+		forgedBody := fmt.Appendf(
+			nil,
+			`{"type":"Follow",`+
+				`"actor":"%s",`+
+				`"object":"%s"}`,
+			"someserver.com/api/v1/activiypup/user-id/1457",
+			"/api/v1/activitypub/user-id/2/inbox",
+		)
+		require.NoError(t, err)
+
+		req.Body = io.NopCloser(bytes.NewReader(forgedBody))
+
+		require.Error(t, util.VerifyRequestDigest(req))
+	})
+}
+
+func TestMatchCryptoAlgorithm(t *testing.T) {
+	t.Run("positiv_lower_case", func(t *testing.T) {
+		algo, err := util.MatchCryptoAlgorithm("sha-256")
+		require.NoError(t, err)
+		require.Equal(t, crypto.SHA256, algo)
+	})
+	t.Run("positiv_capital_letters", func(t *testing.T) {
+		algo, err := util.MatchCryptoAlgorithm("SHA-256")
+		require.NoError(t, err)
+		require.Equal(t, crypto.SHA256, algo)
+	})
+	t.Run("positiv_underscore", func(t *testing.T) {
+		algo, err := util.MatchCryptoAlgorithm("SHA_256")
+		require.NoError(t, err)
+		require.Equal(t, crypto.SHA256, algo)
+	})
+	t.Run("unknow_algo", func(t *testing.T) {
+		_, err := util.MatchCryptoAlgorithm("SssHA_256")
+		require.Error(t, err)
+	})
 }
