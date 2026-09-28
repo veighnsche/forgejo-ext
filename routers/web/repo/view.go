@@ -1088,7 +1088,7 @@ func renderHomeCode(ctx *context.Context) {
 			return
 		}
 		if totalTags == 0 {
-			ctx.ServerError("GetTagInfos: no tags in the repository", err)
+			ctx.NotFound("GetTagInfos: no tags in the repository", err)
 			return
 		}
 
