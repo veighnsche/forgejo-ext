@@ -147,10 +147,10 @@ func ListProjects(ctx *context.APIContext) {
 
 // GetProject gets a project by id
 func GetProject(ctx *context.APIContext) {
-	_, owner, repo := getOwnerTypeAndOwnerAndRepoFromData(ctx)
+	ownerType, owner, repo := getOwnerTypeAndOwnerAndRepoFromData(ctx)
 	var err error
 	var project *project_model.Project
-	if repo != nil {
+	if ownerType == project_module.APIOwnerTypeRepository {
 		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, repo.ID)
 	} else {
 		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, owner.ID)
@@ -173,10 +173,10 @@ func GetProject(ctx *context.APIContext) {
 // UpdateProject updates a project by id
 func UpdateProject(ctx *context.APIContext) {
 	form := web.GetForm(ctx).(*api.CreateOrUpdateProjectOptions)
-	_, owner, repo := getOwnerTypeAndOwnerAndRepoFromData(ctx)
+	ownerType, owner, repo := getOwnerTypeAndOwnerAndRepoFromData(ctx)
 	var err error
 	var project *project_model.Project
-	if repo != nil {
+	if ownerType == project_module.APIOwnerTypeRepository {
 		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, repo.ID)
 	} else {
 		project, err = project_service.GetProjectByIDForOwner(ctx, ctx.Project().ProjectID, owner.ID)
