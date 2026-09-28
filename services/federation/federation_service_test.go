@@ -33,7 +33,7 @@ func TestVerifyKeyIDMatchesActorID(t *testing.T) {
 	_, err := FindOrCreateActorKey(t.Context(), mock.ApActor.KeyID(federatedSrv.URL))
 	require.NoError(t, err)
 
-	actor := ap.Actor{ID: ap.IRI(mock.Persons[0].KeyID(federatedSrv.URL))}
+	actor := ap.Actor{ID: ap.IRI(mock.Persons[0].ActorID(federatedSrv.URL))}
 	activity := ap.Activity{Actor: actor}
 
 	followActivity := fmt.Appendf(
