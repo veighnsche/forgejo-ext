@@ -19723,6 +19723,9 @@
           },
           "404": {
             "$ref": "#/responses/notFound"
+          },
+          "409": {
+            "$ref": "#/responses/forbidden"
           }
         }
       },
@@ -23543,6 +23546,11 @@
           "description": "Opaque identifier that uniquely identifies a single attempt of a job.",
           "type": "string",
           "x-go-name": "Handle"
+        },
+        "html_url": {
+          "description": "HTMLURL is the URL where a user can view the job using their browser.",
+          "type": "string",
+          "x-go-name": "HTMLURL"
         },
         "id": {
           "description": "Identifier of this job.",
@@ -29889,7 +29897,7 @@
           "x-go-name": "Description"
         },
         "ephemeral": {
-          "description": "Register as ephemeral runner https://forgejo.org/docs/latest/admin/actions/security/#ephemeral-runner",
+          "description": "Register as ephemeral runner https://forgejo.org/docs/latest/admin/actions/security/#ephemeral-runners",
           "type": "boolean",
           "x-go-name": "Ephemeral"
         },

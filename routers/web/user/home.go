@@ -29,6 +29,7 @@ import (
 	"forgejo.org/modules/markup"
 	"forgejo.org/modules/markup/markdown"
 	"forgejo.org/modules/optional"
+	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/setting"
 	"forgejo.org/routers/web/feed"
 	"forgejo.org/services/context"
@@ -205,7 +206,7 @@ func Milestones(ctx *context.Context) {
 			if len(repoIDs) > 0 {
 				// Don't just let repoCond = builder.In("id", repoIDs) because user may has no permission on repoIDs
 				// But the original repoCond has a limitation
-				repoCond = repoCond.And(builder.In("id", repoIDs))
+				repoCond = repoCond.And(builder.In("`repository`.id", repoIDs))
 			}
 		} else {
 			log.Warn("issueReposQueryPattern not match with query")
@@ -485,6 +486,7 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 		Collaborate: optional.None[bool](),
 		UnitType:    unitType,
 		Archived:    optional.Some(false),
+		EnabledUnit: optional.Some(unitType),
 	}
 	if team != nil {
 		repoOpts.TeamID = team.ID
@@ -549,11 +551,11 @@ func buildIssueOverview(ctx *context.Context, unitType unit.Type) {
 			ListOptions: db.ListOptionsAll,
 			OwnerID:     ctxUser.ID,
 			IsClosed:    optional.None[bool](),
-			Type:        project_model.TypeIndividual,
+			Type:        project_module.TypeIndividual,
 		}
 		if org != nil {
 			projOpts.OwnerID = org.ID
-			projOpts.Type = project_model.TypeOrganization
+			projOpts.Type = project_module.TypeOrganization
 		}
 
 		projects, err := db.Find[project_model.Project](ctx, projOpts)

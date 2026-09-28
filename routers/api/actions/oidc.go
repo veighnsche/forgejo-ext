@@ -49,7 +49,7 @@ type OIDCContext struct {
 
 func InitOIDC() error {
 	var err error
-	jwtSigningKey, err = jwtx.InitSigningKey(&setting.Actions.KeyCfg.Signing)
+	jwtSigningKey, err = jwtx.InitSigningKey(&setting.Actions.IDTokenKeyCfg.Signing)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func OIDCRoutes(prefix string) *web.Route {
 	rt := reflect.TypeFor[actions_service.IDTokenCustomClaims]()
 
 	for f := range rt.Fields() {
-		v := strings.Split(f.Tag.Get("json"), ",")[0]
+		v, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 		if v == "" || v == "-" {
 			continue
 		}

@@ -35,7 +35,7 @@ func SearchPointerBlobs(ctx context.Context, repo *git.Repository, pointerChan c
 	// 3. Take the shas of the blobs and batch read them
 	go pipeline.CatFileBatch(ctx, shasToBatchReader, catFileBatchWriter, &wg, basePath)
 
-	// 2. From the provided objects restrict to blobs <=1k
+	// 2. From the provided objects restrict to blobs <1k
 	go pipeline.BlobsLessThan1024FromCatFileBatchCheck(catFileCheckReader, shasToBatchWriter, &wg)
 
 	// 1. Run batch-check on all objects in the repository
@@ -51,7 +51,7 @@ func createPointerResultsFromCatFileBatch(ctx context.Context, catFileBatchReade
 	defer catFileBatchReader.Close()
 
 	bufferedReader := bufio.NewReader(catFileBatchReader)
-	buf := make([]byte, 1025)
+	buf := make([]byte, BlobSizeCutoff)
 
 loop:
 	for {

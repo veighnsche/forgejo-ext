@@ -3,12 +3,14 @@ package actions
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	actions_model "forgejo.org/models/actions"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/models/user"
 	"forgejo.org/modules/actions"
+	"forgejo.org/modules/timeutil"
 	notify_service "forgejo.org/services/notify"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
@@ -328,5 +330,97 @@ func TestStopTask(t *testing.T) {
 			}),
 			actions_model.StatusRunning,
 		)
+	})
+}
+
+func TestCreateTaskForRunner(t *testing.T) {
+	t.Run("Triggers notifications", func(t *testing.T) {
+		defer unittest.OverrideFixtures("services/actions/TestCreateTaskForRunner")()
+		require.NoError(t, unittest.PrepareTestDatabase())
+
+		notifier := notify_service.NewMockNotifier(t)
+		notifier.On("Run").Return().Maybe()
+		notifier.On("WorkflowJobStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return()
+		notifier.On("WorkflowRunStatusChanged", mock.Anything, mock.Anything, mock.Anything).Return()
+
+		notify_service.RegisterNotifier(notifier)
+		defer notify_service.UnregisterNotifier(notifier)
+
+		user2 := unittest.AssertExistsAndLoadBean(t, &user.User{ID: 2})
+		repo62 := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 62, OwnerID: user2.ID})
+		runnerOne := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunner{ID: 41601, OwnerID: user2.ID})
+		jobOne := unittest.AssertExistsAndLoadBean(t,
+			&actions_model.ActionRunJob{ID: 47301, OwnerID: user2.ID, RepoID: repo62.ID})
+
+		requestKey := "9ac1fc24-5fd1-4a75-a85f-727d324dd963"
+
+		task, err := CreateTaskForRunner(t.Context(), runnerOne, &requestKey, nil)
+		require.NoError(t, err)
+
+		assert.Equal(t, jobOne.ID, task.JobID)
+		assert.Equal(t, runnerOne.ID, task.RunnerID)
+		assert.Equal(t, actions_model.StatusRunning, task.Status)
+		assert.Equal(t, requestKey, task.RunnerRequestKey)
+
+		notifier.AssertNumberOfCalls(t, "WorkflowJobStatusChanged", 1)
+		notifier.AssertNumberOfCalls(t, "WorkflowRunStatusChanged", 1)
+		notifier.AssertCalled(
+			t, "WorkflowJobStatusChanged", mock.Anything,
+			mock.MatchedBy(func(eventJob *actions_model.ActionRunJob) bool {
+				return eventJob.ID == jobOne.ID && eventJob.Status == actions_model.StatusRunning
+			}),
+			actions_model.StatusWaiting,
+		)
+		notifier.AssertCalled(
+			t, "WorkflowRunStatusChanged", mock.Anything,
+			mock.MatchedBy(func(eventRun *actions_model.ActionRun) bool {
+				return eventRun.ID == jobOne.RunID && eventRun.Status == actions_model.StatusRunning
+			}),
+			actions_model.StatusWaiting,
+		)
+	})
+
+	t.Run("Sets started date of run", func(t *testing.T) {
+		defer unittest.OverrideFixtures("services/actions/TestCreateTaskForRunner")()
+		require.NoError(t, unittest.PrepareTestDatabase())
+
+		fixedDate := time.Date(2026, 9, 20, 15, 38, 23, 0, time.UTC)
+
+		timeutil.MockSet(fixedDate)
+		defer timeutil.MockUnset()
+
+		user2 := unittest.AssertExistsAndLoadBean(t, &user.User{ID: 2})
+		runnerOne := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunner{ID: 41601, OwnerID: user2.ID})
+		runOne := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{ID: 34901})
+
+		assert.Zero(t, runOne.Started)
+
+		_, err := CreateTaskForRunner(t.Context(), runnerOne, new("b44425a1-79a0-46ec-bd1b-d20f9417e86b"), nil)
+		require.NoError(t, err)
+
+		runOne = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{ID: runOne.ID})
+		assert.Equal(t, fixedDate, runOne.Started.AsTime().UTC())
+	})
+
+	t.Run("Successive jobs do not override the start date", func(t *testing.T) {
+		defer unittest.OverrideFixtures("services/actions/TestCreateTaskForRunner")()
+		require.NoError(t, unittest.PrepareTestDatabase())
+
+		user2 := unittest.AssertExistsAndLoadBean(t, &user.User{ID: 2})
+		runnerOne := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRunner{ID: 41601, OwnerID: user2.ID})
+		runOne := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{ID: 34901})
+
+		assert.Zero(t, runOne.Started)
+
+		originalStartDate := timeutil.TimeStampNow() - 7
+		runOne.Started = originalStartDate
+
+		require.NoError(t, actions_model.UpdateRun(t.Context(), runOne))
+
+		_, err := CreateTaskForRunner(t.Context(), runnerOne, new("b44425a1-79a0-46ec-bd1b-d20f9417e86b"), nil)
+		require.NoError(t, err)
+
+		runOne = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{ID: runOne.ID})
+		assert.Equal(t, originalStartDate, runOne.Started)
 	})
 }

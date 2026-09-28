@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	actions_model "forgejo.org/models/actions"
 	webhook_model "forgejo.org/models/webhook"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
@@ -205,14 +206,14 @@ type (
 )
 
 var (
-	defaultStyle   = "default"   // default colour
-	emphasisStyle  = "emphasis"  // darker
-	accentStyle    = "accent"    // blue-purple
-	goodStyle      = "good"      // green
-	attentionStyle = "attention" // red
-	warningStyle   = "warning"   // yellow
-	// informativeStyle = "informative" // gray with white text
-	// subtleStyle      = "subtle"      // gray with dark text
+	defaultStyle     = "default"     // default colour
+	emphasisStyle    = "emphasis"    // darker
+	accentStyle      = "accent"      // blue-purple
+	goodStyle        = "good"        // green
+	attentionStyle   = "attention"   // red
+	warningStyle     = "warning"     // yellow
+	informativeStyle = "informative" // gray with white text
+	subtleStyle      = "subtle"      // gray with dark text
 )
 
 func capitalise(s string) string {
@@ -1013,6 +1014,89 @@ func (m msteamsConvertor) Action(p *api.ActionPayload) (MSTeamsPayload, error) {
 		p.Run.HTMLURL,
 		defaultStyle,
 	), nil
+}
+
+func (m msteamsConvertor) WorkflowRun(p *api.WorkflowRunPayload) (MSTeamsPayload, error) {
+	var title string
+	var badgeStyle string
+
+	switch p.Run.Status {
+	case actions_model.StatusBlocked.String():
+		title = fmt.Sprintf("Workflow run %q is blocked, triggered", p.Run.Title)
+		badgeStyle = warningStyle
+	case actions_model.StatusCancelled.String():
+		title = fmt.Sprintf("Workflow run %q was cancelled, triggered", p.Run.Title)
+		badgeStyle = informativeStyle
+	case actions_model.StatusFailure.String():
+		title = fmt.Sprintf("Workflow run %q has failed, triggered", p.Run.Title)
+		badgeStyle = attentionStyle
+	case actions_model.StatusRunning.String():
+		title = fmt.Sprintf("Workflow run %q has started running, triggered", p.Run.Title)
+		badgeStyle = defaultStyle
+	case actions_model.StatusSkipped.String():
+		title = fmt.Sprintf("Workflow run %q was skipped, triggered", p.Run.Title)
+		badgeStyle = subtleStyle
+	case actions_model.StatusSuccess.String():
+		title = fmt.Sprintf("Workflow run %q has completed successfully, triggered", p.Run.Title)
+		badgeStyle = goodStyle
+	case actions_model.StatusWaiting.String():
+		title = fmt.Sprintf("Workflow run %q is waiting, triggered", p.Run.Title)
+		badgeStyle = accentStyle
+	}
+
+	body := []MSTeamsContainer{
+		makeBadgeRow(
+			p.Run.Status,
+			"PlayCircle",
+			badgeStyle,
+			fmt.Sprintf("Repository: %s", p.Run.Repo.FullName),
+			fmt.Sprintf("Run: %s", p.Run.Title),
+		),
+	}
+
+	return createMSTeamsPayload(p.Run.Repo, p.Run.TriggerUser, title, body, p.Run.HTMLURL, defaultStyle), nil
+}
+
+func (m msteamsConvertor) WorkflowJob(p *api.WorkflowJobPayload) (MSTeamsPayload, error) {
+	var title string
+	var badgeStyle string
+
+	switch p.Job.Status {
+	case actions_model.StatusBlocked.String():
+		title = fmt.Sprintf("Workflow job %q is blocked, triggered", p.Job.Name)
+		badgeStyle = warningStyle
+	case actions_model.StatusCancelled.String():
+		title = fmt.Sprintf("Workflow job %q was cancelled, triggered", p.Job.Name)
+		badgeStyle = informativeStyle
+	case actions_model.StatusFailure.String():
+		title = fmt.Sprintf("Workflow job %q has failed, triggered", p.Job.Name)
+		badgeStyle = attentionStyle
+	case actions_model.StatusRunning.String():
+		title = fmt.Sprintf("Workflow job %q has started running, triggered", p.Job.Name)
+		badgeStyle = defaultStyle
+	case actions_model.StatusSkipped.String():
+		title = fmt.Sprintf("Workflow job %q was skipped, triggered", p.Job.Name)
+		badgeStyle = subtleStyle
+	case actions_model.StatusSuccess.String():
+		title = fmt.Sprintf("Workflow job %q has completed successfully, triggered", p.Job.Name)
+		badgeStyle = goodStyle
+	case actions_model.StatusWaiting.String():
+		title = fmt.Sprintf("Workflow job %q is waiting, triggered", p.Job.Name)
+		badgeStyle = accentStyle
+	}
+
+	body := []MSTeamsContainer{
+		makeBadgeRow(
+			p.Job.Status,
+			"PlayCircle",
+			badgeStyle,
+			fmt.Sprintf("Repository: %s", p.Run.Repo.FullName),
+			fmt.Sprintf("Run: %s", p.Run.Title),
+			fmt.Sprintf("Job: %s", p.Job.Name),
+		),
+	}
+
+	return createMSTeamsPayload(p.Run.Repo, p.Run.TriggerUser, title, body, p.Job.HTMLURL, defaultStyle), nil
 }
 
 func createMSTeamsPayload(r *api.Repository, s *api.User, actionTitle string, bodySections []MSTeamsContainer, actionTarget, style string) MSTeamsPayload {

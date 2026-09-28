@@ -5,6 +5,8 @@ package structs
 
 import (
 	"time"
+
+	"forgejo.org/modules/optional"
 )
 
 // ActionRunJob represents a job of a run
@@ -24,6 +26,8 @@ type ActionRunJob struct {
 	OwnerID int64 `json:"owner_id"`
 	// the action run job name
 	Name string `json:"name"`
+	// HTMLURL is the URL where a user can view the job using their browser.
+	HTMLURL string `json:"html_url"`
 	// the action run job needed ids
 	Needs []string `json:"needs"`
 	// the action run job labels to run on
@@ -56,9 +60,13 @@ type ActionRunJobStep struct {
 	// step status (success, failure, running, waiting, skipped, cancelled, ...)
 	Status string `json:"status"`
 	// when the step started
-	Started time.Time `json:"started"`
+	// swagger:type string
+	// swagger:strfmt date-time
+	Started optional.Option[time.Time] `json:"started"`
 	// when the step stopped
-	Stopped time.Time `json:"stopped"`
+	// swagger:type string
+	// swagger:strfmt date-time
+	Stopped optional.Option[time.Time] `json:"stopped"`
 }
 
 // ActionRun represents an action run
@@ -99,9 +107,13 @@ type ActionRun struct {
 	// the current status of this run
 	Status string `json:"status"`
 	// when the action run was started
-	Started time.Time `json:"started"`
+	// swagger:type string
+	// swagger:strfmt date-time
+	Started optional.Option[time.Time] `json:"started"`
 	// when the action run was stopped
-	Stopped time.Time `json:"stopped"`
+	// swagger:type string
+	// swagger:strfmt date-time
+	Stopped optional.Option[time.Time] `json:"stopped"`
 	// when the action run was created
 	Created time.Time `json:"created"`
 	// when the action run was last updated

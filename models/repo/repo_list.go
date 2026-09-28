@@ -584,7 +584,7 @@ func searchRepositoryByCondition(ctx context.Context, opts *SearchRepoOptions, c
 		args = append(args, opts.PriorityOwnerID)
 	} else if strings.Count(opts.Keyword, "/") == 1 {
 		// With "owner/repo" search times, prioritise results which match the owner field
-		orgName := strings.Split(opts.Keyword, "/")[0]
+		orgName, _, _ := strings.Cut(opts.Keyword, "/")
 		opts.OrderBy = db.SearchOrderBy(fmt.Sprintf("CASE WHEN owner_name LIKE ? THEN 0 ELSE 1 END, %s", opts.OrderBy))
 		args = append(args, orgName)
 	}
@@ -746,4 +746,17 @@ func GetUserRepositories(ctx context.Context, opts *SearchRepoOptions) (Reposito
 	sess = sess.Where(cond).OrderBy(opts.OrderBy.String())
 	repos := make(RepositoryList, 0, opts.PageSize)
 	return repos, count, db.SetSessionPagination(sess, opts).Find(&repos)
+}
+
+func makeTypeUnitConds(types []unit.Type) builder.Cond {
+	conds := make([]builder.Cond, len(types))
+	for i, t := range types {
+		conds[i] = builder.Eq{"`repo_unit`.type": t}
+	}
+	return builder.Or(conds...)
+}
+
+func JoinRepoType(b *builder.Builder, types ...unit.Type) *builder.Builder {
+	return b.Join("INNER", "`repo_unit`", "`repository`.id = `repo_unit`.repo_id").
+		And(makeTypeUnitConds(types))
 }

@@ -476,6 +476,8 @@ func CreateTaskForRunner(ctx context.Context, runner *actions_model.ActionRunner
 		return nil, err
 	}
 
+	priorStatus := job.Status
+
 	now := timeutil.TimeStampNow()
 	job.Started = now
 	job.Status = actions_model.StatusRunning
@@ -539,7 +541,6 @@ func CreateTaskForRunner(ctx context.Context, runner *actions_model.ActionRunner
 	// that just the same and return the `ErrNoJobUpdated` error code. An alternative would be to use READ COMMITTED
 	// transaction isolation level, but models/db doesn't currently expose that, and it would cause transaction nesting
 	// difficulties.
-	priorStatus := job.Status
 	if n, err := actions_model.UpdateRunJobWithoutNotification(ctx, job, builder.Eq{"task_id": 0}); err != nil && errors.Is(err, xorm.ErrDeadlock) {
 		return nil, actions_model.ErrNoJobUpdated
 	} else if err != nil {
@@ -548,8 +549,19 @@ func CreateTaskForRunner(ctx context.Context, runner *actions_model.ActionRunner
 		return nil, actions_model.ErrNoJobUpdated
 	}
 
+	if job.Run.Started.IsZero() {
+		job.Run.Started = job.Started
+
+		if err = actions_model.UpdateRun(ctx, job.Run); err != nil {
+			return nil, fmt.Errorf("could not update run %d of job %d: %w", job.RunID, job.ID, err)
+		}
+	}
+
 	if err = PropagateJobStatus(ctx, job.ID, priorStatus); err != nil {
 		return nil, fmt.Errorf("could not propagate changed status of job %d: %w", job.ID, err)
+	}
+	if err = RefreshAndPropagateRunStatus(ctx, job.RunID); err != nil {
+		return nil, fmt.Errorf("could not refresh and propagate the status of run %d: %w", job.RunID, err)
 	}
 
 	task.Job = job

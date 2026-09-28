@@ -42,6 +42,7 @@ import (
 	"forgejo.org/modules/markup"
 	"forgejo.org/modules/markup/markdown"
 	"forgejo.org/modules/optional"
+	project_module "forgejo.org/modules/project"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/templates"
@@ -602,16 +603,16 @@ func RetrieveRepoMilestonesAndAssignees(ctx *context.Context, repo *repo_model.R
 func retrieveProjects(ctx *context.Context, repo *repo_model.Repository) {
 	// Distinguish whether the owner of the repository
 	// is an individual or an organization
-	repoOwnerType := project_model.TypeIndividual
+	repoOwnerType := project_module.TypeIndividual
 	if repo.Owner.IsOrganization() {
-		repoOwnerType = project_model.TypeOrganization
+		repoOwnerType = project_module.TypeOrganization
 	}
 	var err error
 	repositoryProjects, err := db.Find[project_model.Project](ctx, project_model.SearchOptions{
 		ListOptions: db.ListOptionsAll,
 		RepoID:      repo.ID,
 		IsClosed:    optional.Some(false),
-		Type:        project_model.TypeRepository,
+		Type:        project_module.TypeRepository,
 	})
 	if err != nil {
 		ctx.ServerError("GetProjects", err)
@@ -635,7 +636,7 @@ func retrieveProjects(ctx *context.Context, repo *repo_model.Repository) {
 		ListOptions: db.ListOptionsAll,
 		RepoID:      repo.ID,
 		IsClosed:    optional.Some(true),
-		Type:        project_model.TypeRepository,
+		Type:        project_module.TypeRepository,
 	})
 	if err != nil {
 		ctx.ServerError("GetProjects", err)
@@ -1295,10 +1296,10 @@ func NewIssuePost(ctx *context.Context) {
 	if ctx.FormString("redirect_after_creation") == "project" && projectID > 0 {
 		project, err := project_model.GetProjectByID(ctx, projectID)
 		if err == nil {
-			if project.Type == project_model.TypeOrganization {
-				ctx.JSONRedirect(project_model.ProjectLinkForOrg(ctx.Repo.Owner, project.ID))
+			if project.Type == project_module.TypeOrganization {
+				ctx.JSONRedirect(project_module.ProjectLinkForOrg(ctx.Repo.Owner.HomeLink(), project.ID))
 			} else {
-				ctx.JSONRedirect(project_model.ProjectLinkForRepo(repo, project.ID))
+				ctx.JSONRedirect(project_module.ProjectLinkForRepo(repo.Link(), project.ID))
 			}
 			return
 		}
@@ -1869,6 +1870,8 @@ func ViewIssue(ctx *context.Context) {
 					ctx.ServerError("GetUserRepoPermission", err)
 					return
 				}
+				// determine if the user viewing the pull request can edit the head branch (used to gate the "Apply suggestion" button)
+				ctx.Data["HeadBranchIsEditable"] = !pull.HasMerged && !issue.IsClosed && pull.HeadRepo.CanEnableEditor() && issues_model.CanMaintainerWriteToBranch(ctx, perm, pull.HeadBranch, ctx.Doer, access_model.GetUserRepoPermission) && pull.Flow != issues_model.PullRequestFlowAGit
 				if perm.CanWrite(unit.TypeCode) {
 					// Check if branch is not protected
 					if pull.HeadBranch != pull.HeadRepo.DefaultBranch {
@@ -3337,6 +3340,14 @@ func UpdateCommentContent(ctx *context.Context) {
 	newContent := ctx.FormString("content")
 	contentVersion := ctx.FormInt("content_version")
 
+	// a code comment may carry at most one suggestion
+	if comment.Type == issues_model.CommentTypeCode {
+		if err := pull_service.ValidateCodeCommentSuggestions(newContent); err != nil {
+			ctx.JSONError(err.Error())
+			return
+		}
+	}
+
 	comment.Content = newContent
 	if err = issue_service.UpdateComment(ctx, comment, contentVersion, ctx.Doer, oldContent); err != nil {
 		if errors.Is(err, issues_model.ErrCommentAlreadyChanged) {
@@ -3373,10 +3384,34 @@ func UpdateCommentContent(ctx *context.Context) {
 		return
 	}
 
+	var suggestions template.HTML
+	if comment.Type == issues_model.CommentTypeCode {
+		editable, err := headBranchIsEditable(ctx, comment.Issue)
+		if err != nil {
+			ctx.ServerError("headBranchIsEditable", err)
+			return
+		}
+		root := map[string]any{
+			"HeadBranchIsEditable": editable,
+			"RepoLink":             ctx.Repo.RepoLink,
+			"Issue":                comment.Issue,
+		}
+		// the editor declares its context (Files tab vs Conversation); anything else => no batch button
+		batchMode := ctx.FormString("batch_mode")
+		if batchMode != "active" && batchMode != "disabled" {
+			batchMode = ""
+		}
+		if suggestions, err = ctx.RenderToHTML("repo/diff/suggestion_diffs", map[string]any{"comment": comment, "root": root, "batchMode": batchMode}); err != nil {
+			ctx.ServerError("RenderToHTML", err)
+			return
+		}
+	}
+
 	ctx.JSON(http.StatusOK, map[string]any{
 		"content":        content,
 		"contentVersion": comment.ContentVersion,
 		"attachments":    attachmentsHTML(ctx, comment.Attachments, comment.Content),
+		"suggestions":    suggestions,
 	})
 }
 

@@ -1,7 +1,6 @@
 import fastGlob from 'fast-glob';
 import wrapAnsi from 'wrap-ansi';
 import {init as licenseChecker} from 'license-checker-rseidelsohn';
-import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import {VueLoaderPlugin} from 'vue-loader';
 import EsBuildLoader from 'esbuild-loader';
 import {parse} from 'node:path';
@@ -89,24 +88,11 @@ const webComponents = new Set([
   'text-expander',
 ]);
 
-const filterCssImport = (url, ...args) => {
-  const cssFile = args[1] || args[0]; // resourcePath is 2nd argument for url and 3rd for import
-  const importedFile = url.replace(/[?#].+/, '').toLowerCase();
-
-  if (cssFile.includes('fomantic')) {
-    if (/brand-icons/.test(importedFile)) return false;
-    if (/(eot|ttf|otf|woff|svg)$/i.test(importedFile)) return false;
-  }
-
-  if (cssFile.includes('katex') && /(ttf|woff)$/i.test(importedFile)) {
-    return false;
-  }
-
-  return true;
-};
-
 /** @type {import("webpack").Configuration} */
 export default {
+  experiments: {
+    css: true,
+  },
   mode: isProduction ? 'production' : 'development',
   entry: {
     index: [
@@ -118,7 +104,7 @@ export default {
       fileURLToPath(new URL('web_src/css/index.css', import.meta.url)),
     ],
     webcomponents: [
-      fileURLToPath(new URL('web_src/js/webcomponents/index.js', import.meta.url)),
+      fileURLToPath(new URL('web_src/js/webcomponents/index.ts', import.meta.url)),
     ],
     forgejoswagger: [ // Forgejo swagger is OpenAPI 3.0.0 and has specific parameters
       fileURLToPath(new URL('web_src/js/standalone/forgejo-swagger.js', import.meta.url)),
@@ -141,6 +127,8 @@ export default {
   },
   devtool: false,
   output: {
+    cssFilename: 'css/[name].css',
+    cssChunkFilename: 'css/[name].[contenthash:8].css',
     path: fileURLToPath(new URL('public/assets', import.meta.url)),
     filename: () => 'js/[name].js',
     chunkFilename: () => {
@@ -174,6 +162,7 @@ export default {
           compilerOptions: {
             isCustomElement: (tag) => webComponents.has(tag),
           },
+          experimentalInlineMatchResource: true,
         },
       },
       {
@@ -184,38 +173,25 @@ export default {
             loader: 'esbuild-loader',
             options: {
               loader: 'ts',
-              target: 'es2020',
+              target: 'es2020', // TODO: es2025?
             },
           },
         ],
       },
       {
         test: /\.css$/i,
-        use: [
-          {
-            loader: MiniCssExtractPlugin.loader,
-          },
-          {
-            loader: 'css-loader',
-            options: {
-              sourceMap: sourceMaps === 'true',
-              url: {filter: filterCssImport},
-              import: {filter: filterCssImport},
-              importLoaders: 1,
+        use: [{
+          loader: 'postcss-loader',
+          options: {
+            postcssOptions: {
+              plugins: [
+                tailwindcssNesting(postcssNesting({edition: '2024-02'})),
+                tailwindcss(tailwindConfig),
+              ],
             },
           },
-          {
-            loader: 'postcss-loader',
-            options: {
-              postcssOptions: {
-                plugins: [
-                  tailwindcssNesting(postcssNesting({edition: '2024-02'})),
-                  tailwindcss(tailwindConfig),
-                ],
-              },
-            },
-          },
-        ],
+        }],
+        type: 'css/auto',
       },
       {
         test: /\.svg$/i,
@@ -244,10 +220,6 @@ export default {
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false, // https://github.com/vuejs/vue-cli/pull/7443
     }),
     new VueLoaderPlugin(),
-    new MiniCssExtractPlugin({
-      filename: 'css/[name].css',
-      chunkFilename: 'css/[name].[contenthash:8].css',
-    }),
     sourceMaps !== 'false' && new SourceMapDevToolPlugin({
       filename: '[file].[contenthash:8].map',
       ...(sourceMaps === 'reduced' && {include: /^js\/index\.js$/}),

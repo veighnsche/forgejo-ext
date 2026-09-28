@@ -1,4 +1,4 @@
-<dialog id="funding-modal" closedby="any" aria-labelledby="funding-modal-header">
+<dialog class="modal" id="funding-modal" closedby="any" aria-labelledby="funding-modal-header">
 	<article>
 		<header>
 			<span role="heading" aria-level="1" id="funding-modal-header">{{ctx.Locale.Tr "funding.action.title" .FundingTarget}}</span>
@@ -28,7 +28,7 @@
 				{{end}}
 			</ul>
 			<hr />
-			<p>{{ctx.Locale.Tr "funding.docs" "https://forgejo.org/docs/latest/user/repository/funding/"}}</p>
+			<p>{{ctx.Locale.Tr "funding.docs" (AppDocsURL "user/repository/funding/")}}</p>
 		</div>
 	</article>
 </dialog>

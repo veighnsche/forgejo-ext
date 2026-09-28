@@ -8,6 +8,7 @@ import (
 	"io"
 	"testing"
 
+	actions_model "forgejo.org/models/actions"
 	webhook_model "forgejo.org/models/webhook"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
@@ -324,6 +325,242 @@ func TestDiscordPayload(t *testing.T) {
 		assert.Equal(t, p.Sender.UserName, pl.Embeds[0].Author.Name)
 		assert.Equal(t, setting.AppURL+p.Sender.UserName, pl.Embeds[0].Author.URL)
 		assert.Equal(t, p.Sender.AvatarURL, pl.Embeds[0].Author.IconURL)
+	})
+
+	t.Run("WorkflowRun", func(t *testing.T) {
+		testCases := []struct {
+			runStatus      actions_model.Status
+			expectedColour int
+			expectedTitle  string
+			expectedText   string
+		}{
+			{
+				runStatus:      actions_model.StatusBlocked,
+				expectedColour: yellowColor,
+				expectedTitle:  `[acme/test] Workflow run "Update README.md" is blocked`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+
+View details on https://example.com/acme/test/actions/runs/197719.
+`,
+			},
+			{
+				runStatus:      actions_model.StatusCancelled,
+				expectedColour: greyColor,
+				expectedTitle:  `[acme/test] Workflow run "Update README.md" was cancelled`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+
+View details on https://example.com/acme/test/actions/runs/197719.
+`,
+			},
+			{
+				runStatus:      actions_model.StatusFailure,
+				expectedColour: redColor,
+				expectedTitle:  `[acme/test] Workflow run "Update README.md" has failed`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+
+View details on https://example.com/acme/test/actions/runs/197719.
+`,
+			},
+			{
+				runStatus:      actions_model.StatusRunning,
+				expectedColour: greenColorLight,
+				expectedTitle:  `[acme/test] Workflow run "Update README.md" has started running`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+
+View details on https://example.com/acme/test/actions/runs/197719.
+`,
+			},
+			{
+				runStatus:      actions_model.StatusSkipped,
+				expectedColour: greyColor,
+				expectedTitle:  `[acme/test] Workflow run "Update README.md" was skipped`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+
+View details on https://example.com/acme/test/actions/runs/197719.
+`,
+			},
+			{
+				runStatus:      actions_model.StatusSuccess,
+				expectedColour: greenColor,
+				expectedTitle:  `[acme/test] Workflow run "Update README.md" has completed successfully`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+
+View details on https://example.com/acme/test/actions/runs/197719.
+`,
+			},
+			{
+				runStatus:      actions_model.StatusWaiting,
+				expectedColour: blueColor,
+				expectedTitle:  `[acme/test] Workflow run "Update README.md" is waiting`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+
+View details on https://example.com/acme/test/actions/runs/197719.
+`,
+			},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(testCase.runStatus.String(), func(t *testing.T) {
+				inputPayload := &api.WorkflowRunPayload{
+					Action: api.HookNewWorkflowRunAttempt,
+					Run: &api.ActionRun{
+						Title:   "Update README.md",
+						Status:  testCase.runStatus.String(),
+						HTMLURL: "https://example.com/acme/test/actions/runs/197719",
+						Repo: &api.Repository{
+							FullName: "acme/test",
+						},
+						TriggerUser: &api.User{
+							UserName:  "jane",
+							AvatarURL: "https://example.com/avatars/7dc9cf?size=64",
+						},
+					},
+				}
+
+				payload, err := dc.WorkflowRun(inputPayload)
+				require.NoError(t, err)
+
+				assert.Len(t, payload.Embeds, 1)
+				assert.Equal(t, testCase.expectedColour, payload.Embeds[0].Color)
+				assert.Equal(t, testCase.expectedTitle, payload.Embeds[0].Title)
+				assert.Equal(t, testCase.expectedText, payload.Embeds[0].Description)
+				assert.Equal(t, "https://example.com/acme/test/actions/runs/197719",
+					payload.Embeds[0].URL)
+				assert.Equal(t, "jane", payload.Embeds[0].Author.Name)
+				assert.Equal(t, setting.AppURL+"jane", payload.Embeds[0].Author.URL)
+				assert.Equal(t, "https://example.com/avatars/7dc9cf?size=64", payload.Embeds[0].Author.IconURL)
+			})
+		}
+	})
+
+	t.Run("WorkflowJob", func(t *testing.T) {
+		testCases := []struct {
+			jobStatus      actions_model.Status
+			expectedColour int
+			expectedTitle  string
+			expectedText   string
+		}{
+			{
+				jobStatus:      actions_model.StatusBlocked,
+				expectedColour: yellowColor,
+				expectedTitle:  `[acme/test] Workflow job "build-and-test" is blocked`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+Job: build-and-test
+
+View details on https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1.
+`,
+			},
+			{
+				jobStatus:      actions_model.StatusCancelled,
+				expectedColour: greyColor,
+				expectedTitle:  `[acme/test] Workflow job "build-and-test" was cancelled`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+Job: build-and-test
+
+View details on https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1.
+`,
+			},
+			{
+				jobStatus:      actions_model.StatusFailure,
+				expectedColour: redColor,
+				expectedTitle:  `[acme/test] Workflow job "build-and-test" has failed`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+Job: build-and-test
+
+View details on https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1.
+`,
+			},
+			{
+				jobStatus:      actions_model.StatusRunning,
+				expectedColour: greenColorLight,
+				expectedTitle:  `[acme/test] Workflow job "build-and-test" has started running`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+Job: build-and-test
+
+View details on https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1.
+`,
+			},
+			{
+				jobStatus:      actions_model.StatusSkipped,
+				expectedColour: greyColor,
+				expectedTitle:  `[acme/test] Workflow job "build-and-test" was skipped`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+Job: build-and-test
+
+View details on https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1.
+`,
+			},
+			{
+				jobStatus:      actions_model.StatusSuccess,
+				expectedColour: greenColor,
+				expectedTitle:  `[acme/test] Workflow job "build-and-test" has completed successfully`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+Job: build-and-test
+
+View details on https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1.
+`,
+			},
+			{
+				jobStatus:      actions_model.StatusWaiting,
+				expectedColour: blueColor,
+				expectedTitle:  `[acme/test] Workflow job "build-and-test" is waiting`,
+				expectedText: `Repository: acme/test
+Run: Update README.md
+Job: build-and-test
+
+View details on https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1.
+`,
+			},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(testCase.jobStatus.String(), func(t *testing.T) {
+				inputPayload := &api.WorkflowJobPayload{
+					Action: api.HookNewWorkflowJobAttempt,
+					Job: &api.ActionRunJob{
+						Name:    "build-and-test",
+						HTMLURL: "https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1",
+						Status:  testCase.jobStatus.String(),
+					},
+					Run: &api.ActionRun{
+						Title: "Update README.md",
+						Repo: &api.Repository{
+							FullName: "acme/test",
+						},
+						TriggerUser: &api.User{
+							UserName:  "jane",
+							AvatarURL: "https://example.com/avatars/7dc9cf?size=64",
+						},
+					},
+				}
+
+				payload, err := dc.WorkflowJob(inputPayload)
+				require.NoError(t, err)
+
+				assert.Len(t, payload.Embeds, 1)
+				assert.Equal(t, testCase.expectedColour, payload.Embeds[0].Color)
+				assert.Equal(t, testCase.expectedTitle, payload.Embeds[0].Title)
+				assert.Equal(t, testCase.expectedText, payload.Embeds[0].Description)
+				assert.Equal(t, "https://example.com/acme/test/actions/runs/196540/jobs/3/attempt/1",
+					payload.Embeds[0].URL)
+				assert.Equal(t, "jane", payload.Embeds[0].Author.Name)
+				assert.Equal(t, setting.AppURL+"jane", payload.Embeds[0].Author.URL)
+				assert.Equal(t, "https://example.com/avatars/7dc9cf?size=64", payload.Embeds[0].Author.IconURL)
+			})
+		}
 	})
 }
 
