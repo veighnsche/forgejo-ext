@@ -596,7 +596,7 @@ func ToAPIProject(p *project_model.Project) *api.Project {
 	if p.Repo != nil {
 		proj.RepoName = p.Repo.Name
 	}
-	// Seems projects can be created without owner...
+	// Repo projects are created without owner
 	if p.Owner != nil {
 		proj.OwnerName = p.Owner.Name
 	}

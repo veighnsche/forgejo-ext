@@ -251,7 +251,7 @@ func hasPerms(ctx *APIContext, write bool) (bool, error) {
 
 // ProjectAssignment returns a middleware to handle project assignment
 func ProjectAssignment(ctx *APIContext) {
-	if _, repoAssignmentOnce := ctx.Data["projectAssignmentExecuted"]; repoAssignmentOnce {
+	if _, projectAssignmentOnce := ctx.Data["projectAssignmentExecuted"]; projectAssignmentOnce {
 		log.Trace("ProjectAssignment was exec already, skipping second call ...")
 		return
 	}

@@ -133,7 +133,7 @@ func GetSearchOpts(id int64, isShowClosed bool, sortType, keyword string, ownerT
 	return opts
 }
 
-// setProjectOwnerAndRepo sets the owner and repo in the project if they are missing
+// SetProjectOwnerAndRepo sets the owner and repo in the project if they are missing
 func SetProjectOwnerAndRepo(
 	p *project_model.Project,
 	setOwner *user_model.User,

@@ -32,7 +32,7 @@ func getColumnByID(ctx context.Context, columnID int64) (*project_model.Column, 
 	return column, nil
 }
 
-// GetValidProjectColumnByID Get a Column by its ID, validate ID != 0 and check if projectIDs match
+// GetValidProjectColumnByID gets a Column by its ID, validate ID != 0 and check if projectIDs match
 func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (*project_model.Column, error) {
 	if columnID == int64(0) {
 		return nil, validation.ErrNotValid{
@@ -51,7 +51,7 @@ func GetValidProjectColumnByID(ctx context.Context, projectID, columnID int64) (
 	return c, nil
 }
 
-// CreateColumnInProject Create a ProjectColumn in a Project
+// CreateColumnInProject creates a ProjectColumn in a Project
 func CreateColumnInProject(ctx context.Context, col *project_model.Column) error {
 	err := project_model.CreateColumn(ctx, col)
 	if err != nil {
@@ -60,7 +60,7 @@ func CreateColumnInProject(ctx context.Context, col *project_model.Column) error
 	return nil
 }
 
-// EditColumnInProject Update the title or color of a ProjectColumn
+// EditColumnInProject updates the title or color of a ProjectColumn
 func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
 	err := project_model.UpdateColumn(ctx, col)
 	if err != nil {
@@ -69,7 +69,7 @@ func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
 	return nil
 }
 
-// UpdateColumnInProject allow full updates of the column, including default and sorting
+// UpdateColumnInProject allows full updates of the column, including default and sorting
 func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form *project_structs.CreateOrUpdateProjectColumnOptions, projectID, columnID int64) error {
 	changed := false
 	if form.Title != "" && form.Title != col.Title {
@@ -122,12 +122,12 @@ func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form 
 	return nil
 }
 
-// SetDefaultColumn Set the default Column of a Project, other Columns will then be set non default
+// SetDefaultColumn sets the default Column of a Project, other Columns will then be set non default
 func SetDefaultColumn(ctx context.Context, projectID, columnID int64) error {
 	return project_model.SetDefaultColumn(ctx, projectID, columnID)
 }
 
-// DeleteColumnInProject Delete a Column from a Project
+// DeleteColumnInProject deletes a Column from a Project
 func DeleteColumnInProject(ctx context.Context, columnID int64) error {
 	err := project_model.DeleteColumnByID(ctx, columnID)
 	if err != nil {
