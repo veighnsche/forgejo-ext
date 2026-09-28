@@ -97,7 +97,7 @@ func reqPermissionToAssignProjectToIssue(ctx *Context, ownerType project_module.
 			return
 		}
 	default:
-		ctx.ServerError(fmt.Sprintf("unexpected project type %v", ownerType), nil)
+		ctx.ServerError(fmt.Sprintf("unexpected owner type %v", ownerType), nil)
 	}
 }
 

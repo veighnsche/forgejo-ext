@@ -317,7 +317,7 @@ func TestNewProject(t *testing.T) {
 		assert.ErrorContains(t, err, "Field APITemplateType")
 	})
 
-	t.Run("invalid project type", func(t *testing.T) {
+	t.Run("invalid owner type", func(t *testing.T) {
 		invalidOwnerType := project_module.APIOwnerType("99")
 		opts := project_structs.CreateOrUpdateProjectOptions{
 			Title:        "Test",

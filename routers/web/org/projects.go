@@ -77,7 +77,7 @@ func Projects(ctx *context.Context) {
 		page,
 		setting.UI.IssuePagingNum,
 	)
-	log.Trace("Got OwnerSearch Opts for user %v and project type %v", ctx.ContextUser.Name, ownerType)
+	log.Trace("Got OwnerSearch Opts for user %v and owner type %v", ctx.ContextUser.Name, ownerType)
 	projects, err := project_service.ListProjectsByOptions(*ctx, opts)
 	if err != nil {
 		ctx.ServerError("ListProjectsByOptions", err)
@@ -185,7 +185,7 @@ func CreateProject(ctx *context.Context) {
 	}
 
 	ownerType := project_service.GetAPIOwnerType(ctx.ContextUser.IsOrganization(), false)
-	log.Trace("Got project type %v", ownerType)
+	log.Trace("Got owner type %v", ownerType)
 
 	opt := &project_structs.CreateOrUpdateProjectOptions{
 		Title:        form.Title,

@@ -24,7 +24,7 @@ import (
 	project_service "forgejo.org/services/project"
 )
 
-// getOwnerTypeAndOwnerAndRepoFromData returns the project type, owner and
+// getOwnerTypeAndOwnerAndRepoFromData returns the owner type, owner and
 // repository from data in the context.
 func getOwnerTypeAndOwnerAndRepoFromData(ctx *context.APIContext) (
 	project_module.APIOwnerType, *user_model.User, *repo_model.Repository,
