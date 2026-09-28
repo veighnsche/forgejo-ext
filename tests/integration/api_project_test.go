@@ -818,7 +818,10 @@ func runProjectReadActions(t *testing.T, opts *runOpts) {
 	projectAPIBaseString := getProjectAPIBaseString(opts)
 	resp := getProject(t, opts.token, projectAPIBaseString, opts.projectID, NoExpectedStatus)
 	if opts.shouldSucceed {
+		var proj *api.Project
 		assert.Equal(t, http.StatusOK, resp.Code)
+		DecodeJSON(t, resp, &proj)
+		assert.Equal(t, opts.projectID, proj.ID)
 	} else {
 		assert.NotEqual(t, http.StatusOK, resp.Code)
 	}
@@ -830,30 +833,20 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 	require.NoError(t, err)
 
 	// users and tokens
-	user1 := forgery.CreateUser(t, &forgery.CreateUserOptions{IsAdmin: true})
+	user1 := forgery.CreateUser(t, nil)
 	user2 := forgery.CreateUser(t, nil)
 
-	session1 := loginUser(t, user1.Name)
-	adminWriteToken := getTokenForLoggedInUser(t,
-		session1,
+	user2Session := loginUser(t, user2.Name)
+	user2WriteToken := getTokenForLoggedInUser(t,
+		user2Session,
 		auth_model.AccessTokenScopeWriteProject,
 		auth_model.AccessTokenScopeWriteOrganization,
 		auth_model.AccessTokenScopeWriteRepository,
 		auth_model.AccessTokenScopeWriteUser,
 		auth_model.AccessTokenScopeWriteIssue,
 	)
-
-	session2 := loginUser(t, user2.Name)
-	userWriteToken := getTokenForLoggedInUser(t,
-		session2,
-		auth_model.AccessTokenScopeWriteProject,
-		auth_model.AccessTokenScopeWriteOrganization,
-		auth_model.AccessTokenScopeWriteRepository,
-		auth_model.AccessTokenScopeWriteUser,
-		auth_model.AccessTokenScopeWriteIssue,
-	)
-	userReadToken := getTokenForLoggedInUser(t,
-		session2,
+	user2ReadToken := getTokenForLoggedInUser(t,
+		user2Session,
 		auth_model.AccessTokenScopeReadProject,
 		auth_model.AccessTokenScopeReadOrganization,
 		auth_model.AccessTokenScopeReadRepository,
@@ -878,7 +871,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 		// Run actions
 		runOpts := &runOpts{
-			token:         userWriteToken,
+			token:         user2WriteToken,
 			owner:         privUser2Org.Name,
 			shouldSucceed: true,
 			ownerType:     project_module.APIOwnerTypeOrganization,
@@ -893,7 +886,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 		// Run actions
 		runOpts := &runOpts{
-			token:         userWriteToken,
+			token:         user2WriteToken,
 			owner:         user2.Name,
 			repo:          user2Repo.Name,
 			shouldSucceed: true,
@@ -907,7 +900,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 		// Run actions
 		runOpts := &runOpts{
-			token:         userWriteToken,
+			token:         user2WriteToken,
 			owner:         user2.Name,
 			shouldSucceed: true,
 			ownerType:     project_module.APIOwnerTypeIndividual,
@@ -939,7 +932,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 		// Run actions
 		runOpts := &runOpts{
-			token:         adminWriteToken,
+			token:         user2WriteToken,
 			owner:         privUser1Org.Name,
 			shouldSucceed: true,
 			ownerType:     project_module.APIOwnerTypeOrganization,
@@ -952,13 +945,13 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 		user1Repo := forgery.CreateRepository(t, user1, &forgery.CreateRepositoryOptions{
 			Collaborators: map[*user_model.User]perm.AccessMode{
-				user1: perm.AccessModeWrite,
+				user2: perm.AccessModeWrite,
 			},
 		})
 
 		// Run actions
 		runOpts := &runOpts{
-			token:         adminWriteToken,
+			token:         user2WriteToken,
 			owner:         user1.Name,
 			repo:          user1Repo.Name,
 			shouldSucceed: true,
@@ -972,7 +965,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 		user1Repo := forgery.CreateRepository(t, user1, nil)
 		runOpts := &runOpts{
-			token:         userWriteToken,
+			token:         user2WriteToken,
 			owner:         user1.Name,
 			repo:          user1Repo.Name,
 			shouldSucceed: false,
@@ -992,7 +985,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 		// Run actions
 		runOpts := &runOpts{
-			token:         userWriteToken,
+			token:         user2WriteToken,
 			owner:         user1.Name,
 			repo:          user1Repo.Name,
 			shouldSucceed: false,
@@ -1002,7 +995,7 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 
 		user1Project := forgery.CreateProject(t, user1Repo, nil)
 		runOpts.projectID = user1Project.ID
-		runOpts.token = userReadToken
+		runOpts.token = user2ReadToken
 		runOpts.shouldSucceed = true
 		runProjectReadActions(t, runOpts)
 	})
@@ -1014,14 +1007,14 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 			Visibility: api.VisibleTypePrivate,
 		})
 		runOpts := &runOpts{
-			token:         userWriteToken,
+			token:         user2WriteToken,
 			owner:         privUser1Org.Name,
 			shouldSucceed: false,
 			ownerType:     project_module.APIOwnerTypeOrganization,
 		}
 		runProjectWriteActions(t, runOpts, projectOpts)
 		user1Project := forgery.CreateProject(t, privUser1Org, nil)
-		runOpts.token = userReadToken
+		runOpts.token = user2ReadToken
 		runOpts.projectID = user1Project.ID
 		runProjectReadActions(t, runOpts)
 	})
@@ -1032,17 +1025,14 @@ func TestProjectAPIPermissionHandling(t *testing.T) {
 		privUser1Org := forgery.CreateOrganisation(t, user1, &forgery.CreateOrganisationOptions{
 			Visibility: api.VisibleTypePrivate,
 		})
-		var delProj *api.Project
+		delProj := forgery.CreateProject(t, privUser1Org, nil)
 		runOpts := &runOpts{
-			token:         userReadToken,
+			token:         user2ReadToken,
 			owner:         privUser1Org.Name,
 			shouldSucceed: false,
 			ownerType:     project_module.APIOwnerTypeOrganization,
 		}
 		baseString := getProjectAPIBaseString(runOpts)
-		endpoint := baseString + "/projects"
-		resp := jsonRequestWithAuth(t, adminWriteToken, "POST", endpoint, http.StatusCreated, projectOpts)
-		DecodeJSON(t, resp, &delProj)
-		deleteProject(t, userWriteToken, baseString, delProj.ID, http.StatusForbidden)
+		deleteProject(t, user2WriteToken, baseString, delProj.ID, http.StatusForbidden)
 	})
 }
