@@ -423,7 +423,7 @@ func GetProjectColumnIssue(ctx *context.APIContext) {
 // UpdateProjectColumnIssue updates an issue in a column in a project.
 func UpdateProjectColumnIssue(ctx *context.APIContext) {
 	// get form parameters
-	form := web.GetForm(ctx).(*api.UpdateProjectColumnIssueOptions)
+	form := web.GetForm(ctx).(*api.UpdateProjectIssueOptions)
 	newColumnID := form.ProjectColumnID
 	newSorting := form.Sorting
 

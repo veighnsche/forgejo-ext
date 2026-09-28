@@ -609,7 +609,7 @@ func Routes() *web.Route {
 								Post(reqToken(), context.ReqProjectWritePermissions, bind(api.CreateProjectIssueOptions{}), pI.CreateProjectColumnIssue)
 							m.Combo("/{issue_id}").
 								Get(context.ReqProjectReadPermissions, pI.GetProjectColumnIssue).
-								Patch(reqToken(), context.ReqProjectWritePermissions, bind(api.UpdateProjectColumnIssueOptions{}), pI.UpdateProjectColumnIssue).
+								Patch(reqToken(), context.ReqProjectWritePermissions, bind(api.UpdateProjectIssueOptions{}), pI.UpdateProjectColumnIssue).
 								Delete(reqToken(), context.ReqProjectWritePermissions, pI.DeleteProjectColumnIssue)
 						})
 					})

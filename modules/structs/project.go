@@ -39,7 +39,7 @@ type CreateProjectIssueOptions struct {
 	IssueID int64 `json:"issue_id"`
 }
 
-type UpdateProjectColumnIssueOptions struct {
+type UpdateProjectIssueOptions struct {
 	ProjectColumnID int64 `json:"project_column_id"`
 	Sorting         int64 `json:"sorting"`
 }

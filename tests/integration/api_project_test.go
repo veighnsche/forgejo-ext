@@ -599,12 +599,12 @@ func TestProjectAPICRUD(t *testing.T) {
 		assert.Equal(t, projectIssue1.ProjectColumnID, projectIssue2.ProjectColumnID)
 
 		// move second issue to first issue's position
-		updatePCIOpts := api.UpdateProjectColumnIssueOptions{
+		updatePIOpts := api.UpdateProjectIssueOptions{
 			ProjectColumnID: projectIssue2.ProjectColumnID,
 			Sorting:         projectIssue1.Sorting,
 		}
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects/%v/columns/%v/issues/%v", user.Name, project.ID, projectIssue2.ProjectColumnID, projectIssue2.ID)
-		jsonRequestWithAuth(t, writeToken, "PATCH", endpoint, http.StatusOK, updatePCIOpts)
+		jsonRequestWithAuth(t, writeToken, "PATCH", endpoint, http.StatusOK, updatePIOpts)
 
 		i1 := unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: projectIssue1.ID, ProjectID: project.ID})
 		i2 := unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: projectIssue2.ID, ProjectID: project.ID})
@@ -612,12 +612,12 @@ func TestProjectAPICRUD(t *testing.T) {
 		assert.Less(t, i2.Sorting, i1.Sorting)
 
 		// move first issue back to first position
-		updatePCIOpts = api.UpdateProjectColumnIssueOptions{
+		updatePIOpts = api.UpdateProjectIssueOptions{
 			ProjectColumnID: projectColumn1.ID,
 			Sorting:         projectIssue1.Sorting,
 		}
 		endpoint = fmt.Sprintf("/api/v1/users/%v/projects/%v/columns/%v/issues/%v", user.Name, project.ID, projectIssue1.ProjectColumnID, projectIssue1.ID)
-		jsonRequestWithAuth(t, writeToken, "PATCH", endpoint, http.StatusOK, updatePCIOpts)
+		jsonRequestWithAuth(t, writeToken, "PATCH", endpoint, http.StatusOK, updatePIOpts)
 
 		i1 = unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: projectIssue1.ID, ProjectID: project.ID})
 		i2 = unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: projectIssue2.ID, ProjectID: project.ID})
@@ -630,26 +630,26 @@ func TestProjectAPICRUD(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		// move second issue to second column
-		updatePCIOpts := api.UpdateProjectColumnIssueOptions{
+		updatePIOpts := api.UpdateProjectIssueOptions{
 			ProjectColumnID: projectColumn2.ID,
 		}
 		endpoint := fmt.Sprintf("/api/v1/users/%v/projects/%v/columns/%v/issues/%v", user.Name, project.ID, projectColumn1.ID, projectIssue2.ID)
-		jsonRequestWithAuth(t, writeToken, "PATCH", endpoint, http.StatusOK, updatePCIOpts)
+		jsonRequestWithAuth(t, writeToken, "PATCH", endpoint, http.StatusOK, updatePIOpts)
 
 		i2 := unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: projectIssue2.ID, ProjectID: project.ID})
 
-		assert.Equal(t, updatePCIOpts.ProjectColumnID, i2.ProjectColumnID)
+		assert.Equal(t, updatePIOpts.ProjectColumnID, i2.ProjectColumnID)
 
 		// move second issue back to first column
-		updatePCIOpts = api.UpdateProjectColumnIssueOptions{
+		updatePIOpts = api.UpdateProjectIssueOptions{
 			ProjectColumnID: projectColumn1.ID,
 		}
 		endpoint = fmt.Sprintf("/api/v1/users/%v/projects/%v/columns/%v/issues/%v", user.Name, project.ID, projectColumn2.ID, projectIssue2.ID)
-		jsonRequestWithAuth(t, writeToken, "PATCH", endpoint, http.StatusOK, updatePCIOpts)
+		jsonRequestWithAuth(t, writeToken, "PATCH", endpoint, http.StatusOK, updatePIOpts)
 
 		i2 = unittest.AssertExistsAndLoadBean(t, &project_model.ProjectIssue{ID: projectIssue2.ID, ProjectID: project.ID})
 
-		assert.Equal(t, updatePCIOpts.ProjectColumnID, i2.ProjectColumnID)
+		assert.Equal(t, updatePIOpts.ProjectColumnID, i2.ProjectColumnID)
 	})
 
 	// List projects of an owner (user/organization)
