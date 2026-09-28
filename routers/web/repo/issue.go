@@ -3343,7 +3343,11 @@ func UpdateCommentContent(ctx *context.Context) {
 	// a code comment may carry at most one suggestion
 	if comment.Type == issues_model.CommentTypeCode {
 		if err := pull_service.ValidateCodeCommentSuggestions(newContent); err != nil {
-			ctx.JSONError(err.Error())
+			if errors.Is(err, pull_service.ErrMultipleSuggestions) {
+				ctx.JSONError(ctx.Tr("repo.issues.review.one_suggestion_per_comment"))
+				return
+			}
+			ctx.ServerError("ValidateCodeCommentSuggestions", err)
 			return
 		}
 	}

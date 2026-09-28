@@ -100,7 +100,11 @@ func CreateCodeComment(ctx *context.Context) {
 	}
 
 	if err := pull_service.ValidateCodeCommentSuggestions(form.Content); err != nil {
-		ctx.Error(http.StatusBadRequest, err.Error())
+		if errors.Is(err, pull_service.ErrMultipleSuggestions) {
+			ctx.Error(http.StatusBadRequest, ctx.Locale.TrString("repo.issues.review.one_suggestion_per_comment"))
+			return
+		}
+		ctx.ServerError("ValidateCodeCommentSuggestions", err)
 		return
 	}
 
