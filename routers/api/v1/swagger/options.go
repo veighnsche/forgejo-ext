@@ -253,7 +253,7 @@ type swaggerParameterBodies struct {
 	CreateOrUpdateProjectOptions api.CreateOrUpdateProjectOptions
 
 	// in:body
-	CreateProjectColumnOptions api.CreateProjectColumnOptions
+	CreateOrUpdateProjectColumnOptions api.CreateOrUpdateProjectColumnOptions
 
 	// in:body
 	UpdateProjectIssueOptions api.UpdateProjectIssueOptions

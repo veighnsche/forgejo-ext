@@ -597,11 +597,11 @@ func Routes() *web.Route {
 				m.Group("/columns", func() {
 					m.Combo("").
 						Get(context.ReqProjectReadPermissions, pI.ListProjectColumns).
-						Post(reqToken(), context.ReqProjectWritePermissions, bind(api.CreateProjectColumnOptions{}), pI.CreateProjectColumn)
+						Post(reqToken(), context.ReqProjectWritePermissions, bind(api.CreateOrUpdateProjectColumnOptions{}), pI.CreateProjectColumn)
 					m.Group("/{column_id}", func() {
 						m.Combo("").
 							Get(context.ReqProjectReadPermissions, pI.GetProjectColumn).
-							Patch(reqToken(), context.ReqProjectWritePermissions, bind(api.CreateProjectColumnOptions{}), pI.UpdateProjectColumn).
+							Patch(reqToken(), context.ReqProjectWritePermissions, bind(api.CreateOrUpdateProjectColumnOptions{}), pI.UpdateProjectColumn).
 							Delete(reqToken(), context.ReqProjectWritePermissions, pI.DeleteProjectColumn)
 						m.Group("/issues", func() {
 							m.Combo("").

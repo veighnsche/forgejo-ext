@@ -28,7 +28,7 @@ type CreateOrUpdateProjectOptions struct {
 	Status       string `json:"status"`
 }
 
-type CreateProjectColumnOptions struct {
+type CreateOrUpdateProjectColumnOptions struct {
 	Title   string `json:"title"`
 	Default bool   `json:"default"`
 	Sorting int8   `json:"sorting"`

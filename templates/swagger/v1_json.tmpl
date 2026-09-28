@@ -4448,7 +4448,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateProjectColumnOptions"
+              "$ref": "#/definitions/CreateOrUpdateProjectColumnOptions"
             }
           }
         ],
@@ -4775,7 +4775,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateProjectColumnOptions"
+              "$ref": "#/definitions/CreateOrUpdateProjectColumnOptions"
             }
           }
         ],
@@ -20386,7 +20386,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateProjectColumnOptions"
+              "$ref": "#/definitions/CreateOrUpdateProjectColumnOptions"
             }
           }
         ],
@@ -20762,7 +20762,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateProjectColumnOptions"
+              "$ref": "#/definitions/CreateOrUpdateProjectColumnOptions"
             }
           }
         ],
@@ -24739,7 +24739,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateProjectColumnOptions"
+              "$ref": "#/definitions/CreateOrUpdateProjectColumnOptions"
             }
           }
         ],
@@ -25066,7 +25066,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateProjectColumnOptions"
+              "$ref": "#/definitions/CreateOrUpdateProjectColumnOptions"
             }
           }
         ],
@@ -27626,6 +27626,29 @@
       },
       "x-go-package": "forgejo.org/modules/structs"
     },
+    "CreateOrUpdateProjectColumnOptions": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "x-go-name": "Color"
+        },
+        "default": {
+          "type": "boolean",
+          "x-go-name": "Default"
+        },
+        "sorting": {
+          "type": "integer",
+          "format": "int8",
+          "x-go-name": "Sorting"
+        },
+        "title": {
+          "type": "string",
+          "x-go-name": "Title"
+        }
+      },
+      "x-go-package": "forgejo.org/modules/structs"
+    },
     "CreateOrUpdateProjectOptions": {
       "type": "object",
       "properties": {
@@ -27711,29 +27734,6 @@
         "website": {
           "type": "string",
           "x-go-name": "Website"
-        }
-      },
-      "x-go-package": "forgejo.org/modules/structs"
-    },
-    "CreateProjectColumnOptions": {
-      "type": "object",
-      "properties": {
-        "color": {
-          "type": "string",
-          "x-go-name": "Color"
-        },
-        "default": {
-          "type": "boolean",
-          "x-go-name": "Default"
-        },
-        "sorting": {
-          "type": "integer",
-          "format": "int8",
-          "x-go-name": "Sorting"
-        },
-        "title": {
-          "type": "string",
-          "x-go-name": "Title"
         }
       },
       "x-go-package": "forgejo.org/modules/structs"

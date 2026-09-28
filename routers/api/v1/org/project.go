@@ -253,7 +253,7 @@ func (Project) CreateProjectColumn(ctx *context.APIContext) {
 	//   in: body
 	//   required: true
 	//   schema:
-	// 		"$ref": "#/definitions/CreateProjectColumnOptions"
+	// 		"$ref": "#/definitions/CreateOrUpdateProjectColumnOptions"
 	// responses:
 	//   "201":
 	//     "$ref": "#/responses/ProjectColumn"
@@ -322,7 +322,7 @@ func (Project) UpdateProjectColumn(ctx *context.APIContext) {
 	//   in: body
 	//   required: true
 	//   schema:
-	// 		"$ref": "#/definitions/CreateProjectColumnOptions"
+	// 		"$ref": "#/definitions/CreateOrUpdateProjectColumnOptions"
 	// responses:
 	//   "200":
 	//     "description": "Successfull update returns 200 OK"

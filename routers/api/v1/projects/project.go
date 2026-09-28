@@ -264,7 +264,7 @@ func ListProjectColumns(ctx *context.APIContext) {
 
 // CreateProjectColumn creates a column in the project
 func CreateProjectColumn(ctx *context.APIContext) {
-	form := web.GetForm(ctx).(*api.CreateProjectColumnOptions)
+	form := web.GetForm(ctx).(*api.CreateOrUpdateProjectColumnOptions)
 
 	col := project_service.NewColumn(form, ctx.Project().ProjectID)
 	err := project_service.CreateColumnInProject(ctx, col)
@@ -287,7 +287,7 @@ func GetProjectColumn(ctx *context.APIContext) {
 
 // UpdateProjectColumn updates a column in the project
 func UpdateProjectColumn(ctx *context.APIContext) {
-	form := web.GetForm(ctx).(*api.CreateProjectColumnOptions)
+	form := web.GetForm(ctx).(*api.CreateOrUpdateProjectColumnOptions)
 
 	projectColumn, _ := getValidColumnOrIssue(ctx, true, false)
 	if ctx.Written() {

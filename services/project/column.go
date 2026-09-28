@@ -14,7 +14,7 @@ import (
 	"forgejo.org/modules/validation"
 )
 
-func NewColumn(form *project_structs.CreateProjectColumnOptions, projectID int64) *project_model.Column {
+func NewColumn(form *project_structs.CreateOrUpdateProjectColumnOptions, projectID int64) *project_model.Column {
 	return &project_model.Column{
 		Title:     form.Title,
 		Default:   form.Default,
@@ -70,7 +70,7 @@ func EditColumnInProject(ctx context.Context, col *project_model.Column) error {
 }
 
 // UpdateColumnInProject allow full updates of the column, including default and sorting
-func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form *project_structs.CreateProjectColumnOptions, projectID, columnID int64) error {
+func UpdateColumnInProject(ctx context.Context, col *project_model.Column, form *project_structs.CreateOrUpdateProjectColumnOptions, projectID, columnID int64) error {
 	changed := false
 	if form.Title != "" && form.Title != col.Title {
 		col.Title = form.Title

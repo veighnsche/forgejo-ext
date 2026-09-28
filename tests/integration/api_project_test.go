@@ -73,7 +73,7 @@ func createProjectColumn(t *testing.T, runOpts *runOpts, columnName string) api.
 	resp := jsonRequestWithAuth(t, runOpts.token, "POST",
 		endpoint,
 		http.StatusCreated,
-		api.CreateProjectColumnOptions{
+		api.CreateOrUpdateProjectColumnOptions{
 			Title: columnName,
 		},
 	)
@@ -506,7 +506,7 @@ func TestProjectAPICRUD(t *testing.T) {
 	t.Run("Update properties of column", func(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
-		colOpts := api.CreateProjectColumnOptions{
+		colOpts := api.CreateOrUpdateProjectColumnOptions{
 			Color:   "#00aabb",
 			Title:   "Backlog",
 			Default: projectColumn1.Default,
@@ -526,7 +526,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		// set second column as default
-		colOpts := api.CreateProjectColumnOptions{
+		colOpts := api.CreateOrUpdateProjectColumnOptions{
 			Default: true,
 			Sorting: projectColumn2.Sorting,
 			Title:   projectColumn2.Title,
@@ -541,7 +541,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		assert.True(t, c2.Default)
 
 		// set first column as default again
-		colOpts = api.CreateProjectColumnOptions{
+		colOpts = api.CreateOrUpdateProjectColumnOptions{
 			Default: true,
 			Sorting: projectColumn1.Sorting,
 			Title:   projectColumn1.Title,
@@ -561,7 +561,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		defer tests.PrintCurrentTest(t)()
 
 		// move second column to first column's position
-		colOpts := api.CreateProjectColumnOptions{
+		colOpts := api.CreateOrUpdateProjectColumnOptions{
 			Sorting: projectColumn1.Sorting,
 			Default: projectColumn2.Default,
 			Title:   projectColumn2.Title,
@@ -577,7 +577,7 @@ func TestProjectAPICRUD(t *testing.T) {
 		assert.Less(t, c2.Sorting, c1.Sorting)
 
 		// move first column back to first position
-		colOpts = api.CreateProjectColumnOptions{
+		colOpts = api.CreateOrUpdateProjectColumnOptions{
 			Sorting: projectColumn1.Sorting,
 			Default: projectColumn1.Default,
 			Title:   projectColumn1.Title,

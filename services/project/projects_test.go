@@ -640,7 +640,7 @@ func TestCUDProject(t *testing.T) {
 		assert.False(t, wantCol2.Default)
 
 		// update column
-		updateOpts := project_structs.CreateProjectColumnOptions{
+		updateOpts := project_structs.CreateOrUpdateProjectColumnOptions{
 			Title:   "New Other Title",
 			Default: true,
 			Sorting: 1,
