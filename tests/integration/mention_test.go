@@ -63,7 +63,7 @@ func TestHeadMentionJS(t *testing.T) {
 				// set the user's display name
 				req := NewRequestWithValues(t, "PATCH", "/api/v1/user/settings", map[string]string{
 					"full_name": fullNamePref,
-					"pronouns": pronounsPref,
+					"pronouns":  pronounsPref,
 				}).AddTokenAuth(token)
 				userSession.MakeRequest(t, req, http.StatusOK)
 
