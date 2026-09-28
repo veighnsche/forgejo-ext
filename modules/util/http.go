@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
 )
 
@@ -56,9 +55,12 @@ func VerifyRequestDigest(req *http.Request) error {
 		return fmt.Errorf("Error: no digest in Header")
 	}
 
-	digestSplit := regexp.MustCompile("=").Split(digest, 2)
+	digestAlgoStr, digestStr, found := strings.Cut(digest, "=")
+	if !found {
+		return fmt.Errorf("Error: invalid digest header: %s", digest)
+	}
 
-	digestAlgo, err := MatchCryptoAlgorithm(digestSplit[0])
+	digestAlgo, err := MatchCryptoAlgorithm(digestAlgoStr)
 	if err != nil {
 		return err
 	}
@@ -75,7 +77,7 @@ func VerifyRequestDigest(req *http.Request) error {
 
 	calcDigest := base64.StdEncoding.EncodeToString(h.Sum(nil))
 
-	if calcDigest != digestSplit[1] {
+	if calcDigest != digestStr {
 		return fmt.Errorf("Calculated digest does not match digest from header")
 	}
 
