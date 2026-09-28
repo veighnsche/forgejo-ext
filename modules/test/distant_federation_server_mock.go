@@ -55,6 +55,10 @@ func (u *ApActorMock) KeyID(host string) string {
 	return fmt.Sprintf("%s/api/v1/activitypub/actor#main-key", host)
 }
 
+func (u *ApActorMock) ActorID(host string) string {
+	return fmt.Sprintf("%s/api/v1/activitypub/actor", host)
+}
+
 func (u *ApActorMock) marshal(host string) string {
 	baseID := fmt.Sprintf("http://%s/api/v1/activitypub/actor", host)
 
@@ -84,6 +88,10 @@ func NewFederationServerMockPerson(id int64, name string) FederationServerMockPe
 
 func (p *FederationServerMockPerson) KeyID(host string) string {
 	return fmt.Sprintf("%[1]v/api/v1/activitypub/user-id/%[2]v#main-key", host, p.ID)
+}
+
+func (p *FederationServerMockPerson) ActorID(host string) string {
+	return fmt.Sprintf("%[1]v/api/v1/activitypub/user-id/%[2]v", host, p.ID)
 }
 
 func (p FederationServerMockPerson) marshal(host string) string {
