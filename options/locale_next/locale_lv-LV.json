@@ -1013,9 +1013,9 @@
 	"funding.yaml_error.parse_url": "Nederīga atslēgas “%[1]s” URL vērtība: %[2]v",
 	"funding.yaml_error.bad_input": "Atslēgas “%[1]s” vērtība neatbilst paraugam /%[2]s/",
 	"funding.yaml_error.n_too_many_providers": {
-		"zero": "Pieļaujami līdz %[1]d naudas līdzekļu nodrošinātāji",
-		"one": "",
-		"other": ""
+		"zero": "Pieļaujami līdz %[1]d naudas līdzekļu nodrošinātāju",
+		"one": "Pieļaujams līdz %[1]d naudas līdzekļu nodrošinātājs",
+		"other": "Pieļaujami līdz %[1]d naudas līdzekļu nodrošinātāji"
 	},
 	"funding.yaml_error.duplicate_entry": "Atkārtots atslēgas “%[1]s” ieraksts: %[2]s",
 	"funding.yaml_error.unknown_provider": "Nezināms naudas līdzekļu nodrošinātājs: %[1]s",
@@ -1059,5 +1059,6 @@
 	"settings.authorized_integration.ui.generic": "Vispārīgs JWT",
 	"settings.authorized_integration.ui.forgejo_actions_local": "Forgejo darbības (vietējas)",
 	"settings.authorized_integration.none": "Pašreiz nav konfigurēta neviena pilnvarota iekļaušana.",
-	"mail.actions.job_failure_info_run": "Izpilde: <a href=\"%[2]s\">%[1]s</a>"
+	"mail.actions.job_failure_info_run": "Izpilde: <a href=\"%[2]s\">%[1]s</a>",
+	"auth.signup.username.prefix.info": "Šis priedēklis (%s) tiks pievienots pirms lietotājvārda, un to nevar nomainīt."
 }

@@ -1164,5 +1164,15 @@
 	"org.teams.invited_on": "приглашён %[1]s",
 	"modal.close": "Закрыть",
 	"funding.yaml_error.not_yaml_mapping": "Получен тип %[1]s, ожидался словарь YAML",
-	"graphs.code_frequency.title": "Частота изменений в истории {0}"
+	"graphs.code_frequency.title": "Частота изменений в истории {0}",
+	"repo.settings.event_workflow_job_success_desc": "Задание завершено успешно.",
+	"repo.settings.event_workflow_job_blocked_desc": "Задание будет запущено, когда будет выполнено условие.",
+	"repo.settings.event_workflow_job_cancelled_desc": "Задание отменено.",
+	"repo.settings.event_workflow_job_failure_desc": "Задание завершилось с ошибкой.",
+	"repo.settings.event_workflow_job_running_desc": "Задание выполняется.",
+	"repo.settings.event_workflow_job_skipped_desc": "Задание пропущено.",
+	"repo.settings.event_workflow_job_waiting_desc": "Задание ожидает начала выполнения.",
+	"mail.actions.job_failure_info_duration": "Длительность: %[1]s",
+	"mail.actions.job_failure_info_job": "Задание: <a href=\"%[2]s\">%[1]s</a>",
+	"mail.actions.job_failure_info_repository": "Репозиторий: %[1]s"
 }

@@ -712,8 +712,8 @@
 	"migrate.items.milestones": "Etapas",
 	"migrate.items.labels": "Rótulos",
 	"migrate.items.issues": "Questões",
-	"migrate.items.pull_requests": "Pedidos de integração",
-	"migrate.items.merge_requests": "Pedidos de integração",
+	"migrate.items.pull_requests": "Pedidos de pull",
+	"migrate.items.merge_requests": "Pedidos de merge",
 	"migrate.items.releases": "Lançamentos",
 	"migrate.in_progress.git": "Migrando dados Git",
 	"migrate.in_progress.topics": "Migrando tópicos",
@@ -1017,38 +1017,81 @@
 	"repo.files.last_commit_date": "Data do último cometimento",
 	"repo.packages.visibility_warning": "Este repositório é privado, mas os pacotes associados são públicos (o proprietário %s é público).",
 	"relativetime.duration.secs": {
-		"one": "segundo",
-		"many": "segundos",
-		"other": "segundos"
+		"one": "%d segundo",
+		"many": "%d segundos",
+		"other": "%d segundos"
 	},
 	"relativetime.duration.mins": {
-		"one": "minuto",
-		"many": "minutos",
-		"other": "minutos"
+		"one": "%d minuto",
+		"many": "%d minutos",
+		"other": "%d minutos"
 	},
 	"relativetime.duration.hours": {
-		"one": "hora",
-		"many": "horas",
-		"other": "horas"
+		"one": "%d hora",
+		"many": "%d horas",
+		"other": "%d horas"
 	},
 	"relativetime.duration.days": {
-		"one": "dia",
-		"many": "dias",
-		"other": "dias"
+		"one": "%d dia",
+		"many": "%d dias",
+		"other": "%d dias"
 	},
 	"relativetime.duration.weeks": {
-		"one": "semana",
-		"many": "semanas",
-		"other": "semanas"
+		"one": "%d semana",
+		"many": "%d semanas",
+		"other": "%d semanas"
 	},
 	"relativetime.duration.months": {
-		"one": "mês",
-		"many": "meses",
-		"other": "meses"
+		"one": "%d mês",
+		"many": "%d meses",
+		"other": "%d meses"
 	},
 	"relativetime.duration.years": {
-		"one": "ano",
-		"many": "anos",
-		"other": "anos"
-	}
+		"one": "%d ano",
+		"many": "%d anos",
+		"other": "%d anos"
+	},
+	"auth.signup.username.prefix.info": "Este prefixo (%s) vai ser prefixado ao seu nome de utilizador e não pode ser mudado.",
+	"repo.empty_commit_message": "Apagar mensagem do commit",
+	"repo.issues.context.copy_markdown": "Copiar Markdown",
+	"repo.rss.issue_feed_title": "Issue %s: %s",
+	"repo.rss.pull_feed_title": "Pedido de integração %s: %s",
+	"repo.rss.updates_on_issue": "Atualizações no issue %s por %s",
+	"repo.rss.updates_on_pull": "Atualizações no pedido de integração %s por %s",
+	"migrate.bitbucketdc.description": "Migrar dados de uma instância de centro de dados Bitbucket.",
+	"migrate.bitbucketdc.auth_username_helper": "Necessário com um token de utilizador (o nome de utilizador do dono do token). Deixe vazio com um token de projeto ou repositório.",
+	"migrate.in_progress.issues.progress": {
+		"one": "%[1]d questão migrada",
+		"many": "%[1]d questões migradas",
+		"other": "%[1]d questões migradas"
+	},
+	"migrate.in_progress.pulls.progress": {
+		"one": "%[1]d pedido de pull migrado",
+		"many": "%[1]d pedidos de pull migrados",
+		"other": "%[1]d pedidos de pull migrados"
+	},
+	"mail.team_invite.expiration": {
+		"one": "Este convite irá expirar em %d dia.",
+		"many": "Este convite irá expirar em %d dias.",
+		"other": "Este convite irá expirar em %d dias."
+	},
+	"actions.status.info.waiting": {
+		"one": "A aguardar %[1]s por um runner com a seguinte etiqueta: %[2]s",
+		"many": "A aguardar %[1]s por um runner com as seguintes etiquetas: %[2]s",
+		"other": "A aguardar %[1]s por um runner com as seguintes etiquetas: %[2]s"
+	},
+	"funding.yaml_error.n_too_many_providers": {
+		"one": "Esperado até %[1]d fornecedor de financiamento",
+		"many": "Esperados até %[1]d fornecedores de financiamento",
+		"other": "Esperados até %[1]d fornecedores de financiamento"
+	},
+	"search.verb": "Pesquisar",
+	"repo.issues.review.apply_suggestion": "Aplicar sugestão",
+	"repo.issues.review.suggested_change_commit": "Aplicar sugestão",
+	"repo.issues.review.add_suggestion_to_batch": "Adicionar sugestão ao batch",
+	"repo.issues.review.remove_suggestion_from_batch": "Remover do batch",
+	"repo.issues.review.commit_batch_suggestions": "Commit das sugestões",
+	"repo.issues.review.discard_batch_suggestions": "Descartar",
+	"repo.issues.review.batch_only_on_files_tab": "As sugestões de batch devem ser feitas a partir do separador ficheiros",
+	"mde.buttons.suggestion.tooltip": "Adicionar uma sugestão"
 }
