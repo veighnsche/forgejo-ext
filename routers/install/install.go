@@ -483,7 +483,9 @@ func SubmitInstall(ctx *context.Context) {
 
 	cfg.Section("repository.signing").Key("DEFAULT_TRUST_MODEL").SetValue("committer")
 
-	cfg.Section("security").Key("INSTALL_LOCK").SetValue("true")
+	// A required policy may reject bootstrap or be unavailable. Keep installation
+	// retryable across process restarts until administrator creation succeeds.
+	cfg.Section("security").Key("INSTALL_LOCK").SetValue("false")
 
 	// the internal token could be read from INTERNAL_TOKEN or INTERNAL_TOKEN_URI (the file is guaranteed to be non-empty)
 	// if there is no InternalToken, generate one and save to security.INTERNAL_TOKEN
@@ -542,7 +544,6 @@ func SubmitInstall(ctx *context.Context) {
 	// Reload settings (and re-initialize database connection)
 	setting.InitCfgProvider(setting.CustomConf)
 	setting.LoadCommonSettings()
-	setting.MustInstalled()
 	setting.LoadDBSetting()
 	if err := common.InitDBEngine(ctx); err != nil {
 		log.Fatal("ORM engine initialization failed: %v", err)
@@ -607,6 +608,12 @@ func SubmitInstall(ctx *context.Context) {
 		}
 	}
 
+	cfg.Section("security").Key("INSTALL_LOCK").SetValue("true")
+	if err = cfg.SaveTo(setting.CustomConf); err != nil {
+		ctx.RenderWithErr(ctx.Tr("install.save_config_failed", err), tplInstall, &form)
+		return
+	}
+	setting.InstallLock = true
 	setting.ClearEnvConfigKeys()
 	log.Info("First-time run install finished!")
 	InstallDone(ctx)
