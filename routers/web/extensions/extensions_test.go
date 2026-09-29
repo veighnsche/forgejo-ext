@@ -122,8 +122,11 @@ func TestProxyReplacesAuthorityAndRemovesCredentials(t *testing.T) {
 	req.Header.Set(extension.ContextHeader, `{"actor":{"id":1}}`)
 	req.Header.Set(extension.AdmissionHeader, "browser-forged-admission")
 	req.Header.Set("X-Forwarded-User", "admin")
+	req.Header.Set(extension.SessionGenerationHeader, "browser-forged-generation")
+	req.Header.Set("Origin", "http://forgejo")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
 	ctx, recorder := testContext(req)
-	authority := extension.Authority{ExtensionID: "demo", Contribution: extension.Contribution{ID: "page", Kind: "page", Scope: "global", Action: "post"}, Actor: extension.Actor{ID: "42", Username: "synthetic-user"}}
+	authority := extension.Authority{ExtensionID: "demo", SessionGeneration: strings.Repeat("g", 43), Contribution: extension.Contribution{ID: "page", Kind: "page", Scope: "global", Action: "post"}, Actor: extension.Actor{ID: "42", Username: "synthetic-user"}}
 	proxy(ctx, roundTripFunc(func(out *http.Request) (*http.Response, error) {
 		var actual extension.Authority
 		err := json.Unmarshal([]byte(out.Header.Get(extension.ContextHeader)), &actual)
@@ -133,6 +136,9 @@ func TestProxyReplacesAuthorityAndRemovesCredentials(t *testing.T) {
 		assert.Empty(t, out.Header.Get("Authorization"))
 		assert.Empty(t, out.Header.Get(extension.AdmissionHeader))
 		assert.Empty(t, out.Header.Get("X-Forwarded-User"))
+		assert.Equal(t, []string{authority.SessionGeneration}, out.Header.Values(extension.SessionGenerationHeader))
+		assert.Equal(t, []string{"http://forgejo"}, out.Header.Values("Origin"))
+		assert.Equal(t, []string{"same-origin"}, out.Header.Values("Sec-Fetch-Site"))
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}, "Set-Cookie": {"session=evil"}, "Location": {"https://evil.invalid"}}, Body: io.NopCloser(strings.NewReader(`{"ok":true}`))}, nil
 	}), authority)
 	assert.Equal(t, 200, recorder.Code)
@@ -199,4 +205,29 @@ func TestWorkspaceStaysInsideSubURL(t *testing.T) {
 	assert.False(t, validWorkspacePath("/forge/%2e%2e/outside"))
 	assert.False(t, validWorkspacePath("/forge/user/login"))
 	assert.False(t, validWorkspacePath("/forge/team?client_secret=private"))
+}
+
+func TestUnsafeAPIRejectsOriginBeforeAdmission(t *testing.T) {
+	previous := setting.AppURL
+	setting.AppURL = "https://forge.example/base/"
+	defer func() { setting.AppURL = previous }()
+	for _, mutate := range []func(*http.Request){
+		func(r *http.Request) { r.Header.Del("Origin") },
+		func(r *http.Request) { r.Header.Set("Origin", "") },
+		func(r *http.Request) { r.Header.Set("Origin", "null") },
+		func(r *http.Request) { r.Header.Set("Origin", "https://foreign.example") },
+		func(r *http.Request) { r.Header.Add("Origin", "https://forge.example") },
+		func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "same-site") },
+		func(r *http.Request) { r.Header.Add("Sec-Fetch-Site", "same-origin") },
+	} {
+		req := httptest.NewRequest(http.MethodPost, "https://forge.example/base/api/action", nil)
+		req.Header.Set("Origin", "https://forge.example")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
+		mutate(req)
+		ctx, response := testContext(req)
+		// No native session/runtime exists here: validation must precede lookup
+		// and admission, so the only valid outcome is the origin denial.
+		api("global", false)(ctx)
+		require.Equal(t, http.StatusForbidden, response.Code)
+	}
 }

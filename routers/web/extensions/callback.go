@@ -118,6 +118,21 @@ func (registry *admissionRegistry) revokeInstance(instanceID string) {
 	}
 }
 
+// RevokeAdmissionsForSession detaches active extension requests at native logout.
+func RevokeAdmissionsForSession(sessionID string) {
+	nativeAdmissions.mu.Lock()
+	var tokens []string
+	for token, entry := range nativeAdmissions.entries {
+		if entry.sessionID == sessionID {
+			tokens = append(tokens, token)
+		}
+	}
+	nativeAdmissions.mu.Unlock()
+	for _, token := range tokens {
+		nativeAdmissions.revoke(token)
+	}
+}
+
 // RevokeAdmissionsForInstance cancels all live requests owned by a stopped runtime.
 func RevokeAdmissionsForInstance(instanceID string) {
 	nativeAdmissions.revokeInstance(instanceID)

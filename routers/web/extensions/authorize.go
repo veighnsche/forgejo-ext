@@ -81,3 +81,7 @@ func hasCapability(descriptor runtime.Descriptor, capability string) bool {
 func pageContribution(page extension.Page, action string) extension.Contribution {
 	return extension.Contribution{ID: page.ID, Kind: "page", Scope: page.Scope, Action: strings.ToLower(action)}
 }
+
+func panelContribution(panel extension.Panel, action string) extension.Contribution {
+	return extension.Contribution{ID: panel.ID, Kind: "panel", Scope: "panel", Action: strings.ToLower(action)}
+}

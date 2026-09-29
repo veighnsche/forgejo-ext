@@ -101,6 +101,12 @@ A page's backend API is its route plus `/api/`. Assets are served from
 APIs use `/-/extensions/panels/ID/PANEL/api/`. Paths include Forgejo's configured
 subpath when applicable. Consume the supplied URLs instead of constructing them.
 
+An extension declaring `native.contribution.authorize` is consulted before its
+page appears, before the workspace mounts each panel, and for every page or panel
+API request. The callback may narrow native access but cannot grant access denied
+by Forgejo. A denied or unavailable callback hides the contribution or rejects the
+request; it does not fall back to manifest-only visibility.
+
 ## Browser lifecycle
 
 An entry module exports `mount(root, context)`. It may be asynchronous and may

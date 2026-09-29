@@ -5,7 +5,6 @@ go 1.26.0
 toolchain go1.26.7
 
 require (
-	forgejo.org/extension-sdk v0.0.0
 	code.forgejo.org/f3/gof3/v3 v3.11.15
 	code.forgejo.org/forgejo-contrib/go-libravatar v0.0.0-20260301104140-add494e31dab
 	code.forgejo.org/forgejo/actions-proto v0.7.0
@@ -21,6 +20,7 @@ require (
 	code.gitea.io/sdk/gitea v0.21.0
 	codeberg.org/gusted/mcaptcha v0.0.0-20220723083913-4f3072e1d570
 	connectrpc.com/connect v1.19.2
+	forgejo.org/extension-sdk v0.0.0
 	github.com/42wim/httpsig v1.2.3
 	github.com/42wim/sshsig v0.0.0-20250502153856-5100632e8920
 	github.com/Azure/go-ntlmssp v0.1.1
@@ -33,6 +33,7 @@ require (
 	github.com/buildkite/terminal-to-html/v3 v3.16.8
 	github.com/caddyserver/certmagic v0.24.0
 	github.com/chi-middleware/proxy v1.1.1
+	github.com/coder/websocket v1.8.15
 	github.com/djherbis/buffer v1.2.0
 	github.com/djherbis/nio/v3 v3.0.1
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707

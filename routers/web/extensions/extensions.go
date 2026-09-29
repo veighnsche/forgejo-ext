@@ -246,8 +246,15 @@ func Workspace(ctx *context.Context) {
 		path = setting.AppSubURL + "/"
 	}
 	panels := []Link{}
-	for _, d := range manager.List() {
+	for _, listed := range manager.List() {
+		d, transport, ok := manager.Lookup(listed.Manifest.ID)
+		if !ok {
+			continue
+		}
 		for _, p := range d.Manifest.Panels {
+			if !authorizesContribution(ctx.Req.Context(), d, transport, panelContribution(p, http.MethodGet), "", ctx.Doer.ID) {
+				continue
+			}
 			assetBase := setting.AppSubURL + "/-/extensions/assets/" + d.Manifest.ID + "/"
 			apiBase := setting.AppSubURL + "/-/extensions/panels/" + d.Manifest.ID + "/" + p.ID + "/api/"
 			panels = append(panels, Link{ID: p.ID, Title: p.Title, ExtensionID: d.Manifest.ID, Entry: assetBase + p.Entry, APIBase: apiBase, AssetBase: assetBase})

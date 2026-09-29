@@ -27,6 +27,7 @@ import (
 	"forgejo.org/modules/validation"
 	"forgejo.org/modules/web"
 	"forgejo.org/modules/web/middleware"
+	web_extensions "forgejo.org/routers/web/extensions"
 	auth_service "forgejo.org/services/auth"
 	auth_method "forgejo.org/services/auth/method"
 	"forgejo.org/services/auth/source/oauth2"
@@ -369,6 +370,7 @@ func getUserName(gothUser *goth.User) (string, error) {
 
 // HandleSignOut resets the session and sets the cookies
 func HandleSignOut(ctx *context.Context) {
+	web_extensions.RevokeAdmissionsForSession(ctx.Session.ID())
 	_ = ctx.Session.Flush()
 	_ = ctx.Session.Destroy(ctx.Resp, ctx.Req)
 	ctx.DeleteSiteCookie(setting.CookieRememberName)

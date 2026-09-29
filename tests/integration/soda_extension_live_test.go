@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	extension "forgejo.org/extension-sdk"
+	"forgejo.org/modules/setting"
 	web_extensions "forgejo.org/routers/web/extensions"
 	runtime "forgejo.org/services/extensions"
 	"forgejo.org/tests"
@@ -83,6 +85,8 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 	ownerGeneration, otherGeneration := generation(owner), generation(other)
 	pageBase := "/-/extensions/pages/soda/spaces/api/"
 	panelBase := "/-/extensions/panels/soda/workspace/api/"
+	origin, err := url.Parse(setting.AppURL)
+	require.NoError(t, err)
 	requestAt := func(base string, session *TestSession, method, endpoint, generation string, body any, status int) map[string]any {
 		var req *RequestWrapper
 		if body == nil {
@@ -91,6 +95,8 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 			req = NewRequestWithJSON(t, method, base+endpoint, body)
 		}
 		req.Header.Set(extension.SessionGenerationHeader, generation)
+		req.Header.Set("Origin", origin.Scheme+"://"+origin.Host)
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
 		response := session.MakeRequest(t, req, status)
 		require.Equal(t, status, response.Code)
 		if status != http.StatusOK {
@@ -120,6 +126,8 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 
 	forged := NewRequestWithJSON(t, http.MethodPatch, pageBase+"me/preferences", map[string]string{"display_name": "C03 other"})
 	forged.Header.Set(extension.SessionGenerationHeader, otherGeneration)
+	forged.Header.Set("Origin", origin.Scheme+"://"+origin.Host)
+	forged.Header.Set("Sec-Fetch-Site", "same-origin")
 	forged.Header.Set(extension.ContextHeader, `{"extension_id":"soda","actor":{"id":"2","username":"user2","site_admin":true},"contribution":{"id":"spaces","kind":"page","scope":"global","action":"get"}}`)
 	forged.Header.Set(extension.AdmissionHeader, strings.Repeat("x", 43))
 	response := other.MakeRequest(t, forged, http.StatusOK)
@@ -155,6 +163,10 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 }
 
 func startSodaExtensionService(t *testing.T, root, socket, dashboard, serviceCallback string) {
+	startSodaExtensionServiceWithHost(t, root, socket, dashboard, serviceCallback, filepath.Join(root, "unused-host.sock"), "https://forgejo.test")
+}
+
+func startSodaExtensionServiceWithHost(t *testing.T, root, socket, dashboard, serviceCallback, hostSocket, forgejoURL string) {
 	t.Helper()
 	key := make([]byte, 32)
 	_, err := rand.Read(key)
@@ -166,8 +178,8 @@ func startSodaExtensionService(t *testing.T, root, socket, dashboard, serviceCal
 	listen := port.Addr().String()
 	require.NoError(t, port.Close())
 	config := map[string]any{
-		"listen": listen, "forgejo_url": "https://forgejo.test", "forgejo_internal_url": "http://127.0.0.1:3000",
-		"database": filepath.Join(root, "soda.db"), "host_socket": filepath.Join(root, "unused-host.sock"),
+		"listen": listen, "forgejo_url": forgejoURL, "forgejo_internal_url": "http://127.0.0.1:3000",
+		"database": filepath.Join(root, "soda.db"), "host_socket": hostSocket,
 		"oauth_client_id": "c03-test", "oauth_secret_file": filepath.Join(root, "oauth-secret"),
 		"grant_key_file": filepath.Join(root, "grant-key"), "operator_id": 1,
 	}

@@ -25,6 +25,7 @@ import (
 	repo_service "forgejo.org/services/repository"
 	"forgejo.org/tests"
 
+	ws "github.com/coder/websocket"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/websocket"
 )
@@ -85,11 +86,53 @@ func init() {
 	if os.Getenv(extension.SocketEnv) == "" {
 		return
 	}
-	if err := extension.Serve(extension.Application{Policies: testUsernamePolicies(), HTTP: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	if err := extension.Serve(extension.Application{Policies: testUsernamePolicies(), AuthorizeContribution: func(_ context.Context, request extension.ContributionRequest) (extension.ContributionDecision, error) {
+		if request.Contribution.Kind == "panel" && request.Contribution.ID == "status" && request.ActorID == "4" {
+			return extension.ContributionDecision{Allowed: false, DenialCode: "test_policy"}, nil
+		}
+		return extension.ContributionDecision{Allowed: true}, nil
+	}, HTTP: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authority, err := extension.RequestContext(r)
 		if err != nil {
 			http.Error(w, "authority", http.StatusForbidden)
 			return
+		}
+		if r.URL.Path == "/headers" {
+			if _, err := authority.Native().CurrentActor(r.Context()); err != nil {
+				http.Error(w, "native callback", http.StatusForbidden)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(r.Header)
+			return
+		}
+		if r.URL.Path == "/redirect-stream" {
+			http.Redirect(w, r, "/stream", http.StatusFound)
+			return
+		}
+		if r.URL.Path == "/stream" {
+			if r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" || r.Header.Get("Sec-WebSocket-Protocol") != "" || r.Header.Get(extension.SessionGenerationHeader) != "" {
+				http.Error(w, "browser credential leaked", http.StatusForbidden)
+				return
+			}
+			if _, err := authority.Native().CurrentActor(r.Context()); err != nil {
+				http.Error(w, "native callback", http.StatusForbidden)
+				return
+			}
+			conn, err := ws.Accept(w, r, &ws.AcceptOptions{InsecureSkipVerify: true})
+			if err != nil {
+				return
+			}
+			defer conn.CloseNow()
+			for {
+				kind, body, err := conn.Read(r.Context())
+				if err != nil {
+					return
+				}
+				if err := conn.Write(r.Context(), kind, body); err != nil {
+					return
+				}
+			}
 		}
 		if r.URL.Path == "/native" {
 			actor, err := authority.Native().CurrentActor(r.Context())
@@ -174,6 +217,7 @@ func TestExtensionNativePermissions(t *testing.T) {
 		extension.CapabilityOwnedRepositoriesSearch,
 		extension.CapabilityOrganizationOwnership,
 		extension.CapabilityPublicKeysRead,
+		extension.CapabilityContributionAuthorize,
 	}, Pages: []extension.Page{
 		{ID: "global", Title: "Global", Scope: "global", Entry: "main.js"},
 		{ID: "user", Title: "User", Scope: "user", Permission: "user", Entry: "main.js"},
@@ -267,8 +311,12 @@ func TestExtensionNativePermissions(t *testing.T) {
 	owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/pages/pages/global"), http.StatusOK)
 	owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/user/settings/extensions/pages/user"), http.StatusOK)
 	owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/admin/extensions/pages/site-admin"), http.StatusForbidden)
-	owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/workspace"), http.StatusOK)
+	ownerWorkspace := owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/workspace"), http.StatusOK)
+	require.Contains(t, ownerWorkspace.Body.String(), `data-extension-panel-id="status"`)
+	readerWorkspace := reader.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/workspace"), http.StatusOK)
+	require.NotContains(t, readerWorkspace.Body.String(), `data-extension-panel-id="status"`)
 	apiRequest(owner, ownerGeneration, http.MethodGet, "/-/extensions/panels/pages/status/api/context", http.StatusOK)
+	apiRequest(reader, readerGeneration, http.MethodGet, "/-/extensions/panels/pages/status/api/context", http.StatusNotFound)
 	siteAdmin := loginUser(t, "user1")
 	siteAdmin.MakeRequest(t, NewRequest(t, http.MethodGet, "/admin/extensions/pages/site-admin"), http.StatusOK)
 	owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/assets/pages/main.js"), http.StatusOK)

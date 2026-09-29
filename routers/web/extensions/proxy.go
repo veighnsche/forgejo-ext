@@ -16,6 +16,7 @@ import (
 
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/models/unit"
+	"forgejo.org/modules/setting"
 	webcontext "forgejo.org/services/context"
 	runtime "forgejo.org/services/extensions"
 )
@@ -24,6 +25,10 @@ const maxResponseBytes = 8 << 20
 
 func api(scope string, panel bool) func(*webcontext.Context) {
 	return func(ctx *webcontext.Context) {
+		if !validAPIOrigin(ctx.Req) {
+			ctx.Error(http.StatusForbidden, "Same-origin extension request required")
+			return
+		}
 		manager := runtime.GetManager()
 		if manager == nil {
 			ctx.NotFound("Extension", nil)
@@ -75,21 +80,27 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 			return
 		}
 		providedGeneration := ctx.Req.Header.Get(extension.SessionGenerationHeader)
-		if len(providedGeneration) != 43 || !hmac.Equal([]byte(providedGeneration), []byte(generation)) {
+		if isWebSocket(ctx.Req) {
+			// The private authority carries the native generation. The terminal
+			// checks its first bounded JSON handshake against this value.
+			providedGeneration = generation
+		}
+		if (!isWebSocket(ctx.Req) && len(ctx.Req.Header.Values(extension.SessionGenerationHeader)) != 1) || len(providedGeneration) != 43 || !hmac.Equal([]byte(providedGeneration), []byte(generation)) {
 			ctx.Error(http.StatusConflict, "Extension page session changed")
 			return
 		}
-		if !panel {
-			repositoryID := ""
-			if scope == "repository" {
-				repositoryID = strconv.FormatInt(ctx.Repo.Repository.ID, 10)
-			}
-			if !authorizesContribution(ctx.Req.Context(), d, transport, pageContribution(page, ctx.Req.Method), repositoryID, ctx.Doer.ID) {
-				ctx.NotFound("Extension page", nil)
-				return
-			}
+		repositoryID := ""
+		contribution := pageContribution(page, ctx.Req.Method)
+		if panel {
+			contribution = panelContribution(extension.Panel{ID: ctx.Params("page")}, ctx.Req.Method)
+		} else if scope == "repository" {
+			repositoryID = strconv.FormatInt(ctx.Repo.Repository.ID, 10)
 		}
-		requestContext, cancel := context.WithTimeout(ctx.Req.Context(), 30*time.Second)
+		if !authorizesContribution(ctx.Req.Context(), d, transport, contribution, repositoryID, ctx.Doer.ID) {
+			ctx.NotFound("Extension contribution", nil)
+			return
+		}
+		requestContext, cancel := extensionRequestContext(ctx.Req)
 		defer cancel()
 		token, admittedAuthority, err := createAdmission(requestContext, ctx, d, generation, authority)
 		if err != nil {
@@ -97,6 +108,10 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 			return
 		}
 		defer nativeAdmissions.revoke(token)
+		if isWebSocket(ctx.Req) {
+			proxyWebSocket(ctx, transport, admittedAuthority, token)
+			return
+		}
 		proxyWithAdmission(ctx, transport, admittedAuthority, token, requestContext)
 	}
 }
@@ -124,10 +139,13 @@ func proxyWithAdmission(ctx *webcontext.Context, transport http.RoundTripper, au
 		ctx.Error(http.StatusBadRequest)
 		return
 	}
-	for _, name := range []string{"Accept", "Accept-Language", "Content-Type"} {
+	for _, name := range []string{"Accept", "Accept-Language", "Content-Type", "Origin", "Sec-Fetch-Site"} {
 		if value := ctx.Req.Header.Get(name); value != "" {
 			req.Header.Set(name, value)
 		}
+	}
+	if authority.SessionGeneration != "" {
+		req.Header.Set(extension.SessionGenerationHeader, authority.SessionGeneration)
 	}
 	encoded, _ := json.Marshal(authority)
 	req.Header.Set(extension.ContextHeader, string(encoded))
@@ -166,4 +184,22 @@ func repositoryPermission(ctx *webcontext.Context) string {
 		return "write"
 	}
 	return "read"
+}
+
+// Mutations require one exact browser origin even when Fetch Metadata is absent.
+// Safe requests may omit Origin, but supplied browser metadata must still agree.
+func validAPIOrigin(r *http.Request) bool {
+	origins := r.Header.Values("Origin")
+	unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
+	if len(origins) > 1 || unsafe && len(origins) != 1 {
+		return false
+	}
+	if len(origins) == 1 {
+		expected, err := url.Parse(setting.AppURL)
+		if err != nil || expected.Scheme == "" || expected.Host == "" || origins[0] != expected.Scheme+"://"+expected.Host {
+			return false
+		}
+	}
+	sites := r.Header.Values("Sec-Fetch-Site")
+	return len(sites) == 0 || len(sites) == 1 && sites[0] == "same-origin"
 }
