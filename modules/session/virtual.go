@@ -107,11 +107,11 @@ func init() {
 
 // VirtualStore represents a virtual session store implementation.
 type VirtualStore struct {
-	p        *VirtualSessionProvider
-	sid      string
-	lock     sync.RWMutex
-	data     map[any]any
-	released bool
+	p         *VirtualSessionProvider
+	sid       string
+	lock      sync.RWMutex
+	data      map[any]any
+	persisted session.RawStore
 }
 
 // NewVirtualStore creates and returns a virtual session store.
@@ -161,17 +161,27 @@ func (s *VirtualStore) Release() error {
 	// Now need to lock the provider
 	s.p.lock.Lock()
 	defer s.p.lock.Unlock()
-	if len(s.data) > 0 {
+	if len(s.data) > 0 || s.persisted != nil {
 		// Now ensure that we don't exist!
 		realProvider := s.p.provider
 
-		if !s.released && realProvider.Exist(s.sid) {
+		if s.persisted == nil && realProvider.Exist(s.sid) {
 			// This is an error!
 			return fmt.Errorf("new sid '%s' already exists", s.sid)
 		}
-		realStore, err := realProvider.Read(s.sid)
-		if err != nil {
-			return err
+		realStore := s.persisted
+		if realStore == nil {
+			var err error
+			realStore, err = realProvider.Read(s.sid)
+			if err != nil {
+				return err
+			}
+			s.persisted = realStore
+		}
+		// Some native providers move the same store object during regeneration.
+		// This original virtual snapshot must not acquire the new ID's authority.
+		if realStore.ID() != s.sid {
+			return nil
 		}
 		if err := realStore.Flush(); err != nil {
 			return err
@@ -181,11 +191,7 @@ func (s *VirtualStore) Release() error {
 				return err
 			}
 		}
-		err = realStore.Release()
-		if err == nil {
-			s.released = true
-		}
-		return err
+		return realStore.Release()
 	}
 	return nil
 }
@@ -201,5 +207,7 @@ func (s *VirtualStore) Flush() error {
 
 // True if no keys have been set
 func (s *VirtualStore) Empty() bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	return len(s.data) == 0
 }

@@ -21,9 +21,18 @@ func TestExtensionSettings(t *testing.T) {
 	loadExtensionsFrom(cfg)
 	require.False(t, Extensions.Enabled)
 	require.Equal(t, filepath.Join(AppDataPath, "extensions"), Extensions.Path)
-	cfg, err = NewConfigProviderFromData("[extensions]\nENABLED = true\nPATH = packages\n")
+	require.Empty(t, Extensions.RequiredIDs)
+	require.Empty(t, Extensions.ServiceCallbackPath)
+	cfg, err = NewConfigProviderFromData("[extensions]\nENABLED = true\nPATH = packages\nREQUIRED_IDS = soda, audit\n")
 	require.NoError(t, err)
 	loadExtensionsFrom(cfg)
 	require.True(t, Extensions.Enabled)
 	require.Equal(t, filepath.Join(AppWorkPath, "packages"), Extensions.Path)
+	require.Equal(t, []string{"soda", "audit"}, Extensions.RequiredIDs)
+	for _, path := range []string{"relative/callback.sock", "/run/fountain/callback.sock", ""} {
+		cfg, err = NewConfigProviderFromData("[extensions]\nSERVICE_CALLBACK_PATH = " + path + "\n")
+		require.NoError(t, err)
+		loadExtensionsFrom(cfg)
+		require.Equal(t, path, Extensions.ServiceCallbackPath)
+	}
 }

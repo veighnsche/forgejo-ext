@@ -15,13 +15,13 @@ import (
 	"path/filepath"
 	"unicode/utf8"
 
-	"forgejo.org/modules/extensions"
+	extensions "forgejo.org/extension-sdk"
 )
 
 const maxNoteBytes = 16 << 10
 
 func main() {
-	if err := extensions.Serve(newHandler(extensions.DataDir())); err != nil {
+	if err := extensions.Serve(extensions.Application{HTTP: newHandler(extensions.DataDir())}); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -46,7 +46,7 @@ func newHandler(dataDir string) http.Handler {
 func notesHandler(dataDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authority, err := extensions.RequestContext(r)
-		if err != nil || authority.Actor.ID <= 0 || authority.Scope != "panel" || authority.PageID != "notes" {
+		if err != nil || authority.Actor.ID == "" || authority.Contribution.Kind != "panel" || authority.Contribution.ID != "notes" {
 			http.Error(w, "Missing native panel authority", http.StatusUnauthorized)
 			return
 		}
@@ -54,7 +54,7 @@ func notesHandler(dataDir string) http.HandlerFunc {
 			http.Error(w, "Notes storage is unavailable", http.StatusInternalServerError)
 			return
 		}
-		path := filepath.Join(dataDir, "notes", fmt.Sprintf("%d.txt", authority.Actor.ID))
+		path := filepath.Join(dataDir, "notes", authority.Actor.ID+".txt")
 		if r.Method == http.MethodGet {
 			body, err := os.ReadFile(path)
 			if errors.Is(err, os.ErrNotExist) {

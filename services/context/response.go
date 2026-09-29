@@ -4,6 +4,8 @@
 package context
 
 import (
+	"bufio"
+	"net"
 	"net/http"
 
 	web_types "forgejo.org/modules/web/types"
@@ -22,6 +24,22 @@ type ResponseWriter interface {
 }
 
 var _ ResponseWriter = &Response{}
+
+// Unwrap lets net/http's response controller reach the connection through the
+// context writer, including when gzip and session middleware are installed.
+func (r *Response) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
+func (r *Response) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if !r.beforeExecuted {
+		for _, before := range r.befores {
+			before(r)
+		}
+		r.beforeExecuted = true
+	}
+	return http.NewResponseController(r.ResponseWriter).Hijack()
+}
 
 // Response represents a response
 type Response struct {

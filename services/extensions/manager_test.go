@@ -11,22 +11,35 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
-	"forgejo.org/modules/extensions"
+	sdk "forgejo.org/extension-sdk"
+	packages "forgejo.org/modules/extensions"
+	"forgejo.org/modules/setting"
 )
 
 func TestMain(m *testing.M) {
 	if os.Getenv("FORGEJO_EXTENSION_TEST_HELPER") == "1" {
-		err := extensions.Serve(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authority, err := extensions.RequestContext(r)
+		application := sdk.Application{HTTP: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authority, err := sdk.RequestContext(r)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
 			_, _ = io.WriteString(w, authority.ExtensionID+":"+authority.Actor.Username)
-		}))
+		})}
+		if policy := os.Getenv("FORGEJO_EXTENSION_TEST_POLICY"); policy != "" {
+			application.Policies = map[string]sdk.PolicyHandler{sdk.PolicyForgejoUsername: func(ctx context.Context, _ sdk.PolicyRequest) (sdk.PolicyDecision, error) {
+				if policy == "timeout" {
+					<-ctx.Done()
+					return sdk.PolicyDecision{}, ctx.Err()
+				}
+				return sdk.PolicyDecision{Allowed: policy == "allow", ReasonCode: "rejected"}, nil
+			}}
+		}
+		err := sdk.Serve(application)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -78,11 +91,11 @@ func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer m.Close()
-	if lock, err := extensions.AcquirePackageLock(root); err == nil {
+	if lock, err := packages.AcquirePackageLock(root); err == nil {
 		_ = lock.Close()
 		t.Fatal("package mutation lock was available while extension was running")
 	}
-	if _, err := extensions.Install(root, filepath.Join(root, "sample"), true); err == nil {
+	if _, err := packages.Install(root, filepath.Join(root, "sample"), true); err == nil {
 		t.Fatal("package install succeeded while extension was running")
 	}
 	list := m.List()
@@ -101,11 +114,12 @@ func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authority, err := json.Marshal(extensions.RequestAuthority{ExtensionID: "sample", Scope: "user", Actor: extensions.Actor{ID: 1, Username: "soda-tester"}})
+	authority, err := json.Marshal(sdk.Authority{ExtensionID: "sample", InstanceID: "instance", SessionGeneration: "generation", Contribution: sdk.Contribution{ID: "sample", Kind: "page", Scope: "user", Action: "read"}, Actor: sdk.Actor{ID: "1", Username: "soda-tester"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	request.Header.Set(extensions.ContextHeader, string(authority))
+	request.Header.Set(sdk.ContextHeader, string(authority))
+	request.Header.Set(sdk.AdmissionHeader, "test-admission")
 	response, err := transport.RoundTrip(request)
 	if err != nil {
 		t.Fatal(err)
@@ -119,8 +133,10 @@ func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 	m.running["sample"].client.Kill()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		_, _, ok := m.Lookup("sample")
-		if !ok {
+		m.mu.Lock()
+		_, active := m.running["sample"]
+		m.mu.Unlock()
+		if !active {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -160,11 +176,55 @@ func TestManagerStartFailureCleansUp(t *testing.T) {
 	if err != nil || len(runtimeDirs) != 0 {
 		t.Fatalf("runtime process directory remained: %+v, %v", runtimeDirs, err)
 	}
-	lock, err := extensions.AcquirePackageLock(root)
+	lock, err := packages.AcquirePackageLock(root)
 	if err != nil {
 		t.Fatalf("startup failure retained package lock: %v", err)
 	}
 	_ = lock.Close()
+}
+
+func TestStartupDiagnosticDoesNotExposeManifestContents(t *testing.T) {
+	root := shortTestRoot(t)
+	packageDir := filepath.Join(root, "sample")
+	if err := os.Mkdir(packageDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(packageDir, "extension.json"), []byte("private-token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := NewManager(root).Start(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "package validation failed") || strings.Contains(err.Error(), "private-token") || strings.Contains(err.Error(), root) {
+		t.Fatalf("unsafe startup diagnostic: %v", err)
+	}
+}
+
+func TestManagerRejectsUndeclaredRuntimeHandlers(t *testing.T) {
+	for _, declarations := range []string{
+		`"policies":["forgejo.username"]`,
+		`"capabilities":["native.contribution.authorize"]`,
+	} {
+		root := shortTestRoot(t)
+		installTestPackage(t, root, "sample")
+		manifest := fmt.Sprintf(`{"protocol":1,"id":"sample","name":"Test","version":"1.0","executable":"extension",%s}`, declarations)
+		if err := os.WriteFile(filepath.Join(root, "sample", "extension.json"), []byte(manifest), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		manager := NewManager(root)
+		manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
+		if err := manager.Start(context.Background()); err == nil {
+			t.Fatalf("accepted unmatched declaration %s", declarations)
+		}
+	}
+}
+
+func TestCloneDescriptorCopiesDeclarations(t *testing.T) {
+	original := Descriptor{Manifest: sdk.Manifest{Capabilities: []string{sdk.CapabilityActorRead}, Policies: []string{sdk.PolicyForgejoUsername}}}
+	copy := cloneDescriptor(original)
+	copy.Manifest.Capabilities[0] = sdk.CapabilityRepositoryRead
+	copy.Manifest.Policies[0] = "changed"
+	if original.Manifest.Capabilities[0] != sdk.CapabilityActorRead || original.Manifest.Policies[0] != sdk.PolicyForgejoUsername {
+		t.Fatal("descriptor declarations share backing storage")
+	}
 }
 
 func TestDisabledPackageSkipped(t *testing.T) {
@@ -180,5 +240,111 @@ func TestDisabledPackageSkipped(t *testing.T) {
 	defer m.Close()
 	if len(m.List()) != 0 {
 		t.Fatal("disabled extension started")
+	}
+}
+
+func TestRequiredExtensionStartup(t *testing.T) {
+	root := shortTestRoot(t)
+	for _, ids := range [][]string{{""}, {"soda", "soda"}} {
+		if err := NewManager(root, ids...).Start(context.Background()); err == nil {
+			t.Fatalf("invalid required IDs accepted: %q", ids)
+		}
+	}
+	manager := NewManager(root, "soda")
+	if err := manager.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "missing") {
+		t.Fatalf("missing required package accepted: %v", err)
+	}
+	installTestPackage(t, root, "soda")
+	if err := os.WriteFile(filepath.Join(root, "soda", ".disabled"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "disabled") {
+		t.Fatalf("disabled required package accepted: %v", err)
+	}
+	if err := os.Remove(filepath.Join(root, "soda", ".disabled")); err != nil {
+		t.Fatal(err)
+	}
+	manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
+	if err := manager.Start(context.Background()); err != nil {
+		t.Fatalf("enabled required package failed: %v", err)
+	}
+	defer manager.Close()
+}
+
+func TestRequiredPolicyFailsClosedAfterCrash(t *testing.T) {
+	root := shortTestRoot(t)
+	installTestPackage(t, root, "soda")
+	manifest := `{"protocol":1,"id":"soda","name":"Test","version":"1.0","executable":"extension","policies":["forgejo.username"]}`
+	if err := os.WriteFile(filepath.Join(root, "soda", "extension.json"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manager := NewManager(root, "soda")
+	manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1", "FORGEJO_EXTENSION_TEST_POLICY=allow"}
+	var stopped string
+	if err := manager.SetInstanceStopped(func(instanceID string) { stopped = instanceID }); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer manager.Close()
+	decision, err := manager.EvaluateRequiredPolicy(context.Background(), sdk.PolicyForgejoUsername, sdk.PolicyRequest{Operation: "create", Username: "soda-tester"})
+	if err != nil || !decision.Allowed {
+		t.Fatalf("required policy did not allow: %+v, %v", decision, err)
+	}
+	if _, err := manager.EvaluateRequiredPolicy(context.Background(), "missing", sdk.PolicyRequest{}); err != ErrRequiredPolicyUnavailable {
+		t.Fatalf("missing policy handler did not fail closed: %v", err)
+	}
+	instanceID := manager.running["soda"].descriptor.InstanceID
+	manager.running["soda"].client.Kill()
+	if _, err := manager.EvaluateRequiredPolicy(context.Background(), sdk.PolicyForgejoUsername, sdk.PolicyRequest{}); err != ErrRequiredPolicyUnavailable {
+		t.Fatalf("crashed policy did not fail closed: %v", err)
+	}
+	if stopped != instanceID {
+		t.Fatalf("stopped hook did not receive the dead instance: %q", stopped)
+	}
+}
+
+func TestRequiredPolicyRuntimeDecision(t *testing.T) {
+	previous := setting.Extensions
+	setting.Extensions.Enabled = true
+	setting.Extensions.RequiredIDs = []string{"soda"}
+	t.Cleanup(func() { setting.Extensions = previous; SetDefault(nil) })
+	for _, outcome := range []string{"allow", "deny", "timeout"} {
+		t.Run(outcome, func(t *testing.T) {
+			root := shortTestRoot(t)
+			installTestPackage(t, root, "soda")
+			manifest := `{"protocol":1,"id":"soda","name":"Test","version":"1.0","executable":"extension","policies":["forgejo.username"]}`
+			if err := os.WriteFile(filepath.Join(root, "soda", "extension.json"), []byte(manifest), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			manager := NewManager(root, "soda")
+			manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1", "FORGEJO_EXTENSION_TEST_POLICY=" + outcome}
+			if err := manager.Start(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			defer manager.Close()
+			SetDefault(manager)
+			defer SetDefault(nil)
+			started := time.Now()
+			err := packages.CheckRequiredPolicy(context.Background(), sdk.PolicyForgejoUsername, sdk.PolicyRequest{Operation: "create", Username: "policy-tester"})
+			switch outcome {
+			case "allow":
+				if err != nil {
+					t.Fatal(err)
+				}
+			case "deny":
+				if _, ok := err.(packages.ErrPolicyDenied); !ok {
+					t.Fatalf("expected policy denial, got %v", err)
+				}
+			case "timeout":
+				if err != ErrRequiredPolicyUnavailable {
+					t.Fatalf("timeout did not fail closed: %v", err)
+				}
+				if elapsed := time.Since(started); elapsed > 5*time.Second {
+					t.Fatalf("policy timeout took %v", elapsed)
+				}
+			}
+		})
 	}
 }

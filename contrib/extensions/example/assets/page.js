@@ -1,4 +1,4 @@
-export async function mount(root, {apiBase}) {
+export async function mount(root, {request}) {
   const description = document.createElement('p');
   description.textContent = 'This page and its backend were installed independently of the Forgejo executable.';
   const output = document.createElement('pre');
@@ -7,8 +7,7 @@ export async function mount(root, {apiBase}) {
   root.append(description, output);
   const controller = new AbortController();
   try {
-    // eslint-disable-next-line no-restricted-syntax -- This standalone package cannot import Forgejo's bundled fetch module.
-    const response = await fetch(`${apiBase}context`, {signal: controller.signal});
+    const response = await request('context', {signal: controller.signal});
     if (!response.ok) throw new Error(`Request failed: ${response.status}`);
     output.textContent = JSON.stringify(await response.json(), null, 2);
   } catch (error) {

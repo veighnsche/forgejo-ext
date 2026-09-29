@@ -1,4 +1,4 @@
-export function mount(root, {apiBase}) {
+export function mount(root, {request}) {
   root.classList.add('ui', 'form');
   const label = document.createElement('label');
   const field = document.createElement('div');
@@ -31,12 +31,9 @@ export function mount(root, {apiBase}) {
   const timer = window.setInterval(update, 1000);
   const controller = new AbortController();
   let disposed = false;
-  const notesUrl = `${apiBase}notes`;
-
   const load = async () => {
     try {
-      // eslint-disable-next-line no-restricted-syntax -- This standalone package cannot import Forgejo's bundled fetch module.
-      const response = await fetch(notesUrl, {signal: controller.signal});
+      const response = await request('notes', {signal: controller.signal});
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const notes = await response.text();
       if (disposed) return;
@@ -54,8 +51,7 @@ export function mount(root, {apiBase}) {
     save.disabled = true;
     status.textContent = 'Saving notes…';
     try {
-      // eslint-disable-next-line no-restricted-syntax -- This standalone package cannot import Forgejo's bundled fetch module.
-      const response = await fetch(notesUrl, {
+      const response = await request('notes', {
         method: 'PUT',
         headers: {'Content-Type': 'text/plain; charset=utf-8'},
         body: notes,

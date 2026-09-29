@@ -4,6 +4,9 @@
   "name": "Example extension",
   "version": "1.0.0",
   "executable": "backend",
+  "capabilities": [],
+  "policies": [],
+  "preferred_workspace": true,
   "pages": [
     {"id": "home", "title": "Extension example", "scope": "global", "entry": "page.js"},
     {"id": "preferences", "title": "Extension preferences", "scope": "user", "permission": "user", "entry": "page.js"},

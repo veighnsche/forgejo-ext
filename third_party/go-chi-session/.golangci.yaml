@@ -1,0 +1,42 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - bidichk
+    - dupl
+    - errcheck
+    - forbidigo
+    - gocritic
+    - govet
+    - ineffassign
+    - modernize
+    - nakedret
+    - nolintlint
+    - revive
+    - staticcheck
+    - testifylint
+    - unconvert
+    - unparam
+    - unused
+    - wastedassign
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

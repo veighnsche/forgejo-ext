@@ -811,26 +811,24 @@ func createUser(ctx context.Context, u *User, createdByAdmin bool, overwriteDefa
 		}
 	}
 
+	if len(setting.Extensions.RequiredIDs) != 0 {
+		if err := checkCreateUserAvailable(ctx, u); err != nil {
+			return err
+		}
+	}
+
+	if err := CheckUsernamePolicy(ctx, u, "create", u.Name); err != nil {
+		return err
+	}
+
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
 	}
 	defer committer.Close()
 
-	isExist, err := IsUserExist(ctx, 0, u.Name)
-	if err != nil {
+	if err := checkCreateUserAvailable(ctx, u); err != nil {
 		return err
-	} else if isExist {
-		return ErrUserAlreadyExist{u.Name}
-	}
-
-	isExist, err = IsEmailUsed(ctx, u.Email)
-	if err != nil {
-		return err
-	} else if isExist {
-		return ErrEmailAlreadyUsed{
-			Email: u.Email,
-		}
 	}
 
 	// prepare for database
@@ -877,6 +875,26 @@ func createUser(ctx context.Context, u *User, createdByAdmin bool, overwriteDefa
 	}
 
 	return committer.Commit()
+}
+
+func checkCreateUserAvailable(ctx context.Context, u *User) error {
+	isExist, err := IsUserExist(ctx, 0, u.Name)
+	if err != nil {
+		return err
+	} else if isExist {
+		return ErrUserAlreadyExist{u.Name}
+	}
+
+	isExist, err = IsEmailUsed(ctx, u.Email)
+	if err != nil {
+		return err
+	} else if isExist {
+		return ErrEmailAlreadyUsed{
+			Email: u.Email,
+		}
+	}
+
+	return nil
 }
 
 // IsLastAdminUser check whether user is the last admin

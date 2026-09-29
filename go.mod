@@ -5,6 +5,7 @@ go 1.26.0
 toolchain go1.26.7
 
 require (
+	forgejo.org/extension-sdk v0.0.0
 	code.forgejo.org/f3/gof3/v3 v3.11.15
 	code.forgejo.org/forgejo-contrib/go-libravatar v0.0.0-20260301104140-add494e31dab
 	code.forgejo.org/forgejo/actions-proto v0.7.0
@@ -261,3 +262,8 @@ replace github.com/mholt/archiver/v3 => code.forgejo.org/forgejo/archiver/v3 v3.
 replace github.com/gliderlabs/ssh => code.forgejo.org/forgejo/ssh v0.0.0-20241211213324-5fc306ca0616
 
 replace git.sr.ht/~mariusor/go-xsd-duration => code.forgejo.org/forgejo/go-xsd-duration v0.0.0-20220703122237-02e73435a078
+
+// Native file-session invalidation and conditional persistence; see third_party/go-chi-session/FOUNTAIN.md.
+replace code.forgejo.org/go-chi/session => ./third_party/go-chi-session
+
+replace forgejo.org/extension-sdk => ./sdk

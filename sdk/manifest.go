@@ -19,14 +19,19 @@ const Protocol = 1
 
 var slug = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
+func ValidID(id string) bool { return slug.MatchString(id) }
+
 type Manifest struct {
-	Protocol   int     `json:"protocol"`
-	ID         string  `json:"id"`
-	Name       string  `json:"name"`
-	Version    string  `json:"version"`
-	Executable string  `json:"executable"`
-	Pages      []Page  `json:"pages,omitempty"`
-	Panels     []Panel `json:"panels,omitempty"`
+	Protocol           int      `json:"protocol"`
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	Version            string   `json:"version"`
+	Executable         string   `json:"executable"`
+	Pages              []Page   `json:"pages,omitempty"`
+	Panels             []Panel  `json:"panels,omitempty"`
+	Capabilities       []string `json:"capabilities,omitempty"`
+	Policies           []string `json:"policies,omitempty"`
+	PreferredWorkspace bool     `json:"preferred_workspace,omitempty"`
 }
 
 type Page struct {
@@ -75,6 +80,17 @@ func (m Manifest) Validate() error {
 	if !safeRelative(m.Executable) {
 		return errors.New("extension executable path is invalid")
 	}
+	if err := validateNames(m.Capabilities, map[string]bool{
+		CapabilityActorRead: true, CapabilityRepositoryRead: true,
+		CapabilityOwnedRepositoriesSearch: true, CapabilityOrganizationOwnership: true,
+		CapabilityPublicKeysRead: true, CapabilityContributionAuthorize: true,
+		CapabilityServiceBridge: true,
+	}, "capability"); err != nil {
+		return err
+	}
+	if err := validateNames(m.Policies, map[string]bool{PolicyForgejoUsername: true}, "policy"); err != nil {
+		return err
+	}
 	seenPages := make(map[string]bool)
 	for _, p := range m.Pages {
 		if !slug.MatchString(p.ID) || seenPages[p.ID] || strings.TrimSpace(p.Title) == "" || !assetEntry(p.Entry) {
@@ -108,6 +124,17 @@ func (m Manifest) Validate() error {
 			return fmt.Errorf("invalid or duplicate panel %q", p.ID)
 		}
 		seenPanels[p.ID] = true
+	}
+	return nil
+}
+
+func validateNames(names []string, allowed map[string]bool, kind string) error {
+	seen := make(map[string]bool, len(names))
+	for _, name := range names {
+		if !allowed[name] || seen[name] {
+			return fmt.Errorf("invalid or duplicate %s %q", kind, name)
+		}
+		seen[name] = true
 	}
 	return nil
 }

@@ -24,10 +24,11 @@ cp contrib/extensions/example/assets/*.js .artifacts/packages/example/assets/
 ```
 
 The runtime uses Unix sockets; the executable must target the Unix host's OS
-and architecture. The Go SDK currently
-lives at `forgejo.org/modules/extensions` in this fork; there is no separately
-published SDK module. Authors can develop against this checkout and ship only
-the built package. The host never compiles installed packages.
+and architecture. The Go SDK is the nested `sdk/` module with the task-local
+module identity `forgejo.org/extension-sdk`. It builds independently of the
+Forgejo host checkout; the root module uses a local replacement while this
+unreleased interface is developed. Authors ship only the built package. The
+host never compiles installed packages.
 
 Configure the same `app.ini` used by the server:
 
@@ -74,6 +75,9 @@ See [example/extension.json](example/extension.json) for a complete manifest.
 panel IDs use lowercase letters, digits and hyphens. `name`, `version`, and a
 relative `executable` path are required. Page and panel `entry` paths are relative
 to the package's `assets/` directory and identify ES modules.
+`capabilities` declares native reads and an optional contribution authorizer;
+`policies` names registered policy handlers. `preferred_workspace` opts a
+trusted package into the persistent workspace host.
 
 Pages use the corresponding native layout and navigation:
 
@@ -137,7 +141,7 @@ repository authority on the panel.
 
 ## Backend interface
 
-The SDK's `Serve(http.Handler)` starts a private Unix HTTP listener and the
+The SDK's `Serve(extensions.Application)` starts a private Unix HTTP listener and the
 HashiCorp go-plugin lifecycle handshake. The host provides a restricted
 environment, package working directory and writable `extensions.DataDir()`.
 Do not write handshake output to stdout; use stderr for diagnostics without
@@ -145,12 +149,16 @@ credentials. The SDK is an HTTP integration boundary, not access to Forgejo's
 internal database or service packages.
 
 For each request, call `extensions.RequestContext(request)` to obtain native
-authority. The host supplies the extension ID, page ID, scope, actor ID,
-username, site-admin flag and, for repository pages, repository ID, owner, name
-and effective `read`/`write`/`admin` permission. Panel requests have scope `panel`
-and no repository. The host replaces client-supplied context and does not forward
+authority. The host supplies the extension and process instance IDs, contribution
+ID/kind/scope/action, session generation, actor ID, username, site-admin display
+fact and, when a native repository route admits one, repository ID, owner, name
+and current permission. Actor and repository IDs are decimal strings. The
+admission handle remains private when authority is encoded as JSON. The host
+replaces client-supplied context and does not forward
 browser cookies, authorization headers or arbitrary client headers. Treat this
-context as authority for that request only. Enforce endpoint-specific policy in
+context as authority for that request only. Use `authority.Native()` for bounded
+current native reads; each callback is checked by the host against its private
+admission and current session. Enforce endpoint-specific policy in
 the extension: a read page does not make every backend operation appropriate for
 a reader. Partition private state by authoritative IDs rather than browser input.
 

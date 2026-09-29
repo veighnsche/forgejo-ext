@@ -101,6 +101,20 @@ func renameUser(ctx context.Context, u *user_model.User, newUserName string, doe
 		}
 	}
 
+	if len(setting.Extensions.RequiredIDs) != 0 && !u.IsOrganization() {
+		exists, err := user_model.IsUserExist(ctx, u.ID, newUserName)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return user_model.ErrUserAlreadyExist{Name: newUserName}
+		}
+	}
+
+	if err := user_model.CheckUsernamePolicy(ctx, u, "rename", newUserName); err != nil {
+		return err
+	}
+
 	onlyCapitalization := strings.EqualFold(newUserName, u.Name)
 	oldUserName := u.Name
 

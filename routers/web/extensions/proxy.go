@@ -5,15 +5,17 @@ package extensions
 
 import (
 	"context"
+	"crypto/hmac"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
+	extension "forgejo.org/extension-sdk"
 	"forgejo.org/models/unit"
-	extension "forgejo.org/modules/extensions"
 	webcontext "forgejo.org/services/context"
 	runtime "forgejo.org/services/extensions"
 )
@@ -27,12 +29,16 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 			ctx.NotFound("Extension", nil)
 			return
 		}
-		d, transport, ok := manager.Lookup(ctx.Params("extension"))
-		if !ok {
-			ctx.NotFound("Extension", nil)
-			return
-		}
+		var d runtime.Descriptor
+		var transport http.RoundTripper
+		var page extension.Page
 		if panel {
+			var ok bool
+			d, transport, ok = manager.Lookup(ctx.Params("extension"))
+			if !ok {
+				ctx.NotFound("Extension", nil)
+				return
+			}
 			found := false
 			for _, p := range d.Manifest.Panels {
 				if p.ID == ctx.Params("page") {
@@ -45,28 +51,69 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 				return
 			}
 		} else {
-			_, _, found := findPage(ctx, scope)
+			var found bool
+			d, transport, page, found = findPage(ctx, scope)
 			if !found {
 				return
 			}
 		}
-		authority := extension.RequestAuthority{ExtensionID: d.Manifest.ID, PageID: ctx.Params("page"), Scope: scope, Actor: extension.Actor{ID: ctx.Doer.ID, Username: ctx.Doer.Name, SiteAdmin: ctx.Doer.IsAdmin}}
-		if scope == "repository" {
-			authority.Repository = &extension.Repository{ID: ctx.Repo.Repository.ID, Owner: ctx.Repo.Owner.Name, Name: ctx.Repo.Repository.Name, Permission: repositoryPermission(ctx)}
+		kind := "page"
+		if panel {
+			kind = "panel"
 		}
-		proxy(ctx, transport, authority)
+		authority := extension.Authority{
+			ExtensionID:  d.Manifest.ID,
+			Contribution: extension.Contribution{ID: ctx.Params("page"), Kind: kind, Scope: scope, Action: strings.ToLower(ctx.Req.Method)},
+			Actor:        extension.Actor{ID: strconv.FormatInt(ctx.Doer.ID, 10), Username: ctx.Doer.Name, SiteAdmin: ctx.Doer.IsAdmin},
+		}
+		if scope == "repository" {
+			authority.Repository = &extension.Repository{ID: strconv.FormatInt(ctx.Repo.Repository.ID, 10), Owner: ctx.Repo.Owner.Name, Name: ctx.Repo.Repository.Name, Permission: repositoryPermission(ctx)}
+		}
+		generation, err := sessionGeneration(ctx)
+		if err != nil {
+			ctx.Error(http.StatusServiceUnavailable, "Extension authority unavailable")
+			return
+		}
+		providedGeneration := ctx.Req.Header.Get(extension.SessionGenerationHeader)
+		if len(providedGeneration) != 43 || !hmac.Equal([]byte(providedGeneration), []byte(generation)) {
+			ctx.Error(http.StatusConflict, "Extension page session changed")
+			return
+		}
+		if !panel {
+			repositoryID := ""
+			if scope == "repository" {
+				repositoryID = strconv.FormatInt(ctx.Repo.Repository.ID, 10)
+			}
+			if !authorizesContribution(ctx.Req.Context(), d, transport, pageContribution(page, ctx.Req.Method), repositoryID, ctx.Doer.ID) {
+				ctx.NotFound("Extension page", nil)
+				return
+			}
+		}
+		requestContext, cancel := context.WithTimeout(ctx.Req.Context(), 30*time.Second)
+		defer cancel()
+		token, admittedAuthority, err := createAdmission(requestContext, ctx, d, generation, authority)
+		if err != nil {
+			ctx.Error(http.StatusServiceUnavailable, "Extension authority unavailable")
+			return
+		}
+		defer nativeAdmissions.revoke(token)
+		proxyWithAdmission(ctx, transport, admittedAuthority, token, requestContext)
 	}
 }
 
 // Ordinary responses are bounded and buffered so an extension cannot create an
 // unbounded authenticated stream. Streaming requires independent session revocation.
-func proxy(ctx *webcontext.Context, transport http.RoundTripper, authority extension.RequestAuthority) {
+func proxy(ctx *webcontext.Context, transport http.RoundTripper, authority extension.Authority) {
+	requestContext, cancel := context.WithTimeout(ctx.Req.Context(), 30*time.Second)
+	defer cancel()
+	proxyWithAdmission(ctx, transport, authority, "", requestContext)
+}
+
+func proxyWithAdmission(ctx *webcontext.Context, transport http.RoundTripper, authority extension.Authority, admission string, requestContext context.Context) {
 	if ctx.Req.Header.Get("Upgrade") != "" || strings.Contains(strings.ToLower(ctx.Req.Header.Get("Accept")), "text/event-stream") {
 		ctx.Error(http.StatusNotImplemented, "Extension streaming is not enabled")
 		return
 	}
-	requestContext, cancel := context.WithTimeout(ctx.Req.Context(), 30*time.Second)
-	defer cancel()
 	var body io.ReadCloser = http.NoBody
 	if ctx.Req.Body != nil && ctx.Req.Body != http.NoBody {
 		body = http.MaxBytesReader(ctx.Resp, ctx.Req.Body, maxResponseBytes)
@@ -84,6 +131,9 @@ func proxy(ctx *webcontext.Context, transport http.RoundTripper, authority exten
 	}
 	encoded, _ := json.Marshal(authority)
 	req.Header.Set(extension.ContextHeader, string(encoded))
+	if admission != "" {
+		req.Header.Set(extension.AdmissionHeader, admission)
+	}
 	response, err := transport.RoundTrip(req)
 	if err != nil {
 		ctx.Error(http.StatusBadGateway, "Extension unavailable")

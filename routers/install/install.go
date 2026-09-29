@@ -24,6 +24,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/auth/password/hash"
 	"forgejo.org/modules/base"
+	"forgejo.org/modules/extensions"
 	"forgejo.org/modules/generate"
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/log"
@@ -34,6 +35,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/modules/web/middleware"
 	"forgejo.org/routers/common"
+	web_extensions "forgejo.org/routers/web/extensions"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
 
@@ -546,6 +548,20 @@ func SubmitInstall(ctx *context.Context) {
 		log.Fatal("ORM engine initialization failed: %v", err)
 	}
 
+	// Bootstrap the required policy before the first administrator is created.
+	// Release this runtime before serveInstalled starts its long-lived manager.
+	closeExtensions, err := web_extensions.StartRuntime(ctx)
+	if err != nil {
+		setting.InstallLock = false
+		ctx.ServerError("Start required username policy", fmt.Errorf("%w: %v", extensions.ErrRequiredPolicyUnavailable, err))
+		return
+	}
+	defer func() {
+		if err := closeExtensions(); err != nil {
+			log.Error("Close install extensions: %v", err)
+		}
+	}()
+
 	// Create admin account
 	if len(form.AdminName) > 0 {
 		u := &user_model.User{
@@ -562,6 +578,9 @@ func SubmitInstall(ctx *context.Context) {
 		if err = user_model.CreateUser(ctx, u, overwriteDefault); err != nil {
 			if !user_model.IsErrUserAlreadyExist(err) {
 				setting.InstallLock = false
+				if ctx.HandlePolicyError(err) {
+					return
+				}
 				ctx.Data["Err_AdminName"] = true
 				ctx.Data["Err_AdminEmail"] = true
 				ctx.RenderWithErr(ctx.Tr("install.invalid_admin_setting", err), tplInstall, &form)

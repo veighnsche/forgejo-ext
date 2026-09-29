@@ -131,7 +131,7 @@ prime/
 
 # Make evidence files
 /.make_evidence
-/.artifacts/
+.artifacts/
 
 # Manpage
 /man

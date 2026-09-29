@@ -33,12 +33,12 @@ import (
 	"forgejo.org/routers/common"
 	"forgejo.org/routers/private"
 	web_routers "forgejo.org/routers/web"
+	web_extensions "forgejo.org/routers/web/extensions"
 	actions_service "forgejo.org/services/actions"
 	auth_method "forgejo.org/services/auth/method"
 	"forgejo.org/services/auth/source/oauth2"
 	"forgejo.org/services/automerge"
 	"forgejo.org/services/cron"
-	extension_service "forgejo.org/services/extensions"
 	federation_service "forgejo.org/services/federation"
 	feed_service "forgejo.org/services/feed"
 	indexer_service "forgejo.org/services/indexer"
@@ -170,16 +170,15 @@ func InitWebInstalled(ctx context.Context) {
 
 	mustInit(actions_router.InitOIDC)
 
-	if setting.Extensions.Enabled {
-		manager := extension_service.NewManager(setting.Extensions.Path)
-		mustInitCtx(ctx, manager.Start)
-		extension_service.SetDefault(manager)
-		graceful.GetManager().RunAtShutdown(context.Background(), func() {
-			if err := manager.Close(); err != nil {
-				log.Error("Close extensions: %v", err)
-			}
-		})
+	closeExtensions, err := web_extensions.StartRuntime(ctx)
+	if err != nil {
+		log.Fatal("Start extensions: %v", err)
 	}
+	graceful.GetManager().RunAtShutdown(context.Background(), func() {
+		if err := closeExtensions(); err != nil {
+			log.Error("Close extensions: %v", err)
+		}
+	})
 
 	// Finally start up the cron
 	cron.NewContext(ctx)

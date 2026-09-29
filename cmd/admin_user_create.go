@@ -13,6 +13,7 @@ import (
 	"forgejo.org/models/db"
 	user_model "forgejo.org/models/user"
 	pwd "forgejo.org/modules/auth/password"
+	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 
@@ -120,6 +121,16 @@ func runCreateUser(ctx context.Context, c *cli.Command) error {
 	if err := initDB(ctx); err != nil {
 		return err
 	}
+
+	closeExtensions, err := startExtensionsForCLI(ctx)
+	if err != nil {
+		return fmt.Errorf("start required username policy: %w", err)
+	}
+	defer func() {
+		if err := closeExtensions(); err != nil {
+			log.Error("Close extensions: %v", err)
+		}
+	}()
 
 	var password string
 	if c.IsSet("password") {

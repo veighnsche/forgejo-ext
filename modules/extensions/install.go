@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	sdk "forgejo.org/extension-sdk"
+
 	"github.com/gofrs/flock"
 )
 
@@ -36,74 +38,74 @@ func AcquirePackageLock(root string) (*flock.Flock, error) {
 
 // Install copies a prebuilt package, never executing its contents. Existing
 // packages require replace. Persistent extension data lives outside packages.
-func Install(root, source string, replace bool) (Manifest, error) {
+func Install(root, source string, replace bool) (sdk.Manifest, error) {
 	root, err := filepath.Abs(root)
 	if err != nil {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	}
 	source, err = filepath.Abs(source)
 	if err != nil {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	}
 	if relative, err := filepath.Rel(source, root); err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return Manifest{}, errors.New("package source must not contain the installation directory")
+		return sdk.Manifest{}, errors.New("package source must not contain the installation directory")
 	}
 	lock, err := AcquirePackageLock(root)
 	if err != nil {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	}
 	defer lock.Close()
 	stage, err := os.MkdirTemp(root, ".install-")
 	if err != nil {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	}
 	defer os.RemoveAll(stage)
 	if err := copyPackage(source, stage); err != nil {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	}
-	manifest, err := LoadManifest(stage)
+	manifest, err := sdk.LoadManifest(stage)
 	if err != nil {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	}
 	if err := checkPackageFiles(stage, manifest); err != nil {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	}
 	target := filepath.Join(root, manifest.ID)
 	if info, err := os.Lstat(target); err == nil {
 		if !replace {
-			return Manifest{}, fmt.Errorf("extension %q is already installed; use --replace to update it", manifest.ID)
+			return sdk.Manifest{}, fmt.Errorf("extension %q is already installed; use --replace to update it", manifest.ID)
 		}
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return Manifest{}, errors.New("installed package is not a regular directory")
+			return sdk.Manifest{}, errors.New("installed package is not a regular directory")
 		}
 		if _, err := os.Lstat(filepath.Join(target, ".disabled")); err == nil {
 			if err := os.WriteFile(filepath.Join(stage, ".disabled"), nil, 0o600); err != nil {
-				return Manifest{}, err
+				return sdk.Manifest{}, err
 			}
 		} else if !errors.Is(err, fs.ErrNotExist) {
-			return Manifest{}, err
+			return sdk.Manifest{}, err
 		}
 		backup := stage + ".previous"
 		if err := os.Rename(target, backup); err != nil {
-			return Manifest{}, err
+			return sdk.Manifest{}, err
 		}
 		if err := os.Rename(stage, target); err != nil {
-			return Manifest{}, errors.Join(err, os.Rename(backup, target))
+			return sdk.Manifest{}, errors.Join(err, os.Rename(backup, target))
 		}
 		if err := os.RemoveAll(backup); err != nil {
 			return manifest, fmt.Errorf("package updated but old package cleanup failed: %w", err)
 		}
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	} else if err := os.Rename(stage, target); err != nil {
-		return Manifest{}, err
+		return sdk.Manifest{}, err
 	}
 	return manifest, nil
 }
 
 // SetEnabled changes next-start activation. It never deletes extension data.
 func SetEnabled(root, id string, enabled bool) error {
-	if !slug.MatchString(id) {
+	if !sdk.ValidID(id) {
 		return errors.New("invalid extension id")
 	}
 	lock, err := AcquirePackageLock(root)
@@ -119,7 +121,7 @@ func SetEnabled(root, id string, enabled bool) error {
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("installed package is not a regular directory")
 	}
-	manifest, err := LoadManifest(directory)
+	manifest, err := sdk.LoadManifest(directory)
 	if err != nil {
 		return err
 	}
@@ -142,6 +144,28 @@ func SetEnabled(root, id string, enabled bool) error {
 		return err
 	}
 	return f.Close()
+}
+
+// Remove deletes an installed package while Forgejo is stopped. Private data
+// under .data is deliberately outside the package directory and is retained.
+func Remove(root, id string) error {
+	if !sdk.ValidID(id) {
+		return errors.New("invalid extension id")
+	}
+	lock, err := AcquirePackageLock(root)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	directory := filepath.Join(root, id)
+	info, err := os.Lstat(directory)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("installed package is not a regular directory")
+	}
+	return os.RemoveAll(directory)
 }
 
 func copyPackage(source, target string) error {
@@ -199,7 +223,7 @@ func copyPackage(source, target string) error {
 	})
 }
 
-func checkPackageFiles(root string, manifest Manifest) error {
+func checkPackageFiles(root string, manifest sdk.Manifest) error {
 	names := []string{manifest.Executable}
 	for _, page := range manifest.Pages {
 		names = append(names, filepath.Join("assets", page.Entry))

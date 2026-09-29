@@ -324,6 +324,9 @@ func (ctx *APIContext) SetRequiredScopeCategories(requiredScopeCategories []auth
 func (ctx *APIContext) Error(status int, title string, obj any) {
 	var message string
 	if err, ok := obj.(error); ok {
+		if policyStatus := policyErrorStatus(err); policyStatus != 0 {
+			status = policyStatus
+		}
 		message = err.Error()
 	} else {
 		message = fmt.Sprintf("%s", obj)

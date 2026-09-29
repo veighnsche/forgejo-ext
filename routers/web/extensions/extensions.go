@@ -10,10 +10,13 @@ import (
 	pathpkg "path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
+	"golang.org/x/net/websocket"
+
+	extension "forgejo.org/extension-sdk"
 	"forgejo.org/models/unit"
-	extension "forgejo.org/modules/extensions"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
@@ -51,6 +54,26 @@ func Register(m *web.Route, signedIn, admin any) {
 	m.Get("/-/extensions/workspace", NativeSession, signedIn, Workspace)
 	m.Methods("GET,HEAD", "/-/extensions/assets/{extension}/*", NativeSession, signedIn, Assets)
 	m.Methods("GET,HEAD,POST,PUT,PATCH,DELETE", "/-/extensions/panels/{extension}/{page}/api/*", NativeSession, signedIn, api("panel", true))
+	if setting.IsInTesting {
+		// Exercise the real session, context, authentication, compression, and
+		// response-writer chain without exposing a diagnostic endpoint in Forgejo.
+		m.Get("/-/extensions/test/session-stream", NativeSession, signedIn, sessionStreamTest)
+	}
+}
+
+func sessionStreamTest(ctx *context.Context) {
+	websocket.Handler(func(conn *websocket.Conn) {
+		defer conn.Close()
+		for {
+			var value string
+			if err := websocket.Message.Receive(conn, &value); err != nil {
+				return
+			}
+			if err := websocket.Message.Send(conn, value); err != nil {
+				return
+			}
+		}
+	}).ServeHTTP(ctx.Resp, ctx.Req)
 }
 
 type Link struct{ ID, Title, ExtensionID, URL, Entry, APIBase, AssetBase, Permission string }
@@ -63,9 +86,26 @@ func Navigation(ctx *context.Context) {
 	if manager == nil || !nativeSession(ctx) {
 		return
 	}
-	for _, descriptor := range manager.List() {
+	// Only a running, enabled package may prefer the generic workspace. The
+	// browser receives the host route, never a package-selected destination.
+	eligibleWorkspace := ctx.Req.Method == http.MethodGet && ctx.Req.URL.Query().Get("extension_workspace") != "off" && validWorkspacePath(ctx.Req.URL.RequestURI())
+	for _, listed := range manager.List() {
+		descriptor, transport, ok := manager.Lookup(listed.Manifest.ID)
+		if !ok {
+			continue
+		}
+		if eligibleWorkspace && descriptor.Manifest.PreferredWorkspace {
+			ctx.Data["ExtensionPreferredWorkspace"] = setting.AppSubURL + "/-/extensions/workspace"
+		}
 		for _, p := range descriptor.Manifest.Pages {
 			if !allowed(ctx, p) {
+				continue
+			}
+			repositoryID := ""
+			if p.Scope == "repository" {
+				repositoryID = strconv.FormatInt(ctx.Repo.Repository.ID, 10)
+			}
+			if !authorizesContribution(ctx.Req.Context(), descriptor, transport, pageContribution(p, http.MethodGet), repositoryID, ctx.Doer.ID) {
 				continue
 			}
 			base := pageBase(ctx, p.Scope)
@@ -125,25 +165,38 @@ func allowed(ctx *context.Context, p extension.Page) bool {
 	return false
 }
 
-func findPage(ctx *context.Context, scope string) (runtime.Descriptor, extension.Page, bool) {
+func findPage(ctx *context.Context, scope string) (runtime.Descriptor, http.RoundTripper, extension.Page, bool) {
 	manager := runtime.GetManager()
 	if manager != nil {
-		if d, _, ok := manager.Lookup(ctx.Params("extension")); ok {
+		if d, transport, ok := manager.Lookup(ctx.Params("extension")); ok {
 			for _, p := range d.Manifest.Pages {
 				if p.ID == ctx.Params("page") && p.Scope == scope && allowed(ctx, p) {
-					return d, p, true
+					return d, transport, p, true
 				}
 			}
 		}
 	}
 	ctx.NotFound("Extension page", nil)
-	return runtime.Descriptor{}, extension.Page{}, false
+	return runtime.Descriptor{}, nil, extension.Page{}, false
 }
 
 func page(scope string) func(*context.Context) {
 	return func(ctx *context.Context) {
-		d, p, ok := findPage(ctx, scope)
+		d, transport, p, ok := findPage(ctx, scope)
 		if !ok {
+			return
+		}
+		generation, err := sessionGeneration(ctx)
+		if err != nil {
+			ctx.Error(http.StatusServiceUnavailable, "Extension authority unavailable")
+			return
+		}
+		repositoryID := ""
+		if scope == "repository" {
+			repositoryID = strconv.FormatInt(ctx.Repo.Repository.ID, 10)
+		}
+		if !authorizesContribution(ctx.Req.Context(), d, transport, pageContribution(p, http.MethodGet), repositoryID, ctx.Doer.ID) {
+			ctx.NotFound("Extension page", nil)
 			return
 		}
 		base := pageBase(ctx, scope) + "/" + d.Manifest.ID + "/" + p.ID
@@ -158,6 +211,9 @@ func page(scope string) func(*context.Context) {
 		ctx.Data["ExtensionAPIBase"] = base + "/api/"
 		ctx.Data["ExtensionAssetBase"] = assetBase
 		ctx.Data["ExtensionEntry"] = assetBase + p.Entry
+		ctx.Data["ExtensionSessionGeneration"] = generation
+		ctx.Resp.Header().Set("Cache-Control", "no-store")
+		ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
 		ctx.Data["PageIsExtension"] = true
 		ctx.Data["ExtensionPageURL"] = base
 		ctx.PageData["extension"] = map[string]string{"id": d.Manifest.ID, "name": d.Manifest.Name, "pageID": p.ID, "title": p.Title}
@@ -174,6 +230,17 @@ func Workspace(ctx *context.Context) {
 		ctx.NotFound("Extensions", nil)
 		return
 	}
+	generation, err := sessionGeneration(ctx)
+	if err != nil {
+		ctx.Error(http.StatusServiceUnavailable, "Extension authority unavailable")
+		return
+	}
+	ctx.Resp.Header().Set("Cache-Control", "no-store")
+	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
+	if ctx.Req.URL.Query().Get("session_check") == "1" {
+		ctx.Resp.WriteHeader(http.StatusNoContent)
+		return
+	}
 	path := ctx.FormString("path")
 	if !validWorkspacePath(path) {
 		path = setting.AppSubURL + "/"
@@ -188,13 +255,14 @@ func Workspace(ctx *context.Context) {
 	}
 	ctx.Data["Title"] = "Workspace"
 	ctx.Data["WorkspacePath"] = path
+	ctx.Data["WorkspaceSessionGeneration"] = generation
 	ctx.Data["PageIsExtensionWorkspace"] = true
 	ctx.Data["ExtensionPanels"] = panels
 	ctx.PageData["extensionPanels"] = panels
 	ctx.HTML(http.StatusOK, "extensions/workspace")
 }
 
-var workspaceAuthPath = regexp.MustCompile(`(^|/)user/(login|logout|sign_up|forgot_password|forget_password|reset_password|recover_account|activate|activate_email|two_factor|webauthn|oauth2|openid|link_account|link_account_signin|link_account_signup)(/|$)|(^|/)user/settings/change_password(/|$)|(^|/)(install|login/oauth)(/|$)`)
+var workspaceAuthPath = regexp.MustCompile(`(^|/)user/(login|logout|sign_up|forgot_password|forget_password|reset_password|recover_account|activate|activate_email|two_factor|webauthn|oauth2|openid|link_account|link_account_signin|link_account_signup)(/|$)|(^|/)user/settings/(change_password|security|applications|keys)(/|$)|(^|/)(install|login/oauth|login/openid|oauth2|openid)(/|$)`)
 var workspaceCredentialKey = regexp.MustCompile(`(?i)^(token|password|secret|client_secret|authorization|auth|code|credential|session|api_key|private_key|.*_token)$`)
 
 func validWorkspacePath(path string) bool {

@@ -179,6 +179,9 @@ func (ctx *Context) notFoundInternal(logMsg string, logErr error) {
 
 // ServerError displays a 500 (Internal Server Error) page and prints the given error, if any.
 func (ctx *Context) ServerError(logMsg string, logErr error) {
+	if ctx.HandlePolicyError(logErr) {
+		return
+	}
 	ctx.serverErrorInternal(logMsg, logErr)
 }
 

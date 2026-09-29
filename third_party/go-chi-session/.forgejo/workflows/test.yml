@@ -1,0 +1,55 @@
+name: test
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: docker
+    container:
+      image: 'data.forgejo.org/oci/node:24-trixie'
+    services:
+      redis:
+        image: data.forgejo.org/oci/valkey:7.2
+      pgsql:
+        image: 'data.forgejo.org/oci/postgres:17'
+        env:
+          POSTGRES_DB: testsession
+          POSTGRES_PASSWORD: postgres
+      mysql:
+        image: mariadb:12
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: yes
+          MARIADB_DATABASE: testsession
+          #
+          # See also https://codeberg.org/forgejo/forgejo/issues/976
+          #
+          MARIADB_EXTRA_FLAGS: --innodb-adaptive-flushing=OFF --innodb-buffer-pool-size=4G --innodb-log-buffer-size=128M --innodb-flush-log-at-trx-commit=0 --innodb-flush-log-at-timeout=30 --innodb-flush-method=nosync --innodb-fsync-threshold=1000000000
+      memcached:
+        image: memcached:1.6-alpine
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v6
+      - uses: https://code.forgejo.org/actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+      - name: golangci-lint
+        uses: https://data.forgejo.org/golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
+      - name: create database tables
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq  postgresql-client mariadb-client
+          PGPASSWORD=postgres psql -h pgsql -U postgres -c 'CREATE TABLE IF NOT EXISTS session (key TEXT PRIMARY KEY, data BYTEA, expiry BIGINT)' testsession
+          mariadb -h mysql -u root --skip-ssl -D testsession -e 'CREATE TABLE IF NOT EXISTS session (`key` varchar(255) PRIMARY KEY, data BLOB, expiry BIGINT)'
+
+      - name: test
+        run: go test -cover -coverpkg ./... -coverprofile=textfmt.out -v ./...
+
+      - if: forgejo.event_name == 'pull_request'
+        uses: https://codeberg.org/clouds666/unkai@38909348d9667c49142a90f5026276e96043dd8d # v0.2.8
+        with:
+          coverage: textfmt.out
+          token: ${{ forgejo.TOKEN }}

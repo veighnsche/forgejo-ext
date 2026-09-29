@@ -4,7 +4,9 @@
 package common
 
 import (
+	"bufio"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime/trace"
 	"strings"
@@ -108,16 +110,52 @@ func stripSlashesMiddleware(next http.Handler) http.Handler {
 }
 
 func Sessioner() func(next http.Handler) http.Handler {
-	return session.Sessioner(session.Options{
-		Provider:       setting.SessionConfig.Provider,
-		ProviderConfig: setting.SessionConfig.ProviderConfig,
-		CookieName:     setting.SessionConfig.CookieName,
-		CookiePath:     setting.SessionConfig.CookiePath,
-		Gclifetime:     setting.SessionConfig.Gclifetime,
-		Maxlifetime:    setting.SessionConfig.Maxlifetime,
-		Secure:         setting.SessionConfig.Secure,
-		SameSite:       setting.SessionConfig.SameSite,
-		Domain:         setting.SessionConfig.Domain,
-		DeferSetCookie: true,
+	middleware := session.Sessioner(session.Options{
+		Provider:                  setting.SessionConfig.Provider,
+		ProviderConfig:            setting.SessionConfig.ProviderConfig,
+		CookieName:                setting.SessionConfig.CookieName,
+		CookiePath:                setting.SessionConfig.CookiePath,
+		Gclifetime:                setting.SessionConfig.Gclifetime,
+		Maxlifetime:               setting.SessionConfig.Maxlifetime,
+		Secure:                    setting.SessionConfig.Secure,
+		SameSite:                  setting.SessionConfig.SameSite,
+		Domain:                    setting.SessionConfig.Domain,
+		DeferSetCookie:            true,
+		IgnoreReleaseForWebSocket: true,
 	})
+	return func(next http.Handler) http.Handler {
+		handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// go-chi/session's deferred writer does not forward hijacking. Keep
+			// its normal cookie handling, but expose the original connection to
+			// a WebSocket handler. The upstream option prevents session writes
+			// after that long-lived handler returns (possibly after logout).
+			if req.Header.Get("Upgrade") == "websocket" {
+				if deferred, ok := w.(*session.DeferredResponseWriter); ok {
+					w = &sessionUpgradeWriter{DeferredResponseWriter: deferred}
+				}
+			}
+			next.ServeHTTP(w, req)
+		}))
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// Upgrade protocol names are case insensitive, whereas the pinned
+			// session middleware's no-release check uses a literal comparison.
+			if upgrade := req.Header.Get("Upgrade"); upgrade != "websocket" && strings.EqualFold(upgrade, "websocket") {
+				req = req.Clone(req.Context())
+				req.Header.Set("Upgrade", "websocket")
+			}
+			handler.ServeHTTP(w, req)
+		})
+	}
+}
+
+type sessionUpgradeWriter struct {
+	*session.DeferredResponseWriter
+}
+
+func (w *sessionUpgradeWriter) Unwrap() http.ResponseWriter {
+	return w.DeferredResponseWriter.ResponseWriter
+}
+
+func (w *sessionUpgradeWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(w.Unwrap()).Hijack()
 }
