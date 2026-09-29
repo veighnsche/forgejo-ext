@@ -44,6 +44,33 @@ func TestExtensionStatusAndRemove(t *testing.T) {
 	if got := output.String(); got != "sample\tenabled\tmanifest-valid\n" {
 		t.Fatalf("unexpected status: %q", got)
 	}
+	output.Reset()
+	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "list"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "sample\t1\tenabled\n" {
+		t.Fatalf("unexpected enabled package listing: %q", got)
+	}
+	if err := os.WriteFile(filepath.Join(packageDir, ".disabled"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "status", "sample"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "sample\tdisabled\tmanifest-valid\n" {
+		t.Fatalf("unexpected disabled package status: %q", got)
+	}
+	output.Reset()
+	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "list"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "sample\t1\tdisabled\n" {
+		t.Fatalf("unexpected disabled package listing: %q", got)
+	}
+	if err := os.Remove(filepath.Join(packageDir, ".disabled")); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(packageDir, "extension.json"), []byte(`private-token`), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -83,6 +110,9 @@ func TestRequiredExtensionsCannotBeDisabledOrRemoved(t *testing.T) {
 	if err := os.Mkdir(packageDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(packageDir, "extension.json"), []byte(`{"protocol":1,"id":"soda","name":"Soda","version":"1","executable":"backend"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	app := &cli.Command{Commands: []*cli.Command{cmdExtensions()}}
 	for _, action := range []string{"disable", "remove"} {
 		if err := app.Run(context.Background(), []string{"forgejo", "extensions", action, "soda"}); err == nil {
@@ -91,6 +121,9 @@ func TestRequiredExtensionsCannotBeDisabledOrRemoved(t *testing.T) {
 	}
 	if _, err := os.Stat(packageDir); err != nil {
 		t.Fatalf("required package was removed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(packageDir, ".disabled")); !os.IsNotExist(err) {
+		t.Fatalf("required package was disabled: %v", err)
 	}
 }
 
