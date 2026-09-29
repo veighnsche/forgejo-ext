@@ -176,6 +176,11 @@
 				{{end}}
 
 				{{template "custom/extra_tabs" .}}
+				{{with .ExtensionPages}}{{range index . "repository"}}
+					{{if ne .Permission "admin"}}
+					<a class="{{if eq .URL $.ExtensionPageURL}}active {{end}}item" href="{{.URL}}">{{.Title}}</a>
+					{{end}}
+				{{end}}{{end}}
 
 				{{if and RepoFlagsEnabled .SignedUser.IsAdmin}}
 					<a class="{{if .IsRepoFlagsPage}}active {{end}}item" href="{{.RepoLink}}/flags">

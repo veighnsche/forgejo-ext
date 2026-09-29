@@ -11,7 +11,7 @@
 
 	{{template "custom/body_outer_post" .}}
 
-	{{template "base/footer_content" .}}
+	{{if not .PageIsExtensionWorkspace}}{{template "base/footer_content" .}}{{end}}
 
 	<script src="{{AssetUrlPrefix}}/js/index.js?v={{AssetVersion}}" onerror="alert('{{ctx.Locale.Tr "alert.asset_load_failed"}}'.replace('{path}', this.src))"></script>
 

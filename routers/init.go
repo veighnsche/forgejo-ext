@@ -13,6 +13,7 @@ import (
 	"forgejo.org/modules/cache"
 	"forgejo.org/modules/eventsource"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/highlight"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/markup"
@@ -37,6 +38,7 @@ import (
 	"forgejo.org/services/auth/source/oauth2"
 	"forgejo.org/services/automerge"
 	"forgejo.org/services/cron"
+	extension_service "forgejo.org/services/extensions"
 	federation_service "forgejo.org/services/federation"
 	feed_service "forgejo.org/services/feed"
 	indexer_service "forgejo.org/services/indexer"
@@ -167,6 +169,17 @@ func InitWebInstalled(ctx context.Context) {
 	mustInit(stats.Init)
 
 	mustInit(actions_router.InitOIDC)
+
+	if setting.Extensions.Enabled {
+		manager := extension_service.NewManager(setting.Extensions.Path)
+		mustInitCtx(ctx, manager.Start)
+		extension_service.SetDefault(manager)
+		graceful.GetManager().RunAtShutdown(context.Background(), func() {
+			if err := manager.Close(); err != nil {
+				log.Error("Close extensions: %v", err)
+			}
+		})
+	}
 
 	// Finally start up the cron
 	cron.NewContext(ctx)

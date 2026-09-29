@@ -35,7 +35,7 @@
 
 		{{template "custom/body_inner_pre" .}}
 
-		{{if not .PageIsInstall}}
+		{{if not (or .PageIsInstall .PageIsExtensionWorkspace)}}
 			{{template "base/head_navbar" .}}
 		{{end}}
 

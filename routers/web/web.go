@@ -32,6 +32,7 @@ import (
 	"forgejo.org/routers/web/demo"
 	"forgejo.org/routers/web/events"
 	"forgejo.org/routers/web/explore"
+	"forgejo.org/routers/web/extensions"
 	"forgejo.org/routers/web/feed"
 	"forgejo.org/routers/web/healthcheck"
 	"forgejo.org/routers/web/misc"
@@ -306,7 +307,7 @@ func Routes() *web.Route {
 	mid = append(mid, common.Sessioner(), context.Contexter())
 
 	// Get user from session if logged in.
-	mid = append(mid, webAuth(buildAuthGroup()))
+	mid = append(mid, webAuth(buildAuthGroup()), extensions.Navigation)
 
 	// GetHead allows a HEAD request redirect to GET if HEAD method is not defined for that route
 	mid = append(mid, chi_middleware.GetHead)
@@ -740,6 +741,7 @@ func registerRoutes(m *web.Route) {
 	m.Get("/avatar/{hash}", user.AvatarByEmailHash)
 
 	adminReq := verifyAuthWithOptions(&common.VerifyOptions{SignInRequired: true, AdminRequired: true})
+	extensions.Register(m, reqSignIn, adminReq)
 
 	// ***** START: Admin *****
 	m.Group("/admin", func() {
@@ -1042,7 +1044,7 @@ func registerRoutes(m *web.Route) {
 		m.Get("/migrate", repo.Migrate)
 		m.Post("/migrate", web.Bind(forms.MigrateRepoForm{}), repo.MigratePost)
 		if !setting.Repository.DisableForks {
-			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), reqRepoCodeReader, repo.ForkByID)
+			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), extensions.Navigation, reqRepoCodeReader, repo.ForkByID)
 		}
 		m.Get("/search", repo.SearchRepo)
 	}, reqSignIn)
@@ -1196,7 +1198,7 @@ func registerRoutes(m *web.Route) {
 				m.Post("/cancel", repo.MigrateCancelPost)
 			})
 		}, ctxDataSet("PageIsRepoSettings", true, "LFSStartServer", setting.LFS.StartServer))
-	}, reqSignIn, context.RepoAssignment, context.UnitTypes(), reqRepoAdmin, context.RepoRef())
+	}, reqSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation, reqRepoAdmin, context.RepoRef())
 
 	m.Group("/{username}/{reponame}/action", func() {
 		m.Post("/watch", repo.ActionWatch(true))
@@ -1207,7 +1209,7 @@ func registerRoutes(m *web.Route) {
 			m.Post("/star", repo.ActionStar(true))
 			m.Post("/unstar", repo.ActionStar(false))
 		}
-	}, reqSignIn, context.RepoAssignment, context.UnitTypes())
+	}, reqSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation)
 
 	// Grouping for those endpoints not requiring authentication (but should respect ignSignIn)
 	m.Group("/{username}/{reponame}", func() {
@@ -1231,7 +1233,7 @@ func registerRoutes(m *web.Route) {
 			})
 		})
 		m.Get("/-/summary-card", repo.DrawRepoSummaryCard)
-	}, ignSignIn, context.RepoAssignment, context.UnitTypes()) // for "/{username}/{reponame}" which doesn't require authentication
+	}, ignSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation) // for "/{username}/{reponame}" which doesn't require authentication
 
 	// Grouping for those endpoints that do require authentication
 	m.Group("/{username}/{reponame}", func() {
@@ -1358,7 +1360,7 @@ func registerRoutes(m *web.Route) {
 			m.Post("/delete", repo.DeleteBranchPost)
 			m.Post("/restore", repo.RestoreBranchPost)
 		}, context.RepoMustNotBeArchived(), reqRepoCodeWriter, repo.MustBeNotEmpty)
-	}, reqSignIn, context.RepoAssignment, context.UnitTypes())
+	}, reqSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation)
 
 	// Tags
 	m.Group("/{username}/{reponame}", func() {
@@ -1371,7 +1373,7 @@ func registerRoutes(m *web.Route) {
 			repo.MustBeNotEmpty, reqRepoCodeReader, context.RepoRefByType(context.RepoRefTag, true))
 		m.Post("/tags/delete", reqSignIn, repo.MustBeNotEmpty, context.RepoMustNotBeArchived(), reqRepoCodeWriter,
 			context.RepoRef(), repo.DeleteTag)
-	}, ignSignIn, context.RepoAssignment, context.UnitTypes())
+	}, ignSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation)
 
 	// Releases
 	m.Group("/{username}/{reponame}", func() {
@@ -1398,12 +1400,12 @@ func registerRoutes(m *web.Route) {
 			m.Get("/edit/*", repo.EditRelease)
 			m.Post("/edit/*", web.Bind(forms.EditReleaseForm{}), repo.EditReleasePost)
 		}, reqSignIn, repo.MustBeNotEmpty, context.RepoMustNotBeArchived(), reqRepoReleaseWriter, repo.CommitInfoCache, context.EnforceQuotaWeb(quota_model.LimitSubjectSizeReposAll, context.QuotaTargetRepo))
-	}, ignSignIn, context.RepoAssignment, context.UnitTypes(), reqRepoReleaseReader)
+	}, ignSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation, reqRepoReleaseReader)
 
 	// to maintain compatibility with old attachments
 	m.Group("/{username}/{reponame}", func() {
 		m.Get("/attachments/{uuid}", repo.GetAttachment)
-	}, ignSignIn, context.RepoAssignment, context.UnitTypes())
+	}, ignSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation)
 
 	m.Group("/{username}/{reponame}", func() {
 		m.Post("/topics", repo.TopicsPost)
@@ -1689,9 +1691,9 @@ func registerRoutes(m *web.Route) {
 		m.Get("/commit/{sha:([a-f0-9]{4,64})}.{ext:patch|diff}", repo.MustBeNotEmpty, reqRepoCodeReader, repo.RawDiff)
 
 		m.Post("/sync_fork", context.RepoMustNotBeArchived(), repo.MustBeNotEmpty, reqRepoCodeWriter, repo.SyncFork)
-	}, ignSignIn, context.RepoAssignment, context.UnitTypes())
+	}, ignSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation)
 
-	m.Post("/{username}/{reponame}/lastcommit/*", ignSignIn, context.RepoAssignment, context.UnitTypes(), context.RepoRefByType(context.RepoRefCommit), reqRepoCodeReader, repo.LastCommit)
+	m.Post("/{username}/{reponame}/lastcommit/*", ignSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation, context.RepoRefByType(context.RepoRefCommit), reqRepoCodeReader, repo.LastCommit)
 
 	m.Group("/{username}/{reponame}", func() {
 		if !setting.Repository.DisableStars {
@@ -1705,12 +1707,12 @@ func registerRoutes(m *web.Route) {
 				m.Get("/tag/*", context.RepoRefByType(context.RepoRefTag), repo.Search)
 			}
 		}, reqRepoCodeReader)
-	}, ignSignIn, context.RepoAssignment, context.UnitTypes())
+	}, ignSignIn, context.RepoAssignment, context.UnitTypes(), extensions.Navigation)
 
 	m.Group("/{username}", func() {
 		m.Group("/{reponame}", func() {
 			m.Get("", repo.SetEditorconfigIfExists, repo.Home)
-		}, ignSignIn, context.RepoAssignment, context.RepoRef(), context.UnitTypes())
+		}, ignSignIn, context.RepoAssignment, context.RepoRef(), context.UnitTypes(), extensions.Navigation)
 
 		m.Group("/{reponame}", func() {
 			m.Group("/info/lfs", func() {
@@ -1738,7 +1740,7 @@ func registerRoutes(m *web.Route) {
 		m.Group("/{username}/{reponame}/flags", func() {
 			m.Get("", repo_flags.Manage)
 			m.Post("", repo_flags.ManagePost)
-		}, adminReq, context.RepoAssignment, context.UnitTypes())
+		}, adminReq, context.RepoAssignment, context.UnitTypes(), extensions.Navigation)
 	}
 	// ***** END: Repository *****
 

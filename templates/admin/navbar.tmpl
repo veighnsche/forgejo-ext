@@ -1,6 +1,10 @@
 <div class="flex-container-nav">
 	<div class="ui fluid vertical menu">
 		<div class="header item">{{ctx.Locale.Tr "admin.settings"}}</div>
+		{{with .ExtensionPages}}{{with index . "admin"}}
+			<div class="header item">Extensions</div>
+			{{range .}}<a class="{{if eq .URL $.ExtensionPageURL}}active {{end}}item" href="{{.URL}}">{{.Title}}</a>{{end}}
+		{{end}}{{end}}
 		<a class="{{if .PageIsAdminDashboard}}active {{end}}item" href="{{AppSubUrl}}/admin">
 			{{ctx.Locale.Tr "admin.dashboard"}}
 		</a>

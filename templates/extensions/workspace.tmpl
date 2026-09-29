@@ -1,0 +1,22 @@
+{{template "base/head" .}}
+<main class="extension-workspace" data-extension-workspace data-workspace-path="{{.WorkspacePath}}">
+	<div class="extension-workspace-toolbar">
+		<a class="ui button" href="{{AppSubUrl}}/" data-extension-workspace-exit>Leave workspace</a>
+		{{if .ExtensionPanels}}<button type="button" class="ui button" data-extension-workspace-toggle aria-expanded="true" aria-controls="extension-workspace-panels">Focus browsing</button>{{end}}
+		<span class="extension-workspace-location" data-extension-workspace-location aria-live="polite"></span>
+	</div>
+	<div class="extension-workspace-layout">
+		<iframe class="extension-workspace-frame" title="Forgejo pages" data-extension-workspace-frame sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-modals allow-popups"></iframe>
+		{{if .ExtensionPanels}}
+		<aside id="extension-workspace-panels" class="extension-workspace-panels" aria-label="Extension panels">
+			{{range .ExtensionPanels}}
+			<section class="extension-workspace-panel" aria-labelledby="extension-panel-{{.ExtensionID}}-{{.ID}}">
+				<h2 id="extension-panel-{{.ExtensionID}}-{{.ID}}">{{.Title}}</h2>
+				<div data-extension-panel data-extension-id="{{.ExtensionID}}" data-extension-panel-id="{{.ID}}" data-extension-entry="{{.Entry}}" data-extension-api-base="{{.APIBase}}" data-extension-asset-base="{{.AssetBase}}"></div>
+			</section>
+			{{end}}
+		</aside>
+		{{end}}
+	</div>
+</main>
+{{template "base/footer" .}}

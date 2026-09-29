@@ -177,6 +177,7 @@ func innerNewMainApp(version, versionExtra string, subCmdsStandaloneArgs, subCmd
 		cmdDoctor(),
 		cmdManager(),
 		cmdEmbedded(),
+		cmdExtensions(),
 		cmdMigrateStorage(),
 		cmdDumpRepository(),
 		cmdRestoreRepository(),

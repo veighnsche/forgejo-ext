@@ -44,6 +44,15 @@
 		{{else}}
 			<a class="item{{if .PageIsExplore}} active{{end}}" {{if .PageIsExplore}}aria-current="page" {{end}}href="{{AppSubUrl}}/explore/repos">{{ctx.Locale.Tr "explore"}}</a>
 		{{end}}
+		{{with .ExtensionPages}}{{with index . "global"}}
+			<details class="dropdown">
+				<summary>Extensions <span class="dropdown-icon">{{svg "octicon-triangle-down"}}</span></summary>
+				<div class="content"><ul>
+					{{range .}}<li><a href="{{.URL}}">{{.Title}}</a></li>{{end}}
+				</ul></div>
+			</details>
+		{{end}}{{end}}
+		{{if .HasExtensionPanels}}<a class="item" href="{{AppSubUrl}}/-/extensions/workspace">Workspace</a>{{end}}
 
 		{{template "custom/extra_links" .}}
 

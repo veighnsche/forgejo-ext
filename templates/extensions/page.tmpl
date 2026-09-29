@@ -1,0 +1,26 @@
+{{if eq .ExtensionScope "user"}}
+	{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings extensions")}}
+		<div class="user-setting-content">{{template "extensions/content" .}}</div>
+	{{template "user/settings/layout_footer" .}}
+{{else if eq .ExtensionScope "admin"}}
+	{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin extensions")}}
+		<div class="admin-setting-content">{{template "extensions/content" .}}</div>
+	{{template "admin/layout_footer" .}}
+{{else if .ExtensionRepoSettings}}
+	{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings extensions")}}
+		{{template "extensions/content" .}}
+	{{template "repo/settings/layout_footer" .}}
+{{else if eq .ExtensionScope "repository"}}
+	{{template "base/head" .}}
+	<div role="main" aria-label="{{.Title}}" class="page-content repository extensions">
+		{{template "repo/header" .}}
+		<div class="ui container">{{template "base/alert" .}}{{template "extensions/content" .}}</div>
+	</div>
+	{{template "base/footer" .}}
+{{else}}
+	{{template "base/head" .}}
+	<div role="main" aria-label="{{.Title}}" class="page-content extensions">
+		<div class="ui container">{{template "base/alert" .}}{{template "extensions/content" .}}</div>
+	</div>
+	{{template "base/footer" .}}
+{{end}}
