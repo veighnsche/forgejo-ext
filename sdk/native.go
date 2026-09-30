@@ -20,6 +20,10 @@ const NativeCallbackPath = "/v1/native"
 
 const maxCallbackResponseBytes = 1 << 20
 
+// ErrRepositoryNotVisible is returned only when the host's repository callback
+// confirms that a repository is missing or not readable by the admitted actor.
+var ErrRepositoryNotVisible = errors.New("repository is not visible")
+
 const (
 	OperationCurrentActor      = "actor.current"
 	OperationRepository        = "repository.get"
@@ -135,6 +139,12 @@ func (c *nativeClient) call(ctx context.Context, request CallbackRequest) (Callb
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
+		// The callback uses 404 for both a missing repository and one the actor
+		// cannot read. A 403 instead means the extension's callback admission or
+		// capability was rejected, so keep it an ordinary authority error.
+		if request.Operation == OperationRepository && response.StatusCode == http.StatusNotFound {
+			return CallbackResponse{}, ErrRepositoryNotVisible
+		}
 		return CallbackResponse{}, fmt.Errorf("native callback returned HTTP %d", response.StatusCode)
 	}
 	return decodeCallbackResponse(response.Body, request)

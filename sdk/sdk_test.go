@@ -116,6 +116,51 @@ func TestNativeClientRejectsOversizedAndMultipleResponses(t *testing.T) {
 	}
 }
 
+func TestNativeRepositoryNotVisibleErrorIsOperationSpecific(t *testing.T) {
+	root := filepath.Join("..", ".artifacts", "tmp")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := os.MkdirTemp(root, "sdk-denial-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(directory)
+	socket := filepath.Join(directory, "host.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request CallbackRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})}
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+	client := &nativeClient{socket: socket, admission: "private-admission"}
+	for _, test := range []struct {
+		name      string
+		operation string
+		wantTyped bool
+	}{
+		{"repository lookup", OperationRepository, true},
+		{"actor lookup", OperationCurrentActor, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := client.call(context.Background(), CallbackRequest{Operation: test.operation, RepositoryID: "7"})
+			if errors.Is(err, ErrRepositoryNotVisible) != test.wantTyped {
+				t.Fatalf("typed repository denial = %v, error = %v", errors.Is(err, ErrRepositoryNotVisible), err)
+			}
+		})
+	}
+}
+
 func TestAuthorityExcludesAdmissionAndRejectsNumericIDs(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set(ContextHeader, `{"extension_id":"example","instance_id":"run-1","session_generation":"session-1","contribution":{"id":"notes","kind":"panel","scope":"user","action":"read"},"actor":{"id":"9007199254740993","username":"soda-tester","site_admin":false}}`)
