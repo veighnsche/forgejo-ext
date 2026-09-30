@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -72,18 +73,20 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	backendLog := filepath.Join(root, "backend.log")
 	run := "#!/bin/sh\nexec " + shellQuoteC03(backend) + " --soda-socket " + shellQuoteC03(socket) + " 2>" + shellQuoteC03(backendLog) + "\n"
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(run), 0o700))
-	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "soda", Name: "Soda", Version: "0.1.0", Executable: "run", Capabilities: []string{extension.CapabilityActorRead, extension.CapabilityRepositoryRead, extension.CapabilityServiceBridge}, Policies: []string{extension.PolicyForgejoUsername}, Panels: []extension.Panel{{ID: "workspace", Title: "Spaces", Entry: "workspace.js"}}}
+	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "soda", Name: "Soda", Version: "0.1.0", Executable: "run", Capabilities: []string{extension.CapabilityActorRead, extension.CapabilityRepositoryRead, extension.CapabilityServiceBridge, extension.CapabilityContributionAuthorize}, Policies: []string{extension.PolicyForgejoUsername}, Panels: []extension.Panel{{ID: "workspace", Title: "Spaces", Entry: "workspace.js"}}}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "workspace.js"), []byte("export function mount() {}\n"), 0o600))
 	manager := runtime.NewManager(filepath.Join(root, "p"))
+	seedSodaExtensionOperatorID(t, filepath.Join(root, "p"))
 	serviceCallback := filepath.Join(root, "h")
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
 	require.NoError(t, manager.SetServiceCallbackEndpoint(serviceCallback, web_extensions.CallbackHandlerForService()))
 	require.NoError(t, manager.SetInstanceStopped(web_extensions.RevokeAdmissionsForInstance))
 	if err := manager.Start(context.Background()); err != nil {
-		t.Fatalf("Soda extension process did not start: %v", err)
+		logContents, _ := os.ReadFile(backendLog)
+		t.Fatalf("Soda extension process did not start: %v: %s", err, string(logContents))
 	}
 	previousManager := runtime.GetManager()
 	runtime.SetDefault(manager)
@@ -133,9 +136,11 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 		response, requestErr := server.Client().Do(req)
 		require.NoError(t, requestErr)
 		defer response.Body.Close()
-		require.Equal(t, expected, response.StatusCode)
+		responseBody, bodyErr := io.ReadAll(response.Body)
+		require.NoError(t, bodyErr)
+		require.Equal(t, expected, response.StatusCode, string(responseBody))
 		var value map[string]any
-		require.NoError(t, json.NewDecoder(response.Body).Decode(&value))
+		require.NoError(t, json.Unmarshal(responseBody, &value))
 		return value
 	}
 	// A malformed ID is rejected only after native actor, membership and
@@ -251,7 +256,7 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	_, err = database.Exec(`INSERT INTO memberships(project_id,user_id,login) VALUES(?,2,?)`, projectID, login)
 	require.NoError(t, err)
 	ended := request(http.MethodPost, "/terminal-sessions/"+id, map[string]string{"action": "end"}, http.StatusOK)
-	endedTerminal, ok := ended["terminal"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, false, endedTerminal["ready"])
+	require.Nil(t, ended["terminal"])
+	absent := request(http.MethodGet, "/terminal-sessions/"+id, nil, http.StatusOK)
+	require.Nil(t, absent["terminal"])
 }

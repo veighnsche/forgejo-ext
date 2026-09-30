@@ -52,7 +52,7 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 	backendLog := filepath.Join(root, "backend.log")
 	run := "#!/bin/sh\nexec " + shellQuoteC03(backend) + " --soda-socket " + shellQuoteC03(socket) + " 2>" + shellQuoteC03(backendLog) + "\n"
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(run), 0o700))
-	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "soda", Name: "Soda", Version: "0.1.0", Executable: "run", Capabilities: []string{extension.CapabilityActorRead, extension.CapabilityServiceBridge}, Policies: []string{extension.PolicyForgejoUsername},
+	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "soda", Name: "Soda", Version: "0.1.0", Executable: "run", Capabilities: []string{extension.CapabilityActorRead, extension.CapabilityServiceBridge, extension.CapabilityContributionAuthorize}, Policies: []string{extension.PolicyForgejoUsername},
 		Pages:  []extension.Page{{ID: "spaces", Title: "Spaces", Scope: "global", Entry: "spaces.js"}},
 		Panels: []extension.Panel{{ID: "workspace", Title: "Spaces", Entry: "workspace.js"}}}
 	encoded, err := json.Marshal(manifest)
@@ -62,6 +62,7 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", name), []byte("export function mount() {}\n"), 0o600))
 	}
 	manager := runtime.NewManager(filepath.Join(root, "p"))
+	seedSodaExtensionOperatorID(t, filepath.Join(root, "p"))
 	serviceCallback := filepath.Join(root, "h")
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
 	require.NoError(t, manager.SetServiceCallbackEndpoint(serviceCallback, web_extensions.CallbackHandlerForService()))
@@ -164,6 +165,13 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 
 func startSodaExtensionService(t *testing.T, root, socket, dashboard, serviceCallback string) {
 	startSodaExtensionServiceWithHost(t, root, socket, dashboard, serviceCallback, filepath.Join(root, "unused-host.sock"), "https://forgejo.test")
+}
+
+func seedSodaExtensionOperatorID(t *testing.T, managerRoot string) {
+	t.Helper()
+	path := filepath.Join(managerRoot, ".data", "soda", "operator-id")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	require.NoError(t, os.WriteFile(path, []byte("1\n"), 0o600))
 }
 
 func startSodaExtensionServiceWithHost(t *testing.T, root, socket, dashboard, serviceCallback, hostSocket, forgejoURL string) {
