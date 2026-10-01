@@ -22,10 +22,43 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // MigrateRepositoryGitData starts migrating git related data after created migrating repository
 func MigrateRepositoryGitData(ctx context.Context, u *user_model.User,
+	repo *repo_model.Repository, opts migration.MigrateOptions,
+	httpTransport *http.Transport,
+) (*repo_model.Repository, error) {
+	// One lifecycle update owns the reservation before the clone and
+	// all database effects, advancing the revision so stale
+	// observations go stale. The clone re-creates the repository
+	// directory, so the whole migration stays under one owner. Nested
+	// calls reuse the enclosing ownership instead of claiming again.
+	var out *repo_model.Repository
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleMigrate, u.Name, opts.RepoName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoLifecycle,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			var err error
+			out, err = migrateRepositoryGitDataOwned(ctx, u, repo, opts, httpTransport)
+			return err
+		}); err != nil {
+		if out == nil {
+			return repo, err
+		}
+		return out, err
+	}
+	return out, nil
+}
+
+// migrateRepositoryGitDataOwned runs the migration clone and database
+// effects under the caller's ownership.
+func migrateRepositoryGitDataOwned(ctx context.Context, u *user_model.User,
 	repo *repo_model.Repository, opts migration.MigrateOptions,
 	httpTransport *http.Transport,
 ) (*repo_model.Repository, error) {

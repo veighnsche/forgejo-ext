@@ -302,7 +302,7 @@ func alterRepositoryContent(ctx context.Context, doer *user_model.User, repo *re
 		return err
 	}
 
-	return t.Push(doer, commitHash, repo.DefaultBranch)
+	return t.Push(ctx, doer, commitHash, repo.DefaultBranch)
 }
 
 func writeObjectToIndex(t *files_service.TemporaryUploadRepository, path string, r io.Reader) error {

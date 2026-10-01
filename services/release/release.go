@@ -24,6 +24,7 @@ import (
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 	"forgejo.org/services/attachment"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -77,8 +78,9 @@ func createTag(ctx context.Context, gitRepo *git.Repository, rel *repo_model.Rel
 				return false, err
 			}
 
+			tagEnv := operation_service.OwnedGitEnv(ctx)
 			if len(msg) > 0 {
-				if err = gitRepo.CreateAnnotatedTag(rel.TagName, msg, commit.ID.String()); err != nil {
+				if err = gitRepo.CreateAnnotatedTagWithEnv(rel.TagName, msg, commit.ID.String(), tagEnv); err != nil {
 					if strings.Contains(err.Error(), "is not a valid tag name") {
 						return false, models.ErrInvalidTagName{
 							TagName: rel.TagName,
@@ -86,7 +88,7 @@ func createTag(ctx context.Context, gitRepo *git.Repository, rel *repo_model.Rel
 					}
 					return false, err
 				}
-			} else if err = gitRepo.CreateTag(rel.TagName, commit.ID.String()); err != nil {
+			} else if err = gitRepo.CreateTagWithEnv(rel.TagName, commit.ID.String(), tagEnv); err != nil {
 				if strings.Contains(err.Error(), "is not a valid tag name") {
 					return false, models.ErrInvalidTagName{
 						TagName: rel.TagName,
@@ -137,8 +139,8 @@ func createTag(ctx context.Context, gitRepo *git.Repository, rel *repo_model.Rel
 }
 
 // CreateRelease creates a new release of repository.
-func CreateRelease(gitRepo *git.Repository, rel *repo_model.Release, msg string, attachmentChanges []*AttachmentChange) error {
-	has, err := repo_model.IsReleaseExist(gitRepo.Ctx, rel.RepoID, rel.TagName)
+func CreateRelease(ctx context.Context, gitRepo *git.Repository, rel *repo_model.Release, msg string, attachmentChanges []*AttachmentChange) error {
+	has, err := repo_model.IsReleaseExist(ctx, rel.RepoID, rel.TagName)
 	if err != nil {
 		return err
 	} else if has {
@@ -147,13 +149,54 @@ func CreateRelease(gitRepo *git.Repository, rel *repo_model.Release, msg string,
 		}
 	}
 
-	if _, err = createTag(gitRepo.Ctx, gitRepo, rel, msg); err != nil {
+	// Resolve the tag target before claiming so the scope records the
+	// expected ref effect; the tag write itself re-resolves under
+	// ownership and aborts on any race.
+	target := rel.Target
+	if target == "" {
+		target = rel.Sha1
+	}
+	var newOID string
+	if target != "" {
+		targetCommit, err := gitRepo.GetCommit(target)
+		if err != nil {
+			return err
+		}
+		newOID = targetCommit.ID.String()
+	}
+
+	// One direct tag write owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(rel.RepoID, operation_service.RefWriteTag, rel.TagName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: rel.RepoID,
+			Ref:          string(git.RefNameFromTag(rel.TagName)),
+			NewOID:       newOID,
+		},
+		func(ctx context.Context) error {
+			return createReleaseOwned(ctx, gitRepo, rel, msg, attachmentChanges)
+		})
+	if err != nil {
+		return err
+	}
+
+	if !rel.IsDraft {
+		notify_service.NewRelease(ctx, rel)
+	}
+	return nil
+}
+
+func createReleaseOwned(ctx context.Context, gitRepo *git.Repository, rel *repo_model.Release, msg string, attachmentChanges []*AttachmentChange) error {
+	if _, err := createTag(ctx, gitRepo, rel, msg); err != nil {
 		return err
 	}
 
 	rel.Title, _ = util.SplitStringAtByteN(rel.Title, 255)
 	rel.LowerTagName = strings.ToLower(rel.TagName)
-	if err = db.Insert(gitRepo.Ctx, rel); err != nil {
+	if err := db.Insert(ctx, rel); err != nil {
 		return err
 	}
 
@@ -174,7 +217,7 @@ func CreateRelease(gitRepo *git.Repository, rel *repo_model.Release, msg string,
 				return errors.New("new external attachment should have a name and external url")
 			}
 
-			_, err = attachment.NewExternalAttachment(gitRepo.Ctx, &repo_model.Attachment{
+			_, err := attachment.NewExternalAttachment(ctx, &repo_model.Attachment{
 				Name:        attachmentChange.Name,
 				UploaderID:  rel.PublisherID,
 				RepoID:      rel.RepoID,
@@ -192,12 +235,8 @@ func CreateRelease(gitRepo *git.Repository, rel *repo_model.Release, msg string,
 		}
 	}
 
-	if err = repo_model.AddReleaseAttachments(gitRepo.Ctx, rel, addAttachmentUUIDs.Values()); err != nil {
+	if err := repo_model.AddReleaseAttachments(ctx, rel, addAttachmentUUIDs.Values()); err != nil {
 		return err
-	}
-
-	if !rel.IsDraft {
-		notify_service.NewRelease(gitRepo.Ctx, rel)
 	}
 
 	return nil
@@ -232,11 +271,23 @@ func CreateNewTag(ctx context.Context, doer *user_model.User, repo *repo_model.R
 		IsTag:        true,
 	}
 
-	if _, err = createTag(ctx, gitRepo, rel, msg); err != nil {
-		return err
-	}
-
-	return db.Insert(ctx, rel)
+	// One direct tag write owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteTag, tagName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Ref:          string(git.RefNameFromTag(tagName)),
+			NewOID:       commit,
+		},
+		func(ctx context.Context) error {
+			if _, err := createTag(ctx, gitRepo, rel, msg); err != nil {
+				return err
+			}
+			return db.Insert(ctx, rel)
+		})
 }
 
 // UpdateRelease updates information, attachments of a release and will create tag if it's not a draft and tag not exist.
@@ -248,112 +299,45 @@ func UpdateRelease(ctx context.Context, doer *user_model.User, gitRepo *git.Repo
 	if rel.ID == 0 {
 		return errors.New("UpdateRelease only accepts an exist release")
 	}
-	isCreated, err := createTag(gitRepo.Ctx, gitRepo, rel, "")
-	if err != nil {
-		return err
+	// Read the tag state before claiming so the scope records the expected
+	// ref effect; the tag write itself re-checks under ownership and aborts
+	// on any race. An existing tag is kept, never moved.
+	var oldOID string
+	if tagCommit, err := gitRepo.GetTagCommit(rel.TagName); err == nil {
+		oldOID = tagCommit.ID.String()
 	}
-	rel.LowerTagName = strings.ToLower(rel.TagName)
-
-	ctx, committer, err := db.TxContext(ctx)
-	if err != nil {
-		return err
-	}
-	defer committer.Close()
-
-	if err = repo_model.UpdateRelease(ctx, rel); err != nil {
-		return err
-	}
-
-	addAttachmentUUIDs := make(container.Set[string])
-	delAttachmentUUIDs := make(container.Set[string])
-	updateAttachmentUUIDs := make(container.Set[string])
-	updateAttachments := map[string]*AttachmentChange{}
-
-	for _, attachmentChange := range attachmentChanges {
-		switch attachmentChange.Action {
-		case "add":
-			switch attachmentChange.Type {
-			case "attachment":
-				if attachmentChange.UUID == "" {
-					return fmt.Errorf("new attachment should have a uuid (%s)}", attachmentChange.Name)
-				}
-				addAttachmentUUIDs.Add(attachmentChange.UUID)
-			case "external":
-				if attachmentChange.Name == "" || attachmentChange.ExternalURL == "" {
-					return errors.New("new external attachment should have a name and external url")
-				}
-				_, err := attachment.NewExternalAttachment(ctx, &repo_model.Attachment{
-					Name:        attachmentChange.Name,
-					UploaderID:  doer.ID,
-					RepoID:      rel.RepoID,
-					ReleaseID:   rel.ID,
-					ExternalURL: attachmentChange.ExternalURL,
-				})
-				if err != nil {
-					return err
-				}
-			default:
-				if attachmentChange.Type == "" {
-					return errors.New("missing attachment type")
-				}
-				return fmt.Errorf("unknown attachment type: %q", attachmentChange.Type)
-			}
-		case "delete":
-			if attachmentChange.UUID == "" {
-				return errors.New("attachment deletion should have a uuid")
-			}
-			delAttachmentUUIDs.Add(attachmentChange.UUID)
-		case "update":
-			updateAttachmentUUIDs.Add(attachmentChange.UUID)
-			updateAttachments[attachmentChange.UUID] = attachmentChange
-		default:
-			if attachmentChange.Action == "" {
-				return errors.New("missing attachment action")
-			}
-			return fmt.Errorf("unknown attachment action: %q", attachmentChange.Action)
+	newOID := oldOID
+	if oldOID == "" {
+		if rel.Target == "" {
+			return errors.New("UpdateRelease cannot create a tag without a target")
 		}
-	}
-
-	if err = repo_model.AddReleaseAttachments(ctx, rel, addAttachmentUUIDs.Values()); err != nil {
-		return fmt.Errorf("AddReleaseAttachments: %w", err)
-	}
-
-	if len(delAttachmentUUIDs) > 0 {
-		// Check delAttachments
-		delAttachments, err := repo_model.FindRepoAttachmentsByUUID(ctx, rel.RepoID, delAttachmentUUIDs.Values(), repo_model.FindAttachmentOptions{ReleaseID: rel.ID})
+		targetCommit, err := gitRepo.GetCommit(rel.Target)
 		if err != nil {
-			return fmt.Errorf("FindRepoAttachmentsByUUID[uuids=%q,repoID=%d,releaseID=%d]: %w", delAttachmentUUIDs.Values(), rel.RepoID, rel.ID, err)
+			return err
 		}
-
-		if _, err := repo_model.DeleteAttachments(ctx, delAttachments, true); err != nil {
-			return fmt.Errorf("DeleteAttachments [uuids: %v]: %w", delAttachmentUUIDs, err)
-		}
+		newOID = targetCommit.ID.String()
 	}
 
-	if len(updateAttachmentUUIDs) > 0 {
-		// Check that attachments actually belong to repository and release.
-		attachments, err := repo_model.FindRepoAttachmentsByUUID(ctx, rel.RepoID, updateAttachmentUUIDs.Values(), repo_model.FindAttachmentOptions{ReleaseID: rel.ID})
-		if err != nil {
-			return fmt.Errorf("FindRepoAttachmentsByUUID[uuids=%q,repoID=%d,releaseID=%d]: %w", updateAttachmentUUIDs.Values(), rel.RepoID, rel.ID, err)
-		}
-
-		for _, attachment := range attachments {
-			attachmentChange, ok := updateAttachments[attachment.UUID]
-			if !ok {
-				continue
-			}
-
-			if err = repo_model.UpdateAttachmentByUUID(ctx, &repo_model.Attachment{
-				UUID:        attachmentChange.UUID,
-				Name:        attachmentChange.Name,
-				ExternalURL: attachmentChange.ExternalURL,
-			}, "name", "external_url"); err != nil {
-				return err
-			}
-		}
-	}
-
-	if err := committer.Commit(); err != nil {
+	// One direct tag write owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale.
+	var isCreated bool
+	var delAttachmentUUIDs container.Set[string]
+	err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(rel.RepoID, operation_service.RefWriteTag, rel.TagName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: rel.RepoID,
+			Ref:          string(git.RefNameFromTag(rel.TagName)),
+			OldOID:       oldOID,
+			NewOID:       newOID,
+		},
+		func(ctx context.Context) error {
+			var err error
+			isCreated, delAttachmentUUIDs, err = updateReleaseOwned(ctx, doer, gitRepo, rel, attachmentChanges)
+			return err
+		})
+	if err != nil {
 		return err
 	}
 
@@ -369,16 +353,160 @@ func UpdateRelease(ctx context.Context, doer *user_model.User, gitRepo *git.Repo
 
 	if !rel.IsDraft {
 		if createdFromTag || isCreated {
-			notify_service.NewRelease(gitRepo.Ctx, rel)
+			notify_service.NewRelease(ctx, rel)
 			return nil
 		}
-		notify_service.UpdateRelease(gitRepo.Ctx, doer, rel)
+		notify_service.UpdateRelease(ctx, doer, rel)
 	}
 	return nil
 }
 
+func updateReleaseOwned(ctx context.Context, doer *user_model.User, gitRepo *git.Repository, rel *repo_model.Release, attachmentChanges []*AttachmentChange) (bool, container.Set[string], error) {
+	isCreated, err := createTag(ctx, gitRepo, rel, "")
+	if err != nil {
+		return false, nil, err
+	}
+	rel.LowerTagName = strings.ToLower(rel.TagName)
+
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return false, nil, err
+	}
+	defer committer.Close()
+
+	if err = repo_model.UpdateRelease(ctx, rel); err != nil {
+		return false, nil, err
+	}
+
+	addAttachmentUUIDs := make(container.Set[string])
+	delAttachmentUUIDs := make(container.Set[string])
+	updateAttachmentUUIDs := make(container.Set[string])
+	updateAttachments := map[string]*AttachmentChange{}
+
+	for _, attachmentChange := range attachmentChanges {
+		switch attachmentChange.Action {
+		case "add":
+			switch attachmentChange.Type {
+			case "attachment":
+				if attachmentChange.UUID == "" {
+					return false, nil, fmt.Errorf("new attachment should have a uuid (%s)}", attachmentChange.Name)
+				}
+				addAttachmentUUIDs.Add(attachmentChange.UUID)
+			case "external":
+				if attachmentChange.Name == "" || attachmentChange.ExternalURL == "" {
+					return false, nil, errors.New("new external attachment should have a name and external url")
+				}
+				_, err := attachment.NewExternalAttachment(ctx, &repo_model.Attachment{
+					Name:        attachmentChange.Name,
+					UploaderID:  doer.ID,
+					RepoID:      rel.RepoID,
+					ReleaseID:   rel.ID,
+					ExternalURL: attachmentChange.ExternalURL,
+				})
+				if err != nil {
+					return false, nil, err
+				}
+			default:
+				if attachmentChange.Type == "" {
+					return false, nil, errors.New("missing attachment type")
+				}
+				return false, nil, fmt.Errorf("unknown attachment type: %q", attachmentChange.Type)
+			}
+		case "delete":
+			if attachmentChange.UUID == "" {
+				return false, nil, errors.New("attachment deletion should have a uuid")
+			}
+			delAttachmentUUIDs.Add(attachmentChange.UUID)
+		case "update":
+			updateAttachmentUUIDs.Add(attachmentChange.UUID)
+			updateAttachments[attachmentChange.UUID] = attachmentChange
+		default:
+			if attachmentChange.Action == "" {
+				return false, nil, errors.New("missing attachment action")
+			}
+			return false, nil, fmt.Errorf("unknown attachment action: %q", attachmentChange.Action)
+		}
+	}
+
+	if err = repo_model.AddReleaseAttachments(ctx, rel, addAttachmentUUIDs.Values()); err != nil {
+		return false, nil, fmt.Errorf("AddReleaseAttachments: %w", err)
+	}
+
+	if len(delAttachmentUUIDs) > 0 {
+		// Check delAttachments
+		delAttachments, err := repo_model.FindRepoAttachmentsByUUID(ctx, rel.RepoID, delAttachmentUUIDs.Values(), repo_model.FindAttachmentOptions{ReleaseID: rel.ID})
+		if err != nil {
+			return false, nil, fmt.Errorf("FindRepoAttachmentsByUUID[uuids=%q,repoID=%d,releaseID=%d]: %w", delAttachmentUUIDs.Values(), rel.RepoID, rel.ID, err)
+		}
+
+		if _, err := repo_model.DeleteAttachments(ctx, delAttachments, true); err != nil {
+			return false, nil, fmt.Errorf("DeleteAttachments [uuids: %v]: %w", delAttachmentUUIDs, err)
+		}
+	}
+
+	if len(updateAttachmentUUIDs) > 0 {
+		// Check that attachments actually belong to repository and release.
+		attachments, err := repo_model.FindRepoAttachmentsByUUID(ctx, rel.RepoID, updateAttachmentUUIDs.Values(), repo_model.FindAttachmentOptions{ReleaseID: rel.ID})
+		if err != nil {
+			return false, nil, fmt.Errorf("FindRepoAttachmentsByUUID[uuids=%q,repoID=%d,releaseID=%d]: %w", updateAttachmentUUIDs.Values(), rel.RepoID, rel.ID, err)
+		}
+
+		for _, attachment := range attachments {
+			attachmentChange, ok := updateAttachments[attachment.UUID]
+			if !ok {
+				continue
+			}
+
+			if err = repo_model.UpdateAttachmentByUUID(ctx, &repo_model.Attachment{
+				UUID:        attachmentChange.UUID,
+				Name:        attachmentChange.Name,
+				ExternalURL: attachmentChange.ExternalURL,
+			}, "name", "external_url"); err != nil {
+				return false, nil, err
+			}
+		}
+	}
+
+	if err := committer.Commit(); err != nil {
+		return false, nil, err
+	}
+
+	return isCreated, delAttachmentUUIDs, nil
+}
+
 // DeleteReleaseByID deletes a release and corresponding Git tag by given ID.
 func DeleteReleaseByID(ctx context.Context, repo *repo_model.Repository, rel *repo_model.Release, doer *user_model.User, delTag bool) error {
+	// One direct tag write owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale. A
+	// kept tag asserts its target is unchanged.
+	newOID := rel.Sha1
+	if delTag {
+		newOID = ""
+	}
+	err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteTag, rel.TagName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Ref:          string(git.RefNameFromTag(rel.TagName)),
+			OldOID:       rel.Sha1,
+			NewOID:       newOID,
+		},
+		func(ctx context.Context) error {
+			return deleteReleaseOwned(ctx, repo, rel, doer, delTag)
+		})
+	if err != nil {
+		return err
+	}
+
+	if !rel.IsDraft {
+		notify_service.DeleteRelease(ctx, doer, rel)
+	}
+	return nil
+}
+
+func deleteReleaseOwned(ctx context.Context, repo *repo_model.Repository, rel *repo_model.Release, doer *user_model.User, delTag bool) error {
 	if delTag {
 		protectedTags, err := git_model.GetProtectedTags(ctx, rel.RepoID)
 		if err != nil {
@@ -401,7 +529,7 @@ func DeleteReleaseByID(ctx context.Context, repo *repo_model.Repository, rel *re
 
 		if stdout, _, err := git.NewCommand(ctx, "tag", "-d").AddDashesAndList(rel.TagName).
 			SetDescription(fmt.Sprintf("DeleteReleaseByID (git tag -d): %d", rel.ID)).
-			RunStdString(&git.RunOpts{Dir: repo.RepoPath()}); err != nil && !strings.Contains(err.Error(), "not found") {
+			RunStdString(&git.RunOpts{Dir: repo.RepoPath(), Env: operation_service.OwnedGitEnv(ctx)}); err != nil && !strings.Contains(err.Error(), "not found") {
 			log.Error("DeleteReleaseByID (git tag -d): %d in %v Failed:\nStdout: %s\nError: %v", rel.ID, repo, stdout, err)
 			return fmt.Errorf("git tag -d: %w", err)
 		}
@@ -442,10 +570,6 @@ func DeleteReleaseByID(ctx context.Context, repo *repo_model.Repository, rel *re
 		if err := storage.Attachments.Delete(attachment.RelativePath()); err != nil {
 			log.Error("Delete attachment %s of release %s failed: %v", attachment.UUID, rel.ID, err)
 		}
-	}
-
-	if !rel.IsDraft {
-		notify_service.DeleteRelease(ctx, doer, rel)
 	}
 	return nil
 }

@@ -24,6 +24,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
+	execcontext "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/pprof"
 	"forgejo.org/modules/private"
 	"forgejo.org/modules/process"
@@ -271,9 +272,45 @@ func runServ(ctx context.Context, c *cli.Command) error {
 		}
 	}
 
-	results, extra := private.ServCommand(ctx, keyID, username, reponame, requestedMode, verb, lfsVerb)
+	// A receive-pack execution holds the reservation across the native
+	// receiver: the serv process creates its host-private capability
+	// file, the server claims with only the verifier, and the serv
+	// process releases after the receiver exits. Reads keep their
+	// existing behavior.
+	var execPath, execOwner string
+	var execGeneration int64
+	verifier := ""
+	if verb == "git-receive-pack" {
+		var secret string
+		var err error
+		execPath, secret, err = execcontext.WriteCapabilityFile(filepath.Join(setting.AppDataPath, "nativeop-exec"))
+		if err != nil {
+			return fail(ctx, "Failed to prepare execution", "Failed to create execution capability file: %v", err)
+		}
+		defer os.Remove(execPath)
+		verifier = execcontext.Verifier(secret)
+	}
+
+	var results *private.ServCommandResults
+	var extra private.ResponseExtra
+	if verifier != "" {
+		results, extra = private.ServCommandWithReceive(ctx, keyID, username, reponame, requestedMode, verifier, verb, lfsVerb)
+	} else {
+		results, extra = private.ServCommand(ctx, keyID, username, reponame, requestedMode, verb, lfsVerb)
+	}
 	if extra.HasError() {
 		return fail(ctx, extra.UserMsg, "ServCommand failed: %s", extra.Error)
+	}
+	if verifier != "" {
+		execOwner, execGeneration = results.Owner, results.Generation
+		if execOwner == "" || execGeneration <= 0 {
+			return fail(ctx, "Failed to prepare execution", "ServCommand granted no receive ownership")
+		}
+		defer func() {
+			if err := private.ReleaseSSHReceive(ctx, execOwner, execGeneration); err != nil {
+				_ = sshLog(ctx, log.ERROR, fmt.Sprintf("Failed to release SSH receive owner: %v", err))
+			}
+		}()
 	}
 
 	// LFS token authentication
@@ -351,6 +388,9 @@ func runServ(ctx context.Context, c *cli.Command) error {
 	// to avoid breaking, here only use the minimal environment variables for the "gitea serv" command.
 	// it could be re-considered whether to use the same git.CommonGitCmdEnvs() as "git" command later.
 	gitcmd.Env = append(gitcmd.Env, git.CommonCmdServEnvs()...)
+	if execPath != "" {
+		gitcmd.Env = append(gitcmd.Env, execcontext.EnvExecFile+"="+execPath)
+	}
 
 	if err = gitcmd.Run(); err != nil {
 		return fail(ctx, "Failed to execute git command", "Failed to execute git command: %v", err)

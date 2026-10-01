@@ -27,9 +27,16 @@ func HookReferenceTransaction(ctx *context.PrivateContext) {
 		return
 	}
 	lines := make([]nativeoperation.RefLine, 0, len(opts.OldCommitIDs))
+	scoped := make([]nativeoperation.ScopedRef, 0, len(opts.OldCommitIDs))
 	for i := range opts.OldCommitIDs {
 		lines = append(lines, nativeoperation.RefLine{Old: opts.OldCommitIDs[i], New: opts.NewCommitIDs[i], Ref: string(opts.RefFullNames[i])})
+		scoped = append(scoped, nativeoperation.ScopedRef{Ref: string(opts.RefFullNames[i]), OldOID: opts.OldCommitIDs[i], NewOID: opts.NewCommitIDs[i]})
 	}
+	// Record the proposed tuples before classifying: a receive owner
+	// declares its own effects, which the gate then admits as listed
+	// scope members. Unproven or non-receive refinements are silent
+	// no-ops, so other families keep their strict checking.
+	nativeoperation.RefineReceiveScope(ctx, opts.ExecProof, scoped)
 	decision, err := nativeoperation.Default().ClassifyTransaction(ctx, nativeoperation.TransactionRequest{
 		OwnerName: ownerName,
 		RepoName:  repoName,
@@ -72,9 +79,23 @@ func checkCompletionBinding(ctx *context.PrivateContext, opts *private.HookOptio
 		return false
 	}
 	refNames := make([]string, 0, len(opts.RefFullNames))
-	for _, ref := range opts.RefFullNames {
+	scoped := make([]nativeoperation.ScopedRef, 0, len(opts.RefFullNames))
+	for i, ref := range opts.RefFullNames {
 		refNames = append(refNames, string(ref))
+		tuple := nativeoperation.ScopedRef{Ref: string(ref)}
+		if i < len(opts.OldCommitIDs) {
+			tuple.OldOID = opts.OldCommitIDs[i]
+		}
+		if i < len(opts.NewCommitIDs) {
+			tuple.NewOID = opts.NewCommitIDs[i]
+		}
+		scoped = append(scoped, tuple)
 	}
+	// Record the observed ref tuples before classifying: a receive owner
+	// declares its own effects, which the gate then admits as listed
+	// scope members. Idle pushes skip above; unproven or non-receive
+	// refinements are silent no-ops.
+	nativeoperation.RefineReceiveScope(ctx, opts.ExecProof, scoped)
 	decision, err := nativeoperation.Default().ClassifyCompletion(ctx, repo.ID, refNames, opts.ExecProof, !opts.GetGitPushOptions().Empty())
 	if err != nil {
 		log.Error("Completion binding check failed for %s/%s: %v", ownerName, repoName, err)

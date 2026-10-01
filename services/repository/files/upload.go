@@ -157,8 +157,9 @@ func UploadRepoFiles(ctx context.Context, repo *repo_model.Repository, doer *use
 		}
 	}
 
-	// Then push this tree to NewBranch
-	if err := t.Push(doer, commitHash, opts.NewBranch); err != nil {
+	// Then push this tree to NewBranch under one file ref-write
+	// ownership.
+	if err := t.PushOwned(ctx, doer, commitHash, opts.NewBranch); err != nil {
 		return err
 	}
 

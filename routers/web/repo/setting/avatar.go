@@ -32,6 +32,9 @@ func SettingsAvatar(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.AvatarForm)
 	form.Source = forms.AvatarLocal
 	if err := UpdateAvatarSetting(ctx, *form); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		ctx.Flash.Error(err.Error())
 	} else {
 		ctx.Flash.Success(ctx.Tr("repo.settings.update_avatar_success"))
@@ -42,6 +45,9 @@ func SettingsAvatar(ctx *context.Context) {
 // SettingsDeleteAvatar delete repository avatar
 func SettingsDeleteAvatar(ctx *context.Context) {
 	if err := repo_service.DeleteAvatar(ctx, ctx.Repo.Repository); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		ctx.Flash.Error(fmt.Sprintf("DeleteAvatar: %v", err))
 	}
 	ctx.JSONRedirect(ctx.Repo.RepoLink + "/settings")

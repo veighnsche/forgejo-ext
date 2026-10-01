@@ -11,6 +11,7 @@ import (
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -69,67 +70,88 @@ func GenerateRepository(ctx context.Context, doer, owner *user_model.User, templ
 		}
 	}
 
+	// One lifecycle update owns the reservation before its transaction
+	// and filesystem effects, advancing the revision so stale
+	// observations go stale. The row does not exist yet, so the owner
+	// identity carries the owner/name pair. Nested calls reuse the
+	// enclosing ownership instead of claiming again.
 	var generateRepo *repo_model.Repository
-	if err = db.WithTx(ctx, func(ctx context.Context) error {
-		generateRepo, err = generateRepository(ctx, doer, owner, templateRepo, opts)
-		if err != nil {
-			return err
-		}
-
-		// Git Content
-		if opts.GitContent && !templateRepo.IsEmpty {
-			if err = GenerateGitContent(ctx, templateRepo, generateRepo); err != nil {
-				return err
-			}
-		}
-
-		// Topics
-		if opts.Topics {
-			if err = repo_model.GenerateTopics(ctx, templateRepo, generateRepo); err != nil {
-				return err
-			}
-		}
-
-		// Git Hooks
-		if opts.GitHooks {
-			if err = GenerateGitHooks(ctx, templateRepo, generateRepo); err != nil {
-				return err
-			}
-		}
-
-		// Webhooks
-		if opts.Webhooks {
-			if err = GenerateWebhooks(ctx, templateRepo, generateRepo); err != nil {
-				return err
-			}
-		}
-
-		// Avatar
-		if opts.Avatar && len(templateRepo.Avatar) > 0 {
-			if err = generateAvatar(ctx, templateRepo, generateRepo); err != nil {
-				return err
-			}
-		}
-
-		// Issue Labels
-		if opts.IssueLabels {
-			if err = GenerateIssueLabels(ctx, templateRepo, generateRepo); err != nil {
-				return err
-			}
-		}
-
-		if opts.ProtectedBranch {
-			if err = GenerateProtectedBranch(ctx, templateRepo, generateRepo); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}); err != nil {
+	if err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(0, operation_service.LifecycleGenerate, owner.Name, opts.Name),
+		operation_service.Scope{
+			Family: operation_service.FamilyRepoLifecycle,
+		},
+		func(ctx context.Context) error {
+			return generateRepositoryOwned(ctx, doer, owner, templateRepo, opts, &generateRepo)
+		}); err != nil {
 		return nil, err
 	}
 
 	notify_service.CreateRepository(ctx, doer, owner, generateRepo)
 
 	return generateRepo, nil
+}
+
+// generateRepositoryOwned runs the generation transaction under the
+// caller's ownership.
+func generateRepositoryOwned(ctx context.Context, doer, owner *user_model.User, templateRepo *repo_model.Repository, opts GenerateRepoOptions, generateRepo **repo_model.Repository) error {
+	err := db.WithTx(ctx, func(ctx context.Context) error {
+		var err error
+		*generateRepo, err = generateRepository(ctx, doer, owner, templateRepo, opts)
+		if err != nil {
+			return err
+		}
+
+		// Git Content
+		if opts.GitContent && !templateRepo.IsEmpty {
+			if err = GenerateGitContent(ctx, templateRepo, *generateRepo); err != nil {
+				return err
+			}
+		}
+
+		// Topics
+		if opts.Topics {
+			if err = repo_model.GenerateTopics(ctx, templateRepo, *generateRepo); err != nil {
+				return err
+			}
+		}
+
+		// Git Hooks
+		if opts.GitHooks {
+			if err = GenerateGitHooks(ctx, templateRepo, *generateRepo); err != nil {
+				return err
+			}
+		}
+
+		// Webhooks
+		if opts.Webhooks {
+			if err = GenerateWebhooks(ctx, templateRepo, *generateRepo); err != nil {
+				return err
+			}
+		}
+
+		// Avatar
+		if opts.Avatar && len(templateRepo.Avatar) > 0 {
+			if err = generateAvatar(ctx, templateRepo, *generateRepo); err != nil {
+				return err
+			}
+		}
+
+		// Issue Labels
+		if opts.IssueLabels {
+			if err = GenerateIssueLabels(ctx, templateRepo, *generateRepo); err != nil {
+				return err
+			}
+		}
+
+		if opts.ProtectedBranch {
+			if err = GenerateProtectedBranch(ctx, templateRepo, *generateRepo); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	return err
 }

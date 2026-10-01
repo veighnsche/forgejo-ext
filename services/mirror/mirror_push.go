@@ -26,6 +26,7 @@ import (
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 var stripExitStatus = regexp.MustCompile(`exit status \d+ - `)
@@ -34,6 +35,21 @@ var stripExitStatus = regexp.MustCompile(`exit status \d+ - `)
 var AddPushMirrorRemote = addPushMirrorRemote
 
 func addPushMirrorRemote(ctx context.Context, m *repo_model.PushMirror, addr string) error {
+	// One mirror update owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync,
+		fmt.Sprintf("%d/push-remote/%d", m.RepoID, m.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMirrorSync,
+			RepositoryID: m.RepoID,
+		},
+		func(ctx context.Context) error {
+			return addPushMirrorRemoteOwned(ctx, m, addr)
+		})
+}
+
+func addPushMirrorRemoteOwned(ctx context.Context, m *repo_model.PushMirror, addr string) error {
 	addRemoteAndConfig := func(addr, path string) error {
 		var cmd *git.Command
 		if m.BranchFilter == "" {
@@ -98,6 +114,21 @@ func addRemotePushRefSpecs(ctx context.Context, path string, m *repo_model.PushM
 }
 
 func UpdatePushMirrorBranchFilter(ctx context.Context, m *repo_model.PushMirror) error {
+	// One mirror update owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync,
+		fmt.Sprintf("%d/push-filter/%d", m.RepoID, m.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMirrorSync,
+			RepositoryID: m.RepoID,
+		},
+		func(ctx context.Context) error {
+			return updatePushMirrorBranchFilterOwned(ctx, m)
+		})
+}
+
+func updatePushMirrorBranchFilterOwned(ctx context.Context, m *repo_model.PushMirror) error {
 	path := m.Repo.RepoPath()
 
 	// First, remove all existing push refspecs for this remote
@@ -117,15 +148,33 @@ func UpdatePushMirrorBranchFilter(ctx context.Context, m *repo_model.PushMirror)
 
 // RemovePushMirrorRemote removes the push mirror remote.
 func RemovePushMirrorRemote(ctx context.Context, m *repo_model.PushMirror) error {
+	// One mirror update owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync,
+		fmt.Sprintf("%d/push-remote/%d", m.RepoID, m.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMirrorSync,
+			RepositoryID: m.RepoID,
+		},
+		func(ctx context.Context) error {
+			return removePushMirrorRemoteOwned(ctx, m)
+		})
+}
+
+func removePushMirrorRemoteOwned(ctx context.Context, m *repo_model.PushMirror) error {
 	cmd := git.NewCommand(ctx, "remote", "rm").AddDynamicArguments(m.RemoteName)
 	_ = m.GetRepository(ctx)
 
-	if _, _, err := cmd.RunStdString(&git.RunOpts{Dir: m.Repo.RepoPath()}); err != nil && !git.IsErrorExitCode(err, 2) {
+	// Carry the mirror owner's execution capability: removing a remote
+	// deletes its tracking refs through the reference transaction.
+	remoteEnv := operation_service.OwnedGitEnv(ctx)
+	if _, _, err := cmd.RunStdString(&git.RunOpts{Dir: m.Repo.RepoPath(), Env: remoteEnv}); err != nil && !git.IsErrorExitCode(err, 2) {
 		return err
 	}
 
 	if m.Repo.HasWiki() {
-		if _, _, err := cmd.RunStdString(&git.RunOpts{Dir: m.Repo.WikiPath()}); err != nil {
+		if _, _, err := cmd.RunStdString(&git.RunOpts{Dir: m.Repo.WikiPath(), Env: remoteEnv}); err != nil {
 			// The wiki remote may not exist
 			log.Warn("Wiki Remote[%d] could not be removed: %v", m.ID, err)
 		}
@@ -135,49 +184,106 @@ func RemovePushMirrorRemote(ctx context.Context, m *repo_model.PushMirror) error
 }
 
 // SyncPushMirror starts the sync of the push mirror and schedules the next run.
-func SyncPushMirror(ctx context.Context, mirrorID int64) bool {
+func SyncPushMirror(ctx context.Context, mirrorID int64) (err error) {
 	log.Trace("SyncPushMirror [mirror: %d]", mirrorID)
 	defer func() {
-		err := recover()
-		if err == nil {
+		r := recover()
+		if r == nil {
 			return
 		}
 		// There was a panic whilst syncPushMirror...
-		log.Error("PANIC whilst syncPushMirror[%d] Panic: %v\nStacktrace: %s", mirrorID, err, log.Stack(2))
+		log.Error("PANIC whilst syncPushMirror[%d] Panic: %v\nStacktrace: %s", mirrorID, r, log.Stack(2))
+		err = fmt.Errorf("panic whilst syncPushMirror[%d]: %v", mirrorID, r)
 	}()
 
 	// TODO: Handle "!exist" better
 	m, exist, err := db.GetByID[repo_model.PushMirror](ctx, mirrorID)
 	if err != nil || !exist {
 		log.Error("GetPushMirrorByID [%d]: %v", mirrorID, err)
-		return false
+		if err == nil {
+			return fmt.Errorf("GetPushMirrorByID [%d]: push mirror does not exist", mirrorID)
+		}
+		return fmt.Errorf("GetPushMirrorByID: %w", err)
 	}
 
 	_ = m.GetRepository(ctx)
 
-	m.LastError = ""
-
 	ctx, _, finished := process.GetManager().AddContext(ctx, fmt.Sprintf("Syncing PushMirror %s/%s to %s", m.Repo.OwnerName, m.Repo.Name, m.RemoteName))
 	defer finished()
 
+	// One mirror sync owns the reservation for its local Git and database
+	// effects, advancing the revision so stale observations go stale. A
+	// busy sync stays queued instead of being dropped. The network push
+	// itself runs WITHOUT the hold: a push to a mirror hosted on this
+	// server enters through that repository's own receive claim, which a
+	// held sync would self-deadlock. The target receive owns its side.
+	m.LastError = ""
+	scope := operation_service.Scope{
+		Family:       operation_service.FamilyMirrorSync,
+		RepositoryID: m.RepoID,
+	}
+	resource := fmt.Sprintf("%d/push/%d", m.RepoID, m.ID)
+
 	log.Trace("SyncPushMirror [mirror: %d][repo: %-v]: Running Sync", m.ID, m.Repo)
-	err = runPushSync(ctx, m)
-	if err != nil {
-		log.Error("SyncPushMirror [mirror: %d][repo: %-v]: %v", m.ID, m.Repo, err)
-		m.LastError = stripExitStatus.ReplaceAllLiteralString(err.Error(), "")
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync, resource, scope,
+		func(ctx context.Context) error {
+			return cleanupPushMirrorRefspecs(ctx, m)
+		}); err != nil {
+		return err
+	}
+
+	syncErr := runPushSync(ctx, m)
+	if syncErr != nil {
+		log.Error("SyncPushMirror [mirror: %d][repo: %-v]: %v", m.ID, m.Repo, syncErr)
+		m.LastError = stripExitStatus.ReplaceAllLiteralString(syncErr.Error(), "")
 	}
 
 	m.LastUpdateUnix = timeutil.TimeStampNow()
 
-	if err := repo_model.UpdatePushMirror(ctx, m); err != nil {
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync, resource, scope,
+		func(ctx context.Context) error {
+			return repo_model.UpdatePushMirror(ctx, m)
+		}); err != nil {
 		log.Error("UpdatePushMirror [%d]: %v", m.ID, err)
-
-		return false
+		return fmt.Errorf("UpdatePushMirror: %w", err)
 	}
 
 	log.Trace("SyncPushMirror [mirror: %d][repo: %-v]: Finished", m.ID, m.Repo)
 
-	return err == nil
+	return syncErr
+}
+
+// cleanupPushMirrorRefspecs removes legacy fetch refspecs left by an old
+// --mirror misconfiguration, on the same paths runPushSync pushes.
+// It runs under the sync's hold, ahead of the unowned network push.
+func cleanupPushMirrorRefspecs(ctx context.Context, m *repo_model.PushMirror) error {
+	if err := cleanupPushMirrorRefspec(ctx, m.Repo.RepoPath(), m.RemoteName); err != nil {
+		return err
+	}
+	if m.Repo.HasWiki() {
+		if _, err := git.GetRemoteAddress(ctx, m.Repo.WikiPath(), m.RemoteName); err == nil {
+			return cleanupPushMirrorRefspec(ctx, m.Repo.WikiPath(), m.RemoteName)
+		}
+		log.Trace("Skipping wiki: No remote configured")
+	}
+	return nil
+}
+
+// cleanupPushMirrorRefspec removes legacy `fetch` configurations for one
+// remote path. Exit code 5 is ignored; that occurs when `git config
+// --unset-all` finds nothing to remove.
+func cleanupPushMirrorRefspec(ctx context.Context, path, remoteName string) error {
+	// We used to erronously configure repos with `--mirror`, which would set both push and fetch refspecs into the
+	// git config.  We need to remove any `fetch` configurations that were leftover from that error, as they caused
+	// source repository references to rollback: https://codeberg.org/forgejo/forgejo/issues/14273
+	if _, _, err := git.NewCommand(ctx, "config", "--unset-all").
+		AddDynamicArguments("remote." + remoteName + ".fetch").
+		RunStdString(&git.RunOpts{Dir: path}); err != nil && !git.IsErrorExitCode(err, 5) {
+		return err
+	}
+	return nil
 }
 
 func recheckPushPermitted(ctx context.Context, m *repo_model.PushMirror, remoteURL *giturl.GitURL) error {
@@ -195,15 +301,10 @@ func runPushSync(ctx context.Context, m *repo_model.PushMirror) error {
 		if isWiki {
 			path = repo.WikiPath()
 		}
-		// We used to erronously configure repos with `--mirror`, which would set both push and fetch refspecs into the
-		// git config.  We need to remove any `fetch` configurations that were leftover from that error, as they caused
-		// source repository references to rollback: https://codeberg.org/forgejo/forgejo/issues/14273 Exit code 5 is
-		// ignored; that occurs when `git config --unset-all` finds nothing to remove.
-		if _, _, err := git.NewCommand(ctx, "config", "--unset-all").
-			AddDynamicArguments("remote." + m.RemoteName + ".fetch").
-			RunStdString(&git.RunOpts{Dir: path}); err != nil && !git.IsErrorExitCode(err, 5) {
-			return err
-		}
+		// Legacy fetch-refspec cleanup runs ahead of the network push under
+		// the sync's hold (cleanupPushMirrorRefspecs); this leg runs
+		// without the hold so a locally hosted mirror target can claim
+		// its own receive.
 		remoteURL, err := git.GetRemoteURL(ctx, path, m.RemoteName)
 		if err != nil {
 			log.Error("GetRemoteAddress(%s) Error %v", path, err)

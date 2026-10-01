@@ -4,6 +4,7 @@
 package repo
 
 import (
+	std_ctx "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"forgejo.org/services/forms"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
 	mirror_service "forgejo.org/services/mirror"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // MirrorSync adds a mirrored repository to the sync queue
@@ -121,9 +123,8 @@ func PushMirrorSync(ctx *context.APIContext) {
 		return
 	}
 	for _, mirror := range pushMirrors {
-		ok := mirror_service.SyncPushMirror(ctx, mirror.ID)
-		if !ok {
-			ctx.Error(http.StatusInternalServerError, "PushMirrorSync", "error occurred when syncing push mirror "+mirror.RemoteName)
+		if err := mirror_service.SyncPushMirror(ctx, mirror.ID); err != nil {
+			ctx.Error(http.StatusInternalServerError, "PushMirrorSync", err)
 			return
 		}
 	}
@@ -346,14 +347,23 @@ func DeletePushMirrorByRemoteName(ctx *context.APIContext) {
 		return
 	}
 
-	if err := mirror_service.RemovePushMirrorRemote(ctx, pushMirror); err != nil {
-		ctx.Error(http.StatusInternalServerError, "RemovePushMirrorRemote", err)
-		return
-	}
-
-	err = repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{ID: pushMirror.ID, RepoID: pushMirror.RepoID})
+	// One mirror update owns the reservation across its Git and database
+	// effects; the nested service call reuses this ownership.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync,
+		fmt.Sprintf("%d/push-remote/%d", pushMirror.RepoID, pushMirror.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMirrorSync,
+			RepositoryID: pushMirror.RepoID,
+		},
+		func(ctx std_ctx.Context) error {
+			if err := mirror_service.RemovePushMirrorRemote(ctx, pushMirror); err != nil {
+				return err
+			}
+			return repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{ID: pushMirror.ID, RepoID: pushMirror.RepoID})
+		})
 	if err != nil {
-		ctx.Error(http.StatusNotFound, "DeletePushMirrors", err)
+		ctx.Error(http.StatusInternalServerError, "DeletePushMirror", err)
 		return
 	}
 	ctx.Status(http.StatusNoContent)
@@ -416,25 +426,37 @@ func CreatePushMirror(ctx *context.APIContext, mirrorOption *api.CreatePushMirro
 		pushMirror.PublicKey = string(publicKey)
 	}
 
-	if err = db.Insert(ctx, pushMirror); err != nil {
-		ctx.ServerError("InsertPushMirror", err)
-		return
-	}
+	// One mirror update owns the reservation across its Git and database
+	// effects; the nested service call reuses this ownership.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync,
+		fmt.Sprintf("%d/push-remote/new", repo.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMirrorSync,
+			RepositoryID: repo.ID,
+		},
+		func(ctx std_ctx.Context) error {
+			if err := db.Insert(ctx, pushMirror); err != nil {
+				return fmt.Errorf("InsertPushMirror: %w", err)
+			}
 
-	if mirrorOption.UseSSH {
-		if err = pushMirror.SetPrivatekey(ctx, plainPrivateKey); err != nil {
-			ctx.ServerError("SetPrivatekey", err)
-			return
-		}
-	}
+			if mirrorOption.UseSSH {
+				if err := pushMirror.SetPrivatekey(ctx, plainPrivateKey); err != nil {
+					return fmt.Errorf("SetPrivatekey: %w", err)
+				}
+			}
 
-	// if the registration of the push mirrorOption fails remove it from the database
-	if err = mirror_service.AddPushMirrorRemote(ctx, pushMirror, address); err != nil {
-		if err := repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{ID: pushMirror.ID, RepoID: pushMirror.RepoID}); err != nil {
-			ctx.ServerError("DeletePushMirrors", err)
-			return
-		}
-		ctx.ServerError("AddPushMirrorRemote", err)
+			// if the registration of the push mirrorOption fails remove it from the database
+			if err := mirror_service.AddPushMirrorRemote(ctx, pushMirror, address); err != nil {
+				if err := repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{ID: pushMirror.ID, RepoID: pushMirror.RepoID}); err != nil {
+					return fmt.Errorf("DeletePushMirrors: %w", err)
+				}
+				return fmt.Errorf("AddPushMirrorRemote: %w", err)
+			}
+			return nil
+		})
+	if err != nil {
+		ctx.ServerError("CreatePushMirror", err)
 		return
 	}
 	m, err := convert.ToPushMirror(ctx, pushMirror)

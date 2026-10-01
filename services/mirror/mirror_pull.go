@@ -5,8 +5,10 @@ package mirror
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/lfs"
 	"forgejo.org/modules/log"
+	nativeoperation "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/process"
 	"forgejo.org/modules/proxy"
 	repo_module "forgejo.org/modules/repository"
@@ -25,6 +28,7 @@ import (
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -33,6 +37,21 @@ const gitShortEmptySha = "0000000"
 
 // UpdateAddress writes new address to Git repository and database
 func UpdateAddress(ctx context.Context, m *repo_model.Mirror, addr string) error {
+	// One mirror update owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync,
+		fmt.Sprintf("%d/pull-address", m.RepoID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMirrorSync,
+			RepositoryID: m.RepoID,
+		},
+		func(ctx context.Context) error {
+			return updateAddressOwned(ctx, m, addr)
+		})
+}
+
+func updateAddressOwned(ctx context.Context, m *repo_model.Mirror, addr string) error {
 	remoteName := m.GetRemoteName()
 	repoPath := m.GetRepository(ctx).RepoPath()
 	_, _, err := git.NewCommand(ctx, "remote", "set-url").
@@ -196,6 +215,7 @@ func pruneBrokenReferences(ctx context.Context,
 		Run(&git.RunOpts{
 			Timeout: timeout,
 			Dir:     repoPath,
+			Env:     operation_service.OwnedGitEnv(ctx),
 			Stdout:  stdoutBuilder,
 			Stderr:  stderrBuilder,
 		})
@@ -254,8 +274,7 @@ func DecryptOrRecoverRemoteAddress(ctx context.Context, m *repo_model.Mirror) (*
 	}
 
 	// fallback to reading remote URL from the git config file for repos that predate DecryptRemoteAddress
-	repoPath := m.GetRepository(ctx).RepoPath()
-	remoteURL, err := git.GetRemoteURL(ctx, repoPath, m.GetRemoteName())
+	remoteURL, err := m.RemoteAddressURL(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("GetRemoteAddress error: %w", err)
 	}
@@ -323,6 +342,9 @@ func runSync(ctx context.Context, m *repo_model.Mirror) ([]*mirrorSyncResult, bo
 	cmd.AddArguments("--tags").AddDynamicArguments(m.GetRemoteName())
 
 	envs := proxy.EnvWithProxy(remoteURL.URL)
+	// Carry the mirror owner's execution capability for hook binding.
+	// Without an enclosing owner the environment is unchanged.
+	envs = nativeoperation.AppendExecEnv(envs, nativeoperation.FromContext(ctx))
 
 	stdoutBuilder := strings.Builder{}
 	stderrBuilder := strings.Builder{}
@@ -358,6 +380,7 @@ func runSync(ctx context.Context, m *repo_model.Mirror) ([]*mirrorSyncResult, bo
 					Run(&git.RunOpts{
 						Timeout: timeout,
 						Dir:     repoPath,
+						Env:     operation_service.OwnedGitEnv(ctx),
 						Stdout:  &stdoutBuilder,
 						Stderr:  &stderrBuilder,
 					}); err != nil {
@@ -428,6 +451,7 @@ func runSync(ctx context.Context, m *repo_model.Mirror) ([]*mirrorSyncResult, bo
 			Run(&git.RunOpts{
 				Timeout: timeout,
 				Dir:     wikiPath,
+				Env:     operation_service.OwnedGitEnv(ctx),
 				Stdout:  &stdoutBuilder,
 				Stderr:  &stderrBuilder,
 			}); err != nil {
@@ -455,6 +479,7 @@ func runSync(ctx context.Context, m *repo_model.Mirror) ([]*mirrorSyncResult, bo
 						Run(&git.RunOpts{
 							Timeout: timeout,
 							Dir:     wikiPath,
+							Env:     operation_service.OwnedGitEnv(ctx),
 							Stdout:  &stdoutBuilder,
 							Stderr:  &stderrBuilder,
 						}); err != nil {
@@ -499,55 +524,169 @@ func runSync(ctx context.Context, m *repo_model.Mirror) ([]*mirrorSyncResult, bo
 }
 
 // SyncPullMirror starts the sync of the pull mirror and schedules the next run.
-func SyncPullMirror(ctx context.Context, repoID int64) bool {
+func SyncPullMirror(ctx context.Context, repoID int64) (err error) {
 	log.Trace("SyncMirrors [repo_id: %v]", repoID)
 	defer func() {
-		err := recover()
-		if err == nil {
+		r := recover()
+		if r == nil {
 			return
 		}
 		// There was a panic whilst syncMirrors...
-		log.Error("PANIC whilst SyncMirrors[repo_id: %d] Panic: %v\nStacktrace: %s", repoID, err, log.Stack(2))
+		log.Error("PANIC whilst SyncMirrors[repo_id: %d] Panic: %v\nStacktrace: %s", repoID, r, log.Stack(2))
+		err = fmt.Errorf("panic whilst SyncMirrors[repo_id: %d]: %v", repoID, r)
 	}()
 
 	m, err := repo_model.GetMirrorByRepoID(ctx, repoID)
 	if err != nil {
 		log.Error("SyncMirrors [repo_id: %v]: unable to GetMirrorByRepoID: %v", repoID, err)
-		return false
+		return fmt.Errorf("GetMirrorByRepoID: %w", err)
 	}
 	_ = m.GetRepository(ctx) // force load repository of mirror
 
 	ctx, _, finished := process.GetManager().AddContext(ctx, fmt.Sprintf("Syncing Mirror %s/%s", m.Repo.OwnerName, m.Repo.Name))
 	defer finished()
 
+	// One mirror sync owns the reservation before its Git and database
+	// effects, advancing the revision so stale observations go stale. A
+	// busy sync stays queued instead of being dropped.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync,
+		fmt.Sprintf("%d/pull", repoID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMirrorSync,
+			RepositoryID: repoID,
+		},
+		func(ctx context.Context) error {
+			return syncPullMirrorOwned(ctx, m)
+		})
+}
+
+// wikiScopePrefix namespaces wiki ref entries in a mirror scope so recovery
+// checks them against the wiki repository instead of the main one.
+const wikiScopePrefix = "wiki:"
+
+// recordMirrorPreState records every current ref tip as an identity tuple
+// before the fetch, so recovery can tell a pre-fetch crash (tips unchanged)
+// from a post-fetch one. It refuses without ownership: recording without a
+// claim hides a missing owner.
+func recordMirrorPreState(ctx context.Context, m *repo_model.Mirror) error {
+	exec := nativeoperation.FromContext(ctx)
+	if exec == nil || exec.Owner == "" {
+		return errors.New("mirror pre-state recording requires ownership")
+	}
+	refs, err := listRefTips(ctx, m.Repo.RepoPath(), "")
+	if err != nil {
+		return err
+	}
+	if m.Repo.HasWiki() {
+		if _, err := os.Stat(m.Repo.WikiPath()); err == nil {
+			wikiRefs, err := listRefTips(ctx, m.Repo.WikiPath(), wikiScopePrefix)
+			if err != nil {
+				return err
+			}
+			refs = append(refs, wikiRefs...)
+		}
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	return operation_service.AppendScopeRefs(ctx, exec.Owner, refs)
+}
+
+// recordMirrorPostState records the realized end state of every ref the
+// fetch touched, resolving short output SHAs to full tips. Unchanged main
+// refs keep their pre-state identity tuples; wiki tips are re-listed
+// wholesale because the fetch output only covers the main repository.
+func recordMirrorPostState(ctx context.Context, m *repo_model.Mirror, results []*mirrorSyncResult) error {
+	exec := nativeoperation.FromContext(ctx)
+	if exec == nil || exec.Owner == "" {
+		return errors.New("mirror post-state recording requires ownership")
+	}
+	gitRepo, err := gitrepo.OpenRepository(ctx, m.Repo)
+	if err != nil {
+		return err
+	}
+	defer gitRepo.Close()
+
+	var refs []operation_service.ScopedRef
+	for _, result := range results {
+		tip, err := gitRepo.GetRefCommitID(result.refName.String())
+		if err != nil {
+			tip = ""
+		}
+		refs = append(refs, operation_service.ScopedRef{Ref: result.refName.String(), NewOID: tip})
+	}
+	if m.Repo.HasWiki() {
+		if _, err := os.Stat(m.Repo.WikiPath()); err == nil {
+			wikiTips, err := listRefTips(ctx, m.Repo.WikiPath(), wikiScopePrefix)
+			if err != nil {
+				return err
+			}
+			for _, tip := range wikiTips {
+				refs = append(refs, operation_service.ScopedRef{Ref: tip.Ref, NewOID: tip.NewOID})
+			}
+		}
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	return operation_service.UpdateScopeRefs(ctx, exec.Owner, refs)
+}
+
+// listRefTips returns identity tuples for every ref in one repository.
+func listRefTips(ctx context.Context, repoPath, prefix string) ([]operation_service.ScopedRef, error) {
+	stdout, _, err := git.NewCommand(ctx, "for-each-ref", "--format=%(objectname) %(refname)").
+		RunStdString(&git.RunOpts{Dir: repoPath})
+	if err != nil {
+		return nil, err
+	}
+	var refs []operation_service.ScopedRef
+	for line := range strings.Lines(strings.TrimSpace(stdout)) {
+		sha, ref, ok := strings.Cut(strings.TrimSpace(line), " ")
+		if !ok || sha == "" || ref == "" {
+			continue
+		}
+		refs = append(refs, operation_service.ScopedRef{Ref: prefix + ref, OldOID: sha, NewOID: sha})
+	}
+	return refs, nil
+}
+
+func syncPullMirrorOwned(ctx context.Context, m *repo_model.Mirror) error {
+	if err := recordMirrorPreState(ctx, m); err != nil {
+		return err
+	}
+
 	log.Trace("SyncMirrors [repo: %-v]: Running Sync", m.Repo)
 	results, ok := runSync(ctx, m)
 	if !ok {
-		if err = repo_model.TouchMirror(ctx, m); err != nil {
+		if err := repo_model.TouchMirror(ctx, m); err != nil {
 			log.Error("SyncMirrors [repo: %-v]: failed to TouchMirror: %v", m.Repo, err)
 		}
-		return false
+		return errors.New("runSync failed")
+	}
+	if err := recordMirrorPostState(ctx, m, results); err != nil {
+		return err
 	}
 
 	log.Trace("SyncMirrors [repo: %-v]: Scheduling next update", m.Repo)
 	m.ScheduleNextUpdate()
-	if err = repo_model.UpdateMirror(ctx, m); err != nil {
+	if err := repo_model.UpdateMirror(ctx, m); err != nil {
 		log.Error("SyncMirrors [repo: %-v]: failed to UpdateMirror with next update date: %v", m.Repo, err)
-		return false
+		return fmt.Errorf("UpdateMirror: %w", err)
 	}
 
 	gitRepo, err := gitrepo.OpenRepository(ctx, m.Repo)
 	if err != nil {
 		log.Error("SyncMirrors [repo: %-v]: unable to OpenRepository: %v", m.Repo, err)
-		return false
+		return fmt.Errorf("OpenRepository: %w", err)
 	}
 	defer gitRepo.Close()
 
 	log.Trace("SyncMirrors [repo: %-v]: %d branches updated", m.Repo, len(results))
 	if len(results) > 0 {
 		if ok := checkAndUpdateEmptyRepository(ctx, m, results); !ok {
-			log.Error("SyncMirrors [repo: %-v]: checkAndUpdateEmptyRepository: %v", m.Repo, err)
-			return false
+			log.Error("SyncMirrors [repo: %-v]: checkAndUpdateEmptyRepository failed", m.Repo)
+			return errors.New("checkAndUpdateEmptyRepository failed")
 		}
 	}
 
@@ -622,25 +761,25 @@ func SyncPullMirror(ctx context.Context, repoID int64) bool {
 	isEmpty, err := gitRepo.IsEmpty()
 	if err != nil {
 		log.Error("SyncMirrors [repo: %-v]: unable to check empty git repo: %v", m.Repo, err)
-		return false
+		return fmt.Errorf("IsEmpty: %w", err)
 	}
 	if !isEmpty {
 		// Get latest commit date and update to current repository updated time
 		commitDate, err := gitRepo.GetLatestCommitTime()
 		if err != nil {
 			log.Error("SyncMirrors [repo: %-v]: unable to GetLatestCommitDate: %v", m.Repo, err)
-			return false
+			return fmt.Errorf("GetLatestCommitTime: %w", err)
 		}
 
 		if err = repo_model.UpdateRepositoryUpdatedTime(ctx, m.RepoID, commitDate); err != nil {
 			log.Error("SyncMirrors [repo: %-v]: unable to update repository 'updated_unix': %v", m.Repo, err)
-			return false
+			return fmt.Errorf("UpdateRepositoryUpdatedTime: %w", err)
 		}
 	}
 
 	log.Trace("SyncMirrors [repo: %-v]: Successfully updated", m.Repo)
 
-	return true
+	return nil
 }
 
 func checkAndUpdateEmptyRepository(ctx context.Context, m *repo_model.Mirror, results []*mirrorSyncResult) bool {

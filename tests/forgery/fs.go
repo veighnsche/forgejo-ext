@@ -4,6 +4,7 @@
 package forgery
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -46,7 +47,7 @@ func MapSubmodule(sha string) *fstest.MapFile {
 	}
 }
 
-func initRepo(doer *user_model.User, repo *repo_model.Repository, format git.ObjectFormat, fsys fs.FS, commitMessage string) (string, error) {
+func initRepo(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, format git.ObjectFormat, fsys fs.FS, commitMessage string) (string, error) {
 	t, err := files_service.NewTemporaryUploadRepository(git.DefaultContext, repo)
 	if err != nil {
 		return "", err
@@ -108,5 +109,5 @@ func initRepo(doer *user_model.User, repo *repo_model.Repository, format git.Obj
 		return "", err
 	}
 
-	return commitHash, t.Push(doer, commitHash, repo.DefaultBranch)
+	return commitHash, t.Push(ctx, doer, commitHash, repo.DefaultBranch)
 }

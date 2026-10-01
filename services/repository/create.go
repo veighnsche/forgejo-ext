@@ -24,6 +24,7 @@ import (
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/templates/vars"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // CreateRepoOptions contains the create repository options
@@ -244,7 +245,36 @@ func CreateRepositoryDirectly(ctx context.Context, doer, u *user_model.User, opt
 
 	var rollbackRepo *repo_model.Repository
 
-	if err := db.WithTx(ctx, func(ctx context.Context) error {
+	// One lifecycle update owns the reservation before its transaction
+	// and filesystem effects, advancing the revision so stale
+	// observations go stale. The row does not exist yet, so the owner
+	// identity carries the owner/name pair. Nested calls reuse the
+	// enclosing ownership instead of claiming again.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(0, operation_service.LifecycleCreate, u.Name, opts.Name),
+		operation_service.Scope{
+			Family: operation_service.FamilyRepoLifecycle,
+		},
+		func(ctx context.Context) error {
+			return createRepositoryOwned(ctx, doer, u, opts, repo, &rollbackRepo)
+		}); err != nil {
+		if rollbackRepo != nil {
+			if errDelete := DeleteRepositoryDirectly(ctx, rollbackRepo.ID, DeleteRepositoryOpts{}); errDelete != nil {
+				log.Error("Rollback deleteRepository: %v", errDelete)
+			}
+		}
+
+		return nil, err
+	}
+
+	return repo, nil
+}
+
+// createRepositoryOwned runs the create transaction and filesystem
+// effects under the caller's ownership.
+func createRepositoryOwned(ctx context.Context, doer, u *user_model.User, opts CreateRepoOptions, repo *repo_model.Repository, rollbackRepo **repo_model.Repository) error {
+	err := db.WithTx(ctx, func(ctx context.Context) error {
 		if err := repo_module.CreateRepositoryByExample(ctx, doer, u, repo, false, false); err != nil {
 			return err
 		}
@@ -287,8 +317,8 @@ func CreateRepositoryDirectly(ctx context.Context, doer, u *user_model.User, opt
 		// Initialize Issue Labels if selected
 		if len(opts.IssueLabels) > 0 {
 			if err = repo_module.InitializeLabels(ctx, repo.ID, opts.IssueLabels, false); err != nil {
-				rollbackRepo = repo
-				rollbackRepo.OwnerID = u.ID
+				*rollbackRepo = repo
+				(*rollbackRepo).OwnerID = u.ID
 				return fmt.Errorf("InitializeLabels: %w", err)
 			}
 		}
@@ -301,20 +331,11 @@ func CreateRepositoryDirectly(ctx context.Context, doer, u *user_model.User, opt
 			SetDescription(fmt.Sprintf("CreateRepository(git update-server-info): %s", repoPath)).
 			RunStdString(&git.RunOpts{Dir: repoPath}); err != nil {
 			log.Error("CreateRepository(git update-server-info) in %v: Stdout: %s\nError: %v", repo, stdout, err)
-			rollbackRepo = repo
-			rollbackRepo.OwnerID = u.ID
+			*rollbackRepo = repo
+			(*rollbackRepo).OwnerID = u.ID
 			return fmt.Errorf("CreateRepository(git update-server-info): %w", err)
 		}
 		return nil
-	}); err != nil {
-		if rollbackRepo != nil {
-			if errDelete := DeleteRepositoryDirectly(ctx, rollbackRepo.ID, DeleteRepositoryOpts{}); errDelete != nil {
-				log.Error("Rollback deleteRepository: %v", errDelete)
-			}
-		}
-
-		return nil, err
-	}
-
-	return repo, nil
+	})
+	return err
 }

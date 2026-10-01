@@ -4,6 +4,7 @@
 package setting
 
 import (
+	gocontext "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"forgejo.org/routers/web/repo"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 	"forgejo.org/services/repository"
 
@@ -239,15 +241,35 @@ func SettingsProtectedBranchPost(ctx *context.Context) {
 	protectBranch.BlockOnOutdatedBranch = f.BlockOnOutdatedBranch
 	protectBranch.ApplyToAdmins = f.ApplyToAdmins
 
-	err = git_model.UpdateProtectBranch(ctx, ctx.Repo.Repository, protectBranch, git_model.WhitelistOptions{
-		UserIDs:          whitelistUsers,
-		TeamIDs:          whitelistTeams,
-		MergeUserIDs:     mergeWhitelistUsers,
-		MergeTeamIDs:     mergeWhitelistTeams,
-		ApprovalsUserIDs: approvalsWhitelistUsers,
-		ApprovalsTeamIDs: approvalsWhitelistTeams,
-	})
+	// One protection update owns the reservation before its database
+	// effects. A RuleID names an edit; without one the rule was verified
+	// absent, so this is a create.
+	repo := ctx.Repo.Repository
+	protectOp := operation_service.ProtectionCreate
+	if f.RuleID > 0 {
+		protectOp = operation_service.ProtectionEdit
+	}
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, protectOp, protectBranch.RuleName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.UpdateProtectBranch(ctx, repo, protectBranch, git_model.WhitelistOptions{
+				UserIDs:          whitelistUsers,
+				TeamIDs:          whitelistTeams,
+				MergeUserIDs:     mergeWhitelistUsers,
+				MergeTeamIDs:     mergeWhitelistTeams,
+				ApprovalsUserIDs: approvalsWhitelistUsers,
+				ApprovalsTeamIDs: approvalsWhitelistTeams,
+			})
+		})
 	if err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		ctx.ServerError("UpdateProtectBranch", err)
 		return
 	}
@@ -291,7 +313,22 @@ func DeleteProtectedBranchRulePost(ctx *context.Context) {
 		return
 	}
 
-	if err := git_model.DeleteProtectedBranch(ctx, ctx.Repo.Repository, ruleID); err != nil {
+	// One protection update owns the reservation before its database
+	// effects.
+	repo := ctx.Repo.Repository
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, operation_service.ProtectionDelete, rule.RuleName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.DeleteProtectedBranch(ctx, repo, ruleID)
+		}); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		ctx.Flash.Error(ctx.Tr("repo.settings.remove_protected_branch_failed", rule.RuleName))
 		ctx.JSONRedirect(fmt.Sprintf("%s/settings/branches", ctx.Repo.RepoLink))
 		return

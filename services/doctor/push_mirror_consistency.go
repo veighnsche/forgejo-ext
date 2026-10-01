@@ -5,11 +5,13 @@ package doctor
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/log"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -64,11 +66,23 @@ func FixPushMirrorsWithoutGitRemote(ctx context.Context, logger log.Logger, auto
 				missingMirrors[i].GetRepository(ctx).Name)
 		}
 
-		err = repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{
-			ID:         missingMirrors[i].ID,
-			RepoID:     missingMirrors[i].RepoID,
-			RemoteName: missingMirrors[i].RemoteName,
-		})
+		// Each orphaned push-mirror row deletes under its own
+		// mirror-sync ownership; the scan above stays a read.
+		mirror := missingMirrors[i]
+		err = operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyMirrorSync,
+			fmt.Sprintf("%d/push-remote/%d", mirror.RepoID, mirror.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyMirrorSync,
+				RepositoryID: mirror.RepoID,
+			},
+			func(ctx context.Context) error {
+				return repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{
+					ID:         mirror.ID,
+					RepoID:     mirror.RepoID,
+					RemoteName: mirror.RemoteName,
+				})
+			})
 		if err != nil {
 			if logger != nil {
 				logger.Critical("Error removing a push mirror (repo_id: %d, push_mirror: %d): %s", missingMirrors[i].Repo.ID, missingMirrors[i].ID, err)

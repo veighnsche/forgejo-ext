@@ -43,6 +43,11 @@ type HookOptions struct {
 	// post-receive completion binding. It is empty for ordinary pushes and
 	// must never be logged.
 	ExecProof string
+	// ExecPath carries the host-private capability file path backing
+	// ExecProof so bound callbacks can propagate the same execution to
+	// their own native children. The server attaches it only when the
+	// file holds the proven secret.
+	ExecPath string
 }
 
 func (o *HookOptions) GetGitPushOptions() pushoptions.Interface {
@@ -114,14 +119,19 @@ func HookProcReceive(ctx context.Context, ownerName, repoName string, opts HookO
 	return requestJSONResp(req, &HookProcReceiveResult{})
 }
 
-// SetDefaultBranch will set the default branch to the provided branch for the provided repository
-func SetDefaultBranch(ctx context.Context, ownerName, repoName, branch string) ResponseExtra {
+// SetDefaultBranch will set the default branch to the provided branch for the provided repository.
+// The execution proof binds the call to the held receive owner; it is
+// empty for ordinary pushes and must never be logged.
+func SetDefaultBranch(ctx context.Context, ownerName, repoName, branch, execProof string) ResponseExtra {
 	reqURL := setting.LocalURL + fmt.Sprintf("api/internal/hook/set-default-branch/%s/%s/%s",
 		url.PathEscape(ownerName),
 		url.PathEscape(repoName),
 		url.PathEscape(branch),
 	)
 	req := newInternalRequest(ctx, reqURL, "POST")
+	if execProof != "" {
+		req.Param("exec_proof", execProof)
+	}
 	_, extra := requestJSONResp(req, &ResponseText{})
 	return extra
 }

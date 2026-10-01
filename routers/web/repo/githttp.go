@@ -27,11 +27,13 @@ import (
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
+	execcontext "forgejo.org/modules/nativeoperation"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 	redirect_service "forgejo.org/services/redirect"
 	repo_service "forgejo.org/services/repository"
 
@@ -476,8 +478,37 @@ func ServiceUploadPack(ctx *context.Context) {
 // ServiceReceivePack implements Git Smart HTTP protocol
 func ServiceReceivePack(ctx *context.Context) {
 	h := httpBase(ctx)
-	if h != nil {
-		serviceRPC(ctx, h, "receive-pack")
+	if h == nil {
+		return
+	}
+	// One receive owns the reservation across the native receiver,
+	// advancing the revision so stale observations go stale. The claim
+	// waits out short writer spans; a still-busy domain refuses the
+	// push with a retryable status. The receiver carries the execution
+	// capability for hook binding.
+	target := "main"
+	if h.isWiki {
+		target = "wiki"
+	}
+	webCtx := ctx
+	if err := operation_service.Default().WithOrdinaryOwnershipWait(ctx,
+		operation_service.FamilyReceiveHTTP,
+		fmt.Sprintf("%d/%s", h.repo.ID, target),
+		operation_service.Scope{
+			Family:       operation_service.FamilyReceiveHTTP,
+			RepositoryID: h.repo.ID,
+			PusherID:     ctx.Doer.ID,
+		},
+		operation_service.ReceiveClaimTimeout,
+		func(ctx gocontext.Context) error {
+			h.environ = execcontext.AppendExecEnv(h.environ, execcontext.FromContext(ctx))
+			serviceRPC(webCtx, h, "receive-pack")
+			return nil
+		}); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
+		ctx.ServerError("ServiceReceivePack", err)
 	}
 }
 

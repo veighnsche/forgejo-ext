@@ -9,6 +9,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 func synchronizeRepoHeads(ctx context.Context, logger log.Logger, autofix bool) error {
@@ -45,8 +46,19 @@ func synchronizeRepoHeads(ctx context.Context, logger log.Logger, autofix bool) 
 			return nil
 		}
 
-		// otherwise, let's try fixing HEAD
-		err := git.NewCommand(ctx, "symbolic-ref").AddDashesAndList("HEAD", git.BranchPrefix+repo.DefaultBranch).Run(&git.RunOpts{Dir: repo.RepoPath()})
+		// otherwise, let's try fixing HEAD under one default-branch
+		// ref-write ownership so no writer interleaves the repair.
+		err := operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyRefWrite,
+			operation_service.RefWriteResource(repo.ID, operation_service.RefWriteDefaultBranch, git.BranchPrefix+repo.DefaultBranch),
+			operation_service.Scope{
+				Family:       operation_service.FamilyRefWrite,
+				RepositoryID: repo.ID,
+				Ref:          git.BranchPrefix + repo.DefaultBranch,
+			},
+			func(ctx context.Context) error {
+				return git.NewCommand(ctx, "symbolic-ref").AddDashesAndList("HEAD", git.BranchPrefix+repo.DefaultBranch).Run(&git.RunOpts{Dir: repo.RepoPath()})
+			})
 		if err != nil {
 			logger.Warn("Failed to fix HEAD for %s/%s: %v", repo.OwnerName, repo.Name, err)
 			return nil

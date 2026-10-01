@@ -5,6 +5,7 @@
 package repo
 
 import (
+	go_context "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -36,6 +37,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	"forgejo.org/services/issue"
+	operation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 	wiki_service "forgejo.org/services/wiki"
 )
@@ -814,27 +816,42 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 		defer ctx.Repo().GitRepo.Close()
 	}
 
-	// Default branch only updated if changed and exist or the repository is empty
-	if opts.DefaultBranch != nil && repo.DefaultBranch != *opts.DefaultBranch && (repo.IsEmpty || ctx.Repo().GitRepo.IsBranchExist(*opts.DefaultBranch)) {
-		if !repo.IsEmpty {
-			if err := gitrepo.SetDefaultBranch(ctx, ctx.Repo().Repository, *opts.DefaultBranch); err != nil {
-				ctx.Error(http.StatusInternalServerError, "SetDefaultBranch", err)
-				return err
+	// One settings update owns the reservation across the default and
+	// wiki branch effects; the nested service calls reuse this
+	// ownership. Storage failures keep their API errors.
+	ctxGitRepo := ctx.Repo().GitRepo
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoSettings,
+		fmt.Sprintf("%d/branches", repo.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoSettings,
+			RepositoryID: repo.ID,
+		},
+		func(ctx go_context.Context) error {
+			// Default branch only updated if changed and exist or the repository is empty
+			if opts.DefaultBranch != nil && repo.DefaultBranch != *opts.DefaultBranch && (repo.IsEmpty || ctxGitRepo.IsBranchExist(*opts.DefaultBranch)) {
+				if !repo.IsEmpty {
+					if err := gitrepo.SetDefaultBranch(ctx, repo, *opts.DefaultBranch); err != nil {
+						return fmt.Errorf("SetDefaultBranch: %w", err)
+					}
+				}
+				repo.DefaultBranch = *opts.DefaultBranch
 			}
-		}
-		repo.DefaultBranch = *opts.DefaultBranch
-	}
 
-	// Wiki branch is updated if changed
-	if opts.WikiBranch != nil && repo.WikiBranch != *opts.WikiBranch {
-		if err := wiki_service.NormalizeWikiBranch(ctx, repo, *opts.WikiBranch); err != nil {
-			ctx.Error(http.StatusInternalServerError, "NormalizeWikiBranch", err)
-			return err
-		}
-		// While NormalizeWikiBranch updates the db, we need to update *this*
-		// instance of `repo`, so that the `UpdateRepository` below will not
-		// reset the branch back.
-		repo.WikiBranch = *opts.WikiBranch
+			// Wiki branch is updated if changed
+			if opts.WikiBranch != nil && repo.WikiBranch != *opts.WikiBranch {
+				if err := wiki_service.NormalizeWikiBranch(ctx, repo, *opts.WikiBranch); err != nil {
+					return fmt.Errorf("NormalizeWikiBranch: %w", err)
+				}
+				// While NormalizeWikiBranch updates the db, we need to update *this*
+				// instance of `repo`, so that the `UpdateRepository` below will not
+				// reset the branch back.
+				repo.WikiBranch = *opts.WikiBranch
+			}
+			return nil
+		}); err != nil {
+		ctx.Error(http.StatusInternalServerError, "UpdateBranches", err)
+		return err
 	}
 
 	if err := repo_service.UpdateRepository(ctx, repo, visibilityChanged); err != nil {
@@ -1125,7 +1142,7 @@ func updateRepoArchivedState(ctx *context.APIContext, opts api.EditRepoOption) e
 			return err
 		}
 		if *opts.Archived {
-			if err := repo_model.SetArchiveRepoState(ctx, repo, *opts.Archived); err != nil {
+			if err := setArchiveRepoStateOwned(ctx, repo, *opts.Archived); err != nil {
 				log.Error("Tried to archive a repo: %s", err)
 				ctx.Error(http.StatusInternalServerError, "ArchiveRepoState", err)
 				return err
@@ -1135,7 +1152,7 @@ func updateRepoArchivedState(ctx *context.APIContext, opts api.EditRepoOption) e
 			}
 			log.Trace("Repository was archived: %s/%s", ctx.Repo().Owner.Name, repo.Name)
 		} else {
-			if err := repo_model.SetArchiveRepoState(ctx, repo, *opts.Archived); err != nil {
+			if err := setArchiveRepoStateOwned(ctx, repo, *opts.Archived); err != nil {
 				log.Error("Tried to un-archive a repo: %s", err)
 				ctx.Error(http.StatusInternalServerError, "ArchiveRepoState", err)
 				return err
@@ -1149,6 +1166,21 @@ func updateRepoArchivedState(ctx *context.APIContext, opts api.EditRepoOption) e
 		}
 	}
 	return nil
+}
+
+// setArchiveRepoStateOwned flips the archive state under one settings
+// ownership; archive flips gate every native writer.
+func setArchiveRepoStateOwned(ctx go_context.Context, repo *repo_model.Repository, isArchived bool) error {
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoSettings,
+		fmt.Sprintf("%d/archive", repo.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoSettings,
+			RepositoryID: repo.ID,
+		},
+		func(ctx go_context.Context) error {
+			return repo_model.SetArchiveRepoState(ctx, repo, isArchived)
+		})
 }
 
 // updateMirror updates a repo's mirror Interval and EnablePrune
@@ -1198,8 +1230,18 @@ func updateMirror(ctx *context.APIContext, opts api.EditRepoOption) error {
 		log.Trace("Repository %s Mirror[%d] Set EnablePrune: %t", repo.FullName(), mirror.ID, mirror.EnablePrune)
 	}
 
-	// finally update the mirror in the DB
-	if err := repo_model.UpdateMirror(ctx, mirror); err != nil {
+	// Finally update the mirror in the DB under one mirror-sync
+	// ownership, matching the web mirror-address update.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMirrorSync,
+		fmt.Sprintf("%d/pull-settings", repo.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMirrorSync,
+			RepositoryID: repo.ID,
+		},
+		func(ctx go_context.Context) error {
+			return repo_model.UpdateMirror(ctx, mirror)
+		}); err != nil {
 		log.Error("Failed to Set Mirror Interval: %s", err)
 		ctx.Error(http.StatusUnprocessableEntity, "MirrorInterval", err)
 		return err

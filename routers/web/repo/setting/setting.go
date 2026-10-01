@@ -40,6 +40,7 @@ import (
 	"forgejo.org/services/forms"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
 	mirror_service "forgejo.org/services/mirror"
+	operation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 	wiki_service "forgejo.org/services/wiki"
 )
@@ -454,51 +455,70 @@ func SettingsPost(ctx *context.Context) {
 			return
 		}
 
-		pullMirror.EnablePrune = form.EnablePrune
-		pullMirror.Interval = interval
-		pullMirror.ScheduleNextUpdate()
-		if err := repo_model.UpdateMirror(ctx, pullMirror); err != nil {
-			ctx.ServerError("UpdateMirror", err)
-			return
-		}
+		// One mirror update owns the reservation across the row and git
+		// config effects so the stored address and the fetch address cannot
+		// disagree; the nested service calls reuse this ownership. Address
+		// validation failures keep their form render; storage failures are
+		// server errors.
+		var addrCause error
+		mirrorAddrInvalid := errors.New("mirror address invalid")
+		doer := ctx.Doer
+		err = operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyMirrorSync,
+			fmt.Sprintf("%d/pull-address", repo.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyMirrorSync,
+				RepositoryID: repo.ID,
+			},
+			func(ctx go_context.Context) error {
+				pullMirror.EnablePrune = form.EnablePrune
+				pullMirror.Interval = interval
+				pullMirror.ScheduleNextUpdate()
+				if err := repo_model.UpdateMirror(ctx, pullMirror); err != nil {
+					return fmt.Errorf("UpdateMirror: %w", err)
+				}
 
-		u, err := mirror_service.DecryptOrRecoverRemoteAddress(ctx, pullMirror)
+				u, err := mirror_service.DecryptOrRecoverRemoteAddress(ctx, pullMirror)
+				if err != nil {
+					return fmt.Errorf("DecryptOrRecoverRemoteAddress: %w", err)
+				}
+
+				if u.User != nil && form.MirrorPassword == "" && form.MirrorUsername == u.User.Username() {
+					form.MirrorPassword, _ = u.User.Password()
+				}
+
+				address, err := forms.ParseRemoteAddr(form.MirrorAddress, form.MirrorUsername, form.MirrorPassword)
+				if err == nil {
+					err = migrations_allowlist.IsMigrateURLAllowed(address, doer)
+				}
+				if err != nil {
+					addrCause = err
+					return mirrorAddrInvalid
+				}
+
+				if err := pullMirror.UpdateRemoteAddress(ctx, address); err != nil {
+					return fmt.Errorf("UpdateRemoteAddress: %w", err)
+				}
+
+				// Update the unencrypted address stored in the git config, so that future `git fetch` will access the right
+				// address. pullMirror.RemoteAddress is the sanitized no-creds version from UpdateRemoteAddress.
+				if maybeSanitizedURL, err := pullMirror.SanitizedRemoteAddress(); err != nil {
+					return fmt.Errorf("SanitizedRemoteAddress: %w", err)
+				} else if has, sanitizedURL := maybeSanitizedURL.Get(); !has {
+					// SanitizedRemoteAddress must be present after we just stored it
+					return fmt.Errorf("SanitizedRemoteAddress: %w", err)
+				} else if err := mirror_service.UpdateAddress(ctx, pullMirror, sanitizedURL); err != nil {
+					return fmt.Errorf("UpdateAddress: %w", err)
+				}
+				return nil
+			})
 		if err != nil {
-			ctx.ServerError("DecryptOrRecoverRemoteAddress", err)
-			return
-		}
-
-		if u.User != nil && form.MirrorPassword == "" && form.MirrorUsername == u.User.Username() {
-			form.MirrorPassword, _ = u.User.Password()
-		}
-
-		address, err := forms.ParseRemoteAddr(form.MirrorAddress, form.MirrorUsername, form.MirrorPassword)
-		if err == nil {
-			err = migrations_allowlist.IsMigrateURLAllowed(address, ctx.Doer)
-		}
-		if err != nil {
-			ctx.Data["Err_MirrorAddress"] = true
-			handleSettingRemoteAddrError(ctx, err, form)
-			return
-		}
-
-		if err := pullMirror.UpdateRemoteAddress(ctx, address); err != nil {
-			ctx.Data["Err_MirrorAddress"] = true
-			handleSettingRemoteAddrError(ctx, err, form)
-			return
-		}
-
-		// Update the unencrypted address stored in the git config, so that future `git fetch` will access the right
-		// address. pullMirror.RemoteAddress is the sanitized no-creds version from UpdateRemoteAddress.
-		if maybeSanitizedURL, err := pullMirror.SanitizedRemoteAddress(); err != nil {
-			ctx.ServerError("SanitizedRemoteAddress", err)
-			return
-		} else if has, sanitizedURL := maybeSanitizedURL.Get(); !has {
-			// SanitizedRemoteAddress must be present after we just stored it
-			ctx.ServerError("SanitizedRemoteAddress", err)
-			return
-		} else if err := mirror_service.UpdateAddress(ctx, pullMirror, sanitizedURL); err != nil {
-			ctx.ServerError("UpdateAddress", err)
+			if errors.Is(err, mirrorAddrInvalid) {
+				ctx.Data["Err_MirrorAddress"] = true
+				handleSettingRemoteAddrError(ctx, addrCause, form)
+				return
+			}
+			ctx.ServerError("MirrorSettings", err)
 			return
 		}
 
@@ -521,7 +541,16 @@ func SettingsPost(ctx *context.Context) {
 
 		pullMirror.LFS = form.LFS
 		pullMirror.LFSEndpoint = form.LFSEndpoint
-		if err := repo_model.UpdateMirror(ctx, pullMirror); err != nil {
+		if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyMirrorSync,
+			fmt.Sprintf("%d/pull-lfs", repo.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyMirrorSync,
+				RepositoryID: repo.ID,
+			},
+			func(ctx go_context.Context) error {
+				return repo_model.UpdateMirror(ctx, pullMirror)
+			}); err != nil {
 			ctx.ServerError("UpdateMirror", err)
 			return
 		}
@@ -599,26 +628,40 @@ func SettingsPost(ctx *context.Context) {
 			return
 		}
 
-		m.Interval = interval
-		if err := repo_model.UpdatePushMirrorInterval(ctx, m); err != nil {
-			ctx.ServerError("UpdatePushMirrorInterval", err)
-			return
-		}
-
-		if m.BranchFilter != form.PushMirrorBranchFilter {
-			// replace `remote.<remote>.push` in config and db
-			m.BranchFilter = form.PushMirrorBranchFilter
-			if err := db.WithTx(ctx, func(ctx go_context.Context) error {
-				// Update the DB
-				if err = repo_model.UpdatePushMirrorBranchFilter(ctx, m); err != nil {
-					return err
+		// One mirror update owns the reservation across the row and git
+		// config effects so the stored filter and the push refspecs cannot
+		// disagree; the nested service call reuses this ownership.
+		if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyMirrorSync,
+			fmt.Sprintf("%d/push-filter/%d", m.RepoID, m.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyMirrorSync,
+				RepositoryID: m.RepoID,
+			},
+			func(ctx go_context.Context) error {
+				m.Interval = interval
+				if err := repo_model.UpdatePushMirrorInterval(ctx, m); err != nil {
+					return fmt.Errorf("UpdatePushMirrorInterval: %w", err)
 				}
-				// Update the repo config
-				return mirror_service.UpdatePushMirrorBranchFilter(ctx, m)
+
+				if m.BranchFilter != form.PushMirrorBranchFilter {
+					// replace `remote.<remote>.push` in config and db
+					m.BranchFilter = form.PushMirrorBranchFilter
+					if err := db.WithTx(ctx, func(ctx go_context.Context) error {
+						// Update the DB
+						if err := repo_model.UpdatePushMirrorBranchFilter(ctx, m); err != nil {
+							return err
+						}
+						// Update the repo config
+						return mirror_service.UpdatePushMirrorBranchFilter(ctx, m)
+					}); err != nil {
+						return fmt.Errorf("UpdatePushMirrorBranchFilter: %w", err)
+					}
+				}
+				return nil
 			}); err != nil {
-				ctx.ServerError("UpdatePushMirrorBranchFilter", err)
-				return
-			}
+			ctx.ServerError("PushMirrorSettings", err)
+			return
 		}
 
 		// Background why we are adding it to Queue
@@ -645,13 +688,22 @@ func SettingsPost(ctx *context.Context) {
 			return
 		}
 
-		if err = mirror_service.RemovePushMirrorRemote(ctx, m); err != nil {
-			ctx.ServerError("RemovePushMirrorRemote", err)
-			return
-		}
-
-		if err = repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{ID: m.ID, RepoID: m.RepoID}); err != nil {
-			ctx.ServerError("DeletePushMirrorByID", err)
+		// One mirror update owns the reservation across its Git and database
+		// effects; the nested service call reuses this ownership.
+		if err = operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyMirrorSync,
+			fmt.Sprintf("%d/push-remote/%d", m.RepoID, m.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyMirrorSync,
+				RepositoryID: m.RepoID,
+			},
+			func(ctx go_context.Context) error {
+				if err := mirror_service.RemovePushMirrorRemote(ctx, m); err != nil {
+					return fmt.Errorf("RemovePushMirrorRemote: %w", err)
+				}
+				return repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{ID: m.ID, RepoID: m.RepoID})
+			}); err != nil {
+			ctx.ServerError("DeletePushMirror", err)
 			return
 		}
 
@@ -726,23 +778,35 @@ func SettingsPost(ctx *context.Context) {
 			m.PublicKey = string(publicKey)
 		}
 
-		if err := db.Insert(ctx, m); err != nil {
-			ctx.ServerError("InsertPushMirror", err)
-			return
-		}
+		// One mirror update owns the reservation across its Git and database
+		// effects; the nested service call reuses this ownership.
+		if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyMirrorSync,
+			fmt.Sprintf("%d/push-remote/new", repo.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyMirrorSync,
+				RepositoryID: repo.ID,
+			},
+			func(ctx go_context.Context) error {
+				if err := db.Insert(ctx, m); err != nil {
+					return fmt.Errorf("InsertPushMirror: %w", err)
+				}
 
-		if form.PushMirrorUseSSH {
-			if err := m.SetPrivatekey(ctx, plainPrivateKey); err != nil {
-				ctx.ServerError("SetPrivatekey", err)
-				return
-			}
-		}
+				if form.PushMirrorUseSSH {
+					if err := m.SetPrivatekey(ctx, plainPrivateKey); err != nil {
+						return fmt.Errorf("SetPrivatekey: %w", err)
+					}
+				}
 
-		if err := mirror_service.AddPushMirrorRemote(ctx, m, address); err != nil {
-			if err := repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{ID: m.ID, RepoID: m.RepoID}); err != nil {
-				log.Error("DeletePushMirrors %v", err)
-			}
-			ctx.ServerError("AddPushMirrorRemote", err)
+				if err := mirror_service.AddPushMirrorRemote(ctx, m, address); err != nil {
+					if err := repo_model.DeletePushMirrors(ctx, repo_model.PushMirrorOptions{ID: m.ID, RepoID: m.RepoID}); err != nil {
+						log.Error("DeletePushMirrors %v", err)
+					}
+					return fmt.Errorf("AddPushMirrorRemote: %w", err)
+				}
+				return nil
+			}); err != nil {
+			ctx.ServerError("AddPushMirror", err)
 			return
 		}
 
@@ -1015,6 +1079,9 @@ func SettingsPost(ctx *context.Context) {
 
 		err := wiki_service.DeleteWiki(ctx, repo)
 		if err != nil {
+			if ctx.HandlePolicyError(err) {
+				return
+			}
 			log.Error("Delete Wiki: %v", err.Error())
 		}
 		log.Trace("Repository wiki deleted: %s/%s", ctx.Repo.Owner.Name, repo.Name)
@@ -1033,6 +1100,9 @@ func SettingsPost(ctx *context.Context) {
 		}
 
 		if err := wiki_service.NormalizeWikiBranch(ctx, repo, setting.Repository.DefaultBranch); err != nil {
+			if ctx.HandlePolicyError(err) {
+				return
+			}
 			log.Error("Normalize Wiki branch: %v", err.Error())
 			ctx.Flash.Error(ctx.Tr("repo.settings.wiki_branch_rename_failure"))
 			ctx.Redirect(ctx.Repo.RepoLink + "/settings")
@@ -1055,7 +1125,10 @@ func SettingsPost(ctx *context.Context) {
 			return
 		}
 
-		if err := repo_model.SetArchiveRepoState(ctx, repo, true); err != nil {
+		if err := setArchiveRepoStateOwned(ctx, repo, true); err != nil {
+			if ctx.HandlePolicyError(err) {
+				return
+			}
 			log.Error("Tried to archive a repo: %s", err)
 			ctx.Flash.Error(ctx.Tr("repo.settings.archive.error"))
 			ctx.Redirect(ctx.Repo.RepoLink + "/settings")
@@ -1077,7 +1150,10 @@ func SettingsPost(ctx *context.Context) {
 			return
 		}
 
-		if err := repo_model.SetArchiveRepoState(ctx, repo, false); err != nil {
+		if err := setArchiveRepoStateOwned(ctx, repo, false); err != nil {
+			if ctx.HandlePolicyError(err) {
+				return
+			}
 			log.Error("Tried to unarchive a repo: %s", err)
 			ctx.Flash.Error(ctx.Tr("repo.settings.unarchive.error"))
 			ctx.Redirect(ctx.Repo.RepoLink + "/settings")
@@ -1098,6 +1174,21 @@ func SettingsPost(ctx *context.Context) {
 	default:
 		ctx.NotFound("", nil)
 	}
+}
+
+// setArchiveRepoStateOwned flips the archive state under one settings
+// ownership; archive flips gate every native writer.
+func setArchiveRepoStateOwned(ctx go_context.Context, repo *repo_model.Repository, isArchived bool) error {
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoSettings,
+		fmt.Sprintf("%d/archive", repo.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoSettings,
+			RepositoryID: repo.ID,
+		},
+		func(ctx go_context.Context) error {
+			return repo_model.SetArchiveRepoState(ctx, repo, isArchived)
+		})
 }
 
 func handleSettingRemoteAddrError(ctx *context.Context, err error, form *forms.RepoSettingForm) {

@@ -44,10 +44,24 @@ type ServCommandResults struct {
 	OwnerName   string
 	RepoName    string
 	RepoID      int64
+	// Owner and Generation name the held SSH receive owner when the
+	// server claimed the reservation for a receive-pack execution.
+	// They are empty without a claim, and the serv process releases
+	// them through ReleaseSSHReceive after the receiver exits.
+	Owner      string
+	Generation int64
 }
 
 // ServCommand preps for a serv call
 func ServCommand(ctx context.Context, keyID int64, ownerName, repoName string, mode perm.AccessMode, verbs ...string) (*ServCommandResults, ResponseExtra) {
+	return ServCommandWithReceive(ctx, keyID, ownerName, repoName, mode, "", verbs...)
+}
+
+// ServCommandWithReceive preps for a serv call, claiming the reservation
+// for a receive-pack execution when verifier names the serv process's
+// execution capability. The secret never crosses the channel: only its
+// verifier travels, and the server holds no reusable bearer.
+func ServCommandWithReceive(ctx context.Context, keyID int64, ownerName, repoName string, mode perm.AccessMode, verifier string, verbs ...string) (*ServCommandResults, ResponseExtra) {
 	var reqURL strings.Builder
 	reqURL.WriteString(setting.LocalURL + fmt.Sprintf("api/internal/serv/command/%d/%s/%s?mode=%d",
 		keyID,
@@ -60,6 +74,24 @@ func ServCommand(ctx context.Context, keyID int64, ownerName, repoName string, m
 			fmt.Fprintf(&reqURL, "&verb=%s", url.QueryEscape(verb))
 		}
 	}
+	if verifier != "" {
+		fmt.Fprintf(&reqURL, "&exec_verifier=%s", url.QueryEscape(verifier))
+	}
 	req := newInternalRequest(ctx, reqURL.String(), "GET")
 	return requestJSONResp(req, &ServCommandResults{})
+}
+
+// SSHReleaseOption releases one held SSH receive owner after its
+// receiver exits. Only the exact owner and generation release.
+type SSHReleaseOption struct {
+	Owner      string
+	Generation int64
+}
+
+// ReleaseSSHReceive releases one held SSH receive owner.
+func ReleaseSSHReceive(ctx context.Context, owner string, generation int64) error {
+	reqURL := setting.LocalURL + "api/internal/serv/release"
+	req := newInternalRequest(ctx, reqURL, "POST", &SSHReleaseOption{Owner: owner, Generation: generation})
+	_, extra := requestJSONResp(req, &ResponseText{})
+	return extra.Error
 }

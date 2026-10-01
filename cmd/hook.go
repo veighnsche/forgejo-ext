@@ -441,6 +441,7 @@ Forgejo or set your environment appropriately.`, "")
 		PullRequestID:                   prID,
 		PushTrigger:                     repo_module.PushTrigger(os.Getenv(repo_module.EnvPushTrigger)),
 		ExecProof:                       readHookExecProof(),
+		ExecPath:                        os.Getenv(nativeoperation.EnvExecFile),
 	}
 	oldCommitIDs := make([]string, hookBatchSize)
 	newCommitIDs := make([]string, hookBatchSize)
@@ -493,7 +494,7 @@ Forgejo or set your environment appropriately.`, "")
 	if count == 0 {
 		if wasEmpty && masterPushed {
 			// We need to tell the repo to reset the default branch to master
-			extra := private.SetDefaultBranch(ctx, repoUser, repoName, "master")
+			extra := private.SetDefaultBranch(ctx, repoUser, repoName, "master", hookOptions.ExecProof)
 			if extra.HasError() {
 				return fail(ctx, extra.UserMsg, "SetDefaultBranch failed: %v", extra.Error)
 			}
@@ -522,7 +523,7 @@ Forgejo or set your environment appropriately.`, "")
 
 	if wasEmpty && masterPushed {
 		// We need to tell the repo to reset the default branch to master
-		extra := private.SetDefaultBranch(ctx, repoUser, repoName, "master")
+		extra := private.SetDefaultBranch(ctx, repoUser, repoName, "master", hookOptions.ExecProof)
 		if extra.HasError() {
 			return fail(ctx, extra.UserMsg, "SetDefaultBranch failed: %v", extra.Error)
 		}
@@ -649,8 +650,10 @@ Forgejo or set your environment appropriately.`, "")
 	// S: ... ...
 	// S: flush-pkt
 	hookOptions := private.HookOptions{
-		UserName: pusherName,
-		UserID:   pusherID,
+		UserName:  pusherName,
+		UserID:    pusherID,
+		ExecProof: readHookExecProof(),
+		ExecPath:  os.Getenv(nativeoperation.EnvExecFile),
 	}
 	hookOptions.OldCommitIDs = make([]string, 0, hookBatchSize)
 	hookOptions.NewCommitIDs = make([]string, 0, hookBatchSize)

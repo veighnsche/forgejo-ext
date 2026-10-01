@@ -102,7 +102,7 @@ func (s *Service) ClassifyTransaction(ctx context.Context, req TransactionReques
 	ownerKind, installationID, operationID := splitOwner(reservation.Owner)
 	if ownerKind == model.OwnerOrdinary {
 		for _, line := range req.Lines {
-			if line.Ref != scope.Ref {
+			if !scopePermitsRef(scope, line.Ref) {
 				return TransactionDecision{Reason: "operation scope mismatch"}, nil
 			}
 		}
@@ -251,11 +251,26 @@ func (s *Service) ClassifyCompletion(ctx context.Context, repositoryID int64, re
 		return TransactionDecision{Reason: "operation scope mismatch"}, nil
 	}
 	for _, ref := range refNames {
-		if ref != scope.Ref {
+		if !scopePermitsRef(scope, ref) {
 			return TransactionDecision{Reason: "operation scope mismatch"}, nil
 		}
 	}
 	return TransactionDecision{Allowed: true}, nil
+}
+
+// scopePermitsRef reports whether an ordinary scope covers a proven ref:
+// the single permitted ref, or any listed member of a multi-ref batch
+// scope. Scopes without a ref list behave exactly as before.
+func scopePermitsRef(scope Scope, ref string) bool {
+	if ref == scope.Ref {
+		return true
+	}
+	for _, listed := range scope.Refs {
+		if ref == listed.Ref {
+			return true
+		}
+	}
+	return false
 }
 
 // revalidateSubmission reloads the bound credential generation, binding and

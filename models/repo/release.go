@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/optional"
@@ -218,6 +219,12 @@ func IsReleaseExist(ctx context.Context, repoID int64, tagName string) (bool, er
 
 // UpdateRelease updates all columns of a release
 func UpdateRelease(ctx context.Context, rel *Release) error {
+	// Nested participating writer: release changes refuse while another
+	// owner holds the reservation; the enclosing release update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	rel.Title, _ = util.SplitStringAtByteN(rel.Title, 255)
 	_, err := db.GetEngine(ctx).ID(rel.ID).AllCols().Update(rel)
 	return err
@@ -225,6 +232,12 @@ func UpdateRelease(ctx context.Context, rel *Release) error {
 
 // AddReleaseAttachments adds a release attachments
 func AddReleaseAttachments(ctx context.Context, release *Release, attachmentUUIDs []string) (err error) {
+	// Nested participating writer: release changes refuse while another
+	// owner holds the reservation; the enclosing release update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	attachments, err := FindRepoAttachmentsByUUID(ctx, release.RepoID, attachmentUUIDs, FindAttachmentOptions{})
 	if err != nil {
 		return fmt.Errorf("FindRepoAttachmentsByUUID[uuids=%q,repoID=%d]: %w", attachmentUUIDs, release.RepoID, err)
@@ -469,6 +482,12 @@ func GetReleaseAttachments(ctx context.Context, rels ...*Release) (err error) {
 
 // UpdateReleasesMigrationsByType updates all migrated repositories' releases from gitServiceType to replace originalAuthorID to posterID
 func UpdateReleasesMigrationsByType(ctx context.Context, gitServiceType structs.GitServiceType, originalAuthorID string, posterID int64) error {
+	// Nested participating writer: release changes refuse while another
+	// owner holds the reservation; the enclosing migration carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Table("release").
 		Where("repo_id IN (SELECT id FROM repository WHERE original_service_type = ?)", gitServiceType).
 		And("original_author_id = ?", originalAuthorID).
@@ -549,6 +568,12 @@ func PushUpdateDeleteTag(ctx context.Context, repo *Repository, tagName string) 
 
 // SaveOrUpdateTag must be called for any push actions to add tag
 func SaveOrUpdateTag(ctx context.Context, repo *Repository, newRel *Release) error {
+	// Nested participating writer: release changes refuse while another
+	// owner holds the reservation; the enclosing tag sync or release
+	// update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	rel, err := GetRelease(ctx, repo.ID, newRel.TagName)
 	if err != nil && !IsErrReleaseNotExist(err) {
 		return fmt.Errorf("GetRelease: %w", err)

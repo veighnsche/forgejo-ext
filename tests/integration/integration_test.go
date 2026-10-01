@@ -504,8 +504,28 @@ func createApplicationSettingsToken(t testing.TB, session *TestSession, name str
 	} else {
 		urlValues.Add("resource", "all")
 	}
-	req := NewRequestWithURLValues(t, "POST", "/user/settings/applications/tokens/new", urlValues)
-	resp := session.MakeRequest(t, req, http.StatusSeeOther)
+	// A busy native mutation hold (e.g. an async mirror sync in flight)
+	// surfaces as 503, or as 500 with a busy marker depending on the
+	// endpoint's error mapping; both are transient, so retry with backoff.
+	var resp *httptest.ResponseRecorder
+	deadline := time.Now().Add(60 * time.Second)
+	backoff := 200 * time.Millisecond
+	for {
+		req := NewRequestWithURLValues(t, "POST", "/user/settings/applications/tokens/new", urlValues)
+		resp = session.MakeRequest(t, req, NoExpectedStatus)
+		busy := resp.Code == http.StatusServiceUnavailable ||
+			(resp.Code == http.StatusInternalServerError && strings.Contains(resp.Body.String(), "reservation is busy"))
+		if !busy || time.Now().After(deadline) {
+			break
+		}
+		t.Logf("token creation got transient %d, retrying in %v", resp.Code, backoff)
+		time.Sleep(backoff)
+		backoff *= 2
+		if backoff > 2*time.Second {
+			backoff = 2 * time.Second
+		}
+	}
+	require.Equal(t, http.StatusSeeOther, resp.Code, "Request: POST /user/settings/applications/tokens/new")
 
 	// Log the flash values on failure
 	if !assert.Equal(t, []string{"/user/settings/applications"}, resp.Result().Header["Location"]) {

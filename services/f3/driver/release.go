@@ -130,7 +130,7 @@ func (o *release) Put(ctx context.Context) f3_id.NodeID {
 		panic(err)
 	}
 	defer gitRepo.Close()
-	if err := release_service.CreateRelease(gitRepo, o.forgejoRelease, "", nil); err != nil {
+	if err := release_service.CreateRelease(ctx, gitRepo, o.forgejoRelease, "", nil); err != nil {
 		panic(err)
 	}
 	o.Trace("release created %d", o.forgejoRelease.ID)

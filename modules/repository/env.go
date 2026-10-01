@@ -48,6 +48,20 @@ func InternalPushingEnvironment(doer *user_model.User, repo *repo_model.Reposito
 	)
 }
 
+// RefWriteEnvironment returns hook identity environment for native children
+// that update refs without a pushing user, such as pull-request ref
+// updates. Callers append the owner's execution capability for binding.
+func RefWriteEnvironment(repo *repo_model.Repository) []string {
+	return append(os.Environ(),
+		EnvRepoName+"="+repo.Name,
+		EnvRepoUsername+"="+repo.OwnerName,
+		EnvRepoID+"="+fmt.Sprintf("%d", repo.ID),
+		EnvRepoIsWiki+"=false",
+		EnvAppURL+"="+setting.AppURL,
+		"SSH_ORIGINAL_COMMAND=gitea-internal",
+	)
+}
+
 // PushingEnvironment returns an os environment to allow hooks to work on push
 func PushingEnvironment(doer *user_model.User, repo *repo_model.Repository) []string {
 	return FullPushingEnvironment(doer, doer, repo, repo.Name, 0)

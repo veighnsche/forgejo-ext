@@ -6,6 +6,7 @@ package mirror
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	quota_model "forgejo.org/models/quota"
 	repo_model "forgejo.org/models/repo"
@@ -13,21 +14,22 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // doMirrorSync causes this request to mirror itself
-func doMirrorSync(ctx context.Context, req *SyncRequest) {
+func doMirrorSync(ctx context.Context, req *SyncRequest) error {
 	if req.ReferenceID == 0 {
 		log.Warn("Skipping mirror sync request, no mirror ID was specified")
-		return
+		return nil
 	}
 	switch req.Type {
 	case PushMirrorType:
-		_ = SyncPushMirror(ctx, req.ReferenceID)
+		return SyncPushMirror(ctx, req.ReferenceID)
 	case PullMirrorType:
-		_ = SyncPullMirror(ctx, req.ReferenceID)
+		return SyncPullMirror(ctx, req.ReferenceID)
 	default:
-		log.Error("Unknown Request type in queue: %v for MirrorID[%d]", req.Type, req.ReferenceID)
+		return fmt.Errorf("unknown request type in queue: %v for MirrorID[%d]", req.Type, req.ReferenceID)
 	}
 }
 
@@ -134,10 +136,19 @@ func Update(ctx context.Context, pullLimit, pushLimit int) error {
 }
 
 func queueHandler(items ...*SyncRequest) []*SyncRequest {
+	var unhandled []*SyncRequest
 	for _, req := range items {
-		doMirrorSync(graceful.GetManager().ShutdownContext(), req)
+		if err := doMirrorSync(graceful.GetManager().ShutdownContext(), req); err != nil {
+			if operation_service.IsBusy(err) {
+				// Retain busy work: the queue requeues this sync for a
+				// later fresh-ownership attempt instead of dropping it.
+				unhandled = append(unhandled, req)
+				continue
+			}
+			log.Error("doMirrorSync[%d] failed: %v", req.ReferenceID, err)
+		}
 	}
-	return nil
+	return unhandled
 }
 
 // InitSyncMirrors initializes a go routine to sync the mirrors

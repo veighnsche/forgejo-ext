@@ -23,6 +23,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 
 	"github.com/gobwas/glob"
@@ -36,6 +37,31 @@ func AdoptRepository(ctx context.Context, doer, u *user_model.User, opts CreateR
 		}
 	}
 
+	// One lifecycle update owns the reservation before its database and
+	// filesystem effects, advancing the revision so stale observations go
+	// stale.
+	var repo *repo_model.Repository
+	err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(0, operation_service.LifecycleAdopt, u.Name, opts.Name),
+		operation_service.Scope{
+			Family: operation_service.FamilyRepoLifecycle,
+		},
+		func(ctx context.Context) error {
+			var err error
+			repo, err = adoptRepositoryOwned(ctx, doer, u, opts)
+			return err
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	notify_service.AdoptRepository(ctx, doer, u, repo)
+
+	return repo, nil
+}
+
+func adoptRepositoryOwned(ctx context.Context, doer, u *user_model.User, opts CreateRepoOptions) (*repo_model.Repository, error) {
 	repo := &repo_model.Repository{
 		OwnerID:                         u.ID,
 		Owner:                           u,
@@ -101,8 +127,6 @@ func AdoptRepository(ctx context.Context, doer, u *user_model.User, opts CreateR
 	}); err != nil {
 		return nil, err
 	}
-
-	notify_service.AdoptRepository(ctx, doer, u, repo)
 
 	return repo, nil
 }
@@ -229,7 +253,17 @@ func DeleteUnadoptedRepository(ctx context.Context, doer, u *user_model.User, re
 		}
 	}
 
-	return util.RemoveAll(repoPath)
+	// One lifecycle update owns the reservation before removing the stray
+	// directory, excluding a concurrent adopt of the same path.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(0, operation_service.LifecycleDeleteUnadopted, u.Name, repoName),
+		operation_service.Scope{
+			Family: operation_service.FamilyRepoLifecycle,
+		},
+		func(ctx context.Context) error {
+			return util.RemoveAll(repoPath)
+		})
 }
 
 type unadoptedRepositories struct {

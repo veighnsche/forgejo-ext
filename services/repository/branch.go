@@ -24,6 +24,7 @@ import (
 	"forgejo.org/modules/log"
 	nativeoperation "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/process"
 	"forgejo.org/modules/queue"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/timeutil"
@@ -256,6 +257,32 @@ func SyncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames, 
 		return errors.New("branchNames and commitIDs length not match")
 	}
 
+	// One ref sync owns the reservation before its database effects,
+	// advancing the revision so stale observations go stale. Nested
+	// calls reuse the enclosing ownership instead of claiming again.
+	scoped := make([]operation_service.ScopedRef, 0, len(branchNames))
+	for i, branchName := range branchNames {
+		scoped = append(scoped, operation_service.ScopedRef{
+			Ref:    git.BranchPrefix + branchName,
+			NewOID: commitIDs[i],
+		})
+	}
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefSync,
+		fmt.Sprintf("%d/sync-%d", repoID, len(branchNames)),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefSync,
+			RepositoryID: repoID,
+			Refs:         scoped,
+		},
+		func(ctx context.Context) error {
+			return syncBranchesToDB(ctx, repoID, pusherID, branchNames, commitIDs, getCommit)
+		})
+}
+
+// syncBranchesToDB runs the branch-sync database effects under the caller's
+// ownership.
+func syncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames, commitIDs []string, getCommit func(commitID string) (*git.Commit, error)) error {
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		branches, err := git_model.GetBranches(ctx, repoID, branchNames, true)
 		if err != nil {
@@ -379,6 +406,52 @@ func RenameBranch(ctx context.Context, repo *repo_model.Repository, doer *user_m
 		return "from_not_exist", nil
 	}
 
+	// The current tip is a read, safe before the claim; a rename
+	// preserves it across both ref effects.
+	tip, err := gitRepo.GetRefCommitID(git.RefNameFromBranch(from).String())
+	if err != nil {
+		return "", err
+	}
+
+	// One ref write owns the reservation before the native rename and
+	// all database effects, advancing the revision so stale
+	// observations go stale. The rename spans two refs, which the
+	// single-ref gate cannot express, so the native child stays
+	// unbound and the held reservation alone serializes it. Nested
+	// calls reuse the enclosing ownership instead of claiming again.
+	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteRename, from+"->"+to),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Refs: []operation_service.ScopedRef{
+				{Ref: git.BranchPrefix + from, OldOID: tip, NewOID: objectFormat.EmptyObjectID().String()},
+				{Ref: git.BranchPrefix + to, NewOID: tip},
+			},
+		},
+		func(ctx context.Context) error {
+			return renameBranch(ctx, repo, gitRepo, from, to)
+		})
+	if err != nil {
+		return "", err
+	}
+	refNameTo := git.RefNameFromBranch(to)
+	refID, err := gitRepo.GetRefCommitID(refNameTo.String())
+	if err != nil {
+		return "", err
+	}
+
+	notify_service.DeleteRef(ctx, doer, repo, git.RefNameFromBranch(from))
+	notify_service.CreateRef(ctx, doer, repo, refNameTo, refID)
+
+	return "", nil
+}
+
+// renameBranch runs the branch-rename database and native effects under
+// the caller's ownership.
+func renameBranch(ctx context.Context, repo *repo_model.Repository, gitRepo *git.Repository, from, to string) error {
 	if err := git_model.RenameBranch(ctx, repo, from, to, func(ctx context.Context, isDefault bool) error {
 		err2 := gitRepo.RenameBranch(from, to)
 		if err2 != nil {
@@ -409,18 +482,9 @@ func RenameBranch(ctx context.Context, repo *repo_model.Repository, doer *user_m
 
 		return nil
 	}); err != nil {
-		return "", err
+		return err
 	}
-	refNameTo := git.RefNameFromBranch(to)
-	refID, err := gitRepo.GetRefCommitID(refNameTo.String())
-	if err != nil {
-		return "", err
-	}
-
-	notify_service.DeleteRef(ctx, doer, repo, git.RefNameFromBranch(from))
-	notify_service.CreateRef(ctx, doer, repo, refNameTo, refID)
-
-	return "", nil
+	return nil
 }
 
 // enmuerates all branch related errors
@@ -558,13 +622,36 @@ type BranchSyncOptions struct {
 var branchSyncQueue *queue.WorkerPoolQueue[*BranchSyncOptions]
 
 func handlerBranchSync(items ...*BranchSyncOptions) []*BranchSyncOptions {
+	var unhandled []*BranchSyncOptions
 	for _, opts := range items {
-		_, err := repo_module.SyncRepoBranches(graceful.GetManager().ShutdownContext(), opts.RepoID, 0)
+		ctx, _, finished := process.GetManager().AddContext(graceful.GetManager().HammerContext(), fmt.Sprintf("SyncRepoBranches: %d", opts.RepoID))
+
+		// One deferred ref sync claims fresh ownership before its
+		// effects; it never inherits another owner's privilege.
+		err := operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyRefSync,
+			fmt.Sprintf("%d/sync", opts.RepoID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyRefSync,
+				RepositoryID: opts.RepoID,
+			},
+			func(ctx context.Context) error {
+				_, err := repo_module.SyncRepoBranches(ctx, opts.RepoID, 0)
+				return err
+			})
+		finished()
 		if err != nil {
+			if operation_service.IsBusy(err) {
+				// Retain busy work: the queue requeues this sync
+				// for a later fresh-ownership attempt instead of
+				// dropping it.
+				unhandled = append(unhandled, opts)
+				continue
+			}
 			log.Error("syncRepoBranches [%d] failed: %v", opts.RepoID, err)
 		}
 	}
-	return nil
+	return unhandled
 }
 
 func addRepoToBranchSyncQueue(repoID int64) error {
@@ -605,27 +692,42 @@ func SetRepoDefaultBranch(ctx context.Context, repo *repo_model.Repository, gitR
 
 	oldDefaultBranchName := repo.DefaultBranch
 	repo.DefaultBranch = newBranchName
-	if err := db.WithTx(ctx, func(ctx context.Context) error {
-		if err := repo_model.UpdateDefaultBranch(ctx, repo); err != nil {
-			return err
-		}
 
-		if err := actions_model.DeleteScheduleTaskByRepo(ctx, repo.ID); err != nil {
-			log.Error("DeleteCronTaskByRepo: %v", err)
-		}
-		// cancel running cron jobs of this repository and delete old schedules
-		if err := actions_service.CancelPreviousJobs(
-			ctx,
-			repo.ID,
-			oldDefaultBranchName,
-			"",
-			webhook_module.HookEventSchedule,
-		); err != nil {
-			log.Error("CancelPreviousJobs: %v", err)
-		}
+	// One ref write owns the reservation before the native symbolic-ref
+	// update and all database effects, advancing the revision so stale
+	// observations go stale. Nested calls reuse the enclosing ownership
+	// instead of claiming again.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteDefaultBranch, newBranchName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Ref:          git.BranchPrefix + newBranchName,
+		},
+		func(ctx context.Context) error {
+			return db.WithTx(ctx, func(ctx context.Context) error {
+				if err := repo_model.UpdateDefaultBranch(ctx, repo); err != nil {
+					return err
+				}
 
-		return gitrepo.SetDefaultBranch(ctx, repo, newBranchName)
-	}); err != nil {
+				if err := actions_model.DeleteScheduleTaskByRepo(ctx, repo.ID); err != nil {
+					log.Error("DeleteCronTaskByRepo: %v", err)
+				}
+				// cancel running cron jobs of this repository and delete old schedules
+				if err := actions_service.CancelPreviousJobs(
+					ctx,
+					repo.ID,
+					oldDefaultBranchName,
+					"",
+					webhook_module.HookEventSchedule,
+				); err != nil {
+					log.Error("CancelPreviousJobs: %v", err)
+				}
+
+				return gitrepo.SetDefaultBranch(ctx, repo, newBranchName)
+			})
+		}); err != nil {
 		return err
 	}
 

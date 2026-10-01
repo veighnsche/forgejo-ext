@@ -94,7 +94,7 @@ func CreateRepository(t testing.TB, owner *user_model.User, opts *CreateReposito
 	require.NotEmpty(t, repo)
 
 	if !createOptions.AutoInit && opts.Files != nil {
-		sha, err := initRepo(owner, repo, gitFormat, opts.Files, "init")
+		sha, err := initRepo(t.Context(), owner, repo, gitFormat, opts.Files, "init")
 		require.NoError(t, err, "Make sure the Forgejo HTTP server is running (or use %T instead of %T for the Files field)", FilesInit{}, opts.Files)
 		if opts.LatestSha != nil {
 			*opts.LatestSha = sha

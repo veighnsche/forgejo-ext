@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 	giturl "forgejo.org/modules/git/url"
 	"forgejo.org/modules/keying"
@@ -98,6 +99,12 @@ func (m *PushMirror) GetPublicKey() string {
 // The ID of the push mirror must be known, so this should be done after the
 // push mirror is inserted.
 func (m *PushMirror) SetPrivatekey(ctx context.Context, privateKey []byte) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	m.PrivateKey = keying.PushMirror.Encrypt(privateKey, keying.ColumnAndID("private_key", m.ID))
 
 	_, err := db.GetEngine(ctx).ID(m.ID).Cols("private_key").Update(m)
@@ -111,17 +118,35 @@ func (m *PushMirror) Privatekey() ([]byte, error) {
 
 // UpdatePushMirror updates the push-mirror
 func UpdatePushMirror(ctx context.Context, m *PushMirror) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(m.ID).AllCols().Update(m)
 	return err
 }
 
 // UpdatePushMirrorInterval updates the push-mirror
 func UpdatePushMirrorInterval(ctx context.Context, m *PushMirror) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(m.ID).Cols("interval").Update(m)
 	return err
 }
 
 func UpdatePushMirrorBranchFilter(ctx context.Context, m *PushMirror) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(m.ID).Cols("branch_filter").Update(m)
 	return err
 }
@@ -129,6 +154,12 @@ func UpdatePushMirrorBranchFilter(ctx context.Context, m *PushMirror) error {
 var DeletePushMirrors = deletePushMirrors
 
 func deletePushMirrors(ctx context.Context, opts PushMirrorOptions) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if opts.RepoID > 0 {
 		_, err := db.Delete[PushMirror](ctx, opts)
 		return err

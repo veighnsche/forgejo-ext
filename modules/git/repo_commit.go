@@ -551,13 +551,27 @@ func (repo *Repository) GetRefCommitID(name string) (string, error) {
 
 // SetReference sets the commit ID string of given reference (e.g. branch or tag).
 func (repo *Repository) SetReference(name, commitID string) error {
-	_, _, err := NewCommand(repo.Ctx, "update-ref").AddDynamicArguments(name, commitID).RunStdString(&RunOpts{Dir: repo.Path})
+	return repo.SetReferenceWithEnv(name, commitID, nil)
+}
+
+// SetReferenceWithEnv sets the commit ID string of given reference,
+// carrying the owner's execution capability for hook binding. A nil env
+// keeps the ambient environment.
+func (repo *Repository) SetReferenceWithEnv(name, commitID string, env []string) error {
+	_, _, err := NewCommand(repo.Ctx, "update-ref").AddDynamicArguments(name, commitID).RunStdString(&RunOpts{Dir: repo.Path, Env: env})
 	return err
 }
 
 // RemoveReference removes the given reference (e.g. branch or tag).
 func (repo *Repository) RemoveReference(name string) error {
-	_, _, err := NewCommand(repo.Ctx, "update-ref", "--no-deref", "-d").AddDynamicArguments(name).RunStdString(&RunOpts{Dir: repo.Path})
+	return repo.RemoveReferenceWithEnv(name, nil)
+}
+
+// RemoveReferenceWithEnv removes the given reference, carrying the
+// owner's execution capability for hook binding. A nil env keeps the
+// ambient environment.
+func (repo *Repository) RemoveReferenceWithEnv(name string, env []string) error {
+	_, _, err := NewCommand(repo.Ctx, "update-ref", "--no-deref", "-d").AddDynamicArguments(name).RunStdString(&RunOpts{Dir: repo.Path, Env: env})
 	return err
 }
 

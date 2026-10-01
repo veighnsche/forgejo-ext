@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
+	"forgejo.org/modules/git"
+	giturl "forgejo.org/modules/git/url"
 	"forgejo.org/modules/keying"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
@@ -82,6 +85,12 @@ func (m *Mirror) ScheduleNextUpdate() {
 // InsertMirror inserts a mirror to database. RemoteAddress must be provided so that it can be encrypted and stored
 // during the insert process.
 func (m *Mirror) InsertWithAddress(ctx context.Context, addr string) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		if _, err := db.GetEngine(ctx).Insert(m); err != nil {
 			return err
@@ -94,6 +103,12 @@ func (m *Mirror) InsertWithAddress(ctx context.Context, addr string) error {
 // and stores both in the database. The ID of the mirror must be known, so this must be done after the mirror is
 // inserted.
 func (m *Mirror) UpdateRemoteAddress(ctx context.Context, addr string) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if m.ID == 0 {
 		return errors.New("must persist mirror to database before using UpdateRemoteAddress")
 	}
@@ -144,6 +159,23 @@ func (m *Mirror) SanitizedRemoteAddress() (optional.Option[string], error) {
 	return optional.None[string](), nil
 }
 
+// RemoteAddressURL resolves the mirror's remote address without migrating
+// anything: the decrypted database address when present, else the git
+// config fallback for mirrors that predate encrypted storage. Callers that
+// mutate use the service helper, which additionally migrates ancient
+// mirrors into encrypted storage.
+func (m *Mirror) RemoteAddressURL(ctx context.Context) (*giturl.GitURL, error) {
+	decryptedRemoteURL, err := m.DecryptRemoteAddress()
+	if err != nil {
+		return nil, err
+	}
+	if has, addr := decryptedRemoteURL.Get(); has {
+		return giturl.Parse(addr)
+	}
+	repoPath := m.GetRepository(ctx).RepoPath()
+	return git.GetRemoteURL(ctx, repoPath, m.GetRemoteName())
+}
+
 // GetMirrorByRepoID returns mirror information of a repository.
 func GetMirrorByRepoID(ctx context.Context, repoID int64) (*Mirror, error) {
 	m := &Mirror{RepoID: repoID}
@@ -158,6 +190,12 @@ func GetMirrorByRepoID(ctx context.Context, repoID int64) (*Mirror, error) {
 
 // UpdateMirror updates the mirror
 func UpdateMirror(ctx context.Context, m *Mirror) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(m.ID).AllCols().Update(m)
 	return err
 }
@@ -171,6 +209,12 @@ func TouchMirror(ctx context.Context, m *Mirror) error {
 
 // DeleteMirrorByRepoID deletes a mirror by repoID
 func DeleteMirrorByRepoID(ctx context.Context, repoID int64) error {
+	// Nested participating writer: mirror changes refuse while another
+	// owner holds the reservation; the enclosing mirror update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Delete(&Mirror{RepoID: repoID})
 	return err
 }

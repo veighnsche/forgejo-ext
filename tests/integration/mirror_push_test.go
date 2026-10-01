@@ -113,8 +113,7 @@ func testMirrorPush(t *testing.T, u *url.URL) {
 	_, _, err = git.NewCommand(t.Context(), "config", "--add").AddDynamicArguments("remote."+mirrors[0].RemoteName+".fetch", "+refs/*:refs/*").RunStdString(&git.RunOpts{Dir: srcRepo.RepoPath()})
 	require.NoError(t, err)
 
-	ok := mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID)
-	assert.True(t, ok)
+	require.NoError(t, mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID))
 	_, _, err = git.NewCommand(t.Context(), "config", "--get-all").AddDynamicArguments("remote." + mirrors[0].RemoteName + ".fetch").RunStdString(&git.RunOpts{Dir: srcRepo.RepoPath()})
 	require.True(t, git.IsErrorExitCode(err, 1), "sync must remove legacy fetch refspecs")
 
@@ -708,8 +707,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 			assert.Contains(t, output, "+refs/tags/*:refs/tags/*") // Tags should always be pushed
 
 			// Trigger sync operation
-			ok := mirror_service.SyncPushMirror(db.DefaultContext, mirrors[0].ID)
-			assert.True(t, ok)
+			require.NoError(t, mirror_service.SyncPushMirror(db.DefaultContext, mirrors[0].ID))
 
 			// Verify only filtered branches were pushed to mirror
 			mirrorGitRepo, err := gitrepo.OpenRepository(git.DefaultContext, mirrorRepo)
@@ -761,8 +759,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 			assert.Contains(t, output, "+refs/tags/*:refs/tags/*") // Tags should always be pushed
 
 			// Trigger sync operation with updated filter
-			ok := mirror_service.SyncPushMirror(db.DefaultContext, mirror.ID)
-			assert.True(t, ok)
+			require.NoError(t, mirror_service.SyncPushMirror(db.DefaultContext, mirror.ID))
 		})
 
 		t.Run("Test empty branch filter pushes all branches", func(t *testing.T) {
@@ -800,8 +797,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 			assert.Contains(t, output, "+refs/tags/*:refs/tags/*")
 
 			// Trigger sync operation
-			ok := mirror_service.SyncPushMirror(db.DefaultContext, emptyFilterMirror.ID)
-			assert.True(t, ok)
+			require.NoError(t, mirror_service.SyncPushMirror(db.DefaultContext, emptyFilterMirror.ID))
 
 			// Verify all branches were pushed to mirror
 			mirrorGitRepo2, err := gitrepo.OpenRepository(git.DefaultContext, mirrorRepo2)
@@ -860,8 +856,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 			assert.Contains(t, output, "+refs/tags/*:refs/tags/*")
 
 			// Trigger sync operation
-			ok := mirror_service.SyncPushMirror(db.DefaultContext, globMirror.ID)
-			assert.True(t, ok)
+			require.NoError(t, mirror_service.SyncPushMirror(db.DefaultContext, globMirror.ID))
 
 			// Verify only matching branches were pushed to mirror
 			mirrorGitRepo3, err := gitrepo.OpenRepository(git.DefaultContext, mirrorRepo3)
@@ -1133,15 +1128,14 @@ func TestMirrorPushAddressCheck(t *testing.T) {
 		require.Len(t, mirrors, 1)
 
 		// The push should succeed while localhost is permitted.
-		ok := mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID)
-		assert.True(t, ok, "expected push mirror sync to succeed while the remote URL is permitted")
+		require.NoError(t, mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID), "expected push mirror sync to succeed while the remote URL is permitted")
 
 		// Reset the allowed domains to the default, which does not permit localhost.
 		setting.Migrations.AllowedDomains = prev
 		migrations_allowlist.Init()
 
 		// Re-triggering the push mirror should now fail because the remote URL is no longer permitted.
-		ok = mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID)
-		assert.False(t, ok, "expected push mirror sync to fail because the remote URL is no longer permitted")
+		err = mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID)
+		assert.Error(t, err, "expected push mirror sync to fail because the remote URL is no longer permitted")
 	})
 }

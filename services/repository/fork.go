@@ -19,6 +19,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -72,6 +73,29 @@ func ForkRepositoryIfNotExists(ctx context.Context, doer, owner *user_model.User
 		}
 	}
 
+	// One lifecycle update owns the reservation before its database and
+	// filesystem effects, advancing the revision so stale observations go
+	// stale.
+	var repo *repo_model.Repository
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(0, operation_service.LifecycleFork, owner.Name, opts.Name),
+		operation_service.Scope{
+			Family: operation_service.FamilyRepoLifecycle,
+		},
+		func(ctx context.Context) error {
+			var err error
+			repo, err = forkRepositoryIfNotExistsOwned(ctx, doer, owner, opts)
+			return err
+		})
+	if err != nil {
+		return nil, err
+	}
+	return repo, nil
+}
+
+func forkRepositoryIfNotExistsOwned(ctx context.Context, doer, owner *user_model.User, opts ForkRepoOptions) (*repo_model.Repository, error) {
+	var err error
 	defaultBranch := opts.BaseRepo.DefaultBranch
 	if opts.SingleBranch != "" {
 		defaultBranch = opts.SingleBranch
@@ -188,27 +212,44 @@ func ForkRepositoryIfNotExists(ctx context.Context, doer, owner *user_model.User
 
 // ForkRepositoryAndUpdates forks a repository. On success it updates metadata (size, stats, etc.) and send a notification.
 func ForkRepositoryAndUpdates(ctx context.Context, doer, owner *user_model.User, opts ForkRepoOptions) (*repo_model.Repository, error) {
-	repo, err := ForkRepositoryIfNotExists(ctx, doer, owner, opts)
+	// One lifecycle update owns the reservation before its database and
+	// filesystem effects; the nested fork and tag sync reuse this
+	// ownership.
+	var repo *repo_model.Repository
+	err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(0, operation_service.LifecycleFork, owner.Name, opts.Name),
+		operation_service.Scope{
+			Family: operation_service.FamilyRepoLifecycle,
+		},
+		func(ctx context.Context) error {
+			var err error
+			repo, err = ForkRepositoryIfNotExists(ctx, doer, owner, opts)
+			if err != nil {
+				return err
+			}
+
+			// even if below operations failed, it could be ignored. And they will be retried
+			if err := repo_module.UpdateRepoSize(ctx, repo); err != nil {
+				log.Error("Failed to update size for repository: %v", err)
+			}
+			if err := repo_model.CopyLanguageStat(ctx, opts.BaseRepo, repo); err != nil {
+				log.Error("Copy language stat from oldRepo failed: %v", err)
+			}
+
+			gitRepo, err := gitrepo.OpenRepository(ctx, repo)
+			if err != nil {
+				log.Error("Open created git repository failed: %v", err)
+			} else {
+				defer gitRepo.Close()
+				if err := repo_module.SyncReleasesWithTags(ctx, repo, gitRepo); err != nil {
+					log.Error("Sync releases from git tags failed: %v", err)
+				}
+			}
+			return nil
+		})
 	if err != nil {
 		return nil, err
-	}
-
-	// even if below operations failed, it could be ignored. And they will be retried
-	if err := repo_module.UpdateRepoSize(ctx, repo); err != nil {
-		log.Error("Failed to update size for repository: %v", err)
-	}
-	if err := repo_model.CopyLanguageStat(ctx, opts.BaseRepo, repo); err != nil {
-		log.Error("Copy language stat from oldRepo failed: %v", err)
-	}
-
-	gitRepo, err := gitrepo.OpenRepository(ctx, repo)
-	if err != nil {
-		log.Error("Open created git repository failed: %v", err)
-	} else {
-		defer gitRepo.Close()
-		if err := repo_module.SyncReleasesWithTags(ctx, repo, gitRepo); err != nil {
-			log.Error("Sync releases from git tags failed: %v", err)
-		}
 	}
 
 	notify_service.ForkRepository(ctx, doer, opts.BaseRepo, repo)
@@ -218,6 +259,21 @@ func ForkRepositoryAndUpdates(ctx context.Context, doer, owner *user_model.User,
 
 // ConvertForkToNormalRepository convert the provided repo from a forked repo to normal repo
 func ConvertForkToNormalRepository(ctx context.Context, repo *repo_model.Repository) error {
+	// One lifecycle update owns the reservation before its database effects,
+	// advancing the revision so stale observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleConvertFork, repo.OwnerName, repo.Name),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoLifecycle,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			return convertForkToNormalRepositoryOwned(ctx, repo)
+		})
+}
+
+func convertForkToNormalRepositoryOwned(ctx context.Context, repo *repo_model.Repository) error {
 	err := db.WithTx(ctx, func(ctx context.Context) error {
 		repo, err := repo_model.GetRepositoryByID(ctx, repo.ID)
 		if err != nil {

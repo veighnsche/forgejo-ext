@@ -21,13 +21,26 @@ const TagPrefix = "refs/tags/"
 
 // CreateTag create one tag in the repository
 func (repo *Repository) CreateTag(name, revision string) error {
-	_, _, err := NewCommand(repo.Ctx, "tag").AddDashesAndList(name, revision).RunStdString(&RunOpts{Dir: repo.Path})
+	return repo.CreateTagWithEnv(name, revision, nil)
+}
+
+// CreateTagWithEnv creates one tag, carrying the owner's execution
+// capability for hook binding. A nil env keeps the ambient environment.
+func (repo *Repository) CreateTagWithEnv(name, revision string, env []string) error {
+	_, _, err := NewCommand(repo.Ctx, "tag").AddDashesAndList(name, revision).RunStdString(&RunOpts{Dir: repo.Path, Env: env})
 	return err
 }
 
 // CreateAnnotatedTag create one annotated tag in the repository
 func (repo *Repository) CreateAnnotatedTag(name, message, revision string) error {
-	_, _, err := NewCommand(repo.Ctx, "tag", "-a", "-m").AddDynamicArguments(message).AddDashesAndList(name, revision).RunStdString(&RunOpts{Dir: repo.Path})
+	return repo.CreateAnnotatedTagWithEnv(name, message, revision, nil)
+}
+
+// CreateAnnotatedTagWithEnv creates one annotated tag, carrying the
+// owner's execution capability for hook binding. A nil env keeps the
+// ambient environment.
+func (repo *Repository) CreateAnnotatedTagWithEnv(name, message, revision string, env []string) error {
+	_, _, err := NewCommand(repo.Ctx, "tag", "-a", "-m").AddDynamicArguments(message).AddDashesAndList(name, revision).RunStdString(&RunOpts{Dir: repo.Path, Env: env})
 	return err
 }
 

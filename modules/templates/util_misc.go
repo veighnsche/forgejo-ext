@@ -21,7 +21,6 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/repository"
 	"forgejo.org/modules/svg"
-	mirror_service "forgejo.org/services/mirror"
 
 	"github.com/editorconfig/editorconfig-core-go/v2"
 )
@@ -165,9 +164,9 @@ type remoteAddress struct {
 
 func mirrorRemoteAddress(ctx context.Context, mirror *repo_model.Mirror) remoteAddress {
 	ret := remoteAddress{}
-	u, err := mirror_service.DecryptOrRecoverRemoteAddress(ctx, mirror)
+	u, err := mirror.RemoteAddressURL(ctx)
 	if err != nil {
-		log.Error("DecryptOrRecoverRemoteAddress %v", err)
+		log.Error("RemoteAddressURL %v", err)
 		return ret
 	}
 

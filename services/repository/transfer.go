@@ -21,6 +21,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/sync"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -41,22 +42,39 @@ func TransferOwnership(ctx context.Context, doer, newOwner *user_model.User, rep
 
 	oldOwner := repo.Owner
 
-	repoWorkingPool.CheckIn(fmt.Sprint(repo.ID))
-	if err := transferOwnership(ctx, doer, newOwner.Name, repo); err != nil {
-		repoWorkingPool.CheckOut(fmt.Sprint(repo.ID))
-		return err
-	}
-	repoWorkingPool.CheckOut(fmt.Sprint(repo.ID))
+	// One lifecycle update owns the reservation before the native working
+	// pool lock and all database and filesystem effects, advancing the
+	// revision so stale observations go stale. Derived team changes reuse
+	// this ownership.
+	err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleTransfer, repo.OwnerName, repo.Name),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoLifecycle,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			repoWorkingPool.CheckIn(fmt.Sprint(repo.ID))
+			if err := transferOwnership(ctx, doer, newOwner.Name, repo); err != nil {
+				repoWorkingPool.CheckOut(fmt.Sprint(repo.ID))
+				return err
+			}
+			repoWorkingPool.CheckOut(fmt.Sprint(repo.ID))
 
-	newRepo, err := repo_model.GetRepositoryByID(ctx, repo.ID)
+			newRepo, err := repo_model.GetRepositoryByID(ctx, repo.ID)
+			if err != nil {
+				return err
+			}
+
+			for _, team := range teams {
+				if err := models.AddRepository(ctx, team, newRepo); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	if err != nil {
 		return err
-	}
-
-	for _, team := range teams {
-		if err := models.AddRepository(ctx, team, newRepo); err != nil {
-			return err
-		}
 	}
 
 	notify_service.TransferRepository(ctx, doer, repo, oldOwner.Name)
@@ -346,12 +364,28 @@ func ChangeRepositoryName(ctx context.Context, doer *user_model.User, repo *repo
 	// repo so that we can atomically rename the repo path and updates the
 	// local copy's origin accordingly.
 
-	repoWorkingPool.CheckIn(fmt.Sprint(repo.ID))
-	if err := changeRepositoryName(ctx, repo, newRepoName); err != nil {
-		repoWorkingPool.CheckOut(fmt.Sprint(repo.ID))
+	// One lifecycle update owns the reservation before the native working
+	// pool lock and all database and filesystem effects, advancing the
+	// revision so stale observations go stale.
+	err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleRename, repo.OwnerName, repo.Name),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoLifecycle,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			repoWorkingPool.CheckIn(fmt.Sprint(repo.ID))
+			if err := changeRepositoryName(ctx, repo, newRepoName); err != nil {
+				repoWorkingPool.CheckOut(fmt.Sprint(repo.ID))
+				return err
+			}
+			repoWorkingPool.CheckOut(fmt.Sprint(repo.ID))
+			return nil
+		})
+	if err != nil {
 		return err
 	}
-	repoWorkingPool.CheckOut(fmt.Sprint(repo.ID))
 
 	repo.Name = newRepoName
 	notify_service.RenameRepository(ctx, doer, repo, oldRepoName)
@@ -391,18 +425,32 @@ func StartRepositoryTransfer(ctx context.Context, doer, newOwner *user_model.Use
 	if err != nil {
 		return err
 	}
-	if !hasAccess {
-		if err := repo_module.AddCollaborator(ctx, repo, newOwner); err != nil {
-			return err
-		}
-		if err := repo_module.ChangeCollaborationAccessMode(ctx, repo, newOwner.ID, perm.AccessModeRead); err != nil {
-			return err
-		}
-	}
 
-	// Make repo as pending for transfer
-	repo.Status = repo_model.RepositoryPendingTransfer
-	if err := models.CreatePendingRepositoryTransfer(ctx, doer, newOwner, repo.ID, teams); err != nil {
+	// One lifecycle update owns the reservation before its database effects,
+	// advancing the revision so stale observations go stale. Nested
+	// collaborator changes reuse this ownership.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleTransfer, repo.OwnerName, repo.Name),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoLifecycle,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			if !hasAccess {
+				if err := repo_module.AddCollaborator(ctx, repo, newOwner); err != nil {
+					return err
+				}
+				if err := repo_module.ChangeCollaborationAccessMode(ctx, repo, newOwner.ID, perm.AccessModeRead); err != nil {
+					return err
+				}
+			}
+
+			// Make repo as pending for transfer
+			repo.Status = repo_model.RepositoryPendingTransfer
+			return models.CreatePendingRepositoryTransfer(ctx, doer, newOwner, repo.ID, teams)
+		})
+	if err != nil {
 		return err
 	}
 
@@ -415,6 +463,21 @@ func StartRepositoryTransfer(ctx context.Context, doer, newOwner *user_model.Use
 // CancelRepositoryTransfer marks the repository as ready and remove pending transfer entry,
 // thus cancel the transfer process.
 func CancelRepositoryTransfer(ctx context.Context, repo *repo_model.Repository) error {
+	// One lifecycle update owns the reservation before its database effects,
+	// advancing the revision so stale observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleTransfer, repo.OwnerName, repo.Name),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoLifecycle,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			return cancelRepositoryTransferOwned(ctx, repo)
+		})
+}
+
+func cancelRepositoryTransferOwned(ctx context.Context, repo *repo_model.Repository) error {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

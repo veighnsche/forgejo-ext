@@ -206,9 +206,6 @@ func GetDefaultMergeMessage(ctx context.Context, baseGitRepo *git.Repository, pr
 // Merge merges pull request to base repository.
 // Caller should check PR is ready to be merged (review and status checks)
 func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, baseGitRepo *git.Repository, mergeStyle repo_model.MergeStyle, expectedHeadCommitID, message string, wasAutoMerged bool) error {
-	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
-	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
-
 	pr, err := issues_model.GetPullRequestByID(ctx, pr.ID)
 	if err != nil {
 		log.Error("Unable to load pull request itself: %v", err)
@@ -253,7 +250,25 @@ func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.U
 		AddTestPullRequestTask(ctx, doer, pr.BaseRepo.ID, pr.BaseBranch, false, "", "", 0)
 	}()
 
-	_, err = doMergeAndPush(ctx, pr, doer, mergeStyle, expectedHeadCommitID, message, repo_module.PushTriggerPRMergeToBase)
+	// The current base tip is a read, safe before the claim; the merge
+	// push below is the fenced effect.
+	baseRef := git.BranchPrefix + pr.BaseBranch
+	oldTip, _ := baseGitRepo.GetRefCommitID(baseRef)
+
+	// One ref write owns the reservation before the native merge push,
+	// advancing the revision so stale observations go stale. Nested
+	// calls reuse the enclosing ownership instead of claiming again.
+	err = withRefWriteOwnership(ctx,
+		refWriteResource(pr.BaseRepoID, refWriteMerge, baseRef),
+		refWriteScope{
+			RepositoryID: pr.BaseRepoID,
+			Ref:          baseRef,
+			OldOID:       oldTip,
+			PRNumber:     pr.Index,
+		},
+		func(ctx context.Context) error {
+			return mergeOwned(ctx, pr, doer, mergeStyle, expectedHeadCommitID, message)
+		})
 	if err != nil {
 		return err
 	}
@@ -285,6 +300,19 @@ func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.U
 	cache.Remove(pr.Issue.Repo.GetCommitsCountCacheKey(pr.BaseBranch, true))
 
 	return handleCloseCrossReferences(ctx, pr, doer)
+}
+
+// mergeOwned runs the native merge push under the caller's ownership,
+// recording the realized merge commit for family reconciliation.
+func mergeOwned(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, mergeStyle repo_model.MergeStyle, expectedHeadCommitID, message string) error {
+	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
+	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
+
+	mergeCommitID, err := doMergeAndPush(ctx, pr, doer, mergeStyle, expectedHeadCommitID, message, repo_module.PushTriggerPRMergeToBase)
+	if err != nil {
+		return err
+	}
+	return recordRefWriteResult(ctx, mergeCommitID)
 }
 
 func handleCloseCrossReferences(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User) error {

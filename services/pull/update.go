@@ -28,9 +28,6 @@ func Update(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.
 		return errors.New("update of agit flow pull request's head branch is unsupported")
 	}
 
-	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
-	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
-
 	diffCount, err := GetDiverging(ctx, pr)
 	if err != nil {
 		return err
@@ -38,12 +35,53 @@ func Update(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.
 		return fmt.Errorf("HeadBranch of PR %d is up to date: %w", pr.Index, ErrPullRequestIsUpdateToDate)
 	}
 
-	if rebase {
-		defer func() {
-			AddTestPullRequestTask(ctx, doer, pr.BaseRepo.ID, pr.BaseBranch, false, "", "", 0)
-		}()
+	if err := pr.LoadHeadRepo(ctx); err != nil {
+		return fmt.Errorf("unable to load HeadRepo for PR[%d] during update: %w", pr.ID, err)
+	}
 
-		return updateHeadByRebaseOnToBase(ctx, pr, doer)
+	// The current head tip is a read, safe before the claim; the update
+	// push below is the fenced effect.
+	headRef := git.BranchPrefix + pr.HeadBranch
+	oldTip, _ := git.GetFullCommitID(ctx, pr.HeadRepo.RepoPath(), headRef)
+
+	// One ref write owns the reservation before the native update push,
+	// advancing the revision so stale observations go stale. Nested
+	// calls reuse the enclosing ownership instead of claiming again.
+	err = withRefWriteOwnership(ctx,
+		refWriteResource(pr.HeadRepoID, refWritePRUpdate, headRef),
+		refWriteScope{
+			RepositoryID: pr.HeadRepoID,
+			Ref:          headRef,
+			OldOID:       oldTip,
+			PRNumber:     pr.Index,
+		},
+		func(ctx context.Context) error {
+			return updateOwned(ctx, pr, doer, message, rebase)
+		})
+	// The recheck task always follows the attempt, as before, but only
+	// after the ownership releases.
+	AddTestPullRequestTask(ctx, doer, pr.BaseRepo.ID, pr.BaseBranch, false, "", "", 0)
+	return err
+}
+
+// updateOwned runs the head-branch update push under the caller's
+// ownership, recording the realized tip for family reconciliation.
+func updateOwned(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, message string, rebase bool) error {
+	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
+	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
+
+	if rebase {
+		if err := updateHeadByRebaseOnToBase(ctx, pr, doer); err != nil {
+			return err
+		}
+		// The push succeeded; a tip-read failure only degrades the
+		// recorded scope, never the update itself.
+		if tip, err := git.GetFullCommitID(ctx, pr.HeadRepo.RepoPath(), git.BranchPrefix+pr.HeadBranch); err != nil {
+			log.Error("Unable to read updated head tip for PR[%d]: %v", pr.ID, err)
+			return nil
+		} else {
+			return recordRefWriteResult(ctx, tip)
+		}
 	}
 
 	if err := pr.LoadBaseRepo(ctx); err != nil {
@@ -76,13 +114,11 @@ func Update(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.
 		BaseBranch: pr.HeadBranch,
 	}
 
-	_, err = doMergeAndPush(ctx, reversePR, doer, repo_model.MergeStyleMerge, "", message, repository.PushTriggerPRUpdateWithBase)
-
-	defer func() {
-		AddTestPullRequestTask(ctx, doer, reversePR.HeadRepo.ID, reversePR.HeadBranch, false, "", "", 0)
-	}()
-
-	return err
+	mergeCommitID, err := doMergeAndPush(ctx, reversePR, doer, repo_model.MergeStyleMerge, "", message, repository.PushTriggerPRUpdateWithBase)
+	if err != nil {
+		return err
+	}
+	return recordRefWriteResult(ctx, mergeCommitID)
 }
 
 // IsUserAllowedToUpdate check if user is allowed to update PR with given permissions and branch protections

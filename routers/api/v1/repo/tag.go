@@ -4,6 +4,7 @@
 package repo
 
 import (
+	gocontext "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 	release_service "forgejo.org/services/release"
 )
 
@@ -492,7 +494,18 @@ func CreateTagProtection(ctx *context.APIContext) {
 		AllowlistUserIDs: whitelistUsers,
 		AllowlistTeamIDs: whitelistTeams,
 	}
-	if err := git_model.InsertProtectedTag(ctx, protectTag); err != nil {
+	// One protection update owns the reservation before its database
+	// effects. Busy maps to 503 at the API error boundary.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionTag, operation_service.ProtectionCreate, protectTag.NamePattern),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.InsertProtectedTag(ctx, protectTag)
+		}); err != nil {
 		ctx.Error(http.StatusInternalServerError, "InsertProtectedTag", err)
 		return
 	}
@@ -599,7 +612,18 @@ func EditTagProtection(ctx *context.APIContext) {
 		pt.AllowlistUserIDs = whitelistUsers
 	}
 
-	err = git_model.UpdateProtectedTag(ctx, pt)
+	// One protection update owns the reservation before its database
+	// effects. Busy maps to 503 at the API error boundary.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionTag, operation_service.ProtectionEdit, pt.NamePattern),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.UpdateProtectedTag(ctx, pt)
+		})
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "UpdateProtectedTag", err)
 		return
@@ -662,7 +686,18 @@ func DeleteTagProtection(ctx *context.APIContext) {
 		return
 	}
 
-	err = git_model.DeleteProtectedTag(ctx, pt)
+	// One protection update owns the reservation before its database
+	// effects. Busy maps to 503 at the API error boundary.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionTag, operation_service.ProtectionDelete, pt.NamePattern),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.DeleteProtectedTag(ctx, pt)
+		})
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "DeleteProtectedTag", err)
 		return

@@ -6,6 +6,7 @@ package gitrepo
 import (
 	"context"
 
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 )
 
@@ -33,6 +34,12 @@ func GetBranchCommitID(ctx context.Context, repo Repository, branch string) (str
 
 // SetDefaultBranch sets default branch of repository.
 func SetDefaultBranch(ctx context.Context, repo Repository, name string) error {
+	// Nested participating writer: default-branch changes refuse while
+	// another owner holds the reservation; the enclosing ref write or
+	// lifecycle update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, _, err := git.NewCommand(ctx, "symbolic-ref", "HEAD").
 		AddDynamicArguments(git.BranchPrefix + name).
 		RunStdString(&git.RunOpts{Dir: repoPath(repo)})

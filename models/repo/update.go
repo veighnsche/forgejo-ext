@@ -9,12 +9,19 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/util"
 )
 
 // UpdateRepositoryOwnerNames updates repository owner_names (this should only be used when the ownerName has changed case)
 func UpdateRepositoryOwnerNames(ctx context.Context, ownerID int64, ownerName string) error {
+	// Nested participating writer: repository renames refuse while another
+	// owner holds the reservation; the enclosing rename carries the
+	// execution. Timestamp/size-only updates stay outside the reservation.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if ownerID == 0 {
 		return nil
 	}
@@ -41,6 +48,12 @@ func UpdateRepositoryUpdatedTime(ctx context.Context, repoID int64, updateTime t
 
 // UpdateRepositoryCols updates repository's columns
 func UpdateRepositoryCols(ctx context.Context, repo *Repository, cols ...string) error {
+	// Nested participating writer: repository changes refuse while another
+	// owner holds the reservation; the enclosing lifecycle, settings or
+	// completion update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(repo.ID).Cols(cols...).Update(repo)
 	return err
 }

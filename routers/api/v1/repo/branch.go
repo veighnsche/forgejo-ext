@@ -5,6 +5,7 @@
 package repo
 
 import (
+	gocontext "context"
 	"errors"
 	"net/http"
 
@@ -696,14 +697,25 @@ func CreateBranchProtection(ctx *context.APIContext) {
 		ApplyToAdmins:                 form.ApplyToAdmins,
 	}
 
-	err = git_model.UpdateProtectBranch(ctx, ctx.Repo().Repository, protectBranch, git_model.WhitelistOptions{
-		UserIDs:          whitelistUsers,
-		TeamIDs:          whitelistTeams,
-		MergeUserIDs:     mergeWhitelistUsers,
-		MergeTeamIDs:     mergeWhitelistTeams,
-		ApprovalsUserIDs: approvalsWhitelistUsers,
-		ApprovalsTeamIDs: approvalsWhitelistTeams,
-	})
+	// One protection update owns the reservation before its database
+	// effects. Busy maps to 503 at the API error boundary.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, operation_service.ProtectionCreate, ruleName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.UpdateProtectBranch(ctx, repo, protectBranch, git_model.WhitelistOptions{
+				UserIDs:          whitelistUsers,
+				TeamIDs:          whitelistTeams,
+				MergeUserIDs:     mergeWhitelistUsers,
+				MergeTeamIDs:     mergeWhitelistTeams,
+				ApprovalsUserIDs: approvalsWhitelistUsers,
+				ApprovalsTeamIDs: approvalsWhitelistTeams,
+			})
+		})
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "UpdateProtectBranch", err)
 		return
@@ -971,14 +983,25 @@ func EditBranchProtection(ctx *context.APIContext) {
 		}
 	}
 
-	err = git_model.UpdateProtectBranch(ctx, ctx.Repo().Repository, protectBranch, git_model.WhitelistOptions{
-		UserIDs:          whitelistUsers,
-		TeamIDs:          whitelistTeams,
-		MergeUserIDs:     mergeWhitelistUsers,
-		MergeTeamIDs:     mergeWhitelistTeams,
-		ApprovalsUserIDs: approvalsWhitelistUsers,
-		ApprovalsTeamIDs: approvalsWhitelistTeams,
-	})
+	// One protection update owns the reservation before its database
+	// effects. Busy maps to 503 at the API error boundary.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, operation_service.ProtectionEdit, bpName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.UpdateProtectBranch(ctx, repo, protectBranch, git_model.WhitelistOptions{
+				UserIDs:          whitelistUsers,
+				TeamIDs:          whitelistTeams,
+				MergeUserIDs:     mergeWhitelistUsers,
+				MergeTeamIDs:     mergeWhitelistTeams,
+				ApprovalsUserIDs: approvalsWhitelistUsers,
+				ApprovalsTeamIDs: approvalsWhitelistTeams,
+			})
+		})
 	if err != nil {
 		ctx.Error(http.StatusInternalServerError, "UpdateProtectBranch", err)
 		return
@@ -1080,7 +1103,18 @@ func DeleteBranchProtection(ctx *context.APIContext) {
 		return
 	}
 
-	if err := git_model.DeleteProtectedBranch(ctx, ctx.Repo().Repository, bp.ID); err != nil {
+	// One protection update owns the reservation before its database
+	// effects. Busy maps to 503 at the API error boundary.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, operation_service.ProtectionDelete, bp.RuleName),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.DeleteProtectedBranch(ctx, repo, bp.ID)
+		}); err != nil {
 		ctx.Error(http.StatusInternalServerError, "DeleteProtectedBranch", err)
 		return
 	}

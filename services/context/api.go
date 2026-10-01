@@ -356,7 +356,11 @@ func (ctx *APIContext) InternalServerError(err error) {
 		message = err.Error()
 	}
 
-	ctx.JSON(http.StatusInternalServerError, APIError{
+	status := http.StatusInternalServerError
+	if policyStatus := policyErrorStatus(err); policyStatus != 0 {
+		status = policyStatus
+	}
+	ctx.JSON(status, APIError{
 		Message: message,
 		URL:     setting.API.SwaggerURL,
 	})

@@ -4,6 +4,7 @@
 package private
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -11,6 +12,7 @@ import (
 
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/auth"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
@@ -19,7 +21,9 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/private"
 	"forgejo.org/modules/setting"
+	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 	wiki_service "forgejo.org/services/wiki"
 )
@@ -421,6 +425,32 @@ func ServCommand(ctx *context.PrivateContext) {
 			return
 		}
 	}
+	// A receive-pack execution with an execution verifier claims the
+	// reservation here: the serv process holds no database handle, so
+	// the server claims on its behalf and the serv process releases
+	// through the release endpoint after the receiver exits. Reads and
+	// unverified calls keep their existing behavior. Contention waits
+	// out short writer spans inside the claim; a still-busy domain
+	// refuses the push with a retryable message.
+	if slices.Contains(ctx.FormStrings("verb"), "git-receive-pack") && ctx.FormString("exec_verifier") != "" {
+		owner, generation, err := operation_service.Default().ClaimSSHReceive(ctx, results.RepoID, results.UserID, ctx.FormString("exec_verifier"), results.IsWiki)
+		if err != nil {
+			if errors.Is(err, nativeoperation.ErrBusy) || errors.Is(err, nativeoperation.ErrInhibited) {
+				ctx.JSON(http.StatusServiceUnavailable, private.Response{
+					UserMsg: "The server is busy processing another update. Retry your push shortly.",
+				})
+				return
+			}
+			sshLogger.Error("Unable to claim SSH receive for %-v Error: %v", repo, err)
+			ctx.JSON(http.StatusInternalServerError, private.Response{
+				Err: fmt.Sprintf("Unable to claim SSH receive in %s/%s Error: %v", ownerName, repoName, err),
+			})
+			return
+		}
+		results.Owner = owner
+		results.Generation = generation
+	}
+
 	sshLogger.Info("Serv Results:\n\tIsWiki: %t\n\tDeployKeyID: %d\n\tKeyID: %d\tKeyName: %s\n\tUserName: %s\n\tUserID: %d\n\tOwnerName: %s\n\tRepoName: %s\n\tRepoID: %d",
 		results.IsWiki,
 		results.DeployKeyID,
@@ -434,4 +464,18 @@ func ServCommand(ctx *context.PrivateContext) {
 
 	ctx.JSON(http.StatusOK, results)
 	// We will update the keys in a different call.
+}
+
+// ServRelease releases one held SSH receive owner after its receiver
+// exits. Only exact receive-ssh owners release here; anything else
+// refuses without touching the reservation.
+func ServRelease(ctx *context.PrivateContext) {
+	opts := web.GetForm(ctx).(*private.SSHReleaseOption)
+	if err := operation_service.Default().ReleaseSSHReceive(ctx, opts.Owner, opts.Generation); err != nil {
+		ctx.JSON(http.StatusForbidden, private.Response{
+			Err: err.Error(),
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, private.ResponseText{})
 }

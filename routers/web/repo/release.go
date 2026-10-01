@@ -610,7 +610,7 @@ func NewReleasePost(ctx *context.Context) {
 			IsTag:            false,
 		}
 
-		if err = release_service.CreateRelease(ctx.Repo.GitRepo, rel, msg, attachmentChanges.Values()); err != nil {
+		if err = release_service.CreateRelease(ctx, ctx.Repo.GitRepo, rel, msg, attachmentChanges.Values()); err != nil {
 			ctx.Data["Err_TagName"] = true
 			switch {
 			case repo_model.IsErrReleaseAlreadyExist(err):
@@ -861,6 +861,9 @@ func deleteReleaseOrTag(ctx *context.Context, isDelTag bool) {
 	}
 
 	if err := release_service.DeleteReleaseByID(ctx, ctx.Repo.Repository, rel, ctx.Doer, isDelTag); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		if models.IsErrProtectedTagName(err) {
 			ctx.Flash.Error(ctx.Tr("repo.release.tag_name_protected"))
 		} else {

@@ -92,6 +92,9 @@ func DeleteBranchPost(ctx *context.Context) {
 	branchName := ctx.FormString("name")
 
 	if err := repo_service.DeleteBranch(ctx, ctx.Doer, ctx.Repo.Repository, ctx.Repo.GitRepo, branchName); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		switch {
 		case git.IsErrBranchNotExist(err):
 			log.Debug("DeleteBranch: Can't delete non existing branch '%s'", branchName)

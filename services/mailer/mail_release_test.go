@@ -47,7 +47,7 @@ func TestMailNewRelease(t *testing.T) {
 			called = true
 		})()
 
-		require.NoError(t, release_service.CreateRelease(gitRepo, &repo_model.Release{
+		require.NoError(t, release_service.CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 			RepoID:      repo.ID,
 			Repo:        repo,
 			PublisherID: user2.ID,
@@ -79,7 +79,7 @@ func TestMailNewRelease(t *testing.T) {
 			called = true
 		})()
 
-		require.NoError(t, release_service.CreateRelease(gitRepo, &repo_model.Release{
+		require.NoError(t, release_service.CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 			RepoID:      repo.ID,
 			Repo:        repo,
 			PublisherID: user2.ID,
@@ -106,7 +106,7 @@ func TestMailNewRelease(t *testing.T) {
 			called = true
 		})()
 
-		require.NoError(t, release_service.CreateRelease(gitRepo, &repo_model.Release{
+		require.NoError(t, release_service.CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 			RepoID:      repo.ID,
 			Repo:        repo,
 			PublisherID: user2.ID,

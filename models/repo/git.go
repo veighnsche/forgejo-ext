@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 )
 
 // MergeStyle represents the approach to merge commits into base branch.
@@ -42,6 +43,12 @@ const (
 
 // UpdateDefaultBranch updates the default branch
 func UpdateDefaultBranch(ctx context.Context, repo *Repository) error {
+	// Nested participating writer: default-branch changes refuse while
+	// another owner holds the reservation; the enclosing ref write or
+	// lifecycle update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(repo.ID).Cols("default_branch").Update(repo)
 	return err
 }

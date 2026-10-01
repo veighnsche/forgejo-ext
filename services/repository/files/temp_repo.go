@@ -19,10 +19,12 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
+	nativeoperation "forgejo.org/modules/nativeoperation"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/gitdiff"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // TemporaryUploadRepository is a type to wrap our upload repositories as a shallow clone
@@ -298,10 +300,37 @@ func (t *TemporaryUploadRepository) CommitTreeWithDate(parent string, author, co
 }
 
 // Push the provided commitHash to the repository branch by the provided user
-func (t *TemporaryUploadRepository) Push(doer *user_model.User, commitHash, branch string) error {
+// PushOwned pushes the temporary tree to the target branch under one file
+// ref-write ownership, advancing the revision so stale observations go
+// stale. Nested calls reuse the enclosing ownership instead of claiming
+// again.
+func (t *TemporaryUploadRepository) PushOwned(ctx context.Context, doer *user_model.User, commitHash, branch string) error {
+	// The current tip is a read, safe before the claim; the push below
+	// is the fenced effect.
+	oldTip, _ := git.GetFullCommitID(ctx, t.repo.RepoPath(), git.BranchPrefix+branch)
+
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(t.repo.ID, operation_service.RefWriteFile, git.BranchPrefix+branch),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: t.repo.ID,
+			Ref:          git.BranchPrefix + branch,
+			OldOID:       oldTip,
+			NewOID:       strings.TrimSpace(commitHash),
+		},
+		func(ctx context.Context) error {
+			return t.Push(ctx, doer, commitHash, branch)
+		})
+}
+
+func (t *TemporaryUploadRepository) Push(ctx context.Context, doer *user_model.User, commitHash, branch string) error {
 	// Because calls hooks we need to pass in the environment
 	env := repo_module.PushingEnvironment(doer, t.repo)
-	if err := git.Push(t.ctx, t.basePath, git.PushOptions{
+	// Carry the file-edit owner's execution capability for hook binding.
+	// Without an enclosing owner the environment is unchanged.
+	env = nativeoperation.AppendExecEnv(env, nativeoperation.FromContext(ctx))
+	if err := git.Push(ctx, t.basePath, git.PushOptions{
 		Remote:       t.repo.RepoPath(),
 		Branch:       strings.TrimSpace(commitHash) + ":" + git.BranchPrefix + strings.TrimSpace(branch),
 		Env:          env,

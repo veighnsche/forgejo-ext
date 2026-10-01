@@ -28,6 +28,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	app_context "forgejo.org/services/context"
+	nativeoperation "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 )
 
@@ -47,6 +48,17 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 	// Bind synchronous completion to the held reservation owner. Ordinary
 	// pushes keep existing behavior while the reservation is idle.
 	if !checkCompletionBinding(ctx, opts, ownerName, repoName) {
+		return
+	}
+
+	// Nested participating writers below reuse the bound execution
+	// instead of claiming again. While idle this returns the context
+	// unchanged.
+	reqCtx, err := nativeoperation.BoundCallbackContext(ctx, opts.ExecProof, opts.ExecPath)
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, private.HookPostReceiveResult{
+			Err: "native operation in progress",
+		})
 		return
 	}
 
@@ -111,7 +123,7 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 			}
 
 			if update.IsDelRef() {
-				if err := git_model.AddDeletedBranch(ctx, repo.ID, update.RefFullName.BranchName(), update.PusherID); err != nil {
+				if err := git_model.AddDeletedBranch(reqCtx, repo.ID, update.RefFullName.BranchName(), update.PusherID); err != nil {
 					log.Error("Failed to add deleted branch: %s/%s Error: %v", ownerName, repoName, err)
 					ctx.JSON(http.StatusInternalServerError, private.HookPostReceiveResult{
 						Err: fmt.Sprintf("Failed to add deleted branch: %s/%s Error: %v", ownerName, repoName, err),
@@ -141,7 +153,7 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 				commitIDs = append(commitIDs, update.NewCommitID)
 			}
 
-			err = repo_service.SyncBranchesToDB(ctx, repo.ID, opts.UserID, branchNames, commitIDs, gitRepo.GetCommit)
+			err = repo_service.SyncBranchesToDB(reqCtx, repo.ID, opts.UserID, branchNames, commitIDs, gitRepo.GetCommit)
 			gitRepo.Close()
 			if err != nil {
 				ctx.JSON(http.StatusInternalServerError, private.HookPostReceiveResult{

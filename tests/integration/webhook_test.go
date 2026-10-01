@@ -94,7 +94,7 @@ func TestWebhookReleaseEvents(t *testing.T) {
 	defer gitRepo.Close()
 
 	t.Run("CreateRelease", func(t *testing.T) {
-		require.NoError(t, release.CreateRelease(gitRepo, &repo_model.Release{
+		require.NoError(t, release.CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 			RepoID:       repo.ID,
 			Repo:         repo,
 			PublisherID:  user.ID,

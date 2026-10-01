@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
@@ -113,6 +114,12 @@ func GetPendingRepositoryTransfer(ctx context.Context, repo *repo_model.Reposito
 }
 
 func DeleteRepositoryTransfer(ctx context.Context, repoID int64) error {
+	// Nested participating writer: transfer changes refuse while another
+	// owner holds the reservation; the enclosing transfer carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Where("repo_id = ?", repoID).Delete(&RepoTransfer{})
 	return err
 }
@@ -131,6 +138,12 @@ func TestRepositoryReadyForTransfer(status repo_model.RepositoryStatus) error {
 // CreatePendingRepositoryTransfer transfer a repo from one owner to a new one.
 // it marks the repository transfer as "pending"
 func CreatePendingRepositoryTransfer(ctx context.Context, doer, newOwner *user_model.User, repoID int64, teams []*organization.Team) error {
+	// Nested participating writer: transfer changes refuse while another
+	// owner holds the reservation; the enclosing transfer carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		repo, err := repo_model.GetRepositoryByID(ctx, repoID)
 		if err != nil {

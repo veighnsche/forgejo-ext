@@ -24,7 +24,9 @@ import (
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
+	nativeoperation "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/process"
+	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/sync"
 	app_context "forgejo.org/services/context"
@@ -474,12 +476,34 @@ func PushToBaseRepo(ctx context.Context, pr *issues_model.PullRequest) (err erro
 	}
 	defer baseRepo.Close()
 
-	fetchedCommitID, err := baseRepo.Fetch("file://"+headRepoPath, git.BranchPrefix+pr.HeadBranch)
-	if err != nil {
-		return err
-	}
+	// The current tip is a read, safe before the claim; the fetch and
+	// the ref update below are the fenced effects.
+	oldTip, _ := baseRepo.GetRefCommitID(pr.GetGitRefName())
 
-	return baseRepo.SetReference(pr.GetGitRefName(), fetchedCommitID)
+	// One ref write owns the reservation before its fetch and ref
+	// update, advancing the revision so stale observations go stale.
+	// Nested calls reuse the enclosing ownership instead of claiming
+	// again.
+	return withRefWriteOwnership(ctx,
+		refWriteResource(pr.BaseRepoID, refWritePRRef, pr.GetGitRefName()),
+		refWriteScope{
+			RepositoryID: pr.BaseRepoID,
+			Ref:          pr.GetGitRefName(),
+			OldOID:       oldTip,
+		},
+		func(ctx context.Context) error {
+			fetchedCommitID, err := baseRepo.Fetch("file://"+headRepoPath, git.BranchPrefix+pr.HeadBranch)
+			if err != nil {
+				return err
+			}
+			if err := recordRefWriteResult(ctx, fetchedCommitID); err != nil {
+				return err
+			}
+
+			env := repo_module.RefWriteEnvironment(pr.BaseRepo)
+			env = nativeoperation.AppendExecEnv(env, nativeoperation.FromContext(ctx))
+			return baseRepo.SetReferenceWithEnv(pr.GetGitRefName(), fetchedCommitID, env)
+		})
 }
 
 // UpdateRef update refs/pull/id/head directly for agit flow pull request
@@ -490,12 +514,30 @@ func UpdateRef(ctx context.Context, pr *issues_model.PullRequest) (err error) {
 		return err
 	}
 
-	_, _, err = git.NewCommand(ctx, "update-ref").AddDynamicArguments(pr.GetGitRefName(), pr.HeadCommitID).RunStdString(&git.RunOpts{Dir: pr.BaseRepo.RepoPath()})
-	if err != nil {
-		log.Error("Unable to update ref in base repository for PR[%d] Error: %v", pr.ID, err)
-	}
+	// The current tip is a read, safe before the claim; the ref update
+	// below is the fenced effect.
+	oldTip, _ := git.GetFullCommitID(ctx, pr.BaseRepo.RepoPath(), pr.GetGitRefName())
 
-	return err
+	// One ref write owns the reservation before its ref update,
+	// advancing the revision so stale observations go stale. Nested
+	// calls reuse the enclosing ownership instead of claiming again.
+	return withRefWriteOwnership(ctx,
+		refWriteResource(pr.BaseRepoID, refWritePRRef, pr.GetGitRefName()),
+		refWriteScope{
+			RepositoryID: pr.BaseRepoID,
+			Ref:          pr.GetGitRefName(),
+			OldOID:       oldTip,
+			NewOID:       pr.HeadCommitID,
+		},
+		func(ctx context.Context) error {
+			env := repo_module.RefWriteEnvironment(pr.BaseRepo)
+			env = nativeoperation.AppendExecEnv(env, nativeoperation.FromContext(ctx))
+			_, _, err := git.NewCommand(ctx, "update-ref").AddDynamicArguments(pr.GetGitRefName(), pr.HeadCommitID).RunStdString(&git.RunOpts{Dir: pr.BaseRepo.RepoPath(), Env: env})
+			if err != nil {
+				log.Error("Unable to update ref in base repository for PR[%d] Error: %v", pr.ID, err)
+			}
+			return err
+		})
 }
 
 type errlist []error

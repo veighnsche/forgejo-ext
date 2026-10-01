@@ -16,6 +16,7 @@ import (
 	"forgejo.org/modules/log"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -84,6 +85,23 @@ func GitGcRepos(ctx context.Context, timeout time.Duration, args git.TrustedCmdA
 
 // GitGcRepo calls 'git gc' to remove unnecessary files and optimize the local repository
 func GitGcRepo(ctx context.Context, repo *repo_model.Repository, timeout time.Duration, args git.TrustedCmdArgs) error {
+	// One maintenance update owns the reservation across the object-store
+	// rewrite and the size record so no ref writer interleaves.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyMaintenance,
+		fmt.Sprintf("%d/gc", repo.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyMaintenance,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			return gitGcRepoOwned(ctx, repo, timeout, args)
+		})
+}
+
+// gitGcRepoOwned runs the garbage collection and size record under the
+// caller's ownership.
+func gitGcRepoOwned(ctx context.Context, repo *repo_model.Repository, timeout time.Duration, args git.TrustedCmdArgs) error {
 	log.Trace("Running git gc on %-v", repo)
 	command := git.NewCommand(ctx, "gc").AddArguments(args...).
 		SetDescription(fmt.Sprintf("Repository Garbage Collection: %s", repo.FullName()))
@@ -190,7 +208,19 @@ func ReinitMissingRepositories(ctx context.Context) error {
 		default:
 		}
 		log.Trace("Initializing %d/%d...", repo.OwnerID, repo.ID)
-		if err := git.InitRepository(ctx, repo.RepoPath(), true, repo.ObjectFormatName); err != nil {
+		// Each reinit holds maintenance ownership across its fresh
+		// object-store creation so no writer targets the half-made
+		// directory; notices stay outside the claim.
+		if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyMaintenance,
+			fmt.Sprintf("%d/reinit", repo.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyMaintenance,
+				RepositoryID: repo.ID,
+			},
+			func(ctx context.Context) error {
+				return git.InitRepository(ctx, repo.RepoPath(), true, repo.ObjectFormatName)
+			}); err != nil {
 			log.Error("Unable (re)initialize repository %d at %s. Error: %v", repo.ID, repo.RepoPath(), err)
 			if err2 := system_model.CreateRepositoryNotice("InitRepository [%d]: %v", repo.ID, err); err2 != nil {
 				log.Error("CreateRepositoryNotice: %v", err2)

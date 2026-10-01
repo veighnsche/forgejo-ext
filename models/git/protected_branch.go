@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
@@ -320,6 +321,12 @@ type WhitelistOptions struct {
 // This function also performs check if whitelist user and team's IDs have been changed
 // to avoid unnecessary whitelist delete and regenerate.
 func UpdateProtectBranch(ctx context.Context, repo *repo_model.Repository, protectBranch *ProtectedBranch, opts WhitelistOptions) (err error) {
+	// Nested participating writer: protection changes refuse while another
+	// owner holds the reservation; the enclosing protection update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	err = repo.MustNotBeArchived()
 	if err != nil {
 		return err
@@ -456,6 +463,12 @@ func updateTeamWhitelist(ctx context.Context, repo *repo_model.Repository, curre
 
 // DeleteProtectedBranch removes ProtectedBranch relation between the user and repository.
 func DeleteProtectedBranch(ctx context.Context, repo *repo_model.Repository, id int64) (err error) {
+	// Nested participating writer: protection changes refuse while another
+	// owner holds the reservation; the enclosing protection update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	err = repo.MustNotBeArchived()
 	if err != nil {
 		return err
@@ -477,6 +490,12 @@ func DeleteProtectedBranch(ctx context.Context, repo *repo_model.Repository, id 
 
 // RemoveUserIDFromProtectedBranch remove all user ids from protected branch options
 func RemoveUserIDFromProtectedBranch(ctx context.Context, p *ProtectedBranch, userID int64) error {
+	// Nested participating writer: derived protection updates refuse while
+	// another owner holds the reservation; the enclosing authority change
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	lenIDs, lenApprovalIDs, lenMergeIDs := len(p.WhitelistUserIDs), len(p.ApprovalsWhitelistUserIDs), len(p.MergeWhitelistUserIDs)
 	p.WhitelistUserIDs = util.SliceRemoveAll(p.WhitelistUserIDs, userID)
 	p.ApprovalsWhitelistUserIDs = util.SliceRemoveAll(p.ApprovalsWhitelistUserIDs, userID)
@@ -497,6 +516,12 @@ func RemoveUserIDFromProtectedBranch(ctx context.Context, p *ProtectedBranch, us
 
 // RemoveTeamIDFromProtectedBranch remove all team ids from protected branch options
 func RemoveTeamIDFromProtectedBranch(ctx context.Context, p *ProtectedBranch, teamID int64) error {
+	// Nested participating writer: derived protection updates refuse while
+	// another owner holds the reservation; the enclosing authority change
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	lenIDs, lenApprovalIDs, lenMergeIDs := len(p.WhitelistTeamIDs), len(p.ApprovalsWhitelistTeamIDs), len(p.MergeWhitelistTeamIDs)
 	p.WhitelistTeamIDs = util.SliceRemoveAll(p.WhitelistTeamIDs, teamID)
 	p.ApprovalsWhitelistTeamIDs = util.SliceRemoveAll(p.ApprovalsWhitelistTeamIDs, teamID)

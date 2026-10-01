@@ -101,7 +101,7 @@ func TestMirrorPull(t *testing.T) {
 		initCount, err := db.Count[repo_model.Release](db.DefaultContext, findOptions)
 		require.NoError(t, err)
 
-		require.NoError(t, release_service.CreateRelease(gitRepo, &repo_model.Release{
+		require.NoError(t, release_service.CreateRelease(ctx, gitRepo, &repo_model.Release{
 			RepoID:       repo.ID,
 			Repo:         repo,
 			PublisherID:  user.ID,
@@ -118,8 +118,7 @@ func TestMirrorPull(t *testing.T) {
 		_, err = repo_model.GetMirrorByRepoID(ctx, mirror.ID)
 		require.NoError(t, err)
 
-		ok := mirror_service.SyncPullMirror(ctx, mirror.ID)
-		assert.True(t, ok)
+		require.NoError(t, mirror_service.SyncPullMirror(ctx, mirror.ID))
 
 		count, err := db.Count[repo_model.Release](db.DefaultContext, findOptions)
 		require.NoError(t, err)
@@ -129,8 +128,7 @@ func TestMirrorPull(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, release_service.DeleteReleaseByID(ctx, repo, release, user, true))
 
-		ok = mirror_service.SyncPullMirror(ctx, mirror.ID)
-		assert.True(t, ok)
+		require.NoError(t, mirror_service.SyncPullMirror(ctx, mirror.ID))
 
 		count, err = db.Count[repo_model.Release](db.DefaultContext, findOptions)
 		require.NoError(t, err)
@@ -358,8 +356,8 @@ func TestMirrorPullAddressCheck(t *testing.T) {
 		// Re-triggering the mirror should now fail because the remote URL is no longer permitted.
 		mirrorRepo, err := repo_model.GetRepositoryByOwnerAndName(t.Context(), "user2", mirrorName)
 		require.NoError(t, err)
-		ok := mirror_service.SyncPullMirror(t.Context(), mirrorRepo.ID)
-		assert.False(t, ok, "expected pull mirror sync to fail because the remote URL is no longer permitted")
+		err = mirror_service.SyncPullMirror(t.Context(), mirrorRepo.ID)
+		require.Error(t, err, "expected pull mirror sync to fail because the remote URL is no longer permitted")
 	})
 }
 
@@ -731,8 +729,7 @@ func TestMirrorPullLFS(t *testing.T) {
 			lc.StopMark("SyncMirrors")
 			defer cleanup()
 
-			ok := mirror_service.SyncPullMirror(t.Context(), mirrorRepo.ID)
-			assert.True(t, ok) // LFS failure doesn't output a migration failure
+			require.NoError(t, mirror_service.SyncPullMirror(t.Context(), mirrorRepo.ID)) // LFS failure doesn't output a migration failure
 
 			logFiltered, _ := lc.Check(5 * time.Second)
 			assert.True(t, logFiltered[0], "expected migration error output")

@@ -18,6 +18,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/services/migrations/allowlist"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // MigrateOptions is equal to base.MigrateOptions
@@ -47,13 +48,29 @@ func MigrateRepository(ctx context.Context, doer *user_model.User, ownerName str
 		return nil, err
 	}
 
-	uploader := NewGiteaLocalUploader(ctx, doer, ownerName, opts.RepoName)
-	uploader.gitServiceType = opts.GitServiceType
-
-	if err := migrateRepository(ctx, doer, downloader, uploader, opts, messenger); err != nil {
-		if err1 := uploader.Rollback(); err1 != nil {
-			log.Error("rollback failed: %v", err1)
-		}
+	// One lifecycle update owns the reservation across the download,
+	// repository creation and all uploader writes. The row does not
+	// exist yet, so the owner identity carries the owner/name pair.
+	// Nested calls reuse the enclosing ownership instead of claiming
+	// again; the failure notice stays outside the claim.
+	var uploader *GiteaLocalUploader
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(0, operation_service.LifecycleMigrate, ownerName, opts.RepoName),
+		operation_service.Scope{
+			Family: operation_service.FamilyRepoLifecycle,
+		},
+		func(ctx context.Context) error {
+			uploader = NewGiteaLocalUploader(ctx, doer, ownerName, opts.RepoName)
+			uploader.gitServiceType = opts.GitServiceType
+			if err := migrateRepository(ctx, doer, downloader, uploader, opts, messenger); err != nil {
+				if err1 := uploader.Rollback(); err1 != nil {
+					log.Error("rollback failed: %v", err1)
+				}
+				return err
+			}
+			return nil
+		}); err != nil {
 		if err2 := system_model.CreateRepositoryNotice(fmt.Sprintf("Migrate repository from %s failed: %v", opts.OriginalURL, err)); err2 != nil {
 			log.Error("create respotiry notice failed: ", err2)
 		}

@@ -67,6 +67,7 @@ func Routes() *web.Route {
 	r.Post("/hook/set-default-branch/{owner}/{repo}/{branch}", RepoAssignment, SetDefaultBranch)
 	r.Get("/serv/none/{keyid}", ServNoCommand)
 	r.Get("/serv/command/{keyid}/{owner}/{repo}", ServCommand)
+	r.Post("/serv/release", bind(private.SSHReleaseOption{}), ServRelease)
 	r.Post("/manager/shutdown", Shutdown)
 	r.Post("/manager/restart", Restart)
 	r.Post("/manager/reload-templates", ReloadTemplates)

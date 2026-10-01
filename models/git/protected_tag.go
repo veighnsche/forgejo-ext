@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/modules/timeutil"
 
@@ -58,18 +59,36 @@ func (pt *ProtectedTag) matchString(name string) bool {
 
 // InsertProtectedTag inserts a protected tag to database
 func InsertProtectedTag(ctx context.Context, pt *ProtectedTag) error {
+	// Nested participating writer: protection changes refuse while another
+	// owner holds the reservation; the enclosing protection update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Insert(pt)
 	return err
 }
 
 // UpdateProtectedTag updates the protected tag
 func UpdateProtectedTag(ctx context.Context, pt *ProtectedTag) error {
+	// Nested participating writer: protection changes refuse while another
+	// owner holds the reservation; the enclosing protection update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(pt.ID).AllCols().Update(pt)
 	return err
 }
 
 // DeleteProtectedTag deletes a protected tag by ID
 func DeleteProtectedTag(ctx context.Context, pt *ProtectedTag) error {
+	// Nested participating writer: protection changes refuse while another
+	// owner holds the reservation; the enclosing protection update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(pt.ID).Delete(&ProtectedTag{})
 	return err
 }

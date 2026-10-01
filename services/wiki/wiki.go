@@ -18,9 +18,11 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/log"
+	nativeoperation "forgejo.org/modules/nativeoperation"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/sync"
 	asymkey_service "forgejo.org/services/asymkey"
+	operation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 )
 
@@ -58,13 +60,19 @@ func NormalizeWikiBranch(ctx context.Context, repo *repo_model.Repository, to st
 		return err
 	}
 
-	updateDB := func() error {
-		repo.WikiBranch = to
-		return repo_model.UpdateRepositoryCols(ctx, repo, "wiki_branch")
-	}
-
 	if !repo.HasWiki() {
-		return updateDB()
+		// No wiki refs exist; the branch-name record is a plain
+		// settings write under its own ownership.
+		return operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyRepoSettings,
+			fmt.Sprintf("%d/wiki-branch", repo.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyRepoSettings,
+				RepositoryID: repo.ID,
+			},
+			func(ctx context.Context) error {
+				return normalizeWikiBranchDB(ctx, repo, to)
+			})
 	}
 
 	if from == to {
@@ -85,6 +93,39 @@ func NormalizeWikiBranch(ctx context.Context, repo *repo_model.Repository, to st
 		return nil
 	}
 
+	// The current tip is a read, safe before the claim; a rename
+	// preserves it across both ref effects.
+	tip, err := gitRepo.GetRefCommitID(git.BranchPrefix + from)
+	if err != nil {
+		return err
+	}
+
+	// One ref write owns the reservation before the native wiki
+	// rename, the default-branch update and the database write. The
+	// rename spans two refs, which the single-ref gate cannot
+	// express, so the native child stays unbound and the held
+	// reservation alone serializes it. Nested calls reuse the
+	// enclosing ownership instead of claiming again.
+	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteRename, "wiki/"+from+"->"+to),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Refs: []operation_service.ScopedRef{
+				{Ref: git.BranchPrefix + from, OldOID: tip, NewOID: objectFormat.EmptyObjectID().String()},
+				{Ref: git.BranchPrefix + to, NewOID: tip},
+			},
+		},
+		func(ctx context.Context) error {
+			return normalizeWikiBranchOwned(ctx, repo, gitRepo, from, to)
+		})
+}
+
+// normalizeWikiBranchOwned runs the wiki branch rename, default-branch
+// update and database write under the caller's ownership.
+func normalizeWikiBranchOwned(ctx context.Context, repo *repo_model.Repository, gitRepo *git.Repository, from, to string) error {
 	if err := gitRepo.RenameBranch(from, to); err != nil {
 		return err
 	}
@@ -93,7 +134,13 @@ func NormalizeWikiBranch(ctx context.Context, repo *repo_model.Repository, to st
 		return err
 	}
 
-	return updateDB()
+	return normalizeWikiBranchDB(ctx, repo, to)
+}
+
+// normalizeWikiBranchDB records the wiki branch name in the database.
+func normalizeWikiBranchDB(ctx context.Context, repo *repo_model.Repository, to string) error {
+	repo.WikiBranch = to
+	return repo_model.UpdateRepositoryCols(ctx, repo, "wiki_branch")
 }
 
 // prepareGitPath try to find a suitable file path with file name by the given raw wiki name.
@@ -137,6 +184,34 @@ func updateWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 	if err = validateWebPath(newWikiName); err != nil {
 		return err
 	}
+
+	// The current wiki tip is a read, safe before the claim; the page
+	// commit and push below are the fenced effects.
+	wikiRef := git.BranchPrefix + repo.GetWikiBranchName()
+	oldTip, _ := git.GetFullCommitID(ctx, repo.WikiPath(), wikiRef)
+
+	// One file ref write owns the reservation before the native wiki
+	// push, advancing the revision so stale observations go stale.
+	// Nested calls reuse the enclosing ownership instead of claiming
+	// again.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteFile, "wiki/"+wikiRef),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Ref:          wikiRef,
+			OldOID:       oldTip,
+		},
+		func(ctx context.Context) error {
+			return updateWikiPageOwned(ctx, doer, repo, oldWikiName, newWikiName, content, message, isNew)
+		})
+}
+
+// updateWikiPageOwned runs the wiki page commit and push under the
+// caller's ownership, recording the realized tip for family
+// reconciliation.
+func updateWikiPageOwned(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, oldWikiName, newWikiName WebPath, content, message string, isNew bool) (err error) {
 	wikiWorkingPool.CheckIn(fmt.Sprint(repo.ID))
 	defer wikiWorkingPool.CheckOut(fmt.Sprint(repo.ID))
 
@@ -259,17 +334,7 @@ func updateWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 		return err
 	}
 
-	if err := git.Push(gitRepo.Ctx, basePath, git.PushOptions{
-		Remote: DefaultRemote,
-		Branch: fmt.Sprintf("%s:%s%s", commitHash.String(), git.BranchPrefix, repo.GetWikiBranchName()),
-		Env: repo_module.FullPushingEnvironment(
-			doer,
-			doer,
-			repo,
-			repo.Name+".wiki",
-			0,
-		),
-	}); err != nil {
+	if err := pushWikiBranch(ctx, doer, repo, basePath, commitHash.String()); err != nil {
 		log.Error("Push failed: %v", err)
 		if git.IsErrPushOutOfDate(err) || git.IsErrPushRejected(err) {
 			return err
@@ -277,7 +342,25 @@ func updateWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 		return fmt.Errorf("failed to push: %w", err)
 	}
 
-	return nil
+	return operation_service.RecordScopeRefResult(ctx, commitHash.String())
+}
+
+// pushWikiBranch pushes one wiki commit to the wiki branch, carrying the
+// caller's execution capability for hook binding.
+func pushWikiBranch(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, basePath, commitHash string) error {
+	env := repo_module.FullPushingEnvironment(
+		doer,
+		doer,
+		repo,
+		repo.Name+".wiki",
+		0,
+	)
+	env = nativeoperation.AppendExecEnv(env, nativeoperation.FromContext(ctx))
+	return git.Push(ctx, basePath, git.PushOptions{
+		Remote: DefaultRemote,
+		Branch: fmt.Sprintf("%s:%s%s", commitHash, git.BranchPrefix, repo.GetWikiBranchName()),
+		Env:    env,
+	})
 }
 
 // AddWikiPage adds a new wiki page with a given wikiPath.
@@ -298,6 +381,33 @@ func DeleteWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 		return err
 	}
 
+	// The current wiki tip is a read, safe before the claim; the page
+	// deletion commit and push below are the fenced effects.
+	wikiRef := git.BranchPrefix + repo.GetWikiBranchName()
+	oldTip, _ := git.GetFullCommitID(ctx, repo.WikiPath(), wikiRef)
+
+	// One file ref write owns the reservation before the native wiki
+	// push, advancing the revision so stale observations go stale.
+	// Nested calls reuse the enclosing ownership instead of claiming
+	// again.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteFile, "wiki/"+wikiRef),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Ref:          wikiRef,
+			OldOID:       oldTip,
+		},
+		func(ctx context.Context) error {
+			return deleteWikiPageOwned(ctx, doer, repo, wikiName)
+		})
+}
+
+// deleteWikiPageOwned runs the wiki page deletion commit and push under
+// the caller's ownership, recording the realized tip for family
+// reconciliation.
+func deleteWikiPageOwned(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, wikiName WebPath) (err error) {
 	wikiWorkingPool.CheckIn(fmt.Sprint(repo.ID))
 	defer wikiWorkingPool.CheckOut(fmt.Sprint(repo.ID))
 
@@ -378,24 +488,14 @@ func DeleteWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 		return err
 	}
 
-	if err := git.Push(gitRepo.Ctx, basePath, git.PushOptions{
-		Remote: DefaultRemote,
-		Branch: fmt.Sprintf("%s:%s%s", commitHash.String(), git.BranchPrefix, repo.GetWikiBranchName()),
-		Env: repo_module.FullPushingEnvironment(
-			doer,
-			doer,
-			repo,
-			repo.Name+".wiki",
-			0,
-		),
-	}); err != nil {
+	if err := pushWikiBranch(ctx, doer, repo, basePath, commitHash.String()); err != nil {
 		if git.IsErrPushOutOfDate(err) || git.IsErrPushRejected(err) {
 			return err
 		}
 		return fmt.Errorf("Push: %w", err)
 	}
 
-	return nil
+	return operation_service.RecordScopeRefResult(ctx, commitHash.String())
 }
 
 // DeleteWiki removes the actual and local copy of repository wiki.

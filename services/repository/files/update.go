@@ -23,6 +23,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	asymkey_service "forgejo.org/services/asymkey"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // IdentityOptions for a person's identity like an author or committer
@@ -262,8 +263,37 @@ func ChangeRepoFiles(ctx context.Context, repo *repo_model.Repository, doer *use
 		return nil, err
 	}
 
-	// Then push this tree to NewBranch
-	if err := t.Push(doer, commitHash, opts.NewBranch); err != nil {
+	// The current tip is a read, safe before the claim; the push and
+	// the empty-flag update below are the fenced effects.
+	oldTip, _ := git.GetFullCommitID(ctx, repo.RepoPath(), git.BranchPrefix+opts.NewBranch)
+
+	// One file ref write owns the reservation before the native push
+	// and the empty-flag update; the nested push reuses this ownership
+	// instead of claiming again.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteFile, git.BranchPrefix+opts.NewBranch),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Ref:          git.BranchPrefix + opts.NewBranch,
+			OldOID:       oldTip,
+			NewOID:       strings.TrimSpace(commitHash),
+		},
+		func(ctx context.Context) error {
+			// Then push this tree to NewBranch
+			if err := t.PushOwned(ctx, doer, commitHash, opts.NewBranch); err != nil {
+				return err
+			}
+
+			if repo.IsEmpty {
+				if isEmpty, err := gitRepo.IsEmpty(); err == nil && !isEmpty {
+					_ = repo_model.UpdateRepositoryCols(ctx, &repo_model.Repository{ID: repo.ID, IsEmpty: false, DefaultBranch: opts.NewBranch}, "is_empty", "default_branch")
+				}
+			}
+			return nil
+		})
+	if err != nil {
 		log.Error("%T %v", err, err)
 		return nil, err
 	}
@@ -276,12 +306,6 @@ func ChangeRepoFiles(ctx context.Context, repo *repo_model.Repository, doer *use
 	filesResponse, err := GetFilesResponseFromCommit(ctx, repo, commit, opts.NewBranch, treePaths)
 	if err != nil {
 		return nil, err
-	}
-
-	if repo.IsEmpty {
-		if isEmpty, err := gitRepo.IsEmpty(); err == nil && !isEmpty {
-			_ = repo_model.UpdateRepositoryCols(ctx, &repo_model.Repository{ID: repo.ID, IsEmpty: false, DefaultBranch: opts.NewBranch}, "is_empty", "default_branch")
-		}
 	}
 
 	return filesResponse, nil

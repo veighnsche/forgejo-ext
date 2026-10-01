@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -126,6 +127,13 @@ func (opts FindRepoArchiversOption) ToOrders() string {
 
 // SetArchiveRepoState sets if a repo is archived
 func SetArchiveRepoState(ctx context.Context, repo *Repository, isArchived bool) (err error) {
+	// Nested participating writer: archive flips gate every native
+	// writer, so they refuse while another owner holds the
+	// reservation; the enclosing settings update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	repo.IsArchived = isArchived
 
 	if isArchived {

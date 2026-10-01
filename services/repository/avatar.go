@@ -14,6 +14,7 @@ import (
 	"forgejo.org/modules/avatar"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/storage"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // UploadAvatar saves custom avatar for repository.
@@ -29,6 +30,24 @@ func UploadAvatar(ctx context.Context, repo *repo_model.Repository, data []byte)
 		return nil
 	}
 
+	// One settings update owns the reservation before the avatar
+	// transaction and storage writes, advancing the revision so stale
+	// observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoSettings,
+		fmt.Sprintf("%d/avatar", repo.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoSettings,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			return uploadAvatarOwned(ctx, repo, avatarData, newAvatar)
+		})
+}
+
+// uploadAvatarOwned records the avatar hash and stores the image under
+// the caller's ownership.
+func uploadAvatarOwned(ctx context.Context, repo *repo_model.Repository, avatarData []byte, newAvatar string) error {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -70,6 +89,24 @@ func DeleteAvatar(ctx context.Context, repo *repo_model.Repository) error {
 	avatarPath := repo.CustomAvatarRelativePath()
 	log.Trace("DeleteAvatar[%d]: %s", repo.ID, avatarPath)
 
+	// One settings update owns the reservation before the avatar
+	// transaction and storage delete, advancing the revision so stale
+	// observations go stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoSettings,
+		fmt.Sprintf("%d/avatar-delete", repo.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoSettings,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			return deleteAvatarOwned(ctx, repo, avatarPath)
+		})
+}
+
+// deleteAvatarOwned clears the avatar hash and deletes the image under
+// the caller's ownership.
+func deleteAvatarOwned(ctx context.Context, repo *repo_model.Repository, avatarPath string) error {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

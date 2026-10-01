@@ -18,6 +18,7 @@ import (
 
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/cache"
@@ -934,6 +935,12 @@ func FixNullArchivedRepository(ctx context.Context) (int64, error) {
 
 // UpdateRepositoryOwnerName updates the owner name of all repositories owned by the user
 func UpdateRepositoryOwnerName(ctx context.Context, oldUserName, newUserName string) error {
+	// Nested participating writer: repository renames refuse while another
+	// owner holds the reservation; the enclosing rename carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if _, err := db.GetEngine(ctx).Exec("UPDATE `repository` SET owner_name=? WHERE owner_name=?", newUserName, oldUserName); err != nil {
 		return fmt.Errorf("change repo owner name: %w", err)
 	}

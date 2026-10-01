@@ -34,6 +34,7 @@ import (
 	"forgejo.org/modules/storage"
 	actions_service "forgejo.org/services/actions"
 	federation_service "forgejo.org/services/federation"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -49,6 +50,27 @@ type DeleteRepositoryOpts struct {
 // DeleteRepository deletes a repository for a user or organization.
 // make sure if you call this func to close open sessions (sqlite will otherwise get a deadlock)
 func DeleteRepositoryDirectly(ctx context.Context, repoID int64, opts DeleteRepositoryOpts) error {
+	repo, err := repo_model.GetRepositoryByID(ctx, repoID)
+	if err != nil {
+		return err
+	}
+
+	// One lifecycle update owns the reservation before its database and
+	// filesystem effects, advancing the revision so stale observations go
+	// stale.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoLifecycle,
+		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleDelete, repo.OwnerName, repo.Name),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoLifecycle,
+			RepositoryID: repo.ID,
+		},
+		func(ctx context.Context) error {
+			return deleteRepositoryDirectlyOwned(ctx, repoID, opts)
+		})
+}
+
+func deleteRepositoryDirectlyOwned(ctx context.Context, repoID int64, opts DeleteRepositoryOpts) error {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

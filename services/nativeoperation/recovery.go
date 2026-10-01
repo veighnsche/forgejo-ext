@@ -221,6 +221,22 @@ func (s *Service) recoverOrdinary(ctx context.Context, assessment *RecoveryAsses
 		return s.recoverActionsTask(ctx, assessment, reservation, scope)
 	case FamilyPushCompletion:
 		return s.recoverPushCompletion(ctx, assessment, reservation, scope)
+	case FamilyReceiveHTTP, FamilyReceiveSSH:
+		return s.recoverReceive(ctx, assessment, reservation, scope)
+	case FamilyRefWrite:
+		return s.recoverRefWrite(ctx, assessment, reservation, scope)
+	case FamilyRepoLifecycle:
+		return s.recoverRepoLifecycle(ctx, assessment, reservation, scope)
+	case FamilyRepoSettings:
+		return s.recoverRepoSettings(ctx, assessment, reservation, scope)
+	case FamilyProtection:
+		return s.recoverProtection(ctx, assessment, reservation, scope)
+	case FamilyMirrorSync:
+		return s.recoverMirrorSync(ctx, assessment, reservation, scope)
+	case FamilyRefSync:
+		return s.recoverRefSync(ctx, assessment, reservation, scope)
+	case FamilyMaintenance:
+		return s.recoverMaintenance(ctx, assessment, reservation, scope)
 	case FamilyAuthority:
 		return s.recoverAuthority(ctx, assessment, reservation, scope)
 	default:

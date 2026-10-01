@@ -4,6 +4,7 @@
 package setting
 
 import (
+	gocontext "context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -51,6 +53,19 @@ func NewProtectedTagPost(ctx *context.Context) {
 		NamePattern: strings.TrimSpace(form.NamePattern),
 	}
 
+	// A create names an absent rule: reject duplicates before the claim
+	// so offline recovery can attribute the inserted row to this owner.
+	existing, err := git_model.GetProtectedTagByNamePattern(ctx, repo.ID, pt.NamePattern)
+	if err != nil {
+		ctx.ServerError("GetProtectedTagByNamePattern", err)
+		return
+	}
+	if existing != nil {
+		ctx.Flash.Error(ctx.Tr("repo.settings.tags.protection.duplicate_pattern"))
+		ctx.Redirect(setting.AppSubURL + ctx.Req.URL.EscapedPath())
+		return
+	}
+
 	if strings.TrimSpace(form.AllowlistUsers) != "" {
 		pt.AllowlistUserIDs, _ = base.StringsToInt64s(strings.Split(form.AllowlistUsers, ","))
 	}
@@ -58,7 +73,21 @@ func NewProtectedTagPost(ctx *context.Context) {
 		pt.AllowlistTeamIDs, _ = base.StringsToInt64s(strings.Split(form.AllowlistTeams, ","))
 	}
 
-	if err := git_model.InsertProtectedTag(ctx, pt); err != nil {
+	// One protection update owns the reservation before its database
+	// effects.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionTag, operation_service.ProtectionCreate, pt.NamePattern),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: repo.ID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.InsertProtectedTag(ctx, pt)
+		}); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		ctx.ServerError("InsertProtectedTag", err)
 		return
 	}
@@ -111,7 +140,21 @@ func EditProtectedTagPost(ctx *context.Context) {
 	pt.AllowlistUserIDs, _ = base.StringsToInt64s(strings.Split(form.AllowlistUsers, ","))
 	pt.AllowlistTeamIDs, _ = base.StringsToInt64s(strings.Split(form.AllowlistTeams, ","))
 
-	if err := git_model.UpdateProtectedTag(ctx, pt); err != nil {
+	// One protection update owns the reservation before its database
+	// effects.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(pt.RepoID, operation_service.ProtectionTag, operation_service.ProtectionEdit, pt.NamePattern),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: pt.RepoID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.UpdateProtectedTag(ctx, pt)
+		}); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		ctx.ServerError("UpdateProtectedTag", err)
 		return
 	}
@@ -127,7 +170,21 @@ func DeleteProtectedTagPost(ctx *context.Context) {
 		return
 	}
 
-	if err := git_model.DeleteProtectedTag(ctx, pt); err != nil {
+	// One protection update owns the reservation before its database
+	// effects.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyProtection,
+		operation_service.ProtectionResource(pt.RepoID, operation_service.ProtectionTag, operation_service.ProtectionDelete, pt.NamePattern),
+		operation_service.Scope{
+			Family:       operation_service.FamilyProtection,
+			RepositoryID: pt.RepoID,
+		},
+		func(ctx gocontext.Context) error {
+			return git_model.DeleteProtectedTag(ctx, pt)
+		}); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		ctx.ServerError("DeleteProtectedTag", err)
 		return
 	}

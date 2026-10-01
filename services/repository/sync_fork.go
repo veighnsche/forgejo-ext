@@ -12,8 +12,10 @@ import (
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	nativeoperation "forgejo.org/modules/nativeoperation"
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // SyncFork syncs a branch of a fork with the base repo
@@ -28,13 +30,39 @@ func SyncFork(ctx context.Context, doer *user_model.User, repo *repo_model.Repos
 		return err
 	}
 
-	err = git.Push(ctx, repo.BaseRepo.RepoPath(), git.PushOptions{
-		Remote: repo.RepoPath(),
-		Branch: fmt.Sprintf("%s:%s", branch, branch),
-		Env:    repo_module.PushingEnvironment(doer, repo),
-	})
+	// The current fork tip and the base tip are reads, safe before the
+	// claim; the sync push below is the fenced effect.
+	forkRef := git.BranchPrefix + branch
+	oldTip, _ := git.GetFullCommitID(ctx, repo.RepoPath(), forkRef)
+	baseTip, err := git.GetFullCommitID(ctx, repo.BaseRepo.RepoPath(), forkRef)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// One ref write owns the reservation before the native sync push,
+	// advancing the revision so stale observations go stale. The push
+	// carries the execution capability and targets exactly the scoped
+	// ref. Nested calls reuse the enclosing ownership instead of
+	// claiming again.
+	return operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRefWrite,
+		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteSyncFork, forkRef),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRefWrite,
+			RepositoryID: repo.ID,
+			Ref:          forkRef,
+			OldOID:       oldTip,
+			NewOID:       baseTip,
+		},
+		func(ctx context.Context) error {
+			env := repo_module.PushingEnvironment(doer, repo)
+			env = nativeoperation.AppendExecEnv(env, nativeoperation.FromContext(ctx))
+			return git.Push(ctx, repo.BaseRepo.RepoPath(), git.PushOptions{
+				Remote: repo.RepoPath(),
+				Branch: fmt.Sprintf("%s:%s", branch, branch),
+				Env:    env,
+			})
+		})
 }
 
 // CanSyncFork returns information about syncing a fork

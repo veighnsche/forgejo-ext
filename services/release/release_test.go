@@ -34,7 +34,7 @@ func TestRelease_Create(t *testing.T) {
 	require.NoError(t, err)
 	defer gitRepo.Close()
 
-	require.NoError(t, CreateRelease(gitRepo, &repo_model.Release{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 		RepoID:       repo.ID,
 		Repo:         repo,
 		PublisherID:  user.ID,
@@ -48,7 +48,7 @@ func TestRelease_Create(t *testing.T) {
 		IsTag:        false,
 	}, "", []*AttachmentChange{}))
 
-	require.NoError(t, CreateRelease(gitRepo, &repo_model.Release{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 		RepoID:       repo.ID,
 		Repo:         repo,
 		PublisherID:  user.ID,
@@ -62,7 +62,7 @@ func TestRelease_Create(t *testing.T) {
 		IsTag:        false,
 	}, "", []*AttachmentChange{}))
 
-	require.NoError(t, CreateRelease(gitRepo, &repo_model.Release{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 		RepoID:       repo.ID,
 		Repo:         repo,
 		PublisherID:  user.ID,
@@ -76,7 +76,7 @@ func TestRelease_Create(t *testing.T) {
 		IsTag:        false,
 	}, "", []*AttachmentChange{}))
 
-	require.NoError(t, CreateRelease(gitRepo, &repo_model.Release{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 		RepoID:       repo.ID,
 		Repo:         repo,
 		PublisherID:  user.ID,
@@ -90,7 +90,7 @@ func TestRelease_Create(t *testing.T) {
 		IsTag:        false,
 	}, "", []*AttachmentChange{}))
 
-	require.NoError(t, CreateRelease(gitRepo, &repo_model.Release{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 		RepoID:       repo.ID,
 		Repo:         repo,
 		PublisherID:  user.ID,
@@ -126,7 +126,7 @@ func TestRelease_Create(t *testing.T) {
 		IsPrerelease: false,
 		IsTag:        true,
 	}
-	require.NoError(t, CreateRelease(gitRepo, &release, "test", []*AttachmentChange{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &release, "test", []*AttachmentChange{
 		{
 			Action: "add",
 			Type:   "attachment",
@@ -152,7 +152,7 @@ func TestRelease_Create(t *testing.T) {
 		IsPrerelease: false,
 		IsTag:        true,
 	}
-	assert.NoError(t, CreateRelease(gitRepo, &release, "", []*AttachmentChange{
+	assert.NoError(t, CreateRelease(t.Context(), gitRepo, &release, "", []*AttachmentChange{
 		{
 			Action:      "add",
 			Type:        "external",
@@ -178,7 +178,7 @@ func TestRelease_Create(t *testing.T) {
 		IsPrerelease: false,
 		IsTag:        true,
 	}
-	assert.Error(t, CreateRelease(gitRepo, &repo_model.Release{}, "", []*AttachmentChange{
+	assert.Error(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{}, "", []*AttachmentChange{
 		{
 			Action: "add",
 			Type:   "external",
@@ -200,7 +200,7 @@ func TestRelease_Update(t *testing.T) {
 	defer gitRepo.Close()
 
 	// Test a changed release
-	require.NoError(t, CreateRelease(gitRepo, &repo_model.Release{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 		RepoID:       repo.ID,
 		Repo:         repo,
 		PublisherID:  user.ID,
@@ -224,7 +224,7 @@ func TestRelease_Update(t *testing.T) {
 	assert.Equal(t, int64(releaseCreatedUnix), int64(release.CreatedUnix))
 
 	// Test a changed draft
-	require.NoError(t, CreateRelease(gitRepo, &repo_model.Release{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 		RepoID:       repo.ID,
 		Repo:         repo,
 		PublisherID:  user.ID,
@@ -248,7 +248,7 @@ func TestRelease_Update(t *testing.T) {
 	assert.Less(t, int64(releaseCreatedUnix), int64(release.CreatedUnix))
 
 	// Test a changed pre-release
-	require.NoError(t, CreateRelease(gitRepo, &repo_model.Release{
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, &repo_model.Release{
 		RepoID:       repo.ID,
 		Repo:         repo,
 		PublisherID:  user.ID,
@@ -286,7 +286,7 @@ func TestRelease_Update(t *testing.T) {
 		IsPrerelease: false,
 		IsTag:        false,
 	}
-	require.NoError(t, CreateRelease(gitRepo, release, "", []*AttachmentChange{}))
+	require.NoError(t, CreateRelease(t.Context(), gitRepo, release, "", []*AttachmentChange{}))
 	assert.Positive(t, release.ID)
 
 	release.IsDraft = false
