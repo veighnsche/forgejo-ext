@@ -55,6 +55,15 @@ func checkInvalidation(ctx context.Context, c *issues_model.Comment, repo *repo_
 
 // InvalidateCodeComments will lookup the prs for code comments which got invalidated by change
 func InvalidateCodeComments(ctx context.Context, prs issues_model.PullRequestList, doer *user_model.User, repo *repo_model.Repository, newCommitID string) error {
+	// One collaboration writer owns the invalidation sweep before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), repo.ID, func(ctx context.Context) error {
+		return doInvalidateCodeComments(ctx, prs, doer, repo, newCommitID)
+	})
+}
+
+func doInvalidateCodeComments(ctx context.Context, prs issues_model.PullRequestList, doer *user_model.User, repo *repo_model.Repository, newCommitID string) error {
 	if len(prs) == 0 {
 		return nil
 	}
@@ -79,6 +88,20 @@ func InvalidateCodeComments(ctx context.Context, prs issues_model.PullRequestLis
 
 // CreateCodeComment creates a comment on the code line
 func CreateCodeComment(ctx context.Context, doer *user_model.User, gitRepo *git.Repository,
+	issue *issues_model.Issue, line int64, content, treePath string, pendingReview bool,
+	replyReviewID int64, beforeCommitID, latestCommitID string, attachments []string,
+) (comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the code comment creation before
+	// its effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabCommentCreateResource(issue.ID), issue.RepoID, func(ctx context.Context) error {
+		comment, err = doCreateCodeComment(ctx, doer, gitRepo, issue, line, content, treePath, pendingReview, replyReviewID, beforeCommitID, latestCommitID, attachments)
+		return err
+	})
+	return comment, err
+}
+
+func doCreateCodeComment(ctx context.Context, doer *user_model.User, gitRepo *git.Repository,
 	issue *issues_model.Issue, line int64, content, treePath string, pendingReview bool,
 	replyReviewID int64, beforeCommitID, latestCommitID string, attachments []string,
 ) (*issues_model.Comment, error) {
@@ -179,6 +202,20 @@ func CreateCodeComment(ctx context.Context, doer *user_model.User, gitRepo *git.
 
 // CreateCodeCommentKnownReviewID creates a plain code comment at the specified line / path
 func CreateCodeCommentKnownReviewID(ctx context.Context, doer *user_model.User, repo *repo_model.Repository,
+	issue *issues_model.Issue, content, treePath, beforeCommitID, afterCommitID string,
+	line, reviewID int64, attachments []string,
+) (comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the code comment creation before
+	// its effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabCommentCreateResource(issue.ID), repo.ID, func(ctx context.Context) error {
+		comment, err = doCreateCodeCommentKnownReviewID(ctx, doer, repo, issue, content, treePath, beforeCommitID, afterCommitID, line, reviewID, attachments)
+		return err
+	})
+	return comment, err
+}
+
+func doCreateCodeCommentKnownReviewID(ctx context.Context, doer *user_model.User, repo *repo_model.Repository,
 	issue *issues_model.Issue, content, treePath, beforeCommitID, afterCommitID string,
 	line, reviewID int64, attachments []string,
 ) (*issues_model.Comment, error) {
@@ -318,7 +355,18 @@ func CreateCodeCommentKnownReviewID(ctx context.Context, doer *user_model.User, 
 }
 
 // SubmitReview creates a review out of the existing pending review or creates a new one if no pending review exist
-func SubmitReview(ctx context.Context, doer *user_model.User, gitRepo *git.Repository, issue *issues_model.Issue, reviewType issues_model.ReviewType, content, commitID string, attachmentUUIDs []string) (*issues_model.Review, *issues_model.Comment, error) {
+func SubmitReview(ctx context.Context, doer *user_model.User, gitRepo *git.Repository, issue *issues_model.Issue, reviewType issues_model.ReviewType, content, commitID string, attachmentUUIDs []string) (review *issues_model.Review, comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the review submission before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabReviewSubmitResource(issue.ID), issue.RepoID, func(ctx context.Context) error {
+		review, comment, err = doSubmitReview(ctx, doer, gitRepo, issue, reviewType, content, commitID, attachmentUUIDs)
+		return err
+	})
+	return review, comment, err
+}
+
+func doSubmitReview(ctx context.Context, doer *user_model.User, gitRepo *git.Repository, issue *issues_model.Issue, reviewType issues_model.ReviewType, content, commitID string, attachmentUUIDs []string) (*issues_model.Review, *issues_model.Comment, error) {
 	if err := issue.LoadPullRequest(ctx); err != nil {
 		return nil, nil, err
 	}
@@ -397,6 +445,17 @@ func CompleteReviewSubmission(ctx context.Context, doer *user_model.User, issue 
 
 // DismissApprovalReviews dismiss all approval reviews because of new commits
 func DismissApprovalReviews(ctx context.Context, doer *user_model.User, pull *issues_model.PullRequest) error {
+	// One collaboration writer owns the approval dismissal sweep
+	// before its effects, advancing the native revision so old
+	// accepted-input observations go stale. Validation sweeps normally
+	// carry the enclosing execution; the claim only binds standalone
+	// callers.
+	return withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), pull.BaseRepoID, func(ctx context.Context) error {
+		return doDismissApprovalReviews(ctx, doer, pull)
+	})
+}
+
+func doDismissApprovalReviews(ctx context.Context, doer *user_model.User, pull *issues_model.PullRequest) error {
 	reviews, err := issues_model.FindReviews(ctx, issues_model.FindReviewOptions{
 		ListOptions: db.ListOptionsAll,
 		IssueID:     pull.IssueID,
@@ -441,6 +500,17 @@ func DismissApprovalReviews(ctx context.Context, doer *user_model.User, pull *is
 
 // DismissReview dismissing stale review by repo admin
 func DismissReview(ctx context.Context, reviewID, repoID int64, message string, doer *user_model.User, isDismiss, dismissPriors bool) (comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the review dismissal before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabReviewResource(reviewID, "dismiss"), repoID, func(ctx context.Context) error {
+		comment, err = doDismissReview(ctx, reviewID, repoID, message, doer, isDismiss, dismissPriors)
+		return err
+	})
+	return comment, err
+}
+
+func doDismissReview(ctx context.Context, reviewID, repoID int64, message string, doer *user_model.User, isDismiss, dismissPriors bool) (comment *issues_model.Comment, err error) {
 	review, err := issues_model.GetReviewByID(ctx, reviewID)
 	if err != nil {
 		return nil, err

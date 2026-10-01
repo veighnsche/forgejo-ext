@@ -5,6 +5,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"net/http"
 
 	"forgejo.org/models/db"
@@ -16,6 +17,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // GetIssueDependencies list an issue's dependencies
@@ -579,8 +581,17 @@ func createIssueDependency(ctx *context.APIContext, target, dependency *issues_m
 		return
 	}
 
-	err := issues_model.CreateIssueDependency(ctx, ctx.Doer(), target, dependency)
-	if err != nil {
+	// One collaboration writer owns the dependency change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	doer := ctx.Doer()
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.DependencyResource(target.ID, dependency.ID), target.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.CreateIssueDependency(ctx, doer, target, dependency)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "CreateIssueDependency", err)
 		return
 	}
@@ -605,8 +616,17 @@ func removeIssueDependency(ctx *context.APIContext, target, dependency *issues_m
 		return
 	}
 
-	err := issues_model.RemoveIssueDependency(ctx, ctx.Doer(), target, dependency, issues_model.DependencyTypeBlockedBy)
-	if err != nil {
+	// One collaboration writer owns the dependency change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	doer := ctx.Doer()
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.DependencyResource(target.ID, dependency.ID), target.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.RemoveIssueDependency(ctx, doer, target, dependency, issues_model.DependencyTypeBlockedBy)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "CreateIssueDependency", err)
 		return
 	}

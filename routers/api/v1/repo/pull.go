@@ -4,6 +4,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"errors"
 	"fmt"
 	"math"
@@ -39,6 +40,7 @@ import (
 	"forgejo.org/services/forms"
 	"forgejo.org/services/gitdiff"
 	issue_service "forgejo.org/services/issue"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
@@ -675,7 +677,17 @@ func EditPullRequest(ctx *context.APIContext) {
 			deadlineUnix = timeutil.TimeStamp(deadline.Unix())
 		}
 
-		if err := issues_model.UpdateIssueDeadline(ctx, issue, deadlineUnix, ctx.Doer()); err != nil {
+		// One collaboration writer owns the deadline change before its
+		// effects, advancing the native revision so old accepted-input
+		// observations go stale.
+		doer := ctx.Doer()
+		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "deadline"), issue.RepoID, func(ctx stdCtx.Context) error {
+			return issues_model.UpdateIssueDeadline(ctx, issue, deadlineUnix, doer)
+		}); err != nil {
+			if operation_service.IsBusy(err) {
+				ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+				return
+			}
 			ctx.Error(http.StatusInternalServerError, "UpdateIssueDeadline", err)
 			return
 		}
@@ -729,7 +741,17 @@ func EditPullRequest(ctx *context.APIContext) {
 			labels = append(labels, orgLabels...)
 		}
 
-		if err = issues_model.ReplaceIssueLabels(ctx, issue, labels, ctx.Doer()); err != nil {
+		// One collaboration writer owns the label change before its
+		// effects, advancing the native revision so old accepted-input
+		// observations go stale.
+		doer := ctx.Doer()
+		if err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "labels"), issue.RepoID, func(ctx stdCtx.Context) error {
+			return issues_model.ReplaceIssueLabels(ctx, issue, labels, doer)
+		}); err != nil {
+			if operation_service.IsBusy(err) {
+				ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+				return
+			}
 			ctx.Error(http.StatusInternalServerError, "ReplaceLabelsError", err)
 			return
 		}

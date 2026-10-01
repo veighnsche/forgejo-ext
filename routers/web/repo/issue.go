@@ -56,6 +56,7 @@ import (
 	"forgejo.org/services/convert"
 	"forgejo.org/services/forms"
 	issue_service "forgejo.org/services/issue"
+	operation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
 
@@ -1281,7 +1282,13 @@ func NewIssuePost(ctx *context.Context) {
 			ctx.Error(http.StatusBadRequest, "user hasn't permissions to read projects")
 			return
 		}
-		if err := issues_model.IssueAssignOrRemoveProject(ctx, issue, ctx.Doer, projectID, 0); err != nil {
+		// One collaboration writer owns the project assignment before
+		// its effects, advancing the native revision so old accepted-input
+		// observations go stale.
+		doer := ctx.Doer
+		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "project"), issue.RepoID, func(ctx stdCtx.Context) error {
+			return issues_model.IssueAssignOrRemoveProject(ctx, issue, doer, projectID, 0)
+		}); err != nil {
 			ctx.ServerError("IssueAssignOrRemoveProject", err)
 			return
 		}
@@ -2390,7 +2397,17 @@ func UpdateIssueDeadline(ctx *context.Context) {
 		deadlineUnix = timeutil.TimeStamp(deadline.Unix())
 	}
 
-	if err := issues_model.UpdateIssueDeadline(ctx, issue, deadlineUnix, ctx.Doer); err != nil {
+	// One collaboration writer owns the deadline change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	doer := ctx.Doer
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "deadline"), issue.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.UpdateIssueDeadline(ctx, issue, deadlineUnix, doer)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "UpdateIssueDeadline", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "UpdateIssueDeadline", err.Error())
 		return
 	}
@@ -3432,7 +3449,13 @@ func ChangeIssueReaction(ctx *context.Context) {
 
 		log.Trace("Reaction for issue created: %d/%d/%d", ctx.Repo.Repository.ID, issue.ID, reaction.ID)
 	case "unreact":
-		if err := issues_model.DeleteIssueReaction(ctx, ctx.Doer.ID, issue.ID, form.Content); err != nil {
+		// One collaboration writer owns the reaction change before its
+		// effects, advancing the native revision so old accepted-input
+		// observations go stale.
+		doerID := ctx.Doer.ID
+		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.ReactionResource(issue.ID, 0, doerID), issue.RepoID, func(ctx stdCtx.Context) error {
+			return issues_model.DeleteIssueReaction(ctx, doerID, issue.ID, form.Content)
+		}); err != nil {
 			ctx.ServerError("DeleteIssueReaction", err)
 			return
 		}
@@ -3533,7 +3556,13 @@ func ChangeCommentReaction(ctx *context.Context) {
 
 		log.Trace("Reaction for comment created: %d/%d/%d/%d", ctx.Repo.Repository.ID, comment.Issue.ID, comment.ID, reaction.ID)
 	case "unreact":
-		if err := issues_model.DeleteCommentReaction(ctx, ctx.Doer.ID, comment.Issue.ID, comment.ID, form.Content); err != nil {
+		// One collaboration writer owns the reaction change before its
+		// effects, advancing the native revision so old accepted-input
+		// observations go stale.
+		doerID := ctx.Doer.ID
+		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.ReactionResource(comment.Issue.ID, comment.ID, doerID), comment.Issue.RepoID, func(ctx stdCtx.Context) error {
+			return issues_model.DeleteCommentReaction(ctx, doerID, comment.Issue.ID, comment.ID, form.Content)
+		}); err != nil {
 			ctx.ServerError("DeleteCommentReaction", err)
 			return
 		}
@@ -3679,11 +3708,18 @@ func updateAttachments(ctx *context.Context, item any, files []string) error {
 	}
 	var err error
 	if len(files) > 0 {
+		// One collaboration writer owns the attachment association
+		// before its effects, advancing the native revision so old
+		// accepted-input observations go stale.
 		switch content := item.(type) {
 		case *issues_model.Issue:
-			err = issues_model.UpdateIssueAttachments(ctx, content, files)
+			err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(content.ID, "attachment"), content.RepoID, func(ctx stdCtx.Context) error {
+				return issues_model.UpdateIssueAttachments(ctx, content, files)
+			})
 		case *issues_model.Comment:
-			err = content.UpdateAttachments(ctx, files)
+			err = operation_service.WithCollaborationOwnership(ctx, operation_service.CommentResource(content.ID, "attachment"), 0, func(ctx stdCtx.Context) error {
+				return content.UpdateAttachments(ctx, files)
+			})
 		default:
 			return fmt.Errorf("unknown Type: %T", content)
 		}

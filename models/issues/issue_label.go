@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	access_model "forgejo.org/models/perm/access"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/services/stats"
@@ -64,6 +65,11 @@ func newIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *user_m
 
 // Remove all issue labels in the given exclusive scope
 func RemoveDuplicateExclusiveIssueLabels(ctx context.Context, issue *Issue, label *Label, doer *user_model.User) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	scope := label.ExclusiveScope()
 	if scope == "" {
 		return nil
@@ -87,6 +93,11 @@ func RemoveDuplicateExclusiveIssueLabels(ctx context.Context, issue *Issue, labe
 
 // NewIssueLabel creates a new issue-label relation.
 func NewIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *user_model.User) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if HasIssueLabel(ctx, issue.ID, label.ID) {
 		return nil
 	}
@@ -152,6 +163,11 @@ func newIssueLabels(ctx context.Context, issue *Issue, labels []*Label, doer *us
 
 // NewIssueLabels creates a list of issue-label relations.
 func NewIssueLabels(ctx context.Context, issue *Issue, labels []*Label, doer *user_model.User) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -201,6 +217,11 @@ func deleteIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *use
 
 // DeleteIssueLabel deletes issue-label relation.
 func DeleteIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *user_model.User) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if err := deleteIssueLabel(ctx, issue, label, doer); err != nil {
 		return err
 	}
@@ -210,6 +231,11 @@ func DeleteIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *use
 
 // DeleteLabelsByRepoID  deletes labels of some repository
 func DeleteLabelsByRepoID(ctx context.Context, repoID int64) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	deleteCond := builder.Select("id").From("label").Where(builder.Eq{"label.repo_id": repoID})
 
 	if _, err := db.GetEngine(ctx).In("label_id", deleteCond).
@@ -253,6 +279,11 @@ func CountOrphanedLabels(ctx context.Context) (int64, error) {
 
 // DeleteOrphanedLabels delete labels witch are broken and not accessible via ui anymore
 func DeleteOrphanedLabels(ctx context.Context) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	// delete labels with no reference
 	if _, err := db.GetEngine(ctx).Table("label").Where("repo_id=? AND org_id=?", 0, 0).Delete(new(Label)); err != nil {
 		return err
@@ -290,6 +321,11 @@ func CountOrphanedIssueLabels(ctx context.Context) (int64, error) {
 
 // DeleteOrphanedIssueLabels delete IssueLabels witch have no label behind anymore
 func DeleteOrphanedIssueLabels(ctx context.Context) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).
 		NotIn("label_id", builder.Select("id").From("label")).
 		Delete(IssueLabel{})
@@ -308,6 +344,11 @@ func CountIssueLabelWithOutsideLabels(ctx context.Context) (int64, error) {
 
 // FixIssueLabelWithOutsideLabels fix label comments with outside label
 func FixIssueLabelWithOutsideLabels(ctx context.Context) (int64, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	res, err := db.GetEngine(ctx).Exec(`DELETE FROM issue_label WHERE issue_label.id IN (
 		SELECT il_too.id FROM (
 			SELECT il_too_too.id
@@ -372,6 +413,11 @@ func clearIssueLabels(ctx context.Context, issue *Issue, doer *user_model.User) 
 // ClearIssueLabels removes all issue labels as the given user.
 // Triggers appropriate WebHooks, if any.
 func ClearIssueLabels(ctx context.Context, issue *Issue, doer *user_model.User) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -445,6 +491,11 @@ func RemoveDuplicateExclusiveLabels(labels []*Label) []*Label {
 // ReplaceIssueLabels removes all current labels and add new labels to the issue.
 // Triggers appropriate WebHooks, if any.
 func ReplaceIssueLabels(ctx context.Context, issue *Issue, labels []*Label, doer *user_model.User) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

@@ -54,6 +54,7 @@ import (
 	"forgejo.org/services/context/upload"
 	"forgejo.org/services/forms"
 	"forgejo.org/services/gitdiff"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
@@ -1706,7 +1707,13 @@ func CompareAndPullRequestPost(ctx *context.Context) {
 	}
 
 	if projectID > 0 && ctx.Repo.CanWrite(unit.TypeProjects) {
-		if err := issues_model.IssueAssignOrRemoveProject(ctx, pullIssue, ctx.Doer, projectID, 0); err != nil {
+		// One collaboration writer owns the project assignment before
+		// its effects, advancing the native revision so old
+		// accepted-input observations go stale.
+		doer := ctx.Doer
+		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(pullIssue.ID, "project"), pullIssue.RepoID, func(ctx stdCtx.Context) error {
+			return issues_model.IssueAssignOrRemoveProject(ctx, pullIssue, doer, projectID, 0)
+		}); err != nil {
 			if !errors.Is(err, util.ErrPermissionDenied) {
 				ctx.ServerError("IssueAssignOrRemoveProject", err)
 				return

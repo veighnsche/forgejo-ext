@@ -4,6 +4,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -21,6 +22,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
 	"forgejo.org/services/issue"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -141,11 +143,18 @@ func NewMilestonePost(ctx *context.Context) {
 	}
 
 	deadline = time.Date(deadline.Year(), deadline.Month(), deadline.Day(), 23, 59, 59, 0, deadline.Location())
-	if err = issues_model.NewMilestone(ctx, &issues_model.Milestone{
-		RepoID:       ctx.Repo.Repository.ID,
+	// One collaboration writer owns the milestone creation before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	repoID := ctx.Repo.Repository.ID
+	milestone := &issues_model.Milestone{
+		RepoID:       repoID,
 		Name:         form.Title,
 		Content:      form.Content,
 		DeadlineUnix: timeutil.TimeStamp(deadline.Unix()),
+	}
+	if err = operation_service.WithCollaborationOwnership(ctx, operation_service.MilestoneResource(repoID, "create"), repoID, func(ctx stdCtx.Context) error {
+		return issues_model.NewMilestone(ctx, milestone)
 	}); err != nil {
 		ctx.ServerError("NewMilestone", err)
 		return
@@ -213,7 +222,12 @@ func EditMilestonePost(ctx *context.Context) {
 	m.Name = form.Title
 	m.Content = form.Content
 	m.DeadlineUnix = timeutil.TimeStamp(deadline.Unix())
-	if err = issues_model.UpdateMilestone(ctx, m, m.IsClosed); err != nil {
+	// One collaboration writer owns the milestone change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	if err = operation_service.WithCollaborationOwnership(ctx, operation_service.MilestoneResource(m.ID, "update"), m.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.UpdateMilestone(ctx, m, m.IsClosed)
+	}); err != nil {
 		ctx.ServerError("UpdateMilestone", err)
 		return
 	}
@@ -236,7 +250,13 @@ func ChangeMilestoneStatus(ctx *context.Context) {
 	}
 	id := ctx.ParamsInt64(":id")
 
-	if err := issues_model.ChangeMilestoneStatusByRepoIDAndID(ctx, ctx.Repo.Repository.ID, id, toClose); err != nil {
+	// One collaboration writer owns the milestone change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	repoID := ctx.Repo.Repository.ID
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.MilestoneResource(id, "status"), repoID, func(ctx stdCtx.Context) error {
+		return issues_model.ChangeMilestoneStatusByRepoIDAndID(ctx, repoID, id, toClose)
+	}); err != nil {
 		if issues_model.IsErrMilestoneNotExist(err) {
 			ctx.NotFound("", err)
 		} else {
@@ -249,8 +269,19 @@ func ChangeMilestoneStatus(ctx *context.Context) {
 
 // DeleteMilestone delete a milestone
 func DeleteMilestone(ctx *context.Context) {
-	if err := issues_model.DeleteMilestoneByRepoID(ctx, ctx.Repo.Repository.ID, ctx.FormInt64("id")); err != nil {
-		ctx.Flash.Error("DeleteMilestoneByRepoID: " + err.Error())
+	// One collaboration writer owns the milestone delete before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	repoID := ctx.Repo.Repository.ID
+	milestoneID := ctx.FormInt64("id")
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.MilestoneResource(milestoneID, "delete"), repoID, func(ctx stdCtx.Context) error {
+		return issues_model.DeleteMilestoneByRepoID(ctx, repoID, milestoneID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Flash.Error("A native operation is in progress; retry shortly.")
+		} else {
+			ctx.Flash.Error("DeleteMilestoneByRepoID: " + err.Error())
+		}
 	} else {
 		ctx.Flash.Success(ctx.Tr("repo.milestones.deletion_success"))
 	}

@@ -89,6 +89,15 @@ func changeMilestoneAssign(ctx context.Context, doer *user_model.User, issue *is
 
 // ChangeMilestoneAssign changes assignment of milestone for issue.
 func ChangeMilestoneAssign(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, oldMilestoneID int64) (err error) {
+	// One collaboration writer owns the milestone change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabIssueResource(issue.ID, "milestone"), issue.RepoID, func(ctx context.Context) error {
+		return doChangeMilestoneAssign(ctx, issue, doer, oldMilestoneID)
+	})
+}
+
+func doChangeMilestoneAssign(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, oldMilestoneID int64) (err error) {
 	dbCtx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

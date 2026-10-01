@@ -5,6 +5,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"net/http"
 	"strconv"
 
@@ -15,6 +16,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // ListLabels list all the labels of a repository
@@ -170,7 +172,17 @@ func CreateLabel(ctx *context.APIContext) {
 		Description: form.Description,
 	}
 	l.SetArchived(form.IsArchived)
-	if err := issues_model.NewLabel(ctx, l); err != nil {
+	// One collaboration writer owns the label creation before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	repoID := ctx.Repo().Repository.ID
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(repoID, "create"), repoID, func(ctx stdCtx.Context) error {
+		return issues_model.NewLabel(ctx, l)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "NewLabel", err)
 		return
 	}
@@ -245,7 +257,16 @@ func EditLabel(ctx *context.APIContext) {
 		l.Description = *form.Description
 	}
 	l.SetArchived(form.IsArchived != nil && *form.IsArchived)
-	if err := issues_model.UpdateLabel(ctx, l); err != nil {
+	// One collaboration writer owns the label change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(l.ID, "update"), l.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.UpdateLabel(ctx, l)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "UpdateLabel", err)
 		return
 	}
@@ -281,7 +302,18 @@ func DeleteLabel(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	if err := issues_model.DeleteLabel(ctx, ctx.Repo().Repository.ID, ctx.ParamsInt64(":id")); err != nil {
+	// One collaboration writer owns the label delete before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	repoID := ctx.Repo().Repository.ID
+	labelID := ctx.ParamsInt64(":id")
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(labelID, "delete"), repoID, func(ctx stdCtx.Context) error {
+		return issues_model.DeleteLabel(ctx, repoID, labelID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "DeleteLabel", err)
 		return
 	}

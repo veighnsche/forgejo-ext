@@ -4,6 +4,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	issue_service "forgejo.org/services/issue"
+	operation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 )
 
@@ -409,7 +411,16 @@ func DeletePullReview(ctx *context.APIContext) {
 		return
 	}
 
-	if err := issues_model.DeleteReview(ctx, review); err != nil {
+	// One collaboration writer owns the review delete before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.ReviewDeleteResource(review.IssueID, review.ID), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
+		return issues_model.DeleteReview(ctx, review)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "DeleteReview", fmt.Errorf("can not delete ReviewID: %d", review.ID))
 		return
 	}

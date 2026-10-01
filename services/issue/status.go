@@ -14,6 +14,15 @@ import (
 
 // ChangeStatus changes issue status to open or closed.
 func ChangeStatus(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, commitID string, closed bool) error {
+	// One collaboration writer owns the status change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabIssueResource(issue.ID, "status"), issue.RepoID, func(ctx context.Context) error {
+		return doChangeStatus(ctx, issue, doer, commitID, closed)
+	})
+}
+
+func doChangeStatus(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, commitID string, closed bool) error {
 	comment, err := issues_model.ChangeIssueStatus(ctx, issue, doer, closed)
 	if err != nil {
 		if issues_model.IsErrDependenciesLeft(err) && closed {

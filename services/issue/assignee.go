@@ -19,6 +19,15 @@ import (
 
 // DeleteNotPassedAssignee deletes all assignees who aren't passed via the "assignees" array
 func DeleteNotPassedAssignee(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, assignees []*user_model.User) (err error) {
+	// One collaboration writer owns the assignee change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabIssueResource(issue.ID, "assignee"), issue.RepoID, func(ctx context.Context) error {
+		return doDeleteNotPassedAssignee(ctx, issue, doer, assignees)
+	})
+}
+
+func doDeleteNotPassedAssignee(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, assignees []*user_model.User) (err error) {
 	var found bool
 	oriAssignees := make([]*user_model.User, len(issue.Assignees))
 	_ = copy(oriAssignees, issue.Assignees)
@@ -45,6 +54,17 @@ func DeleteNotPassedAssignee(ctx context.Context, issue *issues_model.Issue, doe
 
 // ToggleAssigneeWithNoNotify changes a user between assigned and not assigned for this issue, and make issue comment for it.
 func ToggleAssigneeWithNotify(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, assigneeID int64) (removed bool, comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the assignee change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabIssueResource(issue.ID, "assignee"), issue.RepoID, func(ctx context.Context) error {
+		removed, comment, err = doToggleAssigneeWithNotify(ctx, issue, doer, assigneeID)
+		return err
+	})
+	return removed, comment, err
+}
+
+func doToggleAssigneeWithNotify(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, assigneeID int64) (removed bool, comment *issues_model.Comment, err error) {
 	removed, comment, err = issues_model.ToggleIssueAssignee(ctx, issue, doer, assigneeID)
 	if err != nil {
 		return false, nil, err
@@ -62,6 +82,17 @@ func ToggleAssigneeWithNotify(ctx context.Context, issue *issues_model.Issue, do
 
 // ReviewRequest add or remove a review request from a user for this PR, and make comment for it.
 func ReviewRequest(ctx context.Context, issue *issues_model.Issue, doer, reviewer *user_model.User, isAdd bool) (comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the review-request change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabReviewRequestResource(issue.ID, reviewer.ID), issue.RepoID, func(ctx context.Context) error {
+		comment, err = doReviewRequest(ctx, issue, doer, reviewer, isAdd)
+		return err
+	})
+	return comment, err
+}
+
+func doReviewRequest(ctx context.Context, issue *issues_model.Issue, doer, reviewer *user_model.User, isAdd bool) (comment *issues_model.Comment, err error) {
 	if isAdd {
 		comment, err = issues_model.AddReviewRequest(ctx, issue, reviewer, doer)
 	} else {
@@ -205,6 +236,17 @@ func IsValidTeamReviewRequest(ctx context.Context, reviewer *organization.Team, 
 
 // TeamReviewRequest add or remove a review request from a team for this PR, and make comment for it.
 func TeamReviewRequest(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, reviewer *organization.Team, isAdd bool) (comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the review-request change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabReviewTeamRequestResource(issue.ID, reviewer.ID), issue.RepoID, func(ctx context.Context) error {
+		comment, err = doTeamReviewRequest(ctx, issue, doer, reviewer, isAdd)
+		return err
+	})
+	return comment, err
+}
+
+func doTeamReviewRequest(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, reviewer *organization.Team, isAdd bool) (comment *issues_model.Comment, err error) {
 	if isAdd {
 		comment, err = issues_model.AddTeamReviewRequest(ctx, issue, reviewer, doer)
 	} else {

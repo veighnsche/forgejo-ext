@@ -4,6 +4,7 @@
 package org
 
 import (
+	stdCtx "context"
 	"net/http"
 
 	"forgejo.org/models/db"
@@ -13,6 +14,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // RetrieveLabels find all the labels of an organization
@@ -50,7 +52,14 @@ func NewLabel(ctx *context.Context) {
 		Description: form.Description,
 		Color:       form.Color,
 	}
-	if err := issues_model.NewLabel(ctx, l); err != nil {
+	// One collaboration writer owns the label creation before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. Org labels name no repository; the label
+	// row reconciles them.
+	orgID := ctx.Org.Organization.ID
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(orgID, "create"), 0, func(ctx stdCtx.Context) error {
+		return issues_model.NewLabel(ctx, l)
+	}); err != nil {
 		ctx.ServerError("NewLabel", err)
 		return
 	}
@@ -76,7 +85,13 @@ func UpdateLabel(ctx *context.Context) {
 	l.Description = form.Description
 	l.Color = form.Color
 	l.SetArchived(form.IsArchived)
-	if err := issues_model.UpdateLabel(ctx, l); err != nil {
+	// One collaboration writer owns the label change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. Org labels name no repository; the label
+	// row reconciles them.
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(l.ID, "update"), 0, func(ctx stdCtx.Context) error {
+		return issues_model.UpdateLabel(ctx, l)
+	}); err != nil {
 		ctx.ServerError("UpdateLabel", err)
 		return
 	}
@@ -85,8 +100,20 @@ func UpdateLabel(ctx *context.Context) {
 
 // DeleteLabel delete a label
 func DeleteLabel(ctx *context.Context) {
-	if err := issues_model.DeleteLabel(ctx, ctx.Org.Organization.ID, ctx.FormInt64("id")); err != nil {
-		ctx.Flash.Error("DeleteLabel: " + err.Error())
+	// One collaboration writer owns the label delete before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. Org labels name no repository; the label
+	// row reconciles them.
+	orgID := ctx.Org.Organization.ID
+	labelID := ctx.FormInt64("id")
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(labelID, "delete"), 0, func(ctx stdCtx.Context) error {
+		return issues_model.DeleteLabel(ctx, orgID, labelID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Flash.Error("A native operation is in progress; retry shortly.")
+		} else {
+			ctx.Flash.Error("DeleteLabel: " + err.Error())
+		}
 	} else {
 		ctx.Flash.Success(ctx.Tr("repo.issues.label_deletion_success"))
 	}
@@ -102,7 +129,14 @@ func InitializeLabels(ctx *context.Context) {
 		return
 	}
 
-	if err := repo_module.InitializeLabels(ctx, ctx.Org.Organization.ID, form.TemplateName, true); err != nil {
+	// One collaboration writer owns the label initialization before
+	// its effects, advancing the native revision so old accepted-input
+	// observations go stale. Org labels name no repository; the label
+	// rows reconcile them.
+	orgID := ctx.Org.Organization.ID
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(orgID, "create"), 0, func(ctx stdCtx.Context) error {
+		return repo_module.InitializeLabels(ctx, orgID, form.TemplateName, true)
+	}); err != nil {
 		if label.IsErrTemplateLoad(err) {
 			originalErr := err.(label.ErrTemplateLoad).OriginalError
 			ctx.Flash.Error(ctx.Tr("repo.issues.label_templates.fail_to_load_file", form.TemplateName, originalErr))

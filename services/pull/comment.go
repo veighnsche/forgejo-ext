@@ -62,6 +62,18 @@ func getCommitIDsFromRepo(ctx context.Context, repo *repo_model.Repository, oldC
 
 // CreatePushPullComment create push code to pull base comment
 func CreatePushPullComment(ctx context.Context, pusher *user_model.User, pr *issues_model.PullRequest, oldCommitID, newCommitID string) (comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the push comment before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. Push and receive flows normally carry the
+	// enclosing execution; the claim only binds standalone callers.
+	err = withCollabOwnership(ctx, CollabCommentCreateResource(pr.IssueID), pr.BaseRepoID, func(ctx context.Context) error {
+		comment, err = doCreatePushPullComment(ctx, pusher, pr, oldCommitID, newCommitID)
+		return err
+	})
+	return comment, err
+}
+
+func doCreatePushPullComment(ctx context.Context, pusher *user_model.User, pr *issues_model.PullRequest, oldCommitID, newCommitID string) (comment *issues_model.Comment, err error) {
 	if pr.HasMerged || oldCommitID == "" || newCommitID == "" {
 		return nil, nil
 	}

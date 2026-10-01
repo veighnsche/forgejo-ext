@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -128,6 +129,11 @@ const (
 
 // CreateIssueDependency creates a new dependency for an issue
 func CreateIssueDependency(ctx context.Context, user *user_model.User, issue, dep *Issue) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -169,6 +175,11 @@ func CreateIssueDependency(ctx context.Context, user *user_model.User, issue, de
 
 // RemoveIssueDependency removes a dependency from an issue
 func RemoveIssueDependency(ctx context.Context, user *user_model.User, issue, dep *Issue, depType DependencyType) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

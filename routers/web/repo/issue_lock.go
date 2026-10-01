@@ -4,10 +4,12 @@
 package repo
 
 import (
+	stdCtx "context"
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // LockIssue locks an issue. This would limit commenting abilities to
@@ -29,10 +31,16 @@ func LockIssue(ctx *context.Context) {
 		return
 	}
 
-	if err := issues_model.LockIssue(ctx, &issues_model.IssueLockOptions{
-		Doer:   ctx.Doer,
-		Issue:  issue,
-		Reason: form.Reason,
+	// One collaboration writer owns the lock change before its effects,
+	// advancing the native revision so old accepted-input observations
+	// go stale.
+	doer := ctx.Doer
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "lock"), issue.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.LockIssue(ctx, &issues_model.IssueLockOptions{
+			Doer:   doer,
+			Issue:  issue,
+			Reason: form.Reason,
+		})
 	}); err != nil {
 		ctx.ServerError("LockIssue", err)
 		return
@@ -53,9 +61,15 @@ func UnlockIssue(ctx *context.Context) {
 		return
 	}
 
-	if err := issues_model.UnlockIssue(ctx, &issues_model.IssueLockOptions{
-		Doer:  ctx.Doer,
-		Issue: issue,
+	// One collaboration writer owns the lock change before its effects,
+	// advancing the native revision so old accepted-input observations
+	// go stale.
+	doer := ctx.Doer
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "lock"), issue.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.UnlockIssue(ctx, &issues_model.IssueLockOptions{
+			Doer:  doer,
+			Issue: issue,
+		})
 	}); err != nil {
 		ctx.ServerError("UnlockIssue", err)
 		return

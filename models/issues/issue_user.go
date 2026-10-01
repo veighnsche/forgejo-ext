@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 )
 
@@ -26,6 +27,11 @@ func init() {
 
 // NewIssueUsers inserts an issue related users
 func NewIssueUsers(ctx context.Context, repo *repo_model.Repository, issue *Issue) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	assignees, err := repo_model.GetRepoAssignees(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("getAssignees: %w", err)
@@ -62,6 +68,11 @@ func UpdateIssueUserByRead(ctx context.Context, uid, issueID int64) error {
 
 // UpdateIssueUsersByMentions updates issue-user pairs by mentioning.
 func UpdateIssueUsersByMentions(ctx context.Context, issueID int64, uids []int64) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	for _, uid := range uids {
 		iu := &IssueUser{
 			UID:     uid,

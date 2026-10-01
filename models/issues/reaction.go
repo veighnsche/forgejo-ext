@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
@@ -248,6 +249,11 @@ type ReactionOptions struct {
 
 // CreateReaction creates reaction for issue or comment.
 func CreateReaction(ctx context.Context, opts *ReactionOptions) (*Reaction, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	if !setting.UI.ReactionsLookup.Contains(opts.Type) {
 		return nil, ErrForbiddenIssueReaction{opts.Type}
 	}
@@ -271,6 +277,11 @@ func CreateReaction(ctx context.Context, opts *ReactionOptions) (*Reaction, erro
 
 // DeleteReaction deletes reaction for issue or comment.
 func DeleteReaction(ctx context.Context, opts *ReactionOptions) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	reaction := &Reaction{
 		Type:      opts.Type,
 		UserID:    opts.DoerID,

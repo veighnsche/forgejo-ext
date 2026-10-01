@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/label"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/timeutil"
@@ -204,6 +205,11 @@ func (l *Label) ExclusiveScope() string {
 
 // NewLabel creates a new label
 func NewLabel(ctx context.Context, l *Label) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	color, err := label.NormalizeColor(l.Color)
 	if err != nil {
 		return err
@@ -215,6 +221,11 @@ func NewLabel(ctx context.Context, l *Label) error {
 
 // NewLabels creates new labels
 func NewLabels(ctx context.Context, labels ...*Label) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -237,6 +248,11 @@ func NewLabels(ctx context.Context, labels ...*Label) error {
 
 // UpdateLabel updates label information.
 func UpdateLabel(ctx context.Context, l *Label) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	color, err := label.NormalizeColor(l.Color)
 	if err != nil {
 		return err
@@ -255,6 +271,11 @@ func UpdateLabel(ctx context.Context, l *Label) error {
 
 // DeleteLabel delete a label
 func DeleteLabel(ctx context.Context, id, labelID int64) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	l, err := GetLabelByID(ctx, labelID)
 	if err != nil {
 		if IsErrLabelNotExist(err) {

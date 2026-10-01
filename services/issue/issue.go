@@ -29,6 +29,15 @@ import (
 
 // NewIssue creates new issue with labels for repository.
 func NewIssue(ctx context.Context, repo *repo_model.Repository, issue *issues_model.Issue, labelIDs []int64, uuids []string, assigneeIDs []int64) error {
+	// One collaboration writer owns the issue creation before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabIssueCreateResource(repo.ID), repo.ID, func(ctx context.Context) error {
+		return doNewIssue(ctx, repo, issue, labelIDs, uuids, assigneeIDs)
+	})
+}
+
+func doNewIssue(ctx context.Context, repo *repo_model.Repository, issue *issues_model.Issue, labelIDs []int64, uuids []string, assigneeIDs []int64) error {
 	// Check if the user is not blocked by the repo's owner.
 	if user_model.IsBlocked(ctx, repo.OwnerID, issue.PosterID) {
 		return user_model.ErrBlockedByUser
@@ -62,6 +71,15 @@ func NewIssue(ctx context.Context, repo *repo_model.Repository, issue *issues_mo
 
 // ChangeTitle changes the title of this issue, as the given user.
 func ChangeTitle(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, title string) error {
+	// One collaboration writer owns the title change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabIssueResource(issue.ID, "title"), issue.RepoID, func(ctx context.Context) error {
+		return doChangeTitle(ctx, issue, doer, title)
+	})
+}
+
+func doChangeTitle(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, title string) error {
 	oldTitle := issue.Title
 
 	if oldTitle == title {
@@ -103,6 +121,15 @@ func ChangeTitle(ctx context.Context, issue *issues_model.Issue, doer *user_mode
 
 // ChangeIssueRef changes the branch of this issue, as the given user.
 func ChangeIssueRef(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, ref string) error {
+	// One collaboration writer owns the ref change before its effects,
+	// advancing the native revision so old accepted-input observations
+	// go stale.
+	return withCollabOwnership(ctx, CollabIssueResource(issue.ID, "ref"), issue.RepoID, func(ctx context.Context) error {
+		return doChangeIssueRef(ctx, issue, doer, ref)
+	})
+}
+
+func doChangeIssueRef(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, ref string) error {
 	oldRef := issue.Ref
 	issue.Ref = ref
 
@@ -122,6 +149,15 @@ func ChangeIssueRef(ctx context.Context, issue *issues_model.Issue, doer *user_m
 // Pass one or more user logins to replace the set of assignees on this Issue.
 // Send an empty array ([]) to clear all assignees from the Issue.
 func UpdateAssignees(ctx context.Context, issue *issues_model.Issue, oneAssignee string, multipleAssignees []string, doer *user_model.User) (err error) {
+	// One collaboration writer owns the assignee change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabIssueResource(issue.ID, "assignee"), issue.RepoID, func(ctx context.Context) error {
+		return doUpdateAssignees(ctx, issue, oneAssignee, multipleAssignees, doer)
+	})
+}
+
+func doUpdateAssignees(ctx context.Context, issue *issues_model.Issue, oneAssignee string, multipleAssignees []string, doer *user_model.User) (err error) {
 	var allNewAssignees []*user_model.User
 
 	// Keep the old assignee thingy for compatibility reasons
@@ -169,6 +205,15 @@ func UpdateAssignees(ctx context.Context, issue *issues_model.Issue, oneAssignee
 
 // DeleteIssue deletes an issue
 func DeleteIssue(ctx context.Context, doer *user_model.User, gitRepo *git.Repository, issue *issues_model.Issue) error {
+	// One collaboration writer owns the issue delete before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabIssueResource(issue.ID, "delete"), issue.RepoID, func(ctx context.Context) error {
+		return doDeleteIssue(ctx, doer, gitRepo, issue)
+	})
+}
+
+func doDeleteIssue(ctx context.Context, doer *user_model.User, gitRepo *git.Repository, issue *issues_model.Issue) error {
 	// load issue before deleting it
 	if err := issue.LoadAttributes(ctx); err != nil {
 		return err
@@ -204,6 +249,17 @@ func DeleteIssue(ctx context.Context, doer *user_model.User, gitRepo *git.Reposi
 // AddAssigneeIfNotAssigned adds an assignee only if he isn't already assigned to the issue.
 // Also checks for access of assigned user
 func AddAssigneeIfNotAssigned(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, assigneeID int64, notify bool) (comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the assignee change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabIssueResource(issue.ID, "assignee"), issue.RepoID, func(ctx context.Context) error {
+		comment, err = doAddAssigneeIfNotAssigned(ctx, issue, doer, assigneeID, notify)
+		return err
+	})
+	return comment, err
+}
+
+func doAddAssigneeIfNotAssigned(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, assigneeID int64, notify bool) (comment *issues_model.Comment, err error) {
 	assignee, err := user_model.GetUserByID(ctx, assigneeID)
 	if err != nil {
 		return nil, err

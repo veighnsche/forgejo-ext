@@ -12,6 +12,7 @@ import (
 
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
@@ -309,6 +310,11 @@ func IsOfficialReviewerTeam(ctx context.Context, issue *Issue, team *organizatio
 
 // CreateReview creates a new review based on opts
 func CreateReview(ctx context.Context, opts CreateReviewOptions) (*Review, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err
@@ -584,6 +590,11 @@ func SubmitExactReview(ctx context.Context, doer *user_model.User, issue *Issue,
 
 // SubmitReview creates a review out of the existing pending review or creates a new one if no pending review exist
 func SubmitReview(ctx context.Context, doer *user_model.User, issue *Issue, reviewType ReviewType, content, commitID string, stale bool, attachmentUUIDs []string) (*Review, *Comment, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, nil, err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -755,6 +766,11 @@ func GetTeamReviewerByIssueIDAndTeamID(ctx context.Context, issueID, teamID int6
 
 // MarkReviewsAsStale marks existing reviews as stale
 func MarkReviewsAsStale(ctx context.Context, issueID int64) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err = db.GetEngine(ctx).Exec("UPDATE `review` SET stale=? WHERE issue_id=?", true, issueID)
 
 	return err
@@ -762,6 +778,11 @@ func MarkReviewsAsStale(ctx context.Context, issueID int64) (err error) {
 
 // MarkReviewsAsNotStale marks existing reviews as not stale for a giving commit SHA
 func MarkReviewsAsNotStale(ctx context.Context, issueID int64, commitID string) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err = db.GetEngine(ctx).Exec("UPDATE `review` SET stale=? WHERE issue_id=? AND commit_id=?", false, issueID, commitID)
 
 	return err
@@ -769,6 +790,11 @@ func MarkReviewsAsNotStale(ctx context.Context, issueID int64, commitID string) 
 
 // DismissReview change the dismiss status of a review
 func DismissReview(ctx context.Context, review *Review, isDismiss bool) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if review.Dismissed == isDismiss || (review.Type != ReviewTypeApprove && review.Type != ReviewTypeReject) {
 		return nil
 	}
@@ -786,6 +812,11 @@ func DismissReview(ctx context.Context, review *Review, isDismiss bool) (err err
 
 // InsertReviews inserts review and review comments
 func InsertReviews(ctx context.Context, reviews []*Review) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -832,6 +863,11 @@ func InsertReviews(ctx context.Context, reviews []*Review) error {
 
 // AddReviewRequest add a review request from one reviewer
 func AddReviewRequest(ctx context.Context, issue *Issue, reviewer, doer *user_model.User) (*Comment, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err
@@ -907,6 +943,11 @@ func AddReviewRequest(ctx context.Context, issue *Issue, reviewer, doer *user_mo
 
 // RemoveReviewRequest remove a review request from one reviewer
 func RemoveReviewRequest(ctx context.Context, issue *Issue, reviewer, doer *user_model.User) (*Comment, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err
@@ -968,6 +1009,11 @@ func restoreLatestOfficialReview(ctx context.Context, issueID, reviewerID int64)
 
 // AddTeamReviewRequest add a review request from one team
 func AddTeamReviewRequest(ctx context.Context, issue *Issue, reviewer *organization.Team, doer *user_model.User) (*Comment, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err
@@ -1017,6 +1063,11 @@ func AddTeamReviewRequest(ctx context.Context, issue *Issue, reviewer *organizat
 
 // RemoveTeamReviewRequest remove a review request from one team
 func RemoveTeamReviewRequest(ctx context.Context, issue *Issue, reviewer *organization.Team, doer *user_model.User) (*Comment, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err
@@ -1076,6 +1127,11 @@ func RemoveTeamReviewRequest(ctx context.Context, issue *Issue, reviewer *organi
 
 // MarkConversation Add or remove Conversation mark for a code comment
 func MarkConversation(ctx context.Context, comment *Comment, doer *user_model.User, isResolve bool) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if comment.Type != CommentTypeCode {
 		return nil
 	}
@@ -1135,6 +1191,11 @@ func CanMarkConversation(ctx context.Context, issue *Issue, doer *user_model.Use
 
 // DeleteReview delete a review and it's code comments
 func DeleteReview(ctx context.Context, r *Review) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -1245,6 +1306,11 @@ func (r *Review) GetExternalID() int64 { return r.OriginalAuthorID }
 
 // UpdateReviewsMigrationsByType updates reviews' migrations information via given git service type and original id and poster id
 func UpdateReviewsMigrationsByType(ctx context.Context, tp structs.GitServiceType, originalAuthorID string, posterID int64) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Table("review").
 		Where("original_author_id = ?", originalAuthorID).
 		And(migratedIssueCond(tp)).

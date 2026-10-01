@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/util"
 
@@ -70,6 +71,11 @@ func IsUserAssignedToIssue(ctx context.Context, issue *Issue, user *user_model.U
 
 // ToggleIssueAssignee changes a user between assigned and not assigned for this issue, and make issue comment for it.
 func ToggleIssueAssignee(ctx context.Context, issue *Issue, doer *user_model.User, assigneeID int64) (removed bool, comment *Comment, err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return false, nil, err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return false, nil, err

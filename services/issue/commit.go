@@ -103,6 +103,16 @@ func getIssueFromRef(ctx context.Context, repo *repo_model.Repository, index int
 
 // UpdateIssuesCommit checks if issues are manipulated by commit message.
 func UpdateIssuesCommit(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, commits []*repository.PushCommit, branchName string) error {
+	// One collaboration writer owns the push-commit issue batch before
+	// its effects, advancing the native revision so old accepted-input
+	// observations go stale. Push completion normally carries the
+	// enclosing execution; the claim only binds standalone callers.
+	return withCollabOwnership(ctx, CollabBatchResource("push-commit"), repo.ID, func(ctx context.Context) error {
+		return doUpdateIssuesCommit(ctx, doer, repo, commits, branchName)
+	})
+}
+
+func doUpdateIssuesCommit(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, commits []*repository.PushCommit, branchName string) error {
 	// Commits are appended in the reverse order.
 	for i := len(commits) - 1; i >= 0; i-- {
 		c := commits[i]

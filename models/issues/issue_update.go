@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
@@ -36,6 +37,11 @@ func UpdateIssueCols(ctx context.Context, issue *Issue, cols ...string) error {
 }
 
 func UpdateIssueColsWithCond(ctx context.Context, issue *Issue, cond builder.Cond, cols ...string) (int64, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	sess := db.GetEngine(ctx).ID(issue.ID)
 	if issue.NoAutoTime {
 		cols = append(cols, []string{"updated_unix"}...)
@@ -219,6 +225,11 @@ func ChangeIssueRef(ctx context.Context, issue *Issue, doer *user_model.User, ol
 
 // AddDeletePRBranchComment adds delete branch comment for pull request issue
 func AddDeletePRBranchComment(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, issueID int64, branchName string) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	issue, err := GetIssueByID(ctx, issueID)
 	if err != nil {
 		return err
@@ -236,6 +247,11 @@ func AddDeletePRBranchComment(ctx context.Context, doer *user_model.User, repo *
 
 // UpdateIssueAttachments update attachments by UUIDs for the issue
 func UpdateIssueAttachments(ctx context.Context, issue *Issue, uuids []string) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -317,6 +333,11 @@ type NewIssueOptions struct {
 
 // NewIssueWithIndex creates issue with given index
 func NewIssueWithIndex(ctx context.Context, doer *user_model.User, opts NewIssueOptions) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	e := db.GetEngine(ctx)
 	opts.Issue.Title = strings.TrimSpace(opts.Issue.Title)
 
@@ -408,6 +429,11 @@ func NewIssueWithIndex(ctx context.Context, doer *user_model.User, opts NewIssue
 // NewIssue creates new issue with labels for repository.
 // The title will be cut off at 255 characters if it's longer than 255 characters.
 func NewIssue(ctx context.Context, repo *repo_model.Repository, issue *Issue, labelIDs []int64, uuids []string) (err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -443,6 +469,11 @@ func NewIssue(ctx context.Context, repo *repo_model.Repository, issue *Issue, la
 
 // UpdateIssueMentions updates issue-user relations for mentioned users.
 func UpdateIssueMentions(ctx context.Context, issueID int64, mentions []*user_model.User) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if len(mentions) == 0 {
 		return nil
 	}
@@ -639,6 +670,11 @@ func ResolveIssueMentionsByVisibility(ctx context.Context, issue *Issue, doer *u
 
 // UpdateIssuesMigrationsByType updates all migrated repositories' issues from gitServiceType to replace originalAuthorID to posterID
 func UpdateIssuesMigrationsByType(ctx context.Context, gitServiceType api.GitServiceType, originalAuthorID string, posterID int64) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Table("issue").
 		Where("repo_id IN (SELECT id FROM repository WHERE original_service_type = ?)", gitServiceType).
 		And("original_author_id = ?", originalAuthorID).
@@ -652,6 +688,11 @@ func UpdateIssuesMigrationsByType(ctx context.Context, gitServiceType api.GitSer
 
 // UpdateReactionsMigrationsByType updates all migrated repositories' reactions from gitServiceType to replace originalAuthorID to posterID
 func UpdateReactionsMigrationsByType(ctx context.Context, gitServiceType api.GitServiceType, originalAuthorID string, userID int64) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Table("reaction").
 		Where("original_author_id = ?", originalAuthorID).
 		And(migratedIssueCond(gitServiceType)).
@@ -665,6 +706,11 @@ func UpdateReactionsMigrationsByType(ctx context.Context, gitServiceType api.Git
 
 // DeleteIssuesByRepoID deletes issues by repositories id
 func DeleteIssuesByRepoID(ctx context.Context, repoID int64) (attachmentPaths []string, err error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	// MariaDB has a performance bug: https://jira.mariadb.org/browse/MDEV-16289
 	// so here it uses "DELETE ... WHERE IN" with pre-queried IDs.
 	sess := db.GetEngine(ctx)
@@ -766,6 +812,11 @@ func DeleteIssuesByRepoID(ctx context.Context, repoID int64) (attachmentPaths []
 
 // DeleteOrphanedIssues delete issues without a repo
 func DeleteOrphanedIssues(ctx context.Context) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	var attachmentPaths []string
 	err := db.WithTx(ctx, func(ctx context.Context) error {
 		var ids []int64

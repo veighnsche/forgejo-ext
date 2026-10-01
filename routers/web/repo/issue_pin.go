@@ -4,12 +4,14 @@
 package repo
 
 import (
+	stdCtx "context"
 	"net/http"
 
 	issues_model "forgejo.org/models/issues"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // IssuePinOrUnpin pin or unpin a Issue
@@ -27,8 +29,18 @@ func IssuePinOrUnpin(ctx *context.Context) {
 		return
 	}
 
-	err = issue.PinOrUnpin(ctx, ctx.Doer)
+	// One collaboration writer owns the pin change before its effects,
+	// advancing the native revision so old accepted-input observations
+	// go stale.
+	doer := ctx.Doer
+	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+		return issue.PinOrUnpin(ctx, doer)
+	})
 	if err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Status(http.StatusServiceUnavailable)
+			return
+		}
 		ctx.Status(http.StatusInternalServerError)
 		log.Error(err.Error())
 		return
@@ -54,8 +66,18 @@ func IssueUnpin(ctx *context.Context) {
 		return
 	}
 
-	err = issue.Unpin(ctx, ctx.Doer)
+	// One collaboration writer owns the pin change before its effects,
+	// advancing the native revision so old accepted-input observations
+	// go stale.
+	doer := ctx.Doer
+	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+		return issue.Unpin(ctx, doer)
+	})
 	if err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Status(http.StatusServiceUnavailable)
+			return
+		}
 		ctx.Status(http.StatusInternalServerError)
 		log.Error(err.Error())
 		return
@@ -96,8 +118,17 @@ func IssuePinMove(ctx *context.Context) {
 		return
 	}
 
-	err = issue.MovePin(ctx, form.Position)
+	// One collaboration writer owns the pin change before its effects,
+	// advancing the native revision so old accepted-input observations
+	// go stale.
+	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+		return issue.MovePin(ctx, form.Position)
+	})
 	if err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Status(http.StatusServiceUnavailable)
+			return
+		}
 		ctx.Status(http.StatusInternalServerError)
 		log.Error(err.Error())
 		return

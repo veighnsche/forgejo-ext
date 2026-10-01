@@ -4,6 +4,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"errors"
 	"net/http"
 
@@ -15,6 +16,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	issue_service "forgejo.org/services/issue"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // GetIssueCommentReactions list reactions of a comment from an issue
@@ -197,8 +199,18 @@ func changeIssueCommentReaction(ctx *context.APIContext, form api.EditReactionOp
 		})
 	} else {
 		// DeleteIssueCommentReaction part
-		err := issues_model.DeleteCommentReaction(ctx, ctx.Doer().ID, comment.Issue.ID, comment.ID, form.Reaction)
+		// One collaboration writer owns the reaction change before its
+		// effects, advancing the native revision so old accepted-input
+		// observations go stale.
+		doerID := ctx.Doer().ID
+		err := operation_service.WithCollaborationOwnership(ctx, operation_service.ReactionResource(comment.Issue.ID, comment.ID, doerID), comment.Issue.RepoID, func(ctx stdCtx.Context) error {
+			return issues_model.DeleteCommentReaction(ctx, doerID, comment.Issue.ID, comment.ID, form.Reaction)
+		})
 		if err != nil {
+			if operation_service.IsBusy(err) {
+				ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+				return
+			}
 			ctx.Error(http.StatusInternalServerError, "DeleteCommentReaction", err)
 			return
 		}
@@ -413,8 +425,18 @@ func changeIssueReaction(ctx *context.APIContext, form api.EditReactionOption, i
 		})
 	} else {
 		// DeleteIssueReaction part
-		err = issues_model.DeleteIssueReaction(ctx, ctx.Doer().ID, issue.ID, form.Reaction)
+		// One collaboration writer owns the reaction change before its
+		// effects, advancing the native revision so old accepted-input
+		// observations go stale.
+		doerID := ctx.Doer().ID
+		err = operation_service.WithCollaborationOwnership(ctx, operation_service.ReactionResource(issue.ID, 0, doerID), issue.RepoID, func(ctx stdCtx.Context) error {
+			return issues_model.DeleteIssueReaction(ctx, doerID, issue.ID, form.Reaction)
+		})
 		if err != nil {
+			if operation_service.IsBusy(err) {
+				ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+				return
+			}
 			ctx.Error(http.StatusInternalServerError, "DeleteIssueReaction", err)
 			return
 		}

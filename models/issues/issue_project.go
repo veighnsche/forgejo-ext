@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	org_model "forgejo.org/models/organization"
 	project_model "forgejo.org/models/project"
 	user_model "forgejo.org/models/user"
@@ -101,6 +102,11 @@ func LoadIssuesFromColumnList(ctx context.Context, bs project_model.ColumnList, 
 // IssueAssignOrRemoveProject changes the project associated with an issue
 // If newProjectID is 0, the issue is removed from the project
 func IssueAssignOrRemoveProject(ctx context.Context, issue *Issue, doer *user_model.User, newProjectID, newColumnID int64) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		oldProjectID := issue.projectID(ctx)
 

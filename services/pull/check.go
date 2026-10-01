@@ -15,6 +15,7 @@ import (
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
+	model "forgejo.org/models/nativeoperation"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
@@ -272,20 +273,39 @@ func InitializePullRequests(ctx context.Context) {
 
 // handle passed PR IDs and test the PRs
 func handler(items ...string) []string {
+	var ret []string
 	for _, s := range items {
 		id, _ := strconv.ParseInt(s, 10, 64)
-		testPR(id)
+		if err := testPR(id); err != nil {
+			if errors.Is(err, model.ErrBusy) || errors.Is(err, model.ErrInhibited) {
+				ret = append(ret, s)
+			}
+		}
 	}
-	return nil
+	return ret
 }
 
-func testPR(id int64) {
+func testPR(id int64) error {
 	ctx, _, finished := process.GetManager().AddContext(graceful.GetManager().HammerContext(), fmt.Sprintf("Test PR[%d] from patch checking queue", id))
 	defer finished()
 
-	if pr, updated := testPRProtected(ctx, id); pr != nil && updated {
+	// Deferred work claims fresh ownership before its effects and never
+	// borrows another execution. A busy gate retains the item for a
+	// later attempt instead of dropping it; the automerge enqueue below
+	// stays outside the claim.
+	var pr *issues_model.PullRequest
+	updated := false
+	if err := withCollabOwnership(ctx, CollabPullResource(id, "refresh"), 0, func(ctx context.Context) error {
+		pr, updated = testPRProtected(ctx, id)
+		return nil
+	}); err != nil {
+		log.Error("Test PR[%d] from patch checking queue: %v", id, err)
+		return err
+	}
+	if pr != nil && updated {
 		shared_automerge.AddToQueueIfMergeable(ctx, pr)
 	}
+	return nil
 }
 
 func testPRProtected(ctx context.Context, id int64) (*issues_model.PullRequest, bool) {

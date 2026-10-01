@@ -13,6 +13,15 @@ import (
 
 // ChangeContent changes issue content, as the given user.
 func ChangeContent(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, content string, contentVersion int) (err error) {
+	// One collaboration writer owns the content change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabIssueResource(issue.ID, "content"), issue.RepoID, func(ctx context.Context) error {
+		return doChangeContent(ctx, issue, doer, content, contentVersion)
+	})
+}
+
+func doChangeContent(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, content string, contentVersion int) (err error) {
 	oldContent := issue.Content
 
 	if err := issues_model.ChangeIssueContent(ctx, issue, doer, content, contentVersion); err != nil {

@@ -46,6 +46,15 @@ var pullWorkingPool = sync.NewExclusivePool()
 // primary phase commits, the PR exists durably, and a completion error is
 // reported without rolling the creation back.
 func NewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *issues_model.Issue, labelIDs []int64, uuids []string, pr *issues_model.PullRequest, assigneeIDs []int64) error {
+	// One collaboration writer owns the pull request creation before
+	// its effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabPullCreateResource(issue.ID), repo.ID, func(ctx context.Context) error {
+		return doNewPullRequest(ctx, repo, issue, labelIDs, uuids, pr, assigneeIDs)
+	})
+}
+
+func doNewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *issues_model.Issue, labelIDs []int64, uuids []string, pr *issues_model.PullRequest, assigneeIDs []int64) error {
 	// Check if the doer is not blocked by the repository's owner.
 	if user_model.IsBlocked(ctx, repo.OwnerID, issue.PosterID) {
 		return user_model.ErrBlockedByUser
@@ -195,6 +204,15 @@ func CompletePullRequestCreation(ctx context.Context, repo *repo_model.Repositor
 
 // ChangeTargetBranch changes the target branch of this pull request, as the given user.
 func ChangeTargetBranch(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, targetBranch string) (err error) {
+	// One collaboration writer owns the retarget before its effects,
+	// advancing the native revision so old accepted-input observations
+	// go stale.
+	return withCollabOwnership(ctx, CollabPullResource(pr.ID, "retarget"), pr.BaseRepoID, func(ctx context.Context) error {
+		return doChangeTargetBranch(ctx, pr, doer, targetBranch)
+	})
+}
+
+func doChangeTargetBranch(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, targetBranch string) (err error) {
 	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
 	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
 
@@ -298,9 +316,13 @@ func checkForInvalidation(ctx context.Context, requests issues_model.PullRequest
 	if err != nil {
 		return fmt.Errorf("GetRepositoryByIDCtx: %w", err)
 	}
+	// The deferred invalidation must not borrow the caller's execution:
+	// it can outlive the enclosing claim, so it carries a stripped
+	// context and claims fresh ownership of its own inside.
+	goCtx := nativeoperation.NewContext(ctx, nil)
 	go func() {
 		// FIXME: graceful: We need to tell the manager we're doing something...
-		err := InvalidateCodeComments(ctx, requests, doer, repo, newCommitID)
+		err := InvalidateCodeComments(goCtx, requests, doer, repo, newCommitID)
 		if err != nil {
 			log.Error("PullRequestList.InvalidateCodeComments: %v", err)
 		}
@@ -326,6 +348,19 @@ func AddTestPullRequestTask(ctx context.Context, doer *user_model.User, repoID i
 }
 
 func TestPullRequest(ctx context.Context, doer *user_model.User, repoID, olderThan int64, branch string, isSync bool, oldCommitID, newCommitID string) {
+	// One collaboration writer owns the PR test sweep before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. A busy gate logs and skips like any other
+	// transient worker error; the next push re-triggers the sweep.
+	if err := withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), repoID, func(ctx context.Context) error {
+		doTestPullRequest(ctx, doer, repoID, olderThan, branch, isSync, oldCommitID, newCommitID)
+		return nil
+	}); err != nil {
+		log.Error("TestPullRequest(%d:%s): %v", repoID, branch, err)
+	}
+}
+
+func doTestPullRequest(ctx context.Context, doer *user_model.User, repoID, olderThan int64, branch string, isSync bool, oldCommitID, newCommitID string) {
 	// Only consider PR that are older than olderThan, which is the time at
 	// which the newCommitID was added to repoID.
 	//
@@ -406,6 +441,21 @@ func TestPullRequest(ctx context.Context, doer *user_model.User, repoID, olderTh
 // Dismiss all approval reviews if protected branch rule item enabled.
 // Update commit divergence.
 func ValidatePullRequest(ctx context.Context, pr *issues_model.PullRequest, newCommitID, oldCommitID string, doer *user_model.User) {
+	// One collaboration writer owns the PR validation before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. Test sweeps and receive flows normally
+	// carry the enclosing execution; the claim only binds standalone
+	// callers. A busy gate logs and skips like any other transient
+	// worker error; the next push re-triggers validation.
+	if err := withCollabOwnership(ctx, CollabPullResource(pr.ID, "refresh"), pr.BaseRepoID, func(ctx context.Context) error {
+		doValidatePullRequest(ctx, pr, newCommitID, oldCommitID, doer)
+		return nil
+	}); err != nil {
+		log.Error("ValidatePullRequest(%d): %v", pr.ID, err)
+	}
+}
+
+func doValidatePullRequest(ctx context.Context, pr *issues_model.PullRequest, newCommitID, oldCommitID string, doer *user_model.User) {
 	objectFormat := git.ObjectFormatFromName(pr.BaseRepo.ObjectFormatName)
 	if newCommitID == "" || newCommitID == objectFormat.EmptyObjectID().String() {
 		return
@@ -558,6 +608,16 @@ func (errs errlist) Error() string {
 
 // RetargetChildrenOnMerge retarget children pull requests on merge if possible
 func RetargetChildrenOnMerge(ctx context.Context, doer *user_model.User, pr *issues_model.PullRequest) error {
+	// One collaboration writer owns the child retarget sweep before
+	// its effects, advancing the native revision so old accepted-input
+	// observations go stale. Merge completion normally carries the
+	// enclosing execution; the claim only binds standalone callers.
+	return withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), pr.BaseRepoID, func(ctx context.Context) error {
+		return doRetargetChildrenOnMerge(ctx, doer, pr)
+	})
+}
+
+func doRetargetChildrenOnMerge(ctx context.Context, doer *user_model.User, pr *issues_model.PullRequest) error {
 	if setting.Repository.PullRequest.RetargetChildrenOnMerge && pr.BaseRepoID == pr.HeadRepoID {
 		return RetargetBranchPulls(ctx, doer, pr.HeadRepoID, pr.HeadBranch, pr.BaseBranch)
 	}
@@ -567,6 +627,15 @@ func RetargetChildrenOnMerge(ctx context.Context, doer *user_model.User, pr *iss
 // RetargetBranchPulls change target branch for all pull requests whose base branch is the branch
 // Both branch and targetBranch must be in the same repo (for security reasons)
 func RetargetBranchPulls(ctx context.Context, doer *user_model.User, repoID int64, branch, targetBranch string) error {
+	// One collaboration writer owns the branch retarget sweep before
+	// its effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), repoID, func(ctx context.Context) error {
+		return doRetargetBranchPulls(ctx, doer, repoID, branch, targetBranch)
+	})
+}
+
+func doRetargetBranchPulls(ctx context.Context, doer *user_model.User, repoID int64, branch, targetBranch string) error {
 	prs, err := issues_model.GetUnmergedPullRequestsByBaseInfo(ctx, repoID, branch)
 	if err != nil {
 		return err
@@ -595,6 +664,17 @@ func RetargetBranchPulls(ctx context.Context, doer *user_model.User, repoID int6
 
 // CloseBranchPulls close all the pull requests who's head branch is the branch
 func CloseBranchPulls(ctx context.Context, doer *user_model.User, repoID int64, branch string) error {
+	// One collaboration writer owns the branch close sweep before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. Push completion and branch deletion
+	// normally carry the enclosing execution; the claim only binds
+	// standalone callers.
+	return withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), repoID, func(ctx context.Context) error {
+		return doCloseBranchPulls(ctx, doer, repoID, branch)
+	})
+}
+
+func doCloseBranchPulls(ctx context.Context, doer *user_model.User, repoID int64, branch string) error {
 	prs, err := issues_model.GetUnmergedPullRequestsByHeadInfo(ctx, repoID, branch)
 	if err != nil {
 		return err
@@ -624,6 +704,15 @@ func CloseBranchPulls(ctx context.Context, doer *user_model.User, repoID int64, 
 
 // CloseRepoBranchesPulls close all pull requests which head branches are in the given repository, but only whose base repo is not in the given repository
 func CloseRepoBranchesPulls(ctx context.Context, doer *user_model.User, repo *repo_model.Repository) error {
+	// One collaboration writer owns the repo close sweep before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), repo.ID, func(ctx context.Context) error {
+		return doCloseRepoBranchesPulls(ctx, doer, repo)
+	})
+}
+
+func doCloseRepoBranchesPulls(ctx context.Context, doer *user_model.User, repo *repo_model.Repository) error {
 	branches, _, err := gitrepo.GetBranchesByPath(ctx, repo, 0, 0)
 	if err != nil {
 		return err

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"forgejo.org/models/moderation"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/timeutil"
 )
@@ -106,6 +107,11 @@ func newCommentData(comment *Comment) CommentData {
 // and if found a shadow copy of relevant issue fields will be stored into DB and linked to the above report(s).
 // This function should be called before a issue is deleted or updated.
 func IfNeededCreateShadowCopyForIssue(ctx context.Context, issue *Issue) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	shadowCopyNeeded, err := moderation.IsShadowCopyNeeded(ctx, moderation.ReportedContentTypeIssue, issue.ID)
 	if err != nil {
 		return err
@@ -127,6 +133,11 @@ func IfNeededCreateShadowCopyForIssue(ctx context.Context, issue *Issue) error {
 // and if found a shadow copy of relevant comment fields will be stored into DB and linked to the above report(s).
 // This function should be called before a comment is deleted or updated.
 func IfNeededCreateShadowCopyForComment(ctx context.Context, comment *Comment, forUpdates bool) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	shadowCopyNeeded, err := moderation.IsShadowCopyNeeded(ctx, moderation.ReportedContentTypeComment, comment.ID)
 	if err != nil {
 		return err

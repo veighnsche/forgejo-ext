@@ -21,6 +21,15 @@ import (
 
 // MergedManually mark pr as merged manually
 func MergedManually(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, baseGitRepo *git.Repository, commitID string) error {
+	// One collaboration writer owns the manual merge mark before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabPullResource(pr.ID, "manual"), pr.BaseRepoID, func(ctx context.Context) error {
+		return doMergedManually(ctx, pr, doer, baseGitRepo, commitID)
+	})
+}
+
+func doMergedManually(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, baseGitRepo *git.Repository, commitID string) error {
 	pullWorkingPool.CheckIn(fmt.Sprint(pr.ID))
 	defer pullWorkingPool.CheckOut(fmt.Sprint(pr.ID))
 

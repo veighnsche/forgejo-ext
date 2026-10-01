@@ -16,6 +16,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 type consistencyCheck struct {
@@ -63,6 +64,22 @@ func asFixer(fn func(ctx context.Context) error) func(ctx context.Context) (int6
 	}
 }
 
+// collabFixer runs one collaboration-table repair under a collaboration
+// owner, advancing the native revision before its effects. Orphan
+// repairs span entities, so offline recovery fences them; the claim
+// still orders the repair against every other participating writer.
+func collabFixer(fn func(ctx context.Context) (int64, error)) func(ctx context.Context) (int64, error) {
+	return func(ctx context.Context) (int64, error) {
+		var fixed int64
+		err := operation_service.WithCollaborationOwnership(ctx, operation_service.CollabBatchResource("orphan-fix"), 0, func(ctx context.Context) error {
+			var err error
+			fixed, err = fn(ctx)
+			return err
+		})
+		return fixed, err
+	}
+}
+
 func genericOrphanCheck(name, subject, refobject, joincond string) consistencyCheck {
 	return consistencyCheck{
 		Name: name,
@@ -95,19 +112,19 @@ func checkDBConsistency(ctx context.Context, logger log.Logger, autofix bool) er
 			// find labels without existing repo or org
 			Name:    "Orphaned Labels without existing repository or organisation",
 			Counter: issues_model.CountOrphanedLabels,
-			Fixer:   asFixer(issues_model.DeleteOrphanedLabels),
+			Fixer:   collabFixer(asFixer(issues_model.DeleteOrphanedLabels)),
 		},
 		{
 			// find IssueLabels without existing label
 			Name:    "Orphaned Issue Labels without existing label",
 			Counter: issues_model.CountOrphanedIssueLabels,
-			Fixer:   asFixer(issues_model.DeleteOrphanedIssueLabels),
+			Fixer:   collabFixer(asFixer(issues_model.DeleteOrphanedIssueLabels)),
 		},
 		{
 			// find issues without existing repository
 			Name:    "Orphaned Issues without existing repository",
 			Counter: issues_model.CountOrphanedIssues,
-			Fixer:   asFixer(issues_model.DeleteOrphanedIssues),
+			Fixer:   collabFixer(asFixer(issues_model.DeleteOrphanedIssues)),
 		},
 		// find releases without existing repository
 		genericOrphanCheck("Orphaned Releases without existing repository",
@@ -140,21 +157,21 @@ func checkDBConsistency(ctx context.Context, logger log.Logger, autofix bool) er
 		{
 			Name:         "Label comments with empty labels",
 			Counter:      issues_model.CountCommentTypeLabelWithEmptyLabel,
-			Fixer:        issues_model.FixCommentTypeLabelWithEmptyLabel,
+			Fixer:        collabFixer(issues_model.FixCommentTypeLabelWithEmptyLabel),
 			FixedMessage: "Fixed",
 		},
 		// find label comments with labels from outside the repository
 		{
 			Name:         "Label comments with labels from outside the repository",
 			Counter:      issues_model.CountCommentTypeLabelWithOutsideLabels,
-			Fixer:        issues_model.FixCommentTypeLabelWithOutsideLabels,
+			Fixer:        collabFixer(issues_model.FixCommentTypeLabelWithOutsideLabels),
 			FixedMessage: "Removed",
 		},
 		// find issue_label with labels from outside the repository
 		{
 			Name:         "IssueLabels with Labels from outside the repository",
 			Counter:      issues_model.CountIssueLabelWithOutsideLabels,
-			Fixer:        issues_model.FixIssueLabelWithOutsideLabels,
+			Fixer:        collabFixer(issues_model.FixIssueLabelWithOutsideLabels),
 			FixedMessage: "Removed",
 		},
 		{

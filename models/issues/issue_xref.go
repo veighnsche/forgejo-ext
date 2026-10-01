@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
@@ -60,6 +61,11 @@ func neuterCrossReferencesIDs(stdCtx context.Context, ctx *crossReferencesContex
 
 // AddCrossReferences add cross repositories references.
 func (issue *Issue) AddCrossReferences(stdCtx context.Context, doer *user_model.User, removeOld bool) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(stdCtx); err != nil {
+		return err
+	}
 	var commentType CommentType
 	if issue.IsPull {
 		commentType = CommentTypePullRef
@@ -239,6 +245,11 @@ func (issue *Issue) verifyReferencedIssue(stdCtx context.Context, ctx *crossRefe
 
 // AddCrossReferences add cross references
 func (c *Comment) AddCrossReferences(stdCtx context.Context, doer *user_model.User, removeOld bool) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(stdCtx); err != nil {
+		return err
+	}
 	if c.Type != CommentTypeCode && c.Type != CommentTypeComment {
 		return nil
 	}

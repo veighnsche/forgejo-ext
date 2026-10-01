@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 )
 
@@ -20,11 +21,21 @@ type IssueLockOptions struct {
 // LockIssue locks an issue. This would limit commenting abilities to
 // users with write access to the repo
 func LockIssue(ctx context.Context, opts *IssueLockOptions) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return updateIssueLock(ctx, opts, true)
 }
 
 // UnlockIssue unlocks a previously locked issue.
 func UnlockIssue(ctx context.Context, opts *IssueLockOptions) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return updateIssueLock(ctx, opts, false)
 }
 

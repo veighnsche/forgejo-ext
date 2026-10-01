@@ -13,6 +13,7 @@ import (
 	"slices"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	project_model "forgejo.org/models/project"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
@@ -721,6 +722,11 @@ func (issue *Issue) IsPinned() bool {
 
 // Pin pins a Issue
 func (issue *Issue) Pin(ctx context.Context, user *user_model.User) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	// If the Issue is already pinned, we don't need to pin it twice
 	if issue.IsPinned() {
 		return nil
@@ -762,6 +768,11 @@ func (issue *Issue) Pin(ctx context.Context, user *user_model.User) error {
 
 // UnpinIssue unpins a Issue
 func (issue *Issue) Unpin(ctx context.Context, user *user_model.User) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	// If the Issue is not pinned, we don't need to unpin it
 	if !issue.IsPinned() {
 		return nil
@@ -807,6 +818,11 @@ func (issue *Issue) PinOrUnpin(ctx context.Context, user *user_model.User) error
 
 // MovePin moves a Pinned Issue to a new Position
 func (issue *Issue) MovePin(ctx context.Context, newPosition int) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	// If the Issue is not pinned, we can't move them
 	if !issue.IsPinned() {
 		return nil
@@ -898,6 +914,11 @@ func IsErrIssueMaxPinReached(err error) bool {
 
 // InsertIssues insert issues to database
 func InsertIssues(ctx context.Context, issues ...*Issue) error {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

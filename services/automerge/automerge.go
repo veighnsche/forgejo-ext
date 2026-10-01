@@ -21,6 +21,7 @@ import (
 	"forgejo.org/modules/process"
 	"forgejo.org/modules/queue"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
@@ -55,6 +56,17 @@ func handler(items ...string) []string {
 
 // ScheduleAutoMerge if schedule is false and no error, pull can be merged directly
 func ScheduleAutoMerge(ctx context.Context, doer *user_model.User, pull *issues_model.PullRequest, style repo_model.MergeStyle, message string, deleteBranch bool) (scheduled bool, err error) {
+	// One collaboration writer owns the automerge schedule before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = operation_service.WithCollaborationOwnership(ctx, operation_service.PullResource(pull.ID, "automerge"), pull.BaseRepoID, func(ctx context.Context) error {
+		scheduled, err = doScheduleAutoMerge(ctx, doer, pull, style, message, deleteBranch)
+		return err
+	})
+	return scheduled, err
+}
+
+func doScheduleAutoMerge(ctx context.Context, doer *user_model.User, pull *issues_model.PullRequest, style repo_model.MergeStyle, message string, deleteBranch bool) (scheduled bool, err error) {
 	err = db.WithTx(ctx, func(ctx context.Context) error {
 		if err := pull_model.ScheduleAutoMerge(ctx, doer, pull.ID, style, message, deleteBranch); err != nil {
 			return err
@@ -69,6 +81,15 @@ func ScheduleAutoMerge(ctx context.Context, doer *user_model.User, pull *issues_
 
 // RemoveScheduledAutoMerge cancels a previously scheduled pull request
 func RemoveScheduledAutoMerge(ctx context.Context, doer *user_model.User, pull *issues_model.PullRequest, repoPerms access_model.Permission) error {
+	// One collaboration writer owns the automerge unschedule before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return operation_service.WithCollaborationOwnership(ctx, operation_service.PullResource(pull.ID, "automerge"), pull.BaseRepoID, func(ctx context.Context) error {
+		return doRemoveScheduledAutoMerge(ctx, doer, pull, repoPerms)
+	})
+}
+
+func doRemoveScheduledAutoMerge(ctx context.Context, doer *user_model.User, pull *issues_model.PullRequest, repoPerms access_model.Permission) error {
 	exist, autoMerge, err := pull_model.GetScheduledMergeByPullID(ctx, pull.ID)
 	if err != nil {
 		return err

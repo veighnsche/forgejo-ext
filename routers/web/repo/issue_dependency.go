@@ -4,12 +4,14 @@
 package repo
 
 import (
+	stdCtx "context"
 	"net/http"
 
 	issues_model "forgejo.org/models/issues"
 	access_model "forgejo.org/models/perm/access"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // AddDependency adds new dependencies
@@ -73,8 +75,19 @@ func AddDependency(ctx *context.Context) {
 		return
 	}
 
-	err = issues_model.CreateIssueDependency(ctx, ctx.Doer, issue, dep)
+	// One collaboration writer owns the dependency change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	doer := ctx.Doer
+	err = operation_service.WithCollaborationOwnership(ctx, operation_service.DependencyResource(issue.ID, dep.ID), issue.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.CreateIssueDependency(ctx, doer, issue, dep)
+	})
 	if err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Flash.Error("A native operation is in progress; retry shortly.")
+			ctx.Redirect(issue.Link())
+			return
+		}
 		if issues_model.IsErrDependencyExists(err) {
 			ctx.Flash.Error(ctx.Tr("repo.issues.dependency.add_error_dep_exists"))
 			ctx.Redirect(issue.Link())
@@ -135,7 +148,17 @@ func RemoveDependency(ctx *context.Context) {
 		return
 	}
 
-	if err = issues_model.RemoveIssueDependency(ctx, ctx.Doer, issue, dep, depType); err != nil {
+	// One collaboration writer owns the dependency change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	doer := ctx.Doer
+	if err = operation_service.WithCollaborationOwnership(ctx, operation_service.DependencyResource(issue.ID, dep.ID), issue.RepoID, func(ctx stdCtx.Context) error {
+		return issues_model.RemoveIssueDependency(ctx, doer, issue, dep, depType)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Flash.Error("A native operation is in progress; retry shortly.")
+			return
+		}
 		if issues_model.IsErrDependencyNotExists(err) {
 			ctx.Flash.Error(ctx.Tr("repo.issues.dependency.add_error_dep_not_exist"))
 			return

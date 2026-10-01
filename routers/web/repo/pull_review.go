@@ -4,6 +4,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/context/upload"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 )
 
@@ -179,7 +181,14 @@ func UpdateResolveConversation(ctx *context.Context) {
 	}
 
 	if action == "Resolve" || action == "UnResolve" {
-		err = issues_model.MarkConversation(ctx, comment, ctx.Doer, action == "Resolve")
+		// One collaboration writer owns the conversation change before
+		// its effects, advancing the native revision so old accepted-input
+		// observations go stale.
+		doer := ctx.Doer
+		resolve := action == "Resolve"
+		err = operation_service.WithCollaborationOwnership(ctx, operation_service.CommentResource(comment.ID, "conversation"), ctx.Repo.Repository.ID, func(ctx stdCtx.Context) error {
+			return issues_model.MarkConversation(ctx, comment, doer, resolve)
+		})
 		if err != nil {
 			ctx.ServerError("MarkConversation", err)
 			return

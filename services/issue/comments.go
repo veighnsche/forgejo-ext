@@ -18,6 +18,15 @@ import (
 
 // CreateRefComment creates a commit reference comment to issue.
 func CreateRefComment(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, issue *issues_model.Issue, content, commitSHA string) error {
+	// One collaboration writer owns the comment creation before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	return withCollabOwnership(ctx, CollabCommentCreateResource(issue.ID), repo.ID, func(ctx context.Context) error {
+		return doCreateRefComment(ctx, doer, repo, issue, content, commitSHA)
+	})
+}
+
+func doCreateRefComment(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, issue *issues_model.Issue, content, commitSHA string) error {
 	if len(commitSHA) == 0 {
 		return errors.New("cannot create reference with empty commit SHA")
 	}
@@ -46,7 +55,18 @@ func CreateRefComment(ctx context.Context, doer *user_model.User, repo *repo_mod
 }
 
 // CreateIssueComment creates a plain issue comment.
-func CreateIssueComment(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, issue *issues_model.Issue, content string, attachments []string) (*issues_model.Comment, error) {
+func CreateIssueComment(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, issue *issues_model.Issue, content string, attachments []string) (comment *issues_model.Comment, err error) {
+	// One collaboration writer owns the comment creation before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabCommentCreateResource(issue.ID), repo.ID, func(ctx context.Context) error {
+		comment, err = doCreateIssueComment(ctx, doer, repo, issue, content, attachments)
+		return err
+	})
+	return comment, err
+}
+
+func doCreateIssueComment(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, issue *issues_model.Issue, content string, attachments []string) (*issues_model.Comment, error) {
 	// Check if doer is blocked by the poster of the issue or by the owner of the repository.
 	if user_model.IsBlockedMultiple(ctx, []int64{issue.PosterID, repo.OwnerID}, doer.ID) {
 		return nil, user_model.ErrBlockedByUser
@@ -76,6 +96,16 @@ func CreateIssueComment(ctx context.Context, doer *user_model.User, repo *repo_m
 
 // UpdateComment updates information of comment.
 func UpdateComment(ctx context.Context, c *issues_model.Comment, contentVersion int, doer *user_model.User, oldContent string) error {
+	// One collaboration writer owns the comment update before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. The comment carries no repository ID, so
+	// the scope names none; the comment and issue anchors reconcile it.
+	return withCollabOwnership(ctx, CollabCommentResource(c.ID, "update"), 0, func(ctx context.Context) error {
+		return doUpdateComment(ctx, c, contentVersion, doer, oldContent)
+	})
+}
+
+func doUpdateComment(ctx context.Context, c *issues_model.Comment, contentVersion int, doer *user_model.User, oldContent string) error {
 	if err := c.LoadReview(ctx); err != nil {
 		return err
 	}
@@ -119,6 +149,16 @@ func UpdateComment(ctx context.Context, c *issues_model.Comment, contentVersion 
 
 // DeleteComment deletes the comment
 func DeleteComment(ctx context.Context, doer *user_model.User, comment *issues_model.Comment) error {
+	// One collaboration writer owns the comment delete before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale. The comment carries no repository ID, so
+	// the scope names none; the comment and issue anchors reconcile it.
+	return withCollabOwnership(ctx, CollabCommentResource(comment.ID, "delete"), 0, func(ctx context.Context) error {
+		return doDeleteComment(ctx, doer, comment)
+	})
+}
+
+func doDeleteComment(ctx context.Context, doer *user_model.User, comment *issues_model.Comment) error {
 	err := db.WithTx(ctx, func(ctx context.Context) error {
 		reviewID := comment.ReviewID
 

@@ -10,7 +10,18 @@ import (
 )
 
 // CreateIssueReaction creates a reaction on issue.
-func CreateIssueReaction(ctx context.Context, doer *user_model.User, issue *issues_model.Issue, content string) (*issues_model.Reaction, error) {
+func CreateIssueReaction(ctx context.Context, doer *user_model.User, issue *issues_model.Issue, content string) (reaction *issues_model.Reaction, err error) {
+	// One collaboration writer owns the reaction change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabReactionResource(issue.ID, 0, doer.ID), issue.RepoID, func(ctx context.Context) error {
+		reaction, err = doCreateIssueReaction(ctx, doer, issue, content)
+		return err
+	})
+	return reaction, err
+}
+
+func doCreateIssueReaction(ctx context.Context, doer *user_model.User, issue *issues_model.Issue, content string) (*issues_model.Reaction, error) {
 	if err := issue.LoadRepo(ctx); err != nil {
 		return nil, err
 	}
@@ -28,7 +39,18 @@ func CreateIssueReaction(ctx context.Context, doer *user_model.User, issue *issu
 }
 
 // CreateCommentReaction creates a reaction on comment.
-func CreateCommentReaction(ctx context.Context, doer *user_model.User, issue *issues_model.Issue, comment *issues_model.Comment, content string) (*issues_model.Reaction, error) {
+func CreateCommentReaction(ctx context.Context, doer *user_model.User, issue *issues_model.Issue, comment *issues_model.Comment, content string) (reaction *issues_model.Reaction, err error) {
+	// One collaboration writer owns the reaction change before its
+	// effects, advancing the native revision so old accepted-input
+	// observations go stale.
+	err = withCollabOwnership(ctx, CollabReactionResource(issue.ID, comment.ID, doer.ID), issue.RepoID, func(ctx context.Context) error {
+		reaction, err = doCreateCommentReaction(ctx, doer, issue, comment, content)
+		return err
+	})
+	return reaction, err
+}
+
+func doCreateCommentReaction(ctx context.Context, doer *user_model.User, issue *issues_model.Issue, comment *issues_model.Comment, content string) (*issues_model.Reaction, error) {
 	if err := issue.LoadRepo(ctx); err != nil {
 		return nil, err
 	}
