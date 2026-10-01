@@ -14,6 +14,9 @@ var Extensions = struct {
 	Path                string
 	RequiredIDs         []string
 	ServiceCallbackPath string
+	// ServiceBridgePeers maps a service Unix peer UID to one permitted
+	// package ID as "uid:package,...". Empty disables service bootstrap.
+	ServiceBridgePeers string
 }{}
 
 func loadExtensionsFrom(cfg ConfigProvider) {
@@ -22,6 +25,7 @@ func loadExtensionsFrom(cfg ConfigProvider) {
 	// Preserve the explicit path: the manager rejects relative paths rather than
 	// silently moving a service trust boundary under the work directory.
 	Extensions.ServiceCallbackPath = sec.Key("SERVICE_CALLBACK_PATH").String()
+	Extensions.ServiceBridgePeers = sec.Key("SERVICE_BRIDGE_PEERS").String()
 	Extensions.Path = sec.Key("PATH").MustString(filepath.Join(AppDataPath, "extensions"))
 	if !filepath.IsAbs(Extensions.Path) {
 		Extensions.Path = filepath.Join(AppWorkPath, Extensions.Path)

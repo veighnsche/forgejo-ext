@@ -123,6 +123,17 @@ func (c *controlRPC) Registration(_ struct{}, registration *Registration) error 
 	return nil
 }
 
+// DeliverBackgroundAdmission receives the host-issued runtime admission after
+// registration. The SDK holds it in memory for RuntimeBackgroundClient.
+func (*controlRPC) DeliverBackgroundAdmission(delivery BackgroundAdmissionDelivery, ack *bool) error {
+	if !validBackgroundToken(delivery.Admission) || delivery.InstallationID == "" {
+		return errors.New("invalid background admission delivery")
+	}
+	storeBackgroundDelivery(delivery)
+	*ack = true
+	return nil
+}
+
 type controlClient struct{ client *rpc.Client }
 
 func (c *controlClient) Ready() error {
@@ -140,6 +151,19 @@ func (c *controlClient) Registration() (Registration, error) {
 	var registration Registration
 	err := c.client.Call("Plugin.Registration", struct{}{}, &registration)
 	return registration, err
+}
+
+// DeliverBackgroundAdmission pushes a runtime admission to the extension. The
+// host calls it after registration when the background capability is declared.
+func (c *controlClient) DeliverBackgroundAdmission(delivery BackgroundAdmissionDelivery) error {
+	var ack bool
+	if err := c.client.Call("Plugin.DeliverBackgroundAdmission", delivery, &ack); err != nil {
+		return err
+	}
+	if !ack {
+		return errors.New("extension rejected background admission")
+	}
+	return nil
 }
 
 // Serve starts the extension listener, then joins the host process handshake.

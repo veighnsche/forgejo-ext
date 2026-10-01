@@ -73,7 +73,7 @@ func (m *Manager) startServiceCallback() error {
 	}
 	m.serviceCallback = endpoint
 	go func() {
-		if err := endpoint.server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := endpoint.server.Serve(wrapPeerCredentialListener(listener)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("Extension service callback server failed: %v", err)
 		}
 	}()

@@ -100,6 +100,12 @@ func Install(root, source string, replace bool) (sdk.Manifest, error) {
 	} else if err := os.Rename(stage, target); err != nil {
 		return sdk.Manifest{}, err
 	}
+	// Fresh installation assigns a new UUID; replacement preserves the
+	// recorded one. Identity failures leave the package installed but the
+	// installation incomplete, like package cleanup failures above.
+	if _, err := EnsureInstallation(root, manifest.ID); err != nil {
+		return manifest, errors.New("package installed but installation identity is unavailable")
+	}
 	return manifest, nil
 }
 
@@ -165,7 +171,12 @@ func Remove(root, id string) error {
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("installed package is not a regular directory")
 	}
-	return os.RemoveAll(directory)
+	if err := os.RemoveAll(directory); err != nil {
+		return err
+	}
+	// Removal retires the installation UUID so a later installation cannot
+	// adopt this installation's operations. Private .data is still retained.
+	return RemoveInstallation(root, id)
 }
 
 func copyPackage(source, target string) error {

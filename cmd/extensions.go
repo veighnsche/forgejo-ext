@@ -58,6 +58,10 @@ func cmdExtensions() *cli.Command {
 			}},
 			extensionActivationCommand("enable", true),
 			extensionActivationCommand("disable", false),
+			extensionInstallationCommand(),
+			extensionBindCommand(),
+			extensionBindingsCommand(),
+			extensionUnbindCommand(),
 		},
 	}
 }

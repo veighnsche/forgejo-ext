@@ -6,6 +6,7 @@ package extensions
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"forgejo.org/modules/setting"
 	runtime "forgejo.org/services/extensions"
@@ -21,10 +22,19 @@ func StartRuntime(ctx context.Context) (close func() error, err error) {
 		return func() error { return nil }, nil
 	}
 	manager := runtime.NewManager(setting.Extensions.Path, setting.Extensions.RequiredIDs...)
-	if err := manager.SetCallbackHandlerFactory(CallbackHandlerForInstance); err != nil {
+	peers, err := runtime.ParseServiceBridgePeers(setting.Extensions.ServiceBridgePeers)
+	if err != nil {
 		return nil, err
 	}
-	if err := manager.SetServiceCallbackEndpoint(setting.Extensions.ServiceCallbackPath, CallbackHandlerForService()); err != nil {
+	if err := manager.SetServiceBridgePeers(peers); err != nil {
+		return nil, err
+	}
+	if err := manager.SetCallbackHandlerFactory(func(instanceID string) http.Handler {
+		return BackgroundMux(manager, CallbackHandlerForInstance(instanceID), instanceID, false)
+	}); err != nil {
+		return nil, err
+	}
+	if err := manager.SetServiceCallbackEndpoint(setting.Extensions.ServiceCallbackPath, BackgroundMux(manager, CallbackHandlerForService(), "", true)); err != nil {
 		return nil, err
 	}
 	if err := manager.SetInstanceStopped(RevokeAdmissionsForInstance); err != nil {

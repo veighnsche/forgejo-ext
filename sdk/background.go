@@ -1,0 +1,415 @@
+// Copyright 2026 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+package extensions
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+)
+
+// Background operation kinds from the conditional-native-mutations contract.
+// Authorization for one kind never grants another.
+const (
+	OperationKindRefPublish   = "git.ref.publish"
+	OperationKindPRCreate     = "pull_request.create"
+	OperationKindReviewSubmit = "pull_request.review.submit"
+	OperationKindMerge        = "pull_request.merge"
+)
+
+// Background dispatcher outcomes returned with HTTP 200 once the caller is
+// admitted. Authentication/authorization failures use HTTP 401/403 instead.
+// FT02 authenticates and authorizes; durable operation semantics arrive later,
+// so an admitted submit/cancel honestly reports operations_unavailable and an
+// admitted lookup reports not_observed.
+const (
+	BackgroundOutcomeOperationsUnavailable = "operations_unavailable"
+	BackgroundOutcomeNotObserved           = "not_observed"
+)
+
+const (
+	BackgroundSubmitPath    = "/v1/background/submit"
+	BackgroundGetPath       = "/v1/background/get"
+	BackgroundCancelPath    = "/v1/background/cancel"
+	BackgroundBootstrapPath = "/v1/background/bootstrap"
+)
+
+const maxBackgroundBodyBytes = 64 << 10
+
+// CredentialFile is an SDK-local restricted secret input: a path to a file
+// holding one native personal access token. The SDK reads it and presents the
+// secret over the private transport; the path itself is never sent for
+// privileged host reading.
+type CredentialFile string
+
+func (path CredentialFile) read() (string, error) {
+	name := string(path)
+	if name == "" || len(name) > 4096 {
+		return "", errors.New("background credential file is not configured")
+	}
+	info, err := os.Lstat(name)
+	if err != nil || !info.Mode().IsRegular() || info.Size() == 0 || info.Size() > 4096 {
+		return "", errors.New("background credential file is unavailable")
+	}
+	if info.Mode().Perm()&0o007 != 0 {
+		return "", errors.New("background credential file must not be accessible to other users")
+	}
+	file, err := os.Open(name)
+	if err != nil {
+		return "", errors.New("background credential file is unavailable")
+	}
+	defer file.Close()
+	secret, err := io.ReadAll(io.LimitReader(file, 4097))
+	if err != nil || len(secret) == 0 || len(secret) > 4096 {
+		return "", errors.New("background credential file is unavailable")
+	}
+	return strings.TrimSuffix(string(secret), "\n"), nil
+}
+
+// OperationIntent carries the FT02-validated common intent fields. The host
+// derives installation identity from the authenticated transport; an
+// InstallationID in the payload must equal it and can never select another
+// installation. Expected-revision/expiry/payload semantics arrive with the
+// operation implementations; Payload is carried opaque and uninterpreted.
+type OperationIntent struct {
+	OperationID           string          `json:"operation_id"`
+	InstallationID        string          `json:"installation_id,omitempty"`
+	ActorID               string          `json:"actor_id"`
+	RepositoryID          string          `json:"repository_id"`
+	Kind                  string          `json:"kind"`
+	AuthorizationRevision string          `json:"authorization_revision"`
+	Payload               json.RawMessage `json:"payload,omitempty"`
+}
+
+// OperationRecord echoes host-derived identity with the admission outcome.
+type OperationRecord struct {
+	InstallationID string `json:"installation_id"`
+	OperationID    string `json:"operation_id"`
+	Outcome        string `json:"outcome"`
+	ReasonCode     string `json:"reason_code,omitempty"`
+}
+
+// OperationLookup distinguishes not_observed from a saved operation.
+type OperationLookup struct {
+	InstallationID string `json:"installation_id"`
+	OperationID    string `json:"operation_id"`
+	Status         string `json:"status"`
+}
+
+// BackgroundClient performs background calls without a browser.
+type BackgroundClient interface {
+	SubmitOperation(context.Context, CredentialFile, OperationIntent) (OperationRecord, error)
+	GetOperation(context.Context, string) (OperationLookup, error)
+	CancelOperation(context.Context, string) (OperationRecord, error)
+}
+
+// ServiceBridgeOptions configures external-service bootstrap. SocketPath is
+// the operator-configured shared service callback socket; ExpectedHostUID is
+// the configured native host identity verified against the actual Unix peer.
+// InstallationID optionally pins the expected installation and must equal the
+// peer-mapped installation when set.
+type ServiceBridgeOptions struct {
+	SocketPath      string
+	ExpectedHostUID uint32
+	InstallationID  string
+}
+
+var backgroundAdmissionMu sync.Mutex
+var backgroundAdmissionDelivery *BackgroundAdmissionDelivery
+
+// BackgroundAdmissionDelivery is pushed by the host over the control channel
+// after registration. The SDK holds it in memory only.
+type BackgroundAdmissionDelivery struct {
+	Admission      string `json:"admission"`
+	InstallationID string `json:"installation_id"`
+}
+
+func validBackgroundToken(token string) bool {
+	if len(token) != 43 {
+		return false
+	}
+	for _, c := range token {
+		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func storeBackgroundDelivery(delivery BackgroundAdmissionDelivery) {
+	backgroundAdmissionMu.Lock()
+	defer backgroundAdmissionMu.Unlock()
+	backgroundAdmissionDelivery = &delivery
+}
+
+func loadBackgroundDelivery() (BackgroundAdmissionDelivery, bool) {
+	backgroundAdmissionMu.Lock()
+	defer backgroundAdmissionMu.Unlock()
+	if backgroundAdmissionDelivery == nil {
+		return BackgroundAdmissionDelivery{}, false
+	}
+	return *backgroundAdmissionDelivery, true
+}
+
+// RuntimeBackgroundClient returns a client for the in-extension runtime
+// channel using the host-delivered admission. It fails when the host never
+// delivered one, for example when the background capability is not declared.
+func RuntimeBackgroundClient() (BackgroundClient, error) {
+	delivery, ok := loadBackgroundDelivery()
+	if !ok || !validBackgroundToken(delivery.Admission) || delivery.InstallationID == "" {
+		return nil, errors.New("background admission is unavailable")
+	}
+	socket := os.Getenv(CallbackEnv)
+	if socket == "" {
+		return nil, errors.New("background callback is unavailable")
+	}
+	return &backgroundClient{socket: socket, admission: delivery.Admission, installation: delivery.InstallationID}, nil
+}
+
+// BootstrapServiceBackground verifies the host peer and bootstraps a service
+// admission on the shared service callback socket. The admission stays in the
+// returned client's memory; restart bootstraps again.
+func BootstrapServiceBackground(ctx context.Context, options ServiceBridgeOptions) (BackgroundClient, error) {
+	if options.SocketPath == "" || len(options.SocketPath) > 4096 {
+		return nil, errors.New("service callback socket is not configured")
+	}
+	transport := &http.Transport{DialContext: func(dialCtx context.Context, _, _ string) (net.Conn, error) {
+		conn, err := (&net.Dialer{}).DialContext(dialCtx, "unix", options.SocketPath)
+		if err != nil {
+			return nil, err
+		}
+		peer, err := PeerCredential(conn)
+		if err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
+		if peer.UID != options.ExpectedHostUID {
+			_ = conn.Close()
+			return nil, errors.New("service callback host peer is not permitted")
+		}
+		return conn, nil
+	}}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport}
+	body, err := json.Marshal(struct {
+		InstallationID string `json:"installation_id,omitempty"`
+	}{InstallationID: options.InstallationID})
+	if err != nil {
+		return nil, err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://extensionHost"+BackgroundBootstrapPath, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, errors.New("background bootstrap request failed")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("background bootstrap returned HTTP %d", response.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, maxBackgroundBodyBytes+1))
+	if err != nil || len(data) > maxBackgroundBodyBytes {
+		return nil, errors.New("invalid background bootstrap response")
+	}
+	var bootstrap struct {
+		Admission      string `json:"admission"`
+		InstallationID string `json:"installation_id"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&bootstrap); err != nil {
+		return nil, errors.New("invalid background bootstrap response")
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return nil, errors.New("invalid background bootstrap response")
+	}
+	if !validBackgroundToken(bootstrap.Admission) || bootstrap.InstallationID == "" {
+		return nil, errors.New("invalid background bootstrap response")
+	}
+	if options.InstallationID != "" && options.InstallationID != bootstrap.InstallationID {
+		return nil, errors.New("background bootstrap installation mismatch")
+	}
+	return &backgroundClient{socket: options.SocketPath, admission: bootstrap.Admission, installation: bootstrap.InstallationID}, nil
+}
+
+type backgroundClient struct {
+	socket       string
+	admission    string
+	installation string
+}
+
+func (c *backgroundClient) post(ctx context.Context, path string, payload any, target any) error {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	transport := &http.Transport{DialContext: func(dialCtx context.Context, _, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(dialCtx, "unix", c.socket)
+	}}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://extensionHost"+path, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(AdmissionHeader, c.admission)
+	response, err := client.Do(request)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return errors.New("background request failed")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("background request returned HTTP %d", response.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxBackgroundBodyBytes+1))
+	if err != nil || len(body) > maxBackgroundBodyBytes {
+		return errors.New("invalid background response")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return errors.New("invalid background response")
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return errors.New("invalid background response")
+	}
+	return nil
+}
+
+func validOperationID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	for _, c := range id {
+		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.' || c == ':' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func (c *backgroundClient) SubmitOperation(ctx context.Context, credential CredentialFile, intent OperationIntent) (OperationRecord, error) {
+	if intent.InstallationID != "" && intent.InstallationID != c.installation {
+		return OperationRecord{}, errors.New("background installation mismatch")
+	}
+	intent.InstallationID = c.installation
+	secret, err := credential.read()
+	if err != nil {
+		return OperationRecord{}, err
+	}
+	request := struct {
+		OperationIntent
+		Token string `json:"token"`
+	}{OperationIntent: intent, Token: secret}
+	var record OperationRecord
+	if err := c.post(ctx, BackgroundSubmitPath, request, &record); err != nil {
+		return OperationRecord{}, err
+	}
+	if record.InstallationID != c.installation || record.OperationID != intent.OperationID || record.Outcome == "" {
+		return OperationRecord{}, errors.New("invalid background response")
+	}
+	return record, nil
+}
+
+func (c *backgroundClient) GetOperation(ctx context.Context, operationID string) (OperationLookup, error) {
+	if !validOperationID(operationID) {
+		return OperationLookup{}, errors.New("invalid operation id")
+	}
+	var lookup OperationLookup
+	if err := c.post(ctx, BackgroundGetPath, struct {
+		OperationID string `json:"operation_id"`
+	}{OperationID: operationID}, &lookup); err != nil {
+		return OperationLookup{}, err
+	}
+	if lookup.InstallationID != c.installation || lookup.OperationID != operationID || lookup.Status == "" {
+		return OperationLookup{}, errors.New("invalid background response")
+	}
+	return lookup, nil
+}
+
+func (c *backgroundClient) CancelOperation(ctx context.Context, operationID string) (OperationRecord, error) {
+	if !validOperationID(operationID) {
+		return OperationRecord{}, errors.New("invalid operation id")
+	}
+	var record OperationRecord
+	if err := c.post(ctx, BackgroundCancelPath, struct {
+		OperationID string `json:"operation_id"`
+	}{OperationID: operationID}, &record); err != nil {
+		return OperationRecord{}, err
+	}
+	if record.InstallationID != c.installation || record.OperationID != operationID || record.Outcome == "" {
+		return OperationRecord{}, errors.New("invalid background response")
+	}
+	return record, nil
+}
+
+// UnixPeer identifies a Unix socket peer from kernel credentials.
+type UnixPeer struct {
+	UID uint32
+	GID uint32
+	PID int32
+}
+
+// FormatUnixPeer encodes kernel peer credentials for an HTTP RemoteAddr so
+// private-socket handlers can enforce peer policy without side channels.
+func FormatUnixPeer(peer UnixPeer) string {
+	return "uid=" + strconv.FormatUint(uint64(peer.UID), 10) + ";gid=" + strconv.FormatUint(uint64(peer.GID), 10) + ";pid=" + strconv.FormatInt(int64(peer.PID), 10)
+}
+
+// ParseUnixPeer decodes a FormatUnixPeer RemoteAddr.
+func ParseUnixPeer(remoteAddr string) (UnixPeer, error) {
+	var peer UnixPeer
+	parts := strings.Split(remoteAddr, ";")
+	if len(parts) != 3 {
+		return peer, errors.New("invalid unix peer address")
+	}
+	for _, part := range parts {
+		key, value, ok := strings.Cut(part, "=")
+		if !ok || value == "" {
+			return peer, errors.New("invalid unix peer address")
+		}
+		switch key {
+		case "uid", "gid":
+			number, err := strconv.ParseUint(value, 10, 32)
+			if err != nil {
+				return peer, errors.New("invalid unix peer address")
+			}
+			if key == "uid" {
+				peer.UID = uint32(number)
+			} else {
+				peer.GID = uint32(number)
+			}
+		case "pid":
+			number, err := strconv.ParseInt(value, 10, 32)
+			if err != nil || number <= 0 {
+				return peer, errors.New("invalid unix peer address")
+			}
+			peer.PID = int32(number)
+		default:
+			return peer, errors.New("invalid unix peer address")
+		}
+	}
+	return peer, nil
+}

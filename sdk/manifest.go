@@ -84,7 +84,7 @@ func (m Manifest) Validate() error {
 		CapabilityActorRead: true, CapabilityRepositoryRead: true,
 		CapabilityOwnedRepositoriesSearch: true, CapabilityOrganizationOwnership: true,
 		CapabilityPublicKeysRead: true, CapabilityContributionAuthorize: true,
-		CapabilityServiceBridge: true,
+		CapabilityServiceBridge: true, CapabilityBackgroundOperations: true,
 	}, "capability"); err != nil {
 		return err
 	}

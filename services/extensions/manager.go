@@ -48,6 +48,7 @@ type running struct {
 	transport      *http.Transport
 	runtimeDir     string
 	callbackServer *http.Server
+	installation   string
 }
 
 type Manager struct {
@@ -63,6 +64,8 @@ type Manager struct {
 	serviceCallbackPath    string
 	serviceCallbackHandler http.Handler
 	serviceCallback        *serviceCallbackEndpoint
+	background             *backgroundRegistry
+	serviceBridgePeers     map[uint32]string
 }
 
 var defaultManager atomic.Pointer[Manager]
@@ -78,7 +81,7 @@ func SetDefault(manager *Manager) {
 func GetManager() *Manager { return defaultManager.Load() }
 
 func NewManager(root string, requiredIDs ...string) *Manager {
-	return &Manager{root: root, requiredIDs: append([]string(nil), requiredIDs...), running: make(map[string]*running)}
+	return &Manager{root: root, requiredIDs: append([]string(nil), requiredIDs...), running: make(map[string]*running), background: newBackgroundRegistry()}
 }
 
 // SetCallbackHandlerFactory installs the host capability handler used by
@@ -205,6 +208,12 @@ func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 	if manifest.ID != dirName {
 		return nil, errors.New("package directory must match manifest id")
 	}
+	// The installer assigns installation identity; start only re-reads the
+	// recorded UUID so restart and replacement preserve it.
+	installation, err := packages.EnsureInstallation(m.root, manifest.ID)
+	if err != nil {
+		return nil, err
+	}
 	if slices.Contains(manifest.Capabilities, sdk.CapabilityServiceBridge) && m.serviceCallback == nil {
 		phase = "service callback configuration"
 		return nil, errors.New("service callback endpoint is unavailable")
@@ -251,10 +260,11 @@ func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 			return nil, errors.New("native callback handler is unavailable")
 		}
 		callbackSocket := filepath.Join(runtimeDir, "c")
-		listener, listenErr := net.Listen("unix", callbackSocket)
+		rawListener, listenErr := net.Listen("unix", callbackSocket)
 		if listenErr != nil {
 			return nil, listenErr
 		}
+		listener := wrapPeerCredentialListener(rawListener)
 		if chmodErr := os.Chmod(callbackSocket, 0o600); chmodErr != nil {
 			_ = listener.Close()
 			return nil, chmodErr
@@ -326,6 +336,24 @@ func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 			return nil, errors.New("extension runtime registration does not match manifest")
 		}
 	}
+	if slices.Contains(manifest.Capabilities, sdk.CapabilityBackgroundOperations) {
+		phase = "background admission"
+		admission, issueErr := m.IssueRuntimeAdmission(installation, instanceID, manifest.Capabilities)
+		if issueErr != nil {
+			return nil, issueErr
+		}
+		deliverer, ok := control.(interface {
+			DeliverBackgroundAdmission(sdk.BackgroundAdmissionDelivery) error
+		})
+		if !ok {
+			m.RevokeBackgroundForInstance(instanceID)
+			return nil, errors.New("extension control cannot receive background admission")
+		}
+		if err := deliverer.DeliverBackgroundAdmission(sdk.BackgroundAdmissionDelivery{Admission: admission, InstallationID: installation}); err != nil {
+			m.RevokeBackgroundForInstance(instanceID)
+			return nil, err
+		}
+	}
 	conn, err := net.DialTimeout("unix", socket, 2*time.Second)
 	phase = "HTTP listener"
 	if err != nil {
@@ -335,7 +363,7 @@ func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}
-	return &running{descriptor: Descriptor{Manifest: manifest, Root: packageDir, InstanceID: instanceID}, client: client, transport: transport, runtimeDir: runtimeDir, callbackServer: callbackServer}, nil
+	return &running{descriptor: Descriptor{Manifest: manifest, Root: packageDir, InstanceID: instanceID}, client: client, transport: transport, runtimeDir: runtimeDir, callbackServer: callbackServer, installation: installation}, nil
 }
 
 func needsNativeCallback(capabilities []string) bool {
@@ -343,7 +371,7 @@ func needsNativeCallback(capabilities []string) bool {
 		switch capability {
 		case sdk.CapabilityActorRead, sdk.CapabilityRepositoryRead,
 			sdk.CapabilityOwnedRepositoriesSearch, sdk.CapabilityOrganizationOwnership,
-			sdk.CapabilityPublicKeysRead:
+			sdk.CapabilityPublicKeysRead, sdk.CapabilityBackgroundOperations:
 			return true
 		}
 	}
@@ -466,6 +494,9 @@ func (m *Manager) EvaluateRequiredPolicy(ctx context.Context, policyID string, r
 
 func (m *Manager) stopOne(id string, item *running, crashed bool) {
 	delete(m.running, id)
+	// Runtime stop revokes its runtime and service admissions; browser
+	// admissions are revoked through the injected callback as before.
+	m.RevokeBackgroundForInstance(item.descriptor.InstanceID)
 	if m.instanceStopped != nil {
 		m.instanceStopped(item.descriptor.InstanceID)
 	}

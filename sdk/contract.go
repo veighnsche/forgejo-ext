@@ -11,7 +11,7 @@ const (
 	SessionGenerationHeader = "X-Extension-Session-Generation"
 	SocketEnv               = "FORGEJO_EXTENSION_SOCKET"
 	CallbackEnv             = "FORGEJO_EXTENSION_CALLBACK_SOCKET"
-	ServiceCallbackEnv       = "FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET"
+	ServiceCallbackEnv      = "FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET"
 	DataEnv                 = "FORGEJO_EXTENSION_DATA"
 
 	CapabilityActorRead               = "native.actor.read"
@@ -21,6 +21,7 @@ const (
 	CapabilityPublicKeysRead          = "native.user.public_keys.read"
 	CapabilityContributionAuthorize   = "native.contribution.authorize"
 	CapabilityServiceBridge           = "native.service.bridge"
+	CapabilityBackgroundOperations    = "native.background.operations"
 	PolicyForgejoUsername             = "forgejo.username"
 )
 
