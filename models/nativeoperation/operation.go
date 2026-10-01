@@ -62,6 +62,8 @@ const (
 	ReasonIntentConflict           = "intent_conflict"
 	ReasonPRMismatch               = "pr_mismatch"
 	ReasonRecoveredNoEffect        = "recovered_no_effect"
+	ReasonPublishOptionsRejected   = "publish_options_rejected"
+	ReasonNotFastForward           = "not_fast_forward"
 )
 
 // Operation is one immutable conditional-operation authorization identified

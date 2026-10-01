@@ -407,7 +407,7 @@ func prepareGitCmdWithAllowedService(ctx *context.Context, service string) (*git
 	return nil, fmt.Errorf("service %q is not allowed", service)
 }
 
-func serviceRPC(ctx *context.Context, h *serviceHandler, service string) {
+func serviceRPC(ctx *context.Context, h *serviceHandler, service string) error {
 	defer func() {
 		if err := ctx.Req.Body.Close(); err != nil {
 			log.Error("serviceRPC: Close: %v", err)
@@ -418,14 +418,14 @@ func serviceRPC(ctx *context.Context, h *serviceHandler, service string) {
 	if ctx.Req.Header.Get("Content-Type") != expectedContentType {
 		log.Error("Content-Type (%q) doesn't match expected: %q", ctx.Req.Header.Get("Content-Type"), expectedContentType)
 		ctx.Resp.WriteHeader(http.StatusUnauthorized)
-		return
+		return fmt.Errorf("unexpected content type %q for git service %q", ctx.Req.Header.Get("Content-Type"), service)
 	}
 
 	cmd, err := prepareGitCmdWithAllowedService(ctx, service)
 	if err != nil {
 		log.Error("Failed to prepareGitCmdWithService: %v", err)
 		ctx.Resp.WriteHeader(http.StatusUnauthorized)
-		return
+		return err
 	}
 
 	ctx.Resp.Header().Set("Content-Type", fmt.Sprintf("application/x-git-%s-result", service))
@@ -438,7 +438,7 @@ func serviceRPC(ctx *context.Context, h *serviceHandler, service string) {
 		if err != nil {
 			log.Error("Fail to create gzip reader: %v", err)
 			ctx.Resp.WriteHeader(http.StatusInternalServerError)
-			return
+			return err
 		}
 	}
 
@@ -463,15 +463,16 @@ func serviceRPC(ctx *context.Context, h *serviceHandler, service string) {
 		if !git.IsErrCanceledOrKilled(err) {
 			log.Error("Fail to serve RPC(%s) in %s: %v - %s", service, h.getRepoDir(), err, stderr.String())
 		}
-		return
+		return err
 	}
+	return nil
 }
 
 // ServiceUploadPack implements Git Smart HTTP protocol
 func ServiceUploadPack(ctx *context.Context) {
 	h := httpBase(ctx)
 	if h != nil {
-		serviceRPC(ctx, h, "upload-pack")
+		_ = serviceRPC(ctx, h, "upload-pack")
 	}
 }
 
@@ -479,6 +480,14 @@ func ServiceUploadPack(ctx *context.Context) {
 func ServiceReceivePack(ctx *context.Context) {
 	h := httpBase(ctx)
 	if h == nil {
+		return
+	}
+	// A bound operation selects the conditional publish receive, which
+	// claims the waiting execution before launching exactly one receiver.
+	// An ordinary PAT-only push stays an ordinary native operation and
+	// never consumes a registration.
+	if hasPublishBindingRequest(ctx) {
+		servePublishReceive(ctx, h)
 		return
 	}
 	// One receive owns the reservation across the native receiver,
@@ -502,7 +511,7 @@ func ServiceReceivePack(ctx *context.Context) {
 		operation_service.ReceiveClaimTimeout,
 		func(ctx gocontext.Context) error {
 			h.environ = execcontext.AppendExecEnv(h.environ, execcontext.FromContext(ctx))
-			serviceRPC(webCtx, h, "receive-pack")
+			_ = serviceRPC(webCtx, h, "receive-pack")
 			return nil
 		}); err != nil {
 		if ctx.HandlePolicyError(err) {

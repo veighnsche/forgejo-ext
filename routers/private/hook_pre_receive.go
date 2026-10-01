@@ -25,8 +25,37 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/web"
 	app_context "forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 )
+
+// checkPublishPreReceive enforces the conditional publish command set before
+// any ref can commit. Without a held publish owner for this repository it
+// allows and native checks proceed unchanged. A held publish owner requires
+// exactly the authorized tuple with no push options; the bounded refusal
+// reason is safe for hook output.
+func checkPublishPreReceive(ctx *app_context.PrivateContext, opts *private.HookOptions) bool {
+	if len(opts.OldCommitIDs) != len(opts.NewCommitIDs) || len(opts.OldCommitIDs) != len(opts.RefFullNames) {
+		ctx.JSON(http.StatusBadRequest, private.Response{Err: "mismatched pre-receive inputs"})
+		return false
+	}
+	lines := make([]operation_service.RefLine, 0, len(opts.OldCommitIDs))
+	for i := range opts.OldCommitIDs {
+		lines = append(lines, operation_service.RefLine{Old: opts.OldCommitIDs[i], New: opts.NewCommitIDs[i], Ref: string(opts.RefFullNames[i])})
+	}
+	decision, err := operation_service.Default().ClassifyPreReceive(ctx, ctx.Repo.Repository.ID, lines, !opts.GetGitPushOptions().Empty(),
+		operation_service.PublishPreReceiveGit{RepoPath: ctx.Repo.Repository.RepoPath(), Env: generateGitEnv(opts)})
+	if err != nil {
+		log.Error("Publish pre-receive check failed for %s: %v", ctx.Repo.Repository.FullName(), err)
+		ctx.JSON(http.StatusInternalServerError, private.Response{Err: "pre-receive check unavailable"})
+		return false
+	}
+	if !decision.Allowed {
+		ctx.JSON(http.StatusForbidden, private.Response{UserMsg: decision.Reason})
+		return false
+	}
+	return true
+}
 
 type preReceiveContext struct {
 	*app_context.PrivateContext
@@ -201,6 +230,10 @@ func (ctx *preReceiveContext) quotaExceeded() {
 // HookPreReceive checks whether a individual commit is acceptable
 func HookPreReceive(ctx *app_context.PrivateContext) {
 	opts := web.GetForm(ctx).(*private.HookOptions)
+
+	if !checkPublishPreReceive(ctx, opts) {
+		return
+	}
 
 	ourCtx := &preReceiveContext{
 		PrivateContext: ctx,

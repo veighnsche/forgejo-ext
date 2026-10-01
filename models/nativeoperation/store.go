@@ -57,6 +57,10 @@ var (
 	// inhibition after reconciliation. It is retryable like ErrBusy and
 	// never releases or transfers an existing owner.
 	ErrInhibited = errors.New("native mutation domain is inhibited for offline recovery")
+	// ErrOperationExpired is returned when a waiting conditional claim finds
+	// the operation past its admission deadline. The caller records the
+	// terminal refusal; nothing is claimed.
+	ErrOperationExpired = errors.New("operation expired before admission")
 )
 
 // OfflineMarkerPath is the host-private file whose presence inhibits new
@@ -219,6 +223,91 @@ func ClaimConditional(ctx context.Context, op *Operation, owner, scopeJSON, veri
 		return nil, err
 	}
 	return claimed, nil
+}
+
+// InsertWaitingOperation durably registers a pending conditional operation
+// that launches its native writer later, such as a publish registration
+// awaiting its receive. Registration occupies no reservation and performs no
+// revision check; the later claim enforces revision, cancellation and
+// deadline atomically. When the ID is already recorded, the existing row
+// wins and is returned with ErrDuplicateOperation.
+func InsertWaitingOperation(ctx context.Context, op *Operation) (*Operation, error) {
+	op.Submitted = true
+	op.EffectState = EffectPending
+	if err := db.Insert(ctx, op); err != nil {
+		existing, getErr := LookupOperation(ctx, op.InstallationID, op.OperationID)
+		if getErr != nil {
+			return nil, getErr
+		}
+		if existing != nil {
+			return existing, ErrDuplicateOperation
+		}
+		return nil, err
+	}
+	return op, nil
+}
+
+// ClaimPublishReceive atomically moves one waiting conditional operation to
+// its started execution: the operation must still be pending, unrevoked and
+// unexpired, and the reservation must be idle at the operation's expected
+// revision. owner identifies the holding operation, scopeJSON its permitted
+// effect and verifier its execution proof. Busy, inhibited, stale, revoked
+// and expired claims record nothing; the caller maps them to a terminal
+// refusal or a retryable error without launching a receiver.
+func ClaimPublishReceive(ctx context.Context, installationID, operationID, owner, scopeJSON, verifier string, nowUnix int64) (*Operation, *Reservation, error) {
+	if OfflineInhibited() {
+		return nil, nil, ErrInhibited
+	}
+	var claimedOp *Operation
+	var claimed *Reservation
+	err := db.WithTx(ctx, func(ctx context.Context) error {
+		op, err := LookupOperation(ctx, installationID, operationID)
+		if err != nil {
+			return err
+		}
+		if op == nil || !op.Submitted || op.EffectState != EffectPending {
+			return ErrAdmissionLost
+		}
+		if op.Revoked || op.Admitted {
+			return ErrAdmissionLost
+		}
+		if op.NotAfter <= nowUnix {
+			return ErrOperationExpired
+		}
+		reservation := new(Reservation)
+		has, err := db.GetEngine(ctx).ID(1).NoAutoCondition().Get(reservation)
+		if err != nil {
+			return err
+		}
+		if !has {
+			reservation = &Reservation{ID: 1, Revision: 1}
+			if err := db.Insert(ctx, reservation); err != nil {
+				return err
+			}
+		}
+		if reservation.Owner != "" {
+			return ErrBusy
+		}
+		if reservation.Revision != op.ExpectedNativeRevision {
+			return ErrStaleRevision
+		}
+		reservation.Revision++
+		reservation.Owner = owner
+		reservation.Generation++
+		reservation.OwnerKind = OwnerConditional
+		reservation.Verifier = verifier
+		reservation.Scope = scopeJSON
+		if _, err := db.GetEngine(ctx).ID(1).Cols("revision", "owner", "generation", "owner_kind", "verifier", "scope").Update(reservation); err != nil {
+			return err
+		}
+		claimedOp = op
+		claimed = reservation
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return claimedOp, claimed, nil
 }
 
 // InsertRefusedOperation records a terminally refused submission that took no

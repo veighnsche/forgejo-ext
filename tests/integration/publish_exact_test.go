@@ -17,7 +17,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
-	repo_service "forgejo.org/services/repository"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/stretchr/testify/require"
 )
@@ -48,19 +48,19 @@ func TestPublishExact(t *testing.T) {
 			return oid
 		}
 
-		verify := func(t *testing.T, payload string) (*repo_service.PublishTarget, error) {
+		verify := func(t *testing.T, payload string) (*operation_service.PublishTarget, error) {
 			t.Helper()
-			intent, err := repo_service.ParsePublishPayload([]byte(payload))
+			intent, err := operation_service.ParsePublishPayload([]byte(payload))
 			require.NoError(t, err)
-			return repo_service.VerifyExactPublishTarget(t.Context(), repo1, gitRepo, intent)
+			return operation_service.VerifyExactPublishTarget(t.Context(), repo1, gitRepo, intent)
 		}
 
 		refuse := func(t *testing.T, payload, reason string) {
 			t.Helper()
 			_, err := verify(t, payload)
 			require.Error(t, err)
-			require.True(t, repo_service.IsErrExactPublishRefused(err), "got %v", err)
-			require.Equal(t, reason, err.(repo_service.ErrExactPublishRefused).Reason)
+			require.True(t, operation_service.IsErrExactPublishRefused(err), "got %v", err)
+			require.Equal(t, reason, err.(operation_service.ErrExactPublishRefused).Reason)
 		}
 
 		updatePayload := func(ref, old, new, baseRef, base, correction string) string {
@@ -112,13 +112,13 @@ func TestPublishExact(t *testing.T) {
 		t.Run("BranchExistsRefusesCreation", func(t *testing.T) {
 			_, next := stageUpdate(t, "pub-exists")
 			refuse(t, updatePayload("refs/heads/pub-exists", "absent", next, "refs/heads/master", master(t), ""),
-				repo_service.ExactPublishRefusedBranchExists)
+				operation_service.ExactPublishRefusedBranchExists)
 		})
 
 		t.Run("MissingBranchRefusesUpdate", func(t *testing.T) {
 			old, next := stageUpdate(t, "pub-src")
 			refuse(t, updatePayload("refs/heads/pub-ghost", old, next, "refs/heads/master", master(t), ""),
-				repo_service.ExactPublishRefusedMissingBranch)
+				operation_service.ExactPublishRefusedMissingBranch)
 		})
 
 		t.Run("StaleOldRefuses", func(t *testing.T) {
@@ -127,7 +127,7 @@ func TestPublishExact(t *testing.T) {
 			// its old tip.
 			testEditFile(t, session, "user1", "repo1", "pub-stale", "README.md", "Hello, World pub-stale moved\n")
 			refuse(t, updatePayload("refs/heads/pub-stale", old, next, "refs/heads/master", master(t), ""),
-				repo_service.ExactPublishRefusedStaleOld)
+				operation_service.ExactPublishRefusedStaleOld)
 		})
 
 		t.Run("NotFastForwardRefuses", func(t *testing.T) {
@@ -135,19 +135,19 @@ func TestPublishExact(t *testing.T) {
 			// The master tip is an ancestor of the branch tip, so pushing it
 			// over the tip is a force push, never a fast-forward update.
 			refuse(t, updatePayload("refs/heads/pub-ff", old, master(t), "refs/heads/master", master(t), ""),
-				repo_service.ExactPublishRefusedNotFastForward)
+				operation_service.ExactPublishRefusedNotFastForward)
 		})
 
 		t.Run("MissingCommitRefuses", func(t *testing.T) {
 			old, _ := stageUpdate(t, "pub-miss")
 			refuse(t, updatePayload("refs/heads/pub-miss", old, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "refs/heads/master", master(t), ""),
-				repo_service.ExactPublishRefusedMissingCommit)
+				operation_service.ExactPublishRefusedMissingCommit)
 		})
 
 		t.Run("MissingComparisonRefuses", func(t *testing.T) {
 			old, next := stageUpdate(t, "pub-nocomp")
 			refuse(t, updatePayload("refs/heads/pub-nocomp", old, next, "refs/heads/pub-ghost", master(t), ""),
-				repo_service.ExactPublishRefusedMissingCompare)
+				operation_service.ExactPublishRefusedMissingCompare)
 		})
 
 		t.Run("StaleComparisonRefuses", func(t *testing.T) {
@@ -156,7 +156,7 @@ func TestPublishExact(t *testing.T) {
 			testEditFile(t, session, "user1", "repo1", "master", "README.md", "Hello, World master moved\n")
 			require.NotEqual(t, bound, master(t))
 			refuse(t, updatePayload("refs/heads/pub-stalebase", old, next, "refs/heads/master", bound, ""),
-				repo_service.ExactPublishRefusedStaleCompare)
+				operation_service.ExactPublishRefusedStaleCompare)
 		})
 
 		t.Run("Correction", func(t *testing.T) {
@@ -180,11 +180,11 @@ func TestPublishExact(t *testing.T) {
 
 			wrongAuthor := fmt.Sprintf(`{"number":%d,"expected_author_id":%d}`, pr.Index, 2)
 			refuse(t, updatePayload("refs/heads/pub-corr", old, next, "refs/heads/master", base, wrongAuthor),
-				repo_service.ExactPublishRefusedPRMismatch)
+				operation_service.ExactPublishRefusedPRMismatch)
 
 			unknown := `{"number":9999,"expected_author_id":1}`
 			refuse(t, updatePayload("refs/heads/pub-corr", old, next, "refs/heads/master", base, unknown),
-				repo_service.ExactPublishRefusedMissingPR)
+				operation_service.ExactPublishRefusedMissingPR)
 
 			closed := "closed"
 			closeReq := NewRequestWithJSON(t, http.MethodPatch,
@@ -192,7 +192,7 @@ func TestPublishExact(t *testing.T) {
 				&api.EditIssueOption{State: &closed}).AddTokenAuth(token)
 			session.MakeRequest(t, closeReq, http.StatusCreated)
 			refuse(t, updatePayload("refs/heads/pub-corr", old, next, "refs/heads/master", base, binding),
-				repo_service.ExactPublishRefusedClosedPR)
+				operation_service.ExactPublishRefusedClosedPR)
 		})
 	})
 }

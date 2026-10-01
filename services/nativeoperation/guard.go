@@ -57,8 +57,12 @@ type Scope struct {
 	// against (conditional).
 	HeadRef string `json:"head_ref,omitempty"`
 	HeadOID string `json:"head_oid,omitempty"`
-	// PRNumber binds the native PR identity (conditional merge).
+	// PRNumber binds the native PR identity (conditional merge, or the
+	// correction PR of a conditional publish).
 	PRNumber int64 `json:"pr_number,omitempty"`
+	// CorrectionAuthorID binds the expected correction-PR author
+	// (conditional publish with a correction PR).
+	CorrectionAuthorID int64 `json:"correction_author_id,omitempty"`
 	// Family names the ordinary writer family (ordinary).
 	Family string `json:"family,omitempty"`
 	// TaskID, JobID, RunID and RunnerID identify one Actions logical

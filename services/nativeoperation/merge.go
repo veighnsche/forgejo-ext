@@ -122,6 +122,11 @@ type terminalResult struct {
 	retain bool
 }
 
+// Retained reports whether the owner stays held for an unresolved effect.
+func (t terminalResult) Retained() bool {
+	return t.retain
+}
+
 // executeMerge runs the guarded merge and reconciles its result. It returns
 // the SDK record and whether the owner stays held for an unresolved effect.
 func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent *ValidIntent, scope Scope, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {

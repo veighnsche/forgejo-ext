@@ -22,18 +22,22 @@ package repo
 //     rejects every push option, which also keeps policy push options from
 //     smuggling intent past the registered tuple.
 //
-// Held for the seam wiring turn (needs the operation/recovery owners and
-// background admission): the exact binding encoding that carries the
-// operation ID plus current installation admission alongside the native PAT
-// on the supported receive route, the route identity resolution by stable
-// repository ID, the atomic claim before receive-pack launch, the host-only
-// execution environment for the Git child with caller admission removed, and
-// the diagnostic redaction around that material. Those pieces touch the held
-// seam and are named here only as constraints, not standardized twice.
+// The operation binding travels in two request headers on the supported
+// receive-pack route, alongside the native PAT basic authentication:
+//   - PublishOperationHeader carries the registered operation ID.
+//   - The background admission header (sdk.AdmissionHeader) carries the
+//     current installation runtime/service admission.
+//
+// Either header present selects the conditional receive; a half-present or
+// malformed binding refuses without touching the reservation. Unmodified
+// Forgejo implements no such protocol: it ignores both headers and serves
+// an ordinary push. The admission value is a bearer secret: it must never
+// appear in command arguments, child environments, logs or diagnostics.
 
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // PublishReceiveService is the only Git service that may serve a conditional
@@ -85,4 +89,62 @@ func ValidatePublishPushOptions(options map[string]string) error {
 		return ErrPublishPushOptionsRejected
 	}
 	return nil
+}
+
+// PublishOperationHeader carries the registered operation ID of a
+// conditional publish on the supported receive-pack route.
+const PublishOperationHeader = "X-Forgejo-Operation"
+
+// PublishBinding is one parsed conditional-publish operation binding: the
+// registered operation ID plus the current installation admission. The
+// admission value is a Bearer [REDACTED] and must never be logged.
+type PublishBinding struct {
+	OperationID string
+	Admission   string
+}
+
+// ErrPublishBindingRejected reports a malformed or half-present operation
+// binding on the conditional receive.
+var ErrPublishBindingRejected = errors.New("operation binding is malformed")
+
+// ParsePublishBinding parses the conditional-receive operation binding from
+// its two header values. Empty values for both headers mean no binding is
+// present and the receive stays ordinary. Any other shape must carry a
+// well-formed operation ID plus a well-formed admission, else it rejects.
+func ParsePublishBinding(operationValue, admissionValue string) (binding PublishBinding, present bool, err error) {
+	operationValue = strings.TrimSpace(operationValue)
+	admissionValue = strings.TrimSpace(admissionValue)
+	if operationValue == "" && admissionValue == "" {
+		return PublishBinding{}, false, nil
+	}
+	if !validPublishOperationID(operationValue) || !validPublishAdmission(admissionValue) {
+		return PublishBinding{}, true, ErrPublishBindingRejected
+	}
+	return PublishBinding{OperationID: operationValue, Admission: admissionValue}, true, nil
+}
+
+func validPublishOperationID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	for _, c := range id {
+		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.' || c == ':' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func validPublishAdmission(token string) bool {
+	if len(token) != 43 {
+		return false
+	}
+	for _, c := range token {
+		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_' {
+			continue
+		}
+		return false
+	}
+	return true
 }

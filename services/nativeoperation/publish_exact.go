@@ -1,20 +1,19 @@
 // Copyright 2026 The Forgejo Authors. All rights reserved.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package repository
+package nativeoperation
 
 // Direct, exact candidate-ref verification for the conditional publication
 // contract (git.ref.publish).
 //
 // This file implements the intent-vs-state policies of a conditional publish
-// in the shipping repository owner. It parses the immutable publish intent,
+// in the operation seam. It parses the immutable publish intent,
 // verifies it against live native Git/model state, validates the exact
 // receive command set and verifies the realized result. It performs no
-// receive itself and holds no reservation: the operation seam owns
+// receive itself and holds no reservation: the publish flow owns
 // registration, admission, receiver launch, hook enforcement and the receipt
-// commit. This entry runs under the caller's context: an ordinary context
-// today, the seam's held ownership once the conditional submit wiring lands.
-// It never re-acquires a hold.
+// commit. This entry runs under the caller's held ownership and never
+// re-acquires a hold.
 //
 // Layering (what this file does not do):
 //   - Native permission, push permission and branch protection stay effective
@@ -23,9 +22,10 @@ package repository
 //   - The prepared-hook exact-tuple enforcement and the reference-transaction
 //     admission belong to the seam's hook owners. VerifyPublishCommands is the
 //     pure command-set rule that hook calls; it is not a second hook.
-//   - The operation receipt commit, cancellation ordering, completion and
-//     offline recovery belong to the seam. PublishReceipt is the attributable
-//     record shape the reconcile step persists; nothing here writes it.
+//   - Registration, receiver launch, the operation receipt commit,
+//     cancellation ordering, completion and offline recovery belong to the
+//     publish flow in publish.go. PublishReceipt is the attributable record
+//     shape the reconcile step persists; nothing here writes it.
 //
 // Method availability: publication permits one branch creation or
 // fast-forward update only. It never creates a PR, changes another ref,
@@ -78,15 +78,6 @@ func (intent *PublishIntent) IsCreation() bool {
 // publish intent. Intent validity is a submitter bug, not a terminal native
 // outcome: the seam maps it to intent rejection before any claim.
 var ErrInvalidPublishIntent = errors.New("invalid publish intent")
-
-var (
-	zeroSHA1   = strings.Repeat("0", 40)
-	zeroSHA256 = strings.Repeat("0", 64)
-)
-
-func isZeroOID(oid string) bool {
-	return oid == zeroSHA1 || oid == zeroSHA256
-}
 
 func validPublishOID(oid string) bool {
 	if len(oid) != 40 && len(oid) != 64 {
@@ -224,6 +215,26 @@ type PublishTarget struct {
 	IssueID       int64
 }
 
+// VerifyPublishLaunchTarget verifies the pre-launch checks of a publish
+// intent against current native state: the branch tip matches expected_old
+// (absent for creation), the comparison ref still equals its expected tip,
+// and a bound correction PR remains open/unmerged in this repository with
+// the expected source, base, author and old head. It deliberately performs
+// no new-commit check: the candidate objects arrive with the pushed pack
+// after the claim, so requiring them here would refuse every genuine
+// publication. Fast-forward order is enforced at pre-receive against the
+// quarantined pack, and the tuple, comparison and correction are re-verified
+// at prepared time. Every check reads live state; nothing here trusts a
+// caller cache.
+//
+// The repository row is reloaded so the object format reads the current row.
+// Native permission and branch protection are not checked here: they stay
+// effective through the unmodified pre-receive hook inside the conditional
+// receive.
+func VerifyPublishLaunchTarget(ctx context.Context, repo *repo_model.Repository, gitRepo *git.Repository, intent *PublishIntent) (*PublishTarget, error) {
+	return verifyPublishBaseTarget(ctx, repo, gitRepo, intent)
+}
+
 // VerifyExactPublishTarget verifies the intent against current native state:
 // the branch tip matches expected_old (absent for creation), the new commit
 // exists and fast-forwards from that tip for updates, the comparison ref
@@ -236,6 +247,36 @@ type PublishTarget struct {
 // effective through the unmodified pre-receive hook inside the conditional
 // receive.
 func VerifyExactPublishTarget(ctx context.Context, repo *repo_model.Repository, gitRepo *git.Repository, intent *PublishIntent) (*PublishTarget, error) {
+	target, err := verifyPublishBaseTarget(ctx, repo, gitRepo, intent)
+	if err != nil {
+		return nil, err
+	}
+	// The new commit must exist and fast-forward from the old tip. Creation
+	// seeds from any existing commit; only updates advance a tip.
+	newCommit, err := gitRepo.GetCommit(target.NewOID)
+	if err != nil {
+		if git.IsErrNotExist(err) {
+			return refusePublish(ExactPublishRefusedMissingCommit)
+		}
+		return nil, err
+	}
+	if !intent.IsCreation() {
+		force, err := newCommit.IsForcePush(target.OldOID)
+		if err != nil {
+			return nil, err
+		}
+		if force {
+			return refusePublish(ExactPublishRefusedNotFastForward)
+		}
+	}
+	return target, nil
+}
+
+// verifyPublishBaseTarget verifies the launch-scoped checks shared by the
+// pre-launch target verification and the full exact-target predicate: the
+// object-format OID shapes, the branch tip against the exact old lease, the
+// comparison base and the correction PR binding.
+func verifyPublishBaseTarget(ctx context.Context, repo *repo_model.Repository, gitRepo *git.Repository, intent *PublishIntent) (*PublishTarget, error) {
 	if repo == nil || gitRepo == nil || intent == nil {
 		return refusePublish(ExactPublishRefusedStaleOld)
 	}
@@ -295,24 +336,6 @@ func VerifyExactPublishTarget(ctx context.Context, repo *repo_model.Repository, 
 	}
 	if !strings.EqualFold(compareTip, intent.ExpectedComparisonOID) {
 		return refusePublish(ExactPublishRefusedStaleCompare)
-	}
-	// The new commit must exist and fast-forward from the old tip. Creation
-	// seeds from any existing commit; only updates advance a tip.
-	newCommit, err := gitRepo.GetCommit(intent.NewOID)
-	if err != nil {
-		if git.IsErrNotExist(err) {
-			return refusePublish(ExactPublishRefusedMissingCommit)
-		}
-		return nil, err
-	}
-	if !intent.IsCreation() {
-		force, err := newCommit.IsForcePush(intent.ExpectedOld)
-		if err != nil {
-			return nil, err
-		}
-		if force {
-			return refusePublish(ExactPublishRefusedNotFastForward)
-		}
 	}
 	if intent.Correction != nil {
 		pr, err := issues_model.GetPullRequestByIndex(ctx, fresh.ID, intent.Correction.Number)

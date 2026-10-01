@@ -121,12 +121,12 @@ func fenced(assessment *RecoveryAssessment, reason, check string) (RecoveryAsses
 	return *assessment, nil
 }
 
-// recoverConditional reconciles one held conditional merge. An attributable
-// distinct expected target under the intact reservation establishes
-// committed; a proven pre-admission refusal with no remaining writer
-// establishes not_committed. Anything else stays indeterminate and fenced.
+// recoverConditional reconciles one held conditional operation. An
+// attributable distinct expected target under the intact reservation
+// establishes committed; a proven pre-admission refusal with no remaining
+// writer establishes not_committed. Anything else stays indeterminate and
+// fenced.
 func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, installationID, operationID string) (RecoveryAssessment, error) {
-	assessment.Family = "conditional-merge"
 	op, err := model.LookupOperation(ctx, installationID, operationID)
 	if err != nil {
 		return RecoveryAssessment{}, err
@@ -134,9 +134,20 @@ func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAs
 	if op == nil || !op.Submitted {
 		return fenced(assessment, ReasonRecoveryMissingEvidence, "operation record is missing for the held owner")
 	}
-	if op.Kind != model.KindMerge {
+	switch op.Kind {
+	case model.KindMerge:
+		assessment.Family = "conditional-merge"
+		return s.recoverConditionalMerge(ctx, assessment, reservation, scope, op)
+	case model.KindRefPublish:
+		assessment.Family = "conditional-publish"
+		return s.recoverConditionalPublish(ctx, assessment, reservation, scope, op)
+	default:
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("operation kind %q has no offline reconciliation yet", op.Kind))
 	}
+}
+
+// recoverConditionalMerge reconciles one held conditional merge.
+func (s *Service) recoverConditionalMerge(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, op *model.Operation) (RecoveryAssessment, error) {
 	repository, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID)
 	if err != nil {
 		if repo_model.IsErrRepoNotExist(err) {
@@ -206,6 +217,104 @@ func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAs
 		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUncertainEffect, "effect cannot be attributed from admission, tip and pull state")
+	}
+}
+
+// recoverConditionalPublish reconciles one held conditional publish. An
+// admitted execution whose branch realizes exactly the authorized new
+// commit over an unchanged comparison base establishes committed; an
+// unadmitted execution with the branch still at its old tip (or still
+// absent for a creation) establishes not_committed. Anything else stays
+// indeterminate and fenced.
+func (s *Service) recoverConditionalPublish(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, op *model.Operation) (RecoveryAssessment, error) {
+	repository, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID)
+	if err != nil {
+		if repo_model.IsErrRepoNotExist(err) {
+			return fenced(assessment, ReasonRecoveryMissingEvidence, "repository for the held scope no longer exists")
+		}
+		return RecoveryAssessment{}, err
+	}
+	tip, absent, fence, err := s.recoveryTip(ctx, assessment, repository.RepoPath(), scope.Ref)
+	if err != nil || fence {
+		return *assessment, err
+	}
+	comparison, comparisonAbsent, fence, err := s.recoveryTip(ctx, assessment, repository.RepoPath(), scope.HeadRef)
+	if err != nil || fence {
+		return *assessment, err
+	}
+	var prID, issueID int64
+	if scope.PRNumber > 0 {
+		pr, err := issues_model.GetPullRequestByIndex(ctx, scope.RepositoryID, scope.PRNumber)
+		if err != nil {
+			return fenced(assessment, ReasonRecoveryMissingEvidence, "correction pull request for the held scope cannot be read")
+		}
+		if err := pr.LoadIssue(ctx); err != nil {
+			return fenced(assessment, ReasonRecoveryMissingEvidence, "correction pull request for the held scope cannot be read")
+		}
+		if pr.HasMerged || pr.Issue.IsClosed ||
+			pr.HeadRepoID != scope.RepositoryID || pr.BaseRepoID != scope.RepositoryID ||
+			pr.HeadBranch != strings.TrimPrefix(scope.Ref, git.BranchPrefix) ||
+			pr.BaseBranch != strings.TrimPrefix(scope.HeadRef, git.BranchPrefix) ||
+			pr.Issue.PosterID != scope.CorrectionAuthorID {
+			return fenced(assessment, ReasonRecoveryUncertainEffect, "correction pull request no longer matches the held publish scope")
+		}
+		prID, issueID = pr.ID, pr.IssueID
+	}
+	comparisonMatch := !comparisonAbsent && strings.EqualFold(comparison, scope.HeadOID)
+	assessment.Checks = append(assessment.Checks,
+		fmt.Sprintf("operation admitted=%t revoked=%t effect=%s", op.Admitted, op.Revoked, op.EffectState),
+		fmt.Sprintf("branch tip absent=%t matches_new=%t matches_old=%t comparison_match=%t", absent, !absent && strings.EqualFold(tip, scope.NewOID), !absent && strings.EqualFold(tip, scope.OldOID), comparisonMatch),
+	)
+	committed := op.Admitted && !absent && strings.EqualFold(tip, scope.NewOID) && !strings.EqualFold(tip, scope.OldOID) && comparisonMatch
+	noEffect := !op.Admitted && comparisonMatch &&
+		((isZeroOID(scope.OldOID) && absent) || (!isZeroOID(scope.OldOID) && !absent && strings.EqualFold(tip, scope.OldOID)))
+	switch {
+	case committed:
+		if op.IsTerminal() && op.EffectState != model.EffectCommitted {
+			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed publish effect; preserved")
+		}
+		if !op.IsTerminal() {
+			receipt, _ := json.Marshal(PublishReceipt{
+				RepositoryID:  op.RepositoryID,
+				Ref:           scope.Ref,
+				OldOID:        scope.OldOID,
+				NewOID:        scope.NewOID,
+				ComparisonRef: scope.HeadRef,
+				ComparisonOID: scope.HeadOID,
+				ActorID:       op.ActorID,
+				PRID:          prID,
+				IssueID:       issueID,
+			})
+			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
+				EffectState:  model.EffectCommitted,
+				Cancellation: model.CancellationNone,
+				Completion:   model.CompletionComplete,
+				Receipt:      string(receipt),
+			}, ""); err != nil {
+				return RecoveryAssessment{}, err
+			}
+		}
+		return s.releaseRecovered(ctx, assessment, reservation, model.EffectCommitted)
+	case noEffect:
+		if op.IsTerminal() && op.EffectState != model.EffectNotCommitted {
+			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed refusal; preserved")
+		}
+		if !op.IsTerminal() {
+			reason := op.Reason
+			if reason == "" {
+				reason = model.ReasonRecoveredNoEffect
+			}
+			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
+				EffectState:  model.EffectNotCommitted,
+				Reason:       reason,
+				Cancellation: model.CancellationNone,
+			}, ""); err != nil {
+				return RecoveryAssessment{}, err
+			}
+		}
+		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+	default:
+		return fenced(assessment, ReasonRecoveryUncertainEffect, "effect cannot be attributed from admission and branch tips")
 	}
 }
 

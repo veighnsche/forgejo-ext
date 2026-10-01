@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -150,36 +151,18 @@ func (s *Service) admitPrepared(ctx context.Context, reservation *model.Reservat
 	if err := testAdmissionBarrier(); err != nil {
 		return TransactionDecision{}, err
 	}
-	reason := ""
-	switch {
-	case len(lines) != 1:
-		reason = model.ReasonUnexpectedRefEffects
-	case lines[0].Ref != scope.Ref ||
-		!strings.EqualFold(lines[0].Old, scope.OldOID) ||
-		!strings.EqualFold(lines[0].New, scope.NewOID):
-		reason = model.ReasonStaleBaseOrResult
+	var reason string
+	var checkErr error
+	switch op.Kind {
+	case model.KindMerge:
+		reason, checkErr = s.checkMergePrepared(ctx, scope, repository, lines)
+	case model.KindRefPublish:
+		reason, checkErr = s.checkPublishPrepared(ctx, scope, repository, lines)
 	default:
-		head, err := s.readRef(ctx, repository.RepoPath(), scope.HeadRef)
-		if err != nil {
-			return TransactionDecision{}, err
-		}
-		if !strings.EqualFold(head, scope.HeadOID) {
-			reason = model.ReasonStaleHead
-		}
+		return TransactionDecision{Reason: "unsupported conditional kind"}, nil
 	}
-	if reason == "" {
-		// Retargeting the PR after preparation invalidates the request
-		// even if an object ID happens to match.
-		pr, err := issues_model.GetPullRequestByIndex(ctx, scope.RepositoryID, scope.PRNumber)
-		if err != nil {
-			return TransactionDecision{}, err
-		}
-		if pr.HasMerged || pr.HeadRepoID != scope.RepositoryID ||
-			pr.HeadBranch != strings.TrimPrefix(scope.HeadRef, git.BranchPrefix) ||
-			pr.BaseBranch != strings.TrimPrefix(scope.Ref, git.BranchPrefix) ||
-			pr.BaseRepoID != scope.RepositoryID {
-			reason = model.ReasonPRMismatch
-		}
+	if checkErr != nil {
+		return TransactionDecision{}, checkErr
 	}
 	if reason == "" {
 		if err := s.revalidateSubmission(ctx, op); err != nil {
@@ -209,6 +192,83 @@ func (s *Service) admitPrepared(ctx context.Context, reservation *model.Reservat
 	return TransactionDecision{Allowed: true}, nil
 }
 
+// checkMergePrepared enforces the exact merge tuple, the live source head
+// and the PR binding at prepared time. It returns the refusal reason, or
+// empty when the request passes this kind's checks.
+func (s *Service) checkMergePrepared(ctx context.Context, scope Scope, repository *repo_model.Repository, lines []RefLine) (string, error) {
+	switch {
+	case len(lines) != 1:
+		return model.ReasonUnexpectedRefEffects, nil
+	case lines[0].Ref != scope.Ref ||
+		!strings.EqualFold(lines[0].Old, scope.OldOID) ||
+		!strings.EqualFold(lines[0].New, scope.NewOID):
+		return model.ReasonStaleBaseOrResult, nil
+	}
+	head, err := s.readRef(ctx, repository.RepoPath(), scope.HeadRef)
+	if err != nil {
+		return "", err
+	}
+	if !strings.EqualFold(head, scope.HeadOID) {
+		return model.ReasonStaleHead, nil
+	}
+	// Retargeting the PR after preparation invalidates the request
+	// even if an object ID happens to match.
+	pr, err := issues_model.GetPullRequestByIndex(ctx, scope.RepositoryID, scope.PRNumber)
+	if err != nil {
+		return "", err
+	}
+	if pr.HasMerged || pr.HeadRepoID != scope.RepositoryID ||
+		pr.HeadBranch != strings.TrimPrefix(scope.HeadRef, git.BranchPrefix) ||
+		pr.BaseBranch != strings.TrimPrefix(scope.Ref, git.BranchPrefix) ||
+		pr.BaseRepoID != scope.RepositoryID {
+		return model.ReasonPRMismatch, nil
+	}
+	return "", nil
+}
+
+// checkPublishPrepared enforces the exact publish tuple, the unchanged
+// comparison base and the correction PR binding at prepared time. Scope
+// HeadRef/HeadOID carry the comparison ref and tip; PRNumber and
+// CorrectionAuthorID carry the correction PR when the intent binds one. It
+// returns the refusal reason, or empty when the request passes.
+func (s *Service) checkPublishPrepared(ctx context.Context, scope Scope, repository *repo_model.Repository, lines []RefLine) (string, error) {
+	switch {
+	case len(lines) != 1:
+		return model.ReasonUnexpectedRefEffects, nil
+	case lines[0].Ref != scope.Ref ||
+		!strings.EqualFold(lines[0].Old, scope.OldOID) ||
+		!strings.EqualFold(lines[0].New, scope.NewOID):
+		return model.ReasonStaleBaseOrResult, nil
+	}
+	comparison, err := s.readRef(ctx, repository.RepoPath(), scope.HeadRef)
+	if err != nil {
+		return "", err
+	}
+	if !strings.EqualFold(comparison, scope.HeadOID) {
+		return model.ReasonStaleBaseOrResult, nil
+	}
+	if scope.PRNumber > 0 {
+		pr, err := issues_model.GetPullRequestByIndex(ctx, scope.RepositoryID, scope.PRNumber)
+		if err != nil {
+			if issues_model.IsErrPullRequestNotExist(err) {
+				return model.ReasonPRMismatch, nil
+			}
+			return "", err
+		}
+		if err := pr.LoadIssue(ctx); err != nil {
+			return "", err
+		}
+		if pr.HasMerged || pr.Issue.IsClosed ||
+			pr.HeadRepoID != scope.RepositoryID || pr.BaseRepoID != scope.RepositoryID ||
+			pr.HeadBranch != strings.TrimPrefix(scope.Ref, git.BranchPrefix) ||
+			pr.BaseBranch != strings.TrimPrefix(scope.HeadRef, git.BranchPrefix) ||
+			pr.Issue.PosterID != scope.CorrectionAuthorID {
+			return model.ReasonPRMismatch, nil
+		}
+	}
+	return "", nil
+}
+
 func lostAdmissionReason(op *model.Operation) string {
 	if op == nil {
 		return model.ReasonWrongOwner
@@ -225,10 +285,109 @@ func lostAdmissionReason(op *model.Operation) string {
 	return model.ReasonWrongOwner
 }
 
+// PublishPreReceiveGit carries the repository path and the hook's object
+// environment for fast-forward verification against the quarantined pack
+// objects. The environment comes from the hook options, which forward the
+// hook child's object directories; without it the pushed candidate objects
+// are invisible.
+type PublishPreReceiveGit struct {
+	RepoPath string
+	Env      []string
+}
+
+// ClassifyPreReceive enforces the exact publish command set before any ref
+// can commit. An idle reservation or an ordinary owner keeps existing
+// behavior, as do conditional owners of other kinds. A held conditional
+// publish owner for this repository requires exactly the authorized
+// old/new tuple on the authorized ref with no push options, and for updates
+// the new commit must fast-forward from the old tip; any other command set
+// refuses and records the ordering reason for reconciliation. Recording
+// failures never flip a refusal into an allowance. Fast-forward order is
+// enforced here because only the hook environment sees the quarantined
+// candidate objects; like prepared admission it relies on the installed
+// native hooks.
+func (s *Service) ClassifyPreReceive(ctx context.Context, repositoryID int64, lines []RefLine, hasPushOptions bool, hookGit PublishPreReceiveGit) (TransactionDecision, error) {
+	reservation, err := model.ReadReservation(ctx)
+	if err != nil {
+		return TransactionDecision{}, err
+	}
+	if reservation.Owner == "" {
+		return TransactionDecision{Allowed: true}, nil
+	}
+	if reservation.OwnerKind != model.OwnerConditional {
+		return TransactionDecision{Allowed: true}, nil
+	}
+	_, installationID, operationID := splitOwner(reservation.Owner)
+	op, err := model.LookupOperation(ctx, installationID, operationID)
+	if err != nil {
+		return TransactionDecision{}, err
+	}
+	if op == nil || !op.Submitted || op.Kind != model.KindRefPublish {
+		return TransactionDecision{Allowed: true}, nil
+	}
+	scope, err := decodeScope(reservation.Scope)
+	if err != nil {
+		return TransactionDecision{}, err
+	}
+	if repositoryID != scope.RepositoryID {
+		return TransactionDecision{Reason: "operation scope mismatch"}, nil
+	}
+	if op.IsTerminal() {
+		return TransactionDecision{Reason: "operation is not pending"}, nil
+	}
+	reason := ""
+	switch {
+	case hasPushOptions:
+		reason = model.ReasonPublishOptionsRejected
+	case len(lines) != 1:
+		reason = model.ReasonUnexpectedRefEffects
+	case lines[0].Ref != scope.Ref ||
+		!strings.EqualFold(lines[0].Old, scope.OldOID) ||
+		!strings.EqualFold(lines[0].New, scope.NewOID):
+		reason = model.ReasonStaleBaseOrResult
+	}
+	if reason == "" && !isZeroOID(scope.OldOID) {
+		force, err := publishForcePush(ctx, hookGit, scope.OldOID, scope.NewOID)
+		if err != nil {
+			return TransactionDecision{}, err
+		}
+		if force {
+			reason = model.ReasonNotFastForward
+		}
+	}
+	if reason == "" {
+		return TransactionDecision{Allowed: true}, nil
+	}
+	// Record the refusal ordering for reconciliation; the refusal stands
+	// even when recording loses its race.
+	_, _, _ = model.RecordAdmissionAttempt(ctx, installationID, operationID, reservation.Owner, false, reason)
+	return TransactionDecision{Reason: reason}, nil
+}
+
+// publishForcePush reports whether updating oldOID to newOID is a forced
+// (non-fast-forward) update, resolving the candidate objects through the
+// hook's quarantined object environment. A zero old OID marks a creation,
+// which seeds from any commit and needs no ancestry.
+func publishForcePush(ctx context.Context, hookGit PublishPreReceiveGit, oldOID, newOID string) (bool, error) {
+	_, _, err := git.NewCommand(ctx, "merge-base", "--is-ancestor").AddDynamicArguments(oldOID, newOID).RunStdString(&git.RunOpts{Dir: hookGit.RepoPath, Env: hookGit.Env})
+	if err == nil {
+		return false, nil
+	}
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) {
+		if exitError.ExitCode() == 1 && len(exitError.Stderr) == 0 {
+			return true, nil
+		}
+	}
+	return false, err
+}
+
 // ClassifyCompletion binds synchronous post-receive bookkeeping to the held
 // owner. An idle reservation keeps existing behavior. A held reservation
 // requires the owner's execution proof and effects within its scope, and
-// refuses push-option policy changes under operation ownership.
+// refuses push-option policy changes under operation ownership. A held
+// conditional owner additionally requires a submitted operation of a kind
+// that permits push-originated completion.
 func (s *Service) ClassifyCompletion(ctx context.Context, repositoryID int64, refNames []string, proof string, hasPushOptions bool) (TransactionDecision, error) {
 	reservation, err := model.ReadReservation(ctx)
 	if err != nil {
@@ -246,6 +405,16 @@ func (s *Service) ClassifyCompletion(ctx context.Context, repositoryID int64, re
 	scope, err := decodeScope(reservation.Scope)
 	if err != nil {
 		return TransactionDecision{}, err
+	}
+	if reservation.OwnerKind == model.OwnerConditional {
+		_, installationID, operationID := splitOwner(reservation.Owner)
+		op, err := model.LookupOperation(ctx, installationID, operationID)
+		if err != nil {
+			return TransactionDecision{}, err
+		}
+		if op == nil || !op.Submitted || (op.Kind != model.KindRefPublish && op.Kind != model.KindMerge) {
+			return TransactionDecision{Reason: "operation kind mismatch"}, nil
+		}
 	}
 	if repositoryID != scope.RepositoryID {
 		return TransactionDecision{Reason: "operation scope mismatch"}, nil
