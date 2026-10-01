@@ -4,6 +4,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/context/upload"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 func checkReleaseAccess(ctx *context.APIContext, releaseID int64) *repo_model.Release {
@@ -264,6 +266,10 @@ func CreateReleaseAttachment(ctx *context.APIContext) {
 				ctx.Error(http.StatusBadRequest, "DetectContentType", err)
 				return
 			}
+			if operation_service.IsBusy(err) {
+				ctx.Error(http.StatusServiceUnavailable, "NewAttachment", err)
+				return
+			}
 			ctx.Error(http.StatusInternalServerError, "NewAttachment", err)
 			return
 		}
@@ -295,6 +301,8 @@ func CreateReleaseAttachment(ctx *context.APIContext) {
 		if err != nil {
 			if repo_model.IsErrInvalidExternalURL(err) {
 				ctx.Error(http.StatusBadRequest, "NewExternalAttachment", err)
+			} else if operation_service.IsBusy(err) {
+				ctx.Error(http.StatusServiceUnavailable, "NewExternalAttachment", err)
 			} else {
 				ctx.Error(http.StatusInternalServerError, "NewExternalAttachment", err)
 			}
@@ -387,9 +395,14 @@ func EditReleaseAttachment(ctx *context.APIContext) {
 		attach.ExternalURL = form.DownloadURL
 	}
 
-	if err := repo_model.UpdateAttachment(ctx, attach); err != nil {
+	// One attachment update owns the row edit before its effects.
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentResource(attach.ID, operation_service.CollabAttachmentUpdate), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
+		return repo_model.UpdateAttachment(ctx, attach)
+	}); err != nil {
 		if repo_model.IsErrInvalidExternalURL(err) {
 			ctx.Error(http.StatusBadRequest, "UpdateAttachment", err)
+		} else if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "UpdateAttachment", err)
 		} else {
 			ctx.Error(http.StatusInternalServerError, "UpdateAttachment", err)
 		}
@@ -457,7 +470,15 @@ func DeleteReleaseAttachment(ctx *context.APIContext) {
 	}
 	// FIXME Should prove the existence of the given repo, but results in unnecessary database requests
 
-	if err := repo_model.DeleteAttachment(ctx, attach, true); err != nil {
+	// One attachment delete owns the row and file removal before its
+	// effects.
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentResource(attach.ID, operation_service.CollabAttachmentDelete), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
+		return repo_model.DeleteAttachment(ctx, attach, true)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "DeleteAttachment", err)
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "DeleteAttachment", err)
 		return
 	}

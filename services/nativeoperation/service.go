@@ -308,6 +308,42 @@ func (s *Service) ReadNativeRevision(ctx context.Context) (NativeRevisionObserva
 	return NativeRevisionObservation{Revision: reservation.Revision, Idle: reservation.Owner == ""}, nil
 }
 
+// ReservationStatus is the bounded operator-visible reservation state.
+// It names the held owner, its kind, family and generation plus the
+// restart-inhibition marker, which is exactly what offline recovery
+// needs. It never carries verifier secrets, capability paths or scope
+// payloads.
+type ReservationStatus struct {
+	Idle       bool
+	Revision   int64
+	Owner      string
+	Kind       string
+	Family     string
+	Generation int64
+	Inhibited  bool
+}
+
+// Status reads the bounded operator-visible reservation state. It is
+// read-only: it never claims, releases or mutates the reservation.
+func (s *Service) Status(ctx context.Context) (ReservationStatus, error) {
+	reservation, err := model.ReadReservation(ctx)
+	if err != nil {
+		return ReservationStatus{}, err
+	}
+	status := ReservationStatus{
+		Idle:       reservation.Owner == "",
+		Revision:   reservation.Revision,
+		Owner:      reservation.Owner,
+		Kind:       reservation.OwnerKind,
+		Generation: reservation.Generation,
+	}
+	if family, _, ok := splitOrdinaryResource(reservation.Owner); ok {
+		status.Family = family
+	}
+	status.Inhibited = model.OfflineInhibited()
+	return status, nil
+}
+
 // ToRecord maps a stored operation to its SDK receipt. Tombstones and
 // not_observed lookups report actor/repository/intent fields as unavailable
 // rather than inventing them, and the private credential fingerprint never

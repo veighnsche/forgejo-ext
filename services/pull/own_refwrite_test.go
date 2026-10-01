@@ -4,9 +4,15 @@
 package pull
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
+
+	model "forgejo.org/models/nativeoperation"
+	"forgejo.org/models/unittest"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestRefWriteScopeWireContract pins the pull-local ownership mirror to
@@ -47,4 +53,32 @@ func TestRefWriteScopeWireContract(t *testing.T) {
 	if got := refWriteResource(7, refWriteMerge, "refs/heads/main"); got != "7/merge/refs/heads/main" {
 		t.Fatalf("mirror resource = %q, want %q", got, "7/merge/refs/heads/main")
 	}
+}
+
+// TestRefWriteOwnershipCanceledContext proves a canceled caller never
+// strands the reservation: a pre-canceled claim refuses before any
+// effect, and a cancellation racing the writer still releases.
+func TestRefWriteOwnershipCanceledContext(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	scope := refWriteScope{RepositoryID: 1, Ref: "refs/heads/main"}
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	ran := false
+	require.ErrorIs(t, withRefWriteOwnership(canceled, "1/merge/refs/heads/main", scope, func(ctx context.Context) error {
+		ran = true
+		return nil
+	}), context.Canceled)
+	require.False(t, ran)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	require.NoError(t, withRefWriteOwnership(ctx, "1/merge/refs/heads/main", scope, func(ctx context.Context) error {
+		cancel()
+		return nil
+	}))
+
+	idle, err := model.ReadReservation(context.WithoutCancel(ctx))
+	require.NoError(t, err)
+	require.Empty(t, idle.Owner)
 }

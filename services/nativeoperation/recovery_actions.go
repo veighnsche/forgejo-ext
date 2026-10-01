@@ -43,6 +43,10 @@ func (s *Service) recoverActionsRun(ctx context.Context, assessment *RecoveryAss
 		return s.recoverActionsDispatch(ctx, assessment, reservation, scope, claim.workflow)
 	case "schedule":
 		return s.recoverActionsSchedule(ctx, assessment, reservation, scope, claim.scheduleID)
+	case "trust":
+		return s.recoverActionsTrust(ctx, assessment, reservation, scope, claim)
+	case "schedule-batch":
+		return s.recoverActionsScheduleBatch(ctx, assessment, reservation, scope, claim)
 	case "status":
 		return s.recoverActionsStatus(ctx, assessment, reservation, scope, claim)
 	default:
@@ -296,4 +300,130 @@ func checkActionsJobRow(job *actions_model.ActionRunJob, runID int64) (bool, str
 
 func validActionsStatus(status actions_model.Status) bool {
 	return status >= actions_model.StatusUnknown && status <= actions_model.StatusBlocked
+}
+
+// recoverActionsTrust reconciles one held poster-trust update from its
+// trust row and the runs it approves or cancels. Revocation deletes the
+// trust row first and then cancels every unfinished run by the poster,
+// so an absent trust row with no unfinished runs proves the committed
+// end state, a present trust row proves nothing applied, and an absent
+// trust row with unfinished runs fences as a partial revocation.
+// Approval mirrors it: a present trusted row with no waiting runs
+// proves the committed end state, an absent row proves nothing applied.
+// The inactivity sweep is one atomic delete over an unknowable set, so
+// any observed state is a valid end state and releases.
+func (s *Service) recoverActionsTrust(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, claim actionsClaim) (RecoveryAssessment, error) {
+	if claim.op == ActionsRunOpTrustSweep {
+		assessment.Checks = append(assessment.Checks, "trust sweep is one atomic delete; any observed state is valid")
+		return s.releaseRecovered(ctx, assessment, reservation, EffectActionsConsistent)
+	}
+	if scope.RepositoryID <= 0 || claim.posterID <= 0 {
+		return fenced(assessment, ReasonRecoveryUnknownFamily, "trust scope names no repository poster")
+	}
+	if _, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID); err != nil {
+		if repo_model.IsErrRepoNotExist(err) {
+			return fenced(assessment, ReasonRecoveryMissingEvidence, "repository for the held scope no longer exists")
+		}
+		return RecoveryAssessment{}, err
+	}
+	trust, err := actions_model.GetActionUserByUserIDAndRepoID(ctx, claim.posterID, scope.RepositoryID)
+	present := err == nil
+	if err != nil && !actions_model.IsErrUserNotExist(err) {
+		return RecoveryAssessment{}, err
+	}
+	switch claim.op {
+	case ActionsRunOpTrustRevoke:
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("trust revoke row_present=%t", present))
+		if present {
+			return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		}
+		runs, err := actions_model.GetRunsNotDoneByRepoIDAndPullRequestPosterID(ctx, scope.RepositoryID, claim.posterID)
+		if err != nil {
+			return RecoveryAssessment{}, err
+		}
+		if len(runs) > 0 {
+			assessment.Checks = append(assessment.Checks, fmt.Sprintf("trust revoke unfinished runs=%d", len(runs)))
+			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("%d unfinished runs survive a held trust revocation", len(runs)))
+		}
+		return s.releaseRecovered(ctx, assessment, reservation, EffectActionsConsistent)
+	case ActionsRunOpTrustApprove:
+		trusted := present && trust.TrustedWithPullRequests
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("trust approve row_present=%t trusted=%t", present, trusted))
+		if !trusted {
+			return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		}
+		var waiting []*actions_model.ActionRun
+		if err := db.GetEngine(ctx).Where("repo_id=? AND pull_request_poster_id=? AND need_approval=?", scope.RepositoryID, claim.posterID, true).Find(&waiting); err != nil {
+			return RecoveryAssessment{}, err
+		}
+		if len(waiting) > 0 {
+			assessment.Checks = append(assessment.Checks, fmt.Sprintf("trust approve waiting runs=%d", len(waiting)))
+			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("%d runs still wait for approval after a held trust grant", len(waiting)))
+		}
+		return s.releaseRecovered(ctx, assessment, reservation, EffectActionsConsistent)
+	default:
+		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("trust operation %q has no offline reconciliation", claim.op))
+	}
+}
+
+// recoverActionsScheduleBatch reconciles one held repo-wide schedule
+// operation. Cleanup deletes every schedule row first in one statement,
+// so present schedules prove nothing applied; with the /cancel suffix it
+// then cancels the previous scheduled runs, which must all be finished
+// for the committed end state. Detection rebuilds the schedule set from
+// workflows in several statements over an unknowable set; the rebuild is
+// idempotent and the next push to the default branch completes it, so
+// any observed schedule set releases with a rebuild note.
+func (s *Service) recoverActionsScheduleBatch(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, claim actionsClaim) (RecoveryAssessment, error) {
+	if scope.RepositoryID <= 0 {
+		return fenced(assessment, ReasonRecoveryUnknownFamily, "schedule batch scope names no repository")
+	}
+	repo, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID)
+	if err != nil {
+		if repo_model.IsErrRepoNotExist(err) {
+			return fenced(assessment, ReasonRecoveryMissingEvidence, "repository for the held scope no longer exists")
+		}
+		return RecoveryAssessment{}, err
+	}
+	switch claim.op {
+	case ActionsRunOpScheduleDetect:
+		n, err := db.GetEngine(ctx).Where("repo_id=?", scope.RepositoryID).Count(new(actions_model.ActionSchedule))
+		if err != nil {
+			return RecoveryAssessment{}, err
+		}
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("schedule detect rows=%d; push to the default branch to rebuild", n))
+		return s.releaseRecovered(ctx, assessment, reservation, EffectActionsConsistent)
+	case ActionsRunOpScheduleClean:
+		n, err := db.GetEngine(ctx).Where("repo_id=?", scope.RepositoryID).Count(new(actions_model.ActionSchedule))
+		if err != nil {
+			return RecoveryAssessment{}, err
+		}
+		specs, err := db.GetEngine(ctx).Where("repo_id=?", scope.RepositoryID).Count(new(actions_model.ActionScheduleSpec))
+		if err != nil {
+			return RecoveryAssessment{}, err
+		}
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("schedule clean remaining=%d specs=%d", n, specs))
+		if n > 0 || specs > 0 {
+			return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		}
+		if !claim.cancel {
+			return s.releaseRecovered(ctx, assessment, reservation, EffectActionsConsistent)
+		}
+		runs, _, err := db.FindAndCount[actions_model.ActionRun](ctx, actions_model.FindRunOptions{
+			RepoID:       scope.RepositoryID,
+			Ref:          repo.DefaultBranch,
+			TriggerEvent: webhook_module.HookEventSchedule,
+			Status:       []actions_model.Status{actions_model.StatusRunning, actions_model.StatusWaiting, actions_model.StatusBlocked},
+		})
+		if err != nil {
+			return RecoveryAssessment{}, err
+		}
+		if len(runs) > 0 {
+			assessment.Checks = append(assessment.Checks, fmt.Sprintf("schedule clean unfinished scheduled runs=%d", len(runs)))
+			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("%d scheduled runs survive a held schedule cleanup", len(runs)))
+		}
+		return s.releaseRecovered(ctx, assessment, reservation, EffectActionsConsistent)
+	default:
+		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("schedule batch operation %q has no offline reconciliation", claim.op))
+	}
 }

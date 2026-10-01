@@ -14,6 +14,7 @@ import (
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/log"
@@ -276,6 +277,12 @@ func DoctorUserStarNum(ctx context.Context) (err error) {
 
 // DeleteDeployKey delete deploy keys
 func DeleteDeployKey(ctx context.Context, id, repoID int64) error {
+	// Nested participating writer: deploy-key changes refuse while
+	// another owner holds the reservation; the enclosing authority
+	// update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	key, err := asymkey_model.GetDeployKeyByID(ctx, id)
 	if err != nil {
 		if asymkey_model.IsErrDeployKeyNotExist(err) {

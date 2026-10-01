@@ -5,6 +5,7 @@ package nativeoperation
 
 import (
 	"context"
+	"strings"
 
 	model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
@@ -65,6 +66,41 @@ func RefineReceiveScope(ctx context.Context, proof string, refs []ScopedRef) {
 	}
 	scope, err := decodeScope(reservation.Scope)
 	if err != nil || (scope.Family != FamilyReceiveHTTP && scope.Family != FamilyReceiveSSH) {
+		return
+	}
+	_ = UpdateScopeRefs(ctx, reservation.Owner, refs)
+}
+
+// RefineCollabPullScope records the derived PR ref a pull-creation owner
+// realizes. The PR index (hence the ref name) is unknowable at claim
+// time, and the nested ref write reuses the enclosing collaboration
+// execution instead of claiming again, so the held scope cannot name the
+// ref up front. It refines only pull/new holders for refs/pull/* effects
+// with a matching proof; anything else is a silent no-op and the caller
+// keeps its existing behavior. The gate's repository check still applies,
+// and offline recovery keeps fencing the multi-statement creation for
+// intervention.
+func RefineCollabPullScope(ctx context.Context, proof string, refs []ScopedRef) {
+	if proof == "" || len(refs) == 0 {
+		return
+	}
+	reservation, err := model.ReadReservation(ctx)
+	if err != nil || reservation.Owner == "" {
+		return
+	}
+	if !execcontext.VerifyProof(reservation.Verifier, proof) {
+		return
+	}
+	family, resource, ok := splitOrdinaryResource(reservation.Owner)
+	if !ok || family != FamilyCollaboration || !strings.HasPrefix(resource, "pull/new/") {
+		return
+	}
+	for _, ref := range refs {
+		if !strings.HasPrefix(ref.Ref, "refs/pull/") {
+			return
+		}
+	}
+	if _, err := decodeScope(reservation.Scope); err != nil {
 		return
 	}
 	_ = UpdateScopeRefs(ctx, reservation.Owner, refs)

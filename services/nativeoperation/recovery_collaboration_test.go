@@ -109,3 +109,27 @@ func TestRecoverCollabUnparseableFences(t *testing.T) {
 	require.Equal(t, RecoveryFenced, assessment.Verdict)
 	require.Equal(t, ReasonRecoveryUnknownFamily, assessment.Reason)
 }
+
+func TestRecoverCollabAttachmentDeleteAbsent(t *testing.T) {
+	assessment := recoverCollab(t, AttachmentResource(9999, CollabAttachmentDelete), collabScope(1))
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, "deleted", assessment.Effect)
+}
+
+func TestRecoverCollabAttachmentDeletePresent(t *testing.T) {
+	assessment := recoverCollab(t, AttachmentResource(1, CollabAttachmentDelete), collabScope(1))
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+}
+
+func TestRecoverCollabAttachmentCreateFences(t *testing.T) {
+	assessment := recoverCollab(t, AttachmentCreateResource(1), collabScope(1))
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
+	require.Equal(t, ReasonRecoveryUncertainEffect, assessment.Reason)
+}
+
+func TestRecoverCollabAttachmentUpdateFences(t *testing.T) {
+	assessment := recoverCollab(t, AttachmentResource(1, CollabAttachmentUpdate), collabScope(1))
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
+	require.Equal(t, ReasonRecoveryUncertainEffect, assessment.Reason)
+}

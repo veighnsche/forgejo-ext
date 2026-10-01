@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/timeutil"
@@ -52,6 +53,12 @@ func GetSchedulesMapByIDs(ctx context.Context, ids []int64) (map[int64]*ActionSc
 
 // CreateScheduleTask creates new schedule task.
 func CreateScheduleTask(ctx context.Context, rows []*ActionSchedule) error {
+	// Nested participating writer: schedule rows drive Actions runs, so
+	// they refuse while another owner holds the reservation; the
+	// enclosing schedule update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	// Return early if there are no rows to insert
 	if len(rows) == 0 {
 		return nil
@@ -88,6 +95,12 @@ func CreateScheduleTask(ctx context.Context, rows []*ActionSchedule) error {
 }
 
 func DeleteScheduleTaskByRepo(ctx context.Context, id int64) error {
+	// Nested participating writer: schedule rows drive Actions runs, so
+	// they refuse while another owner holds the reservation; the
+	// enclosing schedule update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

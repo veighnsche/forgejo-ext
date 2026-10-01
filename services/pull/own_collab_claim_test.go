@@ -46,3 +46,30 @@ func TestCollabOwnershipPrimitive(t *testing.T) {
 		return nil
 	}))
 }
+
+// TestCollabOwnershipCanceledContext proves a canceled caller never
+// strands the reservation: a pre-canceled claim refuses before any
+// effect, and a cancellation racing the writer still releases.
+func TestCollabOwnershipCanceledContext(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	ran := false
+	require.ErrorIs(t, withCollabOwnership(canceled, CollabPullResource(3, "refresh"), 1, func(ctx context.Context) error {
+		ran = true
+		return nil
+	}), context.Canceled)
+	require.False(t, ran)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	require.NoError(t, withCollabOwnership(ctx, CollabPullResource(3, "refresh"), 1, func(ctx context.Context) error {
+		cancel()
+		return nil
+	}))
+
+	idle, err := model.ReadReservation(context.WithoutCancel(ctx))
+	require.NoError(t, err)
+	require.Empty(t, idle.Owner)
+}

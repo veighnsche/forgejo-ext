@@ -139,6 +139,12 @@ func CheckCreateRepository(ctx context.Context, doer, u *user_model.User, name s
 
 // UpdateRepoSize updates the repository size, calculating it using getDirectorySize
 func UpdateRepoSize(ctx context.Context, repoID, gitSize, lfsSize int64) error {
+	// Nested participating writer: size columns feed quota enforcement,
+	// so they refuse while another owner holds the reservation; the
+	// enclosing repository update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(repoID).Cols("size", "git_size", "lfs_size").NoAutoTime().Update(&Repository{
 		Size:    gitSize + lfsSize,
 		GitSize: gitSize,

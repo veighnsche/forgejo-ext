@@ -95,7 +95,10 @@ func GitGcRepo(ctx context.Context, repo *repo_model.Repository, timeout time.Du
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {
-			return gitGcRepoOwned(ctx, repo, timeout, args)
+			if err := gitGcRepoOwned(ctx, repo, timeout, args); err != nil {
+				return err
+			}
+			return operation_service.TestCrashBarrier(operation_service.CrashPointMaintenanceAfterEffects)
 		})
 }
 

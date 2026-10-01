@@ -76,6 +76,47 @@ func TestOrdinaryOwnershipRefusesWhenBusy(t *testing.T) {
 	require.True(t, idle.Idle)
 }
 
+func TestOrdinaryOwnershipRefusesCanceledContext(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	svc := admissionService(t, nil, 0)
+
+	start, err := svc.ReadNativeRevision(t.Context())
+	require.NoError(t, err)
+	require.True(t, start.Idle)
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	ran := false
+	err = svc.WithOrdinaryOwnership(canceled, "branch", "1/topic", Scope{RepositoryID: 1, Ref: "refs/heads/topic"}, func(context.Context) error {
+		ran = true
+		return nil
+	})
+	require.ErrorIs(t, err, context.Canceled)
+	require.False(t, ran)
+
+	idle, err := svc.ReadNativeRevision(t.Context())
+	require.NoError(t, err)
+	require.True(t, idle.Idle)
+	require.Equal(t, start.Revision, idle.Revision)
+}
+
+func TestOrdinaryOwnershipReleasesAfterCancel(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	svc := admissionService(t, nil, 0)
+
+	cancellable, cancel := context.WithCancel(ctx)
+	err := svc.WithOrdinaryOwnership(cancellable, "branch", "1/topic", Scope{RepositoryID: 1, Ref: "refs/heads/topic"}, func(ctx context.Context) error {
+		cancel()
+		return nil
+	})
+	require.NoError(t, err)
+
+	idle, err := svc.ReadNativeRevision(ctx)
+	require.NoError(t, err)
+	require.True(t, idle.Idle)
+}
+
 func TestOrdinaryOwnershipRefusesWhileInhibited(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()

@@ -344,7 +344,7 @@ func (s *Service) recoverRepoSettings(ctx context.Context, assessment *RecoveryA
 		area = resource
 	}
 	assessment.Checks = append(assessment.Checks, fmt.Sprintf("settings area %q leaves no reconcilable trace", area))
-	return fenced(assessment, ReasonRecoveryUncertainEffect, fmt.Sprintf("settings area %q cannot be reconciled; re-apply it after recovery", area))
+	return fenced(assessment, ReasonRecoveryUncertainEffect, fmt.Sprintf("settings area %q cannot be reconciled; restore the data set from backup", area))
 }
 
 // recoverProtection reconciles one held protection rule change by rule
@@ -467,8 +467,14 @@ func (s *Service) recoverMirrorSync(ctx context.Context, assessment *RecoveryAss
 // each recorded branch row against its expected commit. Rows at their
 // expected commits release as synced; rows anywhere else count as
 // pending, since only this owner could have moved them. A mix fences as
-// a partial sync. A scope with no recorded refs fences.
+// a partial sync. A scope with no recorded refs fences. The
+// deleted-branches purge is one atomic delete over an unknowable set, so
+// any observed state is a valid end state and releases.
 func (s *Service) recoverRefSync(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+	if _, resource, ok := splitOrdinaryResource(reservation.Owner); ok && resource == "0/deleted-branches" {
+		assessment.Checks = append(assessment.Checks, "ref-sync purge is one atomic delete; any observed state is valid")
+		return s.releaseRecovered(ctx, assessment, reservation, "consistent")
+	}
 	if scope.RepositoryID <= 0 || len(scope.Refs) == 0 {
 		return fenced(assessment, ReasonRecoveryUncertainEffect, "ref-sync scope records no expected branch commits")
 	}
@@ -500,18 +506,40 @@ func (s *Service) recoverRefSync(ctx context.Context, assessment *RecoveryAssess
 	}
 }
 
+// maintenanceBatchOps names the instance-wide repair batches. Every one
+// is a single atomic statement (or a read plus one statement) over rows
+// its predicate selects, so any observed state is a valid end state and
+// releases; the operator reruns the repair to complete it. The "orphan-"
+// prefix covers every generic orphan sweep.
+var maintenanceBatchOps = map[string]bool{
+	"orphan-attachments": true, "null-archived": true,
+	"runner-owner": true, "runner-repo": true,
+	"topics": true, "oauth2-apps": true, "owner-teams": true, "user-type": true,
+	"team-8312": true,
+}
+
 // recoverMaintenance reconciles one held maintenance operation. A reinit
-// releases by directory presence; garbage collection fences because its
-// pruned set is unknowable.
+// releases by directory presence. Garbage collection releases once the
+// repository opens and its default branch resolves: git gc never
+// rewrites reachable data (it copies reachable objects into new packs
+// before deleting the old ones and prunes only unreachable objects), so
+// an intact head commit proves no observable loss; the pruned set stays
+// unknowable and the next scheduled run finishes pruning. The LFS
+// collection, the empty-flag repair and the atomic repair batches
+// release the same way with rerun notes.
 func (s *Service) recoverMaintenance(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
-	if scope.RepositoryID <= 0 {
-		return fenced(assessment, ReasonRecoveryUnknownFamily, "maintenance scope names no repository")
-	}
 	_, resource, ok := splitOrdinaryResource(reservation.Owner)
 	if !ok {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "maintenance owner names no resource")
 	}
 	_, op, _ := strings.Cut(resource, "/")
+	if maintenanceBatchOps[op] || strings.HasPrefix(op, "orphan-") {
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("maintenance batch %q is atomic; rerun the repair to complete it", op))
+		return s.releaseRecovered(ctx, assessment, reservation, "consistent")
+	}
+	if scope.RepositoryID <= 0 {
+		return fenced(assessment, ReasonRecoveryUnknownFamily, "maintenance scope names no repository")
+	}
 	repo, gone, err := recoveryRepo(ctx, scope.RepositoryID)
 	if err != nil {
 		return RecoveryAssessment{}, err
@@ -528,9 +556,46 @@ func (s *Service) recoverMaintenance(ctx context.Context, assessment *RecoveryAs
 		}
 		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
 	case "gc":
-		assessment.Checks = append(assessment.Checks, "maintenance gc pruned set is unknowable")
-		return fenced(assessment, ReasonRecoveryUncertainEffect, "garbage collection cannot be reconciled; rerun it after recovery")
+		return s.recoverMaintenanceGC(ctx, assessment, reservation, repo)
+	case "lfs-gc":
+		assessment.Checks = append(assessment.Checks, "maintenance lfs-gc collects independent objects; the next scheduled run completes it")
+		return s.releaseRecovered(ctx, assessment, reservation, "consistent")
+	case "is-empty":
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("maintenance is-empty flag=%t", repo.IsEmpty))
+		if repo.IsEmpty {
+			return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		}
+		return s.releaseRecovered(ctx, assessment, reservation, "repaired")
+	case "unit-16961":
+		assessment.Checks = append(assessment.Checks, "maintenance unit repair is one atomic update; rerun the repair to complete it")
+		return s.releaseRecovered(ctx, assessment, reservation, "consistent")
 	default:
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("maintenance operation %q has no offline reconciliation", op))
 	}
+}
+
+// recoverMaintenanceGC reconciles one held garbage collection by
+// verifying the repository still opens and its default branch resolves
+// to a commit. Either failure fences for fsck and repair, since the
+// object store may be damaged.
+func (s *Service) recoverMaintenanceGC(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, repo *repo_model.Repository) (RecoveryAssessment, error) {
+	if repo.IsEmpty {
+		assessment.Checks = append(assessment.Checks, "maintenance gc empty repository needs no collection")
+		return s.releaseRecovered(ctx, assessment, reservation, "consistent")
+	}
+	head, err := git.GetDefaultBranch(ctx, repo.RepoPath())
+	if err != nil {
+		assessment.Checks = append(assessment.Checks, "maintenance gc HEAD cannot be read")
+		return fenced(assessment, ReasonRecoveryUnaccounted, "repository HEAD is unreadable after a held garbage collection; run fsck")
+	}
+	_, absent, fence, err := s.recoveryTip(ctx, assessment, repo.RepoPath(), git.BranchPrefix+head)
+	if err != nil || fence {
+		return *assessment, err
+	}
+	if absent {
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("maintenance gc default branch %q has no tip", head))
+		return fenced(assessment, ReasonRecoveryUnaccounted, "default branch has no tip after a held garbage collection; run fsck")
+	}
+	assessment.Checks = append(assessment.Checks, fmt.Sprintf("maintenance gc default branch %q resolves", head))
+	return s.releaseRecovered(ctx, assessment, reservation, "consistent")
 }

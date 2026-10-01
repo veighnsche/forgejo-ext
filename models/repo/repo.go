@@ -928,6 +928,12 @@ func CountNullArchivedRepository(ctx context.Context) (int64, error) {
 
 // FixNullArchivedRepository sets is_archived to false where it is null
 func FixNullArchivedRepository(ctx context.Context) (int64, error) {
+	// Nested participating writer: the archive flag gates every native
+	// writer, so the repair refuses while another owner holds the
+	// reservation; the enclosing maintenance repair carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	return db.GetEngine(ctx).Where(builder.IsNull{"is_archived"}).Cols("is_archived").NoAutoTime().Update(&Repository{
 		IsArchived: false,
 	})

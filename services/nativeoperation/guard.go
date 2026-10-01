@@ -115,10 +115,16 @@ func decodeScope(raw string) (Scope, error) {
 // WithOrdinaryOwnership claims the idle reservation for one ordinary native
 // writer, advancing the revision before its effects, and releases it after
 // the writer returns. A busy reservation refuses before any effect. Nested
-// calls reuse the enclosing ownership instead of claiming again.
+// calls reuse the enclosing ownership instead of claiming again. A canceled
+// context refuses before claiming, and the release runs detached from
+// cancellation, so a client disconnect mid-write cannot stick the global
+// reservation.
 func (s *Service) WithOrdinaryOwnership(ctx context.Context, family, resource string, scope Scope, fn func(ctx context.Context) error) error {
 	if execcontext.FromContext(ctx) != nil {
 		return fn(ctx)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if family == "" || resource == "" {
 		return errors.New("ordinary ownership requires a writer identity")
@@ -155,7 +161,7 @@ func (s *Service) WithOrdinaryOwnership(ctx context.Context, family, resource st
 	}
 	owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: path})
 	fnErr := fn(owned)
-	if err := model.ReleaseOwner(ctx, owner); err != nil {
+	if err := model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
 		release()
 		if fnErr != nil {
 			return fmt.Errorf("%w (and failed to release %s: %v)", fnErr, owner, err)

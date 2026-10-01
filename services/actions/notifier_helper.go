@@ -31,6 +31,7 @@ import (
 	"forgejo.org/modules/util"
 	webhook_module "forgejo.org/modules/webhook"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
@@ -657,5 +658,13 @@ func DetectAndHandleSchedules(ctx context.Context, repo *repo_model.Repository) 
 	// so we use action user as the Doer of the notifyInput
 	notifyInput := NewNotifyInputForSchedules(repo)
 
-	return handleSchedules(ctx, scheduleWorkflows, commit, notifyInput, repo.DefaultBranch)
+	// One schedule rebuild owns the cleanup and recreation before its
+	// effects. Callers inside an enclosing owner (push completion
+	// rebuilds schedules under its own owner) reuse that execution.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.ScheduleDetectResource(), operation_service.Scope{
+		Family:       operation_service.FamilyActionsRun,
+		RepositoryID: repo.ID,
+	}, func(ctx context.Context) error {
+		return handleSchedules(ctx, scheduleWorkflows, commit, notifyInput, repo.DefaultBranch)
+	})
 }

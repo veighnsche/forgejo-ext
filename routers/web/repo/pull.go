@@ -2041,6 +2041,9 @@ func UpdateTrustWithPullRequestActions(ctx *context.Context) {
 	trust := ctx.FormString("trust")
 
 	if err := actions_service.UpdateTrustedWithPullRequest(ctx, ctx.Doer.ID, pr, actions_service.TrustUpdate(trust)); err != nil {
+		if ctx.HandlePolicyError(err) {
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, err.Error())
 		return
 	}

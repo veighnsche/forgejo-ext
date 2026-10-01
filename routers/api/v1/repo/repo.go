@@ -1148,6 +1148,13 @@ func updateRepoArchivedState(ctx *context.APIContext, opts api.EditRepoOption) e
 				return err
 			}
 			if err := actions_service.CleanRepoScheduleTasks(ctx, repo, true); err != nil {
+				// Busy refuses the archive: silently skipping the
+				// schedule cleanup would leave runs firing for an
+				// archived repository.
+				if operation_service.IsBusy(err) {
+					ctx.Error(http.StatusServiceUnavailable, "CleanRepoScheduleTasks", err)
+					return err
+				}
 				log.Error("CleanRepoScheduleTasks for archived repo %s/%s: %v", ctx.Repo().Owner.Name, repo.Name, err)
 			}
 			log.Trace("Repository was archived: %s/%s", ctx.Repo().Owner.Name, repo.Name)
@@ -1159,6 +1166,13 @@ func updateRepoArchivedState(ctx *context.APIContext, opts api.EditRepoOption) e
 			}
 			if ctx.Repo().Repository.UnitEnabled(ctx, unit_model.TypeActions) {
 				if err := actions_service.DetectAndHandleSchedules(ctx, repo); err != nil {
+					// Busy refuses the un-archive: silently skipping
+					// the schedule rebuild would leave an active
+					// repository without its scheduled runs.
+					if operation_service.IsBusy(err) {
+						ctx.Error(http.StatusServiceUnavailable, "DetectAndHandleSchedules", err)
+						return err
+					}
 					log.Error("DetectAndHandleSchedules for un-archived repo %s/%s: %v", ctx.Repo().Owner.Name, repo.Name, err)
 				}
 			}

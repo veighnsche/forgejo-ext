@@ -54,6 +54,16 @@ func TestAddDeletedBranchFencesWhileHeld(t *testing.T) {
 	assert.False(t, live.IsDeleted)
 }
 
+func TestRemoveOldDeletedBranchesRefusesWhileHeld(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	_, err := nativeoperation.ClaimOrdinary(db.DefaultContext, "ord:actions-task/task/47", `{"kind":"ordinary"}`, "v")
+	require.NoError(t, err)
+	stale := unittest.AssertExistsAndLoadBean(t, &git_model.Branch{ID: 1})
+	require.True(t, stale.IsDeleted)
+	git_model.RemoveOldDeletedBranches(db.DefaultContext, 0)
+	unittest.AssertExistsAndLoadBean(t, &git_model.Branch{ID: 1})
+}
+
 func TestGetDeletedBranches(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})

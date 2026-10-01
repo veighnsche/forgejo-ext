@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/timeutil"
 
 	"xorm.io/builder"
@@ -43,11 +44,23 @@ func (err ErrUserNotExist) Error() string {
 }
 
 func InsertActionUser(ctx context.Context, user *ActionUser) error {
+	// Nested participating writer: trust rows gate Actions run approval,
+	// so they refuse while another owner holds the reservation; the
+	// enclosing trust update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	user.LastAccess = timeutil.TimeStampNow()
 	return db.Insert(ctx, user)
 }
 
 func DeleteActionUserByUserIDAndRepoID(ctx context.Context, userID, repoID int64) error {
+	// Nested participating writer: trust rows gate Actions run approval,
+	// so they refuse while another owner holds the reservation; the
+	// enclosing trust update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Table(&ActionUser{}).Where("user_id=? AND repo_id=?", userID, repoID).Delete()
 	return err
 }
@@ -55,6 +68,9 @@ func DeleteActionUserByUserIDAndRepoID(ctx context.Context, userID, repoID int64
 var updateFrequency = 24 * time.Hour
 
 func MaybeUpdateAccess(ctx context.Context, user *ActionUser) error {
+	// Non-authorizing telemetry: the last-access timestamp only feeds the
+	// inactivity sweep and rides read paths, so it stays outside the
+	// reservation like token last-used timestamps.
 	// Keep track of the last time the record was accessed to identify which one
 	// are never accessed so they can be removed eventually. But only every updateFrequency
 	// to not stress the underlying database.
@@ -90,6 +106,12 @@ func GetActionUserByUserIDAndRepoIDAndUpdateAccess(ctx context.Context, userID, 
 var expire = 3 * 30 * 24 * time.Hour
 
 func RevokeInactiveActionUser(ctx context.Context) error {
+	// Nested participating writer: trust rows gate Actions run approval,
+	// so the sweep refuses while another owner holds the reservation;
+	// the enclosing trust update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	olderThan := timeutil.TimeStampNow().AddDuration(-expire)
 
 	_, err := db.GetEngine(ctx).Where(builder.Lt{"last_access": olderThan}).Delete(&ActionUser{})

@@ -1488,6 +1488,12 @@ func CountWrongUserType(ctx context.Context) (int64, error) {
 
 // FixWrongUserType fix OrgUser who have wrong type
 func FixWrongUserType(ctx context.Context) (int64, error) {
+	// Nested participating writer: account types gate organization
+	// authorization, so the repair refuses while another owner holds the
+	// reservation; the enclosing maintenance repair carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	return db.GetEngine(ctx).Where(builder.Eq{"type": 0}.And(builder.Neq{"num_teams": 0})).Cols("type").NoAutoTime().Update(&User{Type: 1})
 }
 

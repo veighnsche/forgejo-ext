@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/timeutil"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -296,7 +297,14 @@ func fixBrokenRepoUnits16961(ctx context.Context, logger log.Logger, autofix boo
 				return nil
 			}
 
-			return repo_model.UpdateRepoUnit(ctx, repoUnit)
+			// Each broken unit repairs under its own maintenance
+			// ownership; the scan above stays a read.
+			return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyMaintenance, fmt.Sprintf("%d/unit-16961", unit.RepoID), operation_service.Scope{
+				Family:       operation_service.FamilyMaintenance,
+				RepositoryID: unit.RepoID,
+			}, func(ctx context.Context) error {
+				return repo_model.UpdateRepoUnit(ctx, repoUnit)
+			})
 		},
 	)
 	if err != nil {

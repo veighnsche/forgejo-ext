@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/validation"
 	"forgejo.org/services/context/upload"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/google/uuid"
 )
@@ -28,20 +29,25 @@ func NewAttachment(ctx context.Context, attach *repo_model.Attachment, file io.R
 		return nil, fmt.Errorf("attachment %s should have a uploader", attach.Name)
 	}
 
-	err := db.WithTx(ctx, func(ctx context.Context) error {
-		attach.UUID = uuid.New().String()
-		size, err := storage.Attachments.Save(attach.RelativePath(), file, size)
-		if err != nil {
-			return fmt.Errorf("Create: %w", err)
-		}
-		attach.Size = size
+	// One attachment upload owns the storage write and row insert
+	// before its effects. Callers inside an enclosing owner (release
+	// flows attach under their own owner) reuse that execution.
+	err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentCreateResource(attach.RepoID), attach.RepoID, func(ctx context.Context) error {
+		return db.WithTx(ctx, func(ctx context.Context) error {
+			attach.UUID = uuid.New().String()
+			size, err := storage.Attachments.Save(attach.RelativePath(), file, size)
+			if err != nil {
+				return fmt.Errorf("Create: %w", err)
+			}
+			attach.Size = size
 
-		eng := db.GetEngine(ctx)
-		if attach.NoAutoTime {
-			eng.NoAutoTime()
-		}
-		_, err = eng.Insert(attach)
-		return err
+			eng := db.GetEngine(ctx)
+			if attach.NoAutoTime {
+				eng.NoAutoTime()
+			}
+			_, err = eng.Insert(attach)
+			return err
+		})
 	})
 
 	return attach, err
@@ -61,13 +67,19 @@ func NewExternalAttachment(ctx context.Context, attach *repo_model.Attachment) (
 		return nil, repo_model.ErrInvalidExternalURL{ExternalURL: attach.ExternalURL}
 	}
 
-	attach.UUID = uuid.New().String()
+	// One attachment upload owns the row insert before its effects.
+	// Callers inside an enclosing owner (release flows attach under
+	// their own owner) reuse that execution.
+	err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentCreateResource(attach.RepoID), attach.RepoID, func(ctx context.Context) error {
+		attach.UUID = uuid.New().String()
 
-	eng := db.GetEngine(ctx)
-	if attach.NoAutoTime {
-		eng.NoAutoTime()
-	}
-	_, err := eng.Insert(attach)
+		eng := db.GetEngine(ctx)
+		if attach.NoAutoTime {
+			eng.NoAutoTime()
+		}
+		_, err := eng.Insert(attach)
+		return err
+	})
 
 	return attach, err
 }

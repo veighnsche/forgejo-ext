@@ -13,6 +13,7 @@ import (
 
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/shared/types"
 	user_model "forgejo.org/models/user"
@@ -367,6 +368,12 @@ func CountRunnersWithoutBelongingOwner(ctx context.Context) (int64, error) {
 }
 
 func FixRunnersWithoutBelongingOwner(ctx context.Context) (int64, error) {
+	// Nested participating writer: runner rows refuse while another owner
+	// holds the reservation; the enclosing maintenance repair carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	subQuery := builder.Select("`action_runner`.id").
 		From("`action_runner`").
 		Join("LEFT", "`user`", "`action_runner`.owner_id = `user`.id").
@@ -389,6 +396,12 @@ func CountRunnersWithoutBelongingRepo(ctx context.Context) (int64, error) {
 }
 
 func FixRunnersWithoutBelongingRepo(ctx context.Context) (int64, error) {
+	// Nested participating writer: runner rows refuse while another owner
+	// holds the reservation; the enclosing maintenance repair carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	subQuery := builder.Select("`action_runner`.id").
 		From("`action_runner`").
 		Join("LEFT", "`repository`", "`action_runner`.repo_id = `repository`.id").

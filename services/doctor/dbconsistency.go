@@ -80,16 +80,37 @@ func collabFixer(fn func(ctx context.Context) (int64, error)) func(ctx context.C
 	}
 }
 
+// maintFixer runs one cross-table maintenance repair under a maintenance
+// owner, advancing the native revision before its effects. Repairs span
+// entities, so offline recovery fences them; the claim still orders the
+// repair against every other participating writer.
+func maintFixer(name string, fn func(ctx context.Context) (int64, error)) func(ctx context.Context) (int64, error) {
+	return func(ctx context.Context) (int64, error) {
+		var fixed int64
+		err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyMaintenance, "0/"+name, operation_service.Scope{
+			Family: operation_service.FamilyMaintenance,
+		}, func(ctx context.Context) error {
+			var err error
+			fixed, err = fn(ctx)
+			return err
+		})
+		return fixed, err
+	}
+}
+
 func genericOrphanCheck(name, subject, refobject, joincond string) consistencyCheck {
 	return consistencyCheck{
 		Name: name,
 		Counter: func(ctx context.Context) (int64, error) {
 			return db.CountOrphanedObjects(ctx, subject, refobject, joincond)
 		},
-		Fixer: func(ctx context.Context) (int64, error) {
+		// The generic delete helper lives in models/db, which cannot
+		// import the reservation (import cycle), so the maintenance
+		// claim below is its only ordering boundary.
+		Fixer: maintFixer("orphan-"+subject, func(ctx context.Context) (int64, error) {
 			err := db.DeleteOrphanedObjects(ctx, subject, refobject, joincond)
 			return -1, err
-		},
+		}),
 	}
 }
 
@@ -144,13 +165,13 @@ func checkDBConsistency(ctx context.Context, logger log.Logger, autofix bool) er
 		{
 			Name:    "Orphaned Attachments without existing issues or releases",
 			Counter: repo_model.CountOrphanedAttachments,
-			Fixer:   asFixer(repo_model.DeleteOrphanedAttachments),
+			Fixer:   maintFixer("orphan-attachments", asFixer(repo_model.DeleteOrphanedAttachments)),
 		},
 		// find null archived repositories
 		{
 			Name:         "Repositories with is_archived IS NULL",
 			Counter:      repo_model.CountNullArchivedRepository,
-			Fixer:        repo_model.FixNullArchivedRepository,
+			Fixer:        maintFixer("null-archived", repo_model.FixNullArchivedRepository),
 			FixedMessage: "Fixed",
 		},
 		// find label comments with empty labels
@@ -183,31 +204,31 @@ func checkDBConsistency(ctx context.Context, logger log.Logger, autofix bool) er
 		{
 			Name:         "Action Runners without existing owner",
 			Counter:      actions_model.CountRunnersWithoutBelongingOwner,
-			Fixer:        actions_model.FixRunnersWithoutBelongingOwner,
+			Fixer:        maintFixer("runner-owner", actions_model.FixRunnersWithoutBelongingOwner),
 			FixedMessage: "Removed",
 		},
 		{
 			Name:         "Action Runners without existing repository",
 			Counter:      actions_model.CountRunnersWithoutBelongingRepo,
-			Fixer:        actions_model.FixRunnersWithoutBelongingRepo,
+			Fixer:        maintFixer("runner-repo", actions_model.FixRunnersWithoutBelongingRepo),
 			FixedMessage: "Removed",
 		},
 		{
 			Name:         "Topics with empty repository count",
 			Counter:      repo_model.CountOrphanedTopics,
-			Fixer:        repo_model.DeleteOrphanedTopics,
+			Fixer:        maintFixer("topics", repo_model.DeleteOrphanedTopics),
 			FixedMessage: "Removed",
 		},
 		{
 			Name:         "Orphaned OAuth2Application without existing User",
 			Counter:      auth_model.CountOrphanedOAuth2Applications,
-			Fixer:        auth_model.DeleteOrphanedOAuth2Applications,
+			Fixer:        maintFixer("oauth2-apps", auth_model.DeleteOrphanedOAuth2Applications),
 			FixedMessage: "Removed",
 		},
 		{
 			Name:         "Owner teams with no admin access",
 			Counter:      org_model.CountInconsistentOwnerTeams,
-			Fixer:        org_model.FixInconsistentOwnerTeams,
+			Fixer:        maintFixer("owner-teams", org_model.FixInconsistentOwnerTeams),
 			FixedMessage: "Fixed",
 		},
 	}

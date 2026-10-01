@@ -419,9 +419,14 @@ func (s *Service) recoverActionsTask(ctx context.Context, assessment *RecoveryAs
 // recoverPushCompletion reconciles one deferred push/completion batch by
 // verifying every covered ref still shows the parent push's end state and
 // the repository row is intact. No unaccounted writer may have moved a
-// covered ref in between. Derived notifications and feeds keep their
-// existing best-effort semantics: the authoritative ref and repository
-// state is what this reconciliation establishes.
+// covered ref in between. The completion's nested Actions dispatches are
+// reconciled too: every unfinished run in the repository must be
+// structurally consistent, since only this owner could have created runs
+// during the hold and none could have finished. Derived notifications
+// and feeds keep their existing best-effort semantics; webhook, mail,
+// indexer, mirror and automerge effects are durable queue rows the
+// workers retain, and nested schedule rows rebuild idempotently on the
+// next push.
 func (s *Service) recoverPushCompletion(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.RepositoryID <= 0 || len(scope.Refs) == 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "push-completion scope names no repository refs")
@@ -451,6 +456,24 @@ func (s *Service) recoverPushCompletion(ctx context.Context, assessment *Recover
 			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("ref %q no longer shows the batch end state", scoped.Ref))
 		}
 	}
+	runs, _, err := db.FindAndCount[actions_model.ActionRun](ctx, actions_model.FindRunOptions{
+		RepoID: scope.RepositoryID,
+		Status: actions_model.PendingStatuses(),
+	})
+	if err != nil {
+		return RecoveryAssessment{}, err
+	}
+	for _, run := range runs {
+		consistent, detail, err := s.actionsRunConsistent(ctx, run.ID, scope.RepositoryID)
+		if err != nil {
+			return RecoveryAssessment{}, err
+		}
+		if !consistent {
+			assessment.Checks = append(assessment.Checks, detail)
+			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("run %d dispatched under the held push completion is torn", run.ID))
+		}
+	}
+	assessment.Checks = append(assessment.Checks, fmt.Sprintf("nested runs checked=%d", len(runs)))
 	return s.releaseRecovered(ctx, assessment, reservation, "consistent")
 }
 

@@ -53,6 +53,7 @@ import (
 	"forgejo.org/routers/web/feed"
 	"forgejo.org/services/context"
 	issue_service "forgejo.org/services/issue"
+	operation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 	files_service "forgejo.org/services/repository/files"
 
@@ -1006,12 +1007,28 @@ func renderHomeCode(ctx *context.Context) {
 		// it's possible for a repository to be non-empty by that flag but still 500
 		// because there are no branches - only tags -or the default branch is non-extant as it has been 0-pushed.
 		ctx.Repo.Repository.IsEmpty = false
-		if err = repo_model.UpdateRepositoryCols(ctx, ctx.Repo.Repository, "is_empty"); err != nil {
-			ctx.ServerError("UpdateRepositoryCols", err)
-			return
-		}
-		if err = repo_module.UpdateRepoSize(ctx, ctx.Repo.Repository); err != nil {
-			ctx.ServerError("UpdateRepoSize", err)
+		// One maintenance update owns the empty-flag repair before its
+		// effects. Busy retries the page load instead of failing it.
+		repairRepo := ctx.Repo.Repository
+		if err = operation_service.Default().WithOrdinaryOwnership(ctx,
+			operation_service.FamilyMaintenance,
+			fmt.Sprintf("%d/is-empty", repairRepo.ID),
+			operation_service.Scope{
+				Family:       operation_service.FamilyMaintenance,
+				RepositoryID: repairRepo.ID,
+			},
+			func(ctx gocontext.Context) error {
+				if err := repo_model.UpdateRepositoryCols(ctx, repairRepo, "is_empty"); err != nil {
+					return err
+				}
+				return repo_module.UpdateRepoSize(ctx, repairRepo)
+			}); err != nil {
+			if operation_service.IsBusy(err) {
+				ctx.Flash.Error("A native operation is in progress; retry shortly.")
+				ctx.Redirect(ctx.Link)
+				return
+			}
+			ctx.ServerError("RepairIsEmpty", err)
 			return
 		}
 

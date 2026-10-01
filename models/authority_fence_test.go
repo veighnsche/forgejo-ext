@@ -54,3 +54,11 @@ func TestRemoveOrgUserFencesWhileHeld(t *testing.T) {
 	require.ErrorIs(t, RemoveOrgUser(ctx, 3, 4), nativeoperation.ErrBusy)
 	unittest.AssertExistsAndLoadBean(t, &organization.OrgUser{OrgID: 3, UID: 4})
 }
+
+func TestDeleteDeployKeyFencesWhileHeld(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	claimTestOwner(t)
+
+	require.ErrorIs(t, DeleteDeployKey(ctx, 1, 1), nativeoperation.ErrBusy)
+}

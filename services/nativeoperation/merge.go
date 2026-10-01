@@ -28,6 +28,9 @@ import (
 // attributable result. There is no unguarded fallback: every refusal path
 // records not_committed or retains the fence.
 func (s *Service) submitMerge(ctx context.Context, decision authmodel.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
+	if err := ctx.Err(); err != nil {
+		return sdk.OperationRecord{}, err
+	}
 	dir, err := s.execDir()
 	if err != nil {
 		return sdk.OperationRecord{}, err
@@ -123,8 +126,12 @@ type terminalResult struct {
 // the SDK record and whether the owner stays held for an unresolved effect.
 func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent *ValidIntent, scope Scope, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
 	owner := execution.Owner
+	// Terminal records and the owner release must complete even when the
+	// caller disconnects mid-write; native work above keeps the live
+	// context so cancellation still stops it.
+	releaseCtx := context.WithoutCancel(ctx)
 	refuse := func(reason string) (sdk.OperationRecord, terminalResult, error) {
-		recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
+		recorded, err := model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, model.TerminalOutcome{
 			EffectState:  model.EffectNotCommitted,
 			Reason:       reason,
 			Cancellation: model.CancellationNone,
@@ -195,7 +202,7 @@ func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent 
 	if err := TestCrashBarrier(CrashPointMergeAfterNative); err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
-	return s.reconcileMerge(ctx, op, scope, repository, execution, mergeErr)
+	return s.reconcileMerge(releaseCtx, op, scope, repository, execution, mergeErr)
 }
 
 func sameRepositoryPullRequest(pr *issues_model.PullRequest, intent *ValidIntent) bool {

@@ -18,6 +18,7 @@ import (
 	"forgejo.org/modules/storage"
 	"forgejo.org/modules/timeutil"
 	attachment_service "forgejo.org/services/attachment"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/f3/gof3/v3/f3"
 	f3_id "code.forgejo.org/f3/gof3/v3/id"
@@ -176,7 +177,13 @@ func (o *attachment) Delete(ctx context.Context) {
 	node := o.GetNode()
 	o.Trace("%s", node.GetID())
 
-	if err := repo_model.DeleteAttachment(ctx, o.forgejoAttachment, true); err != nil {
+	// The mirror delete claims the same per-row owner the interactive
+	// paths use, so a crash mid-delete reconciles offline; inside an
+	// enclosing owner the claim reuses that execution.
+	err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentResource(o.forgejoAttachment.ID, operation_service.CollabAttachmentDelete), o.forgejoAttachment.RepoID, func(ctx context.Context) error {
+		return repo_model.DeleteAttachment(ctx, o.forgejoAttachment, true)
+	})
+	if err != nil {
 		panic(err)
 	}
 }

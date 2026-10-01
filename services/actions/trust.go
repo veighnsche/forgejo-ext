@@ -17,6 +17,7 @@ import (
 	actions_module "forgejo.org/modules/actions"
 	"forgejo.org/modules/log"
 	webhook_module "forgejo.org/modules/webhook"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 type TrustUpdate string
@@ -29,7 +30,14 @@ const (
 )
 
 func CleanupActionUser(ctx context.Context) error {
-	return actions_model.RevokeInactiveActionUser(ctx)
+	// One trust sweep owns the inactive-row removal before its effects.
+	// The affected set is unknowable, so offline recovery fences it;
+	// the claim still orders the sweep against every other writer.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.TrustSweepResource(), operation_service.Scope{
+		Family: operation_service.FamilyActionsRun,
+	}, func(ctx context.Context) error {
+		return actions_model.RevokeInactiveActionUser(ctx)
+	})
 }
 
 func loadPullRequestAttributes(ctx context.Context, pr *issues_model.PullRequest) error {
@@ -259,43 +267,60 @@ func userIsExplicitlyTrustedWithPullRequest(ctx context.Context, pr *issues_mode
 }
 
 func RevokeTrust(ctx context.Context, repoID, posterID int64) error {
-	if err := actions_model.DeleteActionUserByUserIDAndRepoID(ctx, posterID, repoID); err != nil {
-		return err
-	}
-
-	runs, err := actions_model.GetRunsNotDoneByRepoIDAndPullRequestPosterID(ctx, repoID, posterID)
-	if err != nil {
-		return err
-	}
-
-	for _, run := range runs {
-		if err := CancelRun(ctx, run); err != nil {
+	// One trust update owns the trust-row removal and the run
+	// cancellations before their effects. Callers inside an enclosing
+	// owner (user block revokes trust under its authority owner) reuse
+	// that execution instead of claiming again.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.TrustResource(operation_service.ActionsRunOpTrustRevoke, posterID), operation_service.Scope{
+		Family:       operation_service.FamilyActionsRun,
+		RepositoryID: repoID,
+	}, func(ctx context.Context) error {
+		if err := actions_model.DeleteActionUserByUserIDAndRepoID(ctx, posterID, repoID); err != nil {
 			return err
 		}
-	}
-	return nil
+
+		runs, err := actions_model.GetRunsNotDoneByRepoIDAndPullRequestPosterID(ctx, repoID, posterID)
+		if err != nil {
+			return err
+		}
+
+		for _, run := range runs {
+			if err := CancelRun(ctx, run); err != nil {
+				return err
+			}
+		}
+		return operation_service.TestCrashBarrier(operation_service.CrashPointActionsRunAfterEffects)
+	})
 }
 
 func AlwaysTrust(ctx context.Context, doerID, repoID, posterID int64) error {
-	if err := actions_model.InsertActionUser(ctx, &actions_model.ActionUser{
-		UserID:                  posterID,
-		RepoID:                  repoID,
-		TrustedWithPullRequests: true,
-	}); err != nil {
-		return err
-	}
-
-	runs, err := actions_model.GetRunsNotDoneByRepoIDAndPullRequestPosterID(ctx, repoID, posterID)
-	if err != nil {
-		return err
-	}
-
-	for _, run := range runs {
-		if err := ApproveRun(ctx, run, doerID); err != nil {
+	// One trust update owns the trust-row grant and the run approvals
+	// before their effects. Callers inside an enclosing owner reuse that
+	// execution instead of claiming again.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.TrustResource(operation_service.ActionsRunOpTrustApprove, posterID), operation_service.Scope{
+		Family:       operation_service.FamilyActionsRun,
+		RepositoryID: repoID,
+	}, func(ctx context.Context) error {
+		if err := actions_model.InsertActionUser(ctx, &actions_model.ActionUser{
+			UserID:                  posterID,
+			RepoID:                  repoID,
+			TrustedWithPullRequests: true,
+		}); err != nil {
 			return err
 		}
-	}
-	return nil
+
+		runs, err := actions_model.GetRunsNotDoneByRepoIDAndPullRequestPosterID(ctx, repoID, posterID)
+		if err != nil {
+			return err
+		}
+
+		for _, run := range runs {
+			if err := ApproveRun(ctx, run, doerID); err != nil {
+				return err
+			}
+		}
+		return operation_service.TestCrashBarrier(operation_service.CrashPointActionsRunAfterEffects)
+	})
 }
 
 func pullRequestCancel(ctx context.Context, repoID, pullRequestID int64) error {

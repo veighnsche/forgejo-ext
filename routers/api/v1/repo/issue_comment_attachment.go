@@ -4,6 +4,7 @@
 package repo
 
 import (
+	stdCtx "context"
 	"net/http"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"forgejo.org/services/context/upload"
 	"forgejo.org/services/convert"
 	issue_service "forgejo.org/services/issue"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // GetIssueCommentAttachment gets a single attachment of the comment
@@ -216,6 +218,8 @@ func CreateIssueCommentAttachment(ctx *context.APIContext) {
 	if err != nil {
 		if upload.IsErrFileTypeForbidden(err) {
 			ctx.Error(http.StatusUnprocessableEntity, "", err)
+		} else if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "UploadAttachment", err)
 		} else {
 			ctx.Error(http.StatusInternalServerError, "UploadAttachment", err)
 		}
@@ -290,7 +294,14 @@ func EditIssueCommentAttachment(ctx *context.APIContext) {
 		attach.Name = form.Name
 	}
 
-	if err := repo_model.UpdateAttachment(ctx, attach); err != nil {
+	// One attachment update owns the row edit before its effects.
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentResource(attach.ID, operation_service.CollabAttachmentUpdate), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
+		return repo_model.UpdateAttachment(ctx, attach)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "UpdateAttachment", err)
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "UpdateAttachment", attach)
 		return
 	}
@@ -339,7 +350,15 @@ func DeleteIssueCommentAttachment(ctx *context.APIContext) {
 		return
 	}
 
-	if err := repo_model.DeleteAttachment(ctx, attach, true); err != nil {
+	// One attachment delete owns the row and file removal before its
+	// effects.
+	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentResource(attach.ID, operation_service.CollabAttachmentDelete), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
+		return repo_model.DeleteAttachment(ctx, attach, true)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "DeleteAttachment", err)
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "DeleteAttachment", err)
 		return
 	}

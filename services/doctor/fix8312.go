@@ -5,12 +5,14 @@ package doctor
 
 import (
 	"context"
+	"fmt"
 
 	"forgejo.org/models"
 	"forgejo.org/models/db"
 	org_model "forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	"forgejo.org/modules/log"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -29,7 +31,13 @@ func fixOwnerTeamCreateOrgRepo(ctx context.Context, logger log.Logger, autofix b
 				return nil
 			}
 
-			return models.UpdateTeam(ctx, team, false, false)
+			// Each team repairs under its own maintenance ownership;
+			// the scan above stays a read.
+			return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyMaintenance, fmt.Sprintf("%d/team-8312", team.OrgID), operation_service.Scope{
+				Family: operation_service.FamilyMaintenance,
+			}, func(ctx context.Context) error {
+				return models.UpdateTeam(ctx, team, false, false)
+			})
 		},
 	)
 	if err != nil {

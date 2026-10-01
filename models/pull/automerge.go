@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
@@ -52,6 +53,13 @@ func IsErrAlreadyScheduledToAutoMerge(err error) bool {
 
 // ScheduleAutoMerge schedules a pull request to be merged when all checks succeed
 func ScheduleAutoMerge(ctx context.Context, doer *user_model.User, pullID int64, style repo_model.MergeStyle, message string, deleteBranch bool) error {
+	// Nested participating writer: scheduled merges gate PR merge
+	// eligibility, so they refuse while another owner holds the
+	// reservation; the enclosing collaboration update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	// Check if we already have a merge scheduled for that pull request
 	if exists, _, err := GetScheduledMergeByPullID(ctx, pullID); err != nil {
 		return err
@@ -92,6 +100,13 @@ func GetScheduledMergeByPullID(ctx context.Context, pullID int64) (bool, *AutoMe
 
 // DeleteScheduledAutoMerge delete a scheduled pull request
 func DeleteScheduledAutoMerge(ctx context.Context, pullID int64) error {
+	// Nested participating writer: scheduled merges gate PR merge
+	// eligibility, so they refuse while another owner holds the
+	// reservation; the enclosing collaboration update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	exist, scheduledPRM, err := GetScheduledMergeByPullID(ctx, pullID)
 	if err != nil {
 		return err

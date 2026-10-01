@@ -7,8 +7,11 @@ import (
 	"context"
 	"testing"
 
+	actions_model "forgejo.org/models/actions"
+	"forgejo.org/models/db"
 	model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
+	user_model "forgejo.org/models/user"
 
 	"github.com/stretchr/testify/require"
 )
@@ -288,4 +291,186 @@ func TestAuthorityClaimRecordsAttributableScope(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func insertDeletedUser(t *testing.T, ctx context.Context, name string) int64 {
+	t.Helper()
+	user := &user_model.User{Name: name, LowerName: name, Email: name + "@example.com"}
+	unittest.AssertSuccessfulInsert(t, user)
+	_, err := db.GetEngine(ctx).ID(user.ID).Delete(new(user_model.User))
+	require.NoError(t, err)
+	return user.ID
+}
+
+func TestRecoverAuthorityUserDeleteReleased(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+
+	userID := insertDeletedUser(t, ctx, "ft09-gone")
+	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/9001/delete/nonce", Scope{
+		Kind:        model.OwnerOrdinary,
+		Family:      FamilyAuthority,
+		AuthorityOp: "user/delete",
+		AuthorityID: userID,
+	})
+	inhibitDomain(t)
+
+	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, "deleted", assessment.Effect)
+}
+
+func TestRecoverAuthorityUserDeletePresentFences(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+
+	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/delete/nonce", Scope{
+		Kind:        model.OwnerOrdinary,
+		Family:      FamilyAuthority,
+		AuthorityOp: "user/delete",
+		AuthorityID: 2,
+	})
+	inhibitDomain(t)
+
+	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
+	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
+}
+
+func TestRecoverAuthorityUserDeleteDanglingFences(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+
+	userID := insertDeletedUser(t, ctx, "ft09-dangling")
+	unittest.AssertSuccessfulInsert(t, &user_model.EmailAddress{UID: userID, Email: "ft09-dangling@example.com"})
+	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/9002/delete/nonce", Scope{
+		Kind:        model.OwnerOrdinary,
+		Family:      FamilyAuthority,
+		AuthorityOp: "user/delete",
+		AuthorityID: userID,
+	})
+	inhibitDomain(t)
+
+	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
+	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
+	require.Contains(t, assessment.Checks[0], "dangling email=1")
+}
+
+func TestRecoverAuthorityOrgDeleteReleased(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+
+	userID := insertDeletedUser(t, ctx, "ft09-org-gone")
+	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/org/9003/delete/nonce", Scope{
+		Kind:        model.OwnerOrdinary,
+		Family:      FamilyAuthority,
+		AuthorityOp: "org/delete",
+		AuthorityID: userID,
+	})
+	inhibitDomain(t)
+
+	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, "deleted", assessment.Effect)
+}
+
+func TestRecoverAuthorityOrgDeletePresentFences(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+
+	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/org/3/delete/nonce", Scope{
+		Kind:        model.OwnerOrdinary,
+		Family:      FamilyAuthority,
+		AuthorityOp: "org/delete",
+		AuthorityID: 3,
+	})
+	inhibitDomain(t)
+
+	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
+	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
+}
+
+func TestRecoverAuthorityUserBlockCommitted(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+
+	unittest.AssertSuccessfulInsert(t, &user_model.BlockedUser{UserID: 2, BlockID: 4242})
+	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/block/4242/nonce", Scope{
+		Kind:         model.OwnerOrdinary,
+		Family:       FamilyAuthority,
+		AuthorityOp:  "user/block",
+		AuthorityID:  2,
+		AuthorityID2: 4242,
+	})
+	inhibitDomain(t)
+
+	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, EffectAuthorityConsistent, assessment.Effect)
+}
+
+func TestRecoverAuthorityUserBlockAbsent(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+
+	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/block/4243/nonce", Scope{
+		Kind:         model.OwnerOrdinary,
+		Family:       FamilyAuthority,
+		AuthorityOp:  "user/block",
+		AuthorityID:  2,
+		AuthorityID2: 4243,
+	})
+	inhibitDomain(t)
+
+	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, EffectAuthorityConsistent, assessment.Effect)
+}
+
+func TestRecoverAuthorityUserBlockSurvivorFences(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+
+	blocked := &user_model.User{Name: "ft09-blocked", LowerName: "ft09-blocked", Email: "ft09-blocked@example.com"}
+	unittest.AssertSuccessfulInsert(t, blocked)
+	unittest.AssertSuccessfulInsert(t, &user_model.BlockedUser{UserID: 2, BlockID: blocked.ID})
+	unittest.AssertSuccessfulInsert(t, &actions_model.ActionUser{UserID: blocked.ID, RepoID: 1})
+	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/block/4244/nonce", Scope{
+		Kind:         model.OwnerOrdinary,
+		Family:       FamilyAuthority,
+		AuthorityOp:  "user/block",
+		AuthorityID:  2,
+		AuthorityID2: blocked.ID,
+	})
+	inhibitDomain(t)
+
+	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
+	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
 }

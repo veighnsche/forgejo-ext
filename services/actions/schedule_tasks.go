@@ -59,53 +59,7 @@ func startTasks(ctx context.Context) error {
 
 		// Loop through each spec and create a schedule task for it
 		for _, row := range specs {
-			if row.Repo.IsArchived {
-				// Skip if the repo is archived
-				continue
-			}
-
-			cfg, err := row.Repo.GetUnit(ctx, unit.TypeActions)
-			if err != nil {
-				if repo_model.IsErrUnitTypeNotExist(err) {
-					// Skip the actions unit of this repo is disabled.
-					continue
-				}
-				return fmt.Errorf("GetUnit: %w", err)
-			}
-			actionConfig := cfg.ActionsConfig()
-			if actionConfig.IsWorkflowDisabled(row.Schedule.WorkflowID) {
-				continue
-			}
-
-			createAndSchedule := func(row *actions_model.ActionScheduleSpec) (cron.Schedule, error) {
-				if err := CreateScheduleTask(ctx, row.Schedule); err != nil {
-					return nil, fmt.Errorf("CreateScheduleTask: %v", err)
-				}
-
-				// Parse the spec
-				schedule, err := row.Parse()
-				if err != nil {
-					return nil, fmt.Errorf("Parse(Spec=%v): %v", row.Spec, err)
-				}
-				return schedule, nil
-			}
-
-			schedule, err := createAndSchedule(row)
-			if err != nil {
-				log.Error("RepoID=%v WorkflowID=%v: %v", row.Schedule.RepoID, row.Schedule.WorkflowID, err)
-				actionConfig.DisableWorkflow(row.Schedule.WorkflowID)
-				if err := repo_model.UpdateRepoUnit(ctx, cfg); err != nil {
-					log.Error("RepoID=%v WorkflowID=%v: CreateScheduleTask: %v", row.Schedule.RepoID, row.Schedule.WorkflowID, err)
-					return err
-				}
-				continue
-			}
-
-			// Update the spec's next run time and previous run time
-			row.Prev = row.Next
-			row.Next = timeutil.TimeStamp(schedule.Next(now.Add(1 * time.Minute)).Unix())
-			if err := actions_model.UpdateScheduleSpec(ctx, row, "prev", "next"); err != nil {
-				log.Error("UpdateScheduleSpec: %v", err)
+			if err := startScheduleRow(ctx, now, row); err != nil {
 				return err
 			}
 		}
@@ -117,6 +71,64 @@ func startTasks(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// startScheduleRow fires one due schedule: the run creation, the
+// broken-workflow disable and the spec's next-run update share one
+// schedule ownership so no other writer interleaves them.
+func startScheduleRow(ctx context.Context, now time.Time, row *actions_model.ActionScheduleSpec) error {
+	if row.Repo.IsArchived {
+		// Skip if the repo is archived
+		return nil
+	}
+
+	cfg, err := row.Repo.GetUnit(ctx, unit.TypeActions)
+	if err != nil {
+		if repo_model.IsErrUnitTypeNotExist(err) {
+			// Skip the actions unit of this repo is disabled.
+			return nil
+		}
+		return fmt.Errorf("GetUnit: %w", err)
+	}
+	actionConfig := cfg.ActionsConfig()
+	if actionConfig.IsWorkflowDisabled(row.Schedule.WorkflowID) {
+		return nil
+	}
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.ScheduleResource(row.Schedule.ID), operation_service.Scope{
+		Family:       operation_service.FamilyActionsRun,
+		RepositoryID: row.Schedule.RepoID,
+	}, func(ctx context.Context) error {
+		schedule, err := func(row *actions_model.ActionScheduleSpec) (cron.Schedule, error) {
+			if err := CreateScheduleTask(ctx, row.Schedule); err != nil {
+				return nil, fmt.Errorf("CreateScheduleTask: %v", err)
+			}
+
+			// Parse the spec
+			schedule, err := row.Parse()
+			if err != nil {
+				return nil, fmt.Errorf("Parse(Spec=%v): %v", row.Spec, err)
+			}
+			return schedule, nil
+		}(row)
+		if err != nil {
+			log.Error("RepoID=%v WorkflowID=%v: %v", row.Schedule.RepoID, row.Schedule.WorkflowID, err)
+			actionConfig.DisableWorkflow(row.Schedule.WorkflowID)
+			if err := repo_model.UpdateRepoUnit(ctx, cfg); err != nil {
+				log.Error("RepoID=%v WorkflowID=%v: CreateScheduleTask: %v", row.Schedule.RepoID, row.Schedule.WorkflowID, err)
+				return err
+			}
+			return nil
+		}
+
+		// Update the spec's next run time and previous run time
+		row.Prev = row.Next
+		row.Next = timeutil.TimeStamp(schedule.Next(now.Add(1 * time.Minute)).Unix())
+		if err := actions_model.UpdateScheduleSpec(ctx, row, "prev", "next"); err != nil {
+			log.Error("UpdateScheduleSpec: %v", err)
+			return err
+		}
+		return nil
+	})
 }
 
 // CreateScheduleTask creates a scheduled task from a cron action schedule.
@@ -274,22 +286,31 @@ func CancelPreviousWithConcurrencyGroup(ctx context.Context, repoID int64, concu
 }
 
 func CleanRepoScheduleTasks(ctx context.Context, repo *repo_model.Repository, cancelPreviousJobs bool) error {
-	// If actions disabled when there is schedule task, this will remove the outdated schedule tasks
-	// There is no other place we can do this because the app.ini will be changed manually
-	if err := actions_model.DeleteScheduleTaskByRepo(ctx, repo.ID); err != nil {
-		return fmt.Errorf("DeleteCronTaskByRepo: %v", err)
-	}
-	if cancelPreviousJobs {
-		// cancel running cron jobs of this repository and delete old schedules
-		if err := CancelPreviousJobs(
-			ctx,
-			repo.ID,
-			repo.DefaultBranch,
-			"",
-			webhook_module.HookEventSchedule,
-		); err != nil {
-			return fmt.Errorf("CancelPreviousJobs: %v", err)
+	// One schedule cleanup owns the schedule removal and the run
+	// cancellations before their effects. Callers inside an enclosing
+	// owner (push completion rebuilds schedules under its own owner)
+	// reuse that execution instead of claiming again.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.ScheduleCleanResource(cancelPreviousJobs), operation_service.Scope{
+		Family:       operation_service.FamilyActionsRun,
+		RepositoryID: repo.ID,
+	}, func(ctx context.Context) error {
+		// If actions disabled when there is schedule task, this will remove the outdated schedule tasks
+		// There is no other place we can do this because the app.ini will be changed manually
+		if err := actions_model.DeleteScheduleTaskByRepo(ctx, repo.ID); err != nil {
+			return fmt.Errorf("DeleteCronTaskByRepo: %v", err)
 		}
-	}
-	return nil
+		if cancelPreviousJobs {
+			// cancel running cron jobs of this repository and delete old schedules
+			if err := CancelPreviousJobs(
+				ctx,
+				repo.ID,
+				repo.DefaultBranch,
+				"",
+				webhook_module.HookEventSchedule,
+			); err != nil {
+				return fmt.Errorf("CancelPreviousJobs: %v", err)
+			}
+		}
+		return operation_service.TestCrashBarrier(operation_service.CrashPointActionsRunAfterEffects)
+	})
 }

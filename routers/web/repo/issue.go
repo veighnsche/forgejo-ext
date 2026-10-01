@@ -3698,27 +3698,52 @@ func updateAttachments(ctx *context.Context, item any, files []string) error {
 	default:
 		return fmt.Errorf("unknown Type: %T", content)
 	}
-	for i := 0; i < len(attachments); i++ {
-		if util.SliceContainsString(files, attachments[i].UUID) {
-			continue
-		}
-		if err := repo_model.DeleteAttachment(ctx, attachments[i], true); err != nil {
-			return err
+	// One collaboration writer owns the attachment pruning and
+	// association before its effects, advancing the native revision so
+	// old accepted-input observations go stale. A desired set that
+	// matches the attached set needs no write and takes no claim.
+	needsWrite := len(files) > 0
+	if !needsWrite {
+		for i := 0; i < len(attachments); i++ {
+			if !util.SliceContainsString(files, attachments[i].UUID) {
+				needsWrite = true
+				break
+			}
 		}
 	}
+	prune := func(ctx stdCtx.Context) error {
+		for i := 0; i < len(attachments); i++ {
+			if util.SliceContainsString(files, attachments[i].UUID) {
+				continue
+			}
+			if err := repo_model.DeleteAttachment(ctx, attachments[i], true); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	var err error
-	if len(files) > 0 {
-		// One collaboration writer owns the attachment association
-		// before its effects, advancing the native revision so old
-		// accepted-input observations go stale.
+	if needsWrite {
 		switch content := item.(type) {
 		case *issues_model.Issue:
 			err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(content.ID, "attachment"), content.RepoID, func(ctx stdCtx.Context) error {
-				return issues_model.UpdateIssueAttachments(ctx, content, files)
+				if err := prune(ctx); err != nil {
+					return err
+				}
+				if len(files) > 0 {
+					return issues_model.UpdateIssueAttachments(ctx, content, files)
+				}
+				return nil
 			})
 		case *issues_model.Comment:
 			err = operation_service.WithCollaborationOwnership(ctx, operation_service.CommentResource(content.ID, "attachment"), 0, func(ctx stdCtx.Context) error {
-				return content.UpdateAttachments(ctx, files)
+				if err := prune(ctx); err != nil {
+					return err
+				}
+				if len(files) > 0 {
+					return content.UpdateAttachments(ctx, files)
+				}
+				return nil
 			})
 		default:
 			return fmt.Errorf("unknown Type: %T", content)

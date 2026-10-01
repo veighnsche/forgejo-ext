@@ -118,8 +118,14 @@ func registerDeletedBranchesCleanup() {
 		OlderThan: 24 * time.Hour,
 	}, func(ctx context.Context, _ *user_model.User, config Config) error {
 		realConfig := config.(*OlderThanConfig)
-		git_model.RemoveOldDeletedBranches(ctx, realConfig.OlderThan)
-		return nil
+		// One branch-table cleanup owns the purge before its effects.
+		// The purged set is unknowable, so offline recovery fences it.
+		return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyRefSync, "0/deleted-branches", operation_service.Scope{
+			Family: operation_service.FamilyRefSync,
+		}, func(ctx context.Context) error {
+			git_model.RemoveOldDeletedBranches(ctx, realConfig.OlderThan)
+			return nil
+		})
 	})
 }
 

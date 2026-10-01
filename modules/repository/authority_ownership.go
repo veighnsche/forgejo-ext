@@ -45,6 +45,11 @@ func withAuthorityOwnership(ctx context.Context, repoID, userID int64, fn func(c
 	if execcontext.FromContext(ctx) != nil {
 		return fn(ctx)
 	}
+	// A canceled caller cannot hold the domain: claiming would strand
+	// the reservation when the release below fails on the same ctx.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	resource := fmt.Sprintf("repo/%d/collaborator/%d", repoID, userID)
 	dir := filepath.Join(setting.AppDataPath, "nativeop-exec")
 	path, secret, err := execcontext.WriteCapabilityFile(dir)
@@ -79,7 +84,7 @@ func withAuthorityOwnership(ctx context.Context, repoID, userID int64, fn func(c
 	}
 	owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: path})
 	fnErr := fn(owned)
-	if err := model.ReleaseOwner(ctx, owner); err != nil {
+	if err := model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
 		release()
 		if fnErr != nil {
 			return fmt.Errorf("%w (and failed to release %s: %v)", fnErr, owner, err)

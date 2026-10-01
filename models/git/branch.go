@@ -282,6 +282,12 @@ func RemoveDeletedBranchByID(ctx context.Context, repoID, branchID int64) error 
 
 // RemoveOldDeletedBranches removes old deleted branches
 func RemoveOldDeletedBranches(ctx context.Context, olderThan time.Duration) {
+	// Nested participating writer: branch rows refuse while another owner
+	// holds the reservation; the enclosing cleanup carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		log.Error("DeletedBranchesCleanup: %v", err)
+		return
+	}
 	// Nothing to do for shutdown or terminate
 	log.Trace("Doing: DeletedBranchesCleanup")
 

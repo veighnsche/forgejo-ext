@@ -7,6 +7,7 @@ package actions
 import (
 	"archive/zip"
 	"compress/gzip"
+	stdCtx "context"
 	"errors"
 	"fmt"
 	"html"
@@ -896,7 +897,21 @@ func disableOrEnableWorkflowFile(ctx *app_context.Context, isEnable bool) {
 		cfg.DisableWorkflow(workflow)
 	}
 
-	if err := repo_model.UpdateRepoUnit(ctx, cfgUnit); err != nil {
+	// One settings update owns the workflow toggle before its effects.
+	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
+		operation_service.FamilyRepoSettings,
+		fmt.Sprintf("%d/actions-workflow", ctx.Repo.Repository.ID),
+		operation_service.Scope{
+			Family:       operation_service.FamilyRepoSettings,
+			RepositoryID: ctx.Repo.Repository.ID,
+		},
+		func(ctx stdCtx.Context) error {
+			return repo_model.UpdateRepoUnit(ctx, cfgUnit)
+		}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.ServerError("UpdateRepoUnit", err)
 		return
 	}

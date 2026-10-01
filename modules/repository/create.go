@@ -16,6 +16,7 @@ import (
 	activities_model "forgejo.org/models/activities"
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
@@ -241,6 +242,12 @@ func CheckDaemonExportOK(ctx context.Context, repo *repo_model.Repository) error
 
 // UpdateRepository updates a repository with db context
 func UpdateRepository(ctx context.Context, repo *repo_model.Repository, visibilityChanged bool) (err error) {
+	// Nested participating writer: the whole repository row refuses while
+	// another owner holds the reservation; the enclosing lifecycle or
+	// settings update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	repo.LowerName = strings.ToLower(repo.Name)
 
 	e := db.GetEngine(ctx)

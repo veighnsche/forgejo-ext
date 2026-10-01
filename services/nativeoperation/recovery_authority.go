@@ -7,13 +7,22 @@ import (
 	"context"
 	"fmt"
 
+	actions_model "forgejo.org/models/actions"
+	activities_model "forgejo.org/models/activities"
 	asymkey_model "forgejo.org/models/asymkey"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	issues_model "forgejo.org/models/issues"
 	model "forgejo.org/models/nativeoperation"
 	organization "forgejo.org/models/organization"
+	packages_model "forgejo.org/models/packages"
+	access_model "forgejo.org/models/perm/access"
+	pull_model "forgejo.org/models/pull"
 	repo_model "forgejo.org/models/repo"
+	secret_model "forgejo.org/models/secret"
 	user_model "forgejo.org/models/user"
+
+	"xorm.io/builder"
 )
 
 // EffectAuthorityConsistent releases an interrupted authority writer whose
@@ -26,21 +35,26 @@ const EffectAuthorityConsistent = "consistent"
 // operation's entities. Referenced users, teams, repositories and credential
 // parents must still exist: an authority change never deletes its own
 // context, so a missing entity means unaccounted interference and fences.
-// Cross-family deletes and multi-entity batches have no single-entity
-// reconciliation and stay fenced.
+// User and organization deletes reconcile their full cross-family absence
+// below; other multi-entity batches have no single-entity reconciliation
+// and stay fenced.
 func (s *Service) recoverAuthority(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.AuthorityOp == "" {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "authority scope names no attributable operation")
 	}
 	id, id2 := scope.AuthorityID, scope.AuthorityID2
 	switch scope.AuthorityOp {
-	case "user/delete", "org/delete":
-		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("authority operation %q spans repository effects; composed recovery owns it", scope.AuthorityOp))
+	case "user/delete":
+		return s.recoverAuthorityUserDelete(ctx, assessment, reservation, id)
+	case "org/delete":
+		return s.recoverAuthorityOrgDelete(ctx, assessment, reservation, id)
+	case "user/block":
+		return s.recoverAuthorityUserBlock(ctx, assessment, reservation, id, id2)
 	case "users/delete-inactive", "users/must-change-password", "directory-sync", "admin/regenerate-hooks", "admin/regenerate-keys":
 		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("authority operation %q covers many entities; no single-entity reconciliation", scope.AuthorityOp))
 	case "user/update", "user/auth", "user/activate", "user/rename", "user/promote",
 		"user/credentials/reset", "user/account-link", "user/openid",
-		"user/block", "user/unblock", "user/email", "user/email/activate",
+		"user/unblock", "user/email", "user/email/activate",
 		"user/token", "user/2fa", "user/webauthn",
 		"user/key", "user/key/verify", "user/gpg-key", "user/gpg-key/verify",
 		"user/principal-key", "user/oauth2-app":
@@ -424,3 +438,231 @@ func (s *Service) recoverAuthorityDeployKey(ctx context.Context, assessment *Rec
 	assessment.Checks = append(assessment.Checks, fmt.Sprintf("deploy association %d present for repository %d", keyID, repoID))
 	return s.releaseRecovered(ctx, assessment, reservation, EffectAuthorityConsistent)
 }
+
+// danglingCheck counts rows that a completed account deletion must have
+// removed. Every check runs against committed state while the domain is
+// stopped, so any remaining row proves the delete's final transaction
+// never committed its full effect.
+type danglingCheck struct {
+	name  string
+	count func(ctx context.Context, id int64) (int64, error)
+}
+
+func countWhere(bean func() any, cond string, args ...any) func(ctx context.Context, id int64) (int64, error) {
+	return func(ctx context.Context, id int64) (int64, error) {
+		full := make([]any, 0, len(args)+1)
+		for _, arg := range args {
+			if arg == nil {
+				full = append(full, id)
+			} else {
+				full = append(full, arg)
+			}
+		}
+		return db.GetEngine(ctx).Where(cond, full...).Count(bean())
+	}
+}
+
+// recoverAuthorityUserDelete reconciles one held user deletion across its
+// families. The delete commits its purge in separate transactions and its
+// row removal plus credential cleanup in one final transaction guarded by
+// ownership checks, so an absent user row proves the final transaction
+// committed and the purge completed. Every nested row set must then be
+// absent; any survivor fences as a partial delete. A present user row
+// fences: the purge may have partially applied outside the final
+// transaction, which no post-hoc check can distinguish from a delete
+// that never started.
+//
+// Rows the delete keeps by design need no check: issues, comments and
+// reactions left for a non-purge delete are self-consistent (their
+// presence proves the purge branch never ran, since that branch shares
+// the final transaction), and name-keyed rows (redirects) plus derived
+// counters and post-commit filesystem effects (key files, avatars) follow
+// from the committed transaction. Stale key-file lines reference deleted
+// key IDs, which SSH authentication fails closed on.
+func (s *Service) recoverAuthorityUserDelete(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, userID int64) (RecoveryAssessment, error) {
+	if userID <= 0 {
+		return fenced(assessment, ReasonRecoveryUnknownFamily, "authority delete names no user")
+	}
+	if _, err := user_model.GetUserByID(ctx, userID); err != nil {
+		if !user_model.IsErrUserNotExist(err) {
+			return RecoveryAssessment{}, err
+		}
+	} else {
+		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("user %d still exists after a held deletion; complete the delete manually", userID))
+	}
+	checks := []danglingCheck{
+		{"watch", countWhere(func() any { return new(repo_model.Watch) }, "user_id=?", nil)},
+		{"star", countWhere(func() any { return new(repo_model.Star) }, "uid=?", nil)},
+		{"follow", countWhere(func() any { return new(user_model.Follow) }, "user_id=? OR follow_id=?", nil, nil)},
+		{"access_token", countWhere(func() any { return new(auth_model.AccessToken) }, "uid=?", nil)},
+		{"collaboration", countWhere(func() any { return new(repo_model.Collaboration) }, "user_id=?", nil)},
+		{"access", countWhere(func() any { return new(access_model.Access) }, "user_id=?", nil)},
+		{"action", countWhere(func() any { return new(activities_model.Action) }, "user_id=? OR act_user_id=?", nil, nil)},
+		{"issue_user", countWhere(func() any { return new(issues_model.IssueUser) }, "uid=?", nil)},
+		{"email", countWhere(func() any { return new(user_model.EmailAddress) }, "uid=?", nil)},
+		{"openid", countWhere(func() any { return new(user_model.UserOpenID) }, "uid=?", nil)},
+		{"reaction", countWhere(func() any { return new(issues_model.Reaction) }, "user_id=?", nil)},
+		{"team_user", countWhere(func() any { return new(organization.TeamUser) }, "uid=?", nil)},
+		{"stopwatch", countWhere(func() any { return new(issues_model.Stopwatch) }, "user_id=?", nil)},
+		{"setting", countWhere(func() any { return new(user_model.Setting) }, "user_id=?", nil)},
+		{"badge", countWhere(func() any { return new(user_model.UserBadge) }, "user_id=?", nil)},
+		{"automerge", countWhere(func() any { return new(pull_model.AutoMerge) }, "doer_id=?", nil)},
+		{"review_state", countWhere(func() any { return new(pull_model.ReviewState) }, "user_id=?", nil)},
+		{"action_runner", countWhere(func() any { return new(actions_model.ActionRunner) }, "owner_id=?", nil)},
+		{"action_user", countWhere(func() any { return new(actions_model.ActionUser) }, "user_id=?", nil)},
+		{"blocked", countWhere(func() any { return new(user_model.BlockedUser) }, "user_id=? OR block_id=?", nil, nil)},
+		{"runner_token", countWhere(func() any { return new(actions_model.ActionRunnerToken) }, "owner_id=?", nil)},
+		{"auth_token", countWhere(func() any { return new(auth_model.AuthorizationToken) }, "uid=?", nil)},
+		{"tracked_time", countWhere(func() any { return new(issues_model.TrackedTime) }, "user_id=?", nil)},
+		{"oauth2_app", countWhere(func() any { return new(auth_model.OAuth2Application) }, "uid=?", nil)},
+		{"oauth2_grant", countWhere(func() any { return new(auth_model.OAuth2Grant) }, "user_id=?", nil)},
+		{"public_key", countWhere(func() any { return new(asymkey_model.PublicKey) }, "owner_id=?", nil)},
+		{"gpg_key", countWhere(func() any { return new(asymkey_model.GPGKey) }, "owner_id=?", nil)},
+		{"assignee", countWhere(func() any { return new(issues_model.IssueAssignees) }, "assignee_id=?", nil)},
+		{"external_login", countWhere(func() any { return new(user_model.ExternalLoginUser) }, "user_id=?", nil)},
+	}
+	for _, check := range checks {
+		n, err := check.count(ctx, userID)
+		if err != nil {
+			return RecoveryAssessment{}, err
+		}
+		if n > 0 {
+			assessment.Checks = append(assessment.Checks, fmt.Sprintf("user delete dangling %s=%d", check.name, n))
+			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("%d %s rows survive the deleted user %d", n, check.name, userID))
+		}
+	}
+	repos, err := repo_model.CountRepositories(ctx, repo_model.CountRepositoryOptions{OwnerID: userID})
+	if err != nil {
+		return RecoveryAssessment{}, err
+	}
+	if repos > 0 {
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("user delete dangling repositories=%d", repos))
+		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("%d repositories survive the deleted user %d", repos, userID))
+	}
+	ownsPackages, err := packages_model.HasOwnerPackages(ctx, userID)
+	if err != nil {
+		return RecoveryAssessment{}, err
+	}
+	if ownsPackages {
+		assessment.Checks = append(assessment.Checks, "user delete dangling packages=true")
+		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("packages survive the deleted user %d", userID))
+	}
+	assessment.Checks = append(assessment.Checks, fmt.Sprintf("user %d absent with no dangling rows", userID))
+	return s.releaseRecovered(ctx, assessment, reservation, "deleted")
+}
+
+// recoverAuthorityOrgDelete reconciles one held organization deletion
+// across its families. The delete purges repositories first, then removes
+// the organization row with its teams, secrets, runners and follows in one
+// guarded transaction, so an absent organization row proves the removal
+// committed. Every nested row set must then be absent; any survivor
+// fences as a partial delete. A present organization row fences: the
+// purge may have partially applied outside the final transaction.
+func (s *Service) recoverAuthorityOrgDelete(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, orgID int64) (RecoveryAssessment, error) {
+	if orgID <= 0 {
+		return fenced(assessment, ReasonRecoveryUnknownFamily, "authority delete names no organization")
+	}
+	if _, err := user_model.GetUserByID(ctx, orgID); err != nil {
+		if !user_model.IsErrUserNotExist(err) {
+			return RecoveryAssessment{}, err
+		}
+	} else {
+		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("organization %d still exists after a held deletion; complete the delete manually", orgID))
+	}
+	checks := []danglingCheck{
+		{"team", countWhere(func() any { return new(organization.Team) }, "org_id=?", nil)},
+		{"org_user", countWhere(func() any { return new(organization.OrgUser) }, "org_id=?", nil)},
+		{"team_user", countWhere(func() any { return new(organization.TeamUser) }, "org_id=?", nil)},
+		{"team_unit", countWhere(func() any { return new(organization.TeamUnit) }, "org_id=?", nil)},
+		{"team_invite", countWhere(func() any { return new(organization.TeamInvite) }, "org_id=?", nil)},
+		{"secret", countWhere(func() any { return new(secret_model.Secret) }, "owner_id=?", nil)},
+		{"action_runner", countWhere(func() any { return new(actions_model.ActionRunner) }, "owner_id=?", nil)},
+		{"runner_token", countWhere(func() any { return new(actions_model.ActionRunnerToken) }, "owner_id=?", nil)},
+		{"blocked", countWhere(func() any { return new(user_model.BlockedUser) }, "user_id=?", nil)},
+		{"follow", countWhere(func() any { return new(user_model.Follow) }, "follow_id=?", nil)},
+	}
+	for _, check := range checks {
+		n, err := check.count(ctx, orgID)
+		if err != nil {
+			return RecoveryAssessment{}, err
+		}
+		if n > 0 {
+			assessment.Checks = append(assessment.Checks, fmt.Sprintf("org delete dangling %s=%d", check.name, n))
+			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("%d %s rows survive the deleted organization %d", n, check.name, orgID))
+		}
+	}
+	repos, err := repo_model.CountRepositories(ctx, repo_model.CountRepositoryOptions{OwnerID: orgID})
+	if err != nil {
+		return RecoveryAssessment{}, err
+	}
+	if repos > 0 {
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("org delete dangling repositories=%d", repos))
+		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("%d repositories survive the deleted organization %d", repos, orgID))
+	}
+	ownsPackages, err := packages_model.HasOwnerPackages(ctx, orgID)
+	if err != nil {
+		return RecoveryAssessment{}, err
+	}
+	if ownsPackages {
+		assessment.Checks = append(assessment.Checks, "org delete dangling packages=true")
+		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("packages survive the deleted organization %d", orgID))
+	}
+	assessment.Checks = append(assessment.Checks, fmt.Sprintf("organization %d absent with no dangling rows", orgID))
+	return s.releaseRecovered(ctx, assessment, reservation, "deleted")
+}
+
+// recoverAuthorityUserBlock reconciles one held user block across its
+// families. The block commits its row, unfollows, unwatches, collaborator
+// removals and nested trust revocations (with their run cancellations) in
+// one transaction, so a present block row proves every nested effect
+// committed. The nested Actions effects are then verified directly: no
+// trust row may remain for the blocked user in any repository owned by
+// the blocker, and none of their runs there may be unfinished. An absent
+// block row proves the transaction never committed, so nothing applied.
+func (s *Service) recoverAuthorityUserBlock(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, userID, blockID int64) (RecoveryAssessment, error) {
+	if userID <= 0 || blockID <= 0 {
+		return fenced(assessment, ReasonRecoveryUnknownFamily, "authority block names no user pair")
+	}
+	if _, err := user_model.GetUserByID(ctx, userID); err != nil {
+		if user_model.IsErrUserNotExist(err) {
+			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("user %d for the held authority scope no longer exists", userID))
+		}
+		return RecoveryAssessment{}, err
+	}
+	blocked := user_model.IsBlocked(ctx, userID, blockID)
+	assessment.Checks = append(assessment.Checks, fmt.Sprintf("block %d/%d present=%t", userID, blockID, blocked))
+	if !blocked {
+		return s.releaseRecovered(ctx, assessment, reservation, EffectAuthorityConsistent)
+	}
+	err := db.Iterate(ctx, builder.Eq{"owner_id": userID}, func(ctx context.Context, repo *repo_model.Repository) error {
+		if _, err := actions_model.GetActionUserByUserIDAndRepoID(ctx, blockID, repo.ID); err != nil {
+			if !actions_model.IsErrUserNotExist(err) {
+				return err
+			}
+		} else {
+			assessment.Checks = append(assessment.Checks, fmt.Sprintf("block trust row survives in repository %d", repo.ID))
+			return errBlockSurvivor
+		}
+		runs, err := actions_model.GetRunsNotDoneByRepoIDAndPullRequestPosterID(ctx, repo.ID, blockID)
+		if err != nil {
+			return err
+		}
+		if len(runs) > 0 {
+			assessment.Checks = append(assessment.Checks, fmt.Sprintf("block unfinished runs=%d in repository %d", len(runs), repo.ID))
+			return errBlockSurvivor
+		}
+		return nil
+	})
+	if err != nil {
+		if err == errBlockSurvivor {
+			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("trust or run state for user %d survives in a repository of user %d after a held block", blockID, userID))
+		}
+		return RecoveryAssessment{}, err
+	}
+	return s.releaseRecovered(ctx, assessment, reservation, EffectAuthorityConsistent)
+}
+
+// errBlockSurvivor marks a nested trust or run row that survived a held
+// block whose anchor row is present. The iterate callback cannot fence
+// directly, so it returns this sentinel for the caller to translate.
+var errBlockSurvivor = fmt.Errorf("nested block effect survives")

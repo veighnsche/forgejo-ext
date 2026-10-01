@@ -65,3 +65,83 @@ func TestClassifyOrdinaryOwnerMultiRefScope(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, completedDenied.Allowed)
 }
+
+// TestCollabPullCreateRefinesPRRef pins the pull-creation gate: the
+// derived PR ref is unknowable at claim time, so the hook-time
+// declaration admits the operation's own ref once refined, while a
+// non-PR ref under the same owner still refuses.
+func TestCollabPullCreateRefinesPRRef(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	svc := admissionService(t, nil, time.Now().Unix())
+	encoded, err := encodeScope(Scope{
+		Kind:         model.OwnerOrdinary,
+		Family:       FamilyCollaboration,
+		RepositoryID: 1,
+	})
+	require.NoError(t, err)
+	owner := "ord:collaboration/pull/new/1/abcdef0123456789"
+	_, err = model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("pull-proof"))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, model.ReleaseOwner(ctx, owner)) }()
+
+	classify := func(ref string) TransactionDecision {
+		decision, err := svc.ClassifyTransaction(ctx, TransactionRequest{
+			OwnerName: "user2", RepoName: "repo1", Phase: PhasePrepared,
+			Lines: []RefLine{{Old: "0000000000000000000000000000000000000000", New: testHead, Ref: ref}},
+			Proof: "pull-proof",
+		})
+		require.NoError(t, err)
+		return decision
+	}
+
+	denied := classify("refs/pull/1/head")
+	require.False(t, denied.Allowed)
+
+	RefineCollabPullScope(ctx, "pull-proof", []ScopedRef{{Ref: "refs/pull/1/head", NewOID: testHead}})
+	allowed := classify("refs/pull/1/head")
+	require.True(t, allowed.Allowed, "refused: %s", allowed.Reason)
+
+	RefineCollabPullScope(ctx, "pull-proof", []ScopedRef{{Ref: "refs/heads/main", NewOID: testHead}})
+	stillDenied := classify("refs/heads/main")
+	require.False(t, stillDenied.Allowed)
+}
+
+// TestCollabPullRefinementNoOps pins the refinement boundaries: forged
+// proofs, other collaboration operations and other families never
+// refine, so their ref pushes keep the existing strict checking.
+func TestCollabPullRefinementNoOps(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	svc := admissionService(t, nil, time.Now().Unix())
+
+	claim := func(owner string) {
+		encoded, err := encodeScope(Scope{
+			Kind:         model.OwnerOrdinary,
+			Family:       FamilyCollaboration,
+			RepositoryID: 1,
+		})
+		require.NoError(t, err)
+		_, err = model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("pull-proof"))
+		require.NoError(t, err)
+	}
+	classify := func() TransactionDecision {
+		decision, err := svc.ClassifyTransaction(ctx, TransactionRequest{
+			OwnerName: "user2", RepoName: "repo1", Phase: PhasePrepared,
+			Lines: []RefLine{{Old: "0000000000000000000000000000000000000000", New: testHead, Ref: "refs/pull/1/head"}},
+			Proof: "pull-proof",
+		})
+		require.NoError(t, err)
+		return decision
+	}
+
+	claim("ord:collaboration/pull/new/1/abcdef0123456789")
+	RefineCollabPullScope(ctx, "forged-proof", []ScopedRef{{Ref: "refs/pull/1/head", NewOID: testHead}})
+	require.False(t, classify().Allowed)
+	require.NoError(t, model.ReleaseOwner(ctx, "ord:collaboration/pull/new/1/abcdef0123456789"))
+
+	claim("ord:collaboration/issue/1/title/abcdef0123456789")
+	RefineCollabPullScope(ctx, "pull-proof", []ScopedRef{{Ref: "refs/pull/1/head", NewOID: testHead}})
+	require.False(t, classify().Allowed)
+	require.NoError(t, model.ReleaseOwner(ctx, "ord:collaboration/issue/1/title/abcdef0123456789"))
+}

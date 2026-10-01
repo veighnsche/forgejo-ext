@@ -58,6 +58,18 @@ force-unlock flag and no timeout release.`,
 				},
 				Action: runNativeOperationRecover,
 			},
+			{
+				Name:  "status",
+				Usage: "Show the bounded reservation state for offline recovery",
+				Description: `Show the reservation state the host operator needs for
+offline recovery: idle or held owner with its kind, family and
+generation, the native revision, and restart inhibition. The
+output never includes verifier secrets or scope payloads, and
+this command never claims or releases the reservation. There is
+no force-unlock flag and no timeout release.`,
+				Before: noDanglingArgs,
+				Action: runNativeOperationStatus,
+			},
 		},
 	}
 }
@@ -112,4 +124,40 @@ func runNativeOperationRecover(ctx context.Context, c *cli.Command) error {
 	default:
 		return cli.Exit("owner stays fenced for intervention", exitFenced)
 	}
+}
+
+func runNativeOperationStatus(ctx context.Context, c *cli.Command) error {
+	// Full settings: inhibition is read from the deployment's data path.
+	setting.LoadSettings()
+
+	ctx, cancel := installSignals(ctx)
+	defer cancel()
+
+	if err := initDB(ctx); err != nil {
+		return err
+	}
+
+	status, err := operation_service.Default().Status(ctx)
+	if err != nil {
+		return err
+	}
+
+	if status.Idle {
+		fmt.Println("state: idle")
+	} else {
+		fmt.Println("state: held")
+	}
+	fmt.Printf("revision: %d\n", status.Revision)
+	if !status.Idle {
+		fmt.Printf("owner: %s\n", status.Owner)
+		fmt.Printf("generation: %d\n", status.Generation)
+		if status.Kind != "" {
+			fmt.Printf("kind: %s\n", status.Kind)
+		}
+		if status.Family != "" {
+			fmt.Printf("family: %s\n", status.Family)
+		}
+	}
+	fmt.Printf("inhibited: %t\n", status.Inhibited)
+	return nil
 }

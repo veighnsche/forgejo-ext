@@ -60,6 +60,12 @@ const (
 	FamilyMaintenance = "maintenance"
 )
 
+// CrashPointMaintenanceAfterEffects pauses one maintenance update after
+// its effects commit. It is consumed through TestCrashBarrier like the
+// points in crash_barrier.go; the point string lives here so this family
+// needs no change to that file.
+const CrashPointMaintenanceAfterEffects = "maintenance-after-effects"
+
 // Ref-write kinds carried in the FamilyRefWrite resource string.
 const (
 	RefWriteFile          = "file"
@@ -194,6 +200,9 @@ func (s *Service) ClaimSSHReceive(ctx context.Context, repoID, pusherID int64, v
 	deadline := time.Now().Add(ReceiveClaimTimeout)
 	backoff := 100 * time.Millisecond
 	for {
+		if err := ctx.Err(); err != nil {
+			return "", 0, err
+		}
 		var claimed *model.Reservation
 		claimed, err = model.ClaimOrdinary(ctx, owner, scope, verifier)
 		if err == nil {
@@ -229,5 +238,7 @@ func (s *Service) ReleaseSSHReceive(ctx context.Context, owner string, generatio
 	if !strings.HasPrefix(owner, "ord:"+FamilyReceiveSSH+"/") || generation <= 0 {
 		return model.ErrWrongOwner
 	}
-	return model.ReleaseExactOwner(ctx, owner, generation)
+	// The release must land even if the receiver's context is gone;
+	// anything else strands the reservation on a routine disconnect.
+	return model.ReleaseExactOwner(context.WithoutCancel(ctx), owner, generation)
 }

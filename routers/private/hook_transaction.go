@@ -35,8 +35,11 @@ func HookReferenceTransaction(ctx *context.PrivateContext) {
 	// Record the proposed tuples before classifying: a receive owner
 	// declares its own effects, which the gate then admits as listed
 	// scope members. Unproven or non-receive refinements are silent
-	// no-ops, so other families keep their strict checking.
+	// no-ops, so other families keep their strict checking. A
+	// pull-creation owner likewise declares its derived PR ref, whose
+	// name is unknowable at claim time.
 	nativeoperation.RefineReceiveScope(ctx, opts.ExecProof, scoped)
+	nativeoperation.RefineCollabPullScope(ctx, opts.ExecProof, scoped)
 	decision, err := nativeoperation.Default().ClassifyTransaction(ctx, nativeoperation.TransactionRequest{
 		OwnerName: ownerName,
 		RepoName:  repoName,

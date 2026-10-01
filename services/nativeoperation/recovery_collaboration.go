@@ -69,6 +69,8 @@ func (s *Service) recoverCollaboration(ctx context.Context, assessment *Recovery
 		return s.recoverCollabMilestone(ctx, assessment, reservation, scope, claim)
 	case "history":
 		return s.recoverCollabHistory(ctx, assessment, reservation, claim)
+	case "attachment":
+		return s.recoverCollabAttachment(ctx, assessment, reservation, claim)
 	case "batch":
 		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("collaboration batch %q covers many entities; no single-entity reconciliation", claim.op))
 	default:
@@ -334,4 +336,34 @@ func (s *Service) recoverCollabHistory(ctx context.Context, assessment *Recovery
 	}
 	assessment.Checks = append(assessment.Checks, fmt.Sprintf("content history %d exists", claim.id))
 	return s.releaseRecovered(ctx, assessment, reservation, EffectCollaborationConsistent)
+}
+
+// recoverCollabAttachment reconciles one standalone attachment row
+// operation. Uploads invent their storage UUID inside the write, so the
+// created row is unidentifiable and fences. Deletes are attributable
+// both ways: an absent row proves the committed end state (a leftover
+// storage file is a harmless orphan the row no longer references), and
+// a present row proves nothing applied. Updates fence: the applied
+// values are unknowable.
+func (s *Service) recoverCollabAttachment(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+	switch claim.op {
+	case CollabAttachmentCreate:
+		assessment.Checks = append(assessment.Checks, "attachment upload invents its row identity")
+		return fenced(assessment, ReasonRecoveryUncertainEffect, "attachment upload cannot be reconciled; its row is unidentifiable")
+	case CollabAttachmentUpdate:
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("attachment %d edit leaves no reconcilable trace", claim.id))
+		return fenced(assessment, ReasonRecoveryUncertainEffect, "attachment edit cannot be reconciled; restore the data set from backup")
+	case CollabAttachmentDelete:
+		if _, err := repo_model.GetAttachmentByID(ctx, claim.id); err != nil {
+			if !repo_model.IsErrAttachmentNotExist(err) {
+				return RecoveryAssessment{}, err
+			}
+			assessment.Checks = append(assessment.Checks, fmt.Sprintf("attachment %d absent", claim.id))
+			return s.releaseRecovered(ctx, assessment, reservation, "deleted")
+		}
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("attachment %d present", claim.id))
+		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+	default:
+		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("attachment operation %q has no offline reconciliation", claim.op))
+	}
 }

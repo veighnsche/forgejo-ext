@@ -132,6 +132,35 @@ func MilestoneResource(id int64, op string) string {
 	return fmt.Sprintf("milestone/%d/%s", id, op)
 }
 
+// Attachment operations carried in collaboration resource labels. Issue
+// and comment attachments are part of native accepted-input records;
+// release assets ride the same attachment row writer, so standalone
+// asset operations claim here too (assets attached inside a release
+// flow nest under that flow's owner instead).
+const (
+	// CollabAttachmentCreate uploads one attachment row. The storage
+	// UUID is invented inside the write, so offline recovery fences it.
+	CollabAttachmentCreate = "create"
+	// CollabAttachmentDelete removes one attachment row by ID. The row
+	// is attributable both ways.
+	CollabAttachmentDelete = "delete"
+	// CollabAttachmentUpdate edits one attachment row by ID. The applied
+	// values are unknowable, so offline recovery fences it.
+	CollabAttachmentUpdate = "update"
+)
+
+// AttachmentCreateResource names one attachment upload on the named
+// repository. The Scope carries the repository.
+func AttachmentCreateResource(repoID int64) string {
+	return fmt.Sprintf("attachment/new/%d", repoID)
+}
+
+// AttachmentResource names one attachment row update by ID. The Scope
+// carries the repository.
+func AttachmentResource(attachID int64, op string) string {
+	return fmt.Sprintf("attachment/%d/%s", attachID, op)
+}
+
 // HistoryResource names one content-history soft-delete on the named
 // history row.
 func HistoryResource(historyID int64) string {
@@ -148,7 +177,7 @@ func CollabBatchResource(op string) string {
 
 // collabClaim is one parsed collaboration resource label.
 type collabClaim struct {
-	kind string // issue, comment, dependency, pull, review, reaction, label, milestone, history or batch
+	kind string // issue, comment, dependency, pull, review, reaction, label, milestone, history, attachment or batch
 	id   int64  // anchor entity ID (issue, comment, PR, review, label, milestone or history row)
 	id2  int64  // second entity ID (dependency target, review delete pair)
 	op   string // operation within the kind
@@ -319,6 +348,25 @@ func parseCollabResource(resource string) (collabClaim, error) {
 			break
 		}
 		return collabClaim{kind: "history", id: id, op: "delete"}, nil
+	case "attachment":
+		if len(parts) == 3 && parts[1] == "new" {
+			id, ok := positive(parts[2])
+			if !ok {
+				break
+			}
+			return collabClaim{kind: "attachment", id: id, op: CollabAttachmentCreate}, nil
+		}
+		if len(parts) != 3 {
+			break
+		}
+		id, ok := positive(parts[1])
+		if !ok {
+			break
+		}
+		switch parts[2] {
+		case CollabAttachmentDelete, CollabAttachmentUpdate:
+			return collabClaim{kind: "attachment", id: id, op: parts[2]}, nil
+		}
 	case "batch":
 		if len(parts) != 2 {
 			break

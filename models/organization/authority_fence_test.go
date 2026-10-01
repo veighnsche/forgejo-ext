@@ -59,3 +59,12 @@ func TestTeamInviteWritesFenceWhileHeld(t *testing.T) {
 	require.ErrorIs(t, err, nativeoperation.ErrBusy)
 	require.ErrorIs(t, organization.RemoveInviteByID(ctx, 1, 1), nativeoperation.ErrBusy)
 }
+
+func TestFixInconsistentOwnerTeamsFencesWhileHeld(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	claimTestOwner(t)
+
+	_, err := organization.FixInconsistentOwnerTeams(ctx)
+	require.ErrorIs(t, err, nativeoperation.ErrBusy)
+}

@@ -61,3 +61,12 @@ func TestEmailWritesFenceWhileHeld(t *testing.T) {
 	require.ErrorIs(t, err, nativeoperation.ErrBusy)
 	require.ErrorIs(t, user_model.ActivateUserEmail(ctx, 2, "fence-test@example.com", true), nativeoperation.ErrBusy)
 }
+
+func TestFixWrongUserTypeFencesWhileHeld(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	claimTestOwner(t)
+
+	_, err := user_model.FixWrongUserType(ctx)
+	require.ErrorIs(t, err, nativeoperation.ErrBusy)
+}

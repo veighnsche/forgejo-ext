@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/timeutil"
@@ -87,6 +88,12 @@ func init() {
 }
 
 func UpdateScheduleSpec(ctx context.Context, spec *ActionScheduleSpec, cols ...string) error {
+	// Nested participating writer: schedule rows drive Actions runs, so
+	// they refuse while another owner holds the reservation; the
+	// enclosing schedule update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	sess := db.GetEngine(ctx).ID(spec.ID)
 	if len(cols) > 0 {
 		sess.Cols(cols...)

@@ -32,6 +32,22 @@ func TestParseActionsResource(t *testing.T) {
 			kind: "dispatch", workflow: ".forgejo/workflows/nested.yaml",
 		},
 		"run/schedule/7": {kind: "schedule", scheduleID: 7},
+		"run/trust-revoke/4": {
+			kind: "trust", op: ActionsRunOpTrustRevoke, posterID: 4,
+		},
+		"run/trust-approve/4": {
+			kind: "trust", op: ActionsRunOpTrustApprove, posterID: 4,
+		},
+		"run/trust-sweep": {kind: "trust", op: ActionsRunOpTrustSweep},
+		"run/schedule-detect": {
+			kind: "schedule-batch", op: ActionsRunOpScheduleDetect,
+		},
+		"run/schedule-clean": {
+			kind: "schedule-batch", op: ActionsRunOpScheduleClean,
+		},
+		"run/schedule-clean/cancel": {
+			kind: "schedule-batch", op: ActionsRunOpScheduleClean, cancel: true,
+		},
 		"status/1234123412341234123412341234123412341234/pending/2/ci/awesomeness": {
 			kind: "status", sha: "1234123412341234123412341234123412341234",
 			state: "pending", creatorID: 2, context: "ci/awesomeness",
@@ -53,6 +69,10 @@ func TestParseActionsResource(t *testing.T) {
 		"run/dispatch/",
 		"run/schedule/0",
 		"run/schedule/abc",
+		"run/trust-revoke/0",
+		"run/trust-approve/abc",
+		"run/trust-sweep/extra",
+		"run/schedule-clean/keep",
 		"status/short/pending/2/ctx",
 		"status/1234123412341234123412341234123412341234//2/ctx",
 		"status/1234123412341234123412341234123412341234/pending/0/ctx",
@@ -377,4 +397,132 @@ func TestRecoverOrdinaryRoutesActionsTaskPick(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
 	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+}
+
+func recoverTrustCase(t *testing.T, owner string, scope Scope, setup func(ctx context.Context)) RecoveryAssessment {
+	t.Helper()
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	if setup != nil {
+		setup(ctx)
+	}
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+	claimed := claimOrdinaryOwner(t, ctx, owner, scope)
+	inhibitDomain(t)
+	assessment, err := svc.recoverActionsRun(ctx, &RecoveryAssessment{
+		Owner:      claimed.Owner,
+		Generation: claimed.Generation,
+		OwnerKind:  claimed.OwnerKind,
+		Family:     FamilyActionsRun,
+		Verdict:    RecoveryFenced,
+	}, claimed, scope)
+	require.NoError(t, err)
+	return assessment
+}
+
+func TestRecoverActionsTrustRevokeCommitted(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustRevoke, 4)+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, nil)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, EffectActionsConsistent, assessment.Effect)
+}
+
+func TestRecoverActionsTrustRevokeNotCommitted(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustRevoke, 4)+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, func(ctx context.Context) {
+		unittest.AssertSuccessfulInsert(t, &actions_model.ActionUser{UserID: 4, RepoID: 1})
+	})
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+}
+
+func TestRecoverActionsTrustRevokePartialFences(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustRevoke, 4)+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, func(ctx context.Context) {
+		require.NoError(t, actions_model.InsertRun(ctx, &actions_model.ActionRun{
+			Title:               "revoke-partial",
+			RepoID:              1,
+			OwnerID:             2,
+			TriggerUserID:       4,
+			PullRequestPosterID: 4,
+			Status:              actions_model.StatusWaiting,
+		}, nil))
+	})
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
+	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
+}
+
+func TestRecoverActionsTrustApproveCommitted(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustApprove, 4)+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, func(ctx context.Context) {
+		unittest.AssertSuccessfulInsert(t, &actions_model.ActionUser{UserID: 4, RepoID: 1, TrustedWithPullRequests: true})
+	})
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, EffectActionsConsistent, assessment.Effect)
+}
+
+func TestRecoverActionsTrustApproveNotCommitted(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustApprove, 4)+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, nil)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+}
+
+func TestRecoverActionsTrustApprovePartialFences(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustApprove, 4)+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, func(ctx context.Context) {
+		unittest.AssertSuccessfulInsert(t, &actions_model.ActionUser{UserID: 4, RepoID: 1, TrustedWithPullRequests: true})
+		require.NoError(t, actions_model.InsertRun(ctx, &actions_model.ActionRun{
+			Title:               "approve-partial",
+			RepoID:              1,
+			OwnerID:             2,
+			TriggerUserID:       4,
+			PullRequestPosterID: 4,
+			Status:              actions_model.StatusWaiting,
+			NeedApproval:        true,
+		}, nil))
+	})
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
+	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
+}
+
+func TestRecoverActionsTrustSweep(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustSweepResource()+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun,
+	}, nil)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, EffectActionsConsistent, assessment.Effect)
+}
+
+func TestRecoverActionsScheduleCleanCommitted(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+ScheduleCleanResource(true)+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, nil)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, EffectActionsConsistent, assessment.Effect)
+}
+
+func TestRecoverActionsScheduleCleanNotCommitted(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+ScheduleCleanResource(false)+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, func(ctx context.Context) {
+		unittest.AssertSuccessfulInsert(t, &actions_model.ActionSchedule{RepoID: 1, OwnerID: 2})
+	})
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+}
+
+func TestRecoverActionsScheduleDetect(t *testing.T) {
+	assessment := recoverTrustCase(t, "ord:actions-run/"+ScheduleDetectResource()+"/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+	}, nil)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, EffectActionsConsistent, assessment.Effect)
 }

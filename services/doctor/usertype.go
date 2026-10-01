@@ -8,6 +8,7 @@ import (
 
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 func checkUserType(ctx context.Context, logger log.Logger, autofix bool) error {
@@ -18,7 +19,16 @@ func checkUserType(ctx context.Context, logger log.Logger, autofix bool) error {
 	}
 	if count > 0 {
 		if autofix {
-			if count, err = user_model.FixWrongUserType(ctx); err != nil {
+			// The type repair owns its update before its effects; it
+			// spans users, so offline recovery fences it.
+			err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyMaintenance, "0/user-type", operation_service.Scope{
+				Family: operation_service.FamilyMaintenance,
+			}, func(ctx context.Context) error {
+				var err error
+				count, err = user_model.FixWrongUserType(ctx)
+				return err
+			})
+			if err != nil {
 				logger.Critical("Error: %v whilst fixing wrong user types")
 				return err
 			}

@@ -113,3 +113,38 @@ func TestReadNativeRevision(t *testing.T) {
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, observation.Revision, int64(1))
 }
+
+func TestStatusIdle(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+	status, err := svc.Status(t.Context())
+	require.NoError(t, err)
+	require.True(t, status.Idle)
+	require.Empty(t, status.Owner)
+	require.False(t, status.Inhibited)
+	require.GreaterOrEqual(t, status.Revision, int64(1))
+}
+
+func TestStatusHeldAndInhibited(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+	claimed := claimOrdinaryOwner(t, ctx, "ord:maintenance/1/gc/0123456789abcdef", Scope{
+		Kind: model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
+	})
+	inhibitDomain(t)
+	status, err := svc.Status(ctx)
+	require.NoError(t, err)
+	require.False(t, status.Idle)
+	require.Equal(t, claimed.Owner, status.Owner)
+	require.Equal(t, claimed.OwnerKind, status.Kind)
+	require.Equal(t, FamilyMaintenance, status.Family)
+	require.Equal(t, claimed.Generation, status.Generation)
+	require.True(t, status.Inhibited)
+	// Status is read-only: the reservation survives the read.
+	again, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	require.Equal(t, claimed.Owner, again.Owner)
+}

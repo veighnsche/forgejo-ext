@@ -16,6 +16,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // GarbageCollectLFSMetaObjectsOptions provides options for GarbageCollectLFSMetaObjects function
@@ -52,6 +53,18 @@ func GarbageCollectLFSMetaObjects(ctx context.Context, opts GarbageCollectLFSMet
 
 // GarbageCollectLFSMetaObjectsForRepo garbage collects LFS objects for a specific repository
 func GarbageCollectLFSMetaObjectsForRepo(ctx context.Context, repo *repo_model.Repository, opts GarbageCollectLFSMetaObjectsOptions) error {
+	// One maintenance update owns the object-store scan and collection
+	// so no ref writer interleaves it. The collected set is unknowable,
+	// so offline recovery fences it; rerun the collection afterwards.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyMaintenance, fmt.Sprintf("%d/lfs-gc", repo.ID), operation_service.Scope{
+		Family:       operation_service.FamilyMaintenance,
+		RepositoryID: repo.ID,
+	}, func(ctx context.Context) error {
+		return garbageCollectLFSMetaObjectsForRepoOwned(ctx, repo, opts)
+	})
+}
+
+func garbageCollectLFSMetaObjectsForRepoOwned(ctx context.Context, repo *repo_model.Repository, opts GarbageCollectLFSMetaObjectsOptions) error {
 	opts.LogDetail("Checking %s", repo.FullName())
 	total, orphaned, collected, deleted := int64(0), 0, 0, 0
 	defer func() {

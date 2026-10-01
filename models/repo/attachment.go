@@ -12,6 +12,7 @@ import (
 	"path"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/storage"
 	"forgejo.org/modules/timeutil"
@@ -56,6 +57,9 @@ func init() {
 
 // IncreaseDownloadCount is update download count + 1
 func (a *Attachment) IncreaseDownloadCount(ctx context.Context) error {
+	// Non-authorizing telemetry: the download counter changes no
+	// eligibility or attribution, so it stays outside the reservation
+	// like token last-used timestamps.
 	// Update download count.
 	if _, err := db.GetEngine(ctx).Exec("UPDATE `attachment` SET download_count=download_count+1 WHERE id=?", a.ID); err != nil {
 		return fmt.Errorf("increase attachment count: %w", err)
@@ -238,6 +242,12 @@ func DeleteAttachment(ctx context.Context, a *Attachment, remove bool) error {
 
 // DeleteAttachments deletes the given attachments and optionally the associated files.
 func DeleteAttachments(ctx context.Context, attachments []*Attachment, remove bool) (int, error) {
+	// Nested participating writer: attachment rows refuse while another
+	// owner holds the reservation; the enclosing collaboration or release
+	// update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	if len(attachments) == 0 {
 		return 0, nil
 	}
@@ -274,6 +284,12 @@ func DeleteAttachmentsByComment(ctx context.Context, commentID int64, remove boo
 
 // UpdateAttachmentByUUID Updates attachment via uuid
 func UpdateAttachmentByUUID(ctx context.Context, attach *Attachment, cols ...string) error {
+	// Nested participating writer: attachment rows refuse while another
+	// owner holds the reservation; the enclosing collaboration or release
+	// update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if attach.UUID == "" {
 		return errors.New("attachment uuid should be not blank")
 	}
@@ -286,6 +302,12 @@ func UpdateAttachmentByUUID(ctx context.Context, attach *Attachment, cols ...str
 
 // UpdateAttachment updates the given attachment in database
 func UpdateAttachment(ctx context.Context, atta *Attachment) error {
+	// Nested participating writer: attachment rows refuse while another
+	// owner holds the reservation; the enclosing collaboration or release
+	// update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if atta.ExternalURL != "" && !validation.IsValidReleaseAssetURL(atta.ExternalURL) {
 		return ErrInvalidExternalURL{ExternalURL: atta.ExternalURL}
 	}
@@ -302,6 +324,12 @@ func UpdateAttachment(ctx context.Context, atta *Attachment) error {
 
 // DeleteAttachmentsByRelease deletes all attachments associated with the given release.
 func DeleteAttachmentsByRelease(ctx context.Context, releaseID int64) error {
+	// Nested participating writer: attachment rows refuse while another
+	// owner holds the reservation; the enclosing release update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Where("release_id = ?", releaseID).Delete(&Attachment{})
 	return err
 }
@@ -314,6 +342,12 @@ func CountOrphanedAttachments(ctx context.Context) (int64, error) {
 
 // DeleteOrphanedAttachments delete all bad attachments
 func DeleteOrphanedAttachments(ctx context.Context) error {
+	// Nested participating writer: attachment rows refuse while another
+	// owner holds the reservation; the enclosing maintenance repair
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Where("(issue_id > 0 and issue_id not in (select id from issue)) or (release_id > 0 and release_id not in (select id from `release`))").
 		Delete(new(Attachment))
 	return err

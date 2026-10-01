@@ -390,12 +390,22 @@ func handlePullRequestMerging(ctx *app_context.PrivateContext, opts *private.Hoo
 	pr.MergedUnix = timeutil.TimeStampNow()
 	pr.Merger = pusher
 	pr.MergerID = pusher.ID
-	err = db.WithTx(ctx, func(ctx context.Context) error {
+	// The merge completion writes ride the merge owner's bound execution
+	// like the other nested writers in this hook; the raw hook context
+	// carries no execution, so the fenced writers below would refuse a
+	// held reservation without this binding.
+	reqCtx, err := nativeoperation.BoundCallbackContext(ctx, opts.ExecProof, opts.ExecPath)
+	if err != nil {
+		log.Error("Failed to bind merge completion: %v", err)
+		ctx.JSON(http.StatusInternalServerError, private.HookPostReceiveResult{Err: "Failed to bind merge completion"})
+		return
+	}
+	err = db.WithTx(reqCtx, func(reqCtx context.Context) error {
 		// Removing an auto merge pull and ignore if not exist
-		if err := pull_model.DeleteScheduledAutoMerge(ctx, pr.ID); err != nil && !db.IsErrNotExist(err) {
+		if err := pull_model.DeleteScheduledAutoMerge(reqCtx, pr.ID); err != nil && !db.IsErrNotExist(err) {
 			return fmt.Errorf("DeleteScheduledAutoMerge[%d]: %v", opts.PullRequestID, err)
 		}
-		if _, err := pr.SetMerged(ctx); err != nil {
+		if _, err := pr.SetMerged(reqCtx); err != nil {
 			return fmt.Errorf("SetMerged failed: %s/%s Error: %v", ownerName, repoName, err)
 		}
 		return nil
