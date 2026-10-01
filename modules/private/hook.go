@@ -39,6 +39,10 @@ type HookOptions struct {
 	DeployKeyID                     int64 // if the pusher is a DeployKey, then UserID is the repo's org user.
 	IsWiki                          bool
 	ActionPerm                      int
+	// ExecProof carries the host-private execution capability for
+	// post-receive completion binding. It is empty for ordinary pushes and
+	// must never be logged.
+	ExecProof string
 }
 
 func (o *HookOptions) GetGitPushOptions() pushoptions.Interface {

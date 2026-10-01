@@ -17,6 +17,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/git/pushoptions"
 	"forgejo.org/modules/log"
+	nativeoperation "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/private"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
@@ -40,6 +41,7 @@ func cmdHook() *cli.Command {
 			subcmdHookUpdate(),
 			subcmdHookPostReceive(),
 			subcmdHookProcReceive(),
+			subcmdHookReferenceTransaction(),
 		},
 	}
 }
@@ -78,6 +80,20 @@ func subcmdHookPostReceive() *cli.Command {
 		Usage:       "Delegate post-receive Git hook",
 		Description: "This command should only be called by Git",
 		Action:      runHookPostReceive,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name: "debug",
+			},
+		},
+	}
+}
+
+func subcmdHookReferenceTransaction() *cli.Command {
+	return &cli.Command{
+		Name:        "reference-transaction",
+		Usage:       "Delegate reference-transaction Git hook",
+		Description: "This command should only be called by Git",
+		Action:      runHookReferenceTransaction,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name: "debug",
@@ -298,6 +314,78 @@ func runHookUpdate(ctx context.Context, c *cli.Command) error {
 	return nil
 }
 
+// runHookReferenceTransaction enforces the native-operation reservation at
+// Git's reference-transaction checkpoint. Callbacks without repository
+// environment come from in-process library git calls and keep existing
+// behavior; their participation is later writer-coverage work. Callbacks
+// with push environment present the hook child's execution capability, when
+// any, to the internal API alongside the channel token.
+func runHookReferenceTransaction(ctx context.Context, c *cli.Command) error {
+	if isInternal, _ := strconv.ParseBool(os.Getenv(repo_module.EnvIsInternal)); isInternal {
+		return nil
+	}
+	ctx, cancel := installSignals(ctx)
+	defer cancel()
+
+	setup(ctx, c.Bool("debug"), true)
+
+	phase := c.Args().First()
+	if phase != "prepared" && phase != "committed" && phase != "aborted" {
+		return fail(ctx, "", "unknown reference-transaction phase %q", phase)
+	}
+
+	repoUser := os.Getenv(repo_module.EnvRepoUsername)
+	repoName := os.Getenv(repo_module.EnvRepoName)
+	if repoUser == "" || repoName == "" || len(os.Getenv("SSH_ORIGINAL_COMMAND")) == 0 {
+		return nil
+	}
+
+	var oldCommitIDs, newCommitIDs []string
+	var refFullNames []git.RefName
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		fields := bytes.Split(scanner.Bytes(), []byte(" "))
+		if len(fields) != 3 {
+			continue
+		}
+		oldCommitIDs = append(oldCommitIDs, string(fields[0]))
+		newCommitIDs = append(newCommitIDs, string(fields[1]))
+		refFullNames = append(refFullNames, git.RefName(fields[2]))
+	}
+	if err := scanner.Err(); err != nil {
+		return fail(ctx, "", "failed to read transaction input: %v", err)
+	}
+
+	extra := private.HookReferenceTransaction(ctx, repoUser, repoName, private.TransactionOptions{
+		Phase:        phase,
+		OldCommitIDs: oldCommitIDs,
+		NewCommitIDs: newCommitIDs,
+		RefFullNames: refFullNames,
+		ExecProof:    readHookExecProof(),
+	})
+	if extra.HasError() {
+		return fail(ctx, extra.UserMsg, "HookReferenceTransaction failed: %v", extra.Error)
+	}
+	return nil
+}
+
+// readHookExecProof reads the host-private execution capability from the
+// hook child's capability file, if the pushing environment carries one. An
+// empty proof marks an ordinary push; the server decides under the held
+// owner. Read failures yield no proof rather than a forged one, and the
+// secret is never logged.
+func readHookExecProof() string {
+	path := os.Getenv(nativeoperation.EnvExecFile)
+	if path == "" {
+		return ""
+	}
+	proof, err := nativeoperation.ReadCapabilityFile(path)
+	if err != nil {
+		return ""
+	}
+	return proof
+}
+
 func runHookPostReceive(ctx context.Context, c *cli.Command) error {
 	ctx, cancel := installSignals(ctx)
 	defer cancel()
@@ -352,6 +440,7 @@ Forgejo or set your environment appropriately.`, "")
 		GitPushOptions:                  pushoptions.New().ReadEnv().Map(),
 		PullRequestID:                   prID,
 		PushTrigger:                     repo_module.PushTrigger(os.Getenv(repo_module.EnvPushTrigger)),
+		ExecProof:                       readHookExecProof(),
 	}
 	oldCommitIDs := make([]string, hookBatchSize)
 	newCommitIDs := make([]string, hookBatchSize)

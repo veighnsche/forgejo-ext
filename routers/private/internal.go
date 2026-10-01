@@ -62,6 +62,7 @@ func Routes() *web.Route {
 	r.Post("/ssh/log", bind(private.SSHLogOption{}), SSHLog)
 	r.Post("/hook/pre-receive/{owner}/{repo}", RepoAssignment, bind(private.HookOptions{}), HookPreReceive)
 	r.Post("/hook/post-receive/{owner}/{repo}", context.OverrideContext, bind(private.HookOptions{}), HookPostReceive)
+	r.Post("/hook/reference-transaction/{owner}/{repo}", context.OverrideContext, bind(private.TransactionOptions{}), HookReferenceTransaction)
 	r.Post("/hook/proc-receive/{owner}/{repo}", context.OverrideContext, RepoAssignment, bind(private.HookOptions{}), HookProcReceive)
 	r.Post("/hook/set-default-branch/{owner}/{repo}/{branch}", RepoAssignment, SetDefaultBranch)
 	r.Get("/serv/none/{keyid}", ServNoCommand)

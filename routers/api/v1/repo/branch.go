@@ -22,6 +22,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
 )
@@ -251,7 +252,9 @@ func CreateBranch(ctx *context.APIContext) {
 
 	err = repo_service.CreateNewBranchFromCommit(ctx, ctx.Doer(), ctx.Repo().Repository, ctx.Repo().GitRepo, oldCommit.ID.String(), opt.BranchName)
 	if err != nil {
-		if git_model.IsErrBranchNotExist(err) {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+		} else if git_model.IsErrBranchNotExist(err) {
 			ctx.Error(http.StatusNotFound, "", "The old branch does not exist")
 		} else if models.IsErrTagAlreadyExists(err) {
 			ctx.Error(http.StatusConflict, "", "The branch with the same tag already exists.")

@@ -127,6 +127,8 @@ func TestBackgroundClientRoundTrip(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(OperationRecord{InstallationID: "install-1", OperationID: request.OperationID, Outcome: BackgroundOutcomeOperationsUnavailable})
 		case BackgroundGetPath:
 			_ = json.NewEncoder(w).Encode(OperationLookup{InstallationID: "install-1", OperationID: "op-1", Status: BackgroundOutcomeNotObserved})
+		case BackgroundRevisionPath:
+			_ = json.NewEncoder(w).Encode(NativeRevisionObservation{Revision: 41, Idle: true})
 		default:
 			http.NotFound(w, r)
 		}
@@ -159,6 +161,13 @@ func TestBackgroundClientRoundTrip(t *testing.T) {
 	}
 	if _, err := client.GetOperation(ctx, "bad id!"); err == nil {
 		t.Fatal("invalid operation id must fail")
+	}
+	observation, err := client.ReadNativeRevision(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if observation.Revision != 41 || !observation.Idle {
+		t.Fatalf("unexpected revision observation: %+v", observation)
 	}
 }
 

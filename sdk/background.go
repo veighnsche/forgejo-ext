@@ -42,6 +42,7 @@ const (
 	BackgroundGetPath       = "/v1/background/get"
 	BackgroundCancelPath    = "/v1/background/cancel"
 	BackgroundBootstrapPath = "/v1/background/bootstrap"
+	BackgroundRevisionPath  = "/v1/background/revision"
 )
 
 const maxBackgroundBodyBytes = 64 << 10
@@ -76,38 +77,98 @@ func (path CredentialFile) read() (string, error) {
 	return strings.TrimSuffix(string(secret), "\n"), nil
 }
 
-// OperationIntent carries the FT02-validated common intent fields. The host
+// OperationIntent carries the validated common intent fields. The host
 // derives installation identity from the authenticated transport; an
 // InstallationID in the payload must equal it and can never select another
-// installation. Expected-revision/expiry/payload semantics arrive with the
-// operation implementations; Payload is carried opaque and uninterpreted.
+// installation. ExpectedNativeRevision binds the idle native revision the
+// intent was prepared against; NotAfter is the host-time admission deadline
+// in Unix seconds. Payload carries exactly the selected kind's semantic
+// fields and participates in intent identity.
 type OperationIntent struct {
-	OperationID           string          `json:"operation_id"`
-	InstallationID        string          `json:"installation_id,omitempty"`
-	ActorID               string          `json:"actor_id"`
-	RepositoryID          string          `json:"repository_id"`
-	Kind                  string          `json:"kind"`
-	AuthorizationRevision string          `json:"authorization_revision"`
-	Payload               json.RawMessage `json:"payload,omitempty"`
+	OperationID            string          `json:"operation_id"`
+	InstallationID         string          `json:"installation_id,omitempty"`
+	ActorID                string          `json:"actor_id"`
+	RepositoryID           string          `json:"repository_id"`
+	Kind                   string          `json:"kind"`
+	AuthorizationRevision  string          `json:"authorization_revision"`
+	ExpectedNativeRevision int64           `json:"expected_native_revision"`
+	NotAfter               int64           `json:"not_after"`
+	Payload                json.RawMessage `json:"payload,omitempty"`
 }
 
-// OperationRecord echoes host-derived identity with the admission outcome.
+// MergePayload is the pull_request.merge intent payload: the exact PR,
+// source, target and OIDs the reviewed candidate was verified against. Only
+// fast-forward-only is supported; there is no fallback method.
+type MergePayload struct {
+	PullRequestNumber int64  `json:"pull_request_number"`
+	HeadRepositoryID  int64  `json:"head_repository_id"`
+	HeadRef           string `json:"head_ref"`
+	BaseRef           string `json:"base_ref"`
+	ExpectedHeadOID   string `json:"expected_head_oid"`
+	ExpectedBaseOID   string `json:"expected_base_oid"`
+	Method            string `json:"method"`
+}
+
+// Operation effect, cancellation and completion states from the
+// conditional-native-mutations contract.
+const (
+	EffectPending       = "pending"
+	EffectNotCommitted  = "not_committed"
+	EffectCommitted     = "committed"
+	EffectIndeterminate = "indeterminate"
+
+	CancellationNone          = "none"
+	CancellationPending       = "pending"
+	CancellationCancelled     = "cancelled"
+	CancellationTooLate       = "too_late"
+	CancellationIndeterminate = "indeterminate"
+
+	CompletionPending           = "pending"
+	CompletionComplete          = "complete"
+	CompletionNeedsIntervention = "needs_intervention"
+)
+
+// OperationRecord echoes host-derived identity with the durable outcome.
+// Outcome carries the effect state for recorded operations, or
+// operations_unavailable for an admitted kind whose stage is not implemented
+// yet. Actor, repository, kind and intent fields stay unavailable on
+// pre-submit cancellation tombstones rather than invented.
 type OperationRecord struct {
-	InstallationID string `json:"installation_id"`
-	OperationID    string `json:"operation_id"`
-	Outcome        string `json:"outcome"`
-	ReasonCode     string `json:"reason_code,omitempty"`
+	InstallationID     string          `json:"installation_id"`
+	OperationID        string          `json:"operation_id"`
+	Outcome            string          `json:"outcome"`
+	ReasonCode         string          `json:"reason_code,omitempty"`
+	ActorID            string          `json:"actor_id,omitempty"`
+	RepositoryID       string          `json:"repository_id,omitempty"`
+	Kind               string          `json:"kind,omitempty"`
+	EffectState        string          `json:"effect_state,omitempty"`
+	CancellationStatus string          `json:"cancellation_status,omitempty"`
+	CompletionState    string          `json:"completion_state,omitempty"`
+	IntentDigest       string          `json:"intent_digest,omitempty"`
+	Receipt            json.RawMessage `json:"receipt,omitempty"`
 }
 
-// OperationLookup distinguishes not_observed from a saved operation.
+// OperationLookup distinguishes not_observed from a saved operation. Absence
+// never proves that an earlier request cannot still arrive or that a write
+// never occurred.
 type OperationLookup struct {
-	InstallationID string `json:"installation_id"`
-	OperationID    string `json:"operation_id"`
-	Status         string `json:"status"`
+	InstallationID string           `json:"installation_id"`
+	OperationID    string           `json:"operation_id"`
+	Status         string           `json:"status"`
+	Record         *OperationRecord `json:"record,omitempty"`
+}
+
+// NativeRevisionObservation is one atomic native revision/occupancy
+// observation. Authoritative input reads bracket between two equal idle
+// observations before binding that revision to an intent.
+type NativeRevisionObservation struct {
+	Revision int64 `json:"revision"`
+	Idle     bool  `json:"idle"`
 }
 
 // BackgroundClient performs background calls without a browser.
 type BackgroundClient interface {
+	ReadNativeRevision(context.Context) (NativeRevisionObservation, error)
 	SubmitOperation(context.Context, CredentialFile, OperationIntent) (OperationRecord, error)
 	GetOperation(context.Context, string) (OperationLookup, error)
 	CancelOperation(context.Context, string) (OperationRecord, error)
@@ -331,6 +392,17 @@ func (c *backgroundClient) SubmitOperation(ctx context.Context, credential Crede
 		return OperationRecord{}, errors.New("invalid background response")
 	}
 	return record, nil
+}
+
+func (c *backgroundClient) ReadNativeRevision(ctx context.Context) (NativeRevisionObservation, error) {
+	var observation NativeRevisionObservation
+	if err := c.post(ctx, BackgroundRevisionPath, struct{}{}, &observation); err != nil {
+		return NativeRevisionObservation{}, err
+	}
+	if observation.Revision < 1 {
+		return NativeRevisionObservation{}, errors.New("invalid background response")
+	}
+	return observation, nil
 }
 
 func (c *backgroundClient) GetOperation(ctx context.Context, operationID string) (OperationLookup, error) {

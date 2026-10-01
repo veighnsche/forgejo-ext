@@ -26,6 +26,7 @@ import (
 	"forgejo.org/routers/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 	release_service "forgejo.org/services/release"
 	repo_service "forgejo.org/services/repository"
 )
@@ -205,6 +206,11 @@ func CreateBranch(ctx *context.Context) {
 		if models.IsErrTagAlreadyExists(err) {
 			e := err.(models.ErrTagAlreadyExists)
 			ctx.Flash.Error(ctx.Tr("repo.branch.tag_collision", e.TagName))
+			ctx.Redirect(ctx.Repo.RepoLink + "/src/" + ctx.Repo.BranchNameSubURL())
+			return
+		}
+		if operation_service.IsBusy(err) {
+			ctx.Flash.Error("A native operation is in progress; retry shortly.")
 			ctx.Redirect(ctx.Repo.RepoLink + "/src/" + ctx.Repo.BranchNameSubURL())
 			return
 		}

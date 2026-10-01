@@ -22,6 +22,7 @@ import (
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/log"
+	nativeoperation "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/queue"
 	repo_module "forgejo.org/modules/repository"
@@ -29,6 +30,7 @@ import (
 	"forgejo.org/modules/util"
 	webhook_module "forgejo.org/modules/webhook"
 	actions_service "forgejo.org/services/actions"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 	files_service "forgejo.org/services/repository/files"
@@ -334,17 +336,28 @@ func CreateNewBranchFromCommit(ctx context.Context, doer *user_model.User, repo 
 		return err
 	}
 
-	if err := git.Push(ctx, repo.RepoPath(), git.PushOptions{
-		Remote: repo.RepoPath(),
-		Branch: fmt.Sprintf("%s:%s%s", commitID, git.BranchPrefix, branchName),
-		Env:    repo_module.PushingEnvironment(doer, repo),
-	}); err != nil {
-		if git.IsErrPushOutOfDate(err) || git.IsErrPushRejected(err) {
-			return err
+	// This ordinary writer participates in the native-operation
+	// reservation: it claims before its Git effect, advancing the shared
+	// revision, and refuses while another owner is held. Its Git child
+	// carries the execution capability for hook binding.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, "branch", fmt.Sprintf("%d/%s", repo.ID, branchName), operation_service.Scope{
+		RepositoryID: repo.ID,
+		Ref:          git.BranchPrefix + branchName,
+	}, func(ctx context.Context) error {
+		env := repo_module.PushingEnvironment(doer, repo)
+		env = nativeoperation.AppendExecEnv(env, nativeoperation.FromContext(ctx))
+		if err := git.Push(ctx, repo.RepoPath(), git.PushOptions{
+			Remote: repo.RepoPath(),
+			Branch: fmt.Sprintf("%s:%s%s", commitID, git.BranchPrefix, branchName),
+			Env:    env,
+		}); err != nil {
+			if git.IsErrPushOutOfDate(err) || git.IsErrPushRejected(err) {
+				return err
+			}
+			return fmt.Errorf("push: %w", err)
 		}
-		return fmt.Errorf("push: %w", err)
-	}
-	return nil
+		return nil
+	})
 }
 
 // RenameBranch rename a branch

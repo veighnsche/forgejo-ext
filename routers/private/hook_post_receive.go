@@ -44,6 +44,12 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 	ownerName := ctx.Params(":owner")
 	repoName := ctx.Params(":repo")
 
+	// Bind synchronous completion to the held reservation owner. Ordinary
+	// pushes keep existing behavior while the reservation is idle.
+	if !checkCompletionBinding(ctx, opts, ownerName, repoName) {
+		return
+	}
+
 	// defer getting the repository at this point - as we should only retrieve it if we're going to call update
 	var repo *repo_model.Repository
 

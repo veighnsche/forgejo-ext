@@ -25,6 +25,7 @@ import (
 	"forgejo.org/modules/cache"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
+	nativeoperation "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/references"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
@@ -390,6 +391,10 @@ func doMergeAndPush(ctx context.Context, pr *issues_model.PullRequest, doer *use
 	)
 
 	mergeCtx.env = append(mergeCtx.env, repo_module.EnvPushTrigger+"="+string(pushTrigger))
+	// A conditional merge carries only the host-private execution-capability
+	// path into this final native Git child; agents and extensions never
+	// receive it. Ordinary merges pass no execution context.
+	mergeCtx.env = nativeoperation.AppendExecEnv(mergeCtx.env, nativeoperation.FromContext(ctx))
 	pushCmd := git.NewCommand(ctx, "push", "origin").AddDynamicArguments(baseBranch + ":" + git.BranchPrefix + pr.BaseBranch)
 
 	// Push back to upstream.

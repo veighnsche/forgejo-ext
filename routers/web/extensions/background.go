@@ -16,6 +16,7 @@ import (
 	extension "forgejo.org/extension-sdk"
 	authmodel "forgejo.org/models/extensionauth"
 	runtime "forgejo.org/services/extensions"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // backgroundVerifier authenticates a background submission. Production uses
@@ -23,16 +24,25 @@ import (
 // and discarded inside the verifier, never logged or recorded here.
 type backgroundVerifier func(context.Context, authmodel.SubmissionRequest) (authmodel.SubmissionDecision, error)
 
+// backgroundOperations executes durable submit/lookup/cancel and revision
+// reads. Production uses the native-operation service; tests inject a fake.
+type backgroundOperations interface {
+	ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error)
+	Submit(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
+	Get(context.Context, string, string) (extension.OperationLookup, error)
+	Cancel(context.Context, string, string) (extension.OperationRecord, error)
+}
+
 // BackgroundMux serves the background dispatcher on a private callback
 // socket in front of the browser callback handler. The service socket
 // additionally serves bootstrap; per-instance sockets serve their own
 // instance's runtime admissions. Browser admissions are never accepted here
 // and background admissions are never accepted by the browser handler.
 func BackgroundMux(manager *runtime.Manager, browser http.Handler, instanceID string, service bool) http.Handler {
-	return backgroundMux(manager, browser, instanceID, service, authmodel.VerifySubmission)
+	return backgroundMux(manager, browser, instanceID, service, authmodel.VerifySubmission, operation_service.Default())
 }
 
-func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID string, service bool, verify backgroundVerifier) http.Handler {
+func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID string, service bool, verify backgroundVerifier, operations backgroundOperations) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case extension.BackgroundBootstrapPath:
@@ -42,8 +52,8 @@ func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID st
 			}
 			serveBackgroundBootstrap(w, r, manager)
 			return
-		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath:
-			serveBackgroundOperation(w, r, manager, instanceID, service, verify)
+		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath, extension.BackgroundRevisionPath:
+			serveBackgroundOperation(w, r, manager, instanceID, service, verify, operations)
 			return
 		default:
 			browser.ServeHTTP(w, r)
@@ -78,7 +88,7 @@ func serveBackgroundBootstrap(w http.ResponseWriter, r *http.Request, manager *r
 	}{Admission: token, InstallationID: installation})
 }
 
-func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *runtime.Manager, instanceID string, service bool, verify backgroundVerifier) {
+func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *runtime.Manager, instanceID string, service bool, verify backgroundVerifier, operations backgroundOperations) {
 	if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "invalid background request", http.StatusBadRequest)
 		return
@@ -123,13 +133,17 @@ func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *r
 	}
 	switch r.URL.Path {
 	case extension.BackgroundSubmitPath:
-		serveBackgroundSubmit(w, r, admission, verify)
-	case extension.BackgroundGetPath, extension.BackgroundCancelPath:
-		serveBackgroundLookup(w, r, admission, r.URL.Path == extension.BackgroundCancelPath)
+		serveBackgroundSubmit(w, r, admission, verify, operations)
+	case extension.BackgroundGetPath:
+		serveBackgroundGet(w, r, admission, operations)
+	case extension.BackgroundCancelPath:
+		serveBackgroundCancel(w, r, admission, operations)
+	case extension.BackgroundRevisionPath:
+		serveBackgroundRevision(w, r, operations)
 	}
 }
 
-func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, verify backgroundVerifier) {
+func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, verify backgroundVerifier, operations backgroundOperations) {
 	var request struct {
 		extension.OperationIntent
 		Token string `json:"token"`
@@ -148,7 +162,7 @@ func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission run
 	repositoryID, _ := strconv.ParseInt(request.RepositoryID, 10, 64)
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	_, err := verify(ctx, authmodel.SubmissionRequest{
+	decision, err := verify(ctx, authmodel.SubmissionRequest{
 		InstallationID: admission.InstallationID,
 		TokenSecret:    request.Token,
 		ActorID:        actorID,
@@ -164,17 +178,40 @@ func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission run
 		http.Error(w, "background submission unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	// Admitted. Durable operation semantics arrive with the operation
-	// implementations; FT02 reports the missing stage rather than inventing
-	// a receipt.
-	writeBackgroundJSON(w, extension.OperationRecord{
-		InstallationID: admission.InstallationID,
-		OperationID:    request.OperationID,
-		Outcome:        extension.BackgroundOutcomeOperationsUnavailable,
-	})
+	intent, err := operation_service.ValidateIntent(request.OperationID, actorID, repositoryID, request.Kind,
+		request.AuthorizationRevision, request.ExpectedNativeRevision, request.NotAfter, request.Payload, time.Now().Unix())
+	if err != nil {
+		http.Error(w, "invalid background intent", http.StatusBadRequest)
+		return
+	}
+	// Submission executes the guarded native write synchronously, so it
+	// runs past the short verification timeout above.
+	record, err := operations.Submit(r.Context(), decision, admission.InstallationID, intent)
+	if err != nil {
+		switch {
+		case errors.Is(err, operation_service.ErrKindUnavailable):
+			writeBackgroundJSON(w, extension.OperationRecord{
+				InstallationID: admission.InstallationID,
+				OperationID:    request.OperationID,
+				Outcome:        extension.BackgroundOutcomeOperationsUnavailable,
+			})
+		case errors.Is(err, operation_service.ErrBusy):
+			http.Error(w, "native operation in progress", http.StatusServiceUnavailable)
+		case errors.Is(err, operation_service.ErrIntentConflict):
+			http.Error(w, "intent_conflict", http.StatusConflict)
+		case errors.Is(err, operation_service.ErrCancelledBeforeSubmit):
+			http.Error(w, "cancelled_before_submit", http.StatusConflict)
+		case errors.Is(err, operation_service.ErrInvalidIntent):
+			http.Error(w, "invalid background intent", http.StatusBadRequest)
+		default:
+			http.Error(w, "background submission unavailable", http.StatusServiceUnavailable)
+		}
+		return
+	}
+	writeBackgroundJSON(w, record)
 }
 
-func serveBackgroundLookup(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, cancel bool) {
+func serveBackgroundGet(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, operations backgroundOperations) {
 	var request struct {
 		OperationID string `json:"operation_id"`
 	}
@@ -183,21 +220,46 @@ func serveBackgroundLookup(w http.ResponseWriter, r *http.Request, admission run
 		return
 	}
 	// Owning-installation admission is verified above; the lookup itself
-	// needs no still-valid PAT or repository permission. FT02 stores no
-	// operations, so lookup is honestly not_observed and cancellation
-	// honestly reports the missing stage.
-	if !cancel {
-		writeBackgroundJSON(w, extension.OperationLookup{
-			InstallationID: admission.InstallationID,
-			OperationID:    request.OperationID,
-			Status:         extension.BackgroundOutcomeNotObserved,
-		})
+	// needs no still-valid PAT or repository permission.
+	lookup, err := operations.Get(r.Context(), admission.InstallationID, request.OperationID)
+	if err != nil {
+		http.Error(w, "background lookup unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	writeBackgroundJSON(w, extension.OperationRecord{
-		InstallationID: admission.InstallationID,
-		OperationID:    request.OperationID,
-		Outcome:        extension.BackgroundOutcomeOperationsUnavailable,
+	writeBackgroundJSON(w, lookup)
+}
+
+func serveBackgroundCancel(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, operations backgroundOperations) {
+	var request struct {
+		OperationID string `json:"operation_id"`
+	}
+	if !decodeBackgroundRequest(w, r, &request) || !validBackgroundOperationID(request.OperationID) {
+		http.Error(w, "invalid background request", http.StatusBadRequest)
+		return
+	}
+	// Owned cancellation stays available after actor-token or binding
+	// withdrawal; it needs no still-valid PAT or repository permission.
+	record, err := operations.Cancel(r.Context(), admission.InstallationID, request.OperationID)
+	if err != nil {
+		http.Error(w, "background cancellation unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	writeBackgroundJSON(w, record)
+}
+
+func serveBackgroundRevision(w http.ResponseWriter, r *http.Request, operations backgroundOperations) {
+	var request struct{}
+	if !decodeBackgroundRequest(w, r, &request) {
+		return
+	}
+	observation, err := operations.ReadNativeRevision(r.Context())
+	if err != nil {
+		http.Error(w, "background revision unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	writeBackgroundJSON(w, extension.NativeRevisionObservation{
+		Revision: observation.Revision,
+		Idle:     observation.Idle,
 	})
 }
 
