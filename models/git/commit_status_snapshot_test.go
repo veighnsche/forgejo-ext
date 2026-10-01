@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	git_model "forgejo.org/models/git"
+	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/structs"
 	"forgejo.org/modules/timeutil"
 
 	"github.com/stretchr/testify/require"
@@ -41,10 +43,24 @@ func TestCheckSnapshotPreservesExactState(t *testing.T) {
 	require.Empty(t, hidden.Context)
 	require.Empty(t, hidden.State)
 
-	bad := snapshotStatus()
-	bad.State = "skipped"
-	_, err = git_model.NewCheckSnapshot(bad, true, "", true)
-	require.ErrorIs(t, err, git_model.ErrCheckSnapshotInvalid, "unknown check state must refuse")
+	// Stored states pass through exactly as observed, including states
+	// outside the five documented ones; consumers fail closed on
+	// non-success states.
+	for _, state := range []string{"cancelled", "skipped", "awaiting-maintainer-signal"} {
+		opaque := snapshotStatus()
+		opaque.State = structs.CommitStatusState(state)
+		converted, err := git_model.NewCheckSnapshot(opaque, true, "", true)
+		require.NoError(t, err)
+		require.Equal(t, state, converted.State)
+	}
+
+	// Actions-posted rows carry the system Actions creator rather than a
+	// real user; the stored creator ID passes through exactly.
+	actionsRow := snapshotStatus()
+	actionsRow.CreatorID = user_model.ActionsUserID
+	actions, err := git_model.NewCheckSnapshot(actionsRow, true, "", true)
+	require.NoError(t, err)
+	require.Equal(t, int64(user_model.ActionsUserID), actions.CreatorID)
 }
 
 func TestCheckSetRequiresCompleteCommitBinding(t *testing.T) {

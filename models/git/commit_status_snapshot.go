@@ -40,15 +40,6 @@ func validCheckHiddenReason(reason string) bool {
 	}
 }
 
-func validCheckState(state string) bool {
-	switch state {
-	case "pending", "success", "error", "failure", "warning":
-		return true
-	default:
-		return false
-	}
-}
-
 func validCheckOID(oid string) bool {
 	if len(oid) != 40 && len(oid) != 64 {
 		return false
@@ -114,11 +105,17 @@ func NewCheckSnapshot(status *CommitStatus, visible bool, hiddenReason string, c
 	if hiddenReason != "" {
 		return CheckSnapshot{}, ErrCheckSnapshotInvalid
 	}
+	// The stored state passes through exactly as observed: writers accept
+	// states beyond the five documented ones (ordinary REST stores
+	// cancelled, skipped and arbitrary strings), and consumers fail
+	// closed on non-success states. Refusing here would fail snapshot
+	// reads for rows the platform itself stores and lists back.
 	state := string(status.State)
-	if !validCheckState(state) {
-		return CheckSnapshot{}, ErrCheckSnapshotInvalid
-	}
-	if status.Index < 0 || status.CreatorID < 0 {
+	// The stored creator passes through exactly as observed, including
+	// system creators such as the Actions user: Actions-posted statuses
+	// carry no real user. The wire renders non-positive creator IDs
+	// empty, matching the REST rendering of the same row.
+	if status.Index < 0 {
 		return CheckSnapshot{}, ErrCheckSnapshotInvalid
 	}
 	created := int64(status.CreatedUnix)
