@@ -494,6 +494,12 @@ func checkExactReviewTarget(issue *Issue, pr *PullRequest, want ExactReviewTarge
 // transaction; mentions and notifications are bounded completion owned by the
 // service caller, not part of this transaction.
 func SubmitExactReview(ctx context.Context, doer *user_model.User, issue *Issue, reviewType ReviewType, content string, want ExactReviewTarget) (*Review, *Comment, error) {
+	// Nested collaboration writer: refuse while another owner holds the
+	// reservation; the enclosing ordinary or conditional owner carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, nil, err
+	}
 	if reviewType != ReviewTypeApprove && reviewType != ReviewTypeReject {
 		return nil, nil, ErrExactReviewRefused{Reason: "only approve or reject reviews are supported"}
 	}

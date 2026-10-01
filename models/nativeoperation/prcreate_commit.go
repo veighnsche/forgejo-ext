@@ -24,6 +24,15 @@ import (
 // whole transaction back: no partial PR rows survive and the operation row
 // is untouched for the caller to refuse.
 func CommitPRCreatePrimary(ctx context.Context, installationID, operationID, owner string, nowUnix int64, insert func(ctx context.Context) (receipt string, err error)) (*Operation, error) {
+	return commitConditionalPrimary(ctx, installationID, operationID, owner, nowUnix, insert)
+}
+
+// commitConditionalPrimary is the shared database-primary commit for
+// conditional operations whose effect is SQL rows: the operation must still
+// be pending, unrevoked, unadmitted and unexpired with owner holding the
+// reservation, or nothing is inserted. See CommitPRCreatePrimary for the
+// ordering contract.
+func commitConditionalPrimary(ctx context.Context, installationID, operationID, owner string, nowUnix int64, insert func(ctx context.Context) (receipt string, err error)) (*Operation, error) {
 	var recorded *Operation
 	err := db.WithTx(ctx, func(ctx context.Context) error {
 		op, err := LookupOperation(ctx, installationID, operationID)

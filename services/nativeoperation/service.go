@@ -131,6 +131,7 @@ type ValidIntent struct {
 	Merge                  *MergeIntent
 	Publish                *PublishIntent
 	PRCreate               *PRCreateIntent
+	ReviewSubmit           *ReviewSubmitIntent
 	Digest                 string
 	Canonical              string
 }
@@ -215,6 +216,12 @@ func ValidateIntent(operationID string, actorID, repositoryID int64, kind, authR
 			return nil, err
 		}
 		intent.PRCreate = prcreate
+	} else if kind == model.KindReviewSubmit {
+		review, err := parseReviewSubmitPayload(payload, repositoryID)
+		if err != nil {
+			return nil, err
+		}
+		intent.ReviewSubmit = review
 	} else if len(payload) > 0 {
 		var probe map[string]any
 		decoder := json.NewDecoder(bytes.NewReader(payload))

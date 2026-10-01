@@ -34,6 +34,14 @@ const (
 	// after its primary issue/PR commit and before bounded completion,
 	// with the owner still held for offline-recovery proof.
 	CrashPointPRCreateAfterPrimary = "prcreate-after-primary"
+	// CrashPointReviewSubmitBeforePrimary pauses a conditional review
+	// submission after the claim and before the atomic primary commit,
+	// so a cancellation race can be staged deterministically against it.
+	CrashPointReviewSubmitBeforePrimary = "review-submit-before-primary"
+	// CrashPointReviewSubmitAfterPrimary pauses a conditional review
+	// submission after its primary review commit and before bounded
+	// completion, with the owner still held for offline-recovery proof.
+	CrashPointReviewSubmitAfterPrimary = "review-submit-after-primary"
 )
 
 // TestCrashBarrier is a disclosed test instrument for offline-recovery

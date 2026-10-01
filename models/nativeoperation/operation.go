@@ -13,8 +13,9 @@ import (
 )
 
 // Operation kinds mirror the SDK background kinds. Authorization for one kind
-// never grants another. Merge, publish and PR creation execute; remaining
-// kinds report their stage as unavailable until their owning task lands.
+// never grants another. Merge, publish, PR creation and review submission
+// execute; remaining kinds report their stage as unavailable until their
+// owning task lands.
 const (
 	KindRefPublish   = "git.ref.publish"
 	KindPRCreate     = "pull_request.create"
@@ -65,6 +66,7 @@ const (
 	ReasonPublishOptionsRejected   = "publish_options_rejected"
 	ReasonNotFastForward           = "not_fast_forward"
 	ReasonDuplicatePullRequest     = "duplicate_pull_request"
+	ReasonPendingReviewExists      = "pending_review_exists"
 )
 
 // Operation is one immutable conditional-operation authorization identified

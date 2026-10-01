@@ -134,10 +134,11 @@ func TestSubmitRefusesStaleRevisionAndBusy(t *testing.T) {
 func TestSubmitReportsUnimplementedKind(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	svc := NewService()
-	now := time.Now().Unix()
-	intent, err := ValidateIntent("op-review", 2, 1, model.KindReviewSubmit, "rev-1", 1, now+300, nil, now)
-	require.NoError(t, err)
-	_, err = svc.Submit(t.Context(), testDecision(), operationTestInstallation, intent)
+	// Every valid kind is implemented, so the unimplemented-kind probe
+	// is a hand-built intent: Submit must still report the missing
+	// stage rather than inventing a receipt.
+	intent := &ValidIntent{OperationID: "op-future", Kind: "pull_request.future"}
+	_, err := svc.Submit(t.Context(), testDecision(), operationTestInstallation, intent)
 	require.ErrorIs(t, err, ErrKindUnavailable)
 }
 
