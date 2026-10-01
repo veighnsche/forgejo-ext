@@ -219,6 +219,8 @@ func (s *Service) recoverOrdinary(ctx context.Context, assessment *RecoveryAsses
 		return s.recoverBranchDelete(ctx, assessment, reservation, scope)
 	case FamilyActionsTask:
 		return s.recoverActionsTask(ctx, assessment, reservation, scope)
+	case FamilyActionsRun:
+		return s.recoverActionsRun(ctx, assessment, reservation, scope)
 	case FamilyPushCompletion:
 		return s.recoverPushCompletion(ctx, assessment, reservation, scope)
 	case FamilyReceiveHTTP, FamilyReceiveSSH:
@@ -371,7 +373,7 @@ func (s *Service) recoverBranchDelete(ctx context.Context, assessment *RecoveryA
 // update fences for intervention.
 func (s *Service) recoverActionsTask(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.TaskID <= 0 {
-		return fenced(assessment, ReasonRecoveryUnknownFamily, "actions-task scope names no task")
+		return s.recoverActionsTaskPick(ctx, assessment, reservation, scope)
 	}
 	task, err := actions_model.GetTaskByID(ctx, scope.TaskID)
 	if err != nil {

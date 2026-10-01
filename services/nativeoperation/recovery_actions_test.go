@@ -336,3 +336,45 @@ func TestRecoverActionsTaskPickDangling(t *testing.T) {
 	require.Equal(t, RecoveryFenced, assessment.Verdict)
 	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
 }
+
+func TestRecoverOrdinaryRoutesActionsRun(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+	scope := Scope{Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RunID: 791}
+	claimed := claimOrdinaryOwner(t, ctx, "ord:actions-run/run/cancel/0123456789abcdef", scope)
+	inhibitDomain(t)
+	assessment, err := svc.recoverOrdinary(ctx, &RecoveryAssessment{
+		Owner:      claimed.Owner,
+		Generation: claimed.Generation,
+		OwnerKind:  claimed.OwnerKind,
+		Family:     FamilyActionsRun,
+		Verdict:    RecoveryFenced,
+	}, claimed, scope)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, EffectActionsConsistent, assessment.Effect)
+}
+
+func TestRecoverOrdinaryRoutesActionsTaskPick(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	job := insertPickJob(t, ctx, 791, actions_model.StatusWaiting, 0)
+
+	useIsolatedAppData(t)
+	svc := admissionService(t, nil, 0)
+	scope := Scope{Kind: model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: 1}
+	claimed := claimOrdinaryOwner(t, ctx, "ord:actions-task/task/pick/0123456789abcdef", scope)
+	inhibitDomain(t)
+	assessment, err := svc.recoverOrdinary(ctx, &RecoveryAssessment{
+		Owner:      claimed.Owner,
+		Generation: claimed.Generation,
+		OwnerKind:  claimed.OwnerKind,
+		Family:     FamilyActionsTask,
+		Verdict:    RecoveryFenced,
+	}, claimed, scope)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryReleased, assessment.Verdict)
+	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+}
