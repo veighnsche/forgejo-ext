@@ -81,6 +81,7 @@ cpu.out
 /tests/e2e/.auth
 /tests/*.ini
 /tests/**/*.git/**/*.sample
+/tests/repostests/
 /node_modules
 /.venv
 /yarn.lock
