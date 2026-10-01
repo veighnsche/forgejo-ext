@@ -502,9 +502,16 @@ func NewPullSnapshot(pr *PullRequest, headTip string, visible bool, hiddenReason
 	if pr.MergedCommitID != "" && !validFullOID(pr.MergedCommitID) {
 		return PullSnapshot{}, ErrSnapshotInvalid
 	}
-	merged := int64(pr.MergedUnix)
-	if pr.HasMerged != (merged > 0 || pr.MergedCommitID != "") {
+	// MergedUnix is xorm-maintained last-update time (the column carries the
+	// `updated` tag: stamped on insert and every update), not merge evidence.
+	// Merge consistency binds only HasMerged to the recorded merge commit,
+	// and unmerged PRs report no merge time.
+	if !pr.HasMerged && pr.MergedCommitID != "" {
 		return PullSnapshot{}, ErrSnapshotInvalid
+	}
+	merged := int64(pr.MergedUnix)
+	if !pr.HasMerged {
+		merged = 0
 	}
 	flow := ""
 	switch pr.Flow {
