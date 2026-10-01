@@ -174,12 +174,19 @@ func (s *Service) recoverConditionalMerge(ctx context.Context, assessment *Recov
 		fmt.Sprintf("operation admitted=%t revoked=%t effect=%s", op.Admitted, op.Revoked, op.EffectState),
 		fmt.Sprintf("base tip absent=%t matches_new=%t matches_old=%t pr_merged_at_tip=%t", absent, !absent && strings.EqualFold(tip, scope.NewOID), !absent && strings.EqualFold(tip, scope.OldOID), mergedAtTip),
 	)
-	committed := op.Admitted && !absent && strings.EqualFold(tip, scope.NewOID) && !strings.EqualFold(tip, scope.OldOID) && mergedAtTip
+	effectCommitted := op.Admitted && !absent && strings.EqualFold(tip, scope.NewOID) && !strings.EqualFold(tip, scope.OldOID)
 	notCommitted := !op.Admitted && !absent && strings.EqualFold(tip, scope.OldOID) && !pr.HasMerged
 	switch {
-	case committed:
+	case effectCommitted:
 		if op.IsTerminal() && op.EffectState != model.EffectCommitted {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed merge effect; preserved")
+		}
+		completion := model.CompletionComplete
+		if !mergedAtTip {
+			// The admitted ref effect is known but its PR
+			// bookkeeping never recorded it: committed but
+			// incomplete, like the live path's reconciliation.
+			completion = model.CompletionNeedsIntervention
 		}
 		if !op.IsTerminal() {
 			receipt, _ := json.Marshal(MergeReceipt{
@@ -196,7 +203,7 @@ func (s *Service) recoverConditionalMerge(ctx context.Context, assessment *Recov
 			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
 				EffectState:  model.EffectCommitted,
 				Cancellation: model.CancellationNone,
-				Completion:   model.CompletionComplete,
+				Completion:   completion,
 				Receipt:      string(receipt),
 			}, ""); err != nil {
 				return RecoveryAssessment{}, err

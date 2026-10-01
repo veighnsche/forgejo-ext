@@ -14,10 +14,8 @@ import (
 	authmodel "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
 	model "forgejo.org/models/nativeoperation"
-	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
-	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
 	execcontext "forgejo.org/modules/nativeoperation"
 	pull_service "forgejo.org/services/pull"
@@ -127,14 +125,29 @@ func (t terminalResult) Retained() bool {
 	return t.retain
 }
 
+// mergeResult carries the exact-merge outcome into reconciliation: the
+// realized base SHA on success, the engine-error hint reason when the tip
+// evidence shows no effect, and whether a post-write result mismatch made
+// the outcome unattributable from the engine's report alone.
+type mergeResult struct {
+	realized       string
+	hint           string
+	unattributable bool
+}
+
 // executeMerge runs the guarded merge and reconciles its result. It returns
 // the SDK record and whether the owner stays held for an unresolved effect.
+// All native work runs on the owned context so nested participating writers
+// attribute to this execution; terminal records and the owner release run
+// detached so a caller disconnect cannot stick the reservation.
 func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent *ValidIntent, scope Scope, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
 	owner := execution.Owner
+	merge := intent.Merge
 	// Terminal records and the owner release must complete even when the
-	// caller disconnects mid-write; native work above keeps the live
+	// caller disconnects mid-write; native work below keeps the live
 	// context so cancellation still stops it.
 	releaseCtx := context.WithoutCancel(ctx)
+	owned := execcontext.NewContext(ctx, execution)
 	refuse := func(reason string) (sdk.OperationRecord, terminalResult, error) {
 		recorded, err := model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, model.TerminalOutcome{
 			EffectState:  model.EffectNotCommitted,
@@ -146,84 +159,80 @@ func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent 
 		}
 		return ToRecord(recorded), terminalResult{}, nil
 	}
-	if err := s.revalidateSubmission(ctx, op); err != nil {
+	if err := s.revalidateSubmission(owned, op); err != nil {
 		if errors.Is(err, ErrAuthorityLost) {
 			return refuse(model.ReasonAuthorityLost)
 		}
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
-	repository, err := repo_model.GetRepositoryByID(ctx, intent.RepositoryID)
+	repository, err := repo_model.GetRepositoryByID(owned, intent.RepositoryID)
 	if err != nil {
 		return refuse(model.ReasonNativeRefused)
-	}
-	pr, err := issues_model.GetPullRequestByIndex(ctx, intent.RepositoryID, intent.Merge.PullRequestNumber)
-	if err != nil {
-		return refuse(model.ReasonPRMismatch)
-	}
-	if err := pr.LoadIssue(ctx); err != nil {
-		return refuse(model.ReasonNativeRefused)
-	}
-	if !sameRepositoryPullRequest(pr, intent) {
-		return refuse(model.ReasonPRMismatch)
 	}
 	if s.clock() >= op.NotAfter {
 		return refuse(model.ReasonExpiredBeforeAdmission)
 	}
-	head, err := s.readRef(ctx, repository.RepoPath(), intent.Merge.HeadRef)
-	if err != nil || !strings.EqualFold(head, intent.Merge.ExpectedHeadOID) {
-		return refuse(model.ReasonStaleHead)
-	}
-	base, err := s.readRef(ctx, repository.RepoPath(), intent.Merge.BaseRef)
-	if err != nil || !strings.EqualFold(base, intent.Merge.ExpectedBaseOID) {
-		return refuse(model.ReasonStaleBaseOrResult)
-	}
-	doer, err := user_model.GetUserByID(ctx, op.ActorID)
+	doer, err := user_model.GetUserByID(owned, op.ActorID)
 	if err != nil {
 		return refuse(model.ReasonAuthorityLost)
 	}
-	permission, err := access_model.GetUserRepoPermission(ctx, repository, doer)
+	pr, err := issues_model.GetPullRequestByIndex(owned, intent.RepositoryID, merge.PullRequestNumber)
 	if err != nil {
-		return refuse(model.ReasonAuthorityLost)
+		if issues_model.IsErrPullRequestNotExist(err) {
+			return refuse(model.ReasonPRMismatch)
+		}
+		return sdk.OperationRecord{}, terminalResult{}, err
 	}
-	// Retain the native mergeability layer: permission, protection, review,
-	// status and merge-method enforcement stay effective under the gate.
-	if err := pull_service.CheckPullMergeable(ctx, doer, &permission, pr, pull_service.MergeCheckTypeGeneral, false); err != nil {
-		return refuse(model.ReasonNativeRefused)
-	}
-	baseGitRepo, err := gitrepo.OpenRepository(ctx, repository)
+	baseGitRepo, err := gitrepo.OpenRepository(owned, repository)
 	if err != nil {
 		return refuse(model.ReasonNativeRefused)
 	}
 	defer baseGitRepo.Close()
-	message, _, err := pull_service.GetDefaultMergeMessage(ctx, baseGitRepo, pr, repo_model.MergeStyleFastForwardOnly)
+	message, _, err := pull_service.GetDefaultMergeMessage(owned, baseGitRepo, pr, repo_model.MergeStyleFastForwardOnly)
 	if err != nil {
 		return refuse(model.ReasonNativeRefused)
 	}
-	owned := execcontext.NewContext(ctx, execution)
-	mergeErr := pull_service.Merge(owned, pr, doer, baseGitRepo, repo_model.MergeStyleFastForwardOnly, intent.Merge.ExpectedHeadOID, message, false)
+	// Test-only barrier for the claim/cancel race proof: with the claim
+	// held and the native merge not started, the driver revokes the
+	// operation here so prepared admission below must observe the
+	// cancellation and refuse.
+	if err := TestCrashBarrier(CrashPointMergeBeforeNative); err != nil {
+		return sdk.OperationRecord{}, terminalResult{}, err
+	}
+	// The exact entry re-verifies the live candidate under the held owner
+	// and runs the native engine: deterministic pre-write refusals map to
+	// bounded reasons, while engine outcomes reconcile from admission and
+	// the authoritative tip, never from the error alone.
+	realized, mergeErr := pull_service.MergeExactFastForward(owned, pr, doer, baseGitRepo,
+		merge.HeadRef, merge.BaseRef, merge.ExpectedHeadOID, merge.ExpectedBaseOID, message)
+	if mergeErr != nil {
+		var refused pull_service.ErrExactMergeRefused
+		exact := errors.As(mergeErr, &refused)
+		if exact && refused.Reason != pull_service.ExactMergeRefusedResultMismatch {
+			// Deterministic pre-write refusal: the engine never
+			// ran, no admission was recorded and no ref moved.
+			return refuse(mapExactMergeRefusal(mergeErr))
+		}
+		// A post-write result mismatch is unattributable from the
+		// engine's report: only a tip that proves the exact effect
+		// may still commit, and any other outcome stays fenced.
+		result := mergeResult{hint: mapMergeEngineError(mergeErr), unattributable: exact}
+		// Test-only crash barrier for offline-recovery proof: with
+		// the native merge done and the owner still held, the
+		// driver fails here to simulate a crash before
+		// reconciliation.
+		if err := TestCrashBarrier(CrashPointMergeAfterNative); err != nil {
+			return sdk.OperationRecord{}, terminalResult{}, err
+		}
+		return s.reconcileMerge(releaseCtx, op, scope, repository, execution, result)
+	}
 	// Test-only crash barrier for offline-recovery proof: with the native
-	// merge done and the owner still held, the driver SIGKILLs the server
-	// here to simulate a crash before reconciliation.
+	// merge done and the owner still held, the driver fails here to
+	// simulate a crash before reconciliation.
 	if err := TestCrashBarrier(CrashPointMergeAfterNative); err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
-	return s.reconcileMerge(releaseCtx, op, scope, repository, execution, mergeErr)
-}
-
-func sameRepositoryPullRequest(pr *issues_model.PullRequest, intent *ValidIntent) bool {
-	if pr == nil || pr.HasMerged || pr.HeadRepoID != intent.Merge.HeadRepositoryID {
-		return false
-	}
-	if pr.HeadBranch != strings.TrimPrefix(intent.Merge.HeadRef, git.BranchPrefix) {
-		return false
-	}
-	if pr.BaseBranch != strings.TrimPrefix(intent.Merge.BaseRef, git.BranchPrefix) {
-		return false
-	}
-	if pr.BaseRepoID != intent.RepositoryID {
-		return false
-	}
-	return pr.Issue != nil && !pr.Issue.IsClosed
+	return s.reconcileMerge(releaseCtx, op, scope, repository, execution, mergeResult{realized: realized})
 }
 
 // MergeReceipt attributes one committed merge to its operation.
@@ -241,9 +250,10 @@ type MergeReceipt struct {
 
 // reconcileMerge resolves the write after writer quiescence. The merge
 // engine's error alone never decides: attribution comes from the recorded
-// admission plus the authoritative ref tip. A known effect releases the
-// owner; an unknown effect retains the fence.
-func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope Scope, repository *repo_model.Repository, execution *execcontext.Execution, mergeErr error) (sdk.OperationRecord, terminalResult, error) {
+// admission plus the authoritative ref tip, bound to the realized SHA when
+// the engine reported one. A known effect releases the owner; an unknown
+// effect retains the fence.
+func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope Scope, repository *repo_model.Repository, execution *execcontext.Execution, result mergeResult) (sdk.OperationRecord, terminalResult, error) {
 	owner := execution.Owner
 	fresh, err := model.LookupOperation(ctx, op.InstallationID, op.OperationID)
 	if err != nil {
@@ -252,7 +262,6 @@ func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope
 	if fresh == nil {
 		return sdk.OperationRecord{}, terminalResult{}, errors.New("operation vanished during execution")
 	}
-	_ = mergeErr
 	tip, tipErr := s.readRef(ctx, repository.RepoPath(), scope.Ref)
 	if tipErr != nil {
 		recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
@@ -265,7 +274,8 @@ func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope
 		return ToRecord(recorded), terminalResult{retain: true}, nil
 	}
 	tip = strings.ToLower(tip)
-	committed := fresh.Admitted && tip == scope.NewOID && tip != scope.OldOID
+	committed := fresh.Admitted && tip == scope.NewOID && tip != scope.OldOID &&
+		(result.realized == "" || strings.EqualFold(tip, result.realized))
 	if committed {
 		receipt, _ := json.Marshal(MergeReceipt{
 			OldOID:       scope.OldOID,
@@ -293,9 +303,10 @@ func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope
 		}
 		return ToRecord(recorded), terminalResult{}, nil
 	}
-	if fresh.Admitted || (tip == scope.NewOID && tip != scope.OldOID) {
-		// Admitted but tip disagrees, or the tip moved without admission:
-		// the effect cannot be attributed, so it stays fenced.
+	if result.unattributable || fresh.Admitted || (tip == scope.NewOID && tip != scope.OldOID) {
+		// An unattributable engine report, an admission the tip
+		// disagrees with, or a tip that moved without admission: the
+		// effect cannot be attributed, so it stays fenced.
 		recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
 			EffectState:  model.EffectIndeterminate,
 			Cancellation: model.CancellationNone,
@@ -306,6 +317,9 @@ func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope
 		return ToRecord(recorded), terminalResult{retain: true}, nil
 	}
 	reason := fresh.Reason
+	if reason == "" {
+		reason = result.hint
+	}
 	if reason == "" {
 		reason = model.ReasonNativeRefused
 	}

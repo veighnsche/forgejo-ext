@@ -23,6 +23,11 @@ const (
 	// CrashPointMergeAfterNative pauses a conditional merge after the
 	// native merge child returns and before reconciliation.
 	CrashPointMergeAfterNative = "merge-after-native"
+	// CrashPointMergeBeforeNative pauses a conditional merge after the
+	// claim and before the native merge starts, so a cancellation race
+	// can be staged deterministically against prepared admission and a
+	// crash before any effect can be recovered offline.
+	CrashPointMergeBeforeNative = "merge-before-native"
 	// CrashPointPushCompletionAfterEffects pauses one deferred
 	// push/completion batch after its effects commit.
 	CrashPointPushCompletionAfterEffects = "push-completion-after-effects"
