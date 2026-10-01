@@ -118,6 +118,15 @@ func init() {
 	db.RegisterModel(new(IssueDependency))
 }
 
+// ListIssueDependencies returns the raw blocked-by edge rows for one issue
+// ordered by occurrence ID ascending. Callers apply visibility and paging;
+// removal plus readdition yields a new row ID, so consumers detect edge
+// replacement by occurrence change, never by text comparison.
+func ListIssueDependencies(ctx context.Context, issueID int64) ([]*IssueDependency, error) {
+	edges := make([]*IssueDependency, 0)
+	return edges, db.GetEngine(ctx).Where("issue_id = ?", issueID).Asc("id").Find(&edges)
+}
+
 // DependencyType Defines Dependency Type Constants
 type DependencyType int
 

@@ -57,8 +57,17 @@ func acceptVerifier(context.Context, authmodel.SubmissionRequest) (authmodel.Sub
 	return authmodel.SubmissionDecision{TokenID: 9, ActorID: 2, CredentialFingerprint: "fingerprint"}, nil
 }
 
+func acceptSnapshotVerifier(context.Context, authmodel.SnapshotReadRequest) (authmodel.SubmissionDecision, error) {
+	return authmodel.SubmissionDecision{TokenID: 9, ActorID: 2, CredentialFingerprint: "fingerprint"}, nil
+}
+
+func testVerifiers() backgroundVerifiers {
+	return backgroundVerifiers{submit: acceptVerifier, snapshot: acceptSnapshotVerifier}
+}
+
 type stubOperations struct {
 	revision operation_service.NativeRevisionObservation
+	snapshot func(context.Context, int64, extension.SnapshotRequest) (extension.NativeSnapshot, error)
 	submit   func(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
 	get      func(context.Context, string, string) (extension.OperationLookup, error)
 	cancel   func(context.Context, string, string) (extension.OperationRecord, error)
@@ -66,6 +75,10 @@ type stubOperations struct {
 
 func (s stubOperations) ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error) {
 	return s.revision, nil
+}
+
+func (s stubOperations) ReadSnapshot(ctx context.Context, actorID int64, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
+	return s.snapshot(ctx, actorID, req)
 }
 
 func (s stubOperations) Submit(ctx context.Context, decision authmodel.SubmissionDecision, installation string, intent *operation_service.ValidIntent) (extension.OperationRecord, error) {
@@ -99,6 +112,9 @@ func mergeSubmitPayload() map[string]any {
 func testOperations() stubOperations {
 	return stubOperations{
 		revision: operation_service.NativeRevisionObservation{Revision: 7, Idle: true},
+		snapshot: func(_ context.Context, _ int64, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
+			return extension.NativeSnapshot{RepositoryID: req.RepositoryID}, nil
+		},
 		submit: func(_ context.Context, _ authmodel.SubmissionDecision, installation string, intent *operation_service.ValidIntent) (extension.OperationRecord, error) {
 			return extension.OperationRecord{
 				InstallationID: installation, OperationID: intent.OperationID,
@@ -123,7 +139,7 @@ func TestBackgroundSubmitAdmitsBoundCaller(t *testing.T) {
 	const installation, instance = "11111111-2222-4333-8444-555555555555", "instance-a"
 	token := issueRuntimeAdmission(t, manager, installation, instance, []string{extension.CapabilityBackgroundOperations})
 	browser := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
-	handler := backgroundMux(manager, browser, instance, false, acceptVerifier, testOperations())
+	handler := backgroundMux(manager, browser, instance, false, testVerifiers(), testOperations())
 
 	recorder := backgroundRequest(t, handler, extension.BackgroundSubmitPath, token, backgroundPeerAddr(t), mergeSubmitPayload())
 	require.Equal(t, http.StatusOK, recorder.Code)
@@ -173,7 +189,7 @@ func TestBackgroundSubmitMapsServiceOutcomes(t *testing.T) {
 			operations.submit = func(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error) {
 				return extension.OperationRecord{}, tc.err
 			}
-			handler := backgroundMux(manager, browser, instance, false, acceptVerifier, operations)
+			handler := backgroundMux(manager, browser, instance, false, testVerifiers(), operations)
 			recorder := backgroundRequest(t, handler, extension.BackgroundSubmitPath, token, backgroundPeerAddr(t), mergeSubmitPayload())
 			require.Equal(t, tc.status, recorder.Code)
 			if tc.extra != "" {
@@ -190,7 +206,7 @@ func TestBackgroundAdmissionBoundaries(t *testing.T) {
 	uncappedToken := issueRuntimeAdmission(t, manager, installation, "instance-a", []string{extension.CapabilityActorRead})
 	otherInstanceToken := issueRuntimeAdmission(t, manager, installation, "instance-b", []string{extension.CapabilityBackgroundOperations})
 	browser := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
-	handler := backgroundMux(manager, browser, "instance-a", false, acceptVerifier, testOperations())
+	handler := backgroundMux(manager, browser, "instance-a", false, testVerifiers(), testOperations())
 	peer := backgroundPeerAddr(t)
 	submit := map[string]any{
 		"operation_id": "op-1", "actor_id": "2", "repository_id": "1",
@@ -229,7 +245,7 @@ func TestBackgroundLookupCancelAndRevision(t *testing.T) {
 	const installation = "11111111-2222-4333-8444-555555555555"
 	token := issueRuntimeAdmission(t, manager, installation, "instance-a", []string{extension.CapabilityBackgroundOperations})
 	browser := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
-	handler := backgroundMux(manager, browser, "instance-a", false, acceptVerifier, testOperations())
+	handler := backgroundMux(manager, browser, "instance-a", false, testVerifiers(), testOperations())
 	peer := backgroundPeerAddr(t)
 
 	recorder := backgroundRequest(t, handler, extension.BackgroundGetPath, token, peer, map[string]any{"operation_id": "op-9"})
@@ -259,7 +275,7 @@ func TestBackgroundVerifierRefusalsMapToStatus(t *testing.T) {
 	verify := func(context.Context, authmodel.SubmissionRequest) (authmodel.SubmissionDecision, error) {
 		return authmodel.SubmissionDecision{}, &authmodel.RefusalError{Code: authmodel.RefusalBindingMissing, Status: http.StatusForbidden}
 	}
-	handler := backgroundMux(manager, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), "instance-a", false, verify, testOperations())
+	handler := backgroundMux(manager, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), "instance-a", false, backgroundVerifiers{submit: verify, snapshot: acceptSnapshotVerifier}, testOperations())
 	recorder := backgroundRequest(t, handler, extension.BackgroundSubmitPath, token, backgroundPeerAddr(t), map[string]any{
 		"operation_id": "op-1", "actor_id": "2", "repository_id": "1",
 		"kind": "pull_request.merge", "token": "secret",
@@ -273,12 +289,96 @@ func TestBackgroundBootstrapRequiresServiceMapping(t *testing.T) {
 	browser := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
 
 	// The runtime socket never serves bootstrap.
-	runtimeHandler := backgroundMux(manager, browser, "instance-a", false, acceptVerifier, testOperations())
+	runtimeHandler := backgroundMux(manager, browser, "instance-a", false, testVerifiers(), testOperations())
 	recorder := backgroundRequest(t, runtimeHandler, extension.BackgroundBootstrapPath, "", backgroundPeerAddr(t), map[string]any{})
 	require.Equal(t, http.StatusNotFound, recorder.Code)
 
 	// The service socket rejects unmapped peers without a browser.
-	serviceHandler := backgroundMux(manager, browser, "", true, acceptVerifier, testOperations())
+	serviceHandler := backgroundMux(manager, browser, "", true, testVerifiers(), testOperations())
 	recorder = backgroundRequest(t, serviceHandler, extension.BackgroundBootstrapPath, "", backgroundPeerAddr(t), map[string]any{})
 	require.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func snapshotReadPayload() map[string]any {
+	return map[string]any{
+		"repository_id": "1", "actor_id": "2",
+		"families":    []string{"issue"},
+		"issue_index": "1",
+		"token":       "secret",
+	}
+}
+
+func TestBackgroundSnapshotReadsThroughVerifiedActor(t *testing.T) {
+	manager := backgroundTestManager(t)
+	const installation, instance = "11111111-2222-4333-8444-555555555555", "instance-a"
+	token := issueRuntimeAdmission(t, manager, installation, instance, []string{extension.CapabilityBackgroundOperations})
+	browser := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
+	handler := backgroundMux(manager, browser, instance, false, testVerifiers(), testOperations())
+	peer := backgroundPeerAddr(t)
+
+	recorder := backgroundRequest(t, handler, extension.BackgroundSnapshotPath, token, peer, snapshotReadPayload())
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var snapshot extension.NativeSnapshot
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &snapshot))
+	require.Equal(t, "1", snapshot.RepositoryID)
+
+	// Unknown admissions are never accepted on the snapshot path either.
+	recorder = backgroundRequest(t, handler, extension.BackgroundSnapshotPath, "", peer, snapshotReadPayload())
+	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+
+	// Malformed selectors fail before verification.
+	malformed := snapshotReadPayload()
+	malformed["families"] = []string{"approval"}
+	recorder = backgroundRequest(t, handler, extension.BackgroundSnapshotPath, token, peer, malformed)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	missingSecret := snapshotReadPayload()
+	delete(missingSecret, "token")
+	recorder = backgroundRequest(t, handler, extension.BackgroundSnapshotPath, token, peer, missingSecret)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestBackgroundSnapshotMapsReadOutcomes(t *testing.T) {
+	manager := backgroundTestManager(t)
+	token := issueRuntimeAdmission(t, manager, "11111111-2222-4333-8444-555555555555", "instance-a", []string{extension.CapabilityBackgroundOperations})
+	browser := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
+	peer := backgroundPeerAddr(t)
+
+	// Verifier refusals keep their bounded code and status.
+	refusing := backgroundVerifiers{
+		submit: acceptVerifier,
+		snapshot: func(context.Context, authmodel.SnapshotReadRequest) (authmodel.SubmissionDecision, error) {
+			return authmodel.SubmissionDecision{}, &authmodel.RefusalError{Code: authmodel.RefusalPermissionLost, Status: http.StatusForbidden}
+		},
+	}
+	handler := backgroundMux(manager, browser, "instance-a", false, refusing, testOperations())
+	recorder := backgroundRequest(t, handler, extension.BackgroundSnapshotPath, token, peer, snapshotReadPayload())
+	require.Equal(t, http.StatusForbidden, recorder.Code)
+	require.Contains(t, recorder.Body.String(), authmodel.RefusalPermissionLost)
+
+	// Missing records share one bounded not-found outcome; service
+	// failures are unavailable without leaking record state.
+	cases := []struct {
+		name   string
+		err    error
+		status int
+		extra  string
+	}{
+		{"missing record is not found", operation_service.ErrSnapshotNotFound, http.StatusNotFound, "snapshot_not_found"},
+		{"invalid read is rejected", operation_service.ErrSnapshotInvalid, http.StatusBadRequest, ""},
+		{"unavailable read stays unavailable", operation_service.ErrSnapshotUnavailable, http.StatusServiceUnavailable, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			operations := testOperations()
+			operations.snapshot = func(context.Context, int64, extension.SnapshotRequest) (extension.NativeSnapshot, error) {
+				return extension.NativeSnapshot{}, tc.err
+			}
+			handler := backgroundMux(manager, browser, "instance-a", false, testVerifiers(), operations)
+			recorder := backgroundRequest(t, handler, extension.BackgroundSnapshotPath, token, peer, snapshotReadPayload())
+			require.Equal(t, tc.status, recorder.Code)
+			if tc.extra != "" {
+				require.Contains(t, recorder.Body.String(), tc.extra)
+			}
+		})
+	}
 }

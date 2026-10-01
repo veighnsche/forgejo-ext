@@ -24,10 +24,25 @@ import (
 // and discarded inside the verifier, never logged or recorded here.
 type backgroundVerifier func(context.Context, authmodel.SubmissionRequest) (authmodel.SubmissionDecision, error)
 
-// backgroundOperations executes durable submit/lookup/cancel and revision
-// reads. Production uses the native-operation service; tests inject a fake.
+// snapshotVerifier authenticates a background snapshot read. Production uses
+// authmodel.VerifySnapshotRead; tests inject a fake. Reads require only
+// read scope and read access, and grant no mutation kind.
+type snapshotVerifier func(context.Context, authmodel.SnapshotReadRequest) (authmodel.SubmissionDecision, error)
+
+// backgroundVerifiers groups the submission and snapshot-read verifiers so
+// dispatch tests inject both together.
+type backgroundVerifiers struct {
+	submit   backgroundVerifier
+	snapshot snapshotVerifier
+}
+
+// backgroundOperations executes durable submit/lookup/cancel, revision
+// observations and permission-checked snapshot reads. Production uses the
+// native-operation service; tests inject a fake. Snapshot reads claim no
+// reservation and perform no mutation.
 type backgroundOperations interface {
 	ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error)
+	ReadSnapshot(context.Context, int64, extension.SnapshotRequest) (extension.NativeSnapshot, error)
 	Submit(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
 	Get(context.Context, string, string) (extension.OperationLookup, error)
 	Cancel(context.Context, string, string) (extension.OperationRecord, error)
@@ -39,10 +54,13 @@ type backgroundOperations interface {
 // instance's runtime admissions. Browser admissions are never accepted here
 // and background admissions are never accepted by the browser handler.
 func BackgroundMux(manager *runtime.Manager, browser http.Handler, instanceID string, service bool) http.Handler {
-	return backgroundMux(manager, browser, instanceID, service, authmodel.VerifySubmission, operation_service.Default())
+	return backgroundMux(manager, browser, instanceID, service, backgroundVerifiers{
+		submit:   authmodel.VerifySubmission,
+		snapshot: authmodel.VerifySnapshotRead,
+	}, operation_service.Default())
 }
 
-func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID string, service bool, verify backgroundVerifier, operations backgroundOperations) http.Handler {
+func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID string, service bool, verifiers backgroundVerifiers, operations backgroundOperations) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case extension.BackgroundBootstrapPath:
@@ -52,8 +70,8 @@ func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID st
 			}
 			serveBackgroundBootstrap(w, r, manager)
 			return
-		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath, extension.BackgroundRevisionPath:
-			serveBackgroundOperation(w, r, manager, instanceID, service, verify, operations)
+		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath, extension.BackgroundRevisionPath, extension.BackgroundSnapshotPath:
+			serveBackgroundOperation(w, r, manager, instanceID, service, verifiers, operations)
 			return
 		default:
 			browser.ServeHTTP(w, r)
@@ -88,7 +106,7 @@ func serveBackgroundBootstrap(w http.ResponseWriter, r *http.Request, manager *r
 	}{Admission: token, InstallationID: installation})
 }
 
-func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *runtime.Manager, instanceID string, service bool, verify backgroundVerifier, operations backgroundOperations) {
+func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *runtime.Manager, instanceID string, service bool, verifiers backgroundVerifiers, operations backgroundOperations) {
 	if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "invalid background request", http.StatusBadRequest)
 		return
@@ -133,13 +151,15 @@ func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *r
 	}
 	switch r.URL.Path {
 	case extension.BackgroundSubmitPath:
-		serveBackgroundSubmit(w, r, admission, verify, operations)
+		serveBackgroundSubmit(w, r, admission, verifiers.submit, operations)
 	case extension.BackgroundGetPath:
 		serveBackgroundGet(w, r, admission, operations)
 	case extension.BackgroundCancelPath:
 		serveBackgroundCancel(w, r, admission, operations)
 	case extension.BackgroundRevisionPath:
 		serveBackgroundRevision(w, r, operations)
+	case extension.BackgroundSnapshotPath:
+		serveBackgroundSnapshot(w, r, admission, verifiers.snapshot, operations)
 	}
 }
 
@@ -245,6 +265,57 @@ func serveBackgroundCancel(w http.ResponseWriter, r *http.Request, admission run
 		return
 	}
 	writeBackgroundJSON(w, record)
+}
+
+// serveBackgroundSnapshot serves one permission-checked native snapshot
+// read. Admission and read verification mirror submission; the read itself
+// claims no reservation and performs no mutation. Missing and gated records
+// share one bounded not-found outcome so responses leak no existence
+// distinction.
+func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, verify snapshotVerifier, operations backgroundOperations) {
+	var request struct {
+		extension.SnapshotRequest
+		Token string `json:"token"`
+	}
+	if !decodeBackgroundRequest(w, r, &request) {
+		return
+	}
+	if err := extension.ValidateSnapshotRequest(request.SnapshotRequest); err != nil || request.Token == "" {
+		http.Error(w, "invalid background snapshot request", http.StatusBadRequest)
+		return
+	}
+	actorID, _ := strconv.ParseInt(request.ActorID, 10, 64)
+	repositoryID, _ := strconv.ParseInt(request.RepositoryID, 10, 64)
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	decision, err := verify(ctx, authmodel.SnapshotReadRequest{
+		InstallationID: admission.InstallationID,
+		TokenSecret:    request.Token,
+		ActorID:        actorID,
+		RepositoryID:   repositoryID,
+	})
+	if err != nil {
+		var refusal *authmodel.RefusalError
+		if errors.As(err, &refusal) {
+			http.Error(w, refusal.Code, refusal.Status)
+			return
+		}
+		http.Error(w, "background snapshot unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	snapshot, err := operations.ReadSnapshot(r.Context(), decision.ActorID, request.SnapshotRequest)
+	if err != nil {
+		switch {
+		case errors.Is(err, operation_service.ErrSnapshotInvalid):
+			http.Error(w, "invalid background snapshot request", http.StatusBadRequest)
+		case errors.Is(err, operation_service.ErrSnapshotNotFound):
+			http.Error(w, "snapshot_not_found", http.StatusNotFound)
+		default:
+			http.Error(w, "background snapshot unavailable", http.StatusServiceUnavailable)
+		}
+		return
+	}
+	writeBackgroundJSON(w, snapshot)
 }
 
 func serveBackgroundRevision(w http.ResponseWriter, r *http.Request, operations backgroundOperations) {

@@ -43,6 +43,7 @@ const (
 	BackgroundCancelPath    = "/v1/background/cancel"
 	BackgroundBootstrapPath = "/v1/background/bootstrap"
 	BackgroundRevisionPath  = "/v1/background/revision"
+	BackgroundSnapshotPath  = "/v1/background/snapshot"
 )
 
 const maxBackgroundBodyBytes = 64 << 10
@@ -169,6 +170,7 @@ type NativeRevisionObservation struct {
 // BackgroundClient performs background calls without a browser.
 type BackgroundClient interface {
 	ReadNativeRevision(context.Context) (NativeRevisionObservation, error)
+	ReadSnapshot(context.Context, CredentialFile, SnapshotRequest) (NativeSnapshot, error)
 	SubmitOperation(context.Context, CredentialFile, OperationIntent) (OperationRecord, error)
 	GetOperation(context.Context, string) (OperationLookup, error)
 	CancelOperation(context.Context, string) (OperationRecord, error)
@@ -403,6 +405,33 @@ func (c *backgroundClient) ReadNativeRevision(ctx context.Context) (NativeRevisi
 		return NativeRevisionObservation{}, errors.New("invalid background response")
 	}
 	return observation, nil
+}
+
+// ReadSnapshot reads one permission-checked native snapshot. The request is
+// validated before sending; the secret travels privately and the host echoes
+// the requested repository. The caller brackets the read between two equal
+// idle ReadNativeRevision observations; the snapshot itself carries no
+// revision.
+func (c *backgroundClient) ReadSnapshot(ctx context.Context, credential CredentialFile, req SnapshotRequest) (NativeSnapshot, error) {
+	if err := ValidateSnapshotRequest(req); err != nil {
+		return NativeSnapshot{}, err
+	}
+	secret, err := credential.read()
+	if err != nil {
+		return NativeSnapshot{}, err
+	}
+	request := struct {
+		SnapshotRequest
+		Token string `json:"token"`
+	}{SnapshotRequest: req, Token: secret}
+	var snapshot NativeSnapshot
+	if err := c.post(ctx, BackgroundSnapshotPath, request, &snapshot); err != nil {
+		return NativeSnapshot{}, err
+	}
+	if snapshot.RepositoryID != req.RepositoryID {
+		return NativeSnapshot{}, errors.New("invalid background response")
+	}
+	return snapshot, nil
 }
 
 func (c *backgroundClient) GetOperation(ctx context.Context, operationID string) (OperationLookup, error) {

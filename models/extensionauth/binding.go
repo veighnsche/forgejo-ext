@@ -135,6 +135,20 @@ func RevokeBinding(ctx context.Context, installationID string, tokenID, actorID,
 	return deleted > 0, nil
 }
 
+// HasAnyBinding reports whether any enrolled binding covers an installation,
+// token, actor and repository across all operation kinds. Snapshot reads ride
+// enrolled background authority without granting any mutation kind: the read
+// reveals only what the token's actor can already observe, and kind-specific
+// mutation admission still requires its own binding at submission.
+func HasAnyBinding(ctx context.Context, installationID string, tokenID, actorID, repositoryID int64) (bool, error) {
+	count, err := db.GetEngine(ctx).Where("installation_id=? AND token_id=? AND actor_id=? AND repository_id=?",
+		installationID, tokenID, actorID, repositoryID).Count(new(ActorBinding))
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // FindBinding returns the binding matching a verified submission, if any.
 func FindBinding(ctx context.Context, installationID string, tokenID, actorID, repositoryID int64, kind string) (*ActorBinding, error) {
 	binding := new(ActorBinding)
