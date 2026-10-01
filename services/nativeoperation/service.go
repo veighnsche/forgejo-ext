@@ -130,6 +130,7 @@ type ValidIntent struct {
 	NotAfter               int64
 	Merge                  *MergeIntent
 	Publish                *PublishIntent
+	PRCreate               *PRCreateIntent
 	Digest                 string
 	Canonical              string
 }
@@ -208,6 +209,12 @@ func ValidateIntent(operationID string, actorID, repositoryID int64, kind, authR
 			return nil, ErrInvalidIntent
 		}
 		intent.Publish = publish
+	} else if kind == model.KindPRCreate {
+		prcreate, err := parsePRCreatePayload(payload, repositoryID)
+		if err != nil {
+			return nil, err
+		}
+		intent.PRCreate = prcreate
 	} else if len(payload) > 0 {
 		var probe map[string]any
 		decoder := json.NewDecoder(bytes.NewReader(payload))

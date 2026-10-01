@@ -60,18 +60,9 @@ func doNewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *i
 		return user_model.ErrBlockedByUser
 	}
 
-	testPatchCtx, err := testPatch(ctx, pr)
-	defer testPatchCtx.close()
-	if err != nil {
-		return fmt.Errorf("testPatch: %w", err)
+	if err := PreparePullRequestComparison(ctx, pr); err != nil {
+		return err
 	}
-
-	divergence, err := git.GetDivergingCommits(ctx, testPatchCtx.gitRepo.Path, testPatchCtx.baseRev, testPatchCtx.headRev, testPatchCtx.env)
-	if err != nil {
-		return fmt.Errorf("GetDivergingCommits: %w", err)
-	}
-	pr.CommitsAhead = divergence.Ahead
-	pr.CommitsBehind = divergence.Behind
 
 	assigneeCommentMap, err := createPullRequestPrimary(ctx, repo, issue, labelIDs, uuids, pr, assigneeIDs)
 	if err != nil {
@@ -106,6 +97,27 @@ func doNewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *i
 		notify_service.IssueChangeAssignee(ctx, issue.Poster, issue, assignee, false, assigneeCommentMap[assigneeID])
 	}
 
+	return nil
+}
+
+// PreparePullRequestComparison computes the initial native comparison state
+// of a pull request under the caller's ownership: merge base, head commit,
+// mergeability status and ahead/behind divergence. It performs Git reads
+// only and writes no refs. Both the ordinary service path and the
+// conditional PR-creation operation share this preparation.
+func PreparePullRequestComparison(ctx context.Context, pr *issues_model.PullRequest) error {
+	testPatchCtx, err := testPatch(ctx, pr)
+	defer testPatchCtx.close()
+	if err != nil {
+		return fmt.Errorf("testPatch: %w", err)
+	}
+
+	divergence, err := git.GetDivergingCommits(ctx, testPatchCtx.gitRepo.Path, testPatchCtx.baseRev, testPatchCtx.headRev, testPatchCtx.env)
+	if err != nil {
+		return fmt.Errorf("GetDivergingCommits: %w", err)
+	}
+	pr.CommitsAhead = divergence.Ahead
+	pr.CommitsBehind = divergence.Behind
 	return nil
 }
 

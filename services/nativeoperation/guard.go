@@ -85,7 +85,20 @@ type Scope struct {
 	AuthorityOp  string `json:"authority_op,omitempty"`
 	AuthorityID  int64  `json:"authority_id,omitempty"`
 	AuthorityID2 int64  `json:"authority_id2,omitempty"`
+	// CompletionRef, CompletionOldOID, CompletionNewOID and
+	// CompletionPhase bind the single derived PR-ref write of a
+	// conditional PR creation. The internal ref is allocated at the
+	// primary commit, so these persist after it and before derived Git
+	// writes; hooks admit exactly this tuple as bounded completion.
+	CompletionRef    string `json:"completion_ref,omitempty"`
+	CompletionOldOID string `json:"completion_old_oid,omitempty"`
+	CompletionNewOID string `json:"completion_new_oid,omitempty"`
+	CompletionPhase  string `json:"completion_phase,omitempty"`
 }
+
+// PRCreateCompletionPhase is the allowed completion phase a conditional PR
+// creation persists with its derived-ref tuple.
+const PRCreateCompletionPhase = "prcreate-derived-ref"
 
 func conditionalOwner(installationID, operationID string) string {
 	return "cond:" + installationID + "/" + operationID

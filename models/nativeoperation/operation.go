@@ -13,8 +13,8 @@ import (
 )
 
 // Operation kinds mirror the SDK background kinds. Authorization for one kind
-// never grants another. FT03 executes merge; other kinds report their stage
-// as unavailable until their owning task lands.
+// never grants another. Merge, publish and PR creation execute; remaining
+// kinds report their stage as unavailable until their owning task lands.
 const (
 	KindRefPublish   = "git.ref.publish"
 	KindPRCreate     = "pull_request.create"
@@ -64,6 +64,7 @@ const (
 	ReasonRecoveredNoEffect        = "recovered_no_effect"
 	ReasonPublishOptionsRejected   = "publish_options_rejected"
 	ReasonNotFastForward           = "not_fast_forward"
+	ReasonDuplicatePullRequest     = "duplicate_pull_request"
 )
 
 // Operation is one immutable conditional-operation authorization identified

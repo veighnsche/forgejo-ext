@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
@@ -120,11 +121,17 @@ func withRefWriteOwnership(ctx context.Context, resource string, scope refWriteS
 
 // recordRefWriteResult records the realized new OID of the calling ref
 // writer's single-ref scope after the effect is computed. It requires the
-// caller's own held ownership.
+// caller's own held ownership. Under an enclosing conditional execution the
+// conditional owner manages its own scope (including any derived-ref tuple),
+// so recording here is a no-op: the narrow ordinary projection must never
+// overwrite a conditional scope.
 func recordRefWriteResult(ctx context.Context, newOID string) error {
 	exec := execcontext.FromContext(ctx)
 	if exec == nil || exec.Owner == "" {
 		return errors.New("ref result recording requires ownership")
+	}
+	if strings.HasPrefix(exec.Owner, "cond:") {
+		return nil
 	}
 	reservation, err := model.ReadReservation(ctx)
 	if err != nil {

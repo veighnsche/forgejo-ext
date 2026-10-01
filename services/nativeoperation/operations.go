@@ -22,7 +22,7 @@ func (s *Service) Submit(ctx context.Context, decision authmodel.SubmissionDecis
 		return sdk.OperationRecord{}, ErrInvalidIntent
 	}
 	switch intent.Kind {
-	case model.KindMerge, model.KindRefPublish:
+	case model.KindMerge, model.KindRefPublish, model.KindPRCreate:
 	default:
 		// Admitted, but the kind's stage is not implemented yet. Report
 		// the missing stage rather than inventing a receipt.
@@ -37,6 +37,9 @@ func (s *Service) Submit(ctx context.Context, decision authmodel.SubmissionDecis
 	}
 	if intent.Kind == model.KindRefPublish {
 		return s.submitPublish(ctx, decision, installationID, intent)
+	}
+	if intent.Kind == model.KindPRCreate {
+		return s.submitPRCreate(ctx, decision, installationID, intent)
 	}
 	return s.submitMerge(ctx, decision, installationID, intent)
 }

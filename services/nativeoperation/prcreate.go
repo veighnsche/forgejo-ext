@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	sdk "forgejo.org/extension-sdk"
-	"forgejo.org/models/db"
 	authmodel "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
 	model "forgejo.org/models/nativeoperation"
@@ -27,14 +26,6 @@ import (
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 )
-
-// DRAFT (FT12 early start): conditional pull_request.create against the
-// committed operation seam. Wiring into ValidateIntent/Submit, the atomic
-// primary-commit helper and the PR-create refusal reasons are held for the
-// shared seam items; execution-proof plumbing for completion Git and the
-// offline kind-specific recovery belong to the later operation proof. This
-// file compiles and its pure validation is tested, but no dispatcher reaches
-// it yet and its DRAFT limitations below stay open until the seam lands.
 
 // PRCreateIntent carries the validated pull_request.create payload: one
 // same-repository native PR over exact head/base refs and OIDs with final
@@ -109,21 +100,24 @@ type PRCreateReceipt struct {
 	BaseOID      string `json:"base_oid"`
 }
 
-// errPRCreateRevoked and errPRCreateExpired roll the draft's primary SQL
-// attempt back so the caller can refuse without a partial effect.
-var (
-	errPRCreateRevoked = errors.New("operation revoked before primary commit")
-	errPRCreateExpired = errors.New("operation expired before primary commit")
-)
+// errPRCreateDuplicate rolls the primary SQL attempt back when the atomic
+// in-transaction duplicate recheck finds an existing unmerged PR, so the
+// caller refuses without a partial effect.
+var errPRCreateDuplicate = errors.New("pull request already exists for head and base")
 
 // submitPRCreate claims the operation ID and reservation, verifies the exact
 // refs and native authority under the held owner, commits the primary issue/PR
-// records with the operation receipt, and completes the derived ref and
-// follow-up records. DRAFT entry point: it takes explicit identity fields
-// until ValidateIntent carries PRCreateIntent and Submit dispatches this kind.
-// There is no unguarded fallback: every refusal path records not_committed or
+// records with the operation receipt in one SQL transaction, and completes the
+// derived ref and follow-up records under bounded completion ownership. There
+// is no unguarded fallback: every refusal path records not_committed or
 // retains the fence.
-func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.SubmissionDecision, installationID, operationID, authRevision string, expectedRevision, notAfter int64, digest, canonical string, pr *PRCreateIntent) (sdk.OperationRecord, error) {
+func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
+	if err := ctx.Err(); err != nil {
+		return sdk.OperationRecord{}, err
+	}
+	if intent.PRCreate == nil {
+		return sdk.OperationRecord{}, ErrInvalidIntent
+	}
 	dir, err := s.execDir()
 	if err != nil {
 		return sdk.OperationRecord{}, err
@@ -133,18 +127,17 @@ func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.Submiss
 		return sdk.OperationRecord{}, err
 	}
 	retire := func() { _ = os.Remove(capabilityPath) }
-	owner := conditionalOwner(installationID, operationID)
-	// DRAFT scope: the committed Scope has no PR-create internal-ref tuple
-	// yet, so bind the verified head/base refs and OIDs with the existing
-	// fields. The final version persists the exact allocated internal ref
-	// under this owner before derived Git writes.
+	owner := conditionalOwner(installationID, intent.OperationID)
+	// The internal PR ref is allocated at the primary commit, so the claim
+	// binds the verified head/base refs and OIDs; the exact derived-ref
+	// tuple persists under this owner before derived Git writes.
 	scope := Scope{
 		Kind:         model.OwnerConditional,
-		RepositoryID: pr.HeadRepositoryID,
-		Ref:          pr.BaseRef,
-		OldOID:       pr.ExpectedBaseOID,
-		HeadRef:      pr.HeadRef,
-		HeadOID:      pr.ExpectedHeadOID,
+		RepositoryID: intent.RepositoryID,
+		Ref:          intent.PRCreate.BaseRef,
+		OldOID:       intent.PRCreate.ExpectedBaseOID,
+		HeadRef:      intent.PRCreate.HeadRef,
+		HeadOID:      intent.PRCreate.ExpectedHeadOID,
 	}
 	encoded, err := encodeScope(scope)
 	if err != nil {
@@ -153,17 +146,17 @@ func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.Submiss
 	}
 	op := &model.Operation{
 		InstallationID:         installationID,
-		OperationID:            operationID,
-		Kind:                   model.KindPRCreate,
+		OperationID:            intent.OperationID,
+		Kind:                   intent.Kind,
 		ActorID:                decision.ActorID,
-		RepositoryID:           pr.HeadRepositoryID,
+		RepositoryID:           intent.RepositoryID,
 		TokenID:                decision.TokenID,
 		CredentialFingerprint:  decision.CredentialFingerprint,
-		AuthRevision:           authRevision,
-		ExpectedNativeRevision: expectedRevision,
-		NotAfter:               notAfter,
-		IntentDigest:           digest,
-		Intent:                 canonical,
+		AuthRevision:           intent.AuthRevision,
+		ExpectedNativeRevision: intent.ExpectedNativeRevision,
+		NotAfter:               intent.NotAfter,
+		IntentDigest:           intent.Digest,
+		Intent:                 intent.Canonical,
 	}
 	claimed, err := model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
 	if err != nil {
@@ -171,42 +164,32 @@ func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.Submiss
 		if errors.Is(err, model.ErrBusy) {
 			return sdk.OperationRecord{}, ErrBusy
 		}
+		if errors.Is(err, model.ErrInhibited) {
+			return sdk.OperationRecord{}, err
+		}
 		if errors.Is(err, model.ErrStaleRevision) {
-			op.EffectState = model.EffectNotCommitted
-			op.Reason = model.ReasonStaleNativeRevision
-			op.Cancellation = model.CancellationNone
-			recorded, err := model.InsertRefusedOperation(ctx, op)
-			if err != nil && !errors.Is(err, model.ErrDuplicateOperation) {
-				return sdk.OperationRecord{}, err
-			}
-			return ToRecord(recorded), nil
+			return s.recordStaleRevision(ctx, op)
 		}
 		// A concurrent identical submit may have won the insert; reread
 		// and reconcile rather than launching a second execution.
-		existing, lookupErr := model.LookupOperation(ctx, installationID, operationID)
+		existing, lookupErr := model.LookupOperation(ctx, installationID, intent.OperationID)
 		if lookupErr != nil {
 			return sdk.OperationRecord{}, lookupErr
 		}
 		if existing != nil {
-			if !existing.Submitted {
-				return ToRecord(existing), ErrCancelledBeforeSubmit
-			}
-			if existing.IntentDigest != digest {
-				return sdk.OperationRecord{}, ErrIntentConflict
-			}
-			return ToRecord(existing), nil
+			return s.reconcileExisting(existing, intent)
 		}
 		return sdk.OperationRecord{}, err
 	}
 	execution := &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: capabilityPath}
-	record, retain, err := s.executePRCreate(ctx, op, pr, execution)
+	record, terminal, err := s.executePRCreate(ctx, op, intent, scope, execution)
 	if err != nil {
 		// Infrastructure failure before reconciliation: fail closed with
 		// the owner held and the capability kept for later recovery.
 		return sdk.OperationRecord{}, err
 	}
-	if !retain {
-		// SetTerminal already released the owner; retire the file.
+	if !terminal.retain {
+		// The terminal record already released the owner; retire the file.
 		retire()
 	}
 	return record, nil
@@ -214,67 +197,79 @@ func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.Submiss
 
 // executePRCreate runs the guarded creation and reconciles its result. It
 // returns the SDK record and whether the owner stays held for an unresolved
-// effect.
-func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, pr *PRCreateIntent, execution *execcontext.Execution) (sdk.OperationRecord, bool, error) {
+// effect. All native work runs on the owned context so nested participating
+// writers attribute to this execution; terminal records and the owner release
+// run detached so a caller disconnect cannot stick the reservation.
+func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, intent *ValidIntent, scope Scope, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
 	owner := execution.Owner
-	refuse := func(reason string) (sdk.OperationRecord, bool, error) {
-		recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
+	pr := intent.PRCreate
+	// Terminal records and the owner release must complete even when the
+	// caller disconnects mid-write; native work below keeps the live
+	// context so cancellation still stops it.
+	releaseCtx := context.WithoutCancel(ctx)
+	owned := execcontext.NewContext(ctx, execution)
+	refuse := func(reason string) (sdk.OperationRecord, terminalResult, error) {
+		recorded, err := model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, model.TerminalOutcome{
 			EffectState:  model.EffectNotCommitted,
 			Reason:       reason,
 			Cancellation: model.CancellationNone,
 		}, owner)
 		if err != nil {
-			return sdk.OperationRecord{}, false, err
+			return sdk.OperationRecord{}, terminalResult{}, err
 		}
-		return ToRecord(recorded), false, nil
+		return ToRecord(recorded), terminalResult{}, nil
 	}
-	if err := s.revalidateSubmission(ctx, op); err != nil {
+	if err := s.revalidateSubmission(owned, op); err != nil {
 		if errors.Is(err, ErrAuthorityLost) {
 			return refuse(model.ReasonAuthorityLost)
 		}
-		return sdk.OperationRecord{}, false, err
+		return sdk.OperationRecord{}, terminalResult{}, err
 	}
-	repository, err := repo_model.GetRepositoryByID(ctx, op.RepositoryID)
+	repository, err := repo_model.GetRepositoryByID(owned, op.RepositoryID)
 	if err != nil {
 		return refuse(model.ReasonNativeRefused)
 	}
 	if s.clock() >= op.NotAfter {
 		return refuse(model.ReasonExpiredBeforeAdmission)
 	}
-	head, err := s.readRef(ctx, repository.RepoPath(), pr.HeadRef)
+	head, err := s.readRef(owned, repository.RepoPath(), pr.HeadRef)
 	if err != nil || !strings.EqualFold(head, pr.ExpectedHeadOID) {
 		return refuse(model.ReasonStaleHead)
 	}
-	base, err := s.readRef(ctx, repository.RepoPath(), pr.BaseRef)
+	base, err := s.readRef(owned, repository.RepoPath(), pr.BaseRef)
 	if err != nil || !strings.EqualFold(base, pr.ExpectedBaseOID) {
 		return refuse(model.ReasonStaleBaseOrResult)
 	}
-	doer, err := user_model.GetUserByID(ctx, op.ActorID)
+	doer, err := user_model.GetUserByID(owned, op.ActorID)
 	if err != nil {
 		return refuse(model.ReasonAuthorityLost)
 	}
-	if user_model.IsBlocked(ctx, repository.OwnerID, doer.ID) {
+	// The ordinary service refuses authors the repository owner blocks;
+	// the conditional path preserves that account check.
+	if user_model.IsBlocked(owned, repository.OwnerID, doer.ID) {
 		return refuse(model.ReasonAuthorityLost)
 	}
-	permission, err := access_model.GetUserRepoPermission(ctx, repository, doer)
+	// Mirror the API layer's creation permissions, refreshed under the
+	// held owner: pulls-unit and code-unit read on the base repository.
+	// The submission binding already requires repository write, which
+	// subsumes head code-unit read for this same-repository request.
+	permission, err := access_model.GetUserRepoPermission(owned, repository, doer)
 	if err != nil {
 		return refuse(model.ReasonAuthorityLost)
 	}
-	if !permission.CanWrite(unit.TypeCode) {
+	if !permission.CanReadIssuesOrPulls(true) || !permission.CanRead(unit.TypeCode) {
 		return refuse(model.ReasonAuthorityLost)
 	}
 	headBranch := strings.TrimPrefix(pr.HeadRef, git.BranchPrefix)
 	baseBranch := strings.TrimPrefix(pr.BaseRef, git.BranchPrefix)
-	existing, err := issues_model.GetUnmergedPullRequest(ctx, op.RepositoryID, op.RepositoryID, headBranch, baseBranch, issues_model.PullRequestFlowGithub)
+	existing, err := issues_model.GetUnmergedPullRequest(owned, op.RepositoryID, op.RepositoryID, headBranch, baseBranch, issues_model.PullRequestFlowGithub)
 	if err != nil && !issues_model.IsErrPullRequestNotExist(err) {
-		return sdk.OperationRecord{}, false, err
+		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 	if existing != nil {
 		// An existing PR is a conflict even when its author, branch or
 		// text matches; only this operation's receipt proves creation.
-		// DRAFT: reuse the native refusal reason until the seam adds a
-		// duplicate-PR reason.
-		return refuse(model.ReasonNativeRefused)
+		return refuse(model.ReasonDuplicatePullRequest)
 	}
 
 	issue := &issues_model.Issue{
@@ -294,81 +289,179 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, pr *
 		BaseRepo:   repository,
 		Type:       issues_model.PullRequestGitea,
 	}
+	// Native comparison preparation under the held owner, shared with
+	// the ordinary service path: merge base, head commit, mergeability
+	// status and divergence. It performs Git reads only.
+	if err := pull_service.PreparePullRequestComparison(owned, pull); err != nil {
+		return refuse(model.ReasonNativeRefused)
+	}
 
-	// Primary effect: the native issue/PR rows. DRAFT: the committed seam
-	// records the operation receipt in a separate SetTerminal, so this draft
-	// rechecks revocation/expiry immediately before the insert and commits
-	// the receipt right after. The final version folds the cancellation
-	// contention and the committed receipt into this same SQL transaction
-	// through the atomic primary-commit helper (held seam item).
-	primaryErr := db.WithTx(ctx, func(ctx context.Context) error {
-		current, err := model.LookupOperation(ctx, op.InstallationID, op.OperationID)
-		if err != nil {
-			return err
+	// Test-only barrier for the transaction/cancel race proof: with the
+	// claim held, the driver revokes the operation here so the atomic
+	// primary commit below must observe the cancellation and refuse.
+	if err := TestCrashBarrier(CrashPointPRCreateBeforePrimary); err != nil {
+		return sdk.OperationRecord{}, terminalResult{}, err
+	}
+
+	// Primary effect: the native issue/PR rows and the operation's
+	// committed receipt in one SQL transaction, ordered against
+	// cancellation and expiry on the same operation row. No SQL
+	// transaction spans Git or wraps the entire service.
+	committed, err := model.CommitPRCreatePrimary(owned, op.InstallationID, op.OperationID, owner, s.clock(), func(tx context.Context) (string, error) {
+		// The duplicate check re-runs inside the commit as
+		// defense-in-depth: ordinary writers are fenced while this
+		// owner holds the reservation, so a match refuses rather than
+		// inserting a duplicate.
+		duplicate, err := issues_model.GetUnmergedPullRequest(tx, op.RepositoryID, op.RepositoryID, headBranch, baseBranch, issues_model.PullRequestFlowGithub)
+		if err != nil && !issues_model.IsErrPullRequestNotExist(err) {
+			return "", err
 		}
-		if current == nil || current.Revoked {
-			return errPRCreateRevoked
+		if duplicate != nil {
+			return "", errPRCreateDuplicate
 		}
-		if s.clock() >= current.NotAfter {
-			return errPRCreateExpired
-		}
-		if err := issues_model.NewPullRequest(ctx, repository, issue, nil, nil, pull); err != nil {
-			return err
+		if err := issues_model.NewPullRequest(tx, repository, issue, nil, nil, pull); err != nil {
+			return "", err
 		}
 		pull.Issue = issue
 		issue.PullRequest = pull
-		return nil
+		receipt, _ := json.Marshal(PRCreateReceipt{
+			PRID:         pull.ID,
+			IssueID:      issue.ID,
+			PRNumber:     pull.Index,
+			AuthorID:     doer.ID,
+			RepositoryID: op.RepositoryID,
+			HeadRef:      pr.HeadRef,
+			BaseRef:      pr.BaseRef,
+			HeadOID:      pr.ExpectedHeadOID,
+			BaseOID:      pr.ExpectedBaseOID,
+		})
+		return string(receipt), nil
 	})
-	if primaryErr != nil {
-		if errors.Is(primaryErr, errPRCreateRevoked) {
-			return refuse(model.ReasonCancelledBeforeAdmission)
-		}
-		if errors.Is(primaryErr, errPRCreateExpired) {
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrOperationExpired):
 			return refuse(model.ReasonExpiredBeforeAdmission)
+		case errors.Is(err, errPRCreateDuplicate):
+			return refuse(model.ReasonDuplicatePullRequest)
+		case errors.Is(err, model.ErrAdmissionLost):
+			// A lost primary commit rereads the ordering truth: a
+			// concurrent cancellation wins prevention, anything else
+			// fails closed with the owner held.
+			current, lookupErr := model.LookupOperation(releaseCtx, op.InstallationID, op.OperationID)
+			if lookupErr != nil {
+				return sdk.OperationRecord{}, terminalResult{}, lookupErr
+			}
+			if current != nil && current.Revoked {
+				return refuse(model.ReasonCancelledBeforeAdmission)
+			}
+			return sdk.OperationRecord{}, terminalResult{}, err
+		default:
+			return refuse(model.ReasonNativeRefused)
 		}
-		return refuse(model.ReasonNativeRefused)
+	}
+	op = committed
+
+	// Test-only crash barrier for offline-recovery proof: with the
+	// primary records committed and the owner still held, the driver
+	// fails here to simulate a crash before bounded completion.
+	if err := TestCrashBarrier(CrashPointPRCreateAfterPrimary); err != nil {
+		return sdk.OperationRecord{}, terminalResult{}, err
+	}
+
+	// Before derived Git writes, persist their exact internal-ref tuple
+	// and allowed completion phase under this owner. A failure here
+	// leaves the primary committed with completion unattempted, which
+	// finalizes as needs_intervention rather than guessing.
+	scope.CompletionRef = pull.GetGitRefName()
+	scope.CompletionOldOID = prCreateOldTip(s.prCreateRefTip(owned, repository.RepoPath(), scope.CompletionRef))
+	scope.CompletionNewOID = pr.ExpectedHeadOID
+	scope.CompletionPhase = PRCreateCompletionPhase
+	if encoded, err := encodeScope(scope); err != nil {
+		return sdk.OperationRecord{}, terminalResult{}, err
+	} else if err := model.UpdateScopeWhere(releaseCtx, owner, encoded); err != nil {
+		return s.finalizePRCreate(releaseCtx, op, execution, model.CompletionNeedsIntervention)
 	}
 
 	// Bounded completion under the held owner: the exact internal PR ref,
 	// push-history comment, code-owner requests, mentions and notifications
-	// share the ordinary completion. DRAFT: the execution is carried in the
-	// context as for merge, but the completion Git calls do not yet propagate
-	// the execution proof to the reference-transaction hook; that plumbing
-	// and the persisted internal-ref tuple land with the seam.
-	owned := execcontext.NewContext(ctx, execution)
-	completion := model.CompletionComplete
+	// share the ordinary completion. The git children carry this
+	// execution's proof; hooks admit exactly the persisted tuple as
+	// completion, never as another primary write. A PR can be visible
+	// while its derived state is incomplete: completion failure reports
+	// without rolling the durable primary back.
 	notifiers, err := pull_service.CompletePullRequestCreation(owned, repository, pull)
 	if err != nil {
-		completion = model.CompletionNeedsIntervention
-	} else {
-		issue_service.ReviewRequestNotify(owned, issue, issue.Poster, notifiers)
-		mentions, err := issues_model.FindAndUpdateIssueMentions(owned, issue, issue.Poster, issue.Content)
-		if err != nil {
-			completion = model.CompletionNeedsIntervention
-		} else {
-			notify_service.NewPullRequest(owned, pull, mentions)
+		if !s.prCreateCompletionKnown(owned, repository.RepoPath(), scope) {
+			// The internal ref is unexpected or unreadable: fail
+			// closed with the owner held so offline recovery takes
+			// the authoritative second look under quiescence. The
+			// committed primary stands; only completion is unknown.
+			return sdk.OperationRecord{}, terminalResult{}, err
 		}
+		return s.finalizePRCreate(releaseCtx, op, execution, model.CompletionNeedsIntervention)
 	}
-
-	receipt, _ := json.Marshal(PRCreateReceipt{
-		PRID:         pull.ID,
-		IssueID:      issue.ID,
-		PRNumber:     pull.Index,
-		AuthorID:     doer.ID,
-		RepositoryID: op.RepositoryID,
-		HeadRef:      pr.HeadRef,
-		BaseRef:      pr.BaseRef,
-		HeadOID:      pr.ExpectedHeadOID,
-		BaseOID:      pr.ExpectedBaseOID,
-	})
-	recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-		EffectState:  model.EffectCommitted,
-		Cancellation: model.CancellationNone,
-		Completion:   completion,
-		Receipt:      string(receipt),
-	}, owner)
+	issue_service.ReviewRequestNotify(owned, issue, issue.Poster, notifiers)
+	mentions, err := issues_model.FindAndUpdateIssueMentions(owned, issue, issue.Poster, issue.Content)
 	if err != nil {
-		return sdk.OperationRecord{}, false, err
+		return s.finalizePRCreate(releaseCtx, op, execution, model.CompletionNeedsIntervention)
 	}
-	return ToRecord(recorded), false, nil
+	notify_service.NewPullRequest(owned, pull, mentions)
+	return s.finalizePRCreate(releaseCtx, op, execution, model.CompletionComplete)
+}
+
+// finalizePRCreate records the completion state of one committed creation
+// and releases its exact owner. A finalize failure keeps the owner held for
+// offline recovery; it never downgrades the committed primary.
+func (s *Service) finalizePRCreate(ctx context.Context, op *model.Operation, execution *execcontext.Execution, completion string) (sdk.OperationRecord, terminalResult, error) {
+	recorded, err := model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, execution.Owner, execution.Generation, completion)
+	if err != nil {
+		return sdk.OperationRecord{}, terminalResult{}, err
+	}
+	return ToRecord(recorded), terminalResult{}, nil
+}
+
+// prCreateRefTip reads one internal-ref tip for completion binding. A
+// missing ref reports absent; an unreadable ref reports not-OK and the
+// caller treats the state as uncertain.
+func (s *Service) prCreateRefTip(ctx context.Context, repoPath, ref string) (tip string, absent bool, ok bool) {
+	value, err := s.readRef(ctx, repoPath, ref)
+	if err != nil {
+		if git.IsErrNotExist(err) {
+			return "", true, true
+		}
+		return "", false, false
+	}
+	if value == "" {
+		return "", true, true
+	}
+	return strings.ToLower(value), false, true
+}
+
+// prCreateOldTip renders a bound old tip for the persisted completion
+// tuple. An unreadable ref binds no tuple: the empty result fails the
+// exact-tuple hook check and completion reports needs_intervention rather
+// than writing against an uncertain base.
+func prCreateOldTip(tip string, absent, ok bool) string {
+	if !ok || absent {
+		return ""
+	}
+	return tip
+}
+
+// prCreateCompletionKnown reports whether the derived ref holds a known
+// state after a completion failure: still at its pre-completion tip (or
+// still absent), or exactly at the realized tuple. Any other value, or an
+// unreadable ref, is uncertain and retains the fence.
+func (s *Service) prCreateCompletionKnown(ctx context.Context, repoPath string, scope Scope) bool {
+	tip, absent, ok := s.prCreateRefTip(ctx, repoPath, scope.CompletionRef)
+	if !ok {
+		return false
+	}
+	if absent {
+		return scope.CompletionOldOID == ""
+	}
+	if scope.CompletionOldOID != "" && tip == strings.ToLower(scope.CompletionOldOID) {
+		return true
+	}
+	return tip == strings.ToLower(scope.CompletionNewOID)
 }

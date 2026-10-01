@@ -143,6 +143,13 @@ func (s *Service) admitPrepared(ctx context.Context, reservation *model.Reservat
 	if err != nil {
 		return TransactionDecision{}, err
 	}
+	if op != nil && op.Kind == model.KindPRCreate {
+		// PR creation commits its primary effect in SQL, so its only
+		// Git write is bounded completion after the commit: the single
+		// internal-ref write must match the persisted tuple exactly.
+		// This admits no primary effect and records no admission.
+		return s.checkPRCreateCompletion(scope, op, lines), nil
+	}
 	if op == nil || !op.Submitted || op.IsTerminal() || op.EffectState != model.EffectPending {
 		return TransactionDecision{Reason: "operation is not pending"}, nil
 	}
@@ -267,6 +274,32 @@ func (s *Service) checkPublishPrepared(ctx context.Context, scope Scope, reposit
 		}
 	}
 	return "", nil
+}
+
+// checkPRCreateCompletion admits the single derived PR-ref write of a
+// conditional PR creation as bounded completion. It requires the committed
+// primary receipt plus the exact persisted internal-ref tuple and phase;
+// anything else refuses, and an unexpected or uncertain internal ref keeps
+// the fence. This records no admission: the primary commit already ordered
+// cancellation, expiry and the receipt.
+func (s *Service) checkPRCreateCompletion(scope Scope, op *model.Operation, lines []RefLine) TransactionDecision {
+	if !op.Submitted || op.EffectState != model.EffectCommitted || op.Receipt == "" {
+		return TransactionDecision{Reason: "operation is not pending"}
+	}
+	if scope.CompletionPhase != PRCreateCompletionPhase || scope.CompletionRef == "" || scope.CompletionNewOID == "" {
+		return TransactionDecision{Reason: model.ReasonUnexpectedRefEffects}
+	}
+	if len(lines) != 1 || lines[0].Ref != scope.CompletionRef {
+		return TransactionDecision{Reason: model.ReasonUnexpectedRefEffects}
+	}
+	wantOld := scope.CompletionOldOID
+	if wantOld == "" {
+		wantOld = git.Sha1ObjectFormat.EmptyObjectID().String()
+	}
+	if !strings.EqualFold(lines[0].Old, wantOld) || !strings.EqualFold(lines[0].New, scope.CompletionNewOID) {
+		return TransactionDecision{Reason: model.ReasonStaleBaseOrResult}
+	}
+	return TransactionDecision{Allowed: true}
 }
 
 func lostAdmissionReason(op *model.Operation) string {

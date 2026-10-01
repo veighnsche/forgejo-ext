@@ -26,6 +26,14 @@ const (
 	// CrashPointPushCompletionAfterEffects pauses one deferred
 	// push/completion batch after its effects commit.
 	CrashPointPushCompletionAfterEffects = "push-completion-after-effects"
+	// CrashPointPRCreateBeforePrimary pauses a conditional PR creation
+	// after the claim and before the atomic primary commit, so a
+	// cancellation race can be staged deterministically against it.
+	CrashPointPRCreateBeforePrimary = "prcreate-before-primary"
+	// CrashPointPRCreateAfterPrimary pauses a conditional PR creation
+	// after its primary issue/PR commit and before bounded completion,
+	// with the owner still held for offline-recovery proof.
+	CrashPointPRCreateAfterPrimary = "prcreate-after-primary"
 )
 
 // TestCrashBarrier is a disclosed test instrument for offline-recovery
@@ -47,7 +55,7 @@ func TestCrashBarrier(point string) error {
 	if err := os.WriteFile(filepath.Join(dir, point+".entered"), []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600); err != nil {
 		return err
 	}
-	deadline := time.Now().Add(120 * time.Second)
+	deadline := time.Now().Add(crashBarrierTimeout())
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(filepath.Join(dir, point+".release")); err == nil {
 			return nil
@@ -55,4 +63,17 @@ func TestCrashBarrier(point string) error {
 		time.Sleep(10 * time.Millisecond)
 	}
 	return errors.New("crash barrier timeout for " + point)
+}
+
+// crashBarrierTimeout bounds one barrier wait. Tests shorten it with
+// NATIVEOP_TEST_CRASH_TIMEOUT_SECONDS to fail a held owner closed without
+// waiting out the production-absent default; production never sets these
+// variables.
+func crashBarrierTimeout() time.Duration {
+	if raw := os.Getenv("NATIVEOP_TEST_CRASH_TIMEOUT_SECONDS"); raw != "" {
+		if seconds, err := strconv.Atoi(raw); err == nil && seconds > 0 {
+			return time.Duration(seconds) * time.Second
+		}
+	}
+	return 120 * time.Second
 }

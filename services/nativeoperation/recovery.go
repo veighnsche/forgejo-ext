@@ -141,6 +141,9 @@ func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAs
 	case model.KindRefPublish:
 		assessment.Family = "conditional-publish"
 		return s.recoverConditionalPublish(ctx, assessment, reservation, scope, op)
+	case model.KindPRCreate:
+		assessment.Family = "conditional-prcreate"
+		return s.recoverConditionalPRCreate(ctx, assessment, reservation, scope, op)
 	default:
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("operation kind %q has no offline reconciliation yet", op.Kind))
 	}
@@ -315,6 +318,88 @@ func (s *Service) recoverConditionalPublish(ctx context.Context, assessment *Rec
 		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUncertainEffect, "effect cannot be attributed from admission and branch tips")
+	}
+}
+
+// recoverConditionalPRCreate reconciles one held conditional PR creation.
+// The primary effect is database rows, so attribution comes from the
+// committed receipt's PR identity re-read against the native rows: only the
+// recorded PR proves this operation's creation, never a similar PR. A crash
+// before finalization leaves derived fan-out uncertain, so a verified
+// committed effect finalizes as needs_intervention; only the live path,
+// which observed every completion step, records complete. An unadmitted
+// pending operation committed nothing: the atomic primary either recorded
+// its receipt or rolled back, so there is no partial PR row to adopt.
+func (s *Service) recoverConditionalPRCreate(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, op *model.Operation) (RecoveryAssessment, error) {
+	if _, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID); err != nil {
+		if repo_model.IsErrRepoNotExist(err) {
+			return fenced(assessment, ReasonRecoveryMissingEvidence, "repository for the held scope no longer exists")
+		}
+		return RecoveryAssessment{}, err
+	}
+	assessment.Checks = append(assessment.Checks,
+		fmt.Sprintf("operation admitted=%t revoked=%t effect=%s completion=%s", op.Admitted, op.Revoked, op.EffectState, op.Completion),
+	)
+	committed := op.Admitted && op.EffectState == model.EffectCommitted
+	noEffect := !op.Admitted && op.EffectState == model.EffectPending
+	switch {
+	case committed:
+		var receipt PRCreateReceipt
+		if op.Receipt == "" || json.Unmarshal([]byte(op.Receipt), &receipt) != nil {
+			return fenced(assessment, ReasonRecoveryUncertainEffect, "committed PR creation carries no attributable receipt")
+		}
+		pr, err := issues_model.GetPullRequestByIndex(ctx, scope.RepositoryID, receipt.PRNumber)
+		if err != nil {
+			return fenced(assessment, ReasonRecoveryMissingEvidence, "recorded pull request cannot be read")
+		}
+		if err := pr.LoadIssue(ctx); err != nil {
+			return fenced(assessment, ReasonRecoveryMissingEvidence, "recorded pull request cannot be read")
+		}
+		headBranch := strings.TrimPrefix(scope.HeadRef, git.BranchPrefix)
+		baseBranch := strings.TrimPrefix(scope.Ref, git.BranchPrefix)
+		match := pr.ID == receipt.PRID && pr.IssueID == receipt.IssueID &&
+			pr.HeadRepoID == scope.RepositoryID && pr.BaseRepoID == scope.RepositoryID &&
+			pr.HeadBranch == headBranch && pr.BaseBranch == baseBranch &&
+			pr.Issue.PosterID == receipt.AuthorID && pr.Issue.PosterID == op.ActorID
+		assessment.Checks = append(assessment.Checks,
+			fmt.Sprintf("recorded pr id=%d issue=%d number=%d matches_native=%t", receipt.PRID, receipt.IssueID, receipt.PRNumber, match),
+		)
+		if !match {
+			return fenced(assessment, ReasonRecoveryUncertainEffect, "recorded pull request does not match its native rows; similar PRs are never adopted")
+		}
+		if op.Completion == model.CompletionComplete || op.Completion == model.CompletionNeedsIntervention {
+			// Fully finalized before the crash; the known effect
+			// releases without rewriting the record.
+			return s.releaseRecovered(ctx, assessment, reservation, model.EffectCommitted)
+		}
+		if _, err := model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, reservation.Owner, reservation.Generation, model.CompletionNeedsIntervention); err != nil {
+			return RecoveryAssessment{}, err
+		}
+		assessment.Verdict = RecoveryReleased
+		assessment.Effect = model.EffectCommitted
+		assessment.Checks = append(assessment.Checks, fmt.Sprintf("finalized completion as needs_intervention and released owner at generation %d", reservation.Generation))
+		s.retireStaleCapabilities()
+		return *assessment, nil
+	case noEffect:
+		if op.IsTerminal() && op.EffectState != model.EffectNotCommitted {
+			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed refusal; preserved")
+		}
+		if !op.IsTerminal() {
+			reason := op.Reason
+			if reason == "" {
+				reason = model.ReasonRecoveredNoEffect
+			}
+			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
+				EffectState:  model.EffectNotCommitted,
+				Reason:       reason,
+				Cancellation: model.CancellationNone,
+			}, ""); err != nil {
+				return RecoveryAssessment{}, err
+			}
+		}
+		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+	default:
+		return fenced(assessment, ReasonRecoveryUncertainEffect, "effect cannot be attributed from admission and the recorded receipt")
 	}
 }
 
