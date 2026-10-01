@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -207,6 +208,12 @@ func RunHasOtherJobs(ctx context.Context, runID int64, jobs []*ActionRunJob) (bo
 // All calls to UpdateRunJobWithoutNotification that change run.Status for any run from a not done status to a done status must call the ActionRunNowDone notification channel.
 // Use the wrapper function UpdateRunJob instead.
 func UpdateRunJobWithoutNotification(ctx context.Context, job *ActionRunJob, cond builder.Cond, cols ...string) (int64, error) {
+	// Nested participating writer: job state changes refuse while another
+	// owner holds the reservation; the enclosing Actions update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	e := db.GetEngine(ctx)
 
 	sess := e.ID(job.ID)

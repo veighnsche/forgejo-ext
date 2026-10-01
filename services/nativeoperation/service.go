@@ -48,9 +48,10 @@ var (
 	ErrBusy = errors.New("native mutation reservation is busy")
 )
 
-// IsBusy reports whether err is a reservation-contention refusal.
+// IsBusy reports whether err is a reservation-contention refusal. Offline
+// inhibition refuses the same way: retryable, with nothing recorded.
 func IsBusy(err error) bool {
-	return errors.Is(err, ErrBusy) || errors.Is(err, model.ErrBusy)
+	return errors.Is(err, ErrBusy) || errors.Is(err, model.ErrBusy) || errors.Is(err, model.ErrInhibited)
 }
 
 // RefReader resolves live ref tips for admission and reconciliation.

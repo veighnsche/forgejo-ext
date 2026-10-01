@@ -16,6 +16,29 @@ import (
 	execcontext "forgejo.org/modules/nativeoperation"
 )
 
+// Ordinary writer families with outer ownership. Each family records its
+// affected resource identities in Scope before effects so offline recovery
+// can reconcile that family's actual database/ref effects; a merge-tip
+// comparison never reconciles another family.
+const (
+	// FamilyBranchCreate is FT03's ordinary branch-create writer.
+	FamilyBranchCreate = "branch"
+	// FamilyBranchDelete is the transaction-plus-direct-Git branch delete.
+	FamilyBranchDelete = "branch-delete"
+	// FamilyActionsTask is one Actions task/job update with its resulting
+	// commit status, owned as a single logical update.
+	FamilyActionsTask = "actions-task"
+	// FamilyPushCompletion is one deferred push/completion batch.
+	FamilyPushCompletion = "push-completion"
+)
+
+// ScopedRef is one expected ref effect within a multi-ref ordinary scope.
+type ScopedRef struct {
+	Ref    string `json:"ref"`
+	OldOID string `json:"old_oid,omitempty"`
+	NewOID string `json:"new_oid,omitempty"`
+}
+
 // Scope is the permitted effect recorded on a held reservation. Native hooks
 // require the owner's execution proof and effects within this scope; anything
 // else refuses.
@@ -23,9 +46,11 @@ type Scope struct {
 	Kind         string `json:"kind"`
 	RepositoryID int64  `json:"repository_id"`
 	// Ref is the single permitted branch ref: the merge target for a
-	// conditional owner, the created branch for the ordinary branch writer.
+	// conditional owner, the created or deleted branch for the ordinary
+	// branch writers.
 	Ref string `json:"ref,omitempty"`
-	// OldOID and NewOID are the exact permitted ref tuple (conditional).
+	// OldOID and NewOID are the exact permitted ref tuple (conditional, or
+	// the deleted tip and zero OID for a branch delete).
 	OldOID string `json:"old_oid,omitempty"`
 	NewOID string `json:"new_oid,omitempty"`
 	// HeadRef and HeadOID bind the live source the candidate was verified
@@ -36,6 +61,18 @@ type Scope struct {
 	PRNumber int64 `json:"pr_number,omitempty"`
 	// Family names the ordinary writer family (ordinary).
 	Family string `json:"family,omitempty"`
+	// TaskID, JobID, RunID and RunnerID identify one Actions logical
+	// update (actions-task). JobID and RunID are resolved from the task
+	// when the claim only knows the task.
+	TaskID   int64 `json:"task_id,omitempty"`
+	JobID    int64 `json:"job_id,omitempty"`
+	RunID    int64 `json:"run_id,omitempty"`
+	RunnerID int64 `json:"runner_id,omitempty"`
+	// Refs lists every expected ref effect of a multi-ref batch
+	// (push-completion). Single-ref families use Ref/OldOID/NewOID.
+	Refs []ScopedRef `json:"refs,omitempty"`
+	// PusherID identifies the pusher whose refs one deferred batch covers.
+	PusherID int64 `json:"pusher_id,omitempty"`
 }
 
 func conditionalOwner(installationID, operationID string) string {
@@ -102,6 +139,9 @@ func (s *Service) WithOrdinaryOwnership(ctx context.Context, family, resource st
 		release()
 		if errors.Is(err, model.ErrBusy) {
 			return fmt.Errorf("%w: ordinary writer %s is fenced", ErrBusy, family)
+		}
+		if errors.Is(err, model.ErrInhibited) {
+			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", model.ErrInhibited, family)
 		}
 		return err
 	}

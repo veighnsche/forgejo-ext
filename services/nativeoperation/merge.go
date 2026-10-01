@@ -73,6 +73,9 @@ func (s *Service) submitMerge(ctx context.Context, decision authmodel.Submission
 		if errors.Is(err, model.ErrBusy) {
 			return sdk.OperationRecord{}, ErrBusy
 		}
+		if errors.Is(err, model.ErrInhibited) {
+			return sdk.OperationRecord{}, err
+		}
 		if errors.Is(err, model.ErrStaleRevision) {
 			return s.recordStaleRevision(ctx, op)
 		}
@@ -186,6 +189,12 @@ func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent 
 	}
 	owned := execcontext.NewContext(ctx, execution)
 	mergeErr := pull_service.Merge(owned, pr, doer, baseGitRepo, repo_model.MergeStyleFastForwardOnly, intent.Merge.ExpectedHeadOID, message, false)
+	// Test-only crash barrier for offline-recovery proof: with the native
+	// merge done and the owner still held, the driver SIGKILLs the server
+	// here to simulate a crash before reconciliation.
+	if err := TestCrashBarrier(CrashPointMergeAfterNative); err != nil {
+		return sdk.OperationRecord{}, terminalResult{}, err
+	}
 	return s.reconcileMerge(ctx, op, scope, repository, execution, mergeErr)
 }
 

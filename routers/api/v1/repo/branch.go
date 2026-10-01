@@ -157,6 +157,8 @@ func DeleteBranch(ctx *context.APIContext) {
 
 	if err := repo_service.DeleteBranch(ctx, ctx.Doer(), ctx.Repo().Repository, ctx.Repo().GitRepo, branchName); err != nil {
 		switch {
+		case operation_service.IsBusy(err):
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 		case git.IsErrBranchNotExist(err):
 			ctx.NotFound(err)
 		case errors.Is(err, repo_service.ErrBranchIsDefault):

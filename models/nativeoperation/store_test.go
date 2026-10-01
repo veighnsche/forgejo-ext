@@ -4,10 +4,14 @@
 package nativeoperation_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
+	execcontext "forgejo.org/modules/nativeoperation"
+	"forgejo.org/modules/setting"
 
 	"github.com/stretchr/testify/require"
 )
@@ -171,4 +175,86 @@ func TestOrdinaryClaimAndRelease(t *testing.T) {
 	_, err = model.ClaimOrdinary(ctx, "ord:branch/1/other/y", `{}`, "v")
 	require.ErrorIs(t, err, model.ErrBusy)
 	require.NoError(t, model.ReleaseOwner(ctx, "ord:branch/1/main/x"))
+}
+
+func useIsolatedAppData(t *testing.T) {
+	t.Helper()
+	previous := setting.AppDataPath
+	setting.AppDataPath = t.TempDir()
+	t.Cleanup(func() { setting.AppDataPath = previous })
+}
+
+func TestClaimsRefuseWhileInhibited(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	useIsolatedAppData(t)
+	ctx := t.Context()
+
+	start, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(setting.AppDataPath, "nativeop-offline"), []byte("recovery\n"), 0o600))
+	require.True(t, model.OfflineInhibited())
+
+	_, err = model.ClaimConditional(ctx, testOperation("op-inhibited", start.Revision), "cond:"+testInstallation+"/op-inhibited", `{}`, "v")
+	require.ErrorIs(t, err, model.ErrInhibited)
+	_, err = model.ClaimOrdinary(ctx, "ord:branch/1/x", `{}`, "v")
+	require.ErrorIs(t, err, model.ErrInhibited)
+
+	// Inhibited claims record nothing and move no revision.
+	missing, err := model.LookupOperation(ctx, testInstallation, "op-inhibited")
+	require.NoError(t, err)
+	require.Nil(t, missing)
+	idle, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	require.Empty(t, idle.Owner)
+	require.Equal(t, start.Revision, idle.Revision)
+
+	// Lifting inhibition reopens claims.
+	require.NoError(t, os.Remove(model.OfflineMarkerPath()))
+	require.False(t, model.OfflineInhibited())
+	_, err = model.ClaimOrdinary(ctx, "ord:branch/1/x", `{}`, "v")
+	require.NoError(t, err)
+}
+
+func TestRequireHeldOwnership(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+
+	require.NoError(t, model.RequireHeldOwnership(ctx))
+
+	claimed, err := model.ClaimOrdinary(ctx, "ord:branch/1/held", `{"kind":"ordinary"}`, "v")
+	require.NoError(t, err)
+
+	require.ErrorIs(t, model.RequireHeldOwnership(ctx), model.ErrBusy)
+	nested := execcontext.NewContext(ctx, &execcontext.Execution{Owner: claimed.Owner, Generation: claimed.Generation})
+	require.NoError(t, model.RequireHeldOwnership(nested))
+	stale := execcontext.NewContext(ctx, &execcontext.Execution{Owner: claimed.Owner, Generation: claimed.Generation + 1})
+	require.ErrorIs(t, model.RequireHeldOwnership(stale), model.ErrBusy)
+	foreign := execcontext.NewContext(ctx, &execcontext.Execution{Owner: "ord:branch/1/other", Generation: claimed.Generation})
+	require.ErrorIs(t, model.RequireHeldOwnership(foreign), model.ErrBusy)
+
+	require.NoError(t, model.ReleaseOwner(ctx, claimed.Owner))
+	require.NoError(t, model.RequireHeldOwnership(ctx))
+}
+
+func TestReleaseExactOwner(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+
+	claimed, err := model.ClaimOrdinary(ctx, "ord:branch/1/exact", `{"kind":"ordinary"}`, "v")
+	require.NoError(t, err)
+
+	require.ErrorIs(t, model.ReleaseExactOwner(ctx, "", claimed.Generation), model.ErrWrongOwner)
+	require.ErrorIs(t, model.ReleaseExactOwner(ctx, claimed.Owner, 0), model.ErrWrongOwner)
+	require.ErrorIs(t, model.ReleaseExactOwner(ctx, "ord:branch/1/other", claimed.Generation), model.ErrWrongOwner)
+	require.ErrorIs(t, model.ReleaseExactOwner(ctx, claimed.Owner, claimed.Generation+1), model.ErrWrongOwner)
+
+	held, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	require.Equal(t, claimed.Owner, held.Owner)
+
+	require.NoError(t, model.ReleaseExactOwner(ctx, claimed.Owner, claimed.Generation))
+	idle, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	require.Empty(t, idle.Owner)
+	require.Equal(t, claimed.Revision, idle.Revision)
 }

@@ -11,6 +11,7 @@ import (
 
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
@@ -483,7 +484,37 @@ func CreatePlaceholderTask(ctx context.Context, job *ActionRunJob, outputs map[s
 	return actionTask, nil
 }
 
+// taskTelemetryColumns are non-authorizing progress writes that may proceed
+// without ownership even while another owner holds the reservation: log
+// storage progress and the liveness heartbeat. They change neither task
+// eligibility nor job outcomes. Every other column, including status,
+// stopped and token material, is a participating write.
+var taskTelemetryColumns = map[string]bool{
+	"updated":        true,
+	"log_filename":   true,
+	"log_indexes":    true,
+	"log_length":     true,
+	"log_size":       true,
+	"log_in_storage": true,
+	"log_expired":    true,
+}
+
 func UpdateTask(ctx context.Context, task *ActionTask, cols ...string) error {
+	telemetryOnly := len(cols) > 0
+	for _, col := range cols {
+		if !taskTelemetryColumns[col] {
+			telemetryOnly = false
+			break
+		}
+	}
+	if !telemetryOnly {
+		// Nested participating writer: task state changes refuse while
+		// another owner holds the reservation; the enclosing Actions
+		// update carries the execution.
+		if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+			return err
+		}
+	}
 	sess := db.GetEngine(ctx).ID(task.ID)
 	if len(cols) > 0 {
 		sess.Cols(cols...)

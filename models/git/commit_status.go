@@ -15,6 +15,7 @@ import (
 
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
@@ -387,6 +388,13 @@ type NewCommitStatusOptions struct {
 
 // NewCommitStatus save commit statuses into database
 func NewCommitStatus(ctx context.Context, opts NewCommitStatusOptions) error {
+	// Nested participating writer: status inserts refuse while another
+	// owner holds the reservation; the enclosing Actions update carries
+	// the execution and its resulting status reuses that ownership
+	// instead of waiting on the parent's gate.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if opts.Repo == nil {
 		return fmt.Errorf("NewCommitStatus[nil, %s]: no repository specified", opts.SHA)
 	}

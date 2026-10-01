@@ -16,6 +16,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 	commitstatus_service "forgejo.org/services/repository/commitstatus"
 )
 
@@ -69,7 +70,9 @@ func NewCommitStatus(ctx *context.APIContext) {
 	if err := commitstatus_service.CreateCommitStatus(ctx, ctx.Repo().Repository, ctx.Doer(), sha, status); err != nil {
 		// TODO: replace with git.IsErrNotExist(err) once #12583 is resolved
 		var errNotExist git.ErrNotExist
-		if errors.As(err, &errNotExist) {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+		} else if errors.As(err, &errNotExist) {
 			ctx.NotFound("sha", sha)
 		} else {
 			ctx.Error(http.StatusInternalServerError, "CreateCommitStatus", err)

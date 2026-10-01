@@ -75,3 +75,30 @@ func TestOrdinaryOwnershipRefusesWhenBusy(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, idle.Idle)
 }
+
+func TestOrdinaryOwnershipRefusesWhileInhibited(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	svc := admissionService(t, nil, 0)
+	useIsolatedAppData(t)
+
+	start, err := svc.ReadNativeRevision(ctx)
+	require.NoError(t, err)
+	require.True(t, start.Idle)
+	inhibitDomain(t)
+
+	ran := false
+	err = svc.WithOrdinaryOwnership(ctx, "branch", "1/topic", Scope{RepositoryID: 1, Ref: "refs/heads/topic"}, func(context.Context) error {
+		ran = true
+		return nil
+	})
+	require.Error(t, err)
+	require.True(t, IsBusy(err))
+	require.ErrorIs(t, err, model.ErrInhibited)
+	require.False(t, ran)
+
+	idle, err := svc.ReadNativeRevision(ctx)
+	require.NoError(t, err)
+	require.True(t, idle.Idle)
+	require.Equal(t, start.Revision, idle.Revision)
+}

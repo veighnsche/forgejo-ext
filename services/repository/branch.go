@@ -460,21 +460,43 @@ func DeleteBranch(ctx context.Context, doer *user_model.User, repo *repo_model.R
 		return err
 	}
 
-	if err := db.WithTx(ctx, func(ctx context.Context) error {
-		if !notExist {
-			if err := git_model.AddDeletedBranch(ctx, repo.ID, branchName, doer.ID); err != nil {
-				return err
+	// This transaction-plus-direct-Git writer claims the reservation before
+	// its database transaction and Git effect, advancing the shared
+	// revision, and refuses while another owner is held or offline recovery
+	// inhibits the domain. Its direct Git child carries hook repository
+	// identity and the execution capability so the reference-transaction
+	// checkpoint binds the delete to this owner.
+	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
+	err = operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyBranchDelete, fmt.Sprintf("%d/%s", repo.ID, branchName), operation_service.Scope{
+		RepositoryID: repo.ID,
+		Ref:          git.BranchPrefix + branchName,
+		OldOID:       commit.ID.String(),
+		NewOID:       objectFormat.EmptyObjectID().String(),
+	}, func(ctx context.Context) error {
+		if err := db.WithTx(ctx, func(ctx context.Context) error {
+			if !notExist {
+				if err := git_model.AddDeletedBranch(ctx, repo.ID, branchName, doer.ID); err != nil {
+					return err
+				}
 			}
-		}
 
-		return gitRepo.DeleteBranch(branchName, git.DeleteBranchOptions{
-			Force: true,
-		})
-	}); err != nil {
+			env := repo_module.PushingEnvironment(doer, repo)
+			env = nativeoperation.AppendExecEnv(env, nativeoperation.FromContext(ctx))
+			return gitRepo.DeleteBranch(branchName, git.DeleteBranchOptions{
+				Force: true,
+				Env:   env,
+			})
+		}); err != nil {
+			return err
+		}
+		// Test-only crash barrier for offline-recovery proof: with effects
+		// committed and the owner still held, the driver SIGKILLs the
+		// server here to simulate a crash before release.
+		return operation_service.TestCrashBarrier(operation_service.CrashPointBranchDeleteAfterEffects)
+	})
+	if err != nil {
 		return err
 	}
-
-	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
 
 	// Don't return error below this
 	if err := PushUpdate(

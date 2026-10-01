@@ -61,6 +61,7 @@ const (
 	ReasonAuthorityLost            = "authority_lost"
 	ReasonIntentConflict           = "intent_conflict"
 	ReasonPRMismatch               = "pr_mismatch"
+	ReasonRecoveredNoEffect        = "recovered_no_effect"
 )
 
 // Operation is one immutable conditional-operation authorization identified

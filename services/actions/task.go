@@ -14,6 +14,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -208,63 +209,70 @@ func StopTask(ctx context.Context, taskID int64, status actions_model.Status) er
 	if !status.IsDone() {
 		return fmt.Errorf("cannot stop task with status %v", status)
 	}
-	e := db.GetEngine(ctx)
 
-	task := &actions_model.ActionTask{}
-	if has, err := e.ID(taskID).Get(task); err != nil {
-		return err
-	} else if !has {
-		return util.ErrNotExist
-	}
-	if task.Status.IsDone() {
-		return nil
-	}
+	// One Actions logical update owns the complete change before task
+	// state moves: task, job and step rows share this ownership.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsTask, fmt.Sprintf("task/%d", taskID), operation_service.Scope{
+		TaskID: taskID,
+	}, func(ctx context.Context) error {
+		e := db.GetEngine(ctx)
 
-	now := timeutil.TimeStampNow()
-	task.Status = status
-	task.Stopped = now
-	if _, err := UpdateRunJob(ctx, &actions_model.ActionRunJob{
-		ID:      task.JobID,
-		Status:  task.Status,
-		Stopped: task.Stopped,
-	}, nil); err != nil {
-		return err
-	}
-
-	if err := actions_model.UpdateTask(ctx, task, "status", "stopped"); err != nil {
-		return err
-	}
-
-	runner := &actions_model.ActionRunner{}
-	if _, err := e.ID(task.RunnerID).Get(runner); err != nil {
-		return fmt.Errorf("failed to find runner assigned to task")
-	}
-
-	if runner.Ephemeral {
-		err := actions_model.DeleteRunner(ctx, runner)
-		if err != nil {
-			return fmt.Errorf("failed to remove ephemeral runner from stopped task: %w", err)
+		task := &actions_model.ActionTask{}
+		if has, err := e.ID(taskID).Get(task); err != nil {
+			return err
+		} else if !has {
+			return util.ErrNotExist
 		}
-	}
-
-	if err := task.LoadAttributes(ctx); err != nil {
-		return err
-	}
-
-	for _, step := range task.Steps {
-		if !step.Status.IsDone() {
-			step.Status = status
-			if step.Started == 0 {
-				step.Started = now
-			}
-			step.Stopped = now
+		if task.Status.IsDone() {
+			return nil
 		}
-		if _, err := e.ID(step.ID).Update(step); err != nil {
+
+		now := timeutil.TimeStampNow()
+		task.Status = status
+		task.Stopped = now
+		if _, err := UpdateRunJob(ctx, &actions_model.ActionRunJob{
+			ID:      task.JobID,
+			Status:  task.Status,
+			Stopped: task.Stopped,
+		}, nil); err != nil {
 			return err
 		}
-	}
 
-	return nil
+		if err := actions_model.UpdateTask(ctx, task, "status", "stopped"); err != nil {
+			return err
+		}
+
+		runner := &actions_model.ActionRunner{}
+		if _, err := e.ID(task.RunnerID).Get(runner); err != nil {
+			return fmt.Errorf("failed to find runner assigned to task")
+		}
+
+		if runner.Ephemeral {
+			err := actions_model.DeleteRunner(ctx, runner)
+			if err != nil {
+				return fmt.Errorf("failed to remove ephemeral runner from stopped task: %w", err)
+			}
+		}
+
+		if err := task.LoadAttributes(ctx); err != nil {
+			return err
+		}
+
+		for _, step := range task.Steps {
+			if !step.Status.IsDone() {
+				step.Status = status
+				if step.Started == 0 {
+					step.Started = now
+				}
+				step.Stopped = now
+			}
+			if _, err := e.ID(step.ID).Update(step); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // UpdateTaskByState updates the task by the state.

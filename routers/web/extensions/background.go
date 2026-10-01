@@ -195,7 +195,7 @@ func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission run
 				OperationID:    request.OperationID,
 				Outcome:        extension.BackgroundOutcomeOperationsUnavailable,
 			})
-		case errors.Is(err, operation_service.ErrBusy):
+		case operation_service.IsBusy(err):
 			http.Error(w, "native operation in progress", http.StatusServiceUnavailable)
 		case errors.Is(err, operation_service.ErrIntentConflict):
 			http.Error(w, "intent_conflict", http.StatusConflict)

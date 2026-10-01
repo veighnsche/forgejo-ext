@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
@@ -243,6 +244,13 @@ func UpdateBranch(ctx context.Context, repoID, pusherID int64, branchName string
 
 // AddDeletedBranch adds a deleted branch to the database
 func AddDeletedBranch(ctx context.Context, repoID int64, branchName string, deletedByID int64) error {
+	// Nested participating writer: while another owner holds the
+	// reservation this refuses before any effect; the enclosing DeleteBranch
+	// service carries the execution. An idle reservation allows
+	// unintegrated callers until their owning task claims.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	branch, err := GetBranch(ctx, repoID, branchName)
 	if err != nil {
 		return err

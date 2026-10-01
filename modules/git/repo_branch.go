@@ -100,6 +100,10 @@ func (repo *Repository) GetBranches(skip, limit int) ([]*Branch, int, error) {
 // DeleteBranchOptions Option(s) for delete branch
 type DeleteBranchOptions struct {
 	Force bool
+	// Env replaces the child process environment, carrying hook repository
+	// identity and the owner's execution capability for enforcement.
+	// A nil Env keeps the ambient environment for unenforced callers.
+	Env []string
 }
 
 // DeleteBranch delete a branch by name on repository.
@@ -113,7 +117,7 @@ func (repo *Repository) DeleteBranch(name string, opts DeleteBranchOptions) erro
 	}
 
 	cmd.AddDashesAndList(name)
-	_, _, err := cmd.RunStdString(&RunOpts{Dir: repo.Path})
+	_, _, err := cmd.RunStdString(&RunOpts{Dir: repo.Path, Env: opts.Env})
 
 	return err
 }

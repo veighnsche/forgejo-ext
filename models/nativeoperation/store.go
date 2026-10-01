@@ -6,8 +6,12 @@ package nativeoperation
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 
 	"forgejo.org/models/db"
+	execcontext "forgejo.org/modules/nativeoperation"
+	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 )
 
@@ -48,7 +52,49 @@ var (
 	// ErrDuplicateOperation is returned when an insert meets an existing
 	// operation row; the caller must reread and reconcile it.
 	ErrDuplicateOperation = errors.New("operation already recorded")
+	// ErrInhibited is returned when the offline operator recovery holds the
+	// writer domain: new ownership claims refuse until the operator lifts
+	// inhibition after reconciliation. It is retryable like ErrBusy and
+	// never releases or transfers an existing owner.
+	ErrInhibited = errors.New("native mutation domain is inhibited for offline recovery")
 )
+
+// OfflineMarkerPath is the host-private file whose presence inhibits new
+// ownership claims during offline operator recovery. The deployment's stop
+// procedure creates it after every native writer has stopped; the operator
+// removes it after reconciliation before restarting writers. It is a
+// deployment control, not a lease: it grants no ownership and releases none.
+func OfflineMarkerPath() string {
+	return filepath.Join(setting.AppDataPath, "nativeop-offline")
+}
+
+// OfflineInhibited reports whether offline recovery currently inhibits claims.
+func OfflineInhibited() bool {
+	info, err := os.Stat(OfflineMarkerPath())
+	return err == nil && !info.IsDir()
+}
+
+// RequireHeldOwnership fences nested participating writers while another
+// owner holds the reservation: with no enclosing execution, or one naming a
+// different owner/generation, it returns ErrBusy before any effect. An idle
+// reservation allows the call so unintegrated writers keep working until
+// their owning task claims outer ownership; that transitional allowance
+// closes as writer coverage completes and must not be mistaken for approval
+// of a new unowned path.
+func RequireHeldOwnership(ctx context.Context) error {
+	reservation, err := ReadReservation(ctx)
+	if err != nil {
+		return err
+	}
+	if reservation.Owner == "" {
+		return nil
+	}
+	exec := execcontext.FromContext(ctx)
+	if exec == nil || exec.Owner != reservation.Owner || exec.Generation != reservation.Generation {
+		return ErrBusy
+	}
+	return nil
+}
 
 // ReadReservation returns the current revision and owner, creating the idle
 // row on first use.
@@ -128,8 +174,11 @@ func RevokeOperation(ctx context.Context, installationID, operationID string) (*
 // ClaimConditional durably records a pending conditional operation and claims
 // the idle reservation for it in one transaction, advancing the revision.
 // owner identifies the holding operation, scopeJSON its permitted effect and
-// verifier its execution proof. Busy and stale claims record nothing.
+// verifier its execution proof. Busy, inhibited and stale claims record nothing.
 func ClaimConditional(ctx context.Context, op *Operation, owner, scopeJSON, verifier string) (*Reservation, error) {
+	if OfflineInhibited() {
+		return nil, ErrInhibited
+	}
 	var claimed *Reservation
 	err := db.WithTx(ctx, func(ctx context.Context) error {
 		reservation := new(Reservation)
@@ -313,6 +362,9 @@ func SetTerminal(ctx context.Context, installationID, operationID string, outcom
 // expected revision; they serialize and invalidate conditional intents bound
 // to the old revision.
 func ClaimOrdinary(ctx context.Context, owner, scopeJSON, verifier string) (*Reservation, error) {
+	if OfflineInhibited() {
+		return nil, ErrInhibited
+	}
 	var claimed *Reservation
 	err := db.WithTx(ctx, func(ctx context.Context) error {
 		reservation, err := ReadReservation(ctx)
@@ -344,6 +396,25 @@ func ClaimOrdinary(ctx context.Context, owner, scopeJSON, verifier string) (*Res
 // can release; anything else is ErrWrongOwner.
 func ReleaseOwner(ctx context.Context, owner string) error {
 	affected, err := db.GetEngine(ctx).Where("id=1 AND owner=?", owner).Cols("owner", "owner_kind", "verifier", "scope").Update(&Reservation{})
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrWrongOwner
+	}
+	return nil
+}
+
+// ReleaseExactOwner releases the reservation only when both the owner string
+// and its fencing generation match the current holder. Offline recovery uses
+// it after establishing the known effect under whole-domain quiescence; a
+// wrong owner or a stale generation refuses with ErrWrongOwner and the fence
+// stays held. The native revision is never reset.
+func ReleaseExactOwner(ctx context.Context, owner string, generation int64) error {
+	if owner == "" || generation <= 0 {
+		return ErrWrongOwner
+	}
+	affected, err := db.GetEngine(ctx).Where("id=1 AND owner=? AND generation=?", owner, generation).Cols("owner", "owner_kind", "verifier", "scope").Update(&Reservation{})
 	if err != nil {
 		return err
 	}

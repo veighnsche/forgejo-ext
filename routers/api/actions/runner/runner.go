@@ -18,6 +18,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
 	actions_service "forgejo.org/services/actions"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
@@ -273,69 +274,94 @@ func (*Service) UpdateTask(
 ) (*connect.Response[runnerv1.UpdateTaskResponse], error) {
 	runner := GetRunner(ctx)
 
-	task, err := actions_service.UpdateTaskByState(ctx, runner.ID, req.Msg.State)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update task: %w", err))
-	}
-
-	for k, v := range req.Msg.Outputs {
-		if len(k) > 255 {
-			log.Warn("Ignore the output of task %d because the key is too long: %q", task.ID, k)
-			continue
+	// One Actions logical update owns the complete change before task
+	// state moves: task and job rows plus the resulting commit status
+	// share this ownership, so the synchronous status callback reuses it
+	// instead of waiting on the parent's gate. A held reservation or
+	// offline inhibition refuses with Unavailable and the runner retries.
+	var task *actions_model.ActionTask
+	var sentOutputs []string
+	err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsTask, fmt.Sprintf("task/%d", req.Msg.State.Id), operation_service.Scope{
+		TaskID:   req.Msg.State.Id,
+		RunnerID: runner.ID,
+	}, func(ctx context.Context) error {
+		updated, err := actions_service.UpdateTaskByState(ctx, runner.ID, req.Msg.State)
+		if err != nil {
+			return fmt.Errorf("update task: %w", err)
 		}
-		// The value can be a maximum of 1 MB
-		if l := len(v); l > 1024*1024 {
-			log.Warn("Ignore the output %q of task %d because the value is too long: %v", k, task.ID, l)
-			continue
+		task = updated
+
+		for k, v := range req.Msg.Outputs {
+			if len(k) > 255 {
+				log.Warn("Ignore the output of task %d because the key is too long: %q", task.ID, k)
+				continue
+			}
+			// The value can be a maximum of 1 MB
+			if l := len(v); l > 1024*1024 {
+				log.Warn("Ignore the output %q of task %d because the value is too long: %v", k, task.ID, l)
+				continue
+			}
+			// There's another limitation on GitHub that the total of all outputs in a workflow run can be a maximum of 50 MB.
+			// We don't check the total size here because it's not easy to do, and it doesn't really worth it.
+			// See https://docs.github.com/en/actions/using-jobs/defining-outputs-for-jobs
+
+			if err := actions_model.InsertTaskOutputIfNotExist(ctx, task.ID, k, v); err != nil {
+				log.Warn("Failed to insert the output %q of task %d: %v", k, task.ID, err)
+				// It's ok not to return errors, the runner will resend the outputs.
+			}
 		}
-		// There's another limitation on GitHub that the total of all outputs in a workflow run can be a maximum of 50 MB.
-		// We don't check the total size here because it's not easy to do, and it doesn't really worth it.
-		// See https://docs.github.com/en/actions/using-jobs/defining-outputs-for-jobs
-
-		if err := actions_model.InsertTaskOutputIfNotExist(ctx, task.ID, k, v); err != nil {
-			log.Warn("Failed to insert the output %q of task %d: %v", k, task.ID, err)
-			// It's ok not to return errors, the runner will resend the outputs.
+		sent, err := actions_model.FindTaskOutputKeyByTaskID(ctx, task.ID)
+		if err != nil {
+			log.Warn("Failed to find the sent outputs of task %d: %v", task.ID, err)
+			// It's not to return errors, it can be handled when the runner resends sent outputs.
 		}
-	}
-	sentOutputs, err := actions_model.FindTaskOutputKeyByTaskID(ctx, task.ID)
-	if err != nil {
-		log.Warn("Failed to find the sent outputs of task %d: %v", task.ID, err)
-		// It's not to return errors, it can be handled when the runner resends sent outputs.
-	}
+		sentOutputs = sent
 
-	if err := task.LoadJob(ctx); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load job: %w", err))
-	}
-	if err := task.Job.LoadRun(ctx); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load run: %w", err))
-	}
-
-	// don't create commit status for cron job
-	if task.Job.Run.ScheduleID == 0 {
-		actions_service.CreateCommitStatus(ctx, task.Job)
-	}
-
-	if req.Msg.State.Result != runnerv1.Result_RESULT_UNSPECIFIED {
-		if err := actions_service.EmitJobsIfReady(task.Job.RunID); err != nil {
-			log.Error("Emit ready jobs of run %d: %v", task.Job.RunID, err)
+		if err := task.LoadJob(ctx); err != nil {
+			return fmt.Errorf("load job: %w", err)
 		}
-		// Reaching a finalized result for a task can cause other tasks in the same concurrency group to become
-		// unblocked. Increasing task version here allows all applicable runners to requery to the DB for that state.
-		// Because it is only useful for that condition, and it has system performance risks, only enable it when
-		// concurrency group queuing is enabled.
-		if setting.Actions.ConcurrencyGroupQueueEnabled {
-			if err := actions_model.IncreaseTaskVersion(ctx, runner.OwnerID, runner.RepoID); err != nil {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("fail to increase task version: %w", err))
+		if err := task.Job.LoadRun(ctx); err != nil {
+			return fmt.Errorf("load run: %w", err)
+		}
+
+		// don't create commit status for cron job
+		if task.Job.Run.ScheduleID == 0 {
+			actions_service.CreateCommitStatus(ctx, task.Job)
+		}
+
+		if req.Msg.State.Result != runnerv1.Result_RESULT_UNSPECIFIED {
+			if err := actions_service.EmitJobsIfReady(task.Job.RunID); err != nil {
+				log.Error("Emit ready jobs of run %d: %v", task.Job.RunID, err)
+			}
+			// Reaching a finalized result for a task can cause other tasks in the same concurrency group to become
+			// unblocked. Increasing task version here allows all applicable runners to requery to the DB for that state.
+			// Because it is only useful for that condition, and it has system performance risks, only enable it when
+			// concurrency group queuing is enabled.
+			if setting.Actions.ConcurrencyGroupQueueEnabled {
+				if err := actions_model.IncreaseTaskVersion(ctx, runner.OwnerID, runner.RepoID); err != nil {
+					return fmt.Errorf("fail to increase task version: %w", err)
+				}
+			}
+
+			if runner.Ephemeral {
+				err := actions_model.DeleteRunner(ctx, runner)
+				if err != nil {
+					log.Error("failed to delete ephemeral runner %v, %w", task.RunnerID, err)
+					return fmt.Errorf("failed to delete ephemeral runner %v, %w", task.RunnerID, err)
+				}
 			}
 		}
 
-		if runner.Ephemeral {
-			err := actions_model.DeleteRunner(ctx, runner)
-			if err != nil {
-				log.Error("failed to delete ephemeral runner %v, %w", task.RunnerID, err)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete ephemeral runner %v, %w", task.RunnerID, err))
-			}
+		// Test-only crash barrier for offline-recovery proof: with task,
+		// job and status effects committed and the owner still held, the
+		// driver SIGKILLs the server here to simulate a crash.
+		return operation_service.TestCrashBarrier(operation_service.CrashPointActionsTaskAfterEffects)
+	})
+	if err != nil {
+		if operation_service.IsBusy(err) {
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
 		}
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&runnerv1.UpdateTaskResponse{
