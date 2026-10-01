@@ -164,6 +164,9 @@ func (s *Service) FetchTask(
 
 		recoveredTasks, err := recoverTasks(ctx, runner, *requestKey)
 		if err != nil {
+			if operation_service.IsBusy(err) {
+				return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
+			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		} else if len(recoveredTasks) > 0 {
 			resp := &runnerv1.FetchTaskResponse{
@@ -187,6 +190,9 @@ func (s *Service) FetchTask(
 		// it means there may still be some tasks not be assigned.
 		// try to pick a task for the runner that send the request.
 		if t, ok, err := actions_service.PickTask(ctx, runner, requestKey, nil); err != nil {
+			if operation_service.IsBusy(err) {
+				return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
+			}
 			log.Error("pick task failed: %v", err)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("pick task: %w", err))
 		} else if ok {
@@ -228,6 +234,9 @@ func (*Service) FetchSingleTask(
 	if requestKey != nil {
 		recoveredTasks, err := recoverTasks(ctx, runner, *requestKey)
 		if err != nil {
+			if operation_service.IsBusy(err) {
+				return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
+			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		} else if len(recoveredTasks) == 1 {
 			resp := &runnerv1.FetchSingleTaskResponse{
@@ -254,6 +263,9 @@ func (*Service) FetchSingleTask(
 		}
 
 		if t, ok, err := actions_service.PickTask(ctx, runner, requestKey, handle); err != nil {
+			if operation_service.IsBusy(err) {
+				return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
+			}
 			log.Error("pick task failed: %v", err)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("pick task: %w", err))
 		} else if ok {

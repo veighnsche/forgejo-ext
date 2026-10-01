@@ -20,6 +20,7 @@ import (
 	actions_service "forgejo.org/services/actions"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 	secrets_service "forgejo.org/services/secrets"
 )
 
@@ -845,6 +846,8 @@ func DispatchWorkflow(ctx *context.APIContext) {
 	if err != nil {
 		if actions_service.IsInputRequiredErr(err) {
 			ctx.Error(http.StatusBadRequest, "workflow.Dispatch", err)
+		} else if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 		} else {
 			ctx.Error(http.StatusInternalServerError, "workflow.Dispatch", err)
 		}

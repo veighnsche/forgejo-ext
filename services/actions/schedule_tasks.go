@@ -19,6 +19,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/timeutil"
 	webhook_module "forgejo.org/modules/webhook"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
 	act_model "code.forgejo.org/forgejo/runner/v12/act/model"
@@ -121,6 +122,18 @@ func startTasks(ctx context.Context) error {
 // CreateScheduleTask creates a scheduled task from a cron action schedule.
 // It creates an action run based on the schedule, inserts it into the database, and creates commit statuses for each job.
 func CreateScheduleTask(ctx context.Context, cron *actions_model.ActionSchedule) error {
+	// One scheduled creation owns its run/jobs before their effects:
+	// the concurrency cancellation, the inserted run and its jobs share
+	// this ownership. The spec's next-run update stays with the cron
+	// driver outside this claim.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.ScheduleResource(cron.ID), operation_service.Scope{
+		RepositoryID: cron.RepoID,
+	}, func(ctx context.Context) error {
+		return createScheduleTask(ctx, cron)
+	})
+}
+
+func createScheduleTask(ctx context.Context, cron *actions_model.ActionSchedule) error {
 	// Create a new action run based on the schedule
 	run := &actions_model.ActionRun{
 		Title:             cron.Title,

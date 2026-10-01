@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/cache"
@@ -352,6 +353,12 @@ const (
 )
 
 func UpdateRunApprovalByID(ctx context.Context, id int64, approval ApprovalType, approvedBy int64) error {
+	// Nested participating writer: approval changes refuse while another
+	// owner holds the reservation; the enclosing run update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Exec("UPDATE action_run SET need_approval=?, approved_by=? WHERE id=?", bool(approval), approvedBy, id)
 	return err
 }
@@ -360,6 +367,17 @@ func GetRunsNotDoneByRepoIDAndPullRequestPosterID(ctx context.Context, repoID, p
 	var runs []*ActionRun
 	// performance relies on indexes on repo_id and status
 	if err := db.GetEngine(ctx).Where("repo_id=? AND pull_request_poster_id=?", repoID, pullRequestPosterID).And(builder.In("status", PendingStatuses())).Find(&runs); err != nil {
+		return nil, err
+	}
+	return runs, nil
+}
+
+// GetRunsByScheduleID returns every run created from one schedule, oldest
+// first. Offline recovery uses it to reconcile an interrupted scheduled
+// creation against the runs it may have produced.
+func GetRunsByScheduleID(ctx context.Context, scheduleID int64) ([]*ActionRun, error) {
+	var runs []*ActionRun
+	if err := db.GetEngine(ctx).Where("schedule_id=?", scheduleID).Asc("id").Find(&runs); err != nil {
 		return nil, err
 	}
 	return runs, nil
@@ -378,6 +396,12 @@ func GetRunsNotDoneByRepoIDAndPullRequestID(ctx context.Context, repoID, pullReq
 // The title will be cut off at 255 characters if it's longer than 255 characters.
 // We don't have to send the ActionRunNowDone notification here because there are no runs that start in a not done status.
 func InsertRun(ctx context.Context, run *ActionRun, jobs []*jobparser.SingleWorkflow) error {
+	// Nested participating writer: run/job creation refuses while
+	// another owner holds the reservation; the enclosing run update or
+	// the notification's enclosing owner carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -414,6 +438,12 @@ func InsertRun(ctx context.Context, run *ActionRun, jobs []*jobparser.SingleWork
 
 // Adds `ActionRunJob` instances from `SingleWorkflows` to an existing ActionRun.
 func InsertRunJobs(ctx context.Context, run *ActionRun, jobs []*jobparser.SingleWorkflow) error {
+	// Nested participating writer: job creation refuses while another
+	// owner holds the reservation; the enclosing run update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	runJobs := make([]*ActionRunJob, 0, len(jobs))
 	var hasWaiting bool
 	for _, v := range jobs {
@@ -558,6 +588,12 @@ var ErrActionRunOutOfDate = errors.New("run has changed")
 // All calls to UpdateRunWithoutNotification that change run.Status from a not done status to a done status must call the ActionRunNowDone notification channel.
 // Use the wrapper function UpdateRun instead.
 func UpdateRunWithoutNotification(ctx context.Context, run *ActionRun, cols ...string) error {
+	// Nested participating writer: run state changes refuse while
+	// another owner holds the reservation; the enclosing run update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	sess := db.GetEngine(ctx).ID(run.ID)
 	if len(cols) > 0 {
 		sess.Cols(cols...)

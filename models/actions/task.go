@@ -6,6 +6,7 @@ package actions
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"time"
 
@@ -343,7 +344,28 @@ func GetAvailableJobsForRunner(e db.Engine, runner *ActionRunner) ([]*ActionRunJ
 	return jobs, nil
 }
 
-func CreateTaskForRunner(ctx context.Context, runner *ActionRunner, requestKey, handle *string) (*ActionTask, bool, error) {
+// SelectTaskCandidate returns one job available to runner, or nil when no
+// job matches. It is read-only: the caller claims task ownership naming
+// the candidate's job, then assigns through CreateTaskForRunner, which
+// re-validates the same predicate under ownership. Selection and claim
+// are split so the held owner always names the job it may assign.
+func SelectTaskCandidate(ctx context.Context, runner *ActionRunner, handle *string) (*ActionRunJob, error) {
+	jobs, err := GetAvailableJobsForRunner(db.GetEngine(ctx), runner)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: a more efficient way to filter labels
+	log.Trace("runner labels: %v", runner.AgentLabels)
+	for _, j := range jobs {
+		if j.IsRequestedByRunner(handle) && j.ItRunsOn(runner.AgentLabels) {
+			return j, nil
+		}
+	}
+	return nil, nil
+}
+
+func CreateTaskForRunner(ctx context.Context, runner *ActionRunner, candidate *ActionRunJob, requestKey, handle *string) (*ActionTask, bool, error) {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, false, err
@@ -352,16 +374,25 @@ func CreateTaskForRunner(ctx context.Context, runner *ActionRunner, requestKey, 
 
 	e := db.GetEngine(ctx)
 
-	jobs, err := GetAvailableJobsForRunner(e, runner)
+	// Re-validate the preselected candidate under ownership with fresh
+	// runner labels: it may have been assigned, fenced or relabeled
+	// between selection and claim. Only the candidate may be assigned;
+	// anything else returns not-ok and the runner retries selection.
+	freshRunner, err := GetRunnerByID(ctx, runner.ID)
+	if err != nil {
+		if errors.Is(err, util.ErrNotExist) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	jobs, err := GetAvailableJobsForRunner(e, freshRunner)
 	if err != nil {
 		return nil, false, err
 	}
-
-	// TODO: a more efficient way to filter labels
 	var job *ActionRunJob
-	log.Trace("runner labels: %v", runner.AgentLabels)
+	log.Trace("runner labels: %v", freshRunner.AgentLabels)
 	for _, j := range jobs {
-		if j.IsRequestedByRunner(handle) && j.ItRunsOn(runner.AgentLabels) {
+		if j.ID == candidate.ID && j.IsRequestedByRunner(handle) && j.ItRunsOn(freshRunner.AgentLabels) {
 			job = j
 			break
 		}

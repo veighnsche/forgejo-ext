@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // StopZombieTasks stops the task which have running status, but haven't been updated for a long time
@@ -39,17 +40,26 @@ func stopTasks(ctx context.Context, opts actions_model.FindTaskOptions) error {
 		return fmt.Errorf("find tasks: %w", err)
 	}
 
-	jobs := make([]*actions_model.ActionRunJob, 0, len(tasks))
 	for _, task := range tasks {
-		if err := db.WithTx(ctx, func(ctx context.Context) error {
-			if err := StopTask(ctx, task.ID, actions_model.StatusFailure); err != nil {
-				return err
-			}
-			if err := task.LoadJob(ctx); err != nil {
-				return err
-			}
-			jobs = append(jobs, task.Job)
-			return nil
+		// One sweep item owns its task/job change and resulting commit
+		// status together: StopTask reuses this execution and the
+		// status insert commits under the same owner, so a busy gate
+		// skips the task entirely instead of stopping it without its
+		// status. The log transfer stays outside: it is telemetry file
+		// movement with its own retry, never under the reservation.
+		if err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsTask, fmt.Sprintf("task/%d", task.ID), operation_service.Scope{
+			TaskID: task.ID,
+		}, func(ctx context.Context) error {
+			return db.WithTx(ctx, func(ctx context.Context) error {
+				if err := StopTask(ctx, task.ID, actions_model.StatusFailure); err != nil {
+					return err
+				}
+				if err := task.LoadJob(ctx); err != nil {
+					return err
+				}
+				CreateCommitStatus(ctx, task.Job)
+				return nil
+			})
 		}); err != nil {
 			log.Warn("Cannot stop task %v: %v", task.ID, err)
 			continue
@@ -67,8 +77,6 @@ func stopTasks(ctx context.Context, opts actions_model.FindTaskOptions) error {
 		}
 		remove()
 	}
-
-	CreateCommitStatus(ctx, jobs...)
 
 	return nil
 }
@@ -89,14 +97,25 @@ func CancelAbandonedJobs(ctx context.Context) error {
 	for _, job := range jobs {
 		job.Status = actions_model.StatusCancelled
 		job.Stopped = now
-		if err := db.WithTx(ctx, func(ctx context.Context) error {
-			_, err := UpdateRunJob(ctx, job, nil, "status", "stopped")
-			return err
+		// One sweep item owns its job change and resulting commit
+		// status together; a busy gate skips only that job and the
+		// next sweep retries it.
+		if err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpSweep), operation_service.Scope{
+			RunID: job.RunID,
+			JobID: job.ID,
+		}, func(ctx context.Context) error {
+			if err := db.WithTx(ctx, func(ctx context.Context) error {
+				_, err := UpdateRunJob(ctx, job, nil, "status", "stopped")
+				return err
+			}); err != nil {
+				return err
+			}
+			CreateCommitStatus(ctx, job)
+			return nil
 		}); err != nil {
 			log.Warn("cancel abandoned job %v: %v", job.ID, err)
 			// go on
 		}
-		CreateCommitStatus(ctx, job)
 	}
 
 	return nil

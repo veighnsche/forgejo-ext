@@ -22,6 +22,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/webhook"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
 	act_model "code.forgejo.org/forgejo/runner/v12/act/model"
@@ -80,6 +81,20 @@ func (entry *Workflow) WorkflowPath() string {
 }
 
 func (entry *Workflow) Dispatch(ctx context.Context, inputGetter InputValueGetter, repo *repo_model.Repository, doer *user.User) (r *actions_model.ActionRun, j []string, err error) {
+	// One dispatch owns its run/jobs before their effects: the
+	// concurrency cancellation, the inserted run and its jobs share
+	// this ownership.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.DispatchResource(entry.WorkflowID), operation_service.Scope{
+		RepositoryID: repo.ID,
+	}, func(ctx context.Context) error {
+		var dispatchErr error
+		r, j, dispatchErr = entry.dispatch(ctx, inputGetter, repo, doer)
+		return dispatchErr
+	})
+	return r, j, err
+}
+
+func (entry *Workflow) dispatch(ctx context.Context, inputGetter InputValueGetter, repo *repo_model.Repository, doer *user.User) (r *actions_model.ActionRun, j []string, err error) {
 	content, err := actions.GetContentFromEntry(entry.GitEntry)
 	if err != nil {
 		return nil, nil, err

@@ -4,13 +4,16 @@
 package repo
 
 import (
+	stdCtx "context"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/gitrepo"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/web"
 	"forgejo.org/routers/api/v1/utils"
@@ -67,7 +70,36 @@ func NewCommitStatus(ctx *context.APIContext) {
 		Description: form.Description,
 		Context:     form.Context,
 	}
-	if err := commitstatus_service.CreateCommitStatus(ctx, ctx.Repo().Repository, ctx.Doer(), sha, status); err != nil {
+	repo := ctx.Repo().Repository
+	doer := ctx.Doer()
+	// The sha resolves to its full commit before claiming so the held
+	// owner names the exact stored row for offline recovery. The git
+	// handle is opened here because this route's repo assignment opens
+	// none; the status service opens its own the same way.
+	gitRepo, closer, err := gitrepo.RepositoryFromContextOrOpen(ctx, repo)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "OpenRepository", err)
+		return
+	}
+	commit, err := gitRepo.GetCommit(sha)
+	_ = closer.Close()
+	if err != nil {
+		var errNotExist git.ErrNotExist
+		if errors.As(err, &errNotExist) {
+			ctx.NotFound("sha", sha)
+		} else {
+			ctx.Error(http.StatusInternalServerError, "GetCommit", err)
+		}
+		return
+	}
+	// One external status insert owns its effect before the insert: the
+	// status row and its summary share this ownership.
+	err = operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.StatusResource(commit.ID.String(), string(form.State), doer.ID, strings.TrimSpace(form.Context)), operation_service.Scope{
+		RepositoryID: repo.ID,
+	}, func(ctx stdCtx.Context) error {
+		return commitstatus_service.CreateCommitStatus(ctx, repo, doer, sha, status)
+	})
+	if err != nil {
 		// TODO: replace with git.IsErrNotExist(err) once #12583 is resolved
 		var errNotExist git.ErrNotExist
 		if operation_service.IsBusy(err) {

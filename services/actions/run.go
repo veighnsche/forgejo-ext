@@ -10,29 +10,46 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 func killRun(ctx context.Context, run *actions_model.ActionRun, newStatus actions_model.Status) error {
-	return db.WithTx(ctx, func(ctx context.Context) error {
-		jobs, err := actions_model.GetRunJobsByRunID(ctx, run.ID)
-		if err != nil {
+	// One run-level logical update owns the complete change before job
+	// state moves: the job cancellations, the approval clearing and the
+	// resulting commit statuses share this ownership. Callers inside an
+	// enclosing owner (notification, dispatch, trust transitions under
+	// another writer) reuse that execution instead of claiming again.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpCancel), operation_service.Scope{
+		RunID: run.ID,
+	}, func(ctx context.Context) error {
+		if err := db.WithTx(ctx, func(ctx context.Context) error {
+			jobs, err := actions_model.GetRunJobsByRunID(ctx, run.ID)
+			if err != nil {
+				return err
+			}
+			for _, job := range jobs {
+				if err := cancelSingleJob(ctx, job, newStatus); err != nil {
+					return err
+				}
+			}
+
+			if run.NeedApproval {
+				if err := actions_model.UpdateRunApprovalByID(ctx, run.ID, actions_model.DoesNotNeedApproval, 0); err != nil {
+					return err
+				}
+			}
+
+			CreateCommitStatus(ctx, jobs...)
+
+			return nil
+		}); err != nil {
 			return err
 		}
-		for _, job := range jobs {
-			if err := cancelSingleJob(ctx, job, newStatus); err != nil {
-				return err
-			}
-		}
 
-		if run.NeedApproval {
-			if err := actions_model.UpdateRunApprovalByID(ctx, run.ID, actions_model.DoesNotNeedApproval, 0); err != nil {
-				return err
-			}
-		}
-
-		CreateCommitStatus(ctx, jobs...)
-
-		return nil
+		// Test-only crash barrier for offline-recovery proof: with the
+		// run effects committed and the owner still held, the driver
+		// SIGKILLs the server here to simulate a crash.
+		return operation_service.TestCrashBarrier(operation_service.CrashPointActionsRunAfterEffects)
 	})
 }
 
@@ -41,23 +58,30 @@ func CancelRun(ctx context.Context, run *actions_model.ActionRun) error {
 }
 
 func ApproveRun(ctx context.Context, run *actions_model.ActionRun, doerID int64) error {
-	return db.WithTx(ctx, func(ctx context.Context) error {
-		jobs, err := actions_model.GetRunJobsByRunID(ctx, run.ID)
-		if err != nil {
-			return err
-		}
-		for _, job := range jobs {
-			if len(job.Needs) == 0 && job.Status.IsBlocked() {
-				job.Status = actions_model.StatusWaiting
-				_, err := UpdateRunJob(ctx, job, nil, "status")
-				if err != nil {
-					return err
+	// One run-level logical update owns the complete change before job
+	// state moves: the unblocked jobs, the approval clearing and the
+	// resulting commit statuses share this ownership.
+	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpApprove), operation_service.Scope{
+		RunID: run.ID,
+	}, func(ctx context.Context) error {
+		return db.WithTx(ctx, func(ctx context.Context) error {
+			jobs, err := actions_model.GetRunJobsByRunID(ctx, run.ID)
+			if err != nil {
+				return err
+			}
+			for _, job := range jobs {
+				if len(job.Needs) == 0 && job.Status.IsBlocked() {
+					job.Status = actions_model.StatusWaiting
+					_, err := UpdateRunJob(ctx, job, nil, "status")
+					if err != nil {
+						return err
+					}
 				}
 			}
-		}
-		CreateCommitStatus(ctx, jobs...)
+			CreateCommitStatus(ctx, jobs...)
 
-		return actions_model.UpdateRunApprovalByID(ctx, run.ID, actions_model.DoesNotNeedApproval, doerID)
+			return actions_model.UpdateRunApprovalByID(ctx, run.ID, actions_model.DoesNotNeedApproval, doerID)
+		})
 	})
 }
 

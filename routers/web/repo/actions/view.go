@@ -37,6 +37,7 @@ import (
 	"forgejo.org/routers/common"
 	actions_service "forgejo.org/services/actions"
 	app_context "forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 func RedirectToLatestAttempt(ctx *app_context.Context) {
@@ -529,6 +530,10 @@ func Rerun(ctx *app_context.Context) {
 			ctx.JSONError(ctx.Locale.Tr("actions.workflow.job_rerun_impossible"))
 			return
 		}
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -606,6 +611,10 @@ func Cancel(ctx *app_context.Context) {
 		return
 	}
 	if err := actions_service.CancelRun(ctx, run); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, err.Error())
 		return
 	}
