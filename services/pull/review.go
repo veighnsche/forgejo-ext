@@ -349,31 +349,50 @@ func SubmitReview(ctx context.Context, doer *user_model.User, gitRepo *git.Repos
 		}
 	}
 
-	review, comm, err := issues_model.SubmitReview(ctx, doer, issue, reviewType, content, commitID, stale, attachmentUUIDs)
+	review, comm, err := submitReviewPrimary(ctx, doer, issue, reviewType, content, commitID, stale, attachmentUUIDs)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// The primary review records are durable from here on.
+	// CompleteReviewSubmission only adds mentions and notifications.
+	if err := CompleteReviewSubmission(ctx, doer, issue, review, comm); err != nil {
+		return nil, nil, err
+	}
+
+	return review, comm, nil
+}
+
+// submitReviewPrimary commits the native review/comment rows and the
+// official-state/request changes in one SQL transaction. It performs no Git
+// reads and sends no notifications.
+func submitReviewPrimary(ctx context.Context, doer *user_model.User, issue *issues_model.Issue, reviewType issues_model.ReviewType, content, commitID string, stale bool, attachmentUUIDs []string) (*issues_model.Review, *issues_model.Comment, error) {
+	return issues_model.SubmitReview(ctx, doer, issue, reviewType, content, commitID, stale, attachmentUUIDs)
+}
+
+// CompleteReviewSubmission records mentions and sends notifications for an
+// already committed review and its bundled code comments. It shares the
+// ordinary completion with the later conditional review path; code comments
+// are visited in deterministic order. issue.PullRequest must be loaded.
+func CompleteReviewSubmission(ctx context.Context, doer *user_model.User, issue *issues_model.Issue, review *issues_model.Review, comm *issues_model.Comment) error {
+	pr := issue.PullRequest
+
 	mentions, err := issues_model.FindAndUpdateIssueMentions(ctx, issue, doer, comm.Content)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 
 	notify_service.PullRequestReview(ctx, pr, review, comm, mentions)
 
-	for _, lines := range review.CodeComments {
-		for _, comments := range lines {
-			for _, codeComment := range comments {
-				mentions, err := issues_model.FindAndUpdateIssueMentions(ctx, issue, doer, codeComment.Content)
-				if err != nil {
-					return nil, nil, err
-				}
-				notify_service.PullRequestCodeComment(ctx, pr, codeComment, mentions)
-			}
+	for _, codeComment := range review.CodeComments.SortedList() {
+		mentions, err := issues_model.FindAndUpdateIssueMentions(ctx, issue, doer, codeComment.Content)
+		if err != nil {
+			return err
 		}
+		notify_service.PullRequestCodeComment(ctx, pr, codeComment, mentions)
 	}
 
-	return review, comm, nil
+	return nil
 }
 
 // DismissApprovalReviews dismiss all approval reviews because of new commits

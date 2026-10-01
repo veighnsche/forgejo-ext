@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"forgejo.org/models/db"
@@ -572,6 +573,7 @@ func ResolveIssueMentionsByVisibility(ctx context.Context, issue *Issue, doer *u
 					And("`user`.is_active = ?", true).
 					And("`user`.prohibit_login = ?", false).
 					And(builder.Or(builder.IsNull{"`forgejo_blocked_user`.block_id"}, builder.Neq{"`forgejo_blocked_user`.block_id": doer.ID})).
+					Asc("`user`.id").
 					Find(&teamusers); err != nil {
 					return nil, fmt.Errorf("get teams users: %w", err)
 				}
@@ -595,6 +597,9 @@ func ResolveIssueMentionsByVisibility(ctx context.Context, issue *Issue, doer *u
 			mentionUsers = append(mentionUsers, name)
 		}
 	}
+	// The candidate names come from map iteration; sort them so the lookup
+	// and the resulting mention order are deterministic.
+	slices.Sort(mentionUsers)
 	if len(mentionUsers) == 0 {
 		return users, err
 	}
@@ -610,6 +615,7 @@ func ResolveIssueMentionsByVisibility(ctx context.Context, issue *Issue, doer *u
 		And("`user`.prohibit_login = ?", false).
 		And(builder.Or(builder.IsNull{"`forgejo_blocked_user`.block_id"}, builder.Neq{"`forgejo_blocked_user`.block_id": doer.ID})).
 		In("`user`.lower_name", mentionUsers).
+		Asc("`user`.id").
 		Find(&unchecked); err != nil {
 		return nil, fmt.Errorf("find mentioned users: %w", err)
 	}

@@ -47,3 +47,28 @@ func TestDismissReview(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, pull_service.IsErrDismissRequestOnClosedPR(err))
 }
+
+func TestCompleteReviewSubmission(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	ctx := db.DefaultContext
+
+	// Ordinary primary first, then the shared bounded completion.
+	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 11})
+	require.NoError(t, issue.LoadRepo(ctx))
+	require.NoError(t, issue.Repo.LoadOwner(ctx))
+	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+
+	review, comm, err := issues_model.SubmitReview(ctx, doer, issue, issues_model.ReviewTypeApprove, "good @user4", "1111111111111111111111111111111111111111", false, nil)
+	require.NoError(t, err)
+	require.NoError(t, issue.LoadPullRequest(ctx))
+	require.NoError(t, review.LoadCodeComments(ctx))
+
+	require.NoError(t, pull_service.CompleteReviewSubmission(ctx, doer, issue, review, comm))
+	// Completion only records mentions and notifications; repeating it is safe.
+	require.NoError(t, pull_service.CompleteReviewSubmission(ctx, doer, issue, review, comm))
+
+	mentioned, err := issues_model.ResolveIssueMentionsByVisibility(ctx, issue, doer, []string{"user4"})
+	require.NoError(t, err)
+	require.Len(t, mentioned, 1)
+	assert.Equal(t, int64(4), mentioned[0].ID)
+}

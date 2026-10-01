@@ -215,7 +215,7 @@ func GetAttachmentsByIssueIDImagesLatest(ctx context.Context, issueID int64) ([]
 // GetAttachmentsByCommentID returns all attachments if comment by given ID.
 func GetAttachmentsByCommentID(ctx context.Context, commentID int64) ([]*Attachment, error) {
 	attachments := make([]*Attachment, 0, 10)
-	return attachments, db.GetEngine(ctx).Where("comment_id=?", commentID).Find(&attachments)
+	return attachments, db.GetEngine(ctx).Where("comment_id=?", commentID).Asc("id").Find(&attachments)
 }
 
 // GetAttachmentByReleaseIDFileName returns attachment by given releaseId and fileName.

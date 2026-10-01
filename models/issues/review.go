@@ -398,6 +398,190 @@ func IsContentEmptyErr(err error) bool {
 	return ok
 }
 
+// ErrExactReviewRefused reports a deterministic refusal of an exact-candidate
+// review submission. Reason is a stable short string the conditional-review
+// operation maps to its refusal reasons; callers must not retry with the same
+// target while the reason still holds.
+type ErrExactReviewRefused struct {
+	Reason string
+}
+
+// IsErrExactReviewRefused checks if an error is a ErrExactReviewRefused.
+func IsErrExactReviewRefused(err error) bool {
+	_, ok := err.(ErrExactReviewRefused)
+	return ok
+}
+
+func (err ErrExactReviewRefused) Error() string {
+	return "exact review refused: " + err.Reason
+}
+
+func (err ErrExactReviewRefused) Unwrap() error {
+	return util.ErrInvalidArgument
+}
+
+// ExactReviewTarget binds one final body-only review to its exact candidate.
+// Branch names are short native branch names; OIDs are full object IDs in the
+// repository's object format. CurrentHeadOID and CurrentBaseOID carry the
+// Git-observed current tips; the conditional caller reads them under its
+// reservation and this check compares them without touching Git.
+type ExactReviewTarget struct {
+	PRIndex        int64
+	AuthorID       int64
+	HeadRepoID     int64
+	HeadBranch     string
+	BaseBranch     string
+	HeadOID        string
+	BaseOID        string
+	CommitID       string
+	CurrentHeadOID string
+	CurrentBaseOID string
+}
+
+// checkExactReviewTarget verifies the bound PR identity, source, target and
+// exact candidate against current state. It performs no Git reads and no
+// diff-equivalence substitution: a changed head or base refuses even when the
+// resulting diff would be identical.
+func checkExactReviewTarget(issue *Issue, pr *PullRequest, want ExactReviewTarget) error {
+	if issue.IsClosed || pr.HasMerged {
+		return ErrExactReviewRefused{Reason: "pull request is closed or merged"}
+	}
+	if pr.HeadRepoID != pr.BaseRepoID {
+		return ErrExactReviewRefused{Reason: "cross-repository pull request is not supported"}
+	}
+	if want.PRIndex != issue.Index {
+		return ErrExactReviewRefused{Reason: "pr index mismatch"}
+	}
+	if want.AuthorID != issue.PosterID {
+		return ErrExactReviewRefused{Reason: "pr author mismatch"}
+	}
+	if want.HeadRepoID != pr.HeadRepoID {
+		return ErrExactReviewRefused{Reason: "head repository mismatch"}
+	}
+	if want.HeadBranch != pr.HeadBranch {
+		return ErrExactReviewRefused{Reason: "head branch mismatch"}
+	}
+	if want.BaseBranch != pr.BaseBranch {
+		return ErrExactReviewRefused{Reason: "base branch mismatch"}
+	}
+	for _, oid := range []string{want.HeadOID, want.BaseOID, want.CommitID, want.CurrentHeadOID, want.CurrentBaseOID} {
+		if !validFullOID(oid) {
+			return ErrExactReviewRefused{Reason: "invalid object id"}
+		}
+	}
+	if !strings.EqualFold(want.CommitID, want.HeadOID) {
+		return ErrExactReviewRefused{Reason: "commit must equal the expected head"}
+	}
+	if !strings.EqualFold(want.CurrentHeadOID, want.HeadOID) {
+		return ErrExactReviewRefused{Reason: "head changed"}
+	}
+	if !strings.EqualFold(want.CurrentBaseOID, want.BaseOID) {
+		return ErrExactReviewRefused{Reason: "base changed"}
+	}
+	return nil
+}
+
+// SubmitExactReview submits one final body-only approve/reject review bound to
+// its exact candidate. Unlike SubmitReview it never adopts an existing pending
+// draft: a pending review for this actor refuses and stays untouched. The
+// review, its comment and the official-state/request changes commit in one SQL
+// transaction; mentions and notifications are bounded completion owned by the
+// service caller, not part of this transaction.
+func SubmitExactReview(ctx context.Context, doer *user_model.User, issue *Issue, reviewType ReviewType, content string, want ExactReviewTarget) (*Review, *Comment, error) {
+	if reviewType != ReviewTypeApprove && reviewType != ReviewTypeReject {
+		return nil, nil, ErrExactReviewRefused{Reason: "only approve or reject reviews are supported"}
+	}
+	if err := issue.LoadPullRequest(ctx); err != nil {
+		return nil, nil, err
+	}
+	if err := issue.LoadRepo(ctx); err != nil {
+		return nil, nil, err
+	}
+	pr := issue.PullRequest
+	if err := checkExactReviewTarget(issue, pr, want); err != nil {
+		return nil, nil, err
+	}
+	if doer.ID == issue.PosterID && issue.OriginalAuthorID == 0 {
+		return nil, nil, ErrExactReviewRefused{Reason: "cannot review your own pull request"}
+	}
+
+	ctx, committer, err := db.TxContext(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer committer.Close()
+	sess := db.GetEngine(ctx)
+
+	if pending, err := GetCurrentReview(ctx, doer, issue); err != nil {
+		if !IsErrReviewNotExist(err) {
+			return nil, nil, err
+		}
+	} else if pending != nil {
+		return nil, nil, ErrExactReviewRefused{Reason: "pending draft exists"}
+	}
+
+	if err := issue.Repo.LoadOwner(ctx); err != nil {
+		return nil, nil, err
+	}
+	if user_model.IsBlocked(ctx, issue.Repo.OwnerID, doer.ID) || user_model.IsBlocked(ctx, issue.PosterID, doer.ID) {
+		return nil, nil, ErrExactReviewRefused{Reason: "reviewer is blocked"}
+	}
+	permission, err := access_model.GetUserRepoPermission(ctx, issue.Repo, doer)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !permission.CanReadIssuesOrPulls(true) {
+		return nil, nil, ErrExactReviewRefused{Reason: "reviewer cannot read this pull request"}
+	}
+
+	if reviewType != ReviewTypeApprove && len(strings.TrimSpace(content)) == 0 {
+		return nil, nil, ContentEmptyErr{}
+	}
+
+	// Only reviewers latest review of type approve and reject shall count as "official", so existing reviews needs to be cleared
+	if _, err := db.Exec(ctx, "UPDATE `review` SET official=? WHERE issue_id=? AND reviewer_id=?", false, issue.ID, doer.ID); err != nil {
+		return nil, nil, err
+	}
+	official, err := IsOfficialReviewer(ctx, issue, doer)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// No adoption: a new review row always. CreateReview dismisses the
+	// reviewer's prior approve/reject rows and deletes their request rows.
+	review, err := CreateReview(ctx, CreateReviewOptions{
+		Type:     reviewType,
+		Issue:    issue,
+		Reviewer: doer,
+		Content:  content,
+		Official: official,
+		CommitID: want.CommitID,
+		Stale:    false,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	comm, err := CreateComment(ctx, &CreateCommentOptions{
+		Type:     CommentTypeReview,
+		Doer:     doer,
+		Content:  review.Content,
+		Issue:    issue,
+		Repo:     issue.Repo,
+		ReviewID: review.ID,
+	})
+	if err != nil || comm == nil {
+		return nil, nil, err
+	}
+
+	if err := clearTeamReviewRequests(ctx, sess, issue, doer); err != nil {
+		return nil, nil, err
+	}
+
+	comm.Review = review
+	return review, comm, committer.Commit()
+}
+
 // SubmitReview creates a review out of the existing pending review or creates a new one if no pending review exist
 func SubmitReview(ctx context.Context, doer *user_model.User, issue *Issue, reviewType ReviewType, content, commitID string, stale bool, attachmentUUIDs []string) (*Review, *Comment, error) {
 	ctx, committer, err := db.TxContext(ctx)
@@ -489,29 +673,42 @@ func SubmitReview(ctx context.Context, doer *user_model.User, issue *Issue, revi
 		return nil, nil, err
 	}
 
-	// try to remove team review request if need
-	if issue.Repo.Owner.IsOrganization() && (reviewType == ReviewTypeApprove || reviewType == ReviewTypeReject) {
-		teamReviewRequests := make([]*Review, 0, 10)
-		if err := sess.SQL("SELECT * FROM review WHERE issue_id = ? AND reviewer_team_id > 0 AND type = ?", issue.ID, ReviewTypeRequest).Find(&teamReviewRequests); err != nil {
+	if reviewType == ReviewTypeApprove || reviewType == ReviewTypeReject {
+		if err := clearTeamReviewRequests(ctx, sess, issue, doer); err != nil {
 			return nil, nil, err
-		}
-
-		for _, teamReviewRequest := range teamReviewRequests {
-			ok, err := organization.IsTeamMember(ctx, issue.Repo.OwnerID, teamReviewRequest.ReviewerTeamID, doer.ID)
-			if err != nil {
-				return nil, nil, err
-			} else if !ok {
-				continue
-			}
-
-			if _, err := db.DeleteByID[Review](ctx, teamReviewRequest.ID); err != nil {
-				return nil, nil, err
-			}
 		}
 	}
 
 	comm.Review = review
 	return review, comm, committer.Commit()
+}
+
+// clearTeamReviewRequests removes team review requests the doer satisfies as a
+// member. The caller must have loaded issue.Repo.Owner. It runs inside the
+// caller's SQL transaction together with the submitted review.
+func clearTeamReviewRequests(ctx context.Context, sess db.Engine, issue *Issue, doer *user_model.User) error {
+	// try to remove team review request if need
+	if !issue.Repo.Owner.IsOrganization() {
+		return nil
+	}
+	teamReviewRequests := make([]*Review, 0, 10)
+	if err := sess.SQL("SELECT * FROM review WHERE issue_id = ? AND reviewer_team_id > 0 AND type = ?", issue.ID, ReviewTypeRequest).Find(&teamReviewRequests); err != nil {
+		return err
+	}
+
+	for _, teamReviewRequest := range teamReviewRequests {
+		ok, err := organization.IsTeamMember(ctx, issue.Repo.OwnerID, teamReviewRequest.ReviewerTeamID, doer.ID)
+		if err != nil {
+			return err
+		} else if !ok {
+			continue
+		}
+
+		if _, err := db.DeleteByID[Review](ctx, teamReviewRequest.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetReviewByIssueIDAndUserID get the latest review of reviewer for a pull request

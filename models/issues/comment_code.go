@@ -5,6 +5,7 @@ package issues
 
 import (
 	"context"
+	"slices"
 
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
@@ -96,6 +97,40 @@ func FetchCodeConversations(ctx context.Context, issue *Issue, doer *user_model.
 
 // CodeComments represents comments on code by using this structure: FILENAME -> LINE (+ == proposed; - == previous) -> COMMENTS
 type CodeComments map[string]map[int64][]*Comment
+
+// SortedList flattens the path/line map into one deterministic order: tree
+// path, then line, then comment ID. Use it instead of ranging over the map
+// whenever the resulting order is observable (API lists, notifications).
+func (c CodeComments) SortedList() CommentList {
+	paths := make([]string, 0, len(c))
+	for path := range c {
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	out := make(CommentList, 0, len(c))
+	for _, path := range paths {
+		lines := make([]int64, 0, len(c[path]))
+		for line := range c[path] {
+			lines = append(lines, line)
+		}
+		slices.Sort(lines)
+		for _, line := range lines {
+			comments := slices.Clone(c[path][line])
+			slices.SortFunc(comments, func(a, b *Comment) int {
+				switch {
+				case a.ID < b.ID:
+					return -1
+				case a.ID > b.ID:
+					return 1
+				default:
+					return 0
+				}
+			})
+			out = append(out, comments...)
+		}
+	}
+	return out
+}
 
 func fetchCodeCommentsByReview(ctx context.Context, issue *Issue, doer *user_model.User, review *Review, showOutdatedComments bool) (CodeComments, error) {
 	pathToLineToComment := make(CodeComments)

@@ -116,16 +116,12 @@ func ToPullReviewCommentList(ctx context.Context, review *issues_model.Review, d
 
 	apiComments := make([]*api.PullReviewComment, 0, len(review.CodeComments))
 
-	for _, lines := range review.CodeComments {
-		for _, comments := range lines {
-			for _, comment := range comments {
-				apiComment, err := ToPullReviewComment(ctx, review, comment, doer)
-				if err != nil {
-					return nil, err
-				}
-				apiComments = append(apiComments, apiComment)
-			}
+	for _, comment := range review.CodeComments.SortedList() {
+		apiComment, err := ToPullReviewComment(ctx, review, comment, doer)
+		if err != nil {
+			return nil, err
 		}
+		apiComments = append(apiComments, apiComment)
 	}
 	return apiComments, nil
 }

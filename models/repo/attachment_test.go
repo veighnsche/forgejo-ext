@@ -155,3 +155,14 @@ func TestFindRepoAttachmentsByUUID(t *testing.T) {
 		}
 	})
 }
+
+func TestGetAttachmentsByCommentIDOrdered(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+
+	// Comment attachments come out in id order without caller-side sorting.
+	attachments, err := repo_model.GetAttachmentsByCommentID(db.DefaultContext, 1)
+	require.NoError(t, err)
+	require.Len(t, attachments, 2)
+	assert.Equal(t, int64(3), attachments[0].ID)
+	assert.Equal(t, int64(4), attachments[1].ID)
+}
