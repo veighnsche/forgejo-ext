@@ -21,6 +21,10 @@ func writeCredentialFile(t *testing.T, perm os.FileMode) CredentialFile {
 	if err := os.WriteFile(path, []byte("faketokenvalue0123456789abcdef01234567\n"), perm); err != nil {
 		t.Fatal(err)
 	}
+	// WriteFile honors umask; chmod makes the asserted mode exact.
+	if err := os.Chmod(path, perm); err != nil {
+		t.Fatal(err)
+	}
 	return CredentialFile(path)
 }
 
@@ -66,9 +70,28 @@ func TestRuntimeBackgroundClientRequiresDelivery(t *testing.T) {
 	}
 }
 
+// shortUnixSocket returns name under a fresh temp dir, falling back to a
+// short CWD-relative path when TMPDIR depth would exceed the unix limit.
+func shortUnixSocket(t *testing.T, name string) string {
+	t.Helper()
+	candidate := filepath.Join(t.TempDir(), name)
+	if len(candidate) < 100 {
+		return candidate
+	}
+	f, err := os.CreateTemp(".", "sock-*.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := f.Name()
+	_ = f.Close()
+	_ = os.Remove(path)
+	t.Cleanup(func() { _ = os.Remove(path) })
+	return path
+}
+
 func unixBackgroundServer(t *testing.T, handler http.Handler) string {
 	t.Helper()
-	socket := filepath.Join(t.TempDir(), "background.sock")
+	socket := shortUnixSocket(t, "background.sock")
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)

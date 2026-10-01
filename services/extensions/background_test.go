@@ -131,8 +131,27 @@ func TestBackgroundRegistryRevocation(t *testing.T) {
 	require.False(t, ok)
 }
 
+// shortUnixSocket returns name under a fresh temp dir, falling back to a
+// short CWD-relative path when TMPDIR depth would exceed the unix limit.
+func shortUnixSocket(t *testing.T, name string) string {
+	t.Helper()
+	candidate := filepath.Join(t.TempDir(), name)
+	if len(candidate) < 100 {
+		return candidate
+	}
+	f, err := os.CreateTemp(".", "sock-*.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := f.Name()
+	_ = f.Close()
+	_ = os.Remove(path)
+	t.Cleanup(func() { _ = os.Remove(path) })
+	return path
+}
+
 func TestPeerCredentialListenerExposesKernelPeer(t *testing.T) {
-	socket := filepath.Join(t.TempDir(), "peer.sock")
+	socket := shortUnixSocket(t, "peer.sock")
 	raw, err := net.Listen("unix", socket)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = raw.Close() })
