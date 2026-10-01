@@ -5,6 +5,7 @@
 package admin
 
 import (
+	std_ctx "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	"forgejo.org/services/mailer"
+	operation_service "forgejo.org/services/nativeoperation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -135,7 +137,16 @@ func CreateUser(ctx *context.APIContext) {
 		u.UpdatedUnix = u.CreatedUnix
 	}
 
-	if err := user_model.AdminCreateUser(ctx, u, overwriteDefault); err != nil {
+	// One authority writer owns the account creation before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", u.Name), 0, func(ctx std_ctx.Context) error {
+		return user_model.AdminCreateUser(ctx, u, overwriteDefault)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if user_model.IsErrUserAlreadyExist(err) ||
 			user_model.IsErrEmailAlreadyUsed(err) ||
 			db.IsErrNameReserved(err) ||
@@ -209,6 +220,10 @@ func EditUser(ctx *context.APIContext) {
 		ProhibitLogin:      optional.FromPtr(form.ProhibitLogin),
 	}
 	if err := user_service.UpdateAuth(ctx, ctx.User(), authOpts); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		switch {
 		case errors.Is(err, password.ErrMinLength):
 			ctx.Error(http.StatusBadRequest, "PasswordTooShort", fmt.Errorf("password must be at least %d characters", setting.MinPasswordLength))
@@ -224,6 +239,10 @@ func EditUser(ctx *context.APIContext) {
 
 	if form.Email != nil {
 		if err := user_service.AdminAddOrSetPrimaryEmailAddress(ctx, ctx.User(), *form.Email); err != nil {
+			if operation_service.IsBusy(err) {
+				ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+				return
+			}
 			switch {
 			case validation.IsErrEmailInvalid(err):
 				ctx.Error(http.StatusBadRequest, "EmailInvalid", err)
@@ -258,6 +277,10 @@ func EditUser(ctx *context.APIContext) {
 	}
 
 	if err := user_service.UpdateUser(ctx, ctx.User(), opts); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if models.IsErrDeleteLastAdminUser(err) {
 			ctx.Error(http.StatusBadRequest, "LastAdmin", err)
 		} else {
@@ -310,6 +333,10 @@ func DeleteUser(ctx *context.APIContext) {
 	}
 
 	if err := user_service.DeleteUser(ctx, ctx.User(), ctx.FormBool("purge")); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if models.IsErrUserOwnRepos(err) ||
 			models.IsErrUserHasOrgs(err) ||
 			models.IsErrUserOwnPackages(err) ||
@@ -384,7 +411,18 @@ func DeleteUserPublicKey(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	if err := asymkey_service.DeletePublicKey(ctx, ctx.User(), ctx.ParamsInt64(":id")); err != nil {
+	// One authority writer owns the key change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	keyOwner := ctx.User()
+	keyID := ctx.ParamsInt64(":id")
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("key/%d", keyID), 0, func(ctx std_ctx.Context) error {
+		return asymkey_service.DeletePublicKey(ctx, keyOwner, keyID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if asymkey_model.IsErrKeyNotExist(err) {
 			ctx.NotFound()
 		} else if asymkey_model.IsErrKeyAccessDenied(err) {
@@ -598,6 +636,10 @@ func DeleteUserEmails(ctx *context.APIContext) {
 	}
 
 	if err := user_service.DeleteEmailAddresses(ctx, ctx.User(), form.Emails); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if user_model.IsErrPrimaryEmailCannotDelete(err) {
 			ctx.Error(http.StatusUnprocessableEntity, "DeleteEmailAddresses", err)
 		} else {

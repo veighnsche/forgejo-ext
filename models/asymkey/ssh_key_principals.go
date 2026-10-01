@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
@@ -17,6 +18,12 @@ import (
 
 // AddPrincipalKey adds new principal to database and authorized_principals file.
 func AddPrincipalKey(ctx context.Context, ownerID int64, content string, authSourceID int64) (*PublicKey, error) {
+	// Nested participating writer: key changes refuse while another owner
+	// holds the reservation; the enclosing authority update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	dbCtx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err

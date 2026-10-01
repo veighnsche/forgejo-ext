@@ -12,6 +12,7 @@ import (
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
@@ -24,11 +25,23 @@ import (
 )
 
 func AddRepository(ctx context.Context, t *organization.Team, repo *repo_model.Repository) error {
+	// Nested participating writer: team permission changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := InsertTeamRepository(ctx, t, repo)
 	return err
 }
 
 func InsertTeamRepository(ctx context.Context, t *organization.Team, repo *repo_model.Repository) (teamRepo *organization.TeamRepo, err error) {
+	// Nested participating writer: team permission changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	teamRepo = &organization.TeamRepo{
 		OrgID:  t.OrgID,
 		TeamID: t.ID,
@@ -84,6 +97,12 @@ func addAllRepositories(ctx context.Context, t *organization.Team) error {
 
 // AddAllRepositories adds all repositories to the team
 func AddAllRepositories(ctx context.Context, t *organization.Team) (err error) {
+	// Nested participating writer: team permission changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -99,6 +118,12 @@ func AddAllRepositories(ctx context.Context, t *organization.Team) (err error) {
 
 // RemoveAllRepositories removes all repositories from team and recalculates access
 func RemoveAllRepositories(ctx context.Context, t *organization.Team) (err error) {
+	// Nested participating writer: team permission changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if t.IncludesAllRepositories {
 		return nil
 	}
@@ -172,6 +197,12 @@ func removeAllRepositories(ctx context.Context, t *organization.Team) (err error
 // NewTeam creates a record of new team.
 // It's caller's responsibility to assign organization ID.
 func NewTeam(ctx context.Context, t *organization.Team) (err error) {
+	// Nested participating writer: team changes refuse while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if len(t.Name) == 0 {
 		return util.NewInvalidArgumentErrorf("empty team name")
 	}
@@ -237,6 +268,12 @@ func NewTeam(ctx context.Context, t *organization.Team) (err error) {
 
 // UpdateTeam updates information of team.
 func UpdateTeam(ctx context.Context, t *organization.Team, authChanged, includeAllChanged bool) (err error) {
+	// Nested participating writer: team changes refuse while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if len(t.Name) == 0 {
 		return util.NewInvalidArgumentErrorf("empty team name")
 	}
@@ -312,6 +349,12 @@ func UpdateTeam(ctx context.Context, t *organization.Team, authChanged, includeA
 // DeleteTeam deletes given team.
 // It's caller's responsibility to assign organization ID.
 func DeleteTeam(ctx context.Context, t *organization.Team) error {
+	// Nested participating writer: team changes refuse while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -371,6 +414,12 @@ func DeleteTeam(ctx context.Context, t *organization.Team) error {
 }
 
 func AddTeamMember(ctx context.Context, team *organization.Team, userID int64) error {
+	// Nested participating writer: team membership changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := InsertTeamMember(ctx, team, userID)
 	return err
 }
@@ -378,6 +427,12 @@ func AddTeamMember(ctx context.Context, team *organization.Team, userID int64) e
 // AddTeamMember adds new membership of given team to given organization,
 // the user will have membership to given organization automatically when needed.
 func InsertTeamMember(ctx context.Context, team *organization.Team, userID int64) (*organization.TeamUser, error) {
+	// Nested participating writer: team membership changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	isAlreadyMember, err := organization.IsTeamMember(ctx, team.OrgID, team.ID, userID)
 	if err != nil || isAlreadyMember {
 		return nil, err
@@ -513,6 +568,12 @@ func removeInvalidOrgUser(ctx context.Context, userID, orgID int64) error {
 
 // RemoveTeamMember removes member from given team of given organization.
 func RemoveTeamMember(ctx context.Context, team *organization.Team, userID int64) error {
+	// Nested participating writer: team membership changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

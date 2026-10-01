@@ -6,6 +6,7 @@
 package user
 
 import (
+	std_ctx "context"
 	"errors"
 	"fmt"
 	gotemplate "html/template"
@@ -30,6 +31,7 @@ import (
 	"forgejo.org/routers/web/org"
 	shared_user "forgejo.org/routers/web/shared/user"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -382,7 +384,14 @@ func Action(ctx *context.Context) {
 	case "block":
 		err = user_service.BlockUser(ctx, ctx.Doer.ID, ctx.ContextUser.ID)
 	case "unblock":
-		err = user_model.UnblockUser(ctx, ctx.Doer.ID, ctx.ContextUser.ID)
+		// One authority writer owns the block change before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doerID := ctx.Doer.ID
+		targetID := ctx.ContextUser.ID
+		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/unblock/%d", doerID, targetID), 0, func(ctx std_ctx.Context) error {
+			return user_model.UnblockUser(ctx, doerID, targetID)
+		})
 	}
 
 	if err != nil {

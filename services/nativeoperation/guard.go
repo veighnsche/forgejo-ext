@@ -73,6 +73,14 @@ type Scope struct {
 	Refs []ScopedRef `json:"refs,omitempty"`
 	// PusherID identifies the pusher whose refs one deferred batch covers.
 	PusherID int64 `json:"pusher_id,omitempty"`
+	// AuthorityOp names the operation of one ordinary authority writer
+	// (user update, member change, key change ...), parsed from its
+	// structured resource label. AuthorityID and AuthorityID2 identify
+	// the operation's entities. Scopes without an attributable operation
+	// (name-based creates, multi-entity batches) stay fenced on recovery.
+	AuthorityOp  string `json:"authority_op,omitempty"`
+	AuthorityID  int64  `json:"authority_id,omitempty"`
+	AuthorityID2 int64  `json:"authority_id2,omitempty"`
 }
 
 func conditionalOwner(installationID, operationID string) string {

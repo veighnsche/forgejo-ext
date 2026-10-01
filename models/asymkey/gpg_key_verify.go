@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/base"
 	"forgejo.org/modules/log"
@@ -31,6 +32,12 @@ import (
 
 // VerifyGPGKey marks a GPG key as verified
 func VerifyGPGKey(ctx context.Context, ownerID int64, keyID, token, signature string) (string, error) {
+	// Nested participating writer: key enrollment refuses while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return "", err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return "", err

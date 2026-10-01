@@ -4,6 +4,8 @@
 package org
 
 import (
+	std_ctx "context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -15,6 +17,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // listMembers list an organization's members
@@ -244,8 +247,17 @@ func PublicizeMember(ctx *context.APIContext) {
 		ctx.Error(http.StatusForbidden, "", "Cannot publicize another member")
 		return
 	}
-	err := organization.ChangeOrgUserStatus(ctx, ctx.Org().Organization.ID, userToPublicize.ID, true)
-	if err != nil {
+	// One authority writer owns the membership change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	orgID := ctx.Org().Organization.ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, userToPublicize.ID), 0, func(ctx std_ctx.Context) error {
+		return organization.ChangeOrgUserStatus(ctx, orgID, userToPublicize.ID, true)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "ChangeOrgUserStatus", err)
 		return
 	}
@@ -286,8 +298,17 @@ func ConcealMember(ctx *context.APIContext) {
 		ctx.Error(http.StatusForbidden, "", "Cannot conceal another member")
 		return
 	}
-	err := organization.ChangeOrgUserStatus(ctx, ctx.Org().Organization.ID, userToConceal.ID, false)
-	if err != nil {
+	// One authority writer owns the membership change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	orgID := ctx.Org().Organization.ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, userToConceal.ID), 0, func(ctx std_ctx.Context) error {
+		return organization.ChangeOrgUserStatus(ctx, orgID, userToConceal.ID, false)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "ChangeOrgUserStatus", err)
 		return
 	}
@@ -322,7 +343,17 @@ func DeleteMember(ctx *context.APIContext) {
 	if ctx.Written() {
 		return
 	}
-	if err := models.RemoveOrgUser(ctx, ctx.Org().Organization.ID, member.ID); err != nil {
+	// One authority writer owns the membership change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	orgID := ctx.Org().Organization.ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, member.ID), 0, func(ctx std_ctx.Context) error {
+		return models.RemoveOrgUser(ctx, orgID, member.ID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "RemoveOrgUser", err)
 		return
 	}

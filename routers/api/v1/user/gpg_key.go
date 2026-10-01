@@ -4,6 +4,7 @@
 package user
 
 import (
+	std_ctx "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 func listGPGKeys(ctx *context.APIContext, uid int64, listOptions db.ListOptions) {
@@ -151,11 +153,22 @@ func CreateUserGPGKey(ctx *context.APIContext, form api.CreateGPGKeyOption, uid 
 	token := asymkey_model.VerificationToken(ctx.Doer(), 1)
 	lastToken := asymkey_model.VerificationToken(ctx.Doer(), 0)
 
-	keys, err := asymkey_model.AddGPGKey(ctx, uid, form.ArmoredKey, token, form.Signature)
-	if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
-		keys, err = asymkey_model.AddGPGKey(ctx, uid, form.ArmoredKey, lastToken, form.Signature)
-	}
-	if err != nil {
+	// One authority writer owns the key change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	var keys []*asymkey_model.GPGKey
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/gpg-key", uid), 0, func(ctx std_ctx.Context) error {
+		var err error
+		keys, err = asymkey_model.AddGPGKey(ctx, uid, form.ArmoredKey, token, form.Signature)
+		if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
+			keys, err = asymkey_model.AddGPGKey(ctx, uid, form.ArmoredKey, lastToken, form.Signature)
+		}
+		return err
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		HandleAddGPGKeyError(ctx, err, token)
 		return
 	}
@@ -226,12 +239,21 @@ func VerifyUserGPGKey(ctx *context.APIContext) {
 		return
 	}
 
-	_, err := asymkey_model.VerifyGPGKey(ctx, ctx.Doer().ID, form.KeyID, token, form.Signature)
-	if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
-		_, err = asymkey_model.VerifyGPGKey(ctx, ctx.Doer().ID, form.KeyID, lastToken, form.Signature)
-	}
-
-	if err != nil {
+	// One authority writer owns the key enrollment before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	doerID := ctx.Doer().ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/gpg-key/verify", doerID), 0, func(ctx std_ctx.Context) error {
+		_, err := asymkey_model.VerifyGPGKey(ctx, doerID, form.KeyID, token, form.Signature)
+		if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
+			_, err = asymkey_model.VerifyGPGKey(ctx, doerID, form.KeyID, lastToken, form.Signature)
+		}
+		return err
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if asymkey_model.IsErrGPGInvalidTokenSignature(err) {
 			ctx.Error(http.StatusUnprocessableEntity, "GPGInvalidSignature", fmt.Sprintf("The provided GPG key, signature and token do not match or token is out of date. Provide a valid signature for the token: %s", token))
 			return
@@ -315,7 +337,18 @@ func DeleteGPGKey(ctx *context.APIContext) {
 		return
 	}
 
-	if err := asymkey_model.DeleteGPGKey(ctx, ctx.Doer(), ctx.ParamsInt64(":id")); err != nil {
+	// One authority writer owns the key change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	doer := ctx.Doer()
+	keyID := ctx.ParamsInt64(":id")
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("gpg-key/%d", keyID), 0, func(ctx std_ctx.Context) error {
+		return asymkey_model.DeleteGPGKey(ctx, doer, keyID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "DeleteGPGKey", err)
 		return
 	}

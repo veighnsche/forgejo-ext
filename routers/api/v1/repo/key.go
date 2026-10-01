@@ -22,6 +22,7 @@ import (
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // appendPrivateInformation appends the owner and key type information to api.PublicKey
@@ -238,8 +239,20 @@ func CreateDeployKey(ctx *context.APIContext) {
 		return
 	}
 
-	key, err := asymkey_model.AddDeployKey(ctx, ctx.Repo().Repository.ID, form.Title, content, form.ReadOnly)
-	if err != nil {
+	// One authority writer owns the deploy-key change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	repoID := ctx.Repo().Repository.ID
+	var key *asymkey_model.DeployKey
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key", repoID), repoID, func(ctx stdCtx.Context) error {
+		var err error
+		key, err = asymkey_model.AddDeployKey(ctx, repoID, form.Title, content, form.ReadOnly)
+		return err
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		HandleAddKeyError(ctx, err)
 		return
 	}
@@ -279,7 +292,18 @@ func DeleteDeploykey(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	if err := asymkey_service.DeleteDeployKey(ctx, ctx.ParamsInt64(":id"), ctx.Repo().Repository.ID); err != nil {
+	// One authority writer owns the deploy-key change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	repoID := ctx.Repo().Repository.ID
+	keyID := ctx.ParamsInt64(":id")
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key/%d", repoID, keyID), repoID, func(ctx stdCtx.Context) error {
+		return asymkey_service.DeleteDeployKey(ctx, keyID, repoID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if asymkey_model.IsErrKeyAccessDenied(err) {
 			ctx.Error(http.StatusForbidden, "", "You do not have access to this key")
 		} else {

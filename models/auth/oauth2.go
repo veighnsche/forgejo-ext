@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
@@ -185,6 +186,12 @@ var base32Lower = base32.NewEncoding(lowerBase32Chars).WithPadding(base32.NoPadd
 
 // GenerateClientSecret will generate the client secret and returns the plaintext and saves the hash at the database
 func (app *OAuth2Application) GenerateClientSecret(ctx context.Context) (string, error) {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return "", err
+	}
 	// Add a prefix to the base32, this is in order to make it easier
 	// for code scanners to grab sensitive tokens.
 	clientSecret := "gto_" + base32Lower.EncodeToString(util.CryptoRandomBytes(32))
@@ -263,6 +270,12 @@ type CreateOAuth2ApplicationOptions struct {
 
 // CreateOAuth2Application inserts a new oauth2 application
 func CreateOAuth2Application(ctx context.Context, opts CreateOAuth2ApplicationOptions) (*OAuth2Application, error) {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	clientID := uuid.New().String()
 	app := &OAuth2Application{
 		UID:                opts.UserID,
@@ -288,6 +301,12 @@ type UpdateOAuth2ApplicationOptions struct {
 
 // UpdateOAuth2Application updates an oauth2 application
 func UpdateOAuth2Application(ctx context.Context, opts UpdateOAuth2ApplicationOptions) (*OAuth2Application, error) {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, err
@@ -356,6 +375,12 @@ func deleteOAuth2Application(ctx context.Context, id, userid int64) error {
 
 // DeleteOAuth2Application deletes the application with the given id and the grants and auth codes related to it. It checks if the userid was the creator of the app.
 func DeleteOAuth2Application(ctx context.Context, id, userid int64) error {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err
@@ -583,6 +608,12 @@ func GetOAuth2GrantsByUserID(ctx context.Context, uid int64) ([]*OAuth2Grant, er
 
 // RevokeOAuth2Grant deletes the grant with grantID and userID
 func RevokeOAuth2Grant(ctx context.Context, grantID, userID int64) error {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Where(builder.Eq{"id": grantID, "user_id": userID}).Delete(&OAuth2Grant{})
 	return err
 }
@@ -645,6 +676,12 @@ func GetActiveOAuth2SourceByName(ctx context.Context, name string) (*Source, err
 }
 
 func DeleteOAuth2RelictsByUserID(ctx context.Context, userID int64) error {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	deleteCond := builder.Select("id").From("oauth2_grant").Where(builder.Eq{"oauth2_grant.user_id": userID})
 
 	if _, err := db.GetEngine(ctx).In("grant_id", deleteCond).
@@ -676,6 +713,12 @@ func CountOrphanedOAuth2Applications(ctx context.Context) (int64, error) {
 
 // DeleteOrphanedOAuth2Applications deletes orphaned OAuth2 applications.
 func DeleteOrphanedOAuth2Applications(ctx context.Context) (int64, error) {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	subQuery := builder.Select("`oauth2_application`.id").
 		From("`oauth2_application`").
 		Join("LEFT", "`user`", "`oauth2_application`.`uid` = `user`.`id`").

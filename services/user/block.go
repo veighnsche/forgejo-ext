@@ -4,12 +4,14 @@ package user
 
 import (
 	"context"
+	"fmt"
 
 	model "forgejo.org/models"
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	actions_service "forgejo.org/services/actions"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -19,6 +21,18 @@ import (
 // TODO: Add more mechanism like removing blocked user as collaborator on
 // repositories where the user is an owner.
 func BlockUser(ctx context.Context, userID, blockID int64) error {
+	if userID == blockID || user_model.IsBlocked(ctx, userID, blockID) {
+		return nil
+	}
+	// One authority writer owns the block change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/block/%d", userID, blockID), 0, func(ctx context.Context) error {
+		return doBlockUser(ctx, userID, blockID)
+	})
+}
+
+func doBlockUser(ctx context.Context, userID, blockID int64) error {
 	if userID == blockID || user_model.IsBlocked(ctx, userID, blockID) {
 		return nil
 	}

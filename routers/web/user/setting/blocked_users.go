@@ -4,6 +4,8 @@
 package setting
 
 import (
+	std_ctx "context"
+	"fmt"
 	"net/http"
 
 	"forgejo.org/models/db"
@@ -11,6 +13,7 @@ import (
 	"forgejo.org/modules/base"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -36,7 +39,14 @@ func BlockedUsers(ctx *context.Context) {
 
 // UnblockUser unblocks a particular user for the doer.
 func UnblockUser(ctx *context.Context) {
-	if err := user_model.UnblockUser(ctx, ctx.Doer.ID, ctx.FormInt64("user_id")); err != nil {
+	// One authority writer owns the block change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	doerID := ctx.Doer.ID
+	blockedID := ctx.FormInt64("user_id")
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/unblock/%d", doerID, blockedID), 0, func(ctx std_ctx.Context) error {
+		return user_model.UnblockUser(ctx, doerID, blockedID)
+	}); err != nil {
 		ctx.ServerError("UnblockUser", err)
 		return
 	}

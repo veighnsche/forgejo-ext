@@ -4,6 +4,8 @@
 package setting
 
 import (
+	std_ctx "context"
+	"fmt"
 	"net/http"
 
 	asymkey_model "forgejo.org/models/asymkey"
@@ -14,6 +16,7 @@ import (
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // DeployKeys render the deploy keys list of a repository page
@@ -70,8 +73,16 @@ func DeployKeysPost(ctx *context.Context) {
 		return
 	}
 
-	key, err := asymkey_model.AddDeployKey(ctx, ctx.Repo.Repository.ID, form.Title, content, !form.IsWritable)
-	if err != nil {
+	// One authority writer owns the deploy-key change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	repoID := ctx.Repo.Repository.ID
+	var key *asymkey_model.DeployKey
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key", repoID), repoID, func(ctx std_ctx.Context) error {
+		var err error
+		key, err = asymkey_model.AddDeployKey(ctx, repoID, form.Title, content, !form.IsWritable)
+		return err
+	}); err != nil {
 		ctx.Data["HasError"] = true
 		switch {
 		case asymkey_model.IsErrDeployKeyAlreadyExist(err):
@@ -99,7 +110,14 @@ func DeployKeysPost(ctx *context.Context) {
 
 // DeleteDeployKey response for deleting a deploy key
 func DeleteDeployKey(ctx *context.Context) {
-	if err := asymkey_service.DeleteDeployKey(ctx, ctx.FormInt64("id"), ctx.Repo.Repository.ID); err != nil {
+	// One authority writer owns the deploy-key change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	repoID := ctx.Repo.Repository.ID
+	keyID := ctx.FormInt64("id")
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key/%d", repoID, keyID), repoID, func(ctx std_ctx.Context) error {
+		return asymkey_service.DeleteDeployKey(ctx, keyID, repoID)
+	}); err != nil {
 		ctx.Flash.Error("DeleteDeployKey: " + err.Error())
 	} else {
 		ctx.Flash.Success(ctx.Tr("repo.settings.deploy_key_deletion_success"))

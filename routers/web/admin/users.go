@@ -5,7 +5,9 @@
 package admin
 
 import (
+	std_ctx "context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -29,6 +31,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
 	"forgejo.org/services/mailer"
+	operation_service "forgejo.org/services/nativeoperation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -192,7 +195,12 @@ func NewUserPost(ctx *context.Context) {
 		u.MustChangePassword = form.MustChangePassword
 	}
 
-	if err := user_model.AdminCreateUser(ctx, u, overwriteDefault); err != nil {
+	// One authority writer owns the account creation before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", u.Name), 0, func(ctx std_ctx.Context) error {
+		return user_model.AdminCreateUser(ctx, u, overwriteDefault)
+	}); err != nil {
 		switch {
 		case user_model.IsErrUserAlreadyExist(err):
 			ctx.Data["Err_UserName"] = true
@@ -468,27 +476,32 @@ func EditUserPost(ctx *context.Context) {
 	log.Trace("Account profile updated by admin (%s): %s", ctx.Doer.Name, u.Name)
 
 	if form.Reset2FA {
-		tf, err := auth.GetTwoFactorByUID(ctx, u.ID)
-		if err != nil && !auth.IsErrTwoFactorNotEnrolled(err) {
-			ctx.ServerError("auth.GetTwoFactorByUID", err)
-			return
-		} else if tf != nil {
-			if err := auth.DeleteTwoFactorByID(ctx, tf.ID, u.ID); err != nil {
-				ctx.ServerError("auth.DeleteTwoFactorByID", err)
-				return
+		// One authority writer owns the credential reset before its
+		// effects, advancing the native revision so old permission
+		// observations go stale.
+		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/credentials/reset", u.ID), 0, func(ctx std_ctx.Context) error {
+			tf, err := auth.GetTwoFactorByUID(ctx, u.ID)
+			if err != nil && !auth.IsErrTwoFactorNotEnrolled(err) {
+				return err
+			} else if tf != nil {
+				if err := auth.DeleteTwoFactorByID(ctx, tf.ID, u.ID); err != nil {
+					return err
+				}
 			}
-		}
 
-		wn, err := auth.GetWebAuthnCredentialsByUID(ctx, u.ID)
-		if err != nil {
-			ctx.ServerError("auth.GetTwoFactorByUID", err)
-			return
-		}
-		for _, cred := range wn {
-			if _, err := auth.DeleteCredential(ctx, cred.ID, u.ID); err != nil {
-				ctx.ServerError("auth.DeleteCredential", err)
-				return
+			wn, err := auth.GetWebAuthnCredentialsByUID(ctx, u.ID)
+			if err != nil {
+				return err
 			}
+			for _, cred := range wn {
+				if _, err := auth.DeleteCredential(ctx, cred.ID, u.ID); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			ctx.ServerError("ResetCredentials", err)
+			return
 		}
 	}
 

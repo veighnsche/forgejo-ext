@@ -4,6 +4,7 @@
 package admin
 
 import (
+	std_ctx "context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -24,6 +25,7 @@ import (
 	"forgejo.org/services/auth/source/smtp"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/xorm/xorm/convert"
 )
@@ -248,12 +250,17 @@ func NewAuthSourcePost(ctx *context.Context) {
 		return
 	}
 
-	if err := auth.CreateSource(ctx, &auth.Source{
-		Type:          auth.Type(form.Type),
-		Name:          form.Name,
-		IsActive:      form.IsActive,
-		IsSyncEnabled: form.IsSyncEnabled,
-		Cfg:           config,
+	// One authority writer owns the auth-source change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%s", form.Name), 0, func(ctx std_ctx.Context) error {
+		return auth.CreateSource(ctx, &auth.Source{
+			Type:          auth.Type(form.Type),
+			Name:          form.Name,
+			IsActive:      form.IsActive,
+			IsSyncEnabled: form.IsSyncEnabled,
+			Cfg:           config,
+		})
 	}); err != nil {
 		if auth.IsErrSourceAlreadyExist(err) {
 			ctx.Data["Err_Name"] = true
@@ -362,7 +369,12 @@ func EditAuthSourcePost(ctx *context.Context) {
 	source.IsActive = form.IsActive
 	source.IsSyncEnabled = form.IsSyncEnabled
 	source.Cfg = config
-	if err := auth.UpdateSource(ctx, source); err != nil {
+	// One authority writer owns the auth-source change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx std_ctx.Context) error {
+		return auth.UpdateSource(ctx, source)
+	}); err != nil {
 		if auth.IsErrSourceAlreadyExist(err) {
 			ctx.Data["Err_Name"] = true
 			ctx.RenderWithErr(ctx.Tr("admin.auths.login_source_exist", err.(auth.ErrSourceAlreadyExist).Name), tplAuthEdit, form)
@@ -389,7 +401,12 @@ func DeleteAuthSource(ctx *context.Context) {
 		return
 	}
 
-	if err = auth_service.DeleteSource(ctx, source); err != nil {
+	// One authority writer owns the auth-source change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	if err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx std_ctx.Context) error {
+		return auth_service.DeleteSource(ctx, source)
+	}); err != nil {
 		if auth.IsErrSourceInUse(err) {
 			ctx.Flash.Error(ctx.Tr("admin.auths.still_in_used"))
 		} else {

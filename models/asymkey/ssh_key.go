@@ -12,6 +12,7 @@ import (
 
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
@@ -92,6 +93,12 @@ func addKey(ctx context.Context, key *PublicKey) (err error) {
 
 // AddPublicKey adds new public key to database and authorized_keys file.
 func AddPublicKey(ctx context.Context, ownerID int64, name, content string, authSourceID int64) (*PublicKey, error) {
+	// Nested participating writer: key changes refuse while another owner
+	// holds the reservation; the enclosing authority update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	log.Trace(content)
 
 	fingerprint, err := CalcFingerprint(content)
@@ -288,6 +295,12 @@ func PublicKeyIsExternallyManaged(ctx context.Context, id int64) (bool, error) {
 
 // deleteKeysMarkedForDeletion returns true if ssh keys needs update
 func deleteKeysMarkedForDeletion(ctx context.Context, keys []string) (bool, error) {
+	// Nested participating writer: key changes refuse while another owner
+	// holds the reservation; the enclosing authority update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return false, err
+	}
 	// Start session
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {

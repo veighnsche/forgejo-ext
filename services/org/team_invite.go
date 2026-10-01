@@ -5,16 +5,27 @@ package org
 
 import (
 	"context"
+	"fmt"
 
 	org_model "forgejo.org/models/organization"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/services/mailer"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // CreateTeamInvite make a persistent invite in db and mail it
 func CreateTeamInvite(ctx context.Context, inviter *user_model.User, team *org_model.Team, uname string) error {
-	invite, err := org_model.CreateTeamInvite(ctx, inviter, team, uname)
-	if err != nil {
+	// One authority writer owns the invite before its effects. The mailed
+	// notice is not a native authority effect and stays outside the claim.
+	var invite *org_model.TeamInvite
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d/invite", team.ID), 0, func(ctx context.Context) error {
+		created, err := org_model.CreateTeamInvite(ctx, inviter, team, uname)
+		if err != nil {
+			return err
+		}
+		invite = created
+		return nil
+	}); err != nil {
 		return err
 	}
 

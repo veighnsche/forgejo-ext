@@ -5,6 +5,8 @@
 package org
 
 import (
+	std_ctx "context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -24,6 +26,7 @@ import (
 	user_setting "forgejo.org/routers/web/user/setting"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 	org_service "forgejo.org/services/org"
 	repo_service "forgejo.org/services/repository"
 	user_service "forgejo.org/services/user"
@@ -106,7 +109,12 @@ func SettingsPost(ctx *context.Context) {
 	}
 
 	if form.Email == "" {
-		err := user_model.DeletePrimaryEmailAddressOfUser(ctx, org.ID)
+		// One authority writer owns the login-identity change before its
+		// effects, advancing the native revision so old permission
+		// observations go stale.
+		err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/email", org.ID), 0, func(ctx std_ctx.Context) error {
+			return user_model.DeletePrimaryEmailAddressOfUser(ctx, org.ID)
+		})
 		if err != nil {
 			ctx.ServerError("DeletePrimaryEmailAddressOfUser", err)
 			return

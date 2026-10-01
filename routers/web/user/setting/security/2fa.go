@@ -6,7 +6,9 @@ package security
 
 import (
 	"bytes"
+	std_ctx "context"
 	"encoding/base64"
+	"fmt"
 	"html/template"
 	"image/png"
 	"net/http"
@@ -19,6 +21,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
 	"forgejo.org/services/mailer"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -42,7 +45,13 @@ func RegenerateScratchTwoFactor(ctx *context.Context) {
 
 	token := t.GenerateScratchToken()
 
-	if err = auth.UpdateTwoFactor(ctx, t); err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	doerID := ctx.Doer.ID
+	if err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/2fa", doerID), 0, func(ctx std_ctx.Context) error {
+		return auth.UpdateTwoFactor(ctx, t)
+	}); err != nil {
 		ctx.ServerError("SettingsTwoFactor: Failed to UpdateTwoFactor", err)
 		return
 	}
@@ -82,7 +91,13 @@ func disableTwoFactor(ctx *context.Context) {
 		return
 	}
 
-	if err = auth.DeleteTwoFactorByID(ctx, t.ID, ctx.Doer.ID); err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	doerID := ctx.Doer.ID
+	if err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/2fa", doerID), 0, func(ctx std_ctx.Context) error {
+		return auth.DeleteTwoFactorByID(ctx, t.ID, doerID)
+	}); err != nil {
 		if auth.IsErrTwoFactorNotEnrolled(err) {
 			// There is a potential DB race here - we must have been disabled by another request in the intervening period
 			ctx.Flash.Success(ctx.Tr("settings.twofa_disabled"))
@@ -255,7 +270,12 @@ func enrollTwoFactor(ctx *context.Context) {
 		return
 	}
 
-	if err := auth.NewTwoFactor(ctx, twoFactor, secret); err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/2fa", ctx.Doer.ID), 0, func(ctx std_ctx.Context) error {
+		return auth.NewTwoFactor(ctx, twoFactor, secret)
+	}); err != nil {
 		// FIXME: We need to handle a unique constraint fail here it's entirely possible that another request has beaten us.
 		// If there is a unique constraint fail we should just tolerate the error
 		ctx.ServerError("SettingsTwoFactor: Failed to save two factor", err)

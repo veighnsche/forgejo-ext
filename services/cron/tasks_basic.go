@@ -16,6 +16,7 @@ import (
 	"forgejo.org/services/auth"
 	"forgejo.org/services/migrations"
 	mirror_service "forgejo.org/services/mirror"
+	operation_service "forgejo.org/services/nativeoperation"
 	packages_cleanup_service "forgejo.org/services/packages/cleanup"
 	repo_service "forgejo.org/services/repository"
 	archiver_service "forgejo.org/services/repository/archiver"
@@ -97,7 +98,13 @@ func registerSyncExternalUsers() {
 		UpdateExisting: true,
 	}, func(ctx context.Context, _ *user_model.User, config Config) error {
 		realConfig := config.(*UpdateExistingConfig)
-		return auth.SyncExternalUsers(ctx, realConfig.UpdateExisting)
+		// One authority writer owns the directory synchronization before
+		// its effects, advancing the native revision so old permission
+		// observations go stale. Nested user, key and team updates reuse
+		// this ownership.
+		return operation_service.WithAuthorityOwnership(ctx, "directory-sync", 0, func(ctx context.Context) error {
+			return auth.SyncExternalUsers(ctx, realConfig.UpdateExisting)
+		})
 	})
 }
 

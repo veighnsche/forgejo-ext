@@ -26,6 +26,7 @@ import (
 	"forgejo.org/services/authz"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -301,11 +302,16 @@ func AccessTokenCreatePost(ctx *context.Context) {
 		return
 	}
 
-	err = db.WithTx(ctx, func(ctx stdCtx.Context) error {
-		if err := auth_model.NewAccessToken(ctx, t); err != nil {
-			return err
-		}
-		return auth_model.InsertAccessTokenResourceRepos(ctx, t.ID, resourceRepos)
+	// One authority writer owns the token change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/token", ctx.Doer.ID), 0, func(ctx stdCtx.Context) error {
+		return db.WithTx(ctx, func(ctx stdCtx.Context) error {
+			if err := auth_model.NewAccessToken(ctx, t); err != nil {
+				return err
+			}
+			return auth_model.InsertAccessTokenResourceRepos(ctx, t.ID, resourceRepos)
+		})
 	})
 	if err != nil {
 		ctx.ServerError("NewAccessToken", err)
@@ -320,7 +326,14 @@ func AccessTokenCreatePost(ctx *context.Context) {
 
 // DeleteAccessToken response for delete user access token
 func DeleteAccessToken(ctx *context.Context) {
-	if err := auth_model.DeleteAccessTokenByID(ctx, ctx.FormInt64("id"), ctx.Doer.ID); err != nil {
+	// One authority writer owns the token withdrawal before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	tokenID := ctx.FormInt64("id")
+	doerID := ctx.Doer.ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("token/%d", tokenID), 0, func(ctx stdCtx.Context) error {
+		return auth_model.DeleteAccessTokenByID(ctx, tokenID, doerID)
+	}); err != nil {
 		ctx.Flash.Error("DeleteAccessTokenByID: " + err.Error())
 	} else {
 		ctx.Flash.Success(ctx.Tr("settings.delete_token_success"))
@@ -331,7 +344,20 @@ func DeleteAccessToken(ctx *context.Context) {
 
 // RegenerateAccessToken response for regenerating user access token
 func RegenerateAccessToken(ctx *context.Context) {
-	if t, err := auth_model.RegenerateAccessTokenByID(ctx, ctx.FormInt64("id"), ctx.Doer.ID); err != nil {
+	// One authority writer owns the token change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	tokenID := ctx.FormInt64("id")
+	doerID := ctx.Doer.ID
+	var t *auth_model.AccessToken
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("token/%d", tokenID), 0, func(ctx stdCtx.Context) error {
+		regenerated, err := auth_model.RegenerateAccessTokenByID(ctx, tokenID, doerID)
+		if err != nil {
+			return err
+		}
+		t = regenerated
+		return nil
+	}); err != nil {
 		if auth_model.IsErrAccessTokenNotExist(err) {
 			ctx.Flash.Error(ctx.Tr("error.not_found"))
 		} else {

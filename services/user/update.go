@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/services/mailer"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 type UpdateOptions struct {
@@ -43,7 +44,32 @@ type UpdateOptions struct {
 	KeepPronounsPrivate          optional.Option[bool]
 }
 
+// updateAuthorityOptions reports whether these options change authentication
+// or authorization outcomes (roles, activation, capabilities, visibility,
+// quotas) rather than profile display or liveness telemetry. Only
+// authority updates claim ownership; per-request preference and login
+// timestamp writes proceed without advancing the native revision.
+func updateAuthorityOptions(opts *UpdateOptions) bool {
+	return opts.IsAdmin.Has() || opts.IsActive.Has() ||
+		opts.IsRestricted.Has() || opts.AllowCreateOrganization.Has() ||
+		opts.RepoAdminChangeTeamAccess.Has() || opts.AllowGitHook.Has() ||
+		opts.AllowImportLocal.Has() || opts.MaxRepoCreation.Has() ||
+		opts.Visibility.Has()
+}
+
 func UpdateUser(ctx context.Context, u *user_model.User, opts *UpdateOptions) error {
+	if !updateAuthorityOptions(opts) {
+		return doUpdateUser(ctx, u, opts)
+	}
+	// One authority writer owns the account change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale. Telemetry-only updates above never claim.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/update", u.ID), 0, func(ctx context.Context) error {
+		return doUpdateUser(ctx, u, opts)
+	})
+}
+
+func doUpdateUser(ctx context.Context, u *user_model.User, opts *UpdateOptions) error {
 	cols := make([]string, 0, 20)
 
 	if has, value := opts.KeepEmailPrivate.Get(); has {
@@ -157,6 +183,23 @@ type UpdateAuthOptions struct {
 }
 
 func UpdateAuth(ctx context.Context, u *user_model.User, opts *UpdateAuthOptions) error {
+	// One authority writer owns the credential change before its effects.
+	// The password-change notice below is not a native authority effect
+	// and stays outside the claim.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/auth", u.ID), 0, func(ctx context.Context) error {
+		return doUpdateAuth(ctx, u, opts)
+	}); err != nil {
+		return err
+	}
+
+	if opts.Password.Has() {
+		return mailer.SendPasswordChange(u)
+	}
+
+	return nil
+}
+
+func doUpdateAuth(ctx context.Context, u *user_model.User, opts *UpdateAuthOptions) error {
 	if has, value := opts.LoginSource.Get(); has {
 		source, err := auth_model.GetSourceByID(ctx, value)
 		if err != nil {
@@ -195,13 +238,5 @@ func UpdateAuth(ctx context.Context, u *user_model.User, opts *UpdateAuthOptions
 		u.ProhibitLogin = value
 	}
 
-	if err := user_model.UpdateUserCols(ctx, u, "login_type", "login_source", "login_name", "passwd", "passwd_hash_algo", "salt", "must_change_password", "prohibit_login"); err != nil {
-		return err
-	}
-
-	if opts.Password.Has() {
-		return mailer.SendPasswordChange(u)
-	}
-
-	return nil
+	return user_model.UpdateUserCols(ctx, u, "login_type", "login_source", "login_name", "passwd", "passwd_hash_algo", "salt", "must_change_password", "prohibit_login")
 }

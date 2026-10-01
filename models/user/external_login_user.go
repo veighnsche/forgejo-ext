@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/util"
 
 	"xorm.io/builder"
@@ -98,6 +99,12 @@ func GetExternalLogin(ctx context.Context, externalLoginUser *ExternalLoginUser)
 
 // LinkExternalToUser link the external user to the user
 func LinkExternalToUser(ctx context.Context, user *User, externalLoginUser *ExternalLoginUser) error {
+	// Nested participating writer: external-identity changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	has, err := db.Exist[ExternalLoginUser](ctx, builder.Eq{
 		"external_id":     externalLoginUser.ExternalID,
 		"login_source_id": externalLoginUser.LoginSourceID,
@@ -114,6 +121,12 @@ func LinkExternalToUser(ctx context.Context, user *User, externalLoginUser *Exte
 
 // RemoveAccountLink will remove all external login sources for the given user
 func RemoveAccountLink(ctx context.Context, user *User, loginSourceID int64) (int64, error) {
+	// Nested participating writer: external-identity changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
 	deleted, err := db.GetEngine(ctx).Delete(&ExternalLoginUser{UserID: user.ID, LoginSourceID: loginSourceID})
 	if err != nil {
 		return deleted, err
@@ -126,6 +139,12 @@ func RemoveAccountLink(ctx context.Context, user *User, loginSourceID int64) (in
 
 // RemoveAllAccountLinks will remove all external login sources for the given user
 func RemoveAllAccountLinks(ctx context.Context, user *User) error {
+	// Nested participating writer: external-identity changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Delete(&ExternalLoginUser{UserID: user.ID})
 	return err
 }
@@ -146,6 +165,12 @@ func GetUserIDByExternalUserID(ctx context.Context, provider, userID string) (in
 
 // UpdateExternalUserByExternalID updates an external user's information
 func UpdateExternalUserByExternalID(ctx context.Context, external *ExternalLoginUser) error {
+	// Nested participating writer: external-identity changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	has, err := db.Exist[ExternalLoginUser](ctx, builder.Eq{
 		"external_id":     external.ExternalID,
 		"login_source_id": external.LoginSourceID,

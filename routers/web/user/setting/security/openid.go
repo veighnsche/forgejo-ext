@@ -4,6 +4,8 @@
 package security
 
 import (
+	std_ctx "context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -14,6 +16,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	gouuid "github.com/google/uuid"
 )
@@ -114,7 +117,12 @@ func settingsOpenIDVerify(ctx *context.Context) {
 	log.Trace("Verified ID: %s", id)
 
 	oid := &user_model.UserOpenID{UID: ctx.Doer.ID, URI: id}
-	if err = user_model.AddUserOpenID(ctx, oid); err != nil {
+	// One authority writer owns the identity change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/openid", ctx.Doer.ID), 0, func(ctx std_ctx.Context) error {
+		return user_model.AddUserOpenID(ctx, oid)
+	}); err != nil {
 		if user_model.IsErrOpenIDAlreadyUsed(err) {
 			ctx.RenderWithErr(ctx.Tr("form.openid_been_used", id), tplSettingsSecurity, &forms.AddOpenIDForm{Openid: id})
 			return
@@ -130,7 +138,13 @@ func settingsOpenIDVerify(ctx *context.Context) {
 
 // DeleteOpenID response for delete user's openid
 func DeleteOpenID(ctx *context.Context) {
-	if err := user_model.DeleteUserOpenID(ctx, &user_model.UserOpenID{ID: ctx.FormInt64("id"), UID: ctx.Doer.ID}); err != nil {
+	// One authority writer owns the identity change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	oid := &user_model.UserOpenID{ID: ctx.FormInt64("id"), UID: ctx.Doer.ID}
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/openid", ctx.Doer.ID), 0, func(ctx std_ctx.Context) error {
+		return user_model.DeleteUserOpenID(ctx, oid)
+	}); err != nil {
 		ctx.ServerError("DeleteUserOpenID", err)
 		return
 	}
@@ -142,7 +156,14 @@ func DeleteOpenID(ctx *context.Context) {
 
 // ToggleOpenIDVisibility response for toggle visibility of user's openid
 func ToggleOpenIDVisibility(ctx *context.Context) {
-	if err := user_model.ToggleUserOpenIDVisibility(ctx, ctx.Doer.ID, ctx.FormInt64("id")); err != nil {
+	// One authority writer owns the identity change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	doerID := ctx.Doer.ID
+	openID := ctx.FormInt64("id")
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/openid", doerID), 0, func(ctx std_ctx.Context) error {
+		return user_model.ToggleUserOpenIDVisibility(ctx, doerID, openID)
+	}); err != nil {
 		ctx.ServerError("ToggleUserOpenIDVisibility", err)
 		return
 	}

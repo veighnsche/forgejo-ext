@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
 
@@ -61,6 +62,12 @@ func GetTeamRepositories(ctx context.Context, opts *SearchTeamRepoOptions) (repo
 
 // RemoveTeamRepo remove repository from team
 func RemoveTeamRepo(ctx context.Context, teamID, repoID int64) error {
+	// Nested participating writer: team permission changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.DeleteByBean(ctx, &TeamRepo{
 		TeamID: teamID,
 		RepoID: repoID,

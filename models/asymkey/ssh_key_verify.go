@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 
@@ -16,6 +17,12 @@ import (
 
 // VerifySSHKey marks a SSH key as verified
 func VerifySSHKey(ctx context.Context, ownerID int64, fingerprint, token, signature string) (string, error) {
+	// Nested participating writer: key enrollment refuses while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return "", err
+	}
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return "", err

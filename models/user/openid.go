@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/util"
 )
 
@@ -71,6 +72,12 @@ func (err ErrOpenIDAlreadyUsed) Unwrap() error {
 // AddUserOpenID adds an pre-verified/normalized OpenID URI to given user.
 // NOTE: make sure openid.URI is normalized already
 func AddUserOpenID(ctx context.Context, openid *UserOpenID) error {
+	// Nested participating writer: external-identity changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	used, err := IsOpenIDUsed(ctx, openid.URI)
 	if err != nil {
 		return err
@@ -83,6 +90,12 @@ func AddUserOpenID(ctx context.Context, openid *UserOpenID) error {
 
 // DeleteUserOpenID deletes an openid address of given user.
 func DeleteUserOpenID(ctx context.Context, openid *UserOpenID) (err error) {
+	// Nested participating writer: external-identity changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	var deleted int64
 	// ask to check UID
 	address := UserOpenID{
@@ -106,6 +119,12 @@ func DeleteUserOpenID(ctx context.Context, openid *UserOpenID) (err error) {
 
 // ToggleUserOpenIDVisibility toggles visibility of an openid address of given user.
 func ToggleUserOpenIDVisibility(ctx context.Context, userID, userOpenID int64) (err error) {
+	// Nested participating writer: external-identity changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err = db.GetEngine(ctx).Exec("update `user_open_id` set `show` = not `show` where `uid` = ? and `id` = ?", userID, userOpenID)
 	return err
 }

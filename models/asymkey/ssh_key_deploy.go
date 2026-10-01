@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	"forgejo.org/modules/timeutil"
 
@@ -107,6 +108,12 @@ func addDeployKey(ctx context.Context, keyID, repoID int64, name, fingerprint st
 
 // AddDeployKey add new deploy key to database and authorized_keys file.
 func AddDeployKey(ctx context.Context, repoID int64, name, content string, readOnly bool) (*DeployKey, error) {
+	// Nested participating writer: key changes refuse while another owner
+	// holds the reservation; the enclosing authority update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	fingerprint, err := CalcFingerprint(content)
 	if err != nil {
 		return nil, err
@@ -182,7 +189,30 @@ func IsDeployKeyExistByKeyID(ctx context.Context, keyID int64) (bool, error) {
 }
 
 // UpdateDeployKeyCols updates deploy key information in the specified columns.
+// deployKeyTelemetryColumns are non-authorizing liveness writes that may
+// proceed without ownership even while another owner holds the
+// reservation: the last-use timestamp touch on SSH use. Every other
+// column is a participating write.
+var deployKeyTelemetryColumns = map[string]bool{
+	"updated_unix": true,
+}
+
 func UpdateDeployKeyCols(ctx context.Context, key *DeployKey, cols ...string) error {
+	telemetryOnly := len(cols) > 0
+	for _, col := range cols {
+		if !deployKeyTelemetryColumns[col] {
+			telemetryOnly = false
+			break
+		}
+	}
+	if !telemetryOnly {
+		// Nested participating writer: key changes refuse while another
+		// owner holds the reservation; the enclosing authority update
+		// carries the execution.
+		if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+			return err
+		}
+	}
 	_, err := db.GetEngine(ctx).ID(key.ID).Cols(cols...).Update(key)
 	return err
 }

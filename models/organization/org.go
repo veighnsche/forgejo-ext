@@ -11,6 +11,7 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
 	secret_model "forgejo.org/models/secret"
@@ -279,6 +280,12 @@ func (org *Organization) UnitPermission(ctx context.Context, doer *user_model.Us
 
 // CreateOrganization creates record of a new organization.
 func CreateOrganization(ctx context.Context, org *Organization, owner *user_model.User) (err error) {
+	// Nested participating writer: organization changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if !owner.CanCreateOrganization() {
 		return ErrUserNotAllowedCreateOrg{}
 	}
@@ -393,6 +400,12 @@ func GetOrgByName(ctx context.Context, name string) (*Organization, error) {
 
 // DeleteOrganization deletes models associated to an organization.
 func DeleteOrganization(ctx context.Context, org *Organization) error {
+	// Nested participating writer: organization changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	if org.Type != user_model.UserTypeOrganization {
 		return fmt.Errorf("%s is a user not an organization", org.Name)
 	}
@@ -503,6 +516,12 @@ func GetOrgUsersByOrgID(ctx context.Context, opts *FindOrgMembersOpts) ([]*OrgUs
 
 // ChangeOrgUserStatus changes public or private membership status.
 func ChangeOrgUserStatus(ctx context.Context, orgID, uid int64, public bool) error {
+	// Nested participating writer: organization changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ou := new(OrgUser)
 	has, err := db.GetEngine(ctx).
 		Where("uid=?", uid).
@@ -521,6 +540,12 @@ func ChangeOrgUserStatus(ctx context.Context, orgID, uid int64, public bool) err
 
 // AddOrgUser adds new user to given organization.
 func AddOrgUser(ctx context.Context, orgID, uid int64) error {
+	// Nested participating writer: organization changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	eligible, err := IsAnEligibleTeamMemberByID(ctx, uid)
 	if err != nil {
 		return err
@@ -576,6 +601,12 @@ func GetOrgByID(ctx context.Context, id int64) (*Organization, error) {
 
 // RemoveOrgRepo removes all team-repository relations of organization.
 func RemoveOrgRepo(ctx context.Context, orgID, repoID int64) error {
+	// Nested participating writer: organization changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	teamRepos := make([]*TeamRepo, 0, 10)
 	e := db.GetEngine(ctx)
 	if err := e.Find(&teamRepos, &TeamRepo{OrgID: orgID, RepoID: repoID}); err != nil {

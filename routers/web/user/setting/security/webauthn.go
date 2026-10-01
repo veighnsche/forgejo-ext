@@ -4,7 +4,9 @@
 package security
 
 import (
+	std_ctx "context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,6 +19,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
 	"forgejo.org/services/mailer"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
@@ -99,9 +102,14 @@ func WebauthnRegisterPost(ctx *context.Context) {
 		return
 	}
 
-	// Create the credential
-	_, err = auth.CreateCredential(ctx, ctx.Doer.ID, name, cred)
-	if err != nil {
+	// Create the credential. One authority writer owns the credential
+	// change before its effects, advancing the native revision so old
+	// permission observations go stale.
+	doerID := ctx.Doer.ID
+	if err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/webauthn", doerID), 0, func(ctx std_ctx.Context) error {
+		_, err := auth.CreateCredential(ctx, doerID, name, cred)
+		return err
+	}); err != nil {
 		ctx.ServerError("CreateCredential", err)
 		return
 	}
@@ -123,7 +131,14 @@ func WebauthnDelete(ctx *context.Context) {
 		return
 	}
 
-	if _, err := auth.DeleteCredential(ctx, form.ID, ctx.Doer.ID); err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	doerID := ctx.Doer.ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/webauthn", doerID), 0, func(ctx std_ctx.Context) error {
+		_, err := auth.DeleteCredential(ctx, form.ID, doerID)
+		return err
+	}); err != nil {
 		ctx.ServerError("GetWebAuthnCredentialByID", err)
 		return
 	}

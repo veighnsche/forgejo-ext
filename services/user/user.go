@@ -27,6 +27,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/services/agit"
 	"forgejo.org/services/auth/source/oauth2"
+	operation_service "forgejo.org/services/nativeoperation"
 	org_service "forgejo.org/services/org"
 	"forgejo.org/services/packages"
 	container_service "forgejo.org/services/packages/container"
@@ -68,6 +69,18 @@ func CanUserRename(ctx context.Context, user *user_model.User) (bool, error) {
 }
 
 func renameUser(ctx context.Context, u *user_model.User, newUserName string, doerIsAdmin bool) error {
+	if newUserName == u.Name {
+		return nil
+	}
+	// One authority writer owns the identity change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/rename", u.ID), 0, func(ctx context.Context) error {
+		return doRenameUser(ctx, u, newUserName, doerIsAdmin)
+	})
+}
+
+func doRenameUser(ctx context.Context, u *user_model.User, newUserName string, doerIsAdmin bool) error {
 	if newUserName == u.Name {
 		return nil
 	}
@@ -195,6 +208,19 @@ func renameUser(ctx context.Context, u *user_model.User, newUserName string, doe
 // but issues/comments/pulls will be kept and shown as someone has been deleted,
 // unless the user is younger than USER_DELETE_WITH_COMMENTS_MAX_DAYS.
 func DeleteUser(ctx context.Context, u *user_model.User, purge bool) error {
+	if u.IsOrganization() {
+		return fmt.Errorf("%s is an organization not a user", u.Name)
+	}
+	// One authority writer owns the account deletion before its effects,
+	// advancing the native revision so old permission observations go
+	// stale. Nested repository, organization and package removals reuse
+	// this ownership; their owning tasks reconcile their own effects.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/delete", u.ID), 0, func(ctx context.Context) error {
+		return doDeleteUser(ctx, u, purge)
+	})
+}
+
+func doDeleteUser(ctx context.Context, u *user_model.User, purge bool) error {
 	if u.IsOrganization() {
 		return fmt.Errorf("%s is an organization not a user", u.Name)
 	}
@@ -381,6 +407,14 @@ func DeleteInactiveUsers(ctx context.Context, olderThan time.Duration) error {
 	if err != nil {
 		return err
 	}
+	// One authority writer owns the whole sweep; each nested deletion
+	// reuses this ownership instead of claiming per user.
+	return operation_service.WithAuthorityOwnership(ctx, "users/delete-inactive", 0, func(ctx context.Context) error {
+		return doDeleteInactiveUsers(ctx, users)
+	})
+}
+
+func doDeleteInactiveUsers(ctx context.Context, users user_model.UserList) error {
 
 	// FIXME: should only update authorized_keys file once after all deletions.
 	for _, u := range users {

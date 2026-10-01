@@ -24,6 +24,7 @@ import (
 
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/auth/openid"
 	"forgejo.org/modules/auth/password/hash"
 	"forgejo.org/modules/base"
@@ -722,6 +723,12 @@ func AdminCreateUser(ctx context.Context, u *User, overwriteDefault ...*CreateUs
 
 // createUser creates record of a new user.
 func createUser(ctx context.Context, u *User, createdByAdmin bool, overwriteDefault ...*CreateUserOverwriteOptions) (err error) {
+	// Nested participating writer: account creation refuses while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	overwriteDefaultPresent := len(overwriteDefault) != 0 && overwriteDefault[0] != nil
 
 	// If a username is invalid as-is, check whether the username is meant
@@ -1005,8 +1012,50 @@ func (u User) Validate() []string {
 	return result
 }
 
+// userTelemetryColumns are non-authorizing profile and liveness writes that
+// may proceed without ownership even while another owner holds the
+// reservation: display preferences, login timestamps and UI conveniences.
+// They change neither authentication nor authorization outcomes. Every
+// other column, including identity, credential, activation, role and quota
+// columns, is a participating write.
+var userTelemetryColumns = map[string]bool{
+	"full_name":                      true,
+	"keep_email_private":             true,
+	"email_notifications_preference": true,
+	"location":                       true,
+	"website":                        true,
+	"pronouns":                       true,
+	"language":                       true,
+	"description":                    true,
+	"last_login_unix":                true,
+	"last_repo_visibility":           true,
+	"avatar":                         true,
+	"avatar_email":                   true,
+	"use_custom_avatar":              true,
+	"diff_view_style":                true,
+	"theme":                          true,
+	"keep_activity_private":          true,
+	"keep_pronouns_private":          true,
+	"enable_repo_unit_hints":         true,
+}
+
 // UpdateUserCols update user according special columns
 func UpdateUserCols(ctx context.Context, u *User, cols ...string) error {
+	telemetryOnly := len(cols) > 0
+	for _, col := range cols {
+		if !userTelemetryColumns[col] {
+			telemetryOnly = false
+			break
+		}
+	}
+	if !telemetryOnly {
+		// Nested participating writer: account authority changes refuse
+		// while another owner holds the reservation; the enclosing
+		// authority update carries the execution.
+		if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+			return err
+		}
+	}
 	if err := ValidateUser(u, cols...); err != nil {
 		return err
 	}

@@ -5,6 +5,8 @@
 package org
 
 import (
+	std_ctx "context"
+	"fmt"
 	"net/http"
 
 	"forgejo.org/models"
@@ -14,6 +16,7 @@ import (
 	"forgejo.org/modules/setting"
 	shared_user "forgejo.org/routers/web/shared/user"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -89,26 +92,38 @@ func MembersAction(ctx *context.Context) {
 			ctx.Error(http.StatusNotFound)
 			return
 		}
-		err = organization.ChangeOrgUserStatus(ctx, org.ID, uid, false)
+		// One authority writer owns the membership change before its
+		// effects, advancing the native revision so old permission
+		// observations go stale.
+		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
+			return organization.ChangeOrgUserStatus(ctx, org.ID, uid, false)
+		})
 	case "public":
 		if ctx.Doer.ID != uid && !ctx.Org.IsOwner {
 			ctx.Error(http.StatusNotFound)
 			return
 		}
-		err = organization.ChangeOrgUserStatus(ctx, org.ID, uid, true)
+		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
+			return organization.ChangeOrgUserStatus(ctx, org.ID, uid, true)
+		})
 	case "remove":
 		if !ctx.Org.IsOwner {
 			ctx.Error(http.StatusNotFound)
 			return
 		}
-		err = models.RemoveOrgUser(ctx, org.ID, uid)
+		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
+			return models.RemoveOrgUser(ctx, org.ID, uid)
+		})
 		if organization.IsErrLastOrgOwner(err) {
 			ctx.Flash.Error(ctx.Tr("form.last_org_owner"))
 			ctx.JSONRedirect(ctx.Org.OrgLink + "/members")
 			return
 		}
 	case "leave":
-		err = models.RemoveOrgUser(ctx, org.ID, ctx.Doer.ID)
+		doerID := ctx.Doer.ID
+		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, doerID), 0, func(ctx std_ctx.Context) error {
+			return models.RemoveOrgUser(ctx, org.ID, doerID)
+		})
 		if err == nil {
 			ctx.Flash.Success(ctx.Tr("form.organization_leave_success", org.DisplayName()))
 			ctx.JSON(http.StatusOK, map[string]any{

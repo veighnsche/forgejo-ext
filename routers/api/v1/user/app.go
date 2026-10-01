@@ -25,6 +25,7 @@ import (
 	"forgejo.org/services/authz"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // ListAccessTokens list all the access tokens
@@ -224,13 +225,22 @@ func CreateAccessToken(ctx *context.APIContext) {
 		return
 	}
 
-	err = db.WithTx(ctx, func(ctx stdCtx.Context) error {
-		if err := auth_model.NewAccessToken(ctx, t); err != nil {
-			return err
-		}
-		return auth_model.InsertAccessTokenResourceRepos(ctx, t.ID, resourceRepos)
+	// One authority writer owns the token change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/token", ctx.Doer().ID), 0, func(ctx stdCtx.Context) error {
+		return db.WithTx(ctx, func(ctx stdCtx.Context) error {
+			if err := auth_model.NewAccessToken(ctx, t); err != nil {
+				return err
+			}
+			return auth_model.InsertAccessTokenResourceRepos(ctx, t.ID, resourceRepos)
+		})
 	})
 	if err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "NewAccessToken", err)
 		return
 	}
@@ -301,7 +311,17 @@ func DeleteAccessToken(ctx *context.APIContext) {
 		return
 	}
 
-	if err := auth_model.DeleteAccessTokenByID(ctx, tokenID, ctx.User().ID); err != nil {
+	// One authority writer owns the token withdrawal before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	userID := ctx.User().ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("token/%d", tokenID), 0, func(ctx stdCtx.Context) error {
+		return auth_model.DeleteAccessTokenByID(ctx, tokenID, userID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if auth_model.IsErrAccessTokenNotExist(err) {
 			ctx.NotFound()
 		} else {
@@ -338,19 +358,31 @@ func CreateOauth2Application(ctx *context.APIContext) {
 
 	data := web.GetForm(ctx).(*api.CreateOAuth2ApplicationOptions)
 
-	app, err := auth_model.CreateOAuth2Application(ctx, auth_model.CreateOAuth2ApplicationOptions{
-		Name:               data.Name,
-		UserID:             ctx.Doer().ID,
-		RedirectURIs:       data.RedirectURIs,
-		ConfidentialClient: data.ConfidentialClient,
-	})
-	if err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	var app *auth_model.OAuth2Application
+	var secret string
+	doerID := ctx.Doer().ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/oauth2-app", doerID), 0, func(ctx stdCtx.Context) error {
+		created, err := auth_model.CreateOAuth2Application(ctx, auth_model.CreateOAuth2ApplicationOptions{
+			Name:               data.Name,
+			UserID:             doerID,
+			RedirectURIs:       data.RedirectURIs,
+			ConfidentialClient: data.ConfidentialClient,
+		})
+		if err != nil {
+			return err
+		}
+		app = created
+		secret, err = app.GenerateClientSecret(ctx)
+		return err
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusBadRequest, "", "error creating oauth2 application")
-		return
-	}
-	secret, err := app.GenerateClientSecret(ctx)
-	if err != nil {
-		ctx.Error(http.StatusBadRequest, "", "error creating application secret")
 		return
 	}
 	app.ClientSecret = secret
@@ -424,8 +456,18 @@ func DeleteOauth2Application(ctx *context.APIContext) {
 	//     "$ref": "#/responses/forbidden"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
 	appID := ctx.ParamsInt64(":id")
-	if err := auth_model.DeleteOAuth2Application(ctx, appID, ctx.Doer().ID); err != nil {
+	doerID := ctx.Doer().ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("oauth2-app/%d", appID), 0, func(ctx stdCtx.Context) error {
+		return auth_model.DeleteOAuth2Application(ctx, appID, doerID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if auth_model.IsErrOAuthApplicationNotFound(err) {
 			ctx.NotFound()
 		} else {
@@ -512,24 +554,39 @@ func UpdateOauth2Application(ctx *context.APIContext) {
 
 	data := web.GetForm(ctx).(*api.CreateOAuth2ApplicationOptions)
 
-	app, err := auth_model.UpdateOAuth2Application(ctx, auth_model.UpdateOAuth2ApplicationOptions{
-		Name:               data.Name,
-		UserID:             ctx.Doer().ID,
-		ID:                 appID,
-		RedirectURIs:       data.RedirectURIs,
-		ConfidentialClient: data.ConfidentialClient,
-	})
-	if err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	var app *auth_model.OAuth2Application
+	doerID := ctx.Doer().ID
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("oauth2-app/%d", appID), 0, func(ctx stdCtx.Context) error {
+		updated, err := auth_model.UpdateOAuth2Application(ctx, auth_model.UpdateOAuth2ApplicationOptions{
+			Name:               data.Name,
+			UserID:             doerID,
+			ID:                 appID,
+			RedirectURIs:       data.RedirectURIs,
+			ConfidentialClient: data.ConfidentialClient,
+		})
+		if err != nil {
+			return err
+		}
+		app = updated
+		secret, err := app.GenerateClientSecret(ctx)
+		if err != nil {
+			return err
+		}
+		app.ClientSecret = secret
+		return nil
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if auth_model.IsErrOauthClientIDInvalid(err) || auth_model.IsErrOAuthApplicationNotFound(err) {
 			ctx.NotFound()
 		} else {
 			ctx.Error(http.StatusInternalServerError, "UpdateOauth2ApplicationByID", err)
 		}
-		return
-	}
-	app.ClientSecret, err = app.GenerateClientSecret(ctx)
-	if err != nil {
-		ctx.Error(http.StatusBadRequest, "", "error updating application secret")
 		return
 	}
 

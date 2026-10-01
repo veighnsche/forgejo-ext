@@ -5,7 +5,9 @@
 package setting
 
 import (
+	std_ctx "context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	asymkey_model "forgejo.org/models/asymkey"
@@ -17,6 +19,7 @@ import (
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -63,7 +66,14 @@ func KeysPost(ctx *context.Context) {
 			ctx.Redirect(setting.AppSubURL + "/user/settings/keys")
 			return
 		}
-		if _, err = asymkey_model.AddPrincipalKey(ctx, ctx.Doer.ID, content, 0); err != nil {
+		// One authority writer owns the key change before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doerID := ctx.Doer.ID
+		if err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/principal-key", doerID), 0, func(ctx std_ctx.Context) error {
+			_, err := asymkey_model.AddPrincipalKey(ctx, doerID, content, 0)
+			return err
+		}); err != nil {
 			ctx.Data["HasPrincipalError"] = true
 			switch {
 			case asymkey_model.IsErrKeyAlreadyExist(err), asymkey_model.IsErrKeyNameAlreadyUsed(err):
@@ -87,11 +97,19 @@ func KeysPost(ctx *context.Context) {
 		token := asymkey_model.VerificationToken(ctx.Doer, 1)
 		lastToken := asymkey_model.VerificationToken(ctx.Doer, 0)
 
-		keys, err := asymkey_model.AddGPGKey(ctx, ctx.Doer.ID, form.Content, token, form.Signature)
-		if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
-			keys, err = asymkey_model.AddGPGKey(ctx, ctx.Doer.ID, form.Content, lastToken, form.Signature)
-		}
-		if err != nil {
+		// One authority writer owns the key change before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doerID := ctx.Doer.ID
+		var keys []*asymkey_model.GPGKey
+		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/gpg-key", doerID), 0, func(ctx std_ctx.Context) error {
+			var err error
+			keys, err = asymkey_model.AddGPGKey(ctx, doerID, form.Content, token, form.Signature)
+			if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
+				keys, err = asymkey_model.AddGPGKey(ctx, doerID, form.Content, lastToken, form.Signature)
+			}
+			return err
+		}); err != nil {
 			ctx.Data["HasGPGError"] = true
 			switch {
 			case asymkey_model.IsErrGPGKeyParsing(err):
@@ -138,11 +156,19 @@ func KeysPost(ctx *context.Context) {
 		token := asymkey_model.VerificationToken(ctx.Doer, 1)
 		lastToken := asymkey_model.VerificationToken(ctx.Doer, 0)
 
-		keyID, err := asymkey_model.VerifyGPGKey(ctx, ctx.Doer.ID, form.KeyID, token, form.Signature)
-		if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
-			keyID, err = asymkey_model.VerifyGPGKey(ctx, ctx.Doer.ID, form.KeyID, lastToken, form.Signature)
-		}
-		if err != nil {
+		// One authority writer owns the key enrollment before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doerID := ctx.Doer.ID
+		var keyID string
+		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/gpg-key/verify", doerID), 0, func(ctx std_ctx.Context) error {
+			var err error
+			keyID, err = asymkey_model.VerifyGPGKey(ctx, doerID, form.KeyID, token, form.Signature)
+			if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
+				keyID, err = asymkey_model.VerifyGPGKey(ctx, doerID, form.KeyID, lastToken, form.Signature)
+			}
+			return err
+		}); err != nil {
 			ctx.Data["HasGPGVerifyError"] = true
 			switch {
 			case asymkey_model.IsErrGPGInvalidTokenSignature(err):
@@ -181,7 +207,14 @@ func KeysPost(ctx *context.Context) {
 			return
 		}
 
-		if _, err = asymkey_model.AddPublicKey(ctx, ctx.Doer.ID, form.Title, content, 0); err != nil {
+		// One authority writer owns the key change before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doerID := ctx.Doer.ID
+		if err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/key", doerID), 0, func(ctx std_ctx.Context) error {
+			_, err := asymkey_model.AddPublicKey(ctx, doerID, form.Title, content, 0)
+			return err
+		}); err != nil {
 			ctx.Data["HasSSHError"] = true
 			switch {
 			case asymkey_model.IsErrKeyAlreadyExist(err):
@@ -213,11 +246,19 @@ func KeysPost(ctx *context.Context) {
 		token := asymkey_model.VerificationToken(ctx.Doer, 1)
 		lastToken := asymkey_model.VerificationToken(ctx.Doer, 0)
 
-		fingerprint, err := asymkey_model.VerifySSHKey(ctx, ctx.Doer.ID, form.Fingerprint, token, form.Signature)
-		if err != nil && asymkey_model.IsErrSSHInvalidTokenSignature(err) {
-			fingerprint, err = asymkey_model.VerifySSHKey(ctx, ctx.Doer.ID, form.Fingerprint, lastToken, form.Signature)
-		}
-		if err != nil {
+		// One authority writer owns the key enrollment before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doerID := ctx.Doer.ID
+		var fingerprint string
+		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/key/verify", doerID), 0, func(ctx std_ctx.Context) error {
+			var err error
+			fingerprint, err = asymkey_model.VerifySSHKey(ctx, doerID, form.Fingerprint, token, form.Signature)
+			if err != nil && asymkey_model.IsErrSSHInvalidTokenSignature(err) {
+				fingerprint, err = asymkey_model.VerifySSHKey(ctx, doerID, form.Fingerprint, lastToken, form.Signature)
+			}
+			return err
+		}); err != nil {
 			ctx.Data["HasSSHVerifyError"] = true
 			switch {
 			case asymkey_model.IsErrSSHInvalidTokenSignature(err):
@@ -247,7 +288,14 @@ func DeleteKey(ctx *context.Context) {
 			ctx.NotFound("Not Found", errors.New("gpg keys setting is not allowed to be visited"))
 			return
 		}
-		if err := asymkey_model.DeleteGPGKey(ctx, ctx.Doer, ctx.FormInt64("id")); err != nil {
+		// One authority writer owns the key change before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doer := ctx.Doer
+		keyID := ctx.FormInt64("id")
+		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("gpg-key/%d", keyID), 0, func(ctx std_ctx.Context) error {
+			return asymkey_model.DeleteGPGKey(ctx, doer, keyID)
+		}); err != nil {
 			ctx.Flash.Error("DeleteGPGKey: " + err.Error())
 		} else {
 			ctx.Flash.Success(ctx.Tr("settings.gpg_key_deletion_success"))
@@ -269,13 +317,26 @@ func DeleteKey(ctx *context.Context) {
 			ctx.Redirect(setting.AppSubURL + "/user/settings/keys")
 			return
 		}
-		if err := asymkey_service.DeletePublicKey(ctx, ctx.Doer, keyID); err != nil {
+		// One authority writer owns the key change before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doer := ctx.Doer
+		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("key/%d", keyID), 0, func(ctx std_ctx.Context) error {
+			return asymkey_service.DeletePublicKey(ctx, doer, keyID)
+		}); err != nil {
 			ctx.Flash.Error("DeletePublicKey: " + err.Error())
 		} else {
 			ctx.Flash.Success(ctx.Tr("settings.ssh_key_deletion_success"))
 		}
 	case "principal":
-		if err := asymkey_service.DeletePublicKey(ctx, ctx.Doer, ctx.FormInt64("id")); err != nil {
+		// One authority writer owns the key change before its effects,
+		// advancing the native revision so old permission observations go
+		// stale.
+		doer := ctx.Doer
+		principalID := ctx.FormInt64("id")
+		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("key/%d", principalID), 0, func(ctx std_ctx.Context) error {
+			return asymkey_service.DeletePublicKey(ctx, doer, principalID)
+		}); err != nil {
 			ctx.Flash.Error("DeletePublicKey: " + err.Error())
 		} else {
 			ctx.Flash.Success(ctx.Tr("settings.ssh_principal_deletion_success"))

@@ -5,6 +5,7 @@
 package org
 
 import (
+	std_ctx "context"
 	"fmt"
 	"net/http"
 
@@ -21,6 +22,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 	"forgejo.org/services/org"
 	user_service "forgejo.org/services/user"
 )
@@ -271,7 +273,17 @@ func Create(ctx *context.APIContext) {
 		Visibility:                visibility,
 		RepoAdminChangeTeamAccess: form.RepoAdminChangeTeamAccess,
 	}
-	if err := organization.CreateOrganization(ctx, org, ctx.Doer()); err != nil {
+	// One authority writer owns the organization change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	doer := ctx.Doer()
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%s", org.Name), 0, func(ctx std_ctx.Context) error {
+		return organization.CreateOrganization(ctx, org, doer)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if user_model.IsErrUserAlreadyExist(err) ||
 			db.IsErrNameReserved(err) ||
 			db.IsErrNameCharsNotAllowed(err) ||
@@ -348,6 +360,10 @@ func Rename(ctx *context.APIContext) {
 	form := web.GetForm(ctx).(*api.RenameOrgOption)
 	orgUser := ctx.Org().Organization.AsUser()
 	if err := user_service.RenameUser(ctx, orgUser, form.NewName); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if user_model.IsErrUserAlreadyExist(err) || db.IsErrNameReserved(err) || db.IsErrNamePatternNotAllowed(err) || db.IsErrNameCharsNotAllowed(err) {
 			ctx.Error(http.StatusUnprocessableEntity, "RenameOrg", err)
 		} else {
@@ -390,14 +406,27 @@ func Edit(ctx *context.APIContext) {
 
 	if form.Email != nil {
 		if *form.Email == "" {
-			err := user_model.DeletePrimaryEmailAddressOfUser(ctx, ctx.Org().Organization.ID)
-			if err != nil {
+			// One authority writer owns the login-identity change before
+			// its effects, advancing the native revision so old
+			// permission observations go stale.
+			orgID := ctx.Org().Organization.ID
+			if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/email", orgID), 0, func(ctx std_ctx.Context) error {
+				return user_model.DeletePrimaryEmailAddressOfUser(ctx, orgID)
+			}); err != nil {
+				if operation_service.IsBusy(err) {
+					ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+					return
+				}
 				ctx.Error(http.StatusInternalServerError, "DeletePrimaryEmailAddressOfUser", err)
 				return
 			}
 			ctx.Org().Organization.Email = ""
 		} else {
 			if err := user_service.ReplacePrimaryEmailAddress(ctx, ctx.Org().Organization.AsUser(), *form.Email); err != nil {
+				if operation_service.IsBusy(err) {
+					ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+					return
+				}
 				if validation.IsErrEmailInvalid(err) {
 					ctx.Error(http.StatusUnprocessableEntity, "ReplacePrimaryEmailAddress", err)
 				} else {
@@ -417,6 +446,10 @@ func Edit(ctx *context.APIContext) {
 		RepoAdminChangeTeamAccess: optional.FromPtr(form.RepoAdminChangeTeamAccess),
 	}
 	if err := user_service.UpdateUser(ctx, ctx.Org().Organization.AsUser(), opts); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "UpdateUser", err)
 		return
 	}
@@ -444,6 +477,10 @@ func Delete(ctx *context.APIContext) {
 	//     "$ref": "#/responses/notFound"
 
 	if err := org.DeleteOrganization(ctx, ctx.Org().Organization, false); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.Error(http.StatusInternalServerError, "DeleteOrganization", err)
 		return
 	}

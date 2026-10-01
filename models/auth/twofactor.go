@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/keying"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -101,6 +102,12 @@ func (t *TwoFactor) ValidateTOTP(passcode string) (bool, error) {
 
 // NewTwoFactor creates a new two-factor authentication token.
 func NewTwoFactor(ctx context.Context, t *TwoFactor, secret string) error {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		sess := db.GetEngine(ctx)
 		_, err := sess.Insert(t)
@@ -116,6 +123,12 @@ func NewTwoFactor(ctx context.Context, t *TwoFactor, secret string) error {
 
 // UpdateTwoFactor updates a two-factor authentication token.
 func UpdateTwoFactor(ctx context.Context, t *TwoFactor) error {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).ID(t.ID).AllCols().Update(t)
 	return err
 }
@@ -141,6 +154,12 @@ func HasTOTPByUID(ctx context.Context, uid int64) (bool, error) {
 
 // DeleteTwoFactorByID deletes two-factor authentication token by given ID.
 func DeleteTwoFactorByID(ctx context.Context, id, userID int64) error {
+	// Nested participating writer: credential changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	cnt, err := db.GetEngine(ctx).ID(id).Delete(&TwoFactor{
 		UID: userID,
 	})

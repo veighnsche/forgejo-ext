@@ -5,6 +5,7 @@
 package auth
 
 import (
+	std_ctx "context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -35,6 +36,7 @@ import (
 	"forgejo.org/services/externalaccount"
 	"forgejo.org/services/forms"
 	"forgejo.org/services/mailer"
+	operation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	user_service "forgejo.org/services/user"
 
@@ -793,18 +795,22 @@ func ActivatePost(ctx *context.Context) {
 func handleAccountActivation(ctx *context.Context, user *user_model.User) {
 	user.IsActive = true
 	user.Rands = user_model.GetUserSalt()
-	if err := user_model.UpdateUserCols(ctx, user, "is_active", "rands"); err != nil {
+	// One authority writer owns the activation before its effects,
+	// advancing the native revision so old permission observations go
+	// stale. Session and login-timestamp updates below are not authority
+	// effects and stay outside the claim.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/activate", user.ID), 0, func(ctx std_ctx.Context) error {
+		if err := user_model.UpdateUserCols(ctx, user, "is_active", "rands"); err != nil {
+			return err
+		}
+		return user_model.ActivateUserEmail(ctx, user.ID, user.Email, true)
+	}); err != nil {
 		if user_model.IsErrUserNotExist(err) {
 			ctx.NotFound("UpdateUserCols", err)
 		} else {
-			ctx.ServerError("UpdateUser", err)
+			log.Error("Unable to activate account for user: %-v with email: %s: %v", user, user.Email, err)
+			ctx.ServerError("ActivateAccount", err)
 		}
-		return
-	}
-
-	if err := user_model.ActivateUserEmail(ctx, user.ID, user.Email, true); err != nil {
-		log.Error("Unable to activate email for user: %-v with email: %s: %v", user, user.Email, err)
-		ctx.ServerError("ActivateUserEmail", err)
 		return
 	}
 
@@ -864,7 +870,12 @@ func ActivateEmail(ctx *context.Context) {
 		return
 	}
 
-	if err := user_model.ActivateEmail(ctx, email); err != nil {
+	// One authority writer owns the activation before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/email/activate", u.ID), 0, func(ctx std_ctx.Context) error {
+		return user_model.ActivateEmail(ctx, email)
+	}); err != nil {
 		ctx.ServerError("ActivateEmail", err)
 		return
 	}

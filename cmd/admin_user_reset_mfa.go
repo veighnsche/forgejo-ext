@@ -9,6 +9,7 @@ import (
 
 	auth_model "forgejo.org/models/auth"
 	user_model "forgejo.org/models/user"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -47,26 +48,34 @@ func runResetMFA(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	webAuthnList, err := auth_model.GetWebAuthnCredentialsByUID(ctx, user.ID)
-	if err != nil {
+	// One authority writer owns the credential reset before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/credentials/reset", user.ID), 0, func(ctx context.Context) error {
+		webAuthnList, err := auth_model.GetWebAuthnCredentialsByUID(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+
+		for _, credential := range webAuthnList {
+			if _, err := auth_model.DeleteCredential(ctx, credential.ID, user.ID); err != nil {
+				return err
+			}
+		}
+
+		tfaModes, err := auth_model.GetTwoFactorByUID(ctx, user.ID)
+		if err == nil && tfaModes != nil {
+			if err := auth_model.DeleteTwoFactorByID(ctx, tfaModes.ID, user.ID); err != nil {
+				return err
+			}
+		} else {
+			if _, is := err.(auth_model.ErrTwoFactorNotEnrolled); !is {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return err
-	}
-
-	for _, credential := range webAuthnList {
-		if _, err := auth_model.DeleteCredential(ctx, credential.ID, user.ID); err != nil {
-			return err
-		}
-	}
-
-	tfaModes, err := auth_model.GetTwoFactorByUID(ctx, user.ID)
-	if err == nil && tfaModes != nil {
-		if err := auth_model.DeleteTwoFactorByID(ctx, tfaModes.ID, user.ID); err != nil {
-			return err
-		}
-	} else {
-		if _, is := err.(auth_model.ErrTwoFactorNotEnrolled); !is {
-			return err
-		}
 	}
 
 	fmt.Printf("%s's two-factor authentication settings have been removed!\n", user.Name)

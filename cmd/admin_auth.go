@@ -13,6 +13,7 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	auth_service "forgejo.org/services/auth"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -71,12 +72,22 @@ func microcmdAuthList() *cli.Command {
 	}
 }
 
-// newAuthService creates a service with default functions.
+// newAuthService creates a service with default functions. The default
+// create/update functions claim one authority writer before their effects,
+// advancing the native revision so old permission observations go stale.
 func newAuthService() *authService {
 	return &authService{
-		initDB:            initDB,
-		createAuthSource:  auth_model.CreateSource,
-		updateAuthSource:  auth_model.UpdateSource,
+		initDB: initDB,
+		createAuthSource: func(ctx context.Context, source *auth_model.Source) error {
+			return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%s", source.Name), 0, func(ctx context.Context) error {
+				return auth_model.CreateSource(ctx, source)
+			})
+		},
+		updateAuthSource: func(ctx context.Context, source *auth_model.Source) error {
+			return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx context.Context) error {
+				return auth_model.UpdateSource(ctx, source)
+			})
+		},
 		getAuthSourceByID: auth_model.GetSourceByID,
 	}
 }
@@ -132,5 +143,10 @@ func runDeleteAuth(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	return auth_service.DeleteSource(ctx, source)
+	// One authority writer owns the auth-source deletion before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx context.Context) error {
+		return auth_service.DeleteSource(ctx, source)
+	})
 }

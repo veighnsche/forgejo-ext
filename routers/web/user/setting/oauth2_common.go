@@ -4,6 +4,7 @@
 package setting
 
 import (
+	std_ctx "context"
 	"fmt"
 	"net/http"
 
@@ -14,6 +15,7 @@ import (
 	shared_user "forgejo.org/routers/web/shared/user"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 type OAuth2CommonHandlers struct {
@@ -47,13 +49,25 @@ func (oa *OAuth2CommonHandlers) AddApp(ctx *context.Context) {
 		return
 	}
 
-	app, err := auth.CreateOAuth2Application(ctx, auth.CreateOAuth2ApplicationOptions{
-		Name:               form.Name,
-		RedirectURIs:       util.SplitTrimSpace(form.RedirectURIs, "\n"),
-		UserID:             oa.OwnerID,
-		ConfidentialClient: form.ConfidentialClient,
-	})
-	if err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	var app *auth.OAuth2Application
+	var secret string
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("owner/%d/oauth2-app", oa.OwnerID), 0, func(ctx std_ctx.Context) error {
+		created, err := auth.CreateOAuth2Application(ctx, auth.CreateOAuth2ApplicationOptions{
+			Name:               form.Name,
+			RedirectURIs:       util.SplitTrimSpace(form.RedirectURIs, "\n"),
+			UserID:             oa.OwnerID,
+			ConfidentialClient: form.ConfidentialClient,
+		})
+		if err != nil {
+			return err
+		}
+		app = created
+		secret, err = app.GenerateClientSecret(ctx)
+		return err
+	}); err != nil {
 		ctx.ServerError("CreateOAuth2Application", err)
 		return
 	}
@@ -61,11 +75,7 @@ func (oa *OAuth2CommonHandlers) AddApp(ctx *context.Context) {
 	// render the edit page with secret
 	ctx.Flash.Success(ctx.Tr("settings.create_oauth2_application_success"), true)
 	ctx.Data["App"] = app
-	ctx.Data["ClientSecret"], err = app.GenerateClientSecret(ctx)
-	if err != nil {
-		ctx.ServerError("GenerateClientSecret", err)
-		return
-	}
+	ctx.Data["ClientSecret"] = secret
 
 	oa.renderEditPage(ctx)
 }
@@ -113,17 +123,29 @@ func (oa *OAuth2CommonHandlers) EditSave(ctx *context.Context) {
 		return
 	}
 
-	var err error
-	if ctx.Data["App"], err = auth.UpdateOAuth2Application(ctx, auth.UpdateOAuth2ApplicationOptions{
-		ID:                 ctx.ParamsInt64("id"),
-		Name:               form.Name,
-		RedirectURIs:       util.SplitTrimSpace(form.RedirectURIs, "\n"),
-		UserID:             oa.OwnerID,
-		ConfidentialClient: form.ConfidentialClient,
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	appID := ctx.ParamsInt64("id")
+	var updated *auth.OAuth2Application
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("oauth2-app/%d", appID), 0, func(ctx std_ctx.Context) error {
+		app, err := auth.UpdateOAuth2Application(ctx, auth.UpdateOAuth2ApplicationOptions{
+			ID:                 appID,
+			Name:               form.Name,
+			RedirectURIs:       util.SplitTrimSpace(form.RedirectURIs, "\n"),
+			UserID:             oa.OwnerID,
+			ConfidentialClient: form.ConfidentialClient,
+		})
+		if err != nil {
+			return err
+		}
+		updated = app
+		return nil
 	}); err != nil {
 		ctx.ServerError("UpdateOAuth2Application", err)
 		return
 	}
+	ctx.Data["App"] = updated
 	ctx.Flash.Success(ctx.Tr("settings.update_oauth2_application_success"))
 	ctx.Redirect(oa.BasePathList)
 }
@@ -144,18 +166,35 @@ func (oa *OAuth2CommonHandlers) RegenerateSecret(ctx *context.Context) {
 		return
 	}
 	ctx.Data["App"] = app
-	ctx.Data["ClientSecret"], err = app.GenerateClientSecret(ctx)
-	if err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	var secret string
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("oauth2-app/%d", app.ID), 0, func(ctx std_ctx.Context) error {
+		regenerated, err := app.GenerateClientSecret(ctx)
+		if err != nil {
+			return err
+		}
+		secret = regenerated
+		return nil
+	}); err != nil {
 		ctx.ServerError("GenerateClientSecret", err)
 		return
 	}
+	ctx.Data["ClientSecret"] = secret
 	ctx.Flash.Success(ctx.Tr("settings.update_oauth2_application_success"), true)
 	oa.renderEditPage(ctx)
 }
 
 // DeleteApp deletes the given oauth2 application
 func (oa *OAuth2CommonHandlers) DeleteApp(ctx *context.Context) {
-	if err := auth.DeleteOAuth2Application(ctx, ctx.ParamsInt64("id"), oa.OwnerID); err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	appID := ctx.ParamsInt64("id")
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("oauth2-app/%d", appID), 0, func(ctx std_ctx.Context) error {
+		return auth.DeleteOAuth2Application(ctx, appID, oa.OwnerID)
+	}); err != nil {
 		ctx.ServerError("DeleteOAuth2Application", err)
 		return
 	}
@@ -166,7 +205,13 @@ func (oa *OAuth2CommonHandlers) DeleteApp(ctx *context.Context) {
 
 // RevokeGrant revokes the grant
 func (oa *OAuth2CommonHandlers) RevokeGrant(ctx *context.Context) {
-	if err := auth.RevokeOAuth2Grant(ctx, ctx.ParamsInt64("grantId"), oa.OwnerID); err != nil {
+	// One authority writer owns the credential change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	grantID := ctx.ParamsInt64("grantId")
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("oauth2-grant/%d", grantID), 0, func(ctx std_ctx.Context) error {
+		return auth.RevokeOAuth2Grant(ctx, grantID, oa.OwnerID)
+	}); err != nil {
 		ctx.ServerError("RevokeOAuth2Grant", err)
 		return
 	}

@@ -16,6 +16,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -208,27 +209,39 @@ func runCreateUser(ctx context.Context, c *cli.Command) error {
 
 	// arguments should be prepared before creating the user & access token, in case there is anything wrong
 
-	// create the user
-	if err := user_model.CreateUser(ctx, u, overwriteDefault); err != nil {
-		return fmt.Errorf("CreateUser: %w", err)
+	// One authority writer owns the account and token creation before
+	// their effects, advancing the native revision so old permission
+	// observations go stale.
+	var token string
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", username), 0, func(ctx context.Context) error {
+		// create the user
+		if err := user_model.CreateUser(ctx, u, overwriteDefault); err != nil {
+			return fmt.Errorf("CreateUser: %w", err)
+		}
+
+		// create the access token
+		if accessTokenScope != "" {
+			t := &auth_model.AccessToken{
+				Name:  accessTokenName,
+				UID:   u.ID,
+				Scope: accessTokenScope,
+
+				// maintain legacy behaviour until new CLI options are added -- token has access to all resources, is not
+				// fine-grained
+				ResourceAllRepos: true,
+			}
+			if err := auth_model.NewAccessToken(ctx, t); err != nil {
+				return err
+			}
+			token = t.Token
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	fmt.Printf("New user '%s' has been successfully created!\n", username)
-
-	// create the access token
 	if accessTokenScope != "" {
-		t := &auth_model.AccessToken{
-			Name:  accessTokenName,
-			UID:   u.ID,
-			Scope: accessTokenScope,
-
-			// maintain legacy behaviour until new CLI options are added -- token has access to all resources, is not
-			// fine-grained
-			ResourceAllRepos: true,
-		}
-		if err := auth_model.NewAccessToken(ctx, t); err != nil {
-			return err
-		}
-		fmt.Printf("Access token was successfully created... %s\n", t.Token)
+		fmt.Printf("Access token was successfully created... %s\n", token)
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/timeutil"
 )
 
@@ -56,6 +57,12 @@ func GetRepositoriesAccessibleWithTokens(ctx context.Context, accessTokens []*Ac
 }
 
 func InsertAccessTokenResourceRepos(ctx context.Context, accessTokenID int64, resources []*AccessTokenResourceRepo) error {
+	// Nested participating writer: token restriction changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		for _, resourceRepo := range resources {
 			resourceRepo.TokenID = accessTokenID

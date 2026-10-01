@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
@@ -260,6 +261,12 @@ func updateUserAccess(accessMap map[accessKey]perm.AccessMode, key accessKey, mo
 // except the team whose ID is given. It is used to assign a team ID when
 // remove repository from that team.
 func RecalculateTeamAccesses(ctx context.Context, repo *repo_model.Repository, ignTeamID int64) (err error) {
+	// Nested participating writer: derived permission updates refuse
+	// while another owner holds the reservation; the enclosing authority
+	// or repository update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	var ign optional.Option[int64]
 	if ignTeamID == 0 {
 		ign = optional.None[int64]()
@@ -275,6 +282,12 @@ func RecalculateTeamAccesses(ctx context.Context, repo *repo_model.Repository, i
 // RecalculateUserAccess recalculates new access for a single user
 // Usable if we know access only affected one user
 func RecalculateUserAccess(ctx context.Context, repo *repo_model.Repository, uid int64) (err error) {
+	// Nested participating writer: derived permission updates refuse
+	// while another owner holds the reservation; the enclosing authority
+	// or repository update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return recalculateAccess(ctx, recalcAccess{
 		repos: optional.Some([]int64{repo.ID}),
 		users: optional.Some([]int64{uid}),
@@ -283,12 +296,24 @@ func RecalculateUserAccess(ctx context.Context, repo *repo_model.Repository, uid
 
 // RecalculateAccesses recalculates all accesses for repository.
 func RecalculateAccesses(ctx context.Context, repo *repo_model.Repository) error {
+	// Nested participating writer: derived permission updates refuse
+	// while another owner holds the reservation; the enclosing authority
+	// or repository update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return recalculateAccess(ctx, recalcAccess{
 		repos: optional.Some([]int64{repo.ID}),
 	})
 }
 
 func RecalculateUserAccessForRepos(ctx context.Context, userID int64, repoIDs []int64) (err error) {
+	// Nested participating writer: derived permission updates refuse
+	// while another owner holds the reservation; the enclosing authority
+	// or repository update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return recalculateAccess(ctx, recalcAccess{
 		repos: optional.Some(repoIDs),
 		users: optional.Some([]int64{userID}),

@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/timeutil"
@@ -203,6 +204,12 @@ func (source *Source) SkipVerify() bool {
 // CreateSource inserts a AuthSource in the DB if not already
 // existing with the given name.
 func CreateSource(ctx context.Context, source *Source) error {
+	// Nested participating writer: auth-source changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	has, err := db.GetEngine(ctx).Where("name=?", source.Name).Exist(new(Source))
 	if err != nil {
 		return err
@@ -281,6 +288,12 @@ func GetSourceByID(ctx context.Context, id int64) (*Source, error) {
 
 // UpdateSource updates a Source record in DB.
 func UpdateSource(ctx context.Context, source *Source) error {
+	// Nested participating writer: auth-source changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	var originalSource *Source
 	if source.IsOAuth2() {
 		// keep track of the original values so we can restore in case of errors while registering OAuth2 providers

@@ -15,11 +15,22 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/storage"
 	"forgejo.org/modules/util"
+	operation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 )
 
 // DeleteOrganization completely and permanently deletes everything of organization.
 func DeleteOrganization(ctx context.Context, org *org_model.Organization, purge bool) error {
+	// One authority writer owns the organization deletion before its
+	// effects, advancing the native revision so old permission
+	// observations go stale. Nested repository and team removals reuse
+	// this ownership; their owning tasks reconcile their own effects.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/delete", org.ID), 0, func(ctx context.Context) error {
+		return doDeleteOrganization(ctx, org, purge)
+	})
+}
+
+func doDeleteOrganization(ctx context.Context, org *org_model.Organization, purge bool) error {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

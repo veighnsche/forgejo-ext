@@ -53,7 +53,9 @@ func TestNewTwoFactor(t *testing.T) {
 	})
 
 	t.Run("Normal", func(t *testing.T) {
-		reset := unittest.SetFaultInjector(4)
+		// Five queries: the ownership fence reads the idle reservation
+		// before the four two-factor writes.
+		reset := unittest.SetFaultInjector(5)
 		require.NoError(t, NewTwoFactor(t.Context(), &TwoFactor{UID: 44}, otpKey.Secret()))
 		reset()
 

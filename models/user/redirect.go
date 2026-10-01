@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -84,6 +85,12 @@ func GetUserRedirect(ctx context.Context, userName string) (*Redirect, error) {
 
 // NewUserRedirect create a new user redirect
 func NewUserRedirect(ctx context.Context, ID int64, oldUserName, newUserName string) error {
+	// Nested participating writer: identity changes refuse while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	oldUserName = strings.ToLower(oldUserName)
 	newUserName = strings.ToLower(newUserName)
 
@@ -104,6 +111,12 @@ func NewUserRedirect(ctx context.Context, ID int64, oldUserName, newUserName str
 // LimitUserRedirects deletes the oldest entries in user_redirect of the user,
 // such that the amount of user_redirects is at most `n` amount of entries.
 func LimitUserRedirects(ctx context.Context, userID, n int64) error {
+	// Nested participating writer: identity changes refuse while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	// NOTE: It's not possible to combine these two queries into one due to a limitation of MySQL.
 	keepIDs := make([]int64, n)
 	if err := db.GetEngine(ctx).SQL("SELECT id FROM user_redirect WHERE redirect_user_id = ? ORDER BY created_unix DESC LIMIT "+strconv.FormatInt(n, 10), userID).Find(&keepIDs); err != nil {
@@ -117,6 +130,12 @@ func LimitUserRedirects(ctx context.Context, userID, n int64) error {
 // DeleteUserRedirect delete any redirect from the specified user name to
 // anything else
 func DeleteUserRedirect(ctx context.Context, userName string) error {
+	// Nested participating writer: identity changes refuse while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	userName = strings.ToLower(userName)
 	_, err := db.GetEngine(ctx).Delete(&Redirect{LowerName: userName})
 	return err

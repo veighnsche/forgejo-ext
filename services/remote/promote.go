@@ -5,6 +5,7 @@ package remote
 
 import (
 	"context"
+	"fmt"
 
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -12,6 +13,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/services/auth/source/oauth2"
 	remote_source "forgejo.org/services/auth/source/remote"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 type Reason int
@@ -78,7 +80,12 @@ func MaybePromoteRemoteUser(ctx context.Context, source *auth_model.Source, logi
 		LoginType:   source.Type,
 	}
 	reason = NewReason(log.DEBUG, ReasonPromoted, "promote user %v: LoginName %v => %v, LoginSource %v => %v, LoginType %v => %v, Email %v => %v", user.ID, user.LoginName, promote.LoginName, user.LoginSource, promote.LoginSource, user.LoginType, promote.LoginType, user.Email, promote.Email)
-	if err := user_model.UpdateUserCols(ctx, promote, "type", "email", "login_source", "login_type"); err != nil {
+	// One authority writer owns the identity promotion before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/promote", user.ID), 0, func(ctx context.Context) error {
+		return user_model.UpdateUserCols(ctx, promote, "type", "email", "login_source", "login_type")
+	}); err != nil {
 		return false, ReasonUpdateFail, err
 	}
 	return true, reason, nil

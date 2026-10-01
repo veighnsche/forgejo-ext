@@ -5,6 +5,8 @@ package admin
 
 import (
 	"bytes"
+	std_ctx "context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -15,6 +17,7 @@ import (
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 	"forgejo.org/services/user"
 )
 
@@ -122,7 +125,12 @@ func ActivateEmail(ctx *context.Context) {
 
 	log.Info("Changing activation for User ID: %d, email: %s, primary: %v to %v", uid, email, primary, activate)
 
-	if err := user_model.ActivateUserEmail(ctx, uid, email, activate); err != nil {
+	// One authority writer owns the activation change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/email/activate", uid), 0, func(ctx std_ctx.Context) error {
+		return user_model.ActivateUserEmail(ctx, uid, email, activate)
+	}); err != nil {
 		log.Error("ActivateUserEmail(%v,%v,%v): %v", uid, email, activate, err)
 		if user_model.IsErrEmailAlreadyUsed(err) {
 			ctx.Flash.Error(ctx.Tr("admin.emails.duplicate_active"))

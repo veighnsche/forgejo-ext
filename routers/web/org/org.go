@@ -5,7 +5,9 @@
 package org
 
 import (
+	std_ctx "context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"forgejo.org/models/db"
@@ -17,6 +19,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -61,7 +64,13 @@ func CreatePost(ctx *context.Context) {
 		RepoAdminChangeTeamAccess: form.RepoAdminChangeTeamAccess,
 	}
 
-	if err := organization.CreateOrganization(ctx, org, ctx.Doer); err != nil {
+	// One authority writer owns the organization change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	doer := ctx.Doer
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%s", org.Name), 0, func(ctx std_ctx.Context) error {
+		return organization.CreateOrganization(ctx, org, doer)
+	}); err != nil {
 		ctx.Data["Err_OrgName"] = true
 		switch {
 		case user_model.IsErrUserAlreadyExist(err):

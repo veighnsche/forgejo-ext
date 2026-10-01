@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -100,6 +101,12 @@ func init() {
 
 // NewAccessToken creates new access token.
 func NewAccessToken(ctx context.Context, t *AccessToken) error {
+	// Nested participating writer: token creation refuses while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	generateAccessToken(t)
 	_, err := db.GetEngine(ctx).Insert(t)
 	return err
@@ -224,6 +231,12 @@ func (opts ListAccessTokensOptions) ToOrders() string {
 
 // DeleteAccessTokenByID deletes access token by given ID.
 func DeleteAccessTokenByID(ctx context.Context, id, userID int64) error {
+	// Nested participating writer: token withdrawal refuses while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		if err := db.DeleteBeans(ctx,
 			&AccessTokenResourceRepo{TokenID: id},
@@ -246,6 +259,12 @@ func DeleteAccessTokenByID(ctx context.Context, id, userID int64) error {
 // RegenerateAccessTokenByID regenerates access token by given ID.
 // It regenerates token and salt, as well as updates the creation time.
 func RegenerateAccessTokenByID(ctx context.Context, id, userID int64) (*AccessToken, error) {
+	// Nested participating writer: token regeneration refuses while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	t := &AccessToken{}
 	found, err := db.GetEngine(ctx).Where("id = ? AND uid = ?", id, userID).Get(t)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
@@ -16,6 +17,12 @@ import (
 
 // RemoveOrgUser removes user from given organization.
 func RemoveOrgUser(ctx context.Context, orgID, userID int64) error {
+	// Nested participating writer: organization membership changes refuse
+	// while another owner holds the reservation; the enclosing authority
+	// update carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	ou := new(organization.OrgUser)
 
 	has, err := db.GetEngine(ctx).

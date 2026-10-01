@@ -4,11 +4,14 @@
 package utils
 
 import (
+	std_ctx "context"
+	"fmt"
 	"net/http"
 
 	user_model "forgejo.org/models/user"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/services/context"
+	operation_service "forgejo.org/services/nativeoperation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -46,6 +49,10 @@ func ListUserBlockedUsers(ctx *context.APIContext, doer *user_model.User) {
 func BlockUser(ctx *context.APIContext, doer, blockUser *user_model.User) {
 	err := user_service.BlockUser(ctx, doer.ID, blockUser.ID)
 	if err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.InternalServerError(err)
 		return
 	}
@@ -55,8 +62,16 @@ func BlockUser(ctx *context.APIContext, doer, blockUser *user_model.User) {
 
 // UnblockUser unblocks the blockUser from the doer.
 func UnblockUser(ctx *context.APIContext, doer, blockUser *user_model.User) {
-	err := user_model.UnblockUser(ctx, doer.ID, blockUser.ID)
-	if err != nil {
+	// One authority writer owns the block change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/unblock/%d", doer.ID, blockUser.ID), 0, func(ctx std_ctx.Context) error {
+		return user_model.UnblockUser(ctx, doer.ID, blockUser.ID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		ctx.InternalServerError(err)
 		return
 	}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/timeutil"
 
@@ -228,6 +229,12 @@ func deleteGPGKey(ctx context.Context, keyID string) (int64, error) {
 
 // DeleteGPGKey deletes GPG key information in database.
 func DeleteGPGKey(ctx context.Context, doer *user_model.User, id int64) (err error) {
+	// Nested participating writer: key changes refuse while another owner
+	// holds the reservation; the enclosing authority update carries the
+	// execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	key, err := GetGPGKeyForUserByID(ctx, doer.ID, id)
 	if err != nil {
 		if IsErrGPGKeyNotExist(err) {

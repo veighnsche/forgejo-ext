@@ -7,6 +7,7 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	auth_model "forgejo.org/models/auth"
@@ -16,10 +17,23 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/validation"
 	"forgejo.org/services/mailer"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // AdminAddOrSetPrimaryEmailAddress is used by admins to add or set a user's primary email address
 func AdminAddOrSetPrimaryEmailAddress(ctx context.Context, u *user_model.User, emailStr string) error {
+	if strings.EqualFold(u.Email, emailStr) {
+		return nil
+	}
+	// One authority writer owns the login-identity change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/email", u.ID), 0, func(ctx context.Context) error {
+		return doAdminAddOrSetPrimaryEmailAddress(ctx, u, emailStr)
+	})
+}
+
+func doAdminAddOrSetPrimaryEmailAddress(ctx context.Context, u *user_model.User, emailStr string) error {
 	if strings.EqualFold(u.Email, emailStr) {
 		return nil
 	}
@@ -76,6 +90,18 @@ func ReplacePrimaryEmailAddress(ctx context.Context, u *user_model.User, emailSt
 	if strings.EqualFold(u.Email, emailStr) {
 		return nil
 	}
+	// One authority writer owns the login-identity change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/email", u.ID), 0, func(ctx context.Context) error {
+		return doReplacePrimaryEmailAddress(ctx, u, emailStr)
+	})
+}
+
+func doReplacePrimaryEmailAddress(ctx context.Context, u *user_model.User, emailStr string) error {
+	if strings.EqualFold(u.Email, emailStr) {
+		return nil
+	}
 
 	if err := validation.ValidateEmail(emailStr); err != nil {
 		return err
@@ -121,6 +147,15 @@ func ReplacePrimaryEmailAddress(ctx context.Context, u *user_model.User, emailSt
 }
 
 func AddEmailAddresses(ctx context.Context, u *user_model.User, emails []string) error {
+	// One authority writer owns the login-identity change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale. Nested calls reuse the enclosing ownership.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/email", u.ID), 0, func(ctx context.Context) error {
+		return doAddEmailAddresses(ctx, u, emails)
+	})
+}
+
+func doAddEmailAddresses(ctx context.Context, u *user_model.User, emails []string) error {
 	for _, emailStr := range emails {
 		if err := validation.ValidateEmail(emailStr); err != nil {
 			return err
@@ -152,6 +187,16 @@ func AddEmailAddresses(ctx context.Context, u *user_model.User, emails []string)
 
 // ReplaceInactivePrimaryEmail replaces the primary email of a given user, even if the primary is not yet activated.
 func ReplaceInactivePrimaryEmail(ctx context.Context, oldEmail string, email *user_model.EmailAddress) error {
+	// One authority writer owns the login-identity change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale. The nested address addition reuses this
+	// ownership.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/email", email.UID), 0, func(ctx context.Context) error {
+		return doReplaceInactivePrimaryEmail(ctx, oldEmail, email)
+	})
+}
+
+func doReplaceInactivePrimaryEmail(ctx context.Context, oldEmail string, email *user_model.EmailAddress) error {
 	user := &user_model.User{}
 	has, err := db.GetEngine(ctx).ID(email.UID).Get(user)
 	if err != nil {
@@ -181,6 +226,15 @@ func ReplaceInactivePrimaryEmail(ctx context.Context, oldEmail string, email *us
 }
 
 func DeleteEmailAddresses(ctx context.Context, u *user_model.User, emails []string) error {
+	// One authority writer owns the login-identity change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/email", u.ID), 0, func(ctx context.Context) error {
+		return doDeleteEmailAddresses(ctx, u, emails)
+	})
+}
+
+func doDeleteEmailAddresses(ctx context.Context, u *user_model.User, emails []string) error {
 	return db.WithTx(ctx, func(ctx context.Context) error {
 		for _, emailStr := range emails {
 			// Check if address exists
@@ -206,6 +260,15 @@ func DeleteEmailAddresses(ctx context.Context, u *user_model.User, emails []stri
 }
 
 func MakeEmailAddressPrimary(ctx context.Context, u *user_model.User, newPrimaryEmail *user_model.EmailAddress, notify bool) error {
+	// One authority writer owns the login-identity change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/email", u.ID), 0, func(ctx context.Context) error {
+		return doMakeEmailAddressPrimary(ctx, u, newPrimaryEmail, notify)
+	})
+}
+
+func doMakeEmailAddressPrimary(ctx context.Context, u *user_model.User, newPrimaryEmail *user_model.EmailAddress, notify bool) error {
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
 		return err

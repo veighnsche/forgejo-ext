@@ -221,6 +221,8 @@ func (s *Service) recoverOrdinary(ctx context.Context, assessment *RecoveryAsses
 		return s.recoverActionsTask(ctx, assessment, reservation, scope)
 	case FamilyPushCompletion:
 		return s.recoverPushCompletion(ctx, assessment, reservation, scope)
+	case FamilyAuthority:
+		return s.recoverAuthority(ctx, assessment, reservation, scope)
 	default:
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("writer family %q has no offline reconciliation", scope.Family))
 	}

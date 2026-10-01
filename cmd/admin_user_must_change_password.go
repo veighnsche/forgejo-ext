@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	user_model "forgejo.org/models/user"
+	operation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -53,8 +54,18 @@ func runMustChangePassword(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	n, err := user_model.SetMustChangePassword(ctx, all, mustChangePassword, c.Args().Slice(), exclude)
-	if err != nil {
+	// One authority writer owns the credential-policy change before its
+	// effects, advancing the native revision so old permission
+	// observations go stale.
+	var n int64
+	if err := operation_service.WithAuthorityOwnership(ctx, "users/must-change-password", 0, func(ctx context.Context) error {
+		updated, err := user_model.SetMustChangePassword(ctx, all, mustChangePassword, c.Args().Slice(), exclude)
+		if err != nil {
+			return err
+		}
+		n = updated
+		return nil
+	}); err != nil {
 		return err
 	}
 

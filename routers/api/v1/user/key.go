@@ -6,6 +6,7 @@ package user
 import (
 	std_ctx "context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	asymkey_model "forgejo.org/models/asymkey"
@@ -20,6 +21,7 @@ import (
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
+	operation_service "forgejo.org/services/nativeoperation"
 )
 
 // appendPrivateInformation appends the owner and key type information to api.PublicKey
@@ -219,8 +221,22 @@ func CreateUserPublicKey(ctx *context.APIContext, form api.CreateKeyOption, uid 
 		return
 	}
 
-	key, err := asymkey_model.AddPublicKey(ctx, uid, form.Title, content, 0)
-	if err != nil {
+	// One authority writer owns the key change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	var key *asymkey_model.PublicKey
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/key", uid), 0, func(ctx std_ctx.Context) error {
+		created, err := asymkey_model.AddPublicKey(ctx, uid, form.Title, content, 0)
+		if err != nil {
+			return err
+		}
+		key = created
+		return nil
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		repo.HandleAddKeyError(ctx, err)
 		return
 	}
@@ -305,7 +321,17 @@ func DeletePublicKey(ctx *context.APIContext) {
 		return
 	}
 
-	if err := asymkey_service.DeletePublicKey(ctx, ctx.Doer(), id); err != nil {
+	// One authority writer owns the key change before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	doer := ctx.Doer()
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("key/%d", id), 0, func(ctx std_ctx.Context) error {
+		return asymkey_service.DeletePublicKey(ctx, doer, id)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
 		if asymkey_model.IsErrKeyAccessDenied(err) {
 			ctx.Error(http.StatusForbidden, "", "You do not have access to this key")
 		} else {

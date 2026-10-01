@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/timeutil"
 )
 
@@ -48,6 +49,12 @@ func IsBlockedMultiple(ctx context.Context, userIDs []int64, blockID int64) bool
 
 // UnblockUser removes the blocked user entry.
 func UnblockUser(ctx context.Context, userID, blockID int64) error {
+	// Nested participating writer: block changes refuse while another
+	// owner holds the reservation; the enclosing authority update carries
+	// the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.GetEngine(ctx).Delete(&BlockedUser{UserID: userID, BlockID: blockID})
 	return err
 }

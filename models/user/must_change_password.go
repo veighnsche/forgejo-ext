@@ -8,12 +8,20 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/util"
 
 	"xorm.io/builder"
 )
 
 func SetMustChangePassword(ctx context.Context, all, mustChangePassword bool, include, exclude []string) (int64, error) {
+	// Nested participating writer: credential-policy changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return 0, err
+	}
+
 	sliceTrimSpaceDropEmpty := func(input []string) []string {
 		output := make([]string, 0, len(input))
 		for _, in := range input {

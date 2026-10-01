@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
+	nativeoperation "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -82,6 +83,12 @@ type TeamInvite struct {
 }
 
 func CreateTeamInvite(ctx context.Context, doer *user_model.User, team *Team, email string) (*TeamInvite, error) {
+	// Nested participating writer: team membership changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return nil, err
+	}
 	has, err := db.GetEngine(ctx).Exist(&TeamInvite{
 		TeamID: team.ID,
 		Email:  email,
@@ -130,6 +137,12 @@ func CreateTeamInvite(ctx context.Context, doer *user_model.User, team *Team, em
 }
 
 func RemoveInviteByID(ctx context.Context, inviteID, teamID int64) error {
+	// Nested participating writer: team membership changes refuse while
+	// another owner holds the reservation; the enclosing authority update
+	// carries the execution.
+	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		return err
+	}
 	_, err := db.DeleteByBean(ctx, &TeamInvite{
 		ID:     inviteID,
 		TeamID: teamID,
