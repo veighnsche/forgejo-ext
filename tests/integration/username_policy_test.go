@@ -108,7 +108,7 @@ func TestUsernamePolicyCLIEntrypoint(t *testing.T) {
 	executable, err := os.Executable()
 	require.NoError(t, err)
 
-	manifest := `{"protocol":1,"id":"policy","name":"Policy","version":"1","executable":"run","policies":["forgejo.username"]}`
+	manifest := `{"protocol":1,"id":"policy","name":"Policy","version":"1","executable":"run","capabilities":["native.contribution.authorize"],"policies":["forgejo.username"]}`
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), []byte(manifest), 0o600))
 	config, err := setting.NewConfigProviderFromFile(setting.CustomConf)
 	require.NoError(t, err)

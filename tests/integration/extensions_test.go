@@ -386,7 +386,8 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	script := "#!/bin/sh\nexec '" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'\n"
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
 	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "preferred", Name: "Preferred", Version: "1", Executable: "run", PreferredWorkspace: true,
-		Pages: []extension.Page{{ID: "home", Title: "Home", Scope: "global", Entry: "main.js"}}}
+		Capabilities: []string{extension.CapabilityContributionAuthorize},
+		Pages:        []extension.Page{{ID: "home", Title: "Home", Scope: "global", Entry: "main.js"}}}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
