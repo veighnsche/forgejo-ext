@@ -4,6 +4,8 @@
 package issues_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -535,4 +537,55 @@ func TestMigrate_InsertPullRequests(t *testing.T) {
 	_ = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{IssueID: i.ID})
 
 	unittest.CheckConsistencyFor(t, &issues_model.Issue{}, &issues_model.PullRequest{})
+}
+
+func TestNewPullRequestJoinsOuterTransaction(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
+	poster := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+
+	build := func(title string) (*issues_model.Issue, *issues_model.PullRequest) {
+		issue := &issues_model.Issue{
+			RepoID: repo.ID, Title: title,
+			PosterID: poster.ID, Poster: poster,
+			IsPull: true, Content: "body",
+		}
+		pr := &issues_model.PullRequest{
+			HeadRepoID: repo.ID, BaseRepoID: repo.ID,
+			HeadBranch: "branch1", BaseBranch: "main",
+			HeadRepo: repo, BaseRepo: repo,
+			Type: issues_model.PullRequestGitea,
+		}
+		return issue, pr
+	}
+
+	// The conditional PR-creation path commits the issue/PR rows and its
+	// operation receipt in one SQL transaction: the model insert must join
+	// the caller's transaction instead of committing early.
+	t.Run("outer rollback removes rows", func(t *testing.T) {
+		issue, pr := build("outer-tx rollback PR")
+		forced := errors.New("force outer rollback")
+		err := db.WithTx(db.DefaultContext, func(ctx context.Context) error {
+			require.NoError(t, issues_model.NewPullRequest(ctx, repo, issue, nil, nil, pr))
+			require.NotZero(t, issue.ID)
+			require.NotZero(t, pr.ID)
+			return forced
+		})
+		require.ErrorIs(t, err, forced)
+		_, err = issues_model.GetPullRequestByIssueID(db.DefaultContext, issue.ID)
+		assert.True(t, issues_model.IsErrPullRequestNotExist(err))
+		_, err = issues_model.GetIssueByID(db.DefaultContext, issue.ID)
+		assert.True(t, issues_model.IsErrIssueNotExist(err))
+	})
+
+	t.Run("outer commit keeps rows", func(t *testing.T) {
+		issue, pr := build("outer-tx commit PR")
+		require.NoError(t, db.WithTx(db.DefaultContext, func(ctx context.Context) error {
+			return issues_model.NewPullRequest(ctx, repo, issue, nil, nil, pr)
+		}))
+		stored, err := issues_model.GetPullRequestByIssueID(db.DefaultContext, issue.ID)
+		require.NoError(t, err)
+		assert.Equal(t, issue.Index, stored.Index)
+		assert.Equal(t, issue.ID, stored.IssueID)
+	})
 }

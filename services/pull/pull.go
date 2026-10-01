@@ -36,6 +36,13 @@ import (
 var pullWorkingPool = sync.NewExclusivePool()
 
 // NewPullRequest creates new pull request with labels for repository.
+//
+// Creation runs in two phases. The primary phase commits the native issue/PR
+// records and the assignee comments in one SQL transaction and performs no Git
+// work. The completion phase then establishes the derived PR ref and the
+// follow-up collaboration records. No SQL transaction spans Git: once the
+// primary phase commits, the PR exists durably, and a completion error is
+// reported without rolling the creation back.
 func NewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *issues_model.Issue, labelIDs []int64, uuids []string, pr *issues_model.PullRequest, assigneeIDs []int64) error {
 	// Check if the doer is not blocked by the repository's owner.
 	if user_model.IsBlocked(ctx, repo.OwnerID, issue.PosterID) {
@@ -55,89 +62,17 @@ func NewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *iss
 	pr.CommitsAhead = divergence.Ahead
 	pr.CommitsBehind = divergence.Behind
 
-	assigneeCommentMap := make(map[int64]*issues_model.Comment)
-
-	// add first push codes comment
-	baseGitRepo, err := gitrepo.OpenRepository(ctx, pr.BaseRepo)
+	assigneeCommentMap, err := createPullRequestPrimary(ctx, repo, issue, labelIDs, uuids, pr, assigneeIDs)
 	if err != nil {
 		return err
 	}
-	defer baseGitRepo.Close()
 
-	var reviewNotifiers []*issue_service.ReviewRequestNotifier
-	if err := db.WithTx(ctx, func(ctx context.Context) error {
-		if err := issues_model.NewPullRequest(ctx, repo, issue, labelIDs, uuids, pr); err != nil {
-			return err
-		}
-
-		for _, assigneeID := range assigneeIDs {
-			comment, err := issue_service.AddAssigneeIfNotAssigned(ctx, issue, issue.Poster, assigneeID, false)
-			if err != nil {
-				return err
-			}
-			assigneeCommentMap[assigneeID] = comment
-		}
-
-		pr.Issue = issue
-		issue.PullRequest = pr
-
-		if pr.Flow == issues_model.PullRequestFlowGithub {
-			err = PushToBaseRepo(ctx, pr)
-		} else {
-			err = UpdateRef(ctx, pr)
-		}
-		if err != nil {
-			return err
-		}
-
-		compareInfo, err := baseGitRepo.GetCompareInfo(pr.BaseRepo.RepoPath(),
-			git.BranchPrefix+pr.BaseBranch, pr.GetGitRefName(), false, false)
-		if err != nil {
-			return err
-		}
-		if len(compareInfo.Commits) == 0 {
-			return nil
-		}
-
-		data := issues_model.PushActionContent{IsForcePush: false}
-		data.CommitIDs = make([]string, 0, len(compareInfo.Commits))
-		for i := len(compareInfo.Commits) - 1; i >= 0; i-- {
-			data.CommitIDs = append(data.CommitIDs, compareInfo.Commits[i].ID.String())
-		}
-
-		dataJSON, err := json.Marshal(data)
-		if err != nil {
-			return err
-		}
-
-		ops := &issues_model.CreateCommentOptions{
-			Type:        issues_model.CommentTypePullRequestPush,
-			Doer:        issue.Poster,
-			Repo:        repo,
-			Issue:       pr.Issue,
-			IsForcePush: false,
-			Content:     string(dataJSON),
-		}
-
-		if _, err = issues_model.CreateComment(ctx, ops); err != nil {
-			return err
-		}
-
-		if !pr.IsWorkInProgress(ctx) {
-			reviewNotifiers, err = issue_service.PullRequestCodeOwnersReview(ctx, issue, pr)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		// cleanup: this will only remove the reference, the real commit will be clean up when next GC
-		if err1 := baseGitRepo.RemoveReference(pr.GetGitRefName()); err1 != nil {
-			log.Error("RemoveReference: %v", err1)
-		}
-		return err
+	// The primary records are durable from here on. CompletePullRequestCreation
+	// reports a derived-state failure without undoing them.
+	reviewNotifiers, err := CompletePullRequestCreation(ctx, repo, pr)
+	if err != nil {
+		return fmt.Errorf("completePullRequestCreation: %w", err)
 	}
-	baseGitRepo.Close() // close immediately to avoid notifications will open the repository again
 
 	issue_service.ReviewRequestNotify(ctx, issue, issue.Poster, reviewNotifiers)
 
@@ -161,6 +96,99 @@ func NewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *iss
 	}
 
 	return nil
+}
+
+// createPullRequestPrimary commits the native issue/PR records and the assignee
+// comments in a single SQL transaction. It performs no Git work, so a
+// conditional PR-creation operation can share this primary effect and commit
+// its operation receipt in the same SQL transaction.
+func createPullRequestPrimary(ctx context.Context, repo *repo_model.Repository, issue *issues_model.Issue, labelIDs []int64, uuids []string, pr *issues_model.PullRequest, assigneeIDs []int64) (map[int64]*issues_model.Comment, error) {
+	assigneeCommentMap := make(map[int64]*issues_model.Comment)
+	err := db.WithTx(ctx, func(ctx context.Context) error {
+		if err := issues_model.NewPullRequest(ctx, repo, issue, labelIDs, uuids, pr); err != nil {
+			return err
+		}
+
+		for _, assigneeID := range assigneeIDs {
+			comment, err := issue_service.AddAssigneeIfNotAssigned(ctx, issue, issue.Poster, assigneeID, false)
+			if err != nil {
+				return err
+			}
+			assigneeCommentMap[assigneeID] = comment
+		}
+
+		pr.Issue = issue
+		issue.PullRequest = pr
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return assigneeCommentMap, nil
+}
+
+// CompletePullRequestCreation establishes the derived PR ref and the follow-up
+// collaboration records after the primary commit. The PR must already exist:
+// pr.Issue must be set and pr.Index allocated. It must never run inside the
+// primary SQL transaction, because Git ref work cannot span SQL. A PR can
+// therefore be visible while its derived state is still incomplete; callers
+// report a completion error without rolling the creation back. Both the
+// ordinary service path and the conditional PR-creation operation share this
+// completion.
+func CompletePullRequestCreation(ctx context.Context, repo *repo_model.Repository, pr *issues_model.PullRequest) ([]*issue_service.ReviewRequestNotifier, error) {
+	// add first push codes comment
+	baseGitRepo, err := gitrepo.OpenRepository(ctx, pr.BaseRepo)
+	if err != nil {
+		return nil, err
+	}
+	defer baseGitRepo.Close()
+
+	if pr.Flow == issues_model.PullRequestFlowGithub {
+		err = PushToBaseRepo(ctx, pr)
+	} else {
+		err = UpdateRef(ctx, pr)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	compareInfo, err := baseGitRepo.GetCompareInfo(pr.BaseRepo.RepoPath(),
+		git.BranchPrefix+pr.BaseBranch, pr.GetGitRefName(), false, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(compareInfo.Commits) == 0 {
+		return nil, nil
+	}
+
+	data := issues_model.PushActionContent{IsForcePush: false}
+	data.CommitIDs = make([]string, 0, len(compareInfo.Commits))
+	for i := len(compareInfo.Commits) - 1; i >= 0; i-- {
+		data.CommitIDs = append(data.CommitIDs, compareInfo.Commits[i].ID.String())
+	}
+
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	ops := &issues_model.CreateCommentOptions{
+		Type:        issues_model.CommentTypePullRequestPush,
+		Doer:        pr.Issue.Poster,
+		Repo:        repo,
+		Issue:       pr.Issue,
+		IsForcePush: false,
+		Content:     string(dataJSON),
+	}
+
+	if _, err = issues_model.CreateComment(ctx, ops); err != nil {
+		return nil, err
+	}
+
+	if !pr.IsWorkInProgress(ctx) {
+		return issue_service.PullRequestCodeOwnersReview(ctx, pr.Issue, pr)
+	}
+	return nil, nil
 }
 
 // ChangeTargetBranch changes the target branch of this pull request, as the given user.
