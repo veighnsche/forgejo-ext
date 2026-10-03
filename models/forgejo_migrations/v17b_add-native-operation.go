@@ -55,6 +55,18 @@ func addNativeOperation(x *xorm.Engine) error {
 	if _, err := x.SyncWithOptions(xorm.SyncOptions{IgnoreDropIndices: true}, new(Operation), new(Reservation)); err != nil {
 		return err
 	}
-	_, err := x.Exec("INSERT OR IGNORE INTO `reservation` (`id`, `revision`, `owner`, `generation`, `owner_kind`, `verifier`, `scope`) VALUES (1, 1, '', 0, '', '', '')")
-	return err
+	// Seed the idle reservation idempotently through the mapped bean: raw
+	// INSERT OR IGNORE is SQLite-only and omits the NOT NULL updated
+	// timestamp that PostgreSQL enforces. Migrations run once per
+	// deployment, so check-then-insert needs no further concurrency guard.
+	has, err := x.ID(1).NoAutoCondition().Exist(new(Reservation))
+	if err != nil {
+		return err
+	}
+	if !has {
+		if _, err := x.Insert(&Reservation{ID: 1, Revision: 1}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
