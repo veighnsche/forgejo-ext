@@ -772,6 +772,12 @@ func Routes() *web.Route {
 			}, reqToken())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryUser), reqToken())
 
+		// A token withdraws only itself, destroying the presented credential,
+		// so self-revocation requires authentication but no scope category.
+		// It stays outside the /user group, whose DELETE routes require a
+		// write scope the read-only bootstrap token does not have.
+		m.Delete("/user/token", reqToken(), user.DeleteCurrentAccessToken)
+
 		// Repositories (requires repo scope, org scope)
 		m.Post("/org/{org}/repos",
 			// FIXME: we need org in context

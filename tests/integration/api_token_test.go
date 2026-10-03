@@ -36,6 +36,28 @@ func TestAPICreateAndDeleteToken(t *testing.T) {
 	deleteAPIAccessToken(t, newAccessToken, user)
 }
 
+// TestAPIDeleteCurrentToken tests that a token revokes itself without a write
+// scope or password authentication, and that other authentication has no
+// current token to withdraw.
+func TestAPIDeleteCurrentToken(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
+
+	bootstrap := createAPIAccessTokenWithoutCleanUp(t, "bootstrap-token", user, []auth_model.AccessTokenScope{auth_model.AccessTokenScopeReadUser})
+	req := NewRequest(t, "DELETE", "/api/v1/user/token").
+		AddTokenAuth(bootstrap.Token)
+	MakeRequest(t, req, http.StatusNoContent)
+	unittest.AssertNotExistsBean(t, &auth_model.AccessToken{ID: bootstrap.ID})
+
+	req = NewRequest(t, "GET", "/api/v1/user").
+		AddTokenAuth(bootstrap.Token)
+	MakeRequest(t, req, http.StatusUnauthorized)
+
+	req = NewRequest(t, "DELETE", "/api/v1/user/token").
+		AddBasicAuth(user.Name)
+	MakeRequest(t, req, http.StatusNotFound)
+}
+
 func TestAPIGetTokens(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})

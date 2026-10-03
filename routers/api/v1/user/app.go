@@ -19,6 +19,7 @@ import (
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	api "forgejo.org/modules/structs"
+	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/routers/web/shared/user"
@@ -317,6 +318,55 @@ func DeleteAccessToken(ctx *context.APIContext) {
 	userID := ctx.User().ID
 	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("token/%d", tokenID), 0, func(ctx stdCtx.Context) error {
 		return auth_model.DeleteAccessTokenByID(ctx, tokenID, userID)
+	}); err != nil {
+		if operation_service.IsBusy(err) {
+			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
+			return
+		}
+		if auth_model.IsErrAccessTokenNotExist(err) {
+			ctx.NotFound()
+		} else {
+			ctx.Error(http.StatusInternalServerError, "DeleteAccessTokenByID", err)
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// DeleteCurrentAccessToken deletes the access token used for the request
+func DeleteCurrentAccessToken(ctx *context.APIContext) {
+	// swagger:operation DELETE /user/token user userDeleteCurrentAccessToken
+	// ---
+	// summary: Delete the access token used for the current request
+	// produces:
+	// - application/json
+	// responses:
+	//   "204":
+	//     "$ref": "#/responses/empty"
+	//   "401":
+	//     "$ref": "#/responses/unauthorized"
+	//   "404":
+	//     "$ref": "#/responses/notFound"
+
+	// Only the presented token can be withdrawn, and only by its owner.
+	// Any other authentication leaves no current token to delete.
+	var presented string
+	if fields := strings.Fields(ctx.Req.Header.Get("Authorization")); len(fields) == 2 &&
+		(util.ASCIIEqualFold(fields[0], "token") || util.ASCIIEqualFold(fields[0], "bearer")) {
+		presented = fields[1]
+	}
+	token, err := auth_model.GetAccessTokenBySHA(ctx, presented)
+	if err != nil || token.UID != ctx.Doer().ID {
+		ctx.NotFound()
+		return
+	}
+
+	// One authority writer owns the token withdrawal before its effects,
+	// advancing the native revision so old permission observations go
+	// stale.
+	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("token/%d", token.ID), 0, func(ctx stdCtx.Context) error {
+		return auth_model.DeleteAccessTokenByID(ctx, token.ID, token.UID)
 	}); err != nil {
 		if operation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")

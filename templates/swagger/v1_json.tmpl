@@ -21329,6 +21329,29 @@
         }
       }
     },
+    "/user/token": {
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "user"
+        ],
+        "summary": "Delete the access token used for the current request",
+        "operationId": "userDeleteCurrentAccessToken",
+        "responses": {
+          "204": {
+            "$ref": "#/responses/empty"
+          },
+          "401": {
+            "$ref": "#/responses/unauthorized"
+          },
+          "404": {
+            "$ref": "#/responses/notFound"
+          }
+        }
+      }
+    },
     "/user/unblock/{username}": {
       "put": {
         "produces": [
