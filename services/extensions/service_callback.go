@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"forgejo.org/modules/log"
@@ -35,6 +36,15 @@ func (m *Manager) SetServiceCallbackEndpoint(path string, handler http.Handler) 
 	return nil
 }
 
+func callbackSocketLive(path string) bool {
+	conn, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: path, Net: "unix"})
+	if err != nil {
+		return !errors.Is(err, syscall.ECONNREFUSED)
+	}
+	_ = conn.Close()
+	return true
+}
+
 func (m *Manager) startServiceCallback() error {
 	path := m.serviceCallbackPath
 	if path == "" {
@@ -47,8 +57,17 @@ func (m *Manager) startServiceCallback() error {
 	if err != nil || !parent.IsDir() {
 		return errors.New("service callback parent directory unavailable")
 	}
-	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
-		return errors.New("service callback path is unavailable")
+	if info, err := os.Lstat(path); err == nil {
+		if info.Mode().Type() != os.ModeSocket || callbackSocketLive(path) {
+			return errors.New("service callback path is occupied")
+		}
+		// Stale socket from an unclean shutdown: only this endpoint binds
+		// the path, so reclaim it instead of failing every later start.
+		if err := os.Remove(path); err != nil {
+			return errors.New("service callback path is not accessible")
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return errors.New("service callback path is not accessible")
 	}
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
 	if err != nil {

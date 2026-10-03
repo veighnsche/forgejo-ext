@@ -114,6 +114,27 @@ func TestServiceBridgeRequiresConfiguredEndpoint(t *testing.T) {
 	require.NoError(t, m.Close())
 }
 
+func TestServiceCallbackReclaimsStaleSocket(t *testing.T) {
+	root := shortTestRoot(t)
+	path := filepath.Join(root, "callback.sock")
+	// Simulate an unclean shutdown: bound socket file left behind with no
+	// listener. See SetUnlinkOnClose(false) in startServiceCallback.
+	stale, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	require.NoError(t, err)
+	stale.SetUnlinkOnClose(false)
+	require.NoError(t, stale.Close())
+	_, err = os.Lstat(path)
+	require.NoError(t, err)
+	m := NewManager(filepath.Join(root, "packages"))
+	require.NoError(t, m.SetServiceCallbackEndpoint(path, http.NotFoundHandler()))
+	require.NoError(t, m.Start(context.Background()))
+	t.Cleanup(func() { _ = m.Close() })
+	info, err := os.Lstat(path)
+	require.NoError(t, err)
+	require.Equal(t, os.ModeSocket, info.Mode().Type())
+	require.NoError(t, m.Close())
+}
+
 func TestServiceCallbackStartupFailureCleansOwnedSocket(t *testing.T) {
 	root := shortTestRoot(t)
 	packageRoot := filepath.Join(root, "packages")
