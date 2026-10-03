@@ -109,7 +109,7 @@ func TestNativeClientRejectsOversizedAndMultipleResponses(t *testing.T) {
 	go func() { _ = server.Serve(listener) }()
 	defer server.Close()
 	for _, admission := range []string{"oversized", "multiple"} {
-		client := &nativeClient{socket: socket, admission: admission}
+		client := &nativeClient{socket: socket, admission: admission, expectedUID: uint32(os.Geteuid())}
 		if _, err := client.CurrentActor(context.Background()); err == nil {
 			t.Errorf("%s response accepted through client", admission)
 		}
@@ -143,7 +143,7 @@ func TestNativeRepositoryNotVisibleErrorIsOperationSpecific(t *testing.T) {
 	})}
 	go func() { _ = server.Serve(listener) }()
 	defer server.Close()
-	client := &nativeClient{socket: socket, admission: "private-admission"}
+	client := &nativeClient{socket: socket, admission: "private-admission", expectedUID: uint32(os.Geteuid())}
 	for _, test := range []struct {
 		name      string
 		operation string
@@ -252,6 +252,46 @@ func TestNativeClientUsesPrivateCallback(t *testing.T) {
 	}
 	if _, err := authority.Native().Repository(context.Background(), "01"); err == nil {
 		t.Fatal("noncanonical repository id accepted")
+	}
+}
+
+// TestNativeClientVerifiesHostPeer proves the shipping native client sends
+// admission-bearing requests only to the expected host peer: a listener
+// whose kernel UID differs is refused before any request bytes flow, and a
+// missing socket fails instead of succeeding.
+func TestNativeClientVerifiesHostPeer(t *testing.T) {
+	root := filepath.Join("..", ".artifacts", "tmp")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := os.MkdirTemp(root, "sdk-peer-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(directory)
+	socket := filepath.Join(directory, "host.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	var gotRequest bool
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotRequest = true
+		_ = json.NewEncoder(w).Encode(CallbackResponse{Actor: &Actor{ID: "42", Username: "soda-tester"}})
+	})}
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+	counterfeit := &nativeClient{socket: socket, admission: "private-admission", expectedUID: uint32(os.Geteuid()) + 1}
+	if _, err := counterfeit.CurrentActor(context.Background()); err == nil {
+		t.Fatal("counterfeit host peer accepted")
+	}
+	if gotRequest {
+		t.Fatal("request bytes reached the counterfeit peer")
+	}
+	absent := &nativeClient{socket: filepath.Join(directory, "absent.sock"), admission: "private-admission", expectedUID: uint32(os.Geteuid())}
+	if _, err := absent.CurrentActor(context.Background()); err == nil {
+		t.Fatal("absent callback socket accepted")
 	}
 }
 

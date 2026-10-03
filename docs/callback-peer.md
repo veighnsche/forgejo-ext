@@ -1,9 +1,10 @@
 # Service callback peer proof (B5/N-IA2)
 
-The shared service callback socket authenticates peers with kernel Unix
-credentials (`SO_PEERCRED`) bound to an explicit operator mapping. This note
-records what is already enforced, what the disposable fixture proves, and
-the one residual decision for the integrator.
+The Unix callback sockets authenticate peers with kernel credentials
+(`SO_PEERCRED`) through the existing SDK primitives (`PeerCredential`,
+`ParseUnixPeer`/`FormatUnixPeer`). There is no second peer
+implementation: the earlier `internal/callback` duplicate had no
+production imports and was removed.
 
 ## Enforced chain at this revision
 
@@ -19,45 +20,40 @@ the one residual decision for the integrator.
 - Background operations re-check the peer UID against the bootstrapped
   admission on every request (`routers/web/extensions/background.go`,
   `serveBackgroundOperation`).
-- The SDK dial side verifies the host UID before sending a bootstrap
-  (`sdk/background.go`, `BootstrapServiceBackground`).
+- The SDK dial side verifies the host UID before sending anything, on both
+  the service bootstrap (`sdk/background.go`,
+  `BootstrapServiceBackground` with the operator-configured
+  `ExpectedHostUID`) and the native client (`sdk/native.go`,
+  `nativeClient` against the extension's own UID, which is the host UID
+  because the host spawns the extension without changing users). A UID
+  mismatch or unreadable credentials closes the connection before any
+  admission-bearing bytes flow.
 
-## Fixture proof
+Native admissions are derived from a browser request/session
+(`routers/web/extensions/callback.go`, `createAdmission`), not from the
+service bootstrap; the native dial check above is what binds each native
+callback connection to the host peer.
 
-`internal/callback` is the dependency-free peer primitive
-(`Peer`, `Parse`/`Format`, `Authorize`, `DialVerified`,
-`VerifyConnection`) with the same `uid=N;gid=N;pid=N` wire form as the
-SDK (cross-checked against `extension.ParseUnixPeer`/
-`extension.FormatUnixPeer`).
+## Shipping-caller proof
 
-`go test ./internal/callback/` proves over a disposable socket in a temp
-directory, with no retained host or VM involved:
+- `TestNativeClientVerifiesHostPeer` drives the real `nativeClient`
+  methods: a wrong-UID listener is refused with zero request bytes
+  observed, and a missing socket fails.
+- `TestNativeClientUsesPrivateCallback` drives `Authority.Native()` end
+  to end against a real same-UID listener: the correct deployed peer is
+  accepted.
+- `TestBootstrapRejectsUnexpectedHostPeer` covers the service bootstrap
+  dial with a wrong expected UID.
 
-- dial reaches the listener and observes the real kernel UID/PID;
-- a wrong expected UID is refused before any bootstrap bytes flow;
-- the accept side binds to the same UID-to-package mapping and rejects
-  unmapped peers, empty mappings, and missing credentials;
-- malformed addresses (empty parts, non-positive PID, unknown keys,
-  overflow) are all rejected.
-
-Existing coverage this complements (rather than replaces):
+Existing host-side coverage this complements (rather than replaces):
 `TestPeerCredentialListenerExposesKernelPeer`,
 `TestBackgroundBootstrapRequiresServiceMapping`,
 `TestServiceBootstrapLifecycle`.
 
-## Residual: native callback path has no per-request peer rebind
+## Reachability assessment (conditional, unchanged)
 
-`serveBackgroundOperation` re-checks the peer UID on every background
-operation, but the native capability path (`callbackHandler` in
-`routers/web/extensions/callback.go`) authenticates by admission token
-alone after the peer-verified bootstrap. The admission token is a 256-bit
-secret issued only over the verified channel, so this is defense-in-depth
-rather than an open bypass — but a stolen admission token is usable from
-any peer that can reach the socket.
-
-Decision for the integrator: either rebind the admission to the observed
-peer UID on every native callback request (using `VerifyConnection` or
-the existing `RemoteAddr` credential form), or explicitly accept
-token-only authentication for that path and record why. No IPC admission
-code was changed in this lane; `internal/callback` is the proven
-primitive either option wires in.
+Peer verification binds the listener UID, not the path: it rejects a
+listener running as another UID but cannot distinguish a same-UID
+counterfeit on a redirected socket path. Exploitability of that residual
+stays conditional on actual mount/UID/MAC access and endpoint lifecycle,
+as in the original finding. No new trust subsystem is introduced.

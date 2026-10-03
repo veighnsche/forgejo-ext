@@ -101,13 +101,17 @@ func decimalID(id string) bool {
 }
 
 func (a Authority) Native() NativeClient {
-	return &nativeClient{socket: a.callbackSocket, admission: a.admission, authority: a}
+	// The host spawns the extension without changing users, so the deployed
+	// callback listener always runs as this process's own UID. The dial
+	// verifies the listener against that identity before sending anything.
+	return &nativeClient{socket: a.callbackSocket, admission: a.admission, authority: a, expectedUID: uint32(os.Geteuid())}
 }
 
 type nativeClient struct {
-	socket    string
-	admission string
-	authority Authority
+	socket      string
+	admission   string
+	authority   Authority
+	expectedUID uint32
 }
 
 func (c *nativeClient) call(ctx context.Context, request CallbackRequest) (CallbackResponse, error) {
@@ -120,7 +124,20 @@ func (c *nativeClient) call(ctx context.Context, request CallbackRequest) (Callb
 		return CallbackResponse{}, err
 	}
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, "unix", c.socket)
+		conn, err := (&net.Dialer{}).DialContext(ctx, "unix", c.socket)
+		if err != nil {
+			return nil, err
+		}
+		peer, err := PeerCredential(conn)
+		if err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
+		if peer.UID != c.expectedUID {
+			_ = conn.Close()
+			return nil, errors.New("native callback host peer is not permitted")
+		}
+		return conn, nil
 	}}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport}
