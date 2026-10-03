@@ -379,10 +379,11 @@ func TestAPIRepoActionsRunnerRegistrationTokenOperations(t *testing.T) {
 	user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	session := loginUser(t, user2.Name)
 	readToken := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeReadRepository)
+	writeToken := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteRepository)
 
 	t.Run("GetRegistrationToken", func(t *testing.T) {
 		request := NewRequest(t, "GET", "/api/v1/repos/user2/test_workflows/actions/runners/registration-token")
-		request.AddTokenAuth(readToken)
+		request.AddTokenAuth(writeToken)
 		response := MakeRequest(t, request, http.StatusOK)
 
 		var registrationToken shared.RegistrationToken
@@ -391,6 +392,21 @@ func TestAPIRepoActionsRunnerRegistrationTokenOperations(t *testing.T) {
 		expected := shared.RegistrationToken{Token: "BzcgyhjWhLeKGA4ihJIigeRDrcxrFESd0yizEpb7xZJ"}
 
 		assert.Equal(t, expected, registrationToken)
+	})
+
+	t.Run("GetRegistrationTokenRequiresWriteScope", func(t *testing.T) {
+		request := NewRequest(t, "GET", "/api/v1/repos/user2/test_workflows/actions/runners/registration-token")
+		request.AddTokenAuth(readToken)
+		response := MakeRequest(t, request, http.StatusForbidden)
+
+		type errorResponse struct {
+			Message string `json:"message"`
+		}
+
+		var errorMessage *errorResponse
+		DecodeJSON(t, response, &errorMessage)
+
+		assert.Equal(t, "token does not have at least one of required scope(s): [write:repository]", errorMessage.Message)
 	})
 }
 

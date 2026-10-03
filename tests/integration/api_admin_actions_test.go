@@ -158,10 +158,11 @@ func TestAPIAdminActionsRegistrationTokenOperations(t *testing.T) {
 	user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 	session := loginUser(t, user1.Name)
 	readToken := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeReadAdmin)
+	writeToken := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteAdmin)
 
 	t.Run("GetRegistrationToken", func(t *testing.T) {
 		request := NewRequest(t, "GET", "/api/v1/admin/actions/runners/registration-token")
-		request.AddTokenAuth(readToken)
+		request.AddTokenAuth(writeToken)
 		response := MakeRequest(t, request, http.StatusOK)
 
 		var registrationToken shared.RegistrationToken
@@ -174,7 +175,7 @@ func TestAPIAdminActionsRegistrationTokenOperations(t *testing.T) {
 
 	t.Run("DeprecatedGetRegistrationToken", func(t *testing.T) {
 		request := NewRequest(t, "GET", "/api/v1/admin/runners/registration-token")
-		request.AddTokenAuth(readToken)
+		request.AddTokenAuth(writeToken)
 		response := MakeRequest(t, request, http.StatusOK)
 
 		var registrationToken shared.RegistrationToken
@@ -183,6 +184,26 @@ func TestAPIAdminActionsRegistrationTokenOperations(t *testing.T) {
 		expected := shared.RegistrationToken{Token: "BzcgyhjWhLeKGA4ihJIigeRDrcxrFESd0yizEpb7xZJ"}
 
 		assert.Equal(t, expected, registrationToken)
+	})
+
+	t.Run("GetRegistrationTokenRequiresWriteScope", func(t *testing.T) {
+		for _, url := range []string{
+			"/api/v1/admin/actions/runners/registration-token",
+			"/api/v1/admin/runners/registration-token",
+		} {
+			request := NewRequest(t, "GET", url)
+			request.AddTokenAuth(readToken)
+			response := MakeRequest(t, request, http.StatusForbidden)
+
+			type errorResponse struct {
+				Message string `json:"message"`
+			}
+
+			var errorMessage *errorResponse
+			DecodeJSON(t, response, &errorMessage)
+
+			assert.Equal(t, "token does not have at least one of required scope(s): [write:admin]", errorMessage.Message)
+		}
 	})
 }
 

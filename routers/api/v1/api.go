@@ -266,6 +266,18 @@ func tokenRequiresScopes(requiredScopeCategories ...auth_model.AccessTokenScopeC
 	}
 }
 
+// tokenRequiresWriteScopes requires write-level token scopes regardless of
+// method. Credential-bearing GETs such as the runner registration-token
+// endpoints mint and disclose a runner credential, so a read-scoped token
+// must not satisfy them. Session and basic authentication carry no scope
+// and pass through unchanged.
+func tokenRequiresWriteScopes(requiredScopeCategories ...auth_model.AccessTokenScopeCategory) func(*context.APIContext) {
+	apiv1_permissions_testhelpers.RecordSignature(apiv1_permissions.TokenRequiresScopes, requiredScopeCategories)
+	return func(ctx *context.APIContext) {
+		apiv1_permissions.TokenRequiresScopes(ctx, requiredScopeCategories, auth_model.Write)
+	}
+}
+
 // Middleware that dynamically checks either the organization or user scope, depending on the owner type of the
 // repository (requires `repoAssignment()` middleware to be used before this).
 func tokenRequiresRepoOwnerScope() func(*context.APIContext) {
@@ -485,6 +497,7 @@ func Routes() *web.Route {
 		m *web.Route,
 		reqChecker func(ctx *context.APIContext),
 		act actions.API,
+		scopeCategory auth_model.AccessTokenScopeCategory,
 	) {
 		m.Group("/actions", func() {
 			m.Group("/secrets", func() {
@@ -507,7 +520,7 @@ func Routes() *web.Route {
 				m.Combo("").
 					Get(reqToken(), reqChecker, act.ListRunners).
 					Post(reqToken(), reqChecker, bind(api.RegisterRunnerOptions{}), act.RegisterRunner)
-				m.Get("/registration-token", reqToken(), reqChecker, act.GetRegistrationToken)
+				m.Get("/registration-token", tokenRequiresWriteScopes(scopeCategory), reqToken(), reqChecker, act.GetRegistrationToken)
 				m.Get("/{runner_id}", reqToken(), reqChecker, act.GetRunner)
 				m.Delete("/{runner_id}", reqToken(), reqChecker, act.DeleteRunner)
 				m.Get("/jobs", reqToken(), reqChecker, act.SearchActionRunJobs)
@@ -672,7 +685,7 @@ func Routes() *web.Route {
 					m.Combo("").
 						Get(reqToken(), user.ListRunners).
 						Post(bind(api.RegisterRunnerOptions{}), user.RegisterRunner)
-					m.Get("/registration-token", reqToken(), user.GetRegistrationToken) //nolint:staticcheck
+					m.Get("/registration-token", tokenRequiresWriteScopes(auth_model.AccessTokenScopeCategoryUser), reqToken(), user.GetRegistrationToken) //nolint:staticcheck
 					m.Get("/{runner_id}", reqToken(), user.GetRunner)
 					m.Delete("/{runner_id}", reqToken(), user.DeleteRunner)
 					m.Get("/jobs", reqToken(), user.SearchActionRunJobs)
@@ -799,6 +812,7 @@ func Routes() *web.Route {
 					m,
 					reqOwner(unit.TypeActions),
 					repo.NewAction(),
+					auth_model.AccessTokenScopeCategoryRepository,
 				)
 				m.Group("/hooks/git", func() {
 					m.Combo("").Get(repo.ListGitHooks)
@@ -1238,6 +1252,7 @@ func Routes() *web.Route {
 				m,
 				reqOrgOwnership(),
 				org.NewAction(),
+				auth_model.AccessTokenScopeCategoryOrganization,
 			)
 			m.Group("/public_members", func() {
 				m.Get("", org.ListPublicMembers)
@@ -1360,14 +1375,14 @@ func Routes() *web.Route {
 				m.Combo("").
 					Get(admin.ListRunners).
 					Post(bind(api.RegisterRunnerOptions{}), admin.RegisterRunner)
-				m.Get("/registration-token", admin.GetRunnerRegistrationToken) //nolint:staticcheck
+				m.Get("/registration-token", tokenRequiresWriteScopes(auth_model.AccessTokenScopeCategoryAdmin), admin.GetRunnerRegistrationToken) //nolint:staticcheck
 				m.Get("/{runner_id}", admin.GetRunner)
 				m.Delete("/{runner_id}", admin.DeleteRunner)
 				m.Get("/jobs", admin.GetActionRunJobs)
 			})
 			m.Group("/runners", func() {
-				m.Get("/registration-token", admin.GetRegistrationToken) //nolint:staticcheck
-				m.Get("/jobs", admin.SearchActionRunJobs)                //nolint:staticcheck
+				m.Get("/registration-token", tokenRequiresWriteScopes(auth_model.AccessTokenScopeCategoryAdmin), admin.GetRegistrationToken) //nolint:staticcheck
+				m.Get("/jobs", admin.SearchActionRunJobs)                                                                                    //nolint:staticcheck
 			})
 			if setting.Quota.Enabled {
 				m.Group("/quota", func() {
