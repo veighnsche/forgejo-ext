@@ -175,6 +175,60 @@ func RevokeOperation(ctx context.Context, installationID, operationID string) (*
 	return LookupOperation(ctx, installationID, operationID)
 }
 
+// claimIdleReservation atomically moves the idle reservation at
+// expectedRevision to owner, advancing revision and generation. The UPDATE
+// predicate is the linearization point: under PostgreSQL READ COMMITTED a
+// concurrent winner's commit makes a loser's UPDATE match zero rows, so
+// exactly one claimant wins. On success it returns the claimed row reread in
+// the same transaction. On a lost race it reports the current state: ErrBusy
+// when held, ErrStaleRevision when idle past the expected revision; ordinary
+// claims report ErrBusy instead of stale so the caller retries at the new
+// revision. The reservation row must already exist; claims never insert it
+// inside the transaction, so a duplicate key can never abort the transaction
+// on PostgreSQL.
+func claimIdleReservation(ctx context.Context, expectedRevision int64, owner, ownerKind, scopeJSON, verifier string, ordinary bool) (*Reservation, error) {
+	affected, err := db.GetEngine(ctx).Where("id=1 AND owner=? AND revision=?", "", expectedRevision).
+		Incr("revision").Incr("generation").
+		Cols("owner", "owner_kind", "verifier", "scope").
+		Update(&Reservation{Owner: owner, OwnerKind: ownerKind, Verifier: verifier, Scope: scopeJSON})
+	if err != nil {
+		return nil, err
+	}
+	claimed := new(Reservation)
+	has, err := db.GetEngine(ctx).ID(1).NoAutoCondition().Get(claimed)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, errors.New("native mutation reservation is missing")
+	}
+	if affected == 0 {
+		if claimed.Owner != "" {
+			return nil, ErrBusy
+		}
+		if !ordinary && claimed.Revision != expectedRevision {
+			return nil, ErrStaleRevision
+		}
+		return nil, ErrBusy
+	}
+	return claimed, nil
+}
+
+// readClaimReservation reads the reservation row for a claim transaction.
+// The row is created outside the transaction by ReadReservation, so a
+// missing row here is unexpected and fails the claim.
+func readClaimReservation(ctx context.Context) (*Reservation, error) {
+	reservation := new(Reservation)
+	has, err := db.GetEngine(ctx).ID(1).NoAutoCondition().Get(reservation)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, errors.New("native mutation reservation is missing")
+	}
+	return reservation, nil
+}
+
 // ClaimConditional durably records a pending conditional operation and claims
 // the idle reservation for it in one transaction, advancing the revision.
 // owner identifies the holding operation, scopeJSON its permitted effect and
@@ -183,18 +237,14 @@ func ClaimConditional(ctx context.Context, op *Operation, owner, scopeJSON, veri
 	if OfflineInhibited() {
 		return nil, ErrInhibited
 	}
+	if _, err := ReadReservation(ctx); err != nil {
+		return nil, err
+	}
 	var claimed *Reservation
 	err := db.WithTx(ctx, func(ctx context.Context) error {
-		reservation := new(Reservation)
-		has, err := db.GetEngine(ctx).ID(1).NoAutoCondition().Get(reservation)
+		reservation, err := readClaimReservation(ctx)
 		if err != nil {
 			return err
-		}
-		if !has {
-			reservation = &Reservation{ID: 1, Revision: 1}
-			if err := db.Insert(ctx, reservation); err != nil {
-				return err
-			}
 		}
 		if reservation.Owner != "" {
 			return ErrBusy
@@ -207,16 +257,11 @@ func ClaimConditional(ctx context.Context, op *Operation, owner, scopeJSON, veri
 		if err := db.Insert(ctx, op); err != nil {
 			return err
 		}
-		reservation.Revision++
-		reservation.Owner = owner
-		reservation.Generation++
-		reservation.OwnerKind = OwnerConditional
-		reservation.Verifier = verifier
-		reservation.Scope = scopeJSON
-		if _, err := db.GetEngine(ctx).ID(1).Cols("revision", "owner", "generation", "owner_kind", "verifier", "scope").Update(reservation); err != nil {
+		claimedRow, err := claimIdleReservation(ctx, op.ExpectedNativeRevision, owner, OwnerConditional, scopeJSON, verifier, false)
+		if err != nil {
 			return err
 		}
-		claimed = reservation
+		claimed = claimedRow
 		return nil
 	})
 	if err != nil {
@@ -258,6 +303,9 @@ func ClaimPublishReceive(ctx context.Context, installationID, operationID, owner
 	if OfflineInhibited() {
 		return nil, nil, ErrInhibited
 	}
+	if _, err := ReadReservation(ctx); err != nil {
+		return nil, nil, err
+	}
 	var claimedOp *Operation
 	var claimed *Reservation
 	err := db.WithTx(ctx, func(ctx context.Context) error {
@@ -274,16 +322,9 @@ func ClaimPublishReceive(ctx context.Context, installationID, operationID, owner
 		if op.NotAfter <= nowUnix {
 			return ErrOperationExpired
 		}
-		reservation := new(Reservation)
-		has, err := db.GetEngine(ctx).ID(1).NoAutoCondition().Get(reservation)
+		reservation, err := readClaimReservation(ctx)
 		if err != nil {
 			return err
-		}
-		if !has {
-			reservation = &Reservation{ID: 1, Revision: 1}
-			if err := db.Insert(ctx, reservation); err != nil {
-				return err
-			}
 		}
 		if reservation.Owner != "" {
 			return ErrBusy
@@ -291,17 +332,12 @@ func ClaimPublishReceive(ctx context.Context, installationID, operationID, owner
 		if reservation.Revision != op.ExpectedNativeRevision {
 			return ErrStaleRevision
 		}
-		reservation.Revision++
-		reservation.Owner = owner
-		reservation.Generation++
-		reservation.OwnerKind = OwnerConditional
-		reservation.Verifier = verifier
-		reservation.Scope = scopeJSON
-		if _, err := db.GetEngine(ctx).ID(1).Cols("revision", "owner", "generation", "owner_kind", "verifier", "scope").Update(reservation); err != nil {
+		claimedRow, err := claimIdleReservation(ctx, op.ExpectedNativeRevision, owner, OwnerConditional, scopeJSON, verifier, false)
+		if err != nil {
 			return err
 		}
 		claimedOp = op
-		claimed = reservation
+		claimed = claimedRow
 		return nil
 	})
 	if err != nil {
@@ -454,25 +490,23 @@ func ClaimOrdinary(ctx context.Context, owner, scopeJSON, verifier string) (*Res
 	if OfflineInhibited() {
 		return nil, ErrInhibited
 	}
+	if _, err := ReadReservation(ctx); err != nil {
+		return nil, err
+	}
 	var claimed *Reservation
 	err := db.WithTx(ctx, func(ctx context.Context) error {
-		reservation, err := ReadReservation(ctx)
+		reservation, err := readClaimReservation(ctx)
 		if err != nil {
 			return err
 		}
 		if reservation.Owner != "" {
 			return ErrBusy
 		}
-		reservation.Revision++
-		reservation.Owner = owner
-		reservation.Generation++
-		reservation.OwnerKind = OwnerOrdinary
-		reservation.Verifier = verifier
-		reservation.Scope = scopeJSON
-		if _, err := db.GetEngine(ctx).ID(1).Cols("revision", "owner", "generation", "owner_kind", "verifier", "scope").Update(reservation); err != nil {
+		claimedRow, err := claimIdleReservation(ctx, reservation.Revision, owner, OwnerOrdinary, scopeJSON, verifier, true)
+		if err != nil {
 			return err
 		}
-		claimed = reservation
+		claimed = claimedRow
 		return nil
 	})
 	if err != nil {
