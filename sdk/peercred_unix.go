@@ -37,8 +37,10 @@ func PeerCredential(conn net.Conn) (UnixPeer, error) {
 	if syscallErr != nil {
 		return UnixPeer{}, errors.New("unix peer credentials are unavailable")
 	}
-	if peer.PID <= 0 {
-		return UnixPeer{}, errors.New("unix peer credentials are unavailable")
-	}
+	// A zero PID is the kernel's value for a peer in another PID namespace,
+	// which is the normal shape of the cross-container service bridge. The
+	// UID and GID stay valid across PID namespaces and are the only
+	// authorized identity; the PID is never compared, so it must not gate
+	// credentials that are otherwise present.
 	return peer, nil
 }

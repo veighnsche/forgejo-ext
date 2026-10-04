@@ -504,7 +504,10 @@ func ParseUnixPeer(remoteAddr string) (UnixPeer, error) {
 			}
 		case "pid":
 			number, err := strconv.ParseInt(value, 10, 32)
-			if err != nil || number <= 0 {
+			// PID 0 round-trips a peer in another PID namespace (the
+			// cross-container service bridge); only negative PIDs, which
+			// the kernel never reports, are malformed.
+			if err != nil || number < 0 {
 				return peer, errors.New("invalid unix peer address")
 			}
 			peer.PID = int32(number)

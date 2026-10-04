@@ -55,7 +55,17 @@ func TestUnixPeerAddressRoundTrip(t *testing.T) {
 	if peer.UID != 1001 || peer.GID != 1002 || peer.PID != 4242 {
 		t.Fatalf("peer round trip failed: %+v", peer)
 	}
-	for _, invalid := range []string{"", "uid=1;gid=2", "uid=x;gid=2;pid=3", "uid=1;gid=2;pid=0", "uid=1;gid=2;pid=3;extra=4"} {
+	// PID 0 is the kernel's cross-PID-namespace peer (the service bridge
+	// listener and client live in different containers); it must round-trip
+	// with its UID/GID intact instead of failing as malformed.
+	peer, err = ParseUnixPeer(FormatUnixPeer(UnixPeer{UID: 1000, GID: 1000, PID: 0}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if peer.UID != 1000 || peer.GID != 1000 || peer.PID != 0 {
+		t.Fatalf("cross-namespace peer round trip failed: %+v", peer)
+	}
+	for _, invalid := range []string{"", "uid=1;gid=2", "uid=x;gid=2;pid=3", "uid=1;gid=2;pid=-1", "uid=1;gid=2;pid=3;extra=4"} {
 		if _, err := ParseUnixPeer(invalid); err == nil {
 			t.Fatalf("invalid peer address %q must fail", invalid)
 		}
