@@ -12,6 +12,7 @@ const (
 	SocketEnv               = "FORGEJO_EXTENSION_SOCKET"
 	CallbackEnv             = "FORGEJO_EXTENSION_CALLBACK_SOCKET"
 	ServiceCallbackEnv      = "FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET"
+	ServiceCallbackPeerEnv  = "FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID"
 	DataEnv                 = "FORGEJO_EXTENSION_DATA"
 
 	CapabilityActorRead               = "native.actor.read"
@@ -56,6 +57,9 @@ type Authority struct {
 	Repository        *Repository  `json:"repository,omitempty"`
 	admission         string
 	callbackSocket    string
+	serviceCallback   bool
+	servicePeerUID    uint32
+	servicePeerPinned bool
 }
 
 type RepositoryPage struct {

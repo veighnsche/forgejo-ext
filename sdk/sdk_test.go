@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -293,6 +294,95 @@ func TestNativeClientVerifiesHostPeer(t *testing.T) {
 	if _, err := absent.CurrentActor(context.Background()); err == nil {
 		t.Fatal("absent callback socket accepted")
 	}
+}
+
+// TestNativeClientServicePeerIdentity proves the shared service callback can
+// run under a different UID than the extension: the pinned peer identity is
+// accepted, any other listener UID is refused before request bytes flow, and
+// an unset pin keeps the same-user check. A malformed pin fails loudly.
+func TestNativeClientServicePeerIdentity(t *testing.T) {
+	root := filepath.Join("..", ".artifacts", "tmp")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	directory, err := os.MkdirTemp(root, "sdk-service-peer-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(directory)
+	socket := filepath.Join(directory, "service.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	var gotRequest bool
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotRequest = true
+		_ = json.NewEncoder(w).Encode(CallbackResponse{Actor: &Actor{ID: "1", Username: "soda-tester"}})
+	})}
+	go func() { _ = server.Serve(listener) }()
+	defer server.Close()
+
+	authorityFor := func(t *testing.T, peer string) Authority {
+		t.Helper()
+		t.Setenv(CallbackEnv, filepath.Join(directory, "unused.sock"))
+		t.Setenv(ServiceCallbackEnv, socket)
+		if peer != "" {
+			t.Setenv(ServiceCallbackPeerEnv, peer)
+		}
+		request := httptest.NewRequest(http.MethodGet, "/", nil)
+		request.Header.Set(ContextHeader, `{"extension_id":"soda","instance_id":"run-1","session_generation":"session-1","contribution":{"id":"spaces","kind":"page","scope":"global","action":"get"},"actor":{"id":"1","username":"soda-tester","site_admin":false}}`)
+		request.Header.Set(AdmissionHeader, "private-admission")
+		authority, err := RequestContext(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return authority
+	}
+
+	t.Run("pinned match succeeds", func(t *testing.T) {
+		gotRequest = false
+		authority := authorityFor(t, strconv.FormatUint(uint64(os.Geteuid()), 10))
+		actor, err := authority.Native().CurrentActor(context.Background())
+		if err != nil || actor.ID != "1" {
+			t.Fatalf("service callback: %+v, %v", actor, err)
+		}
+		if !gotRequest {
+			t.Fatal("service callback request never reached the listener")
+		}
+	})
+
+	t.Run("pinned mismatch refused silently", func(t *testing.T) {
+		gotRequest = false
+		authority := authorityFor(t, strconv.FormatUint(uint64(os.Geteuid())+1, 10))
+		if _, err := authority.Native().CurrentActor(context.Background()); err == nil {
+			t.Fatal("wrong service peer accepted")
+		}
+		if gotRequest {
+			t.Fatal("request bytes reached the wrong service peer")
+		}
+	})
+
+	t.Run("unset pin keeps same-user check", func(t *testing.T) {
+		os.Unsetenv(ServiceCallbackPeerEnv)
+		authority := authorityFor(t, "")
+		if _, err := authority.Native().CurrentActor(context.Background()); err != nil {
+			t.Fatalf("same-user service callback without pin: %v", err)
+		}
+	})
+
+	t.Run("malformed pin fails loudly", func(t *testing.T) {
+		t.Setenv(CallbackEnv, filepath.Join(directory, "unused.sock"))
+		t.Setenv(ServiceCallbackEnv, socket)
+		t.Setenv(ServiceCallbackPeerEnv, "not-a-uid")
+		request := httptest.NewRequest(http.MethodGet, "/", nil)
+		request.Header.Set(ContextHeader, `{"extension_id":"soda","instance_id":"run-1","session_generation":"session-1","contribution":{"id":"spaces","kind":"page","scope":"global","action":"get"},"actor":{"id":"1","username":"soda-tester","site_admin":false}}`)
+		request.Header.Set(AdmissionHeader, "private-admission")
+		if _, err := RequestContext(request); err == nil {
+			t.Fatal("malformed service peer identity accepted")
+		}
+	})
 }
 
 func TestManifestDeclarations(t *testing.T) {

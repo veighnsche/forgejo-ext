@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ const (
 	OperationPublicSSHKeys     = "user.public_keys"
 )
 
-// CallbackRequest is sent only on the private, per-instance host socket.
+// CallbackRequest is sent only on the private host socket.
 // The host resolves the actor from the admission, never from this body.
 type CallbackRequest struct {
 	Operation    string    `json:"operation"`
@@ -84,6 +85,15 @@ func RequestContext(r *http.Request) (Authority, error) {
 	authority.callbackSocket = os.Getenv(CallbackEnv)
 	if serviceSocket := os.Getenv(ServiceCallbackEnv); serviceSocket != "" {
 		authority.callbackSocket = serviceSocket
+		authority.serviceCallback = true
+		if raw := os.Getenv(ServiceCallbackPeerEnv); raw != "" {
+			uid, err := strconv.ParseUint(raw, 10, 32)
+			if err != nil {
+				return Authority{}, errors.New("invalid service callback peer identity")
+			}
+			authority.servicePeerUID = uint32(uid)
+			authority.servicePeerPinned = true
+		}
 	}
 	return authority, nil
 }
@@ -101,10 +111,16 @@ func decimalID(id string) bool {
 }
 
 func (a Authority) Native() NativeClient {
-	// The host spawns the extension without changing users, so the deployed
-	// callback listener always runs as this process's own UID. The dial
+	// Per-instance hosts spawn the extension without changing users, so that
+	// callback listener runs as this process's own UID. The shared service
+	// callback instead runs inside Forgejo under a fixed service identity,
+	// pinned by FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID. The dial
 	// verifies the listener against that identity before sending anything.
-	return &nativeClient{socket: a.callbackSocket, admission: a.admission, authority: a, expectedUID: uint32(os.Geteuid())}
+	expected := uint32(os.Geteuid())
+	if a.serviceCallback && a.servicePeerPinned {
+		expected = a.servicePeerUID
+	}
+	return &nativeClient{socket: a.callbackSocket, admission: a.admission, authority: a, expectedUID: expected}
 }
 
 type nativeClient struct {
