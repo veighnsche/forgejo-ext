@@ -4,6 +4,7 @@
 package extensions
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,8 +56,16 @@ func LoadManifest(packageDir string) (Manifest, error) {
 		return Manifest{}, err
 	}
 	defer f.Close()
+	const maximumManifestBytes = 1 << 20
+	data, err := io.ReadAll(io.LimitReader(f, maximumManifestBytes+1))
+	if err != nil {
+		return Manifest{}, fmt.Errorf("read extension manifest: %w", err)
+	}
+	if len(data) > maximumManifestBytes {
+		return Manifest{}, errors.New("extension manifest exceeds size limit")
+	}
 	var manifest Manifest
-	dec := json.NewDecoder(io.LimitReader(f, 1<<20))
+	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&manifest); err != nil {
 		return Manifest{}, fmt.Errorf("decode extension manifest: %w", err)

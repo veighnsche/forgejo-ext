@@ -4,6 +4,7 @@
 package extensions
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -81,7 +82,15 @@ func (a Application) handler() http.Handler {
 }
 
 func decodeRequest(r *http.Request, target any) error {
-	decoder := json.NewDecoder(io.LimitReader(r.Body, 64<<10))
+	const maximumRequestBytes = 64 << 10
+	data, err := io.ReadAll(io.LimitReader(r.Body, maximumRequestBytes+1))
+	if err != nil {
+		return errors.New("read request body failed")
+	}
+	if len(data) > maximumRequestBytes {
+		return errors.New("request body exceeds limit")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		return err
