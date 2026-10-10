@@ -530,6 +530,7 @@ func SubmitInstall(ctx *context.Context) {
 	}
 
 	setting.EnvironmentToConfig(cfg, os.Environ())
+	discardResolvedDatabasePasswordWhenURIConfigured(cfg)
 
 	if err = cfg.SaveTo(setting.CustomConf); err != nil {
 		ctx.RenderWithErr(ctx.Tr("install.save_config_failed", err), tplInstall, &form)
@@ -632,6 +633,13 @@ func SubmitInstall(ctx *context.Context) {
 
 		// After the HTTP server for "install" shuts down, the `runWeb()` will continue to run the "normal" server
 	}()
+}
+
+func discardResolvedDatabasePasswordWhenURIConfigured(cfg setting.ConfigProvider) {
+	database := cfg.Section("database")
+	if database.Key("PASSWD_URI").String() != "" {
+		database.DeleteKey("PASSWD")
+	}
 }
 
 // InstallDone shows the "post-install" page, makes it easier to develop the page.

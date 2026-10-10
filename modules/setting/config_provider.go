@@ -40,6 +40,7 @@ type ConfigSection interface {
 	Name() string
 	MapTo(any) error
 	HasKey(key string) bool
+	DeleteKey(key string)
 	NewKey(name, value string) (ConfigKey, error)
 	Key(key string) ConfigKey
 	Keys() []ConfigKey
@@ -153,6 +154,10 @@ func (s *iniConfigSection) MapTo(v any) error {
 
 func (s *iniConfigSection) HasKey(key string) bool {
 	return s.sec.HasKey(key)
+}
+
+func (s *iniConfigSection) DeleteKey(key string) {
+	s.sec.DeleteKey(key)
 }
 
 func (s *iniConfigSection) NewKey(name, value string) (ConfigKey, error) {
