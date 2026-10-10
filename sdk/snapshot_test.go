@@ -40,6 +40,12 @@ func TestValidateSnapshotRequestAcceptsBoundedSelectors(t *testing.T) {
 			Families:   []string{SnapshotFamilyPull, SnapshotFamilyReviews},
 			PullNumber: "9",
 		},
+		{
+			RepositoryID: "3", ActorID: "7",
+			Families: []string{SnapshotFamilyRefs, SnapshotFamilyAncestry},
+			Refs:     []string{"refs/heads/main"},
+			Ancestry: &SnapshotAncestryRequest{AncestorOID: snapshotTestSHA, DescendantOID: strings.Repeat("a", 40)},
+		},
 	}
 	for i, req := range good {
 		if err := ValidateSnapshotRequest(req); err != nil {
@@ -69,6 +75,10 @@ func TestValidateSnapshotRequestRefusesMalformedSelectors(t *testing.T) {
 		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyIssue}, IssueIndex: "5", Limit: 500},
 		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyChecks}, SHA: "short"},
 		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyRefs}, Refs: []string{"candidate"}},
+		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyAncestry}, Ancestry: &SnapshotAncestryRequest{AncestorOID: snapshotTestSHA, DescendantOID: strings.Repeat("a", 40)}},
+		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyRefs, SnapshotFamilyAncestry}, Refs: []string{"refs/heads/main"}},
+		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyRefs, SnapshotFamilyAncestry}, Refs: []string{"refs/heads/main"}, Ancestry: &SnapshotAncestryRequest{AncestorOID: "short", DescendantOID: strings.Repeat("a", 40)}},
+		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyRefs, SnapshotFamilyAncestry}, Refs: []string{"refs/heads/main"}, Ancestry: &SnapshotAncestryRequest{AncestorOID: snapshotTestSHA, DescendantOID: "short"}},
 		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyIssue}, IssueIndex: "5", Cursor: "not-an-id"},
 		{RepositoryID: "3", ActorID: "7", Families: []string{SnapshotFamilyIssue}, IssueIndex: "5", Cursor: strings.Repeat("1", SnapshotCursorLimit+1)},
 	}

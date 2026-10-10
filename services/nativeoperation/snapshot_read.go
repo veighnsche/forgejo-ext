@@ -9,6 +9,8 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	sdk "forgejo.org/extension-sdk"
 	"forgejo.org/models/db"
@@ -61,6 +63,8 @@ const (
 	// snapshotLifecycleCap bounds title/lifecycle transitions per comment
 	// kind; overflow marks the issue incomplete.
 	snapshotLifecycleCap = 64
+	// snapshotAncestryTimeout bounds repository object resolution and Git ancestry.
+	snapshotAncestryTimeout = 5 * time.Second
 )
 
 // ReadSnapshot loads one permission-checked native snapshot for a verified
@@ -152,6 +156,12 @@ func (s *Service) ReadSnapshot(ctx context.Context, actorID int64, req sdk.Snaps
 				return sdk.NativeSnapshot{}, err
 			}
 			snapshot.Refs = refs
+		case sdk.SnapshotFamilyAncestry:
+			ancestry, err := loader.ancestry(ctx, req.Ancestry)
+			if err != nil {
+				return sdk.NativeSnapshot{}, err
+			}
+			snapshot.Ancestry = ancestry
 		default:
 			return sdk.NativeSnapshot{}, ErrSnapshotInvalid
 		}
@@ -757,4 +767,39 @@ func (l *snapshotLoader) refs(ctx context.Context, refs []string) ([]sdk.Snapsho
 		})
 	}
 	return out, nil
+}
+
+// ancestry returns only the requested scalar witness. The inherited context
+// reaches git.Command through Repository.Ctx and cancels object resolution and
+// merge-base together when the fixed read deadline expires.
+func (l *snapshotLoader) ancestry(ctx context.Context, request *sdk.SnapshotAncestryRequest) (*sdk.SnapshotAncestry, error) {
+	if !l.permission.CanRead(unit.TypeCode) {
+		return nil, ErrSnapshotNotFound
+	}
+	readCtx, cancel := context.WithTimeout(ctx, snapshotAncestryTimeout)
+	defer cancel()
+	repository, err := git.OpenRepository(readCtx, l.repository.RepoPath())
+	if err != nil {
+		return nil, ErrSnapshotUnavailable
+	}
+	defer repository.Close()
+	descendant, err := repository.GetCommit(request.DescendantOID)
+	if err != nil || !strings.EqualFold(descendant.ID.String(), request.DescendantOID) {
+		return nil, ErrSnapshotUnavailable
+	}
+	ancestor, err := repository.GetCommit(request.AncestorOID)
+	if err != nil || !strings.EqualFold(ancestor.ID.String(), request.AncestorOID) {
+		return nil, ErrSnapshotUnavailable
+	}
+	reachable := descendant.ID.String() == ancestor.ID.String()
+	if !reachable {
+		reachable, err = descendant.HasPreviousCommit(ancestor.ID)
+		if err != nil {
+			return nil, ErrSnapshotUnavailable
+		}
+	}
+	if err := readCtx.Err(); err != nil {
+		return nil, ErrSnapshotUnavailable
+	}
+	return &sdk.SnapshotAncestry{AncestorOID: request.AncestorOID, DescendantOID: request.DescendantOID, Reachable: reachable}, nil
 }

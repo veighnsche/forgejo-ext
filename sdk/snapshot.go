@@ -32,6 +32,7 @@ const (
 	SnapshotFamilyReviews      = "reviews"
 	SnapshotFamilyChecks       = "checks"
 	SnapshotFamilyRefs         = "refs"
+	SnapshotFamilyAncestry     = "ancestry"
 )
 
 // Snapshot bounds keep reads bounded and attributable.
@@ -46,6 +47,14 @@ const (
 // broadening or defaulting them.
 var ErrInvalidSnapshotRequest = errors.New("invalid native snapshot request")
 
+// SnapshotAncestryRequest selects a scalar relation between two exact Git commits.
+type SnapshotAncestryRequest struct {
+	// AncestorOID is the exact candidate/result whose reachability is checked.
+	AncestorOID string `json:"ancestor_oid"`
+	// DescendantOID is the exact currently observed target tip.
+	DescendantOID string `json:"descendant_oid"`
+}
+
 // SnapshotRequest selects bounded native evidence. Native integer IDs use
 // decimal strings; refs are full branch refs; SHAs are full object IDs.
 // ActorID names the bound native actor whose credential is presented
@@ -53,22 +62,23 @@ var ErrInvalidSnapshotRequest = errors.New("invalid native snapshot request")
 // to that actor. Cursor is an opaque decimal after-ID for list families:
 // items carry IDs strictly greater than the cursor, ordered ascending.
 type SnapshotRequest struct {
-	RepositoryID string   `json:"repository_id"`
-	ActorID      string   `json:"actor_id"`
-	Families     []string `json:"families"`
-	IssueIndex   string   `json:"issue_index,omitempty"`
-	PullNumber   string   `json:"pull_number,omitempty"`
-	CommentIDs   []string `json:"comment_ids,omitempty"`
-	SHA          string   `json:"sha,omitempty"`
-	Refs         []string `json:"refs,omitempty"`
-	Limit        int      `json:"limit,omitempty"`
-	Cursor       string   `json:"cursor,omitempty"`
+	RepositoryID string                   `json:"repository_id"`
+	ActorID      string                   `json:"actor_id"`
+	Families     []string                 `json:"families"`
+	IssueIndex   string                   `json:"issue_index,omitempty"`
+	PullNumber   string                   `json:"pull_number,omitempty"`
+	CommentIDs   []string                 `json:"comment_ids,omitempty"`
+	SHA          string                   `json:"sha,omitempty"`
+	Refs         []string                 `json:"refs,omitempty"`
+	Limit        int                      `json:"limit,omitempty"`
+	Cursor       string                   `json:"cursor,omitempty"`
+	Ancestry     *SnapshotAncestryRequest `json:"ancestry,omitempty"`
 }
 
 func validSnapshotFamily(family string) bool {
 	switch family {
 	case SnapshotFamilyIssue, SnapshotFamilyComments, SnapshotFamilyDependencies,
-		SnapshotFamilyPull, SnapshotFamilyReviews, SnapshotFamilyChecks, SnapshotFamilyRefs:
+		SnapshotFamilyPull, SnapshotFamilyReviews, SnapshotFamilyChecks, SnapshotFamilyRefs, SnapshotFamilyAncestry:
 		return true
 	default:
 		return false
@@ -123,7 +133,7 @@ func ValidateSnapshotRequest(req SnapshotRequest) error {
 	if !snapshotDecimalID(req.RepositoryID) || !snapshotDecimalID(req.ActorID) {
 		return ErrInvalidSnapshotRequest
 	}
-	if len(req.Families) == 0 || len(req.Families) > 7 {
+	if len(req.Families) == 0 || len(req.Families) > 8 {
 		return ErrInvalidSnapshotRequest
 	}
 	seen := make(map[string]bool, len(req.Families))
@@ -165,6 +175,13 @@ func ValidateSnapshotRequest(req SnapshotRequest) error {
 		return ErrInvalidSnapshotRequest
 	}
 	if seen[SnapshotFamilyRefs] && len(req.Refs) == 0 {
+		return ErrInvalidSnapshotRequest
+	}
+	if seen[SnapshotFamilyAncestry] != (req.Ancestry != nil) {
+		return ErrInvalidSnapshotRequest
+	}
+	if req.Ancestry != nil && (!seen[SnapshotFamilyRefs] ||
+		!snapshotFullOID(req.Ancestry.AncestorOID) || !snapshotFullOID(req.Ancestry.DescendantOID)) {
 		return ErrInvalidSnapshotRequest
 	}
 	if seen[SnapshotFamilyChecks] && req.SHA == "" {
@@ -371,6 +388,14 @@ type SnapshotRef struct {
 	Complete     bool   `json:"complete"`
 }
 
+// SnapshotAncestry is one scalar reachability witness for exact Git objects.
+// The host returns no graph or commit metadata.
+type SnapshotAncestry struct {
+	AncestorOID   string `json:"ancestor_oid"`
+	DescendantOID string `json:"descendant_oid"`
+	Reachable     bool   `json:"reachable"`
+}
+
 // NativeSnapshot is one evidence set answering a SnapshotRequest. Only
 // requested families are present. The caller binds its bracketed native
 // revision; the host never sets it.
@@ -383,4 +408,5 @@ type NativeSnapshot struct {
 	Reviews      *SnapshotReviewPage     `json:"reviews,omitempty"`
 	Checks       *SnapshotCheckSet       `json:"checks,omitempty"`
 	Refs         []SnapshotRef           `json:"refs,omitempty"`
+	Ancestry     *SnapshotAncestry       `json:"ancestry,omitempty"`
 }
