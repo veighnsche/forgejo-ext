@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"code.forgejo.org/xorm/xorm"
 	"code.forgejo.org/xorm/xorm/names"
@@ -24,7 +25,7 @@ import (
 // PostgreSQL and swaps it in as the default engine for one test, restoring
 // the shared unit-test engine afterwards. It skips without
 // FORGEJO_TEST_PG_DSN, so ordinary runs stay on SQLite.
-func useDisposablePostgres(t *testing.T) {
+func useDisposablePostgres(t *testing.T) *xorm.Engine {
 	t.Helper()
 	dsn := os.Getenv("FORGEJO_TEST_PG_DSN")
 	if dsn == "" {
@@ -44,6 +45,129 @@ func useDisposablePostgres(t *testing.T) {
 	require.True(t, ok, "default context carries the unit-test engine")
 	db.SetDefaultEngine(context.Background(), engine)
 	t.Cleanup(func() { db.SetDefaultEngine(context.Background(), previous.Engine()) })
+	return engine
+}
+
+func TestCancellationWinsBlockedAdmissionOnPostgres(t *testing.T) {
+	engine := useDisposablePostgres(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	start, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	owner := "cond:" + testInstallation + "/op-pg-cancel-admission"
+	_, err = model.ClaimConditional(ctx, testOperation("op-pg-cancel-admission", start.Revision), owner, `{}`, "v")
+	require.NoError(t, err)
+
+	// Keep cancellation uncommitted while admission reads the older pending
+	// row. Its UPDATE then waits on this transaction's row lock. Committing
+	// cancellation first must make the admission transition lose.
+	cancelCtx, commit, err := db.TxContext(ctx)
+	require.NoError(t, err)
+	defer commit.Close()
+	revoked, err := model.RevokeOperation(cancelCtx, testInstallation, "op-pg-cancel-admission")
+	require.NoError(t, err)
+	require.True(t, revoked.Revoked)
+	type result struct {
+		op       *model.Operation
+		admitted bool
+		err      error
+	}
+	finished := make(chan result, 1)
+	go func() {
+		op, admitted, err := model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-cancel-admission", owner, true, "")
+		finished <- result{op, admitted, err}
+	}()
+	require.Eventually(t, func() bool {
+		var waiting struct{ Count int64 }
+		has, err := engine.SQL(`SELECT count(*) AS count FROM pg_stat_activity
+			WHERE datname = current_database() AND pid <> pg_backend_pid()
+			AND wait_event_type = 'Lock' AND query ILIKE '%UPDATE%operation%admitted%'`).Get(&waiting)
+		return err == nil && has && waiting.Count == 1
+	}, 10*time.Second, 10*time.Millisecond, "admission must reach the locked UPDATE after its read")
+	require.NoError(t, commit.Commit())
+	select {
+	case got := <-finished:
+		require.NoError(t, got.err)
+		require.False(t, got.admitted)
+		require.True(t, got.op.Revoked)
+		require.False(t, got.op.Admitted)
+		require.Equal(t, model.ReasonCancelledBeforeAdmission, got.op.Reason)
+	case <-ctx.Done():
+		t.Fatal("admission did not settle after cancellation committed")
+	}
+	stored, err := model.LookupOperation(ctx, testInstallation, "op-pg-cancel-admission")
+	require.NoError(t, err)
+	require.True(t, stored.Revoked)
+	require.False(t, stored.Admitted)
+}
+
+func TestCompetingAdmissionsOnPostgres(t *testing.T) {
+	useDisposablePostgres(t)
+	ctx := t.Context()
+	start, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	owner := "cond:" + testInstallation + "/op-pg-admission-race"
+	_, err = model.ClaimConditional(ctx, testOperation("op-pg-admission-race", start.Revision), owner, `{}`, "v")
+	require.NoError(t, err)
+	gate := make(chan struct{})
+	var wg sync.WaitGroup
+	admitted := make([]bool, 8)
+	errors := make([]error, len(admitted))
+	for i := range admitted {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-gate
+			_, admitted[i], errors[i] = model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-admission-race", owner, true, "")
+		}()
+	}
+	close(gate)
+	wg.Wait()
+	winners := 0
+	for i := range admitted {
+		require.NoError(t, errors[i])
+		if admitted[i] {
+			winners++
+		}
+	}
+	require.Equal(t, 1, winners)
+	stored, err := model.LookupOperation(ctx, testInstallation, "op-pg-admission-race")
+	require.NoError(t, err)
+	require.True(t, stored.Admitted)
+}
+
+func TestAdmissionBeforeCancellationOnPostgres(t *testing.T) {
+	useDisposablePostgres(t)
+	ctx := t.Context()
+	start, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	owner := "cond:" + testInstallation + "/op-pg-admission-first"
+	_, err = model.ClaimConditional(ctx, testOperation("op-pg-admission-first", start.Revision), owner, `{}`, "v")
+	require.NoError(t, err)
+	_, admitted, err := model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-admission-first", owner, true, "")
+	require.NoError(t, err)
+	require.True(t, admitted)
+	revoked, err := model.RevokeOperation(ctx, testInstallation, "op-pg-admission-first")
+	require.NoError(t, err)
+	require.True(t, revoked.Admitted)
+	require.True(t, revoked.Revoked)
+	require.Equal(t, model.EffectPending, revoked.EffectState)
+	held, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	require.Equal(t, owner, held.Owner, "a cancellation request cannot release an admitted effect")
+	terminal, err := model.SetTerminal(ctx, testInstallation, "op-pg-admission-first", model.TerminalOutcome{
+		EffectState: model.EffectCommitted, Cancellation: model.CancellationTooLate,
+		Completion: model.CompletionComplete, Receipt: `{}`,
+	}, owner)
+	require.NoError(t, err)
+	require.Equal(t, model.CancellationTooLate, terminal.Cancellation)
+	idle, err := model.ReadReservation(ctx)
+	require.NoError(t, err)
+	require.Empty(t, idle.Owner)
+	stable, err := model.SetTerminal(ctx, testInstallation, "op-pg-admission-first", model.TerminalOutcome{EffectState: model.EffectNotCommitted}, "")
+	require.NoError(t, err)
+	require.Equal(t, model.EffectCommitted, stable.EffectState)
+	require.Equal(t, model.CancellationTooLate, stable.Cancellation)
 }
 
 type raceResult struct {

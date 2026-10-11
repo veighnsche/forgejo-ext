@@ -388,6 +388,29 @@ func RecordAdmissionAttempt(ctx context.Context, installationID, operationID, ow
 		if reservation.Owner != owner {
 			return ErrWrongOwner
 		}
+		if admit && !op.Revoked && !op.Admitted {
+			// The transition, rather than the earlier read, decides which
+			// transaction wins against cancellation and other admissions.
+			candidate := &Operation{Admitted: true}
+			affected, err := db.GetEngine(ctx).
+				Where("id=? AND submitted=? AND effect_state=? AND revoked=? AND admitted=?", op.ID, true, EffectPending, false, false).
+				Cols("admitted", "reason").Update(candidate)
+			if err != nil {
+				return err
+			}
+			if affected == 1 {
+				op.Admitted, op.Reason = true, ""
+				recorded, admitted = op, true
+				return nil
+			}
+			op, err = LookupOperation(ctx, installationID, operationID)
+			if err != nil {
+				return err
+			}
+			if op == nil || !op.Submitted || op.EffectState != EffectPending {
+				return ErrAdmissionLost
+			}
+		}
 		if op.Revoked || op.Admitted {
 			// The lost attempt persists the ordering truth: a revoked
 			// operation was cancelled before admission and an admitted
@@ -400,7 +423,13 @@ func RecordAdmissionAttempt(ctx context.Context, installationID, operationID, ow
 			}
 			if op.Reason == "" && derived != "" {
 				op.Reason = derived
-				if _, err := db.GetEngine(ctx).ID(op.ID).Cols("reason").Update(op); err != nil {
+				if _, err := db.GetEngine(ctx).
+					Where("id=? AND effect_state=? AND reason=?", op.ID, EffectPending, "").
+					Cols("reason").Update(op); err != nil {
+					return err
+				}
+				op, err = LookupOperation(ctx, installationID, operationID)
+				if err != nil {
 					return err
 				}
 			}
@@ -415,14 +444,7 @@ func RecordAdmissionAttempt(ctx context.Context, installationID, operationID, ow
 			recorded = op
 			return nil
 		}
-		op.Admitted = true
-		op.Reason = ""
-		if _, err := db.GetEngine(ctx).ID(op.ID).Cols("admitted", "reason").Update(op); err != nil {
-			return err
-		}
-		recorded = op
-		admitted = true
-		return nil
+		return ErrAdmissionLost
 	})
 	if err != nil {
 		return nil, false, err
