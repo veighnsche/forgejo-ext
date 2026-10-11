@@ -28,6 +28,7 @@ var ErrRepositoryNotVisible = errors.New("repository is not visible")
 const (
 	OperationCurrentActor      = "actor.current"
 	OperationRepository        = "repository.get"
+	OperationRepositorySource  = "repository.source"
 	OperationOwnedRepositories = "repositories.owned.search"
 	OperationOrganizationOwner = "organization.owned"
 	OperationPublicSSHKeys     = "user.public_keys"
@@ -42,16 +43,20 @@ type CallbackRequest struct {
 	Cursor       string    `json:"cursor,omitempty"`
 	Limit        int       `json:"limit,omitempty"`
 	Organization string    `json:"organization,omitempty"`
+	SourceCommit string    `json:"source_commit,omitempty"`
+	SourcePaths  []string  `json:"source_paths,omitempty"`
+	SourceActors []string  `json:"source_actors,omitempty"`
 	Authority    Authority `json:"authority"`
 }
 
 type CallbackResponse struct {
-	Actor      *Actor          `json:"actor,omitempty"`
-	Repository *Repository     `json:"repository,omitempty"`
-	Page       *RepositoryPage `json:"page,omitempty"`
-	Owner      *bool           `json:"owner,omitempty"`
-	PublicKeys []PublicKey     `json:"public_keys"`
-	ErrorCode  string          `json:"error_code,omitempty"`
+	Actor      *Actor            `json:"actor,omitempty"`
+	Repository *Repository       `json:"repository,omitempty"`
+	Source     *RepositorySource `json:"source,omitempty"`
+	Page       *RepositoryPage   `json:"page,omitempty"`
+	Owner      *bool             `json:"owner,omitempty"`
+	PublicKeys []PublicKey       `json:"public_keys"`
+	ErrorCode  string            `json:"error_code,omitempty"`
 }
 
 // RequestContext accepts authority only from the private extension listener.
@@ -111,6 +116,10 @@ func decimalID(id string) bool {
 }
 
 func (a Authority) Native() NativeClient {
+	return a.nativeClient()
+}
+
+func (a Authority) nativeClient() *nativeClient {
 	// Per-instance hosts spawn the extension without changing users, so that
 	// callback listener runs as this process's own UID. The shared service
 	// callback instead runs inside Forgejo under a fixed service identity,
@@ -175,7 +184,7 @@ func (c *nativeClient) call(ctx context.Context, request CallbackRequest) (Callb
 		// The callback uses 404 for both a missing repository and one the actor
 		// cannot read. A 403 instead means the extension's callback admission or
 		// capability was rejected, so keep it an ordinary authority error.
-		if request.Operation == OperationRepository && response.StatusCode == http.StatusNotFound {
+		if (request.Operation == OperationRepository || request.Operation == OperationRepositorySource) && response.StatusCode == http.StatusNotFound {
 			return CallbackResponse{}, ErrRepositoryNotVisible
 		}
 		return CallbackResponse{}, fmt.Errorf("native callback returned HTTP %d", response.StatusCode)
@@ -215,7 +224,7 @@ func decodeCallbackResponse(body io.Reader, request CallbackRequest) (CallbackRe
 
 func validCallbackResult(result CallbackResponse, request CallbackRequest) bool {
 	fields := 0
-	for _, present := range []bool{result.Actor != nil, result.Repository != nil, result.Page != nil, result.Owner != nil, result.PublicKeys != nil} {
+	for _, present := range []bool{result.Actor != nil, result.Repository != nil, result.Source != nil, result.Page != nil, result.Owner != nil, result.PublicKeys != nil} {
 		if present {
 			fields++
 		}
@@ -224,6 +233,8 @@ func validCallbackResult(result CallbackResponse, request CallbackRequest) bool 
 		return false
 	}
 	switch request.Operation {
+	case OperationRepositorySource:
+		return ValidRepositorySource(result.Source, request)
 	case OperationCurrentActor:
 		return result.Actor != nil && decimalID(result.Actor.ID)
 	case OperationRepository:

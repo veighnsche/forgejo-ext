@@ -245,7 +245,16 @@ func callbackHandler(instanceID string, service bool) http.Handler {
 			http.Error(w, "native capability not declared", http.StatusForbidden)
 			return
 		}
+		if request.Operation != extension.OperationRepositorySource && (request.SourceCommit != "" || len(request.SourcePaths) != 0 || len(request.SourceActors) != 0) {
+			http.Error(w, "invalid native capability request", http.StatusBadRequest)
+			return
+		}
 		switch request.Operation {
+		case extension.OperationRepositorySource:
+			if extension.ValidateRepositorySourceRequest(request) != nil || request.Query != "" || request.Cursor != "" || request.Limit != 0 || request.Organization != "" {
+				http.Error(w, "invalid native capability request", http.StatusBadRequest)
+				return
+			}
 		case extension.OperationCurrentActor:
 			if request.RepositoryID != "" || request.Query != "" || request.Cursor != "" || request.Limit != 0 || request.Organization != "" {
 				http.Error(w, "invalid native capability request", http.StatusBadRequest)
@@ -284,6 +293,12 @@ func callbackHandler(instanceID string, service bool) http.Handler {
 		var response extension.CallbackResponse
 		var status int
 		switch request.Operation {
+		case extension.OperationRepositorySource:
+			response.Source, status = resolveRepositorySource(callbackCtx, entry, request)
+			if status != http.StatusOK {
+				http.Error(w, "native repository source is unavailable", status)
+				return
+			}
 		case extension.OperationCurrentActor:
 			actor, actorStatus := resolveCurrentActor(callbackCtx, entry)
 			status = actorStatus
@@ -451,7 +466,7 @@ func callbackCapability(operation string) (string, bool) {
 	switch operation {
 	case extension.OperationCurrentActor:
 		return extension.CapabilityActorRead, true
-	case extension.OperationRepository:
+	case extension.OperationRepository, extension.OperationRepositorySource:
 		return extension.CapabilityRepositoryRead, true
 	case extension.OperationOwnedRepositories:
 		return extension.CapabilityOwnedRepositoriesSearch, true
