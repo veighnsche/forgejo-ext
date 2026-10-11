@@ -145,10 +145,15 @@ protection applies to backend calls. Extensions own their UI and styling inside
 their mount roots.
 
 A preferred workspace is composed at the original native URL after the native
-handler and permissions succeed. Browser document GETs render persistent panels
-beside an iframe at that same canonical pathname, query and fragment. Iframe GETs
-render the original page; Fetch Metadata changes presentation only. Authentication,
-account restrictions, credential flows, partial responses, failed responses and
+handler and permissions succeed. Global and repository Workspace render directly
+through the shared native
+head, navbar, repository header and footer templates. Persistent contribution
+roots remain connected while the host replaces native Workspace content. The
+Workspace owner changes presentation without a remount. Ordinary native browser
+document GETs retain panels beside an iframe at the same canonical pathname,
+query and fragment, preserving native frontend initialization. Workspace itself
+is never framed. Iframe GETs render ordinary pages; Fetch Metadata changes
+presentation only. Authentication, account restrictions, credential flows, partial responses, failed responses and
 external navigation keep their native handling. Flash notices consumed by the
 initial GET render in the composed document. Native history uses the actual page
 address, with no wrapper URL or path query. Reloads and uncached departures create

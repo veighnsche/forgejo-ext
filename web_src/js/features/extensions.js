@@ -270,14 +270,14 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
         headers: {Accept: 'text/html'}, signal: AbortSignal.timeout(15000),
       });
       if (invalidated || version !== navigationVersion) return;
-      if (!response.ok) { window.location.assign(path); return; }
-      if (response.headers.get('X-Extension-Session-Generation') !== generation) { invalidate(); return; }
+      if (!response.ok) { window.location.assign(path); return }
+      if (response.headers.get('X-Extension-Session-Generation') !== generation) { invalidate(); return }
       const html = await response.text();
       if (invalidated || version !== navigationVersion) return;
       const native = new DOMParser().parseFromString(html, 'text/html');
       const incoming = native.querySelector('[data-workspace-direct]');
       const content = incoming?.querySelector('[data-extension-workspace-direct-content]');
-      if (!content || incoming.dataset.workspaceSessionGeneration !== generation) { invalidate(); return; }
+      if (!content || incoming.dataset.workspaceSessionGeneration !== generation) { invalidate(); return }
       if (!directContent) {
         directContent = document.createElement('div');
         directContent.setAttribute('data-extension-workspace-direct-content', '');
@@ -334,7 +334,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     const decision = classifyWorkspaceNavigation(link.href, window.location.href, origin, appSubPath);
     if (decision.kind !== 'frame') return;
     event.preventDefault();
-    if (workspacePage(decision.path)) void openWorkspace(decision.path, true);
+    if (workspacePage(decision.path)) openWorkspace(decision.path, true);
     else openNative(decision.path, true);
   }
   document.addEventListener('click', onNativeClick);
@@ -352,7 +352,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     if (decision.kind === 'frame') {
       if (!workspacePage(decision.path)) return;
       event.preventDefault();
-      void openWorkspace(decision.path, true);
+      openWorkspace(decision.path, true);
       return;
     }
     event.preventDefault();
@@ -385,7 +385,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       frame.src = current;
       return;
     }
-    if (workspacePage(decision.path)) { void openWorkspace(decision.path); return; }
+    if (workspacePage(decision.path)) { openWorkspace(decision.path); return }
     document.title = frame.contentDocument.title;
     if (decision.path !== current) {
       current = decision.path;
@@ -415,13 +415,15 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   frame?.addEventListener('load', onFrameLoad);
   const onPopState = () => {
     if (invalidated) return;
+    navigationVersion++;
     const path = workspacePath(`${window.location.pathname}${window.location.search}${window.location.hash}`, base, origin, appSubPath);
     if (!path || path === current) return;
-    if (workspacePage(path)) void openWorkspace(path);
+    if (workspacePage(path)) openWorkspace(path);
     else openNative(path, false, true);
   };
   window.addEventListener('popstate', onPopState);
   const onPageHide = (event) => {
+    navigationVersion++;
     checkVersion++;
     pendingCheck = null;
     workspace.style.display = 'none';

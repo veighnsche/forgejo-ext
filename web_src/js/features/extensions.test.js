@@ -340,7 +340,7 @@ test('direct Workspace uses native content and chrome while retaining contributi
   window.history.replaceState(null, '', '/forge/workspace?view=projects#notes');
   document.body.innerHTML = '<nav id="navbar"><a href="/forge/user/settings">Account</a></nav><main data-extension-workspace data-workspace-direct data-app-sub-url="/forge" data-workspace-path="/forge/workspace?view=projects" data-workspace-session-generation="session-a"><div data-extension-workspace-direct-content>Global Workspace</div><aside class="extension-workspace-panels"><div id="terminal-owner">Live terminal</div></aside></main><footer></footer>';
   const owner = document.getElementById('terminal-owner');
-  const fetcher = vi.fn(async (url) => new Response(`<html><head><title>Repository Workspace</title></head><body><main data-workspace-direct data-workspace-session-generation="session-a"><div data-extension-workspace-direct-content><div class="repo-header">team/repo</div><div data-extension-page data-extension-repository-id="7"></div></div></main></body></html>`, {headers: {'X-Extension-Session-Generation': 'session-a'}}));
+  const fetcher = vi.fn(async () => new Response(`<html><head><title>Repository Workspace</title></head><body><main data-workspace-direct data-workspace-session-generation="session-a"><div data-extension-workspace-direct-content><div class="repo-header">team/repo</div><div data-extension-page data-extension-repository-id="7"></div></div></main></body></html>`, {headers: {'X-Extension-Session-Generation': 'session-a'}}));
   initExtensionWorkspace(fetcher);
   expect(document.querySelector('iframe')).toBeNull();
   expect(document.getElementById('navbar').hidden).toBe(false);
