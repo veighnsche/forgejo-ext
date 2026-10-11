@@ -13,9 +13,7 @@ import (
 )
 
 // Operation kinds mirror the SDK background kinds. Authorization for one kind
-// never grants another. Merge, publish, PR creation and review submission
-// execute; remaining kinds report their stage as unavailable until their
-// owning task lands.
+// never grants another. Each supported kind executes through its own guarded native boundary.
 const (
 	KindIssueGraph   = "issue.graph.mutate"
 	KindRefPublish   = "git.ref.publish"

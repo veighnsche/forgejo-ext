@@ -4,6 +4,7 @@
 package extensions
 
 import (
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -54,6 +55,10 @@ type IssueGraphDependency struct {
 const MaxIssueGraphChanges = 64
 const MaxIssueGraphBodyBytes = 64 << 10
 
+// MaxIssueGraphPayloadBytes leaves room for the authorization envelope within
+// the existing 64 KiB private callback request limit.
+const MaxIssueGraphPayloadBytes = 48 << 10
+
 var ErrInvalidIssueGraphPayload = errors.New("invalid issue graph payload")
 
 func ValidateIssueGraphPayload(p IssueGraphPayload) error {
@@ -99,6 +104,10 @@ func ValidateIssueGraphPayload(p IssueGraphPayload) error {
 			return ErrInvalidIssueGraphPayload
 		}
 		edges[a+"/"+b] = true
+	}
+	encoded, err := json.Marshal(p)
+	if err != nil || len(encoded) > MaxIssueGraphPayloadBytes {
+		return ErrInvalidIssueGraphPayload
 	}
 	return nil
 }

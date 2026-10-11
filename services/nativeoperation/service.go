@@ -130,6 +130,7 @@ type ValidIntent struct {
 	NotAfter               int64
 	Merge                  *MergeIntent
 	Publish                *PublishIntent
+	IssueGraph             *sdk.IssueGraphPayload
 	PRCreate               *PRCreateIntent
 	ReviewSubmit           *ReviewSubmitIntent
 	Digest                 string
@@ -210,6 +211,12 @@ func ValidateIntent(operationID string, actorID, repositoryID int64, kind, authR
 			return nil, ErrInvalidIntent
 		}
 		intent.Publish = publish
+	} else if kind == model.KindIssueGraph {
+		graph, err := parseIssueGraphPayload(payload)
+		if err != nil {
+			return nil, err
+		}
+		intent.IssueGraph = graph
 	} else if kind == model.KindPRCreate {
 		prcreate, err := parsePRCreatePayload(payload, repositoryID)
 		if err != nil {

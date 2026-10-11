@@ -113,7 +113,7 @@ func VerifySubmission(ctx context.Context, request SubmissionRequest) (Submissio
 	if binding == nil {
 		return SubmissionDecision{}, refuse(RefusalBindingMissing, http.StatusForbidden)
 	}
-	// All four background kinds mutate native collaboration state, so the
+	// All supported background kinds mutate native collaboration state, so the
 	// token must currently grant repository write. Kind-specific native
 	// checks stay at each kind's own enforcement boundary.
 	granted, err := token.Scope.HasScope(auth_model.AccessTokenScopeWriteRepository)

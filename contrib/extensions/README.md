@@ -198,3 +198,33 @@ untrusted-code sandbox. Streaming needs a separately verified session-revocation
 and response-writer integration with this Forgejo version before it can carry a
 terminal. Extend these contracts for demonstrated callers instead of exposing
 arbitrary internal objects or adding parallel authentication systems.
+
+## Conditional issue graph changes
+
+The background native operation `issue.graph.mutate` accepts the SDK's
+`IssueGraphPayload`: bounded native issue creations, exact title/body edits and
+explicit dependency additions/removals in one repository. New issues use
+request-local keys; existing issues use database IDs, not issue numbers.
+`IssueGraphReceipt` returns each created key's native ID/index, edited content
+versions and changed edges. At most 64 changes and 48 KiB of encoded payload fit
+one packet within the existing private callback limit. A cycle of any length,
+missing removal, duplicate addition, stale edit or invalid anchor refuses the
+whole packet. Existing dependencies may reference closed prerequisite issues;
+closed, locked or pull-request issues cannot receive requirement edits.
+
+The submitting installation needs its own enrolled `issue.graph.mutate` actor
+binding, a live repository-write token restricted to the target repository, and
+current native code-write and issue-write permission. Another operation kind's
+binding grants no graph authority. Current native revision, expiry, cancellation,
+immutable operation ID and credential-generation checks use the existing
+conditional-operation ledger. Native SQL effects and their attributable receipt
+commit together; replay returns that receipt without creating duplicate issues.
+Native content history and dependency comments retain the actual submitting
+actor. Notifications follow the primary commit, with incomplete delivery reported
+as `needs_intervention`; offline recovery reconciles the exact native receipt and
+never replays issue changes or notification delivery.
+
+The host supplies native mutations only. The extension owns accepted intent,
+objective provenance, split/consolidation meaning, material scope decisions,
+planning invalidation and spending grants. This operation never accepts an
+objective, closes an issue, declares an outcome or grants execution authority.

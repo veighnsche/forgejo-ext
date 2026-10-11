@@ -129,3 +129,9 @@ func SetCompletionAndRelease(ctx context.Context, installationID, operationID, o
 	}
 	return recorded, nil
 }
+
+// CommitIssueGraphPrimary commits native issue changes and their attributable receipt
+// under the same cancellation, expiry and owner ordering as other SQL effects.
+func CommitIssueGraphPrimary(ctx context.Context, installationID, operationID, owner string, nowUnix int64, insert func(context.Context) (string, error)) (*Operation, error) {
+	return commitConditionalPrimary(ctx, installationID, operationID, owner, nowUnix, insert)
+}

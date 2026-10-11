@@ -135,6 +135,9 @@ func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAs
 		return fenced(assessment, ReasonRecoveryMissingEvidence, "operation record is missing for the held owner")
 	}
 	switch op.Kind {
+	case model.KindIssueGraph:
+		assessment.Family = "conditional-issue-graph"
+		return s.recoverConditionalIssueGraph(ctx, assessment, reservation, scope, op)
 	case model.KindMerge:
 		assessment.Family = "conditional-merge"
 		return s.recoverConditionalMerge(ctx, assessment, reservation, scope, op)
