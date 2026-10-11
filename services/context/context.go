@@ -16,6 +16,7 @@ import (
 
 	"forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/base"
 	mc "forgejo.org/modules/cache"
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/httpcache"
@@ -43,8 +44,11 @@ type Context struct {
 
 	TemplateContext *templates.Context
 
-	Render   Render
-	PageData map[string]any // data used by JavaScript modules in one page, it's `window.config.pageData`
+	Render Render
+	// HTMLPresentation selects native page composition after the original
+	// handler and permission checks, without changing the request or route.
+	HTMLPresentation func(status int, name base.TplName) base.TplName
+	PageData         map[string]any // data used by JavaScript modules in one page, it's `window.config.pageData`
 
 	Cache   cache.Cache
 	Flash   *middleware.Flash

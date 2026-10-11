@@ -26,12 +26,12 @@ const maxResponseBytes = 8 << 20
 func api(scope string, panel bool) func(*webcontext.Context) {
 	return func(ctx *webcontext.Context) {
 		if !validAPIOrigin(ctx.Req) {
-			ctx.Error(http.StatusForbidden, "Same-origin extension request required")
+			ctx.Error(http.StatusForbidden, "Same-origin request required")
 			return
 		}
 		manager := runtime.GetManager()
 		if manager == nil {
-			ctx.NotFound("Extension", nil)
+			ctx.NotFound("Page", nil)
 			return
 		}
 		var d runtime.Descriptor
@@ -41,7 +41,7 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 			var ok bool
 			d, transport, ok = manager.Lookup(ctx.Params("extension"))
 			if !ok {
-				ctx.NotFound("Extension", nil)
+				ctx.NotFound("Page", nil)
 				return
 			}
 			found := false
@@ -52,7 +52,7 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 				}
 			}
 			if !found {
-				ctx.NotFound("Extension panel", nil)
+				ctx.NotFound("Panel", nil)
 				return
 			}
 		} else {
@@ -76,7 +76,7 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 		}
 		generation, err := sessionGeneration(ctx)
 		if err != nil {
-			ctx.Error(http.StatusServiceUnavailable, "Extension authority unavailable")
+			ctx.Error(http.StatusServiceUnavailable, "Session authority unavailable")
 			return
 		}
 		providedGeneration := ctx.Req.Header.Get(extension.SessionGenerationHeader)
@@ -86,7 +86,7 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 			providedGeneration = generation
 		}
 		if (!isWebSocket(ctx.Req) && len(ctx.Req.Header.Values(extension.SessionGenerationHeader)) != 1) || len(providedGeneration) != 43 || !hmac.Equal([]byte(providedGeneration), []byte(generation)) {
-			ctx.Error(http.StatusConflict, "Extension page session changed")
+			ctx.Error(http.StatusConflict, "Page session changed")
 			return
 		}
 		repositoryID := ""
@@ -97,14 +97,14 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 			repositoryID = strconv.FormatInt(ctx.Repo.Repository.ID, 10)
 		}
 		if !authorizesContribution(ctx.Req.Context(), d, transport, contribution, repositoryID, ctx.Doer.ID) {
-			ctx.NotFound("Extension contribution", nil)
+			ctx.NotFound("Page", nil)
 			return
 		}
 		requestContext, cancel := extensionRequestContext(ctx.Req)
 		defer cancel()
 		token, admittedAuthority, err := createAdmission(requestContext, ctx, d, generation, authority)
 		if err != nil {
-			ctx.Error(http.StatusServiceUnavailable, "Extension authority unavailable")
+			ctx.Error(http.StatusServiceUnavailable, "Session authority unavailable")
 			return
 		}
 		defer nativeAdmissions.revoke(token)
@@ -126,7 +126,7 @@ func proxy(ctx *webcontext.Context, transport http.RoundTripper, authority exten
 
 func proxyWithAdmission(ctx *webcontext.Context, transport http.RoundTripper, authority extension.Authority, admission string, requestContext context.Context) {
 	if ctx.Req.Header.Get("Upgrade") != "" || strings.Contains(strings.ToLower(ctx.Req.Header.Get("Accept")), "text/event-stream") {
-		ctx.Error(http.StatusNotImplemented, "Extension streaming is not enabled")
+		ctx.Error(http.StatusNotImplemented, "Streaming is not enabled")
 		return
 	}
 	var body io.ReadCloser = http.NoBody
@@ -154,17 +154,17 @@ func proxyWithAdmission(ctx *webcontext.Context, transport http.RoundTripper, au
 	}
 	response, err := transport.RoundTrip(req)
 	if err != nil {
-		ctx.Error(http.StatusBadGateway, "Extension unavailable")
+		ctx.Error(http.StatusBadGateway, "Workspace unavailable")
 		return
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 && response.StatusCode < 400 || strings.HasPrefix(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
-		ctx.Error(http.StatusBadGateway, "Unsupported extension response")
+		ctx.Error(http.StatusBadGateway, "Unsupported service response")
 		return
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
 	if err != nil || len(data) > maxResponseBytes {
-		ctx.Error(http.StatusBadGateway, "Extension response exceeded limits")
+		ctx.Error(http.StatusBadGateway, "Service response exceeded limits")
 		return
 	}
 	ctx.Resp.Header().Set("Cache-Control", "no-store")

@@ -61,7 +61,6 @@
 			{{ctx.Locale.Tr "settings.blocked_users"}}
 		</a>
 		{{with .ExtensionPages}}{{with index . "user"}}
-			<div class="header item">Extensions</div>
 			{{range .}}<a class="{{if eq .URL $.ExtensionPageURL}}active {{end}}item" href="{{.URL}}">{{.Title}}</a>{{end}}
 		{{end}}{{end}}
 	</div>

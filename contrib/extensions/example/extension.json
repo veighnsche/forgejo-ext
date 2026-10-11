@@ -1,17 +1,50 @@
 {
   "protocol": 1,
   "id": "example",
-  "name": "Example extension",
+  "name": "Example application",
   "version": "1.0.0",
   "executable": "backend",
   "capabilities": [],
   "policies": [],
   "preferred_workspace": true,
   "pages": [
-    {"id": "home", "title": "Extension example", "scope": "global", "entry": "page.js"},
-    {"id": "preferences", "title": "Extension preferences", "scope": "user", "permission": "user", "entry": "page.js"},
-    {"id": "repository", "title": "Extension context", "scope": "repository", "permission": "read", "entry": "page.js"},
-    {"id": "administration", "title": "Extension administration", "scope": "admin", "permission": "admin", "entry": "page.js"}
+    {
+      "id": "home",
+      "title": "Workspace",
+      "scope": "global",
+      "entry": "page.js",
+      "route": "workspace"
+    },
+    {
+      "id": "preferences",
+      "title": "Preferences",
+      "scope": "user",
+      "permission": "user",
+      "entry": "page.js",
+      "route": "identity"
+    },
+    {
+      "id": "repository",
+      "title": "Workspace",
+      "scope": "repository",
+      "permission": "read",
+      "entry": "page.js",
+      "route": "workspace"
+    },
+    {
+      "id": "administration",
+      "title": "Workspace administration",
+      "scope": "admin",
+      "permission": "admin",
+      "entry": "page.js",
+      "route": "workspace"
+    }
   ],
-  "panels": [{"id": "notes", "title": "Persistent notes", "entry": "panel.js"}]
+  "panels": [
+    {
+      "id": "notes",
+      "title": "Persistent notes",
+      "entry": "panel.js"
+    }
+  ]
 }

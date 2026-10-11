@@ -4,10 +4,6 @@ function isAuthPath(pathname) {
     /(?:^|\/)(?:install|login\/oauth|login\/openid|oauth2|openid)(?:\/|$)/.test(pathname);
 }
 
-function isWorkspacePath(pathname) {
-  return pathname.endsWith('/-/extensions/workspace') || pathname.includes('/-/extensions/workspace/');
-}
-
 function hasCredentialQuery(url) {
   return Array.from(url.searchParams.keys()).some((key) => /^(?:token|password|secret|client_secret|authorization|auth|code|credential|session|api_key|private_key|.*_token)$/i.test(key));
 }
@@ -26,7 +22,7 @@ export function classifyWorkspaceNavigation(input, base, origin, appSubPath = ''
   if (url.origin !== origin || isAuthPath(url.pathname) || hasCredentialQuery(url)) {
     return {kind: 'top', url: url.href};
   }
-  if (isWorkspacePath(url.pathname)) return {kind: 'reject'};
+  if (/(?:^|\/)-\/native(?:\/|$)/.test(url.pathname)) return {kind: 'reject'};
   return {kind: 'frame', url: url.href, path: `${url.pathname}${url.search}${url.hash}`};
 }
 
@@ -38,7 +34,32 @@ export function workspacePath(input, base, origin, appSubPath = '') {
 
 const importExtension = (url) => import(/* webpackIgnore: true */ url);
 const noop = () => {};
-const sessionCheckPath = (appSubPath) => `${appSubPath}/-/extensions/workspace?session_check=1`;
+const sessionCheckPath = (appSubPath) => `${appSubPath}/-/native/session`;
+
+function validAppSubURL(value) {
+  return typeof value === 'string' && (value === '' ||
+    /^\/[^/\\?#\s]+(?:\/[^/\\?#\s]+)*$/.test(value) &&
+    !/%2f|%5c/i.test(value) && !value.split('/').some((part) => part === '.' || part === '..'));
+}
+
+function nativeMountURL(input, appSubURL) {
+  if (!validAppSubURL(appSubURL) || typeof input !== 'string') return null;
+  try {
+    const url = new URL(input, window.location.href);
+    return url.origin === window.location.origin && !url.username && !url.password && !url.search && !url.hash &&
+      !/%2f|%5c/i.test(url.pathname) && url.pathname.startsWith(`${appSubURL}/`) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function nativeAPIPath(pathname, appSubURL, suffix) {
+  if (!pathname.endsWith(suffix)) return false;
+  const prefix = pathname.slice(0, -suffix.length);
+  if (!prefix.startsWith(appSubURL)) return false;
+  const scope = prefix.slice(appSubURL.length);
+  return scope === '' || scope === '/user/settings' || scope === '/admin' || /^\/[^/]+\/[^/]+$/.test(scope);
+}
 
 function liveSessionMatches(url, generation, fetcher) {
   return Promise.resolve().then(() => fetcher(url, {credentials: 'same-origin', cache: 'no-store', redirect: 'manual'}))
@@ -47,32 +68,38 @@ function liveSessionMatches(url, generation, fetcher) {
 }
 
 export async function mountExtension(root, importer = importExtension) {
-  const {extensionEntry, extensionId, extensionPageId, extensionPanelId, extensionApiBase, extensionAssetBase, extensionSessionGeneration} = root.dataset;
-  const entry = classifyWorkspaceNavigation(extensionEntry, window.location.href, window.location.origin);
-  const assets = classifyWorkspaceNavigation(extensionAssetBase, window.location.href, window.location.origin);
-  const api = classifyWorkspaceNavigation(extensionApiBase, window.location.href, window.location.origin);
-  if (entry.kind !== 'frame' || assets.kind !== 'frame' || api.kind !== 'frame' || !entry.url.startsWith(assets.url) ||
-      !api.url.endsWith('/api/') || !extensionSessionGeneration) {
-    root.textContent = 'Extension mount is invalid.';
+  const {appSubUrl, extensionEntry, extensionId, extensionPageId, extensionPanelId, extensionApiBase, extensionAssetBase, extensionSessionGeneration, extensionRepositoryId} = root.dataset;
+  const entry = nativeMountURL(extensionEntry, appSubUrl);
+  const assets = nativeMountURL(extensionAssetBase, appSubUrl);
+  const api = nativeMountURL(extensionApiBase, appSubUrl);
+  const contribution = extensionPageId ? 'pages' : 'panels';
+  const contributionID = extensionPageId || extensionPanelId;
+  const apiSuffix = `/-/native/${contribution}/${extensionId}/${contributionID}/api/`;
+  if (!entry || !assets || !api || assets.pathname !== `${appSubUrl}/-/native/assets/${extensionId}/` ||
+      !entry.href.startsWith(assets.href) || !nativeAPIPath(api.pathname, appSubUrl, apiSuffix) ||
+      !extensionSessionGeneration) {
+    root.textContent = 'This workspace view is unavailable.';
     return () => {};
   }
   const request = (relativePath, options = {}) => {
-    const target = new URL(relativePath, api.url);
+    const target = new URL(relativePath, api.href);
     if (target.origin !== window.location.origin || target.username || target.password ||
-        !target.href.startsWith(api.url) || /%2f|%5c/i.test(target.pathname)) {
-      throw new TypeError('Extension API URL is invalid');
+        !target.href.startsWith(api.href) || /%2f|%5c/i.test(target.pathname)) {
+      throw new TypeError('Product API URL is invalid');
     }
     const headers = new Headers(options.headers);
     headers.set('X-Extension-Session-Generation', extensionSessionGeneration);
     return window.fetch(target.href, {...options, credentials: 'same-origin', redirect: 'error', cache: 'no-store', headers});
   };
   try {
-    const module = await importer(entry.url);
-    if (typeof module.mount !== 'function') throw new TypeError('Extension entry must export mount');
+    const module = await importer(entry.href);
+    if (typeof module.mount !== 'function') throw new TypeError('Workspace view must export mount');
     const result = await module.mount(root, {
       extensionId,
       pageId: extensionPageId,
       panelId: extensionPanelId,
+      appSubUrl,
+      repositoryId: extensionRepositoryId,
       apiBase: extensionApiBase,
       assetBase: extensionAssetBase,
       sessionGeneration: extensionSessionGeneration,
@@ -80,14 +107,13 @@ export async function mountExtension(root, importer = importExtension) {
     });
     return typeof result === 'function' ? result : typeof result?.dispose === 'function' ? () => result.dispose() : noop;
   } catch (error) {
-    console.error('Could not load extension', error);
-    root.textContent = 'Could not load this extension.';
+    console.error('Could not load workspace view', error);
+    root.textContent = 'Could not load this workspace view.';
     return noop;
   }
 }
 
 export function initExtensionPages(importer = importExtension, fetcher = (...args) => window.fetch(...args)) {
-  if (initPreferredExtensionWorkspace()) return;
   const roots = document.querySelectorAll('[data-extension-page], [data-extension-panel]');
   if (!roots.length) return;
   const pageRoots = Array.from(roots).filter((root) => root.hasAttribute('data-extension-page'));
@@ -107,7 +133,8 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   window.addEventListener('extension-workspace-invalidated', disposeRoots);
   if (!pageRoots.length) return;
   const generation = pageRoots[0].dataset.extensionSessionGeneration;
-  const checkURL = new URL(sessionCheckPath(window.config.appSubUrl), window.location.origin).href;
+  const appSubURL = pageRoots[0].dataset.appSubUrl;
+  const checkURL = new URL(sessionCheckPath(appSubURL), window.location.origin).href;
   let checkVersion = 0;
   let pendingCheck;
   let invalidated = false;
@@ -147,27 +174,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   window.addEventListener('pageshow', onPageShow);
   window.addEventListener('focus', checkSession);
   document.addEventListener('visibilitychange', onVisibilityChange);
-  if (!generation) invalidate();
-}
-
-/** The native page marks this only after the server finds an enabled preferred workspace. */
-export function initPreferredExtensionWorkspace() {
-  if (window.top !== window) return;
-  const hostPath = document.documentElement.dataset.extensionPreferredWorkspace;
-  if (!hostPath) return;
-  let host;
-  try {
-    host = new URL(hostPath, window.location.href);
-  } catch {
-    return;
-  }
-  if (host.origin !== window.location.origin || !host.pathname.endsWith('/-/extensions/workspace')) return;
-  const appSubPath = host.pathname.replace(/\/-\/extensions\/workspace$/, '');
-  const decision = classifyWorkspaceNavigation(window.location.href, window.location.href, window.location.origin, appSubPath);
-  if (decision.kind !== 'frame') return;
-  host.searchParams.set('path', decision.path);
-  window.location.replace(host.href);
-  return true;
+  if (!generation || !validAppSubURL(appSubURL)) invalidate();
 }
 
 export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...args)) {
@@ -178,7 +185,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   const toggle = workspace.querySelector('[data-extension-workspace-toggle]');
   const base = window.location.href;
   const origin = window.location.origin;
-  const appSubPath = window.location.pathname.replace(/\/-\/extensions\/workspace$/, '');
+  const appSubPath = workspace.dataset.appSubUrl;
   const generation = workspace.dataset.workspaceSessionGeneration;
   let invalidated = false;
   let pendingCheck;
@@ -214,7 +221,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     return pendingCheck;
   }
 
-  if (!generation) {
+  if (!generation || !validAppSubURL(appSubPath)) {
     invalidate();
     return;
   }
@@ -224,7 +231,11 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   window.addEventListener('pageshow', onPageShow);
   window.addEventListener('focus', checkSession);
   document.addEventListener('visibilitychange', onVisibilityChange);
-  const initial = workspacePath(workspace.dataset.workspacePath, base, origin, appSubPath) || `${appSubPath}/`;
+  const initial = workspacePath(`${workspace.dataset.workspacePath}${window.location.hash}`, base, origin, appSubPath);
+  if (!initial) {
+    invalidate();
+    return;
+  }
   let current = initial;
   let activeDocument;
   let activeWindow;
@@ -237,10 +248,8 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   });
 
   function updateHistory(path) {
-    const address = new URL(window.location.href);
-    address.searchParams.set('path', path);
     const state = window.history.state;
-    window.history.replaceState({...((state && typeof state === 'object') ? state : {}), extensionWorkspacePath: path}, '', address);
+    window.history.replaceState(state, '', path);
   }
 
   function onFrameClick(event) {
@@ -279,6 +288,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       frame.src = current;
       return;
     }
+    document.title = frame.contentDocument.title;
     location.textContent = decision.path;
     if (decision.path !== current) {
       current = decision.path;
@@ -286,7 +296,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     }
   }
 
-  frame.addEventListener('load', () => {
+  function onFrameLoad() {
     if (invalidated) return;
     try {
       activeDocument?.removeEventListener('click', onFrameClick);
@@ -304,10 +314,11 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       return;
     }
     onFrameNavigation();
-  });
+  }
+  frame.addEventListener('load', onFrameLoad);
   const onPopState = () => {
     if (invalidated) return;
-    const path = workspacePath(new URL(window.location.href).searchParams.get('path'), base, origin, appSubPath);
+    const path = workspacePath(`${window.location.pathname}${window.location.search}${window.location.hash}`, base, origin, appSubPath);
     if (!path || path === current) return;
     current = path;
     frame.src = path;
@@ -318,6 +329,11 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     pendingCheck = null;
     workspace.style.display = 'none';
     if (event.persisted) return;
+    frame.removeEventListener('load', onFrameLoad);
+    activeDocument?.removeEventListener('click', onFrameClick);
+    activeDocument?.removeEventListener('submit', onFrameSubmit);
+    activeWindow?.removeEventListener('hashchange', onFrameNavigation);
+    activeWindow?.removeEventListener('popstate', onFrameNavigation);
     window.removeEventListener('pagehide', onPageHide);
     window.removeEventListener('pageshow', onPageShow);
     window.removeEventListener('focus', checkSession);

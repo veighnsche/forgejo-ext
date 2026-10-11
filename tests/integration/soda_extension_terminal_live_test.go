@@ -111,13 +111,13 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	require.NoError(t, err)
 	owner := loginUser(t, "user2")
 	generationFor := func() string {
-		response := owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/workspace?session_check=1"), http.StatusNoContent)
+		response := owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/native/session"), http.StatusNoContent)
 		value := response.Header().Get(extension.SessionGenerationHeader)
 		require.Len(t, value, 43)
 		return value
 	}
 	generation := generationFor()
-	base := server.URL + "/-/extensions/panels/soda/workspace/api/environments/" + projectID
+	base := server.URL + "/-/native/panels/soda/workspace/api/environments/" + projectID
 	request := func(method, endpoint string, body any, expected int) map[string]any {
 		var payload []byte
 		if body != nil {

@@ -146,6 +146,7 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 		}
 		required[id] = false
 	}
+	claimedRoutes := make(map[string]bool)
 	for _, entry := range entries {
 		if _, ok := required[entry.Name()]; !ok {
 			continue
@@ -187,6 +188,16 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 			return fmt.Errorf("start extension %q: %w", entry.Name(), err)
 		}
 		m.running[item.descriptor.Manifest.ID] = item
+		for _, page := range item.descriptor.Manifest.Pages {
+			if page.Route == "" {
+				continue
+			}
+			key := page.Scope + "/" + page.Route
+			if claimedRoutes[key] {
+				return fmt.Errorf("native page route %q is already claimed", key)
+			}
+			claimedRoutes[key] = true
+		}
 		log.Info("Extension %s started", entry.Name())
 		go m.observeExit(entry.Name(), item)
 	}

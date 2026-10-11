@@ -10,7 +10,7 @@
 	{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings extensions")}}
 		{{template "extensions/content" .}}
 	{{template "repo/settings/layout_footer" .}}
-{{else if eq .ExtensionScope "repository"}}
+{{else if or (eq .ExtensionScope "repository") .ExtensionRepositoryID}}
 	{{template "base/head" .}}
 	<div role="main" aria-label="{{.Title}}" class="page-content repository extensions">
 		{{template "repo/header" .}}

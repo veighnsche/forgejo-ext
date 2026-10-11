@@ -79,14 +79,18 @@ to the package's `assets/` directory and identify ES modules.
 `policies` names registered policy handlers. `preferred_workspace` opts a
 trusted package into the persistent workspace host.
 
-Pages use the corresponding native layout and navigation:
+Pages declare an optional `route` selecting a host-owned slot. The package ID and
+page ID remain private contribution identities, never public page URLs or menu
+groups. A missing `route` declares an API-only contribution. Routes are unique per
+scope across installed running packages; startup refuses collisions with existing
+accounts. Pages use the corresponding native layout and navigation:
 
 | Scope | Permission | Route |
 | --- | --- | --- |
-| `global` | omitted | `/-/extensions/pages/ID/PAGE` |
-| `user` | `user` | `/user/settings/extensions/ID/PAGE` |
-| `repository` | `read`, `write`, or `admin` | `/OWNER/REPO/extensions/ID/PAGE` |
-| `admin` | `admin` | `/admin/extensions/ID/PAGE` |
+| `global` | omitted | `/workspace`, `/tailnet` |
+| `user` | `user` | `/user/settings/workspace`, `/user/settings/identity` |
+| `repository` | `read`, `write`, or `admin` | `/OWNER/REPO/workspace` |
+| `admin` | `admin` | `/admin/workspace` |
 
 Every route requires a native signed-in browser session and the existing native
 account-state checks. Tokens, Basic authentication and reverse-proxy login are
@@ -96,10 +100,12 @@ are omitted from navigation and rejected by direct requests. Repository `admin`
 pages use the native repository settings layout. Site administration requires a
 site administrator.
 
-A page's backend API is its route plus `/api/`. Assets are served from
-`/-/extensions/assets/ID/` to signed-in users; never put secrets in assets. Panel
-APIs use `/-/extensions/panels/ID/PANEL/api/`. Paths include Forgejo's configured
-subpath when applicable. Consume the supplied URLs instead of constructing them.
+Page APIs use the private native-web prefix `/-/native/pages/ID/PAGE/api/`,
+preceded by `/user/settings`, `/admin`, or `/OWNER/REPO` for their native scope.
+Assets use `/-/native/assets/ID/`; panel APIs use
+`/-/native/panels/ID/PANEL/api/`. These are session-protected web handlers, not token
+REST endpoints. Consume the supplied `apiBase`, `assetBase` and explicit
+`appSubUrl`; never infer product routes from package names or private APIs.
 
 An extension declaring `native.contribution.authorize` is consulted before its
 page appears, before the workspace mounts each panel, and for every page or panel
@@ -113,7 +119,9 @@ An entry module exports `mount(root, context)`. It may be asynchronous and may
 return a cleanup function or an object with `dispose()`. Mount is called once per
 root; cleanup runs on departures that do not retain the document in the browser's
 back/forward cache. Cached documents retain their mounts while suspended. The context contains
-`extensionId`, `pageId` or `panelId`, `apiBase`, and `assetBase`.
+`extensionId`, `pageId` or `panelId`, `apiBase`, `assetBase`, `appSubUrl`,
+`sessionGeneration`, and optional observed `repositoryId`. The repository ID
+selects a display only; it does not widen a global contribution's authority.
 
 ```js
 export function mount(root, {apiBase}) {
@@ -136,14 +144,18 @@ release listeners, timers and requests in cleanup. Native cross-origin request
 protection applies to backend calls. Extensions own their UI and styling inside
 their mount roots.
 
-The opt-in workspace at `/-/extensions/workspace` retains panel roots beside a
-same-origin iframe displaying ordinary Forgejo pages. Following native links
-changes the iframe document while the panel's DOM, timers and unsaved state stay
-alive. The outer address records the current native path. Authentication and
-external navigation leave the workspace. Reloading or returning without a cached
-document creates a new mount; persist durable state in the backend. A panel has actor
-authority only: the repository displayed by the iframe does not confer
-repository authority on the panel.
+A preferred workspace is composed at the original native URL after the native
+handler and permissions succeed. Browser document GETs render persistent panels
+beside an iframe at that same canonical pathname, query and fragment. Iframe GETs
+render the original page; Fetch Metadata changes presentation only. Authentication,
+account restrictions, credential flows, partial responses, failed responses and
+external navigation keep their native handling. Flash notices consumed by the
+initial GET render in the composed document. Native history uses the actual page
+address, with no wrapper URL or path query. Reloads and uncached departures create
+new mounts; ordinary navigation preserves mounted panels and execution attachment.
+The host validates the current session at `/-/native/session` before restoring
+private cached state. A panel has actor authority only; a displayed repository does
+not grant repository authority.
 
 ## Backend interface
 

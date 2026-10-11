@@ -348,3 +348,22 @@ func TestRequiredPolicyRuntimeDecision(t *testing.T) {
 		})
 	}
 }
+
+func TestManagerRefusesCompetingNativeRoutes(t *testing.T) {
+	root := shortTestRoot(t)
+	for _, id := range []string{"first", "second"} {
+		installTestPackage(t, root, id)
+		manifest := fmt.Sprintf(`{"protocol":1,"id":%q,"name":"Test","version":"1","executable":"extension","pages":[{"id":"page","route":"workspace","title":"Workspace","scope":"global","entry":"main.js"}]}`, id)
+		if err := os.WriteFile(filepath.Join(root, id, "extension.json"), []byte(manifest), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	m := NewManager(root)
+	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
+	if err := m.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "already claimed") {
+		t.Fatalf("competing public route accepted: %v", err)
+	}
+	if len(m.List()) != 0 {
+		t.Fatal("failed startup retained partial route registry")
+	}
+}

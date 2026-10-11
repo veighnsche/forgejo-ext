@@ -51,7 +51,7 @@ func testContext(req *http.Request) (*context.Context, *httptest.ResponseRecorde
 }
 
 func TestNativeSessionAuthority(t *testing.T) {
-	ctx, _ := testContext(httptest.NewRequest("GET", "http://forgejo/-/extensions/pages/demo/page", nil))
+	ctx, _ := testContext(httptest.NewRequest("GET", "http://forgejo/-/native/pages/demo/page", nil))
 	require.False(t, nativeSession(ctx), "an authenticated actor without a native session is insufficient")
 	ctx.Session = sessionUID{uid: int64(42)}
 	require.True(t, nativeSession(ctx))
@@ -70,7 +70,7 @@ func TestSessionGenerationTracksNativeSessionAndActor(t *testing.T) {
 	setting.SecretKey = "test-only-extension-secret"
 	t.Cleanup(func() { setting.SecretKey = previousSecret })
 
-	ctx, _ := testContext(httptest.NewRequest(http.MethodGet, "http://forgejo/-/extensions/workspace", nil))
+	ctx, _ := testContext(httptest.NewRequest(http.MethodGet, "http://forgejo/-/native/session", nil))
 	ctx.Session = sessionUID{uid: int64(42), id: "native-session-a"}
 	first, err := sessionGeneration(ctx)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestRepositoryPagePermissions(t *testing.T) {
 }
 
 func TestProxyReplacesAuthorityAndRemovesCredentials(t *testing.T) {
-	req := httptest.NewRequest("POST", "http://forgejo/-/extensions/pages/demo/page/api/action", strings.NewReader("request"))
+	req := httptest.NewRequest("POST", "http://forgejo/-/native/pages/demo/page/api/action", strings.NewReader("request"))
 	req.Header.Set("Cookie", "session=private")
 	req.Header.Set("Authorization", "Bearer private")
 	req.Header.Set(extension.ContextHeader, `{"actor":{"id":1}}`)
@@ -159,7 +159,7 @@ func TestProxyUsesOnlyHostMintedAdmission(t *testing.T) {
 }
 
 func TestWorkspaceRejectsForeignAndRecursiveURLs(t *testing.T) {
-	for _, path := range []string{"https://evil.invalid/", "//evil.invalid/", "/\\evil.invalid/", "/-/extensions/workspace?path=/", "/user/login", "/user/recover_account", "/user/oauth2/provider", "/user/settings/security/two_factor/enroll", "/user/settings/applications", "/user/settings/keys", "/oauth2/authorize", "/openid", "/login/openid", "/install", "/repo?access_token=private", "/repo?PASSWORD=private", "/%2fevil.invalid/", "/%5cevil.invalid/"} {
+	for _, path := range []string{"https://evil.invalid/", "//evil.invalid/", "/\\evil.invalid/", "/-/native/session?path=/", "/user/login", "/user/recover_account", "/user/oauth2/provider", "/user/settings/security/two_factor/enroll", "/user/settings/applications", "/user/settings/keys", "/oauth2/authorize", "/openid", "/login/openid", "/install", "/repo?access_token=private", "/repo?PASSWORD=private", "/%2fevil.invalid/", "/%5cevil.invalid/"} {
 		assert.False(t, validWorkspacePath(path), path)
 	}
 	assert.True(t, validWorkspacePath("/user2/repo1/issues"))
@@ -205,6 +205,36 @@ func TestWorkspaceStaysInsideSubURL(t *testing.T) {
 	assert.False(t, validWorkspacePath("/forge/%2e%2e/outside"))
 	assert.False(t, validWorkspacePath("/forge/user/login"))
 	assert.False(t, validWorkspacePath("/forge/team?client_secret=private"))
+}
+
+func TestWorkspaceDocumentRequiresBrowserDocumentRequest(t *testing.T) {
+	tests := []struct {
+		name    string
+		method  string
+		path    string
+		headers map[string]string
+		want    bool
+	}{
+		{name: "fetch document", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "document"}, want: true},
+		{name: "legacy HTML navigation", method: http.MethodGet, path: "/issues", headers: map[string]string{"Accept": "text/html,application/xhtml+xml"}, want: true},
+		{name: "iframe", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "iframe", "Accept": "text/html"}},
+		{name: "HX request", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "document", "HX-Request": "true"}},
+		{name: "XHR", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "document", "X-Requested-With": "XMLHttpRequest"}},
+		{name: "JSON accept", method: http.MethodGet, path: "/issues", headers: map[string]string{"Accept": "application/json"}},
+		{name: "mutation", method: http.MethodPost, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "document"}},
+		{name: "account security flow", method: http.MethodGet, path: "/user/settings/security", headers: map[string]string{"Sec-Fetch-Dest": "document"}},
+		{name: "session endpoint", method: http.MethodGet, path: "/-/native/session", headers: map[string]string{"Sec-Fetch-Dest": "document"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "http://forgejo"+tt.path, nil)
+			for name, value := range tt.headers {
+				req.Header.Set(name, value)
+			}
+			ctx, _ := testContext(req)
+			assert.Equal(t, tt.want, workspaceDocument(ctx))
+		})
+	}
 }
 
 func TestUnsafeAPIRejectsOriginBeforeAdmission(t *testing.T) {

@@ -78,14 +78,14 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 	owner := loginUser(t, "user2")
 	other := loginUser(t, "user4")
 	generation := func(session *TestSession) string {
-		response := session.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/workspace?session_check=1"), http.StatusNoContent)
+		response := session.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/native/session"), http.StatusNoContent)
 		value := response.Header().Get(extension.SessionGenerationHeader)
 		require.Len(t, value, 43)
 		return value
 	}
 	ownerGeneration, otherGeneration := generation(owner), generation(other)
-	pageBase := "/-/extensions/pages/soda/spaces/api/"
-	panelBase := "/-/extensions/panels/soda/workspace/api/"
+	pageBase := "/-/native/pages/soda/spaces/api/"
+	panelBase := "/-/native/panels/soda/workspace/api/"
 	origin, err := url.Parse(setting.AppURL)
 	require.NoError(t, err)
 	requestAt := func(base string, session *TestSession, method, endpoint, generation string, body any, status int) map[string]any {

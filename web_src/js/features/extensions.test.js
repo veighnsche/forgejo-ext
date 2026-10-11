@@ -2,7 +2,7 @@ import {vi} from 'vitest';
 import {classifyWorkspaceNavigation, workspacePath, mountExtension, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 
 const origin = 'https://forge.example';
-const base = `${origin}/-/extensions/workspace`;
+const base = `${origin}/team/repo`;
 
 test('admits native same-origin paths and preserves deep links', () => {
   expect(classifyWorkspaceNavigation('/team/repo/issues/7?sort=oldest#comment-1', base, origin)).toEqual({
@@ -11,6 +11,8 @@ test('admits native same-origin paths and preserves deep links', () => {
     path: '/team/repo/issues/7?sort=oldest#comment-1',
   });
   expect(workspacePath('/team/repo/issues/7', base, origin)).toBe('/team/repo/issues/7');
+  expect(workspacePath('/workspace', base, origin)).toBe('/workspace');
+  expect(workspacePath('/team/repo/workspace', base, origin)).toBe('/team/repo/workspace');
 });
 
 test('keeps auth and external destinations out of the frame', () => {
@@ -24,7 +26,7 @@ test('keeps auth and external destinations out of the frame', () => {
   expect(classifyWorkspaceNavigation('/user/settings/applications', base, origin).kind).toBe('top');
   expect(classifyWorkspaceNavigation('/oauth2/authorize', base, origin).kind).toBe('top');
   expect(classifyWorkspaceNavigation('/login/openid', base, origin).kind).toBe('top');
-  expect(classifyWorkspaceNavigation('/-/extensions/workspace?path=%2Fteam', base, origin).kind).toBe('reject');
+  expect(classifyWorkspaceNavigation('/-/native/session', base, origin).kind).toBe('reject');
   expect(classifyWorkspaceNavigation('/repo?access_token=secret', base, origin).kind).toBe('top');
   expect(classifyWorkspaceNavigation('/repo?monkey=usual', base, origin).kind).toBe('frame');
   expect(classifyWorkspaceNavigation('https://elsewhere.example/', base, origin).kind).toBe('top');
@@ -32,15 +34,17 @@ test('keeps auth and external destinations out of the frame', () => {
   expect(workspacePath('//elsewhere.example/', base, origin)).toBeNull();
   expect(workspacePath('/team%2frepo', base, origin)).toBeNull();
   expect(workspacePath('/team%5crepo', base, origin)).toBeNull();
-  expect(workspacePath('/elsewhere', `${origin}/forge/-/extensions/workspace`, origin, '/forge')).toBeNull();
-  expect(workspacePath('/forge/team', `${origin}/forge/-/extensions/workspace`, origin, '/forge')).toBe('/forge/team');
+  expect(workspacePath('/elsewhere', `${origin}/forge/team/repo`, origin, '/forge')).toBeNull();
+  expect(workspacePath('/forge/team', `${origin}/forge/team/repo`, origin, '/forge')).toBe('/forge/team');
 });
 
 test('mounts an extension with explicit context and disposes its lifecycle', async () => {
   const root = document.createElement('div');
-  root.dataset.extensionEntry = '/-/extensions/assets/example/main.js';
-  root.dataset.extensionAssetBase = '/-/extensions/assets/example/';
-  root.dataset.extensionApiBase = '/-/extensions/pages/example/home/api/';
+  root.dataset.appSubUrl = '';
+  root.dataset.extensionRepositoryId = '7';
+  root.dataset.extensionEntry = '/-/native/assets/example/main.js';
+  root.dataset.extensionAssetBase = '/-/native/assets/example/';
+  root.dataset.extensionApiBase = '/-/native/pages/example/home/api/';
   root.dataset.extensionId = 'example';
   root.dataset.extensionPageId = 'home';
   root.dataset.extensionSessionGeneration = 'session-a';
@@ -50,21 +54,21 @@ test('mounts an extension with explicit context and disposes its lifecycle', asy
   const unmount = await mountExtension(root, importer);
   expect(importer).toHaveBeenCalledOnce();
   expect(mount).toHaveBeenCalledWith(root, expect.objectContaining({
-    extensionId: 'example', pageId: 'home', panelId: undefined,
-    apiBase: '/-/extensions/pages/example/home/api/', assetBase: '/-/extensions/assets/example/',
+    extensionId: 'example', pageId: 'home', panelId: undefined, appSubUrl: '', repositoryId: '7',
+    apiBase: '/-/native/pages/example/home/api/', assetBase: '/-/native/assets/example/',
     sessionGeneration: 'session-a', request: expect.any(Function),
   }));
   const oldFetch = window.fetch;
   window.fetch = vi.fn().mockResolvedValue({status: 200});
   try {
     await mount.mock.calls[0][1].request('context', {headers: {'Content-Type': 'application/json'}});
-    expect(window.fetch).toHaveBeenCalledWith(`${window.location.origin}/-/extensions/pages/example/home/api/context`, expect.objectContaining({
+    expect(window.fetch).toHaveBeenCalledWith(`${window.location.origin}/-/native/pages/example/home/api/context`, expect.objectContaining({
       credentials: 'same-origin', redirect: 'error', cache: 'no-store',
       headers: expect.any(Headers),
     }));
     expect(window.fetch.mock.calls[0][1].headers.get('X-Extension-Session-Generation')).toBe('session-a');
     expect(window.fetch.mock.calls[0][1].headers.get('Content-Type')).toBe('application/json');
-    expect(() => mount.mock.calls[0][1].request('../other')).toThrow('Extension API URL is invalid');
+    expect(() => mount.mock.calls[0][1].request('../other')).toThrow('Product API URL is invalid');
   } finally {
     window.fetch = oldFetch;
   }
@@ -72,8 +76,60 @@ test('mounts an extension with explicit context and disposes its lifecycle', asy
   expect(dispose).toHaveBeenCalledOnce();
 });
 
+test('uses the explicit installation prefix for mounted product views and refuses mismatched metadata', async () => {
+  const root = document.createElement('div');
+  root.dataset.appSubUrl = '/forge';
+  root.dataset.extensionEntry = '/forge/-/native/assets/example/home.js';
+  root.dataset.extensionAssetBase = '/forge/-/native/assets/example/';
+  root.dataset.extensionApiBase = '/forge/-/native/pages/example/home/api/';
+  root.dataset.extensionId = 'example';
+  root.dataset.extensionPageId = 'home';
+  root.dataset.extensionSessionGeneration = 'session-a';
+  const mount = vi.fn();
+  const importer = vi.fn(async () => ({mount}));
+  await mountExtension(root, importer);
+  expect(mount).toHaveBeenCalledWith(root, expect.objectContaining({appSubUrl: '/forge', repositoryId: undefined}));
+  expect(() => mount.mock.calls[0][1].request('/-/native/pages/example/home/api/context')).toThrow('Product API URL is invalid');
+
+  root.dataset.appSubUrl = '/wrong';
+  await mountExtension(root, importer);
+  expect(importer).toHaveBeenCalledOnce();
+  expect(root.textContent).toBe('This workspace view is unavailable.');
+});
+
+test.each(['/user/settings', '/admin', '/team/repo'])('mounts the native %s scoped API with root assets', async (scope) => {
+  const root = document.createElement('div');
+  root.dataset.appSubUrl = '/forge';
+  root.dataset.extensionEntry = '/forge/-/native/assets/example/home.js';
+  root.dataset.extensionAssetBase = '/forge/-/native/assets/example/';
+  root.dataset.extensionApiBase = `/forge${scope}/-/native/pages/example/home/api/`;
+  root.dataset.extensionId = 'example';
+  root.dataset.extensionPageId = 'home';
+  root.dataset.extensionSessionGeneration = 'session-a';
+  const mount = vi.fn();
+  const importer = vi.fn(async () => ({mount}));
+  await mountExtension(root, importer);
+  expect(mount).toHaveBeenCalledOnce();
+  const oldFetch = window.fetch;
+  window.fetch = vi.fn().mockResolvedValue({status: 200});
+  try {
+    await mount.mock.calls[0][1].request('context');
+    expect(window.fetch.mock.calls[0][0]).toBe(`${window.location.origin}/forge${scope}/-/native/pages/example/home/api/context`);
+    expect(window.fetch.mock.calls[0][1].headers.get('X-Extension-Session-Generation')).toBe('session-a');
+    expect(() => mount.mock.calls[0][1].request('../other')).toThrow('Product API URL is invalid');
+  } finally {
+    window.fetch = oldFetch;
+  }
+
+  root.dataset.extensionApiBase = '/forge/team/repo/settings/-/native/pages/example/home/api/';
+  await mountExtension(root, importer);
+  root.dataset.extensionApiBase = `/forge${scope}/-/native/pages/example/other/api/`;
+  await mountExtension(root, importer);
+  expect(importer).toHaveBeenCalledOnce();
+});
+
 test('keeps a mounted panel alive when its page enters BFCache', async () => {
-  document.body.innerHTML = '<div data-extension-panel data-extension-id="example" data-extension-panel-id="notes" data-extension-entry="/-/extensions/assets/example/panel.js" data-extension-asset-base="/-/extensions/assets/example/" data-extension-api-base="/-/extensions/panels/example/notes/api/" data-extension-session-generation="session-a"></div>';
+  document.body.innerHTML = '<div data-extension-panel data-app-sub-url="" data-extension-id="example" data-extension-panel-id="notes" data-extension-entry="/-/native/assets/example/panel.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/panels/example/notes/api/" data-extension-session-generation="session-a"></div>';
   const dispose = vi.fn();
   initExtensionPages(async () => ({mount: () => dispose}));
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -88,7 +144,7 @@ test('keeps a mounted panel alive when its page enters BFCache', async () => {
 });
 
 test('removes a cached extension page when the native session changes', async () => {
-  document.body.innerHTML = '<div data-extension-page data-extension-id="example" data-extension-page-id="home" data-extension-entry="/-/extensions/assets/example/page.js" data-extension-asset-base="/-/extensions/assets/example/" data-extension-api-base="/-/extensions/pages/example/home/api/" data-extension-session-generation="session-a">private page</div>';
+  document.body.innerHTML = '<div data-extension-page data-app-sub-url="" data-extension-id="example" data-extension-page-id="home" data-extension-entry="/-/native/assets/example/page.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/pages/example/home/api/" data-extension-session-generation="session-a">private page</div>';
   const root = document.querySelector('[data-extension-page]');
   const dispose = vi.fn();
   const fetcher = vi.fn().mockResolvedValue({status: 204, headers: new Headers({'X-Extension-Session-Generation': 'session-b'})});
@@ -104,19 +160,20 @@ test('removes a cached extension page when the native session changes', async ()
   await vi.waitFor(() => expect(root.textContent).toContain('Your session changed'));
   expect(root.textContent).not.toContain('private page');
   expect(dispose).toHaveBeenCalledOnce();
-  expect(fetcher).toHaveBeenCalledWith(`${window.location.origin}/-/extensions/workspace?session_check=1`, {
+  expect(fetcher).toHaveBeenCalledWith(`${window.location.origin}/-/native/session`, {
     credentials: 'same-origin', cache: 'no-store', redirect: 'manual',
   });
   window.dispatchEvent(new Event('pagehide'));
 });
 
 test('workspace keeps panel roots and mirrors native frame navigation in its address', () => {
-  document.body.innerHTML = '<main data-extension-workspace data-workspace-path="/team/repo" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span><div data-extension-panel></div></main>';
-  window.history.replaceState(null, '', '/-/extensions/workspace');
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team/repo?sort=oldest&amp;page=2" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span><div data-extension-panel></div></main>';
+  window.history.replaceState({nativeState: 'retained'}, '', '/team/repo?sort=oldest&page=2#comment-1');
   const frame = document.querySelector('iframe');
   let frameSource = '';
   let childURL = `${window.location.origin}/team/repo`;
   const childDocument = document.implementation.createHTMLDocument('frame');
+  document.title = 'Original native page';
   Object.defineProperty(frame, 'src', {
     get: () => frameSource,
     set: (value) => { frameSource = new URL(value, window.location.href).href },
@@ -127,23 +184,33 @@ test('workspace keeps panel roots and mirrors native frame navigation in its add
   Object.defineProperty(frame, 'contentDocument', {get: () => childDocument});
   const pushState = vi.spyOn(window.history, 'pushState');
   initExtensionWorkspace();
-  expect(new URL(window.location.href).searchParams.get('path')).toBe('/team/repo');
+  expect(frameSource).toBe(`${window.location.origin}/team/repo?sort=oldest&page=2#comment-1`);
+  expect(window.location.pathname + window.location.search + window.location.hash).toBe('/team/repo?sort=oldest&page=2#comment-1');
   const panel = document.querySelector('[data-extension-panel]');
-  childURL = `${window.location.origin}/team/repo/issues`;
+  childURL = `${window.location.origin}/team/repo/issues?sort=oldest&sort=newest#comment-2`;
+  childDocument.title = 'Issues - team/repo';
   frame.dispatchEvent(new Event('load'));
-  expect(new URL(window.location.href).searchParams.get('path')).toBe('/team/repo/issues');
+  expect(document.title).toBe('Issues - team/repo');
+  expect(window.location.pathname + window.location.search + window.location.hash).toBe('/team/repo/issues?sort=oldest&sort=newest#comment-2');
+  expect(window.history.state.nativeState).toBe('retained');
   expect(pushState).not.toHaveBeenCalled();
   expect(document.querySelector('[data-extension-panel]')).toBe(panel);
-  window.history.replaceState({extensionWorkspacePath: '/team/repo'}, '', '/-/extensions/workspace?path=%2Fteam%2Frepo');
+  window.history.replaceState({nativeState: 'retained'}, '', '/team/repo?sort=oldest&page=2#comment-1');
   window.dispatchEvent(new PopStateEvent('popstate'));
-  expect(frameSource).toBe(`${window.location.origin}/team/repo`);
+  expect(frameSource).toBe(`${window.location.origin}/team/repo?sort=oldest&page=2#comment-1`);
   pushState.mockRestore();
   window.dispatchEvent(new Event('pagehide'));
+  childURL = `${window.location.origin}/team/repo/issues/99`;
+  childDocument.title = 'Detached native page';
+  frame.dispatchEvent(new Event('load'));
+  childWindow.dispatchEvent(new Event('hashchange'));
+  expect(window.location.pathname + window.location.search + window.location.hash).toBe('/team/repo?sort=oldest&page=2#comment-1');
+  expect(document.title).toBe('Issues - team/repo');
 });
 
 test('workspace leaves modified links and downloads to the frame and routes excluded forms at top level', () => {
-  document.body.innerHTML = '<main data-extension-workspace data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span></main>';
-  window.history.replaceState(null, '', '/-/extensions/workspace');
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span></main>';
+  window.history.replaceState(null, '', '/team');
   const frame = document.querySelector('iframe');
   Object.defineProperty(frame, 'src', {get: () => '', set: () => {}});
   const childDocument = document.implementation.createHTMLDocument('frame');
@@ -155,7 +222,7 @@ test('workspace leaves modified links and downloads to the frame and routes excl
   frame.dispatchEvent(new Event('load'));
 
   const blocked = childDocument.createElement('a');
-  blocked.href = '/-/extensions/workspace';
+  blocked.href = '/-/native/session';
   childDocument.body.append(blocked);
   const modified = new MouseEvent('click', {bubbles: true, cancelable: true, ctrlKey: true});
   blocked.dispatchEvent(modified);
@@ -177,9 +244,26 @@ test('workspace leaves modified links and downloads to the frame and routes excl
   window.dispatchEvent(new Event('pagehide'));
 });
 
+test('workspace uses its declared subpath for session checks while retaining the native deep link', async () => {
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="/forge" data-workspace-path="/forge/team/repo/issues/7?sort=oldest" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span></main>';
+  window.history.replaceState(null, '', '/forge/team/repo/issues/7?sort=oldest#comment-1');
+  const frame = document.querySelector('iframe');
+  let frameSource;
+  Object.defineProperty(frame, 'src', {get: () => frameSource, set: (value) => { frameSource = value }});
+  const fetcher = vi.fn().mockResolvedValue({status: 204, headers: new Headers({'X-Extension-Session-Generation': 'session-a'})});
+  initExtensionWorkspace(fetcher);
+  expect(frameSource).toBe('/forge/team/repo/issues/7?sort=oldest#comment-1');
+  window.dispatchEvent(new Event('focus'));
+  await vi.waitFor(() => expect(fetcher).toHaveBeenCalledWith(`${window.location.origin}/forge/-/native/session`, {
+    credentials: 'same-origin', cache: 'no-store', redirect: 'manual',
+  }));
+  expect(window.location.pathname + window.location.search + window.location.hash).toBe('/forge/team/repo/issues/7?sort=oldest#comment-1');
+  window.dispatchEvent(new Event('pagehide'));
+});
+
 test('hides a restored workspace until the live native generation matches and clears it on account change', async () => {
-  document.body.innerHTML = '<main data-extension-workspace data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span><div data-extension-panel data-extension-id="example" data-extension-panel-id="notes" data-extension-entry="/-/extensions/assets/example/panel.js" data-extension-asset-base="/-/extensions/assets/example/" data-extension-api-base="/-/extensions/panels/example/notes/api/" data-extension-session-generation="session-a"></div></main>';
-  window.history.replaceState(null, '', '/-/extensions/workspace');
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span><div data-extension-panel data-app-sub-url="" data-extension-id="example" data-extension-panel-id="notes" data-extension-entry="/-/native/assets/example/panel.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/panels/example/notes/api/" data-extension-session-generation="session-a"></div></main>';
+  window.history.replaceState(null, '', '/team');
   const workspace = document.querySelector('[data-extension-workspace]');
   const frame = workspace.querySelector('iframe');
   let frameSource;
@@ -200,7 +284,7 @@ test('hides a restored workspace until the live native generation matches and cl
   expect(workspace.style.display).toBe('none');
   await vi.waitFor(() => expect(workspace.style.display).toBe(''));
   expect(dispose).not.toHaveBeenCalled();
-  expect(fetcher).toHaveBeenCalledWith(`${window.location.origin}/-/extensions/workspace?session_check=1`, {
+  expect(fetcher).toHaveBeenCalledWith(`${window.location.origin}/-/native/session`, {
     credentials: 'same-origin', cache: 'no-store', redirect: 'manual',
   });
   window.dispatchEvent(new Event('focus'));
@@ -213,8 +297,8 @@ test('hides a restored workspace until the live native generation matches and cl
 });
 
 test('ignores a session check completed after the workspace was cached', async () => {
-  document.body.innerHTML = '<main data-extension-workspace data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span></main>';
-  window.history.replaceState(null, '', '/-/extensions/workspace');
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span></main>';
+  window.history.replaceState(null, '', '/team');
   const workspace = document.querySelector('[data-extension-workspace]');
   const frame = workspace.querySelector('iframe');
   Object.defineProperty(frame, 'src', {get: () => '', set: () => {}});

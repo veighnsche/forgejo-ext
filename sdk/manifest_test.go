@@ -81,3 +81,25 @@ func TestLoadManifestBoundsAndSingleObject(t *testing.T) {
 		t.Fatal("manifest read failure accepted")
 	}
 }
+
+func TestNativePageRouteSlots(t *testing.T) {
+	m := Manifest{Protocol: Protocol, ID: "sample", Name: "Sample", Version: "1", Executable: "backend", Pages: []Page{{ID: "spaces", Route: "workspace", Title: "Workspace", Scope: "global", Entry: "main.js"}}}
+	if err := m.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, route := range []string{"admin", "user", "api", "projects", "../workspace", "/workspace", "workspace/child"} {
+		m.Pages[0].Route = route
+		if err := m.Validate(); err == nil {
+			t.Fatalf("unsupported public route accepted: %q", route)
+		}
+	}
+	m.Pages[0].Route = "workspace"
+	m.Pages = append(m.Pages, Page{ID: "second", Route: "workspace", Title: "Second", Scope: "global", Entry: "main.js"})
+	if err := m.Validate(); err == nil {
+		t.Fatal("duplicate native route accepted")
+	}
+	m.Pages[1].Route = ""
+	if err := m.Validate(); err != nil {
+		t.Fatal("API-only contribution rejected:", err)
+	}
+}

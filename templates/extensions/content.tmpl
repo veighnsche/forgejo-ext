@@ -1,4 +1,4 @@
 <section class="extension-page" aria-labelledby="extension-page-title">
 	<h1 id="extension-page-title" class="ui dividing header">{{.Extension.Title}}</h1>
-	<div class="extension-page-mount" data-extension-page data-extension-id="{{.Extension.ID}}" data-extension-page-id="{{.Extension.PageID}}" data-extension-entry="{{.ExtensionEntry}}" data-extension-api-base="{{.ExtensionAPIBase}}" data-extension-asset-base="{{.ExtensionAssetBase}}" data-extension-session-generation="{{.ExtensionSessionGeneration}}"></div>
+	<div class="extension-page-mount" data-extension-page data-app-sub-url="{{AppSubUrl}}" data-extension-id="{{.Extension.ID}}" data-extension-page-id="{{.Extension.PageID}}" data-extension-entry="{{.ExtensionEntry}}" data-extension-api-base="{{.ExtensionAPIBase}}" data-extension-asset-base="{{.ExtensionAssetBase}}" data-extension-session-generation="{{.ExtensionSessionGeneration}}"{{if .ExtensionRepositoryID}} data-extension-repository-id="{{.ExtensionRepositoryID}}"{{end}}></div>
 </section>

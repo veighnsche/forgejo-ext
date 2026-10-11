@@ -75,6 +75,10 @@ const (
 
 // HTML calls Context.HTML and renders the template to HTTP response
 func (ctx *Context) HTML(status int, name base.TplName) {
+	if present := ctx.HTMLPresentation; present != nil {
+		ctx.HTMLPresentation = nil // render failures must not re-enter composition
+		name = present(status, name)
+	}
 	log.Debug("Template: %s", name)
 
 	tmplStartTime := time.Now()

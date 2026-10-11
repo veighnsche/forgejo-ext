@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -37,6 +38,7 @@ type Manifest struct {
 
 type Page struct {
 	ID         string `json:"id"`
+	Route      string `json:"route,omitempty"`
 	Title      string `json:"title"`
 	Scope      string `json:"scope"`
 	Entry      string `json:"entry"`
@@ -101,11 +103,18 @@ func (m Manifest) Validate() error {
 		return err
 	}
 	seenPages := make(map[string]bool)
+	seenRoutes := make(map[string]bool)
 	for _, p := range m.Pages {
 		if !slug.MatchString(p.ID) || seenPages[p.ID] || strings.TrimSpace(p.Title) == "" || !assetEntry(p.Entry) {
 			return fmt.Errorf("invalid or duplicate page %q", p.ID)
 		}
 		seenPages[p.ID] = true
+		if p.Route != "" {
+			if !slices.Contains(NativePageRoutes(p.Scope), p.Route) || seenRoutes[p.Scope+"/"+p.Route] {
+				return fmt.Errorf("invalid or duplicate native page route %q", p.Route)
+			}
+			seenRoutes[p.Scope+"/"+p.Route] = true
+		}
 		switch p.Scope {
 		case "global":
 			if p.Permission != "" {
@@ -133,6 +142,20 @@ func (m Manifest) Validate() error {
 			return fmt.Errorf("invalid or duplicate panel %q", p.ID)
 		}
 		seenPanels[p.ID] = true
+	}
+	return nil
+}
+
+// NativePageRoutes are host-owned contribution slots, never package namespaces.
+// An empty Page.Route contributes an API without adding a public page.
+func NativePageRoutes(scope string) []string {
+	switch scope {
+	case "global":
+		return []string{"workspace", "tailnet"}
+	case "user":
+		return []string{"workspace", "identity"}
+	case "admin", "repository":
+		return []string{"workspace"}
 	}
 	return nil
 }

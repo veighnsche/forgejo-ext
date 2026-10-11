@@ -661,6 +661,8 @@ var (
 		"pulls",
 		"milestones",
 		"notifications",
+		"workspace", // native workspace page
+		"tailnet",   // native network page
 		"report_abuse",
 
 		"favicon.ico",

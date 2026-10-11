@@ -24,10 +24,10 @@ func TestExtensionHTTPBrowserMetadataBoundary(t *testing.T) {
 	setting.AppURL = server.URL + "/"
 	defer func() { setting.AppURL = previous }()
 	session := loginUser(t, "user2")
-	generation := session.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/workspace?session_check=1"), http.StatusNoContent).Header().Get(extension.SessionGenerationHeader)
+	generation := session.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/native/session"), http.StatusNoContent).Header().Get(extension.SessionGenerationHeader)
 	require.Len(t, generation, 43)
 	request := func() *http.Request {
-		req, err := http.NewRequest(http.MethodPost, server.URL+"/-/extensions/pages/pages/global/api/headers", nil)
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/-/native/pages/pages/global/api/headers", nil)
 		require.NoError(t, err)
 		req.AddCookie(session.GetCookie(setting.SessionConfig.CookieName))
 		req.Header.Set("Origin", server.URL)

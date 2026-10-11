@@ -79,7 +79,7 @@ func TestExtensionWebSocketNativeBoundary(t *testing.T) {
 	session := loginUser(t, "user2")
 	cookie := session.GetCookie(setting.SessionConfig.CookieName)
 	require.NotNil(t, cookie)
-	path := "/-/extensions/pages/pages/global/api/stream"
+	path := "/-/native/pages/pages/global/api/stream"
 	dial := func(headers http.Header) (*websocket.Conn, *http.Response, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -93,11 +93,11 @@ func TestExtensionWebSocketNativeBoundary(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, conn)
 	}
-	path = "/-/extensions/pages/pages/global/api/redirect-stream"
+	path = "/-/native/pages/pages/global/api/redirect-stream"
 	redirected, _, redirectErr := dial(headers)
 	require.Error(t, redirectErr)
 	require.Nil(t, redirected)
-	path = "/-/extensions/pages/pages/global/api/stream"
+	path = "/-/native/pages/pages/global/api/stream"
 	oversized, _, err := dial(headers)
 	require.NoError(t, err)
 	limitCtx, limitDone := context.WithTimeout(context.Background(), 5*time.Second)
@@ -155,12 +155,12 @@ func TestExtensionWebSocketAuthorityAndLongLifetime(t *testing.T) {
 	headers := http.Header{"Cookie": {session.GetCookie(setting.SessionConfig.CookieName).String()}, "Origin": {server.URL}}
 	ctx, cancel := context.WithTimeout(context.Background(), 55*time.Second)
 	defer cancel()
-	conn, _, err := websocket.Dial(ctx, server.URL+"/-/extensions/pages/pages/global/api/stream", &websocket.DialOptions{HTTPClient: server.Client(), HTTPHeader: headers})
+	conn, _, err := websocket.Dial(ctx, server.URL+"/-/native/pages/pages/global/api/stream", &websocket.DialOptions{HTTPClient: server.Client(), HTTPHeader: headers})
 	require.NoError(t, err)
 	defer conn.CloseNow()
 	reader := loginUser(t, "user4")
 	readerHeaders := http.Header{"Cookie": {reader.GetCookie(setting.SessionConfig.CookieName).String()}, "Origin": {server.URL}}
-	repoConn, _, err := websocket.Dial(ctx, server.URL+"/user2/repo1/extensions/pages/read/api/stream", &websocket.DialOptions{HTTPClient: server.Client(), HTTPHeader: readerHeaders})
+	repoConn, _, err := websocket.Dial(ctx, server.URL+"/user2/repo1/-/native/pages/pages/read/api/stream", &websocket.DialOptions{HTTPClient: server.Client(), HTTPHeader: readerHeaders})
 	require.NoError(t, err)
 	defer repoConn.CloseNow()
 	_, err = db.GetEngine(db.DefaultContext).ID(1).Cols("is_private").Update(&repo_model.Repository{IsPrivate: true})
