@@ -1,6 +1,6 @@
 import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {classifyWorkspaceNavigation, workspacePath, mountExtension, initExtensionPages, initExtensionWorkspace} from './extensions.js';
+import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, mountExtension, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 
 const origin = 'https://forge.example';
 const base = `${origin}/team/repo`;
@@ -24,6 +24,24 @@ test('admits native same-origin paths and preserves deep links', () => {
   expect(workspacePath('/team/repo/issues/7', base, origin)).toBe('/team/repo/issues/7');
   expect(workspacePath('/workspace', base, origin)).toBe('/workspace');
   expect(workspacePath('/team/repo/workspace', base, origin)).toBe('/team/repo/workspace');
+  expect(workspacePath('/workspace/new', base, origin)).toBe('/workspace/new');
+  expect(workspacePath('/workspace/requests/d0123456789abcdef01234567', base, origin)).toBe('/workspace/requests/d0123456789abcdef01234567');
+});
+
+test('classifies the workspace root and explicit aliases as direct', () => {
+  for (const [pathname, sub] of [['/workspace', ''], ['/team/repo/workspace', ''], ['/forge/workspace', '/forge'],
+    ['/workspace/new', ''], ['/forge/workspace/new', '/forge'],
+    ['/workspace/requests/d0123456789abcdef01234567', ''], ['/forge/workspace/requests/d0123456789abcdef01234567', '/forge']]) {
+    expect(workspaceDirectPath(pathname, sub)).toBe(true);
+  }
+  for (const [pathname, sub] of [['/workspace/requests', ''], ['/workspace/requests/', ''],
+    ['/workspace/requests/bad', ''], ['/workspace/requests/d0123456789abcdef0123456', ''],
+    ['/workspace/requests/d0123456789ABCDEF01234567', ''], ['/workspace/requests/d0123456789abcdef01234567/extra', ''],
+    ['/workspace/new/extra', ''], ['/workspace/news', ''], ['/workspace/old', ''],
+    ['/user2/repo1/workspace/new', ''], ['/user2/repo1/workspace/requests/d0123456789abcdef01234567', ''],
+    ['/workspace/new', '/forge'], ['/other/workspace/new', '/forge'], ['/forgefoo/workspace/new', '/forge'], ['/issues', '']]) {
+    expect(workspaceDirectPath(pathname, sub)).toBe(false);
+  }
 });
 
 test('keeps auth and external destinations out of the frame', () => {

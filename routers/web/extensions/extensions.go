@@ -64,6 +64,8 @@ func Register(m *web.Route, signedIn, admin any) {
 		}
 	}
 	m.Get("/{username}/{reponame}/workspace", NativeSession, signedIn, context.RepoAssignment, context.UnitTypes(), Navigation, repositoryWorkspace)
+	m.Get("/workspace/new", NativeSession, signedIn, workspaceAlias("new"))
+	m.Get("/workspace/requests/{request}", NativeSession, signedIn, workspaceAlias("requests"))
 	m.Get("/-/native/session", NativeSession, signedIn, SessionCheck)
 	m.Methods("GET,HEAD", "/-/native/assets/{extension}/*", NativeSession, signedIn, Assets)
 	m.Methods("GET,HEAD,POST,PUT,PATCH,DELETE", "/-/native/panels/{extension}/{page}/api/*", NativeSession, signedIn, api("panel", true))
@@ -204,6 +206,57 @@ func pageRoute(scope, route string) func(*context.Context) {
 	}
 }
 
+// workspaceRequestID matches the opaque single-segment request identifier
+// admitted by the /workspace/requests/{request} alias.
+var workspaceRequestID = regexp.MustCompile(`^d[0-9a-f]{24}$`)
+
+// workspaceDirectPath reports whether path is a workspace root (global or
+// repository) or one of the explicit global workspace aliases served without
+// the extension frame. Aliases match only at the application root after the
+// configured sub-URL, and the requests alias additionally requires the native
+// request-id shape, mirroring the registered routes exactly.
+func workspaceDirectPath(path, appSubURL string) bool {
+	if strings.HasSuffix(path, "/workspace") {
+		return true
+	}
+	rest, ok := strings.CutPrefix(path, appSubURL)
+	if !ok || !strings.HasPrefix(rest, "/") {
+		return false
+	}
+	if rest == "/workspace/new" {
+		return true
+	}
+	segment, ok := strings.CutPrefix(rest, "/workspace/requests/")
+	return ok && workspaceRequestID.MatchString(segment)
+}
+
+// workspaceAlias serves an explicit host-owned workspace sub-path from the
+// existing global workspace contribution with identical admission: the native
+// session and signed-in guards run first, then the contribution resolves and
+// renders exactly as the platform root alias does. The requests alias
+// additionally 404s unless the segment is a well-formed request id; title
+// overrides apply to the render copy only, never the registered descriptor.
+func workspaceAlias(shape string) func(*context.Context) {
+	return func(ctx *context.Context) {
+		if shape == "requests" && !workspaceRequestID.MatchString(ctx.Params("request")) {
+			ctx.NotFound("Page", nil)
+			return
+		}
+		d, transport, p, ok := findRoute(ctx, "global", "workspace")
+		if !ok {
+			ctx.NotFound("Page", nil)
+			return
+		}
+		switch shape {
+		case "new":
+			p.Title = "New Project"
+		case "requests":
+			p.Title = "Build request"
+		}
+		renderPage(ctx, d, transport, p)
+	}
+}
+
 func findRoute(ctx *context.Context, scope, route string) (runtime.Descriptor, http.RoundTripper, extension.Page, bool) {
 	if manager := runtime.GetManager(); manager != nil {
 		for _, listed := range manager.List() {
@@ -311,7 +364,7 @@ func workspaceDocument(ctx *context.Context) bool {
 	}
 	dest := ctx.Req.Header.Get("Sec-Fetch-Dest")
 	// This header selects HTML presentation only; native admission remains authoritative.
-	if dest == "empty" && ctx.Req.Header.Get("X-Extension-Workspace-Navigation") == "1" && strings.HasSuffix(ctx.Req.URL.Path, "/workspace") && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html") {
+	if dest == "empty" && ctx.Req.Header.Get("X-Extension-Workspace-Navigation") == "1" && workspaceDirectPath(ctx.Req.URL.Path, setting.AppSubURL) && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html") {
 		return true
 	}
 	return dest == "document" || dest == "" && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html")

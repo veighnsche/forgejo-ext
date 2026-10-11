@@ -207,6 +207,40 @@ func TestWorkspaceStaysInsideSubURL(t *testing.T) {
 	assert.False(t, validWorkspacePath("/forge/team?client_secret=private"))
 }
 
+func TestWorkspaceDirectPath(t *testing.T) {
+	tests := []struct {
+		path      string
+		appSubURL string
+		want      bool
+	}{
+		{path: "/workspace", want: true},
+		{path: "/team/repo/workspace", want: true},
+		{path: "/forge/workspace", appSubURL: "/forge", want: true},
+		{path: "/workspace/new", want: true},
+		{path: "/forge/workspace/new", appSubURL: "/forge", want: true},
+		{path: "/workspace/requests/d0123456789abcdef01234567", want: true},
+		{path: "/forge/workspace/requests/d0123456789abcdef01234567", appSubURL: "/forge", want: true},
+		{path: "/workspace/requests", want: false},
+		{path: "/workspace/requests/", want: false},
+		{path: "/workspace/requests/bad", want: false},
+		{path: "/workspace/requests/d0123456789abcdef0123456", want: false},
+		{path: "/workspace/requests/d0123456789ABCDEF01234567", want: false},
+		{path: "/workspace/requests/d0123456789abcdef01234567/extra", want: false},
+		{path: "/workspace/new/extra", want: false},
+		{path: "/workspace/news", want: false},
+		{path: "/workspace/old", want: false},
+		{path: "/user2/repo1/workspace/new", want: false},
+		{path: "/user2/repo1/workspace/requests/d0123456789abcdef01234567", want: false},
+		{path: "/workspace/new", appSubURL: "/forge", want: false},
+		{path: "/other/workspace/new", appSubURL: "/forge", want: false},
+		{path: "/forgefoo/workspace/new", appSubURL: "/forge", want: false},
+		{path: "/issues", want: false},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, workspaceDirectPath(tt.path, tt.appSubURL), tt.path+" sub="+tt.appSubURL)
+	}
+}
+
 func TestWorkspaceDocumentRequiresBrowserDocumentRequest(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -218,6 +252,9 @@ func TestWorkspaceDocumentRequiresBrowserDocumentRequest(t *testing.T) {
 		{name: "fetch document", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "document"}, want: true},
 		{name: "legacy HTML navigation", method: http.MethodGet, path: "/issues", headers: map[string]string{"Accept": "text/html,application/xhtml+xml"}, want: true},
 		{name: "direct Workspace fetch", method: http.MethodGet, path: "/workspace", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html", "X-Extension-Workspace-Navigation": "1"}, want: true},
+		{name: "direct new-project fetch", method: http.MethodGet, path: "/workspace/new", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html", "X-Extension-Workspace-Navigation": "1"}, want: true},
+		{name: "direct request fetch", method: http.MethodGet, path: "/workspace/requests/d0123456789abcdef01234567", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html", "X-Extension-Workspace-Navigation": "1"}, want: true},
+		{name: "marked nested alias fetch", method: http.MethodGet, path: "/workspace/new/extra", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html", "X-Extension-Workspace-Navigation": "1"}},
 		{name: "unmarked fetch", method: http.MethodGet, path: "/workspace", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html"}},
 		{name: "marked ordinary fetch", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html", "X-Extension-Workspace-Navigation": "1"}},
 		{name: "iframe", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "iframe", "Accept": "text/html"}},

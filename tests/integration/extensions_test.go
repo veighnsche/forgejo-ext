@@ -34,7 +34,7 @@ import (
 
 func TestExtensionNativeAuthentication(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
-	for _, path := range []string{"/workspace", "/user/settings/identity", "/admin/workspace", "/user2/repo1/workspace", "/-/native/session", "/-/native/panels/pages/status/api/state"} {
+	for _, path := range []string{"/workspace", "/workspace/new", "/workspace/requests/d0123456789abcdef01234567", "/user/settings/identity", "/admin/workspace", "/user2/repo1/workspace", "/-/native/session", "/-/native/panels/pages/status/api/state"} {
 		t.Run(path, func(t *testing.T) {
 			MakeRequest(t, NewRequest(t, http.MethodGet, path), http.StatusUnauthorized)
 			MakeRequest(t, NewRequest(t, http.MethodGet, path).AddBasicAuth("user2"), http.StatusUnauthorized)
@@ -42,6 +42,8 @@ func TestExtensionNativeAuthentication(t *testing.T) {
 	}
 	session := loginUser(t, "user2")
 	session.MakeRequest(t, NewRequest(t, http.MethodGet, "/workspace"), http.StatusNotFound)
+	session.MakeRequest(t, NewRequest(t, http.MethodGet, "/workspace/new"), http.StatusNotFound)
+	session.MakeRequest(t, NewRequest(t, http.MethodGet, "/workspace/requests/d0123456789abcdef01234567"), http.StatusNotFound)
 	session.MakeRequest(t, NewRequest(t, http.MethodGet, "/admin/workspace"), http.StatusForbidden)
 	// The former public extension namespace is not kept as a route alias.
 	session.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/extensions/pages/pages/page"), http.StatusNotFound)
@@ -456,7 +458,7 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.Contains(t, workspaceResponse.Body.String(), `data-workspace-session-generation="`+generation+`"`)
 	page := owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/workspace"), http.StatusOK)
 	require.Contains(t, page.Body.String(), `data-extension-session-generation="`+generation+`"`)
-	for _, path := range []string{"/workspace?view=projects", "/user2/repo1/workspace?view=projects"} {
+	for _, path := range []string{"/workspace?view=projects", "/user2/repo1/workspace?view=projects", "/workspace/new", "/workspace/requests/d0123456789abcdef01234567"} {
 		direct := owner.MakeRequest(t, document(path), http.StatusOK)
 		html := direct.Body.String()
 		require.Contains(t, html, `data-workspace-direct`)
@@ -480,6 +482,22 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 			require.Contains(t, html, `data-extension-repository-id="1"`)
 		}
 	}
+	for path, title := range map[string]string{"/workspace/new": "New Project", "/workspace/requests/d0123456789abcdef01234567": "Build request"} {
+		aliased := owner.MakeRequest(t, document(path), http.StatusOK)
+		require.Contains(t, aliased.Body.String(), title)
+		require.Equal(t, generation, aliased.Header().Get(extension.SessionGenerationHeader))
+	}
+	owner.MakeRequest(t, document("/workspace/requests/not-an-id"), http.StatusNotFound)
+	// The platform strips trailing slashes before routing, so the slashed
+	// alias serves the same canonical page.
+	slashed := owner.MakeRequest(t, document("/workspace/new/"), http.StatusOK)
+	require.Contains(t, slashed.Body.String(), `data-workspace-direct`)
+	require.Contains(t, slashed.Body.String(), "New Project")
+	owner.MakeRequest(t, document("/workspace/requests/"), http.StatusNotFound)
+	// The same segments under a repository path stay product-controlled: they
+	// do not resolve to the global workspace contribution.
+	product := owner.MakeRequest(t, document("/user2/repo1/workspace/new"), http.StatusNotFound)
+	require.NotContains(t, product.Body.String(), `data-extension-workspace`)
 	check := owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/native/session"), http.StatusNoContent)
 	require.Equal(t, generation, check.Header().Get(extension.SessionGenerationHeader))
 	require.Empty(t, check.Body.String())
