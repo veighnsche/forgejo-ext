@@ -23,6 +23,7 @@ import (
 // Operation kinds mirror the SDK background kinds. Authorization for one kind
 // never grants another.
 const (
+	KindIssueGraph   = "issue.graph.mutate"
 	KindRefPublish   = "git.ref.publish"
 	KindPRCreate     = "pull_request.create"
 	KindReviewSubmit = "pull_request.review.submit"
@@ -50,7 +51,7 @@ func init() {
 // ValidKind reports whether kind is a supported background operation kind.
 func ValidKind(kind string) bool {
 	switch kind {
-	case KindRefPublish, KindPRCreate, KindReviewSubmit, KindMerge:
+	case KindIssueGraph, KindRefPublish, KindPRCreate, KindReviewSubmit, KindMerge:
 		return true
 	default:
 		return false

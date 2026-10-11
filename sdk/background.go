@@ -21,6 +21,7 @@ import (
 // Background operation kinds from the conditional-native-mutations contract.
 // Authorization for one kind never grants another.
 const (
+	OperationKindIssueGraph   = "issue.graph.mutate"
 	OperationKindRefPublish   = "git.ref.publish"
 	OperationKindPRCreate     = "pull_request.create"
 	OperationKindReviewSubmit = "pull_request.review.submit"
