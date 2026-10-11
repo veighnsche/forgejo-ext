@@ -32,14 +32,16 @@ export function workspacePath(input, base, origin, appSubPath = '') {
   return result.kind === 'frame' ? result.path : null;
 }
 
-/** Report whether a pathname is the workspace root or an explicit workspace alias. */
-export function workspaceDirectPath(pathname) {
-  if (pathname.endsWith('/workspace') || pathname.endsWith('/workspace/new')) return true;
+/** Report whether a pathname is a workspace root or an explicit global workspace alias. */
+export function workspaceDirectPath(pathname, appSubPath = '') {
+  if (pathname.endsWith('/workspace')) return true;
+  if (!pathname.startsWith(appSubPath)) return false;
+  const rest = pathname.slice(appSubPath.length);
+  if (!rest.startsWith('/')) return false;
+  if (rest === '/workspace/new') return true;
   const marker = '/workspace/requests/';
-  const index = pathname.lastIndexOf(marker);
-  if (index < 0) return false;
-  const segment = pathname.slice(index + marker.length);
-  return segment !== '' && !segment.includes('/');
+  if (!rest.startsWith(marker)) return false;
+  return /^d[0-9a-f]{24}$/.test(rest.slice(marker.length));
 }
 
 const importExtension = (url) => import(/* webpackIgnore: true */ url);
@@ -259,7 +261,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   let activeWindow;
 
   function workspacePage(path) {
-    return workspaceDirectPath(new URL(path, origin).pathname);
+    return workspaceDirectPath(new URL(path, origin).pathname, appSubPath);
   }
 
   function presentDirect(direct) {

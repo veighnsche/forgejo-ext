@@ -210,19 +210,24 @@ func pageRoute(scope, route string) func(*context.Context) {
 // admitted by the /workspace/requests/{request} alias.
 var workspaceRequestID = regexp.MustCompile(`^d[0-9a-f]{24}$`)
 
-// workspaceDirectPath reports whether path is the workspace root or one of the
-// explicit host-owned workspace aliases served without the extension frame.
-func workspaceDirectPath(path string) bool {
-	if strings.HasSuffix(path, "/workspace") || strings.HasSuffix(path, "/workspace/new") {
+// workspaceDirectPath reports whether path is a workspace root (global or
+// repository) or one of the explicit global workspace aliases served without
+// the extension frame. Aliases match only at the application root after the
+// configured sub-URL, and the requests alias additionally requires the native
+// request-id shape, mirroring the registered routes exactly.
+func workspaceDirectPath(path, appSubURL string) bool {
+	if strings.HasSuffix(path, "/workspace") {
 		return true
 	}
-	const marker = "/workspace/requests/"
-	index := strings.LastIndex(path, marker)
-	if index < 0 {
+	rest, ok := strings.CutPrefix(path, appSubURL)
+	if !ok || !strings.HasPrefix(rest, "/") {
 		return false
 	}
-	segment := path[index+len(marker):]
-	return segment != "" && !strings.Contains(segment, "/")
+	if rest == "/workspace/new" {
+		return true
+	}
+	segment, ok := strings.CutPrefix(rest, "/workspace/requests/")
+	return ok && workspaceRequestID.MatchString(segment)
 }
 
 // workspaceAlias serves an explicit host-owned workspace sub-path from the
@@ -359,7 +364,7 @@ func workspaceDocument(ctx *context.Context) bool {
 	}
 	dest := ctx.Req.Header.Get("Sec-Fetch-Dest")
 	// This header selects HTML presentation only; native admission remains authoritative.
-	if dest == "empty" && ctx.Req.Header.Get("X-Extension-Workspace-Navigation") == "1" && workspaceDirectPath(ctx.Req.URL.Path) && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html") {
+	if dest == "empty" && ctx.Req.Header.Get("X-Extension-Workspace-Navigation") == "1" && workspaceDirectPath(ctx.Req.URL.Path, setting.AppSubURL) && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html") {
 		return true
 	}
 	return dest == "document" || dest == "" && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html")
