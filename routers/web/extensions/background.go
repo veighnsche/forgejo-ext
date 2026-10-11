@@ -41,6 +41,7 @@ type backgroundVerifiers struct {
 // native-operation service; tests inject a fake. Snapshot reads claim no
 // reservation and perform no mutation.
 type backgroundOperations interface {
+	SupportedOperations(context.Context) (operation_service.OperationsHandshake, error)
 	ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error)
 	ReadSnapshot(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
 	ReadCreations(context.Context, authmodel.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error)
@@ -71,7 +72,7 @@ func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID st
 			}
 			serveBackgroundBootstrap(w, r, manager)
 			return
-		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath, extension.BackgroundRevisionPath, extension.BackgroundSnapshotPath, extension.BackgroundCreationsPath:
+		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath, extension.BackgroundRevisionPath, extension.BackgroundSnapshotPath, extension.BackgroundCreationsPath, extension.BackgroundOperationsPath:
 			serveBackgroundOperation(w, r, manager, instanceID, service, verifiers, operations)
 			return
 		default:
@@ -163,6 +164,8 @@ func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *r
 		serveBackgroundSnapshot(w, r, admission, verifiers.snapshot, operations)
 	case extension.BackgroundCreationsPath:
 		serveBackgroundCreations(w, r, admission, verifiers.snapshot, operations)
+	case extension.BackgroundOperationsPath:
+		serveBackgroundOperations(w, r, admission, operations)
 	}
 }
 
