@@ -91,6 +91,11 @@
 	<overflow-menu class="ui container secondary pointing tabular top attached borderless menu tw-pt-0 tw-my-0">
 		{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
 			<div class="overflow-menu-items">
+				{{with .ExtensionPages}}{{range index . "repository"}}
+					{{if ne .Permission "admin"}}
+					<a class="{{if eq .URL $.ExtensionPageURL}}active {{end}}item" href="{{.URL}}">{{.Title}}</a>
+					{{end}}
+				{{end}}{{end}}
 				{{if .Permission.CanRead $.UnitTypeCode}}
 					<a class="{{if .PageIsViewCode}}active {{end}}item" href="{{.RepoLink}}{{if and (ne .BranchName .Repository.DefaultBranch) (not $.PageIsWiki)}}/src/{{.BranchNameSubURL}}{{end}}">
 						{{svg "octicon-code"}} {{ctx.Locale.Tr "repo.code"}}
@@ -176,11 +181,6 @@
 				{{end}}
 
 				{{template "custom/extra_tabs" .}}
-				{{with .ExtensionPages}}{{range index . "repository"}}
-					{{if ne .Permission "admin"}}
-					<a class="{{if eq .URL $.ExtensionPageURL}}active {{end}}item" href="{{.URL}}">{{.Title}}</a>
-					{{end}}
-				{{end}}{{end}}
 
 				{{if and RepoFlagsEnabled .SignedUser.IsAdmin}}
 					<a class="{{if .IsRepoFlagsPage}}active {{end}}item" href="{{.RepoLink}}/flags">

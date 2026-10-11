@@ -1,8 +1,19 @@
 import {vi} from 'vitest';
+import {readFileSync} from 'node:fs';
 import {classifyWorkspaceNavigation, workspacePath, mountExtension, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 
 const origin = 'https://forge.example';
 const base = `${origin}/team/repo`;
+
+test('repository product tabs precede native unit tabs in the overflow menu', () => {
+  const template = readFileSync('templates/repo/header.tmpl', 'utf8');
+  const productTabs = template.indexOf('{{with .ExtensionPages}}{{range index . "repository"}}');
+  const codeTab = template.indexOf('{{if .Permission.CanRead $.UnitTypeCode}}', template.indexOf('<overflow-menu'));
+  expect(productTabs).toBeGreaterThan(template.indexOf('<overflow-menu'));
+  expect(productTabs).toBeLessThan(codeTab);
+  expect(template.match(/range index . "repository"/g)).toHaveLength(1);
+  expect(template.slice(productTabs, codeTab)).toContain('{{if ne .Permission "admin"}}');
+});
 
 test('admits native same-origin paths and preserves deep links', () => {
   expect(classifyWorkspaceNavigation('/team/repo/issues/7?sort=oldest#comment-1', base, origin)).toEqual({
