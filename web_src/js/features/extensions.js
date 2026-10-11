@@ -32,6 +32,16 @@ export function workspacePath(input, base, origin, appSubPath = '') {
   return result.kind === 'frame' ? result.path : null;
 }
 
+/** Report whether a pathname is the workspace root or an explicit workspace alias. */
+export function workspaceDirectPath(pathname) {
+  if (pathname.endsWith('/workspace') || pathname.endsWith('/workspace/new')) return true;
+  const marker = '/workspace/requests/';
+  const index = pathname.lastIndexOf(marker);
+  if (index < 0) return false;
+  const segment = pathname.slice(index + marker.length);
+  return segment !== '' && !segment.includes('/');
+}
+
 const importExtension = (url) => import(/* webpackIgnore: true */ url);
 const noop = () => {};
 const sessionCheckPath = (appSubPath) => `${appSubPath}/-/native/session`;
@@ -249,7 +259,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   let activeWindow;
 
   function workspacePage(path) {
-    return new URL(path, origin).pathname.endsWith('/workspace');
+    return workspaceDirectPath(new URL(path, origin).pathname);
   }
 
   function presentDirect(direct) {

@@ -1,6 +1,6 @@
 import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {classifyWorkspaceNavigation, workspacePath, mountExtension, initExtensionPages, initExtensionWorkspace} from './extensions.js';
+import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, mountExtension, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 
 const origin = 'https://forge.example';
 const base = `${origin}/team/repo`;
@@ -24,6 +24,19 @@ test('admits native same-origin paths and preserves deep links', () => {
   expect(workspacePath('/team/repo/issues/7', base, origin)).toBe('/team/repo/issues/7');
   expect(workspacePath('/workspace', base, origin)).toBe('/workspace');
   expect(workspacePath('/team/repo/workspace', base, origin)).toBe('/team/repo/workspace');
+  expect(workspacePath('/workspace/new', base, origin)).toBe('/workspace/new');
+  expect(workspacePath('/workspace/requests/d0123456789abcdef01234567', base, origin)).toBe('/workspace/requests/d0123456789abcdef01234567');
+});
+
+test('classifies the workspace root and explicit aliases as direct', () => {
+  for (const pathname of ['/workspace', '/forge/workspace', '/workspace/new', '/forge/workspace/new',
+    '/workspace/requests/d0123456789abcdef01234567', '/forge/workspace/requests/d0123456789abcdef01234567']) {
+    expect(workspaceDirectPath(pathname)).toBe(true);
+  }
+  for (const pathname of ['/workspace/requests', '/workspace/requests/', '/workspace/requests/d0123456789abcdef01234567/extra',
+    '/workspace/new/extra', '/workspace/news', '/workspace/old', '/issues']) {
+    expect(workspaceDirectPath(pathname)).toBe(false);
+  }
 });
 
 test('keeps auth and external destinations out of the frame', () => {
