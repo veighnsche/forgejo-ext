@@ -1,0 +1,9 @@
+{{template "base/head" .}}
+<main class="extension-workspace extension-workspace-direct" data-extension-workspace data-workspace-direct data-extension-repository-id="{{.ExtensionRepositoryID}}" data-app-sub-url="{{AppSubUrl}}" data-workspace-path="{{.WorkspacePath}}" data-workspace-session-generation="{{.WorkspaceSessionGeneration}}">
+	<div data-extension-workspace-direct-content class="page-content extensions{{if .ExtensionRepositoryID}} repository{{end}}">
+		{{if .ExtensionRepositoryID}}{{template "repo/header" .}}{{end}}
+		<div class="ui container">{{template "base/alert" .}}{{template "extensions/content" .}}</div>
+	</div>
+	{{template "extensions/panels" .}}
+</main>
+{{template "base/footer" .}}

@@ -180,7 +180,11 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
 export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...args)) {
   const workspace = document.querySelector('[data-extension-workspace]');
   if (!workspace) return;
-  const frame = workspace.querySelector('[data-extension-workspace-frame]');
+  let frame = workspace.querySelector('[data-extension-workspace-frame]');
+  const navbar = document.getElementById('navbar');
+  const footer = document.querySelector('footer');
+  let directContent = workspace.querySelector('[data-extension-workspace-direct-content]');
+  let navigationVersion = 0;
   const base = window.location.href;
   const origin = window.location.origin;
   const appSubPath = workspace.dataset.appSubUrl;
@@ -192,7 +196,10 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   function invalidate() {
     if (invalidated) return;
     invalidated = true;
-    frame.src = 'about:blank';
+    navigationVersion++;
+    if (navbar) navbar.hidden = true;
+    if (footer) footer.hidden = true;
+    if (frame) frame.src = 'about:blank';
     workspace.replaceChildren();
     workspace.style.display = '';
     workspace.textContent = 'Your session changed. Reload Forgejo to continue.';
@@ -202,6 +209,8 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   function checkSession() {
     if (invalidated || pendingCheck) return pendingCheck;
     workspace.style.display = 'none';
+    if (navbar) navbar.hidden = true;
+    if (footer) footer.hidden = true;
     const version = ++checkVersion;
     const endpoint = new URL(sessionCheckPath(appSubPath), origin);
     pendingCheck = liveSessionMatches(endpoint.href, generation, fetcher)
@@ -212,6 +221,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
           return;
         }
         workspace.style.display = '';
+        presentDirect(workspace.hasAttribute('data-workspace-direct'));
       })
       .finally(() => {
         if (version === checkVersion) pendingCheck = null;
@@ -238,6 +248,97 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   let activeDocument;
   let activeWindow;
 
+  function workspacePage(path) {
+    return new URL(path, origin).pathname.endsWith('/workspace');
+  }
+
+  function presentDirect(direct) {
+    workspace.toggleAttribute('data-workspace-direct', direct);
+    workspace.classList.toggle('extension-workspace-direct', direct);
+    if (navbar) navbar.hidden = !direct;
+    if (footer) footer.hidden = !direct;
+    if (directContent) directContent.hidden = !direct;
+    if (frame) frame.hidden = direct;
+    workspace.dispatchEvent(new Event('extension-workspace-navigation'));
+  }
+
+  async function openWorkspace(path, push = false) {
+    const version = ++navigationVersion;
+    try {
+      const response = await fetcher(new URL(path, origin).href, {
+        credentials: 'same-origin', cache: 'no-store', redirect: 'error',
+        headers: {Accept: 'text/html'}, signal: AbortSignal.timeout(15000),
+      });
+      if (invalidated || version !== navigationVersion) return;
+      if (!response.ok) { window.location.assign(path); return; }
+      if (response.headers.get('X-Extension-Session-Generation') !== generation) { invalidate(); return; }
+      const html = await response.text();
+      if (invalidated || version !== navigationVersion) return;
+      const native = new DOMParser().parseFromString(html, 'text/html');
+      const incoming = native.querySelector('[data-workspace-direct]');
+      const content = incoming?.querySelector('[data-extension-workspace-direct-content]');
+      if (!content || incoming.dataset.workspaceSessionGeneration !== generation) { invalidate(); return; }
+      if (!directContent) {
+        directContent = document.createElement('div');
+        directContent.setAttribute('data-extension-workspace-direct-content', '');
+        workspace.prepend(directContent);
+      }
+      // Only Fountain's native content slot is replaced. Persistent contribution
+      // roots and terminal DOM never leave their owning document.
+      const repositoryId = incoming.dataset.extensionRepositoryId ?? content.querySelector('[data-extension-repository-id]')?.dataset.extensionRepositoryId ?? '';
+      directContent.replaceChildren(...content.childNodes);
+      directContent.className = content.className;
+      workspace.dataset.extensionRepositoryId = repositoryId;
+      document.title = native.title;
+      current = path;
+      if (push) window.history.pushState(null, '', path);
+      else updateHistory(path);
+      if (frame) {
+        activeDocument?.removeEventListener('click', onFrameClick);
+        activeDocument?.removeEventListener('submit', onFrameSubmit);
+        activeWindow?.removeEventListener('hashchange', onFrameNavigation);
+        activeWindow?.removeEventListener('popstate', onFrameNavigation);
+        activeDocument = activeWindow = null;
+        frame.removeEventListener('load', onFrameLoad);
+        frame.remove();
+        frame = null;
+      }
+      presentDirect(true);
+    } catch {
+      if (!invalidated && version === navigationVersion) window.location.assign(path);
+    }
+  }
+
+  function openNative(path, push = false, restoring = false) {
+    navigationVersion++;
+    if (!frame) {
+      frame = document.createElement('iframe');
+      frame.className = 'extension-workspace-frame';
+      frame.title = 'Forgejo pages';
+      frame.setAttribute('data-extension-workspace-frame', '');
+      frame.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-downloads allow-modals allow-popups allow-top-navigation-by-user-activation');
+      workspace.insertBefore(frame, workspace.querySelector('.extension-workspace-panels'));
+      frame.addEventListener('load', onFrameLoad);
+    }
+    current = path;
+    if (push) window.history.pushState(null, '', path);
+    if (restoring && frame.contentWindow?.location.origin === origin) frame.contentWindow.location.replace(path);
+    else frame.src = path;
+    presentDirect(false);
+  }
+
+  function onNativeClick(event) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.composedPath().find((node) => node?.localName === 'a' && 'href' in node);
+    if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+    const decision = classifyWorkspaceNavigation(link.href, window.location.href, origin, appSubPath);
+    if (decision.kind !== 'frame') return;
+    event.preventDefault();
+    if (workspacePage(decision.path)) void openWorkspace(decision.path, true);
+    else openNative(decision.path, true);
+  }
+  document.addEventListener('click', onNativeClick);
+
   function updateHistory(path) {
     const state = window.history.state;
     window.history.replaceState(state, '', path);
@@ -248,7 +349,12 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     const link = event.composedPath().find((element) => element?.localName === 'a' && 'href' in element);
     if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
     const decision = classifyWorkspaceNavigation(link.href, frame.contentWindow.location.href, origin, appSubPath);
-    if (decision.kind === 'frame') return;
+    if (decision.kind === 'frame') {
+      if (!workspacePage(decision.path)) return;
+      event.preventDefault();
+      void openWorkspace(decision.path, true);
+      return;
+    }
     event.preventDefault();
     if (decision.kind === 'top') window.location.assign(decision.url);
   }
@@ -279,6 +385,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       frame.src = current;
       return;
     }
+    if (workspacePage(decision.path)) { void openWorkspace(decision.path); return; }
     document.title = frame.contentDocument.title;
     if (decision.path !== current) {
       current = decision.path;
@@ -305,13 +412,13 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     }
     onFrameNavigation();
   }
-  frame.addEventListener('load', onFrameLoad);
+  frame?.addEventListener('load', onFrameLoad);
   const onPopState = () => {
     if (invalidated) return;
     const path = workspacePath(`${window.location.pathname}${window.location.search}${window.location.hash}`, base, origin, appSubPath);
     if (!path || path === current) return;
-    current = path;
-    frame.src = path;
+    if (workspacePage(path)) void openWorkspace(path);
+    else openNative(path, false, true);
   };
   window.addEventListener('popstate', onPopState);
   const onPageHide = (event) => {
@@ -319,7 +426,8 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     pendingCheck = null;
     workspace.style.display = 'none';
     if (event.persisted) return;
-    frame.removeEventListener('load', onFrameLoad);
+    frame?.removeEventListener('load', onFrameLoad);
+    document.removeEventListener('click', onNativeClick);
     activeDocument?.removeEventListener('click', onFrameClick);
     activeDocument?.removeEventListener('submit', onFrameSubmit);
     activeWindow?.removeEventListener('hashchange', onFrameNavigation);
@@ -332,5 +440,6 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   };
   window.addEventListener('pagehide', onPageHide);
   updateHistory(initial);
-  frame.src = initial;
+  if (workspace.hasAttribute('data-workspace-direct')) presentDirect(true);
+  else openNative(initial);
 }

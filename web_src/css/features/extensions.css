@@ -52,3 +52,9 @@
   .extension-workspace-frame { min-height: 65vh; }
   .extension-workspace-panels { width: auto; max-width: none; resize: none; border-left: 0; border-top: 1px solid var(--color-secondary); }
 }
+
+.extension-workspace-direct { height: auto; min-height: 0; }
+.extension-workspace-direct .extension-workspace-panels { width: 100%; max-width: none; border: 0; resize: none; }
+.extension-workspace-direct .extension-workspace-panel > h2 { display: none; }
+.extension-workspace-direct .extension-workspace-panel { padding: 0; border: 0; }
+.extension-workspace [hidden], #navbar[hidden], .page-footer[hidden] { display: none !important; }

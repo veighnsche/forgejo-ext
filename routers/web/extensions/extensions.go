@@ -282,6 +282,7 @@ func renderPage(ctx *context.Context, d runtime.Descriptor, transport http.Round
 	ctx.Resp.Header().Set("Cache-Control", "no-store")
 	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
 	ctx.Data["PageIsExtension"] = true
+	ctx.Data["PageIsWorkspacePage"] = p.Route == "workspace"
 	ctx.Data["ExtensionPageURL"] = setting.AppSubURL + ctx.Req.URL.EscapedPath()
 	ctx.PageData["extension"] = map[string]string{"id": d.Manifest.ID, "name": d.Manifest.Name, "pageID": p.ID, "title": p.Title}
 	ctx.PageData["apiBase"] = pageAPIBase(ctx, d, p)
@@ -340,9 +341,13 @@ func renderWorkspace(ctx *context.Context, original base.TplName) base.TplName {
 	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
 	ctx.Data["WorkspacePath"] = setting.AppSubURL + ctx.Req.URL.RequestURI()
 	ctx.Data["WorkspaceSessionGeneration"] = generation
-	ctx.Data["PageIsExtensionWorkspace"] = true
+	direct, _ := ctx.Data["PageIsWorkspacePage"].(bool)
+	ctx.Data["PageIsExtensionWorkspace"] = !direct
 	ctx.Data["ExtensionPanels"] = panels
 	ctx.PageData["extensionPanels"] = panels
+	if direct {
+		return "extensions/workspace_page"
+	}
 	return "extensions/workspace"
 }
 

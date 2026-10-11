@@ -456,6 +456,22 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.Contains(t, workspaceResponse.Body.String(), `data-workspace-session-generation="`+generation+`"`)
 	page := owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/workspace"), http.StatusOK)
 	require.Contains(t, page.Body.String(), `data-extension-session-generation="`+generation+`"`)
+	for _, path := range []string{"/workspace?view=projects", "/user2/repo1/workspace?view=projects"} {
+		direct := owner.MakeRequest(t, document(path), http.StatusOK)
+		html := direct.Body.String()
+		require.Contains(t, html, `data-workspace-direct`)
+		require.NotContains(t, html, `<iframe`)
+		require.Contains(t, html, `<nav  id="navbar"`)
+		require.Contains(t, html, `id="navbar-logo"`)
+		require.Contains(t, html, `/user/settings`)
+		require.Contains(t, html, `data-extension-panel-id="status"`)
+		require.Contains(t, html, `data-workspace-path="`+path+`"`)
+		require.Equal(t, generation, direct.Header().Get(extension.SessionGenerationHeader))
+		if strings.HasPrefix(path, "/user2/") {
+			require.Contains(t, html, `class="repo-header"`)
+			require.Contains(t, html, `data-extension-repository-id="1"`)
+		}
+	}
 	check := owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/native/session"), http.StatusNoContent)
 	require.Equal(t, generation, check.Header().Get(extension.SessionGenerationHeader))
 	require.Empty(t, check.Body.String())

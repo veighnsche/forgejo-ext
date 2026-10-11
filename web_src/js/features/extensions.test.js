@@ -335,3 +335,26 @@ test('ignores a session check completed after the workspace was cached', async (
   await vi.waitFor(() => expect(workspace.style.display).toBe(''));
   window.dispatchEvent(new Event('pagehide'));
 });
+
+test('direct Workspace uses native content and chrome while retaining contribution roots', async () => {
+  window.history.replaceState(null, '', '/forge/workspace?view=projects#notes');
+  document.body.innerHTML = '<nav id="navbar"><a href="/forge/user/settings">Account</a></nav><main data-extension-workspace data-workspace-direct data-app-sub-url="/forge" data-workspace-path="/forge/workspace?view=projects" data-workspace-session-generation="session-a"><div data-extension-workspace-direct-content>Global Workspace</div><aside class="extension-workspace-panels"><div id="terminal-owner">Live terminal</div></aside></main><footer></footer>';
+  const owner = document.getElementById('terminal-owner');
+  const fetcher = vi.fn(async (url) => new Response(`<html><head><title>Repository Workspace</title></head><body><main data-workspace-direct data-workspace-session-generation="session-a"><div data-extension-workspace-direct-content><div class="repo-header">team/repo</div><div data-extension-page data-extension-repository-id="7"></div></div></main></body></html>`, {headers: {'X-Extension-Session-Generation': 'session-a'}}));
+  initExtensionWorkspace(fetcher);
+  expect(document.querySelector('iframe')).toBeNull();
+  expect(document.getElementById('navbar').hidden).toBe(false);
+  const link = document.createElement('a');
+  link.href = '/forge/team/repo/workspace?view=all#details';
+  document.body.append(link);
+  link.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(window.location.pathname + window.location.search + window.location.hash).toBe('/forge/team/repo/workspace?view=all#details');
+  expect(document.title).toBe('Repository Workspace');
+  expect(document.querySelector('.repo-header').textContent).toBe('team/repo');
+  expect(document.querySelector('[data-extension-workspace]').dataset.extensionRepositoryId).toBe('7');
+  expect(document.getElementById('terminal-owner')).toBe(owner);
+  expect(owner.isConnected).toBe(true);
+  expect(document.querySelector('iframe')).toBeNull();
+  window.dispatchEvent(new Event('pagehide'));
+});
