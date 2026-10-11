@@ -181,8 +181,6 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   const workspace = document.querySelector('[data-extension-workspace]');
   if (!workspace) return;
   const frame = workspace.querySelector('[data-extension-workspace-frame]');
-  const location = workspace.querySelector('[data-extension-workspace-location]');
-  const toggle = workspace.querySelector('[data-extension-workspace-toggle]');
   const base = window.location.href;
   const origin = window.location.origin;
   const appSubPath = workspace.dataset.appSubUrl;
@@ -240,13 +238,6 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   let activeDocument;
   let activeWindow;
 
-  toggle?.addEventListener('click', () => {
-    const focused = workspace.classList.toggle('focus-view');
-    toggle.setAttribute('aria-expanded', String(!focused));
-    toggle.textContent = focused ? 'Show panels' : 'Focus browsing';
-    if (focused) frame.focus();
-  });
-
   function updateHistory(path) {
     const state = window.history.state;
     window.history.replaceState(state, '', path);
@@ -289,7 +280,6 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       return;
     }
     document.title = frame.contentDocument.title;
-    location.textContent = decision.path;
     if (decision.path !== current) {
       current = decision.path;
       updateHistory(current);
@@ -342,6 +332,5 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   };
   window.addEventListener('pagehide', onPageHide);
   updateHistory(initial);
-  location.textContent = initial;
   frame.src = initial;
 }

@@ -166,8 +166,8 @@ test('removes a cached extension page when the native session changes', async ()
   window.dispatchEvent(new Event('pagehide'));
 });
 
-test('workspace keeps panel roots and mirrors native frame navigation in its address', () => {
-  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team/repo?sort=oldest&amp;page=2" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span><div data-extension-panel></div></main>';
+test('workspace keeps panels and native address navigation without a duplicate topbar', () => {
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team/repo?sort=oldest&amp;page=2" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><div data-extension-panel></div></main>';
   window.history.replaceState({nativeState: 'retained'}, '', '/team/repo?sort=oldest&page=2#comment-1');
   const frame = document.querySelector('iframe');
   let frameSource = '';
@@ -209,7 +209,7 @@ test('workspace keeps panel roots and mirrors native frame navigation in its add
 });
 
 test('workspace leaves modified links and downloads to the frame and routes excluded forms at top level', () => {
-  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span></main>';
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe></main>';
   window.history.replaceState(null, '', '/team');
   const frame = document.querySelector('iframe');
   Object.defineProperty(frame, 'src', {get: () => '', set: () => {}});
@@ -245,7 +245,7 @@ test('workspace leaves modified links and downloads to the frame and routes excl
 });
 
 test('workspace uses its declared subpath for session checks while retaining the native deep link', async () => {
-  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="/forge" data-workspace-path="/forge/team/repo/issues/7?sort=oldest" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span></main>';
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="/forge" data-workspace-path="/forge/team/repo/issues/7?sort=oldest" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe></main>';
   window.history.replaceState(null, '', '/forge/team/repo/issues/7?sort=oldest#comment-1');
   const frame = document.querySelector('iframe');
   let frameSource;
@@ -262,7 +262,7 @@ test('workspace uses its declared subpath for session checks while retaining the
 });
 
 test('hides a restored workspace until the live native generation matches and clears it on account change', async () => {
-  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span><div data-extension-panel data-app-sub-url="" data-extension-id="example" data-extension-panel-id="notes" data-extension-entry="/-/native/assets/example/panel.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/panels/example/notes/api/" data-extension-session-generation="session-a"></div></main>';
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><div data-extension-panel data-app-sub-url="" data-extension-id="example" data-extension-panel-id="notes" data-extension-entry="/-/native/assets/example/panel.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/panels/example/notes/api/" data-extension-session-generation="session-a"></div></main>';
   window.history.replaceState(null, '', '/team');
   const workspace = document.querySelector('[data-extension-workspace]');
   const frame = workspace.querySelector('iframe');
@@ -297,7 +297,7 @@ test('hides a restored workspace until the live native generation matches and cl
 });
 
 test('ignores a session check completed after the workspace was cached', async () => {
-  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><span data-extension-workspace-location></span></main>';
+  document.body.innerHTML = '<main data-extension-workspace data-app-sub-url="" data-workspace-path="/team" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe></main>';
   window.history.replaceState(null, '', '/team');
   const workspace = document.querySelector('[data-extension-workspace]');
   const frame = workspace.querySelector('iframe');

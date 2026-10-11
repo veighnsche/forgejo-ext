@@ -1,10 +1,6 @@
 {{template "base/head" .}}
 <main class="extension-workspace" data-extension-workspace data-app-sub-url="{{AppSubUrl}}" data-workspace-path="{{.WorkspacePath}}" data-workspace-session-generation="{{.WorkspaceSessionGeneration}}">
 	<div class="ui container extension-workspace-notices">{{template "base/alert" .}}</div>
-	<div class="extension-workspace-toolbar">
-		{{if .ExtensionPanels}}<button type="button" class="ui button" data-extension-workspace-toggle aria-expanded="true" aria-controls="extension-workspace-panels">Focus browsing</button>{{end}}
-		<span class="extension-workspace-location" data-extension-workspace-location aria-live="polite"></span>
-	</div>
 	<div class="extension-workspace-layout">
 		<iframe class="extension-workspace-frame" title="Forgejo pages" data-extension-workspace-frame sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-modals allow-popups allow-top-navigation-by-user-activation"></iframe>
 		{{if .ExtensionPanels}}
