@@ -44,6 +44,7 @@ const (
 	BackgroundBootstrapPath = "/v1/background/bootstrap"
 	BackgroundRevisionPath  = "/v1/background/revision"
 	BackgroundSnapshotPath  = "/v1/background/snapshot"
+	BackgroundCreationsPath = "/v1/background/creations"
 )
 
 const maxBackgroundBodyBytes = 64 << 10
@@ -171,6 +172,7 @@ type NativeRevisionObservation struct {
 type BackgroundClient interface {
 	ReadNativeRevision(context.Context) (NativeRevisionObservation, error)
 	ReadSnapshot(context.Context, CredentialFile, SnapshotRequest) (NativeSnapshot, error)
+	ReadCreations(context.Context, CredentialFile, CreationRecoveryRequest) (CreationRecoveryPage, error)
 	SubmitOperation(context.Context, CredentialFile, OperationIntent) (OperationRecord, error)
 	GetOperation(context.Context, string) (OperationLookup, error)
 	CancelOperation(context.Context, string) (OperationRecord, error)
@@ -432,6 +434,33 @@ func (c *backgroundClient) ReadSnapshot(ctx context.Context, credential Credenti
 		return NativeSnapshot{}, errors.New("invalid background response")
 	}
 	return snapshot, nil
+}
+
+// ReadCreations recovers original creation observations missed by HTTP delivery.
+// The bounded read uses the same private credential transport as snapshots.
+func (c *backgroundClient) ReadCreations(ctx context.Context, credential CredentialFile, req CreationRecoveryRequest) (CreationRecoveryPage, error) {
+	if err := ValidateCreationRecoveryRequest(req); err != nil {
+		return CreationRecoveryPage{}, err
+	}
+	secret, err := credential.read()
+	if err != nil {
+		return CreationRecoveryPage{}, err
+	}
+	request := struct {
+		CreationRecoveryRequest
+		Token string `json:"token"`
+	}{CreationRecoveryRequest: req, Token: secret}
+	var page CreationRecoveryPage
+	if err := c.post(ctx, BackgroundCreationsPath, request, &page); err != nil {
+		return CreationRecoveryPage{}, err
+	}
+	if page.RepositoryID != req.RepositoryID || len(page.Creations) > req.Limit ||
+		(page.NextCursor != "" && !creationNativeID(page.NextCursor)) ||
+		(page.OldestRetainedTaskID != "" && !creationNativeID(page.OldestRetainedTaskID)) ||
+		(!page.Complete && (page.NextCursor == "" || page.NextCursor == req.AfterID)) {
+		return CreationRecoveryPage{}, errors.New("invalid background response")
+	}
+	return page, nil
 }
 
 func (c *backgroundClient) GetOperation(ctx context.Context, operationID string) (OperationLookup, error) {

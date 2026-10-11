@@ -43,6 +43,7 @@ type backgroundVerifiers struct {
 type backgroundOperations interface {
 	ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error)
 	ReadSnapshot(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
+	ReadCreations(context.Context, authmodel.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error)
 	Submit(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
 	Get(context.Context, string, string) (extension.OperationLookup, error)
 	Cancel(context.Context, string, string) (extension.OperationRecord, error)
@@ -70,7 +71,7 @@ func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID st
 			}
 			serveBackgroundBootstrap(w, r, manager)
 			return
-		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath, extension.BackgroundRevisionPath, extension.BackgroundSnapshotPath:
+		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath, extension.BackgroundRevisionPath, extension.BackgroundSnapshotPath, extension.BackgroundCreationsPath:
 			serveBackgroundOperation(w, r, manager, instanceID, service, verifiers, operations)
 			return
 		default:
@@ -160,6 +161,8 @@ func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *r
 		serveBackgroundRevision(w, r, operations)
 	case extension.BackgroundSnapshotPath:
 		serveBackgroundSnapshot(w, r, admission, verifiers.snapshot, operations)
+	case extension.BackgroundCreationsPath:
+		serveBackgroundCreations(w, r, admission, verifiers.snapshot, operations)
 	}
 }
 
@@ -317,6 +320,52 @@ func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission r
 		return
 	}
 	writeBackgroundJSON(w, snapshot)
+}
+
+// serveBackgroundCreations exposes retained issue-creation facts through the
+// same installation, native credential and peer authority as snapshot reads.
+func serveBackgroundCreations(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, verify snapshotVerifier, operations backgroundOperations) {
+	var request struct {
+		extension.CreationRecoveryRequest
+		Token string `json:"token"`
+	}
+	if !decodeBackgroundRequest(w, r, &request) {
+		return
+	}
+	if extension.ValidateCreationRecoveryRequest(request.CreationRecoveryRequest) != nil || request.Token == "" {
+		http.Error(w, "invalid background creation recovery request", http.StatusBadRequest)
+		return
+	}
+	actorID, _ := strconv.ParseInt(request.ActorID, 10, 64)
+	repositoryID, _ := strconv.ParseInt(request.RepositoryID, 10, 64)
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	decision, err := verify(ctx, authmodel.SnapshotReadRequest{
+		InstallationID: admission.InstallationID, TokenSecret: request.Token,
+		ActorID: actorID, RepositoryID: repositoryID, Families: []string{extension.SnapshotFamilyIssue},
+	})
+	if err != nil {
+		var refusal *authmodel.RefusalError
+		if errors.As(err, &refusal) {
+			http.Error(w, refusal.Code, refusal.Status)
+			return
+		}
+		http.Error(w, "background creation recovery unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	page, err := operations.ReadCreations(ctx, decision, request.CreationRecoveryRequest)
+	if err != nil {
+		switch {
+		case errors.Is(err, operation_service.ErrSnapshotInvalid):
+			http.Error(w, "invalid background creation recovery request", http.StatusBadRequest)
+		case errors.Is(err, operation_service.ErrSnapshotNotFound):
+			http.Error(w, "creation_recovery_not_found", http.StatusNotFound)
+		default:
+			http.Error(w, "background creation recovery unavailable", http.StatusServiceUnavailable)
+		}
+		return
+	}
+	writeBackgroundJSON(w, page)
 }
 
 func serveBackgroundRevision(w http.ResponseWriter, r *http.Request, operations backgroundOperations) {

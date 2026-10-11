@@ -22,7 +22,8 @@ import (
 
 // This selected fixture uses the same native token, binding, account and
 // repository rows as the ordinary tests, with their engine on disposable PG.
-func TestEnrolledSnapshotAuthorityOnPostgres(t *testing.T) {
+func useEnrolledAuthorityPostgres(t *testing.T) {
+	t.Helper()
 	dsn := os.Getenv("FORGEJO_TEST_PG_DSN")
 	if dsn == "" {
 		t.Skip("FORGEJO_TEST_PG_DSN is not set; needs a disposable PostgreSQL")
@@ -40,6 +41,10 @@ func TestEnrolledSnapshotAuthorityOnPostgres(t *testing.T) {
 	})
 	require.NoError(t, db.SyncAllTables())
 	require.NoError(t, unittest.InitFixtures(unittest.FixturesOptions{Dir: unittest.FixturesDir()}))
+}
+
+func TestEnrolledSnapshotAuthorityOnPostgres(t *testing.T) {
+	useEnrolledAuthorityPostgres(t)
 	t.Run("prepared authority withdrawal", TestPreparedAdmissionRechecksPublicOnlyAfterRepositoryBecomesPrivate)
 	t.Run("dependency credential intersection", TestSnapshotReadDependencyTargetsRespectEnrolledTokenRestrictions)
 	t.Run("mixed scopes require both", func(t *testing.T) {

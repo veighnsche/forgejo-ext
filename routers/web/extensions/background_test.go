@@ -66,11 +66,12 @@ func testVerifiers() backgroundVerifiers {
 }
 
 type stubOperations struct {
-	revision operation_service.NativeRevisionObservation
-	snapshot func(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
-	submit   func(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
-	get      func(context.Context, string, string) (extension.OperationLookup, error)
-	cancel   func(context.Context, string, string) (extension.OperationRecord, error)
+	revision  operation_service.NativeRevisionObservation
+	snapshot  func(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
+	creations func(context.Context, authmodel.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error)
+	submit    func(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
+	get       func(context.Context, string, string) (extension.OperationLookup, error)
+	cancel    func(context.Context, string, string) (extension.OperationRecord, error)
 }
 
 func (s stubOperations) ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error) {
@@ -79,6 +80,10 @@ func (s stubOperations) ReadNativeRevision(context.Context) (operation_service.N
 
 func (s stubOperations) ReadSnapshot(ctx context.Context, decision authmodel.SnapshotReadDecision, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
 	return s.snapshot(ctx, decision, req)
+}
+
+func (s stubOperations) ReadCreations(ctx context.Context, decision authmodel.SnapshotReadDecision, req extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
+	return s.creations(ctx, decision, req)
 }
 
 func (s stubOperations) Submit(ctx context.Context, decision authmodel.SubmissionDecision, installation string, intent *operation_service.ValidIntent) (extension.OperationRecord, error) {
@@ -406,4 +411,64 @@ func TestBackgroundSnapshotPreservesVerifiedCredentialRestrictions(t *testing.T)
 	handler := backgroundMux(manager, http.NotFoundHandler(), "instance-a", false, verifiers, operations)
 	recorder := backgroundRequest(t, handler, extension.BackgroundSnapshotPath, token, backgroundPeerAddr(t), snapshotReadPayload())
 	require.Equal(t, http.StatusOK, recorder.Code)
+}
+
+func TestBackgroundCreationsUsesIssueCredentialAndPreservesDecision(t *testing.T) {
+	manager := backgroundTestManager(t)
+	const installation = "11111111-2222-4333-8444-555555555555"
+	token := issueRuntimeAdmission(t, manager, installation, "instance-a", []string{extension.CapabilityBackgroundOperations})
+	decision := authmodel.SnapshotReadDecision{SubmissionDecision: authmodel.SubmissionDecision{ActorID: 2, TokenID: 9}, RepositoryID: 1, Scope: "public-only,read:issue", PublicOnly: true, RepositoryIDs: []int64{1}}
+	verifiers := testVerifiers()
+	verifiers.snapshot = func(_ context.Context, req authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error) {
+		require.Equal(t, installation, req.InstallationID)
+		require.Equal(t, []string{extension.SnapshotFamilyIssue}, req.Families)
+		return decision, nil
+	}
+	operations := testOperations()
+	operations.creations = func(ctx context.Context, got authmodel.SnapshotReadDecision, req extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
+		require.Equal(t, decision, got)
+		_, bounded := ctx.Deadline()
+		require.True(t, bounded)
+		return extension.CreationRecoveryPage{RepositoryID: req.RepositoryID, Complete: true, ProvenanceComplete: true, RetentionLimited: true}, nil
+	}
+	handler := backgroundMux(manager, http.NotFoundHandler(), "instance-a", false, verifiers, operations)
+	payload := map[string]any{"repository_id": "1", "actor_id": "2", "limit": 10, "token": "native-secret"}
+	recorder := backgroundRequest(t, handler, extension.BackgroundCreationsPath, token, backgroundPeerAddr(t), payload)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.NotContains(t, recorder.Body.String(), "native-secret")
+	recorder = backgroundRequest(t, handler, extension.BackgroundCreationsPath, "", backgroundPeerAddr(t), payload)
+	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+	payload["limit"] = 101
+	recorder = backgroundRequest(t, handler, extension.BackgroundCreationsPath, token, backgroundPeerAddr(t), payload)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestBackgroundCreationsMapsNativeRefusalAndUnavailability(t *testing.T) {
+	manager := backgroundTestManager(t)
+	token := issueRuntimeAdmission(t, manager, "11111111-2222-4333-8444-555555555555", "instance-a", []string{extension.CapabilityBackgroundOperations})
+	payload := map[string]any{"repository_id": "1", "actor_id": "2", "limit": 10, "token": "native-secret"}
+	for _, tc := range []struct {
+		err    error
+		status int
+	}{
+		{operation_service.ErrSnapshotNotFound, http.StatusNotFound},
+		{operation_service.ErrSnapshotInvalid, http.StatusBadRequest},
+		{operation_service.ErrSnapshotUnavailable, http.StatusServiceUnavailable},
+	} {
+		operations := testOperations()
+		operations.creations = func(context.Context, authmodel.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
+			return extension.CreationRecoveryPage{}, tc.err
+		}
+		handler := backgroundMux(manager, http.NotFoundHandler(), "instance-a", false, testVerifiers(), operations)
+		recorder := backgroundRequest(t, handler, extension.BackgroundCreationsPath, token, backgroundPeerAddr(t), payload)
+		require.Equal(t, tc.status, recorder.Code)
+	}
+	verifiers := testVerifiers()
+	verifiers.snapshot = func(context.Context, authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error) {
+		return authmodel.SnapshotReadDecision{}, &authmodel.RefusalError{Code: authmodel.RefusalRepositoryExcluded, Status: http.StatusForbidden}
+	}
+	handler := backgroundMux(manager, http.NotFoundHandler(), "instance-a", false, verifiers, testOperations())
+	recorder := backgroundRequest(t, handler, extension.BackgroundCreationsPath, token, backgroundPeerAddr(t), payload)
+	require.Equal(t, http.StatusForbidden, recorder.Code)
+	require.Contains(t, recorder.Body.String(), authmodel.RefusalRepositoryExcluded)
 }
