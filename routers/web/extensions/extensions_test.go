@@ -217,6 +217,9 @@ func TestWorkspaceDocumentRequiresBrowserDocumentRequest(t *testing.T) {
 	}{
 		{name: "fetch document", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "document"}, want: true},
 		{name: "legacy HTML navigation", method: http.MethodGet, path: "/issues", headers: map[string]string{"Accept": "text/html,application/xhtml+xml"}, want: true},
+		{name: "direct Workspace fetch", method: http.MethodGet, path: "/workspace", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html", "X-Extension-Workspace-Navigation": "1"}, want: true},
+		{name: "unmarked fetch", method: http.MethodGet, path: "/workspace", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html"}},
+		{name: "marked ordinary fetch", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "empty", "Accept": "text/html", "X-Extension-Workspace-Navigation": "1"}},
 		{name: "iframe", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "iframe", "Accept": "text/html"}},
 		{name: "HX request", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "document", "HX-Request": "true"}},
 		{name: "XHR", method: http.MethodGet, path: "/issues", headers: map[string]string{"Sec-Fetch-Dest": "document", "X-Requested-With": "XMLHttpRequest"}},

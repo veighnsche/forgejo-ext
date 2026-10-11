@@ -267,7 +267,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     try {
       const response = await fetcher(new URL(path, origin).href, {
         credentials: 'same-origin', cache: 'no-store', redirect: 'error',
-        headers: {Accept: 'text/html'}, signal: AbortSignal.timeout(15000),
+        headers: {Accept: 'text/html', 'X-Extension-Workspace-Navigation': '1'}, signal: AbortSignal.timeout(15000),
       });
       if (invalidated || version !== navigationVersion) return;
       if (!response.ok) { window.location.assign(path); return }

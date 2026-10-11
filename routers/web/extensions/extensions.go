@@ -310,6 +310,10 @@ func workspaceDocument(ctx *context.Context) bool {
 		return false
 	}
 	dest := ctx.Req.Header.Get("Sec-Fetch-Dest")
+	// This header selects HTML presentation only; native admission remains authoritative.
+	if dest == "empty" && ctx.Req.Header.Get("X-Extension-Workspace-Navigation") == "1" && strings.HasSuffix(ctx.Req.URL.Path, "/workspace") && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html") {
+		return true
+	}
 	return dest == "document" || dest == "" && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html")
 }
 
