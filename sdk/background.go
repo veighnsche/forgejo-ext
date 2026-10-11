@@ -21,12 +21,14 @@ import (
 // Background operation kinds from the conditional-native-mutations contract.
 // Authorization for one kind never grants another.
 const (
-	OperationKindIssueGraph     = "issue.graph.mutate"
-	OperationKindRefPublish     = "git.ref.publish"
-	OperationKindPRCreate       = "pull_request.create"
-	OperationKindReviewSubmit   = "pull_request.review.submit"
-	OperationKindMerge          = "pull_request.merge"
-	OperationKindLifecycleIssue = "issue.lifecycle.apply"
+	OperationKindIssueGraph      = "issue.graph.mutate"
+	OperationKindRefPublish      = "git.ref.publish"
+	OperationKindPRCreate        = "pull_request.create"
+	OperationKindReviewSubmit    = "pull_request.review.submit"
+	OperationKindMerge           = "pull_request.merge"
+	OperationKindLifecycleIssue  = "issue.lifecycle.apply"
+	OperationKindLifecycleReview = "pull_request.review.request"
+	OperationKindLifecycleNote   = "issue.comment.publish"
 )
 
 // Background dispatcher outcomes returned with HTTP 200 once the caller is
