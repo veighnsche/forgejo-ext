@@ -12,6 +12,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	webhook_model "forgejo.org/models/webhook"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/tests"
 
@@ -42,4 +43,22 @@ func TestAPICreateHook(t *testing.T) {
 	assert.Equal(t, "http://example.com/", apiHook.Config["url"])
 	assert.Equal(t, "http://example.com/", apiHook.URL)
 	assert.Equal(t, "Bearer s3cr3t", apiHook.AuthorizationHeader)
+
+	patch := NewRequestWithJSON(t, "PATCH", fmt.Sprintf("/api/v1/repos/%s/%s/hooks/%d", owner.Name, repo.Name, apiHook.ID), api.EditHookOption{
+		Config: map[string]string{"secret": "rotated-hook-secret"},
+	}).AddTokenAuth(token)
+	patchResp := MakeRequest(t, patch, http.StatusOK)
+	assert.NotContains(t, patchResp.Body.String(), "rotated-hook-secret")
+	stored, err := webhook_model.GetWebhookByID(t.Context(), apiHook.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "rotated-hook-secret", stored.Secret)
+
+	patchWithoutSecret := NewRequestWithJSON(t, "PATCH", fmt.Sprintf("/api/v1/repos/%s/%s/hooks/%d", owner.Name, repo.Name, apiHook.ID), api.EditHookOption{
+		Config: map[string]string{"content_type": "json"},
+		Events: []string{"issues"},
+	}).AddTokenAuth(token)
+	MakeRequest(t, patchWithoutSecret, http.StatusOK)
+	stored, err = webhook_model.GetWebhookByID(t.Context(), apiHook.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "rotated-hook-secret", stored.Secret)
 }

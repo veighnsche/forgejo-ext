@@ -341,6 +341,12 @@ func editHook(ctx *context.APIContext, form *api.EditHookOption, w *webhook.Webh
 			}
 			w.ContentType = webhook.ToHookContentType(ct)
 		}
+		// Hook secrets are intentionally omitted from API readback. Accept an
+		// explicitly supplied replacement so an authorized repository owner can
+		// rotate the secret without deleting and recreating the hook.
+		if secret, ok := form.Config["secret"]; ok {
+			w.Secret = secret
+		}
 
 		if w.Type == webhook_module.SLACK {
 			if channel, ok := form.Config["channel"]; ok {
