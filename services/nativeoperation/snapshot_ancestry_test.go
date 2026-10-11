@@ -35,7 +35,7 @@ func TestSnapshotAncestryUsesSelectedRepositoryCommitGraph(t *testing.T) {
 	serviceRequest := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyRefs, sdk.SnapshotFamilyAncestry})
 	serviceRequest.Refs = []string{"refs/heads/master", "refs/heads/branch2"}
 	serviceRequest.Ancestry = &sdk.SnapshotAncestryRequest{AncestorOID: snapshotMaster, DescendantOID: snapshotBranch2}
-	serviceSnapshot, err := NewService().ReadSnapshot(ctx, 2, serviceRequest)
+	serviceSnapshot, err := NewService().ReadSnapshot(ctx, snapshotAuthority(2, serviceRequest), serviceRequest)
 	require.NoError(t, err)
 	require.NotNil(t, serviceSnapshot.Ancestry)
 	require.Equal(t, snapshotMaster, serviceSnapshot.Ancestry.AncestorOID)

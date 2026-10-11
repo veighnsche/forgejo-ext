@@ -37,7 +37,7 @@ func TestSnapshotReadPullToleratesLiveMergedUnixStamp(t *testing.T) {
 	svc := NewService()
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyPull})
 	req.PullNumber = "107"
-	snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	pull := snapshot.Pull
 	require.True(t, pull.Visible)

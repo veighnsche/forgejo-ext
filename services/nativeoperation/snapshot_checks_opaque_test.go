@@ -40,7 +40,7 @@ func readOpaqueChecks(t *testing.T, sha string) *sdk.SnapshotCheckSet {
 	svc := NewService()
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyChecks})
 	req.SHA = sha
-	snapshot, err := svc.ReadSnapshot(t.Context(), 2, req)
+	snapshot, err := svc.ReadSnapshot(t.Context(), snapshotAuthority(2, req), req)
 	require.NoError(t, err, "stored check rows must read back, never 503")
 	require.NotNil(t, snapshot.Checks)
 	require.True(t, snapshot.Checks.Complete)

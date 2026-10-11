@@ -84,17 +84,19 @@ func validLifecycleKind(kind string) bool {
 }
 
 // TitleLifecycleEvent is one title/lifecycle transition with its actor and
-// timestamp. OldTitle/NewTitle are set only for retitle events.
+// timestamp and immutable native comment identity. OldTitle/NewTitle are set
+// only for retitle events.
 type TitleLifecycleEvent struct {
-	Kind     string
-	AtUnix   int64
-	ActorID  int64
-	OldTitle string
-	NewTitle string
+	OccurrenceID int64
+	Kind         string
+	AtUnix       int64
+	ActorID      int64
+	OldTitle     string
+	NewTitle     string
 }
 
 func validLifecycleEvent(event TitleLifecycleEvent) bool {
-	if !validLifecycleKind(event.Kind) || event.AtUnix <= 0 || event.ActorID < 0 {
+	if event.OccurrenceID <= 0 || !validLifecycleKind(event.Kind) || event.AtUnix <= 0 || event.ActorID < 0 {
 		return false
 	}
 	if event.Kind == LifecycleRetitled {
@@ -110,7 +112,7 @@ func LifecycleEventFromComment(comment *Comment) (TitleLifecycleEvent, bool) {
 	if comment == nil {
 		return TitleLifecycleEvent{}, false
 	}
-	event := TitleLifecycleEvent{AtUnix: int64(comment.CreatedUnix), ActorID: comment.PosterID}
+	event := TitleLifecycleEvent{OccurrenceID: comment.ID, AtUnix: int64(comment.CreatedUnix), ActorID: comment.PosterID}
 	switch comment.Type {
 	case CommentTypeChangeTitle:
 		event.Kind = LifecycleRetitled

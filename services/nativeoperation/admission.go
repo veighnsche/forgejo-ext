@@ -539,6 +539,10 @@ func (s *Service) revalidateSubmission(ctx context.Context, op *model.Operation)
 		}
 		return err
 	}
+	publicOnly, err := token.Scope.PublicOnly()
+	if err != nil || (publicOnly && repository.IsPrivate) {
+		return lost()
+	}
 	permission, err := access_model.GetUserRepoPermission(ctx, repository, user)
 	if err != nil {
 		return err

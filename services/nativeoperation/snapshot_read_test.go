@@ -6,10 +6,13 @@ package nativeoperation
 import (
 	"crypto/sha1"
 	"fmt"
+	"strconv"
 	"testing"
 
 	sdk "forgejo.org/extension-sdk"
+	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
+	"forgejo.org/models/extensionauth"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
 	model "forgejo.org/models/nativeoperation"
@@ -30,6 +33,16 @@ const (
 	snapshotBranch2  = "985f0301dba5e7b34be866819cd15ad3d8f508ee"
 	snapshotMaster   = "65f1bf27bc3bf70f64657658635e66094edbcb4d"
 )
+
+// Family/record tests supply explicit unrestricted native credential authority;
+// enrolled-token restriction regressions below verify the production verifier.
+func snapshotAuthority(actor int64, req sdk.SnapshotRequest) extensionauth.SnapshotReadDecision {
+	repositoryID, _ := strconv.ParseInt(req.RepositoryID, 10, 64)
+	return extensionauth.SnapshotReadDecision{
+		SubmissionDecision: extensionauth.SubmissionDecision{ActorID: actor},
+		RepositoryID:       repositoryID, Scope: "read:issue,read:repository", ResourceAllRepos: true,
+	}
+}
 
 func snapshotProofRequest(repo, actor string, families []string) sdk.SnapshotRequest {
 	return sdk.SnapshotRequest{
@@ -77,7 +90,7 @@ func TestSnapshotReadIssueExposesVersionsAndUnverifiedProvenance(t *testing.T) {
 
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
 	req.IssueIndex = "1"
-	snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	require.Equal(t, "1", snapshot.RepositoryID)
 	require.NotNil(t, snapshot.Issue)
@@ -122,7 +135,7 @@ func TestSnapshotReadIssueBindsProvenanceAndLifecycle(t *testing.T) {
 
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
 	req.IssueIndex = "101"
-	snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	got := snapshot.Issue
 	require.True(t, got.Visible)
@@ -147,7 +160,7 @@ func TestSnapshotReadDetectsEditRevertDeleteRecreate(t *testing.T) {
 	read := func(index string) *sdk.SnapshotIssue {
 		req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
 		req.IssueIndex = index
-		snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+		snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 		require.NoError(t, err)
 		return snapshot.Issue
 	}
@@ -179,7 +192,7 @@ func TestSnapshotReadDetectsEditRevertDeleteRecreate(t *testing.T) {
 	require.NoError(t, err)
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
 	req.IssueIndex = "102"
-	_, err = svc.ReadSnapshot(ctx, 2, req)
+	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.ErrorIs(t, err, ErrSnapshotNotFound)
 
 	// Recreate yields a new identity, never the deleted one.
@@ -198,26 +211,26 @@ func TestSnapshotReadMissingAndGatedSinglesShareNotFound(t *testing.T) {
 	// Missing issue index.
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
 	req.IssueIndex = "9999"
-	_, err := svc.ReadSnapshot(ctx, 2, req)
+	_, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.ErrorIs(t, err, ErrSnapshotNotFound)
 
 	// Missing pull request.
 	req = snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyPull})
 	req.PullNumber = "9999"
-	_, err = svc.ReadSnapshot(ctx, 2, req)
+	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.ErrorIs(t, err, ErrSnapshotNotFound)
 
 	// Actor without repository access sees the same outcome: user4 cannot
 	// read user2's private repo2.
 	req = snapshotProofRequest("2", "4", []string{sdk.SnapshotFamilyIssue})
 	req.IssueIndex = "1"
-	_, err = svc.ReadSnapshot(ctx, 4, req)
+	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(4, req), req)
 	require.ErrorIs(t, err, ErrSnapshotNotFound)
 
 	// Request actor must equal the verified actor.
 	req = snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
 	req.IssueIndex = "1"
-	_, err = svc.ReadSnapshot(ctx, 4, req)
+	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(4, req), req)
 	require.ErrorIs(t, err, ErrSnapshotInvalid)
 }
 
@@ -233,7 +246,7 @@ func TestSnapshotReadCommentsPageWithCursorAndIDs(t *testing.T) {
 
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyComments})
 	req.IssueIndex = "104"
-	snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	page := snapshot.Comments
 	require.True(t, page.Complete)
@@ -245,7 +258,7 @@ func TestSnapshotReadCommentsPageWithCursorAndIDs(t *testing.T) {
 
 	// Cursor paging selects strictly greater IDs.
 	req.Cursor = fmt.Sprint(first.ID)
-	snapshot, err = svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	require.True(t, snapshot.Comments.Complete)
 	require.Equal(t, 2, snapshot.Comments.Total)
@@ -255,7 +268,7 @@ func TestSnapshotReadCommentsPageWithCursorAndIDs(t *testing.T) {
 	// A limit below the total reports incomplete, never a silent prefix.
 	req.Cursor = ""
 	req.Limit = 2
-	snapshot, err = svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	require.False(t, snapshot.Comments.Complete)
 	require.Equal(t, 3, snapshot.Comments.Total)
@@ -264,20 +277,20 @@ func TestSnapshotReadCommentsPageWithCursorAndIDs(t *testing.T) {
 	// Explicit IDs select across the page; unknown IDs fail closed.
 	req = snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyComments})
 	req.CommentIDs = []string{fmt.Sprint(first.ID), fmt.Sprint(third.ID)}
-	snapshot, err = svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	require.True(t, snapshot.Comments.Complete)
 	require.Equal(t, 2, snapshot.Comments.Total)
 
 	req.CommentIDs = []string{"999999"}
-	_, err = svc.ReadSnapshot(ctx, 2, req)
+	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.ErrorIs(t, err, ErrSnapshotNotFound)
 
 	// IDs spanning two issues are ambiguous and refuse.
 	other := insertSnapshotIssue(t, 1, 105, "Other", "body", 0)
 	foreign := insertSnapshotComment(t, other.ID, issues_model.CommentTypeComment, "foreign")
 	req.CommentIDs = []string{fmt.Sprint(first.ID), fmt.Sprint(foreign.ID)}
-	_, err = svc.ReadSnapshot(ctx, 2, req)
+	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.ErrorIs(t, err, ErrSnapshotInvalid)
 	_ = second
 }
@@ -289,17 +302,21 @@ func TestSnapshotReadDependenciesRedactsHiddenTarget(t *testing.T) {
 	// user4 reads repo3 but cannot read user2's private repo2. Edge to
 	// repo2's issue4 hides its target; edge to repo3's issue12 stays
 	// visible. Both occurrences stay attributable.
-	hidden := &issues_model.IssueDependency{IssueID: 6, DependencyID: 4, UserID: 4,
-		CreatedUnix: timeutil.TimeStamp(1700000000), UpdatedUnix: timeutil.TimeStamp(1700000000)}
+	hidden := &issues_model.IssueDependency{
+		IssueID: 6, DependencyID: 4, UserID: 4,
+		CreatedUnix: timeutil.TimeStamp(1700000000), UpdatedUnix: timeutil.TimeStamp(1700000000),
+	}
 	unittest.AssertSuccessfulInsert(t, hidden)
-	shown := &issues_model.IssueDependency{IssueID: 6, DependencyID: 12, UserID: 4,
-		CreatedUnix: timeutil.TimeStamp(1700000000), UpdatedUnix: timeutil.TimeStamp(1700000000)}
+	shown := &issues_model.IssueDependency{
+		IssueID: 6, DependencyID: 12, UserID: 4,
+		CreatedUnix: timeutil.TimeStamp(1700000000), UpdatedUnix: timeutil.TimeStamp(1700000000),
+	}
 	unittest.AssertSuccessfulInsert(t, shown)
 
 	svc := NewService()
 	req := snapshotProofRequest("3", "4", []string{sdk.SnapshotFamilyDependencies})
 	req.IssueIndex = "1"
-	snapshot, err := svc.ReadSnapshot(ctx, 4, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(4, req), req)
 	require.NoError(t, err)
 	page := snapshot.Dependencies
 	require.True(t, page.Complete)
@@ -319,11 +336,13 @@ func TestSnapshotReadDependenciesRedactsHiddenTarget(t *testing.T) {
 	// Removal plus readdition yields a new occurrence ID.
 	_, err = db.GetEngine(ctx).ID(shown.ID).Delete(new(issues_model.IssueDependency))
 	require.NoError(t, err)
-	readded := &issues_model.IssueDependency{IssueID: 6, DependencyID: 12, UserID: 4,
-		CreatedUnix: timeutil.TimeStamp(1700000001), UpdatedUnix: timeutil.TimeStamp(1700000001)}
+	readded := &issues_model.IssueDependency{
+		IssueID: 6, DependencyID: 12, UserID: 4,
+		CreatedUnix: timeutil.TimeStamp(1700000001), UpdatedUnix: timeutil.TimeStamp(1700000001),
+	}
 	unittest.AssertSuccessfulInsert(t, readded)
 	require.NotEqual(t, shown.ID, readded.ID)
-	snapshot, err = svc.ReadSnapshot(ctx, 4, req)
+	snapshot, err = svc.ReadSnapshot(ctx, snapshotAuthority(4, req), req)
 	require.NoError(t, err)
 	require.Equal(t, fmt.Sprint(readded.ID), snapshot.Dependencies.Items[1].OccurrenceID)
 }
@@ -337,7 +356,7 @@ func TestSnapshotReadPullResolvesLiveHeadTip(t *testing.T) {
 	// from live ref state, not the pull row.
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyPull})
 	req.PullNumber = "3"
-	snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	pull := snapshot.Pull
 	require.True(t, pull.Visible)
@@ -371,7 +390,7 @@ func TestSnapshotReadReviewsExposeExactCandidates(t *testing.T) {
 	svc := NewService()
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyReviews})
 	req.IssueIndex = "106"
-	snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	page := snapshot.Reviews
 	require.True(t, page.Complete)
@@ -406,7 +425,7 @@ func TestSnapshotReadChecksReturnLatestPerContext(t *testing.T) {
 	svc := NewService()
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyChecks})
 	req.SHA = sha
-	snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	set := snapshot.Checks
 	require.True(t, set.Complete)
@@ -424,7 +443,7 @@ func TestSnapshotReadChecksReturnLatestPerContext(t *testing.T) {
 
 	// An unknown commit honestly reports no checks.
 	req.SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	snapshot, err = svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	require.True(t, snapshot.Checks.Complete)
 	require.Equal(t, 0, snapshot.Checks.Total)
@@ -437,7 +456,7 @@ func TestSnapshotReadRefsReportLiveTips(t *testing.T) {
 
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyRefs})
 	req.Refs = []string{"refs/heads/master", "refs/heads/does-not-exist"}
-	snapshot, err := svc.ReadSnapshot(ctx, 2, req)
+	snapshot, err := svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 	require.Len(t, snapshot.Refs, 2)
 	require.Equal(t, "refs/heads/master", snapshot.Refs[0].Ref)
@@ -462,7 +481,7 @@ func TestSnapshotReadBracketRejectsInterferingWriter(t *testing.T) {
 
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
 	req.IssueIndex = "1"
-	_, err = svc.ReadSnapshot(ctx, 2, req)
+	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err)
 
 	after, err := svc.ReadNativeRevision(ctx)
@@ -479,7 +498,7 @@ func TestSnapshotReadBracketRejectsInterferingWriter(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, held.Idle)
 	require.Equal(t, before.Revision+1, held.Revision)
-	_, err = svc.ReadSnapshot(ctx, 2, req)
+	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err, "reads never contend with a held writer")
 	require.NoError(t, model.ReleaseOwner(ctx, owner))
 
@@ -488,4 +507,103 @@ func TestSnapshotReadBracketRejectsInterferingWriter(t *testing.T) {
 	require.True(t, moved.Idle)
 	require.Equal(t, before.Revision+1, moved.Revision)
 	require.NotEqual(t, before.Revision, moved.Revision, "an intervening writer invalidates the bracket")
+}
+
+func TestSnapshotReadDependencyTargetsRespectEnrolledTokenRestrictions(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		scope      auth_model.AccessTokenScope
+		restricted bool
+		target     int64
+	}{
+		{"public-only hides private target", "public-only,read:issue", false, 4},
+		{"resource selection hides readable public target", "read:issue", true, 6},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			unittest.PrepareTestEnv(t)
+			ctx := t.Context()
+			token := &auth_model.AccessToken{UID: 2, Name: "dependency-token", Scope: tc.scope, ResourceAllRepos: !tc.restricted}
+			require.NoError(t, auth_model.NewAccessToken(ctx, token))
+			if tc.restricted {
+				require.NoError(t, auth_model.InsertAccessTokenResourceRepos(ctx, token.ID, []*auth_model.AccessTokenResourceRepo{{TokenID: token.ID, RepoID: 1}}))
+			}
+			_, err := extensionauth.EnrollBinding(ctx, operationTestInstallation, token.ID, 2, 1, extensionauth.KindMerge)
+			require.NoError(t, err)
+			req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyDependencies})
+			req.IssueIndex = "1"
+			decision, err := extensionauth.VerifySnapshotRead(ctx, extensionauth.SnapshotReadRequest{
+				InstallationID: operationTestInstallation, TokenSecret: token.Token,
+				ActorID: 2, RepositoryID: 1, Families: req.Families,
+			})
+			require.NoError(t, err)
+			edge := &issues_model.IssueDependency{IssueID: 1, DependencyID: tc.target, UserID: 2}
+			unittest.AssertSuccessfulInsert(t, edge)
+			// Actor-only authority sees this target. Only PAT authority hides it.
+			unrestricted, err := NewService().ReadSnapshot(ctx, snapshotAuthority(2, req), req)
+			require.NoError(t, err)
+			require.True(t, unrestricted.Dependencies.Items[0].Visible)
+			snapshot, err := NewService().ReadSnapshot(ctx, decision, req)
+			require.NoError(t, err)
+			require.Len(t, snapshot.Dependencies.Items, 1)
+			item := snapshot.Dependencies.Items[0]
+			require.False(t, item.Visible)
+			require.Equal(t, fmt.Sprint(edge.ID), item.OccurrenceID)
+			require.Empty(t, item.DependencyID)
+			require.Equal(t, "no_access", item.HiddenReason)
+			require.True(t, item.Complete)
+		})
+	}
+}
+
+func TestSnapshotLifecycleOccurrenceSurvivesEqualTimeRetitleAndReclose(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	issue := insertSnapshotIssue(t, 1, 151, "A", "body", 7)
+	unittest.AssertSuccessfulInsert(t, &issues_model.ContentHistory{PosterID: 2, IssueID: issue.ID, EditedUnix: issue.CreatedUnix, ContentText: "body", IsFirstCreated: true})
+	var events []*issues_model.Comment
+	for _, spec := range []struct {
+		kind     issues_model.CommentType
+		old, new string
+	}{
+		{issues_model.CommentTypeChangeTitle, "A", "B"},
+		{issues_model.CommentTypeChangeTitle, "B", "A"},
+		{issues_model.CommentTypeClose, "", ""},
+		{issues_model.CommentTypeReopen, "", ""},
+		{issues_model.CommentTypeClose, "", ""},
+	} {
+		comment := insertSnapshotComment(t, issue.ID, spec.kind, "")
+		comment.OldTitle, comment.NewTitle = spec.old, spec.new
+		comment.CreatedUnix = 1700000200
+		_, err := db.GetEngine(ctx).ID(comment.ID).Cols("old_title", "new_title", "created_unix").NoAutoTime().Update(comment)
+		require.NoError(t, err)
+		_, err = db.GetEngine(ctx).Exec("UPDATE comment SET created_unix=? WHERE id=?", int64(comment.CreatedUnix), comment.ID)
+		require.NoError(t, err)
+		events = append(events, comment)
+	}
+	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
+	req.IssueIndex = "151"
+	snapshot, err := NewService().ReadSnapshot(ctx, snapshotAuthority(2, req), req)
+	require.NoError(t, err)
+	require.True(t, snapshot.Issue.Complete)
+	require.True(t, snapshot.Issue.Provenance.Verified)
+	require.Equal(t, 7, snapshot.Issue.ContentVersion, "body version is independent of lifecycle occurrences")
+	require.Len(t, snapshot.Issue.Lifecycle, len(events))
+	for i, event := range snapshot.Issue.Lifecycle {
+		require.Equal(t, fmt.Sprint(events[i].ID), event.OccurrenceID)
+		require.Equal(t, int64(1700000200), event.AtUnix, "equal times must not collapse identity or ordering")
+	}
+	require.NotEqual(t, snapshot.Issue.Lifecycle[0].OccurrenceID, snapshot.Issue.Lifecycle[1].OccurrenceID)
+	require.NotEqual(t, snapshot.Issue.Lifecycle[2].OccurrenceID, snapshot.Issue.Lifecycle[4].OccurrenceID)
+}
+
+func TestSnapshotLifecycleMalformedTransitionIsIncomplete(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	issue := insertSnapshotIssue(t, 1, 152, "A", "body", 0)
+	insertSnapshotComment(t, issue.ID, issues_model.CommentTypeChangeTitle, "")
+	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyIssue})
+	req.IssueIndex = "152"
+	snapshot, err := NewService().ReadSnapshot(t.Context(), snapshotAuthority(2, req), req)
+	require.NoError(t, err)
+	require.False(t, snapshot.Issue.Complete, "a malformed required title transition cannot become explicit absence")
+	require.Empty(t, snapshot.Issue.Lifecycle)
 }

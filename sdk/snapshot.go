@@ -215,11 +215,12 @@ func ValidateSnapshotRequest(req SnapshotRequest) error {
 
 // SnapshotLifecycleEvent is one title/lifecycle transition.
 type SnapshotLifecycleEvent struct {
-	Kind     string `json:"kind"`
-	AtUnix   int64  `json:"at_unix"`
-	ActorID  string `json:"actor_id"`
-	OldTitle string `json:"old_title,omitempty"`
-	NewTitle string `json:"new_title,omitempty"`
+	OccurrenceID string `json:"occurrence_id"`
+	Kind         string `json:"kind"`
+	AtUnix       int64  `json:"at_unix"`
+	ActorID      string `json:"actor_id"`
+	OldTitle     string `json:"old_title,omitempty"`
+	NewTitle     string `json:"new_title,omitempty"`
 }
 
 // SnapshotCreationProvenance binds verified creation evidence. Verified

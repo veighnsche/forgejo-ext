@@ -6,7 +6,9 @@ package extensionauth_test
 import (
 	"testing"
 
+	sdk "forgejo.org/extension-sdk"
 	auth_model "forgejo.org/models/auth"
+	"forgejo.org/models/db"
 	"forgejo.org/models/extensionauth"
 	"forgejo.org/models/unittest"
 
@@ -37,6 +39,7 @@ func snapshotReadRequest(token *auth_model.AccessToken, repositoryID int64) exte
 		TokenSecret:    token.Token,
 		ActorID:        token.UID,
 		RepositoryID:   repositoryID,
+		Families:       []string{sdk.SnapshotFamilyRefs},
 	}
 }
 
@@ -105,4 +108,64 @@ func mustVerifySnapshotRead(t *testing.T, request extensionauth.SnapshotReadRequ
 	t.Helper()
 	_, err := extensionauth.VerifySnapshotRead(t.Context(), request)
 	return err
+}
+
+func TestPublicOnlyBoundTokenCannotReadPrivateRepository(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	token := createScopedToken(t, testActor, "public-only,read:repository")
+	enroll(t, token, 2, extensionauth.KindMerge)
+	code, status := refusalCode(t, mustVerifySnapshotRead(t, snapshotReadRequest(token, 2)))
+	require.Equal(t, extensionauth.RefusalRepositoryExcluded, code)
+	require.Equal(t, 403, status)
+}
+
+func TestSnapshotReadRequiresEveryRequestedNativeScope(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		scope    auth_model.AccessTokenScope
+		families []string
+		allowed  bool
+	}{
+		{"issue read", "read:issue", []string{sdk.SnapshotFamilyIssue, sdk.SnapshotFamilyComments, sdk.SnapshotFamilyDependencies}, true},
+		{"repository read", "read:repository", []string{sdk.SnapshotFamilyPull, sdk.SnapshotFamilyReviews, sdk.SnapshotFamilyChecks, sdk.SnapshotFamilyRefs, sdk.SnapshotFamilyAncestry}, true},
+		{"issue cannot read refs", "read:issue", []string{sdk.SnapshotFamilyRefs}, false},
+		{"repository cannot read issue", "read:repository", []string{sdk.SnapshotFamilyIssue}, false},
+		{"mixed issue only", "read:issue", []string{sdk.SnapshotFamilyIssue, sdk.SnapshotFamilyRefs}, false},
+		{"mixed repository only", "read:repository", []string{sdk.SnapshotFamilyIssue, sdk.SnapshotFamilyRefs}, false},
+		{"mixed both", "read:issue,read:repository", []string{sdk.SnapshotFamilyIssue, sdk.SnapshotFamilyRefs}, true},
+		{"mixed writes imply reads", "write:issue,write:repository", []string{sdk.SnapshotFamilyComments, sdk.SnapshotFamilyReviews}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, unittest.PrepareTestDatabase())
+			token := createScopedToken(t, testActor, tc.scope)
+			enroll(t, token, testRepository, extensionauth.KindMerge)
+			request := snapshotReadRequest(token, testRepository)
+			request.Families = tc.families
+			_, err := extensionauth.VerifySnapshotRead(t.Context(), request)
+			if tc.allowed {
+				require.NoError(t, err)
+			} else {
+				code, _ := refusalCode(t, err)
+				require.Equal(t, extensionauth.RefusalInsufficientScope, code)
+			}
+		})
+	}
+}
+
+func TestSnapshotReadRetainsTokenRepositoryRestrictions(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	token := createScopedToken(t, testActor, "public-only,read:issue")
+	token.ResourceAllRepos = false
+	_, err := db.GetEngine(t.Context()).ID(token.ID).Cols("resource_all_repos").Update(token)
+	require.NoError(t, err)
+	require.NoError(t, auth_model.InsertAccessTokenResourceRepos(t.Context(), token.ID, []*auth_model.AccessTokenResourceRepo{{TokenID: token.ID, RepoID: 1}}))
+	enroll(t, token, testRepository, extensionauth.KindMerge)
+	request := snapshotReadRequest(token, testRepository)
+	request.Families = []string{sdk.SnapshotFamilyDependencies}
+	decision, err := extensionauth.VerifySnapshotRead(t.Context(), request)
+	require.NoError(t, err)
+	require.True(t, decision.PublicOnly)
+	require.True(t, decision.AllowsRepository(1, false))
+	require.False(t, decision.AllowsRepository(1, true))
+	require.False(t, decision.AllowsRepository(3, false))
 }

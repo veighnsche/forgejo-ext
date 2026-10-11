@@ -14,6 +14,7 @@ import (
 
 	sdk "forgejo.org/extension-sdk"
 	"forgejo.org/models/db"
+	"forgejo.org/models/extensionauth"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
 	access_model "forgejo.org/models/perm/access"
@@ -70,16 +71,17 @@ const (
 // ReadSnapshot loads one permission-checked native snapshot for a verified
 // read actor. Only requested families are present. It performs no mutation
 // and claims no reservation.
-func (s *Service) ReadSnapshot(ctx context.Context, actorID int64, req sdk.SnapshotRequest) (sdk.NativeSnapshot, error) {
+func (s *Service) ReadSnapshot(ctx context.Context, decision extensionauth.SnapshotReadDecision, req sdk.SnapshotRequest) (sdk.NativeSnapshot, error) {
 	if err := sdk.ValidateSnapshotRequest(req); err != nil {
 		return sdk.NativeSnapshot{}, ErrSnapshotInvalid
 	}
-	if actorID <= 0 {
+	actorID := decision.ActorID
+	if actorID <= 0 || !decision.CanReadFamilies(req.Families) {
 		return sdk.NativeSnapshot{}, ErrSnapshotInvalid
 	}
 	repositoryID, _ := strconv.ParseInt(req.RepositoryID, 10, 64)
 	requestActorID, _ := strconv.ParseInt(req.ActorID, 10, 64)
-	if requestActorID != actorID {
+	if requestActorID != actorID || repositoryID != decision.RepositoryID {
 		return sdk.NativeSnapshot{}, ErrSnapshotInvalid
 	}
 	repository, err := repo_model.GetRepositoryByID(ctx, repositoryID)
@@ -89,6 +91,9 @@ func (s *Service) ReadSnapshot(ctx context.Context, actorID int64, req sdk.Snaps
 		}
 		return sdk.NativeSnapshot{}, ErrSnapshotUnavailable
 	}
+	if !decision.AllowsRepository(repository.ID, repository.IsPrivate) {
+		return sdk.NativeSnapshot{}, ErrSnapshotNotFound
+	}
 	user, err := user_model.GetUserByID(ctx, actorID)
 	if err != nil {
 		if user_model.IsErrUserNotExist(err) {
@@ -96,12 +101,16 @@ func (s *Service) ReadSnapshot(ctx context.Context, actorID int64, req sdk.Snaps
 		}
 		return sdk.NativeSnapshot{}, ErrSnapshotUnavailable
 	}
+	if !user.IsActive || user.ProhibitLogin {
+		return sdk.NativeSnapshot{}, ErrSnapshotNotFound
+	}
 	permission, err := access_model.GetUserRepoPermission(ctx, repository, user)
 	if err != nil {
 		return sdk.NativeSnapshot{}, ErrSnapshotUnavailable
 	}
 	loader := &snapshotLoader{
 		service:    s,
+		decision:   decision,
 		repository: repository,
 		user:       user,
 		permission: permission,
@@ -170,6 +179,7 @@ func (s *Service) ReadSnapshot(ctx context.Context, actorID int64, req sdk.Snaps
 }
 
 type snapshotLoader struct {
+	decision   extensionauth.SnapshotReadDecision
 	service    *Service
 	repository *repo_model.Repository
 	user       *user_model.User
@@ -255,11 +265,12 @@ func (l *snapshotLoader) issue(ctx context.Context, index string) (*sdk.Snapshot
 	}
 	for _, event := range converted.Lifecycle {
 		out.Lifecycle = append(out.Lifecycle, sdk.SnapshotLifecycleEvent{
-			Kind:     event.Kind,
-			AtUnix:   event.AtUnix,
-			ActorID:  snapshotIDString(event.ActorID),
-			OldTitle: event.OldTitle,
-			NewTitle: event.NewTitle,
+			OccurrenceID: snapshotIDString(event.OccurrenceID),
+			Kind:         event.Kind,
+			AtUnix:       event.AtUnix,
+			ActorID:      snapshotIDString(event.ActorID),
+			OldTitle:     event.OldTitle,
+			NewTitle:     event.NewTitle,
 		})
 	}
 	return out, nil
@@ -311,6 +322,7 @@ func (l *snapshotLoader) issueLifecycle(ctx context.Context, issueID int64) ([]i
 		for _, comment := range comments {
 			event, ok := issues_model.LifecycleEventFromComment(comment)
 			if !ok {
+				complete = false
 				continue
 			}
 			ordered = append(ordered, orderedEvent{commentID: comment.ID, event: event})
@@ -496,9 +508,8 @@ func (l *snapshotLoader) dependencies(ctx context.Context, index string) (*sdk.S
 	return page, nil
 }
 
-// dependencyVisible checks the edge target. Same-repository targets are
-// visible; cross-repository targets require read access to their own
-// repository and unit, else the edge is redacted without leaking the target.
+// dependencyVisible intersects the target credential restrictions and current
+// repository/unit permissions, retaining only the redacted edge when denied.
 func (l *snapshotLoader) dependencyVisible(ctx context.Context, targetID int64) (bool, string, error) {
 	target, err := issues_model.GetIssueByID(ctx, targetID)
 	if err != nil {
@@ -507,15 +518,15 @@ func (l *snapshotLoader) dependencyVisible(ctx context.Context, targetID int64) 
 		}
 		return false, "", ErrSnapshotUnavailable
 	}
-	if target.RepoID == l.repository.ID {
-		return true, "", nil
-	}
 	targetRepo, err := repo_model.GetRepositoryByID(ctx, target.RepoID)
 	if err != nil {
 		if repo_model.IsErrRepoNotExist(err) {
 			return false, issues_model.HiddenReasonNotFound, nil
 		}
 		return false, "", ErrSnapshotUnavailable
+	}
+	if !l.decision.AllowsRepository(targetRepo.ID, targetRepo.IsPrivate) {
+		return false, issues_model.HiddenReasonNoAccess, nil
 	}
 	permission, err := access_model.GetUserRepoPermission(ctx, targetRepo, l.user)
 	if err != nil {

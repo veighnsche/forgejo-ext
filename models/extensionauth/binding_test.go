@@ -119,6 +119,19 @@ func TestVerifySubmissionAcceptsBoundCaller(t *testing.T) {
 	require.Equal(t, decision.CredentialFingerprint, again.CredentialFingerprint)
 }
 
+func TestPublicOnlyBoundTokenCannotSubmitToPrivateRepository(t *testing.T) {
+	require.NoError(t, unittest.PrepareTestDatabase())
+	token := createScopedToken(t, testActor, "public-only,write:repository")
+	enroll(t, token, 2, extensionauth.KindMerge)
+	_, err := extensionauth.VerifySubmission(t.Context(), extensionauth.SubmissionRequest{
+		InstallationID: testInstallation, TokenSecret: token.Token,
+		ActorID: testActor, RepositoryID: 2, Kind: extensionauth.KindMerge,
+	})
+	code, status := refusalCode(t, err)
+	require.Equal(t, extensionauth.RefusalRepositoryExcluded, code)
+	require.Equal(t, 403, status)
+}
+
 func TestVerifySubmissionRejects(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ctx := t.Context()

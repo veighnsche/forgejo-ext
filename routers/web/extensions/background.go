@@ -27,7 +27,7 @@ type backgroundVerifier func(context.Context, authmodel.SubmissionRequest) (auth
 // snapshotVerifier authenticates a background snapshot read. Production uses
 // authmodel.VerifySnapshotRead; tests inject a fake. Reads require only
 // read scope and read access, and grant no mutation kind.
-type snapshotVerifier func(context.Context, authmodel.SnapshotReadRequest) (authmodel.SubmissionDecision, error)
+type snapshotVerifier func(context.Context, authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error)
 
 // backgroundVerifiers groups the submission and snapshot-read verifiers so
 // dispatch tests inject both together.
@@ -42,7 +42,7 @@ type backgroundVerifiers struct {
 // reservation and perform no mutation.
 type backgroundOperations interface {
 	ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error)
-	ReadSnapshot(context.Context, int64, extension.SnapshotRequest) (extension.NativeSnapshot, error)
+	ReadSnapshot(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
 	Submit(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
 	Get(context.Context, string, string) (extension.OperationLookup, error)
 	Cancel(context.Context, string, string) (extension.OperationRecord, error)
@@ -293,6 +293,7 @@ func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission r
 		TokenSecret:    request.Token,
 		ActorID:        actorID,
 		RepositoryID:   repositoryID,
+		Families:       request.Families,
 	})
 	if err != nil {
 		var refusal *authmodel.RefusalError
@@ -303,7 +304,7 @@ func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission r
 		http.Error(w, "background snapshot unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	snapshot, err := operations.ReadSnapshot(r.Context(), decision.ActorID, request.SnapshotRequest)
+	snapshot, err := operations.ReadSnapshot(r.Context(), decision, request.SnapshotRequest)
 	if err != nil {
 		switch {
 		case errors.Is(err, operation_service.ErrSnapshotInvalid):

@@ -10,8 +10,10 @@ import (
 	"time"
 
 	auth_model "forgejo.org/models/auth"
+	"forgejo.org/models/db"
 	"forgejo.org/models/extensionauth"
 	model "forgejo.org/models/nativeoperation"
+	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	execcontext "forgejo.org/modules/nativeoperation"
 
@@ -283,4 +285,34 @@ func TestClassifyCompletion(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, bound.Allowed)
 	require.NoError(t, model.ReleaseOwner(ctx, owner))
+}
+
+func TestPreparedAdmissionRechecksPublicOnlyAfterRepositoryBecomesPrivate(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	now := time.Now().Unix()
+	token := writerToken(t)
+	token.Scope = "public-only,write:repository"
+	_, err := db.GetEngine(ctx).ID(token.ID).Cols("scope").Update(token)
+	require.NoError(t, err)
+	// The real token is valid for the public repository at submission.
+	_, err = extensionauth.VerifySubmission(ctx, extensionauth.SubmissionRequest{
+		InstallationID: operationTestInstallation, TokenSecret: token.Token,
+		ActorID: 2, RepositoryID: 1, Kind: extensionauth.KindMerge,
+	})
+	require.NoError(t, err)
+	_, secret := claimMergeOwner(t, ctx, token, "op-public-became-private", mergeScope(), now)
+	_, err = db.GetEngine(ctx).ID(1).Cols("is_private").Update(&repo_model.Repository{IsPrivate: true})
+	require.NoError(t, err)
+	svc := admissionService(t, map[string]string{"refs/heads/branch2": testHead}, now)
+	decision, err := svc.ClassifyTransaction(ctx, TransactionRequest{
+		OwnerName: "user2", RepoName: "repo1", Phase: PhasePrepared,
+		Lines: []RefLine{{Old: testBase, New: testHead, Ref: "refs/heads/master"}}, Proof: secret,
+	})
+	require.NoError(t, err)
+	require.False(t, decision.Allowed)
+	require.Equal(t, model.ReasonAuthorityLost, decision.Reason)
+	op, err := model.LookupOperation(ctx, operationTestInstallation, "op-public-became-private")
+	require.NoError(t, err)
+	require.False(t, op.Admitted)
 }

@@ -34,7 +34,7 @@ func snapshotIssue() *issues_model.Issue {
 
 func TestIssueSnapshotExposesExactVersionsAndProvenance(t *testing.T) {
 	lifecycle := []issues_model.TitleLifecycleEvent{
-		{Kind: issues_model.LifecycleRetitled, AtUnix: 1700000050, ActorID: 7, OldTitle: "Old", NewTitle: "Exact objective"},
+		{OccurrenceID: 21, Kind: issues_model.LifecycleRetitled, AtUnix: 1700000050, ActorID: 7, OldTitle: "Old", NewTitle: "Exact objective"},
 	}
 	snap, err := issues_model.NewIssueSnapshot(snapshotIssue(), true, lifecycle, true, "", true)
 	require.NoError(t, err)
@@ -98,6 +98,7 @@ func TestLifecycleEventFromCommentMapsTitleTransitions(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, issues_model.LifecycleRetitled, event.Kind)
 	require.Equal(t, "Old", event.OldTitle)
+	require.Equal(t, int64(21), event.OccurrenceID)
 
 	plain := &issues_model.Comment{ID: 22, IssueID: 11, Type: issues_model.CommentTypeComment, CreatedUnix: timeutil.TimeStamp(1700000060)}
 	_, ok = issues_model.LifecycleEventFromComment(plain)
@@ -196,4 +197,16 @@ func TestReviewSnapshotBindsExactCommit(t *testing.T) {
 	bad.CommitID = "short"
 	_, err = issues_model.NewReviewSnapshot(&bad, true, "", true)
 	require.ErrorIs(t, err, issues_model.ErrSnapshotInvalid)
+}
+
+func TestLifecycleEventRequiresNativeOccurrenceIdentity(t *testing.T) {
+	for _, kind := range []issues_model.CommentType{issues_model.CommentTypeClose, issues_model.CommentTypeReopen, issues_model.CommentTypeChangeTitle} {
+		comment := &issues_model.Comment{Type: kind, PosterID: 2, CreatedUnix: 1700000000, OldTitle: "A", NewTitle: "B"}
+		_, ok := issues_model.LifecycleEventFromComment(comment)
+		require.False(t, ok, "a timestamp cannot replace a missing native comment identity")
+		comment.ID = 901
+		event, ok := issues_model.LifecycleEventFromComment(comment)
+		require.True(t, ok)
+		require.Equal(t, int64(901), event.OccurrenceID)
+	}
 }
