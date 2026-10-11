@@ -106,14 +106,34 @@ func init() {
 	db.RegisterModel(new(Reservation))
 }
 
+// supportedKinds is the single source of supported background operation
+// kinds, sorted for stable generation digests and handshake responses.
+var supportedKinds = []string{
+	KindRefPublish,      // git.ref.publish
+	KindLifecycleNote,   // issue.comment.publish
+	KindIssueGraph,      // issue.graph.mutate
+	KindLifecycleIssue,  // issue.lifecycle.apply
+	KindPRCreate,        // pull_request.create
+	KindMerge,           // pull_request.merge
+	KindLifecycleReview, // pull_request.review.request
+	KindReviewSubmit,    // pull_request.review.submit
+}
+
+// SupportedKinds returns a copy of the sorted supported operation kinds.
+func SupportedKinds() []string {
+	out := make([]string, len(supportedKinds))
+	copy(out, supportedKinds)
+	return out
+}
+
 // ValidKind reports whether kind is a supported background operation kind.
 func ValidKind(kind string) bool {
-	switch kind {
-	case KindIssueGraph, KindRefPublish, KindPRCreate, KindReviewSubmit, KindMerge, KindLifecycleIssue, KindLifecycleReview, KindLifecycleNote:
-		return true
-	default:
-		return false
+	for _, supported := range supportedKinds {
+		if supported == kind {
+			return true
+		}
 	}
+	return false
 }
 
 // IsTerminal reports whether the effect state is final. Indeterminate keeps

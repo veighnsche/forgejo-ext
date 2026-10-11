@@ -42,13 +42,14 @@ const (
 )
 
 const (
-	BackgroundSubmitPath    = "/v1/background/submit"
-	BackgroundGetPath       = "/v1/background/get"
-	BackgroundCancelPath    = "/v1/background/cancel"
-	BackgroundBootstrapPath = "/v1/background/bootstrap"
-	BackgroundRevisionPath  = "/v1/background/revision"
-	BackgroundSnapshotPath  = "/v1/background/snapshot"
-	BackgroundCreationsPath = "/v1/background/creations"
+	BackgroundSubmitPath     = "/v1/background/submit"
+	BackgroundGetPath        = "/v1/background/get"
+	BackgroundCancelPath     = "/v1/background/cancel"
+	BackgroundBootstrapPath  = "/v1/background/bootstrap"
+	BackgroundRevisionPath   = "/v1/background/revision"
+	BackgroundSnapshotPath   = "/v1/background/snapshot"
+	BackgroundCreationsPath  = "/v1/background/creations"
+	BackgroundOperationsPath = "/v1/background/operations"
 )
 
 const maxBackgroundBodyBytes = 64 << 10

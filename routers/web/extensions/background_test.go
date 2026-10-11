@@ -66,12 +66,17 @@ func testVerifiers() backgroundVerifiers {
 }
 
 type stubOperations struct {
+	handshake operation_service.OperationsHandshake
 	revision  operation_service.NativeRevisionObservation
 	snapshot  func(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
 	creations func(context.Context, authmodel.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error)
 	submit    func(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
 	get       func(context.Context, string, string) (extension.OperationLookup, error)
 	cancel    func(context.Context, string, string) (extension.OperationRecord, error)
+}
+
+func (s stubOperations) SupportedOperations(context.Context) (operation_service.OperationsHandshake, error) {
+	return s.handshake, nil
 }
 
 func (s stubOperations) ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error) {
@@ -116,7 +121,8 @@ func mergeSubmitPayload() map[string]any {
 
 func testOperations() stubOperations {
 	return stubOperations{
-		revision: operation_service.NativeRevisionObservation{Revision: 7, Idle: true},
+		handshake: operation_service.OperationsHandshake{Generation: "ops-test", Kinds: []string{"issue.lifecycle.apply"}},
+		revision:  operation_service.NativeRevisionObservation{Revision: 7, Idle: true},
 		snapshot: func(_ context.Context, _ authmodel.SnapshotReadDecision, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
 			return extension.NativeSnapshot{RepositoryID: req.RepositoryID}, nil
 		},
