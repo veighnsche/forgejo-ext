@@ -29,13 +29,18 @@ test('admits native same-origin paths and preserves deep links', () => {
 });
 
 test('classifies the workspace root and explicit aliases as direct', () => {
-  for (const pathname of ['/workspace', '/forge/workspace', '/workspace/new', '/forge/workspace/new',
-    '/workspace/requests/d0123456789abcdef01234567', '/forge/workspace/requests/d0123456789abcdef01234567']) {
-    expect(workspaceDirectPath(pathname)).toBe(true);
+  for (const [pathname, sub] of [['/workspace', ''], ['/team/repo/workspace', ''], ['/forge/workspace', '/forge'],
+    ['/workspace/new', ''], ['/forge/workspace/new', '/forge'],
+    ['/workspace/requests/d0123456789abcdef01234567', ''], ['/forge/workspace/requests/d0123456789abcdef01234567', '/forge']]) {
+    expect(workspaceDirectPath(pathname, sub)).toBe(true);
   }
-  for (const pathname of ['/workspace/requests', '/workspace/requests/', '/workspace/requests/d0123456789abcdef01234567/extra',
-    '/workspace/new/extra', '/workspace/news', '/workspace/old', '/issues']) {
-    expect(workspaceDirectPath(pathname)).toBe(false);
+  for (const [pathname, sub] of [['/workspace/requests', ''], ['/workspace/requests/', ''],
+    ['/workspace/requests/bad', ''], ['/workspace/requests/d0123456789abcdef0123456', ''],
+    ['/workspace/requests/d0123456789ABCDEF01234567', ''], ['/workspace/requests/d0123456789abcdef01234567/extra', ''],
+    ['/workspace/new/extra', ''], ['/workspace/news', ''], ['/workspace/old', ''],
+    ['/user2/repo1/workspace/new', ''], ['/user2/repo1/workspace/requests/d0123456789abcdef01234567', ''],
+    ['/workspace/new', '/forge'], ['/other/workspace/new', '/forge'], ['/forgefoo/workspace/new', '/forge'], ['/issues', '']]) {
+    expect(workspaceDirectPath(pathname, sub)).toBe(false);
   }
 });
 

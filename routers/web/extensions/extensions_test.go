@@ -209,25 +209,35 @@ func TestWorkspaceStaysInsideSubURL(t *testing.T) {
 
 func TestWorkspaceDirectPath(t *testing.T) {
 	tests := []struct {
-		path string
-		want bool
+		path      string
+		appSubURL string
+		want      bool
 	}{
 		{path: "/workspace", want: true},
-		{path: "/forge/workspace", want: true},
+		{path: "/team/repo/workspace", want: true},
+		{path: "/forge/workspace", appSubURL: "/forge", want: true},
 		{path: "/workspace/new", want: true},
-		{path: "/forge/workspace/new", want: true},
+		{path: "/forge/workspace/new", appSubURL: "/forge", want: true},
 		{path: "/workspace/requests/d0123456789abcdef01234567", want: true},
-		{path: "/forge/workspace/requests/d0123456789abcdef01234567", want: true},
+		{path: "/forge/workspace/requests/d0123456789abcdef01234567", appSubURL: "/forge", want: true},
 		{path: "/workspace/requests", want: false},
 		{path: "/workspace/requests/", want: false},
+		{path: "/workspace/requests/bad", want: false},
+		{path: "/workspace/requests/d0123456789abcdef0123456", want: false},
+		{path: "/workspace/requests/d0123456789ABCDEF01234567", want: false},
 		{path: "/workspace/requests/d0123456789abcdef01234567/extra", want: false},
 		{path: "/workspace/new/extra", want: false},
 		{path: "/workspace/news", want: false},
 		{path: "/workspace/old", want: false},
+		{path: "/user2/repo1/workspace/new", want: false},
+		{path: "/user2/repo1/workspace/requests/d0123456789abcdef01234567", want: false},
+		{path: "/workspace/new", appSubURL: "/forge", want: false},
+		{path: "/other/workspace/new", appSubURL: "/forge", want: false},
+		{path: "/forgefoo/workspace/new", appSubURL: "/forge", want: false},
 		{path: "/issues", want: false},
 	}
 	for _, tt := range tests {
-		assert.Equal(t, tt.want, workspaceDirectPath(tt.path), tt.path)
+		assert.Equal(t, tt.want, workspaceDirectPath(tt.path, tt.appSubURL), tt.path+" sub="+tt.appSubURL)
 	}
 }
 
