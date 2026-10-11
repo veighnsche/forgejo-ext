@@ -25,14 +25,15 @@ import (
 
 // Snapshot families select bounded native evidence. Unknown families refuse.
 const (
-	SnapshotFamilyIssue        = "issue"
-	SnapshotFamilyComments     = "comments"
-	SnapshotFamilyDependencies = "dependencies"
-	SnapshotFamilyPull         = "pull"
-	SnapshotFamilyReviews      = "reviews"
-	SnapshotFamilyChecks       = "checks"
-	SnapshotFamilyRefs         = "refs"
-	SnapshotFamilyAncestry     = "ancestry"
+	SnapshotFamilyRepositoryWriters = "repository_writers"
+	SnapshotFamilyIssue             = "issue"
+	SnapshotFamilyComments          = "comments"
+	SnapshotFamilyDependencies      = "dependencies"
+	SnapshotFamilyPull              = "pull"
+	SnapshotFamilyReviews           = "reviews"
+	SnapshotFamilyChecks            = "checks"
+	SnapshotFamilyRefs              = "refs"
+	SnapshotFamilyAncestry          = "ancestry"
 )
 
 // Snapshot bounds keep reads bounded and attributable.
@@ -63,6 +64,7 @@ type SnapshotAncestryRequest struct {
 // items carry IDs strictly greater than the cursor, ordered ascending.
 type SnapshotRequest struct {
 	RepositoryID string                   `json:"repository_id"`
+	WriterIDs    []string                 `json:"writer_ids,omitempty"`
 	ActorID      string                   `json:"actor_id"`
 	Families     []string                 `json:"families"`
 	IssueIndex   string                   `json:"issue_index,omitempty"`
@@ -77,7 +79,7 @@ type SnapshotRequest struct {
 
 func validSnapshotFamily(family string) bool {
 	switch family {
-	case SnapshotFamilyIssue, SnapshotFamilyComments, SnapshotFamilyDependencies,
+	case SnapshotFamilyRepositoryWriters, SnapshotFamilyIssue, SnapshotFamilyComments, SnapshotFamilyDependencies,
 		SnapshotFamilyPull, SnapshotFamilyReviews, SnapshotFamilyChecks, SnapshotFamilyRefs, SnapshotFamilyAncestry:
 		return true
 	default:
@@ -133,6 +135,16 @@ func ValidateSnapshotRequest(req SnapshotRequest) error {
 	if !snapshotDecimalID(req.RepositoryID) || !snapshotDecimalID(req.ActorID) {
 		return ErrInvalidSnapshotRequest
 	}
+	if len(req.WriterIDs) > 8 {
+		return ErrInvalidSnapshotRequest
+	}
+	writerSeen := map[string]bool{}
+	for _, id := range req.WriterIDs {
+		if !snapshotDecimalID(id) || writerSeen[id] {
+			return ErrInvalidSnapshotRequest
+		}
+		writerSeen[id] = true
+	}
 	if len(req.Families) == 0 || len(req.Families) > 8 {
 		return ErrInvalidSnapshotRequest
 	}
@@ -172,6 +184,9 @@ func ValidateSnapshotRequest(req SnapshotRequest) error {
 		return ErrInvalidSnapshotRequest
 	}
 	if req.Cursor != "" && !snapshotDecimalID(req.Cursor) {
+		return ErrInvalidSnapshotRequest
+	}
+	if seen[SnapshotFamilyRepositoryWriters] != (len(req.WriterIDs) > 0) {
 		return ErrInvalidSnapshotRequest
 	}
 	if seen[SnapshotFamilyRefs] && len(req.Refs) == 0 {
@@ -401,6 +416,7 @@ type SnapshotAncestry struct {
 // requested families are present. The caller binds its bracketed native
 // revision; the host never sets it.
 type NativeSnapshot struct {
+	Writers      map[string]bool         `json:"writers,omitempty"`
 	RepositoryID string                  `json:"repository_id"`
 	Issue        *SnapshotIssue          `json:"issue,omitempty"`
 	Comments     *SnapshotCommentPage    `json:"comments,omitempty"`

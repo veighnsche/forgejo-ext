@@ -228,3 +228,12 @@ The host supplies native mutations only. The extension owns accepted intent,
 objective provenance, split/consolidation meaning, material scope decisions,
 planning invalidation and spending grants. This operation never accepts an
 objective, closes an issue, declares an outcome or grants execution authority.
+
+`repository_writers` snapshots provide current-owner permission observations
+without a browser session. `SnapshotRequest.WriterIDs` selects at most eight
+native actors; `NativeSnapshot.Writers` returns their current code-write
+permission. The enrolled requesting actor must itself currently have native
+code-write permission and the credential must grant repository-read scope.
+Missing, inactive or prohibited actors return false. This observation confers no
+authority; clients bracket it against the native revision and verify that
+revision at the conditional mutation boundary.

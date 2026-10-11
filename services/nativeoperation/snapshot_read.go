@@ -123,6 +123,33 @@ func (s *Service) ReadSnapshot(ctx context.Context, decision extensionauth.Snaps
 	snapshot := sdk.NativeSnapshot{RepositoryID: req.RepositoryID}
 	for _, family := range req.Families {
 		switch family {
+		case sdk.SnapshotFamilyRepositoryWriters:
+			// Checking another actor's authority requires native code-write from
+			// the requesting actor; a read-only token cannot enumerate writers.
+			if !permission.CanWrite(unit.TypeCode) {
+				return sdk.NativeSnapshot{}, ErrSnapshotNotFound
+			}
+			snapshot.Writers = map[string]bool{}
+			for _, id := range req.WriterIDs {
+				targetID, _ := strconv.ParseInt(id, 10, 64)
+				target, err := user_model.GetUserByID(ctx, targetID)
+				if err != nil {
+					if user_model.IsErrUserNotExist(err) {
+						snapshot.Writers[id] = false
+						continue
+					}
+					return sdk.NativeSnapshot{}, ErrSnapshotUnavailable
+				}
+				if !target.IsActive || target.ProhibitLogin {
+					snapshot.Writers[id] = false
+					continue
+				}
+				targetPermission, err := access_model.GetUserRepoPermission(ctx, repository, target)
+				if err != nil {
+					return sdk.NativeSnapshot{}, ErrSnapshotUnavailable
+				}
+				snapshot.Writers[id] = targetPermission.CanWrite(unit.TypeCode)
+			}
 		case sdk.SnapshotFamilyIssue:
 			issue, err := loader.issue(ctx, req.IssueIndex)
 			if err != nil {

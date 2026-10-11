@@ -607,3 +607,16 @@ func TestSnapshotLifecycleMalformedTransitionIsIncomplete(t *testing.T) {
 	require.False(t, snapshot.Issue.Complete, "a malformed required title transition cannot become explicit absence")
 	require.Empty(t, snapshot.Issue.Lifecycle)
 }
+
+func TestSnapshotRepositoryWritersUsesCurrentNativePermission(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	req := sdk.SnapshotRequest{RepositoryID: "1", ActorID: "2", Families: []string{sdk.SnapshotFamilyRepositoryWriters}, WriterIDs: []string{"2", "4", "999999"}}
+	snapshot, err := NewService().ReadSnapshot(t.Context(), snapshotAuthority(2, req), req)
+	require.NoError(t, err)
+	require.True(t, snapshot.Writers["2"])
+	require.False(t, snapshot.Writers["4"])
+	require.False(t, snapshot.Writers["999999"])
+	req.ActorID = "4"
+	_, err = NewService().ReadSnapshot(t.Context(), snapshotAuthority(4, req), req)
+	require.ErrorIs(t, err, ErrSnapshotNotFound)
+}

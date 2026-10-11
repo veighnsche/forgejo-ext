@@ -88,3 +88,24 @@ func TestValidateSnapshotRequestRefusesMalformedSelectors(t *testing.T) {
 		}
 	}
 }
+
+func TestRepositoryWritersRequestBounds(t *testing.T) {
+	req := SnapshotRequest{RepositoryID: "1", ActorID: "2", Families: []string{SnapshotFamilyRepositoryWriters}, WriterIDs: []string{"3"}}
+	if err := ValidateSnapshotRequest(req); err != nil {
+		t.Fatal(err)
+	}
+	req.WriterIDs = []string{"3", "3"}
+	if ValidateSnapshotRequest(req) == nil {
+		t.Fatal("duplicate writer accepted")
+	}
+	req.WriterIDs = nil
+	if ValidateSnapshotRequest(req) == nil {
+		t.Fatal("missing writer selector accepted")
+	}
+	req.WriterIDs = []string{"3"}
+	req.Families = []string{SnapshotFamilyIssue}
+	req.IssueIndex = "1"
+	if ValidateSnapshotRequest(req) == nil {
+		t.Fatal("unused writer selector accepted")
+	}
+}
