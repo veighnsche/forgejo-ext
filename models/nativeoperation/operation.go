@@ -15,11 +15,12 @@ import (
 // Operation kinds mirror the SDK background kinds. Authorization for one kind
 // never grants another. Each supported kind executes through its own guarded native boundary.
 const (
-	KindIssueGraph   = "issue.graph.mutate"
-	KindRefPublish   = "git.ref.publish"
-	KindPRCreate     = "pull_request.create"
-	KindReviewSubmit = "pull_request.review.submit"
-	KindMerge        = "pull_request.merge"
+	KindIssueGraph     = "issue.graph.mutate"
+	KindRefPublish     = "git.ref.publish"
+	KindPRCreate       = "pull_request.create"
+	KindReviewSubmit   = "pull_request.review.submit"
+	KindMerge          = "pull_request.merge"
+	KindLifecycleIssue = "issue.lifecycle.apply"
 )
 
 // Effect states for an operation's primary native effect.
@@ -106,7 +107,7 @@ func init() {
 // ValidKind reports whether kind is a supported background operation kind.
 func ValidKind(kind string) bool {
 	switch kind {
-	case KindIssueGraph, KindRefPublish, KindPRCreate, KindReviewSubmit, KindMerge:
+	case KindIssueGraph, KindRefPublish, KindPRCreate, KindReviewSubmit, KindMerge, KindLifecycleIssue:
 		return true
 	default:
 		return false

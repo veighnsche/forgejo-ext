@@ -23,11 +23,12 @@ import (
 // Operation kinds mirror the SDK background kinds. Authorization for one kind
 // never grants another.
 const (
-	KindIssueGraph   = "issue.graph.mutate"
-	KindRefPublish   = "git.ref.publish"
-	KindPRCreate     = "pull_request.create"
-	KindReviewSubmit = "pull_request.review.submit"
-	KindMerge        = "pull_request.merge"
+	KindIssueGraph     = "issue.graph.mutate"
+	KindRefPublish     = "git.ref.publish"
+	KindPRCreate       = "pull_request.create"
+	KindReviewSubmit   = "pull_request.review.submit"
+	KindMerge          = "pull_request.merge"
+	KindLifecycleIssue = "issue.lifecycle.apply"
 )
 
 // ActorBinding is one administrator approval binding an installation UUID to
@@ -51,7 +52,7 @@ func init() {
 // ValidKind reports whether kind is a supported background operation kind.
 func ValidKind(kind string) bool {
 	switch kind {
-	case KindIssueGraph, KindRefPublish, KindPRCreate, KindReviewSubmit, KindMerge:
+	case KindIssueGraph, KindRefPublish, KindPRCreate, KindReviewSubmit, KindMerge, KindLifecycleIssue:
 		return true
 	default:
 		return false

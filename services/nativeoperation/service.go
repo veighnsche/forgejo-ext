@@ -133,6 +133,7 @@ type ValidIntent struct {
 	IssueGraph             *sdk.IssueGraphPayload
 	PRCreate               *PRCreateIntent
 	ReviewSubmit           *ReviewSubmitIntent
+	LifecycleIssue         *LifecycleIssueIntent
 	Digest                 string
 	Canonical              string
 }
@@ -229,6 +230,12 @@ func ValidateIntent(operationID string, actorID, repositoryID int64, kind, authR
 			return nil, err
 		}
 		intent.ReviewSubmit = review
+	} else if kind == model.KindLifecycleIssue {
+		lifecycle, err := parseLifecycleIssuePayload(payload, repositoryID)
+		if err != nil {
+			return nil, err
+		}
+		intent.LifecycleIssue = lifecycle
 	} else if len(payload) > 0 {
 		var probe map[string]any
 		decoder := json.NewDecoder(bytes.NewReader(payload))

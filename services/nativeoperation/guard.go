@@ -60,6 +60,12 @@ type Scope struct {
 	// PRNumber binds the native PR identity (conditional merge, or the
 	// correction PR of a conditional publish).
 	PRNumber int64 `json:"pr_number,omitempty"`
+	// IssueID binds the exact native issue of a conditional lifecycle
+	// write; LifecycleLabelID and LifecycleAssigneeID bind its bounded
+	// label/assignee effect (conditional lifecycle).
+	IssueID             int64 `json:"issue_id,omitempty"`
+	LifecycleLabelID    int64 `json:"lifecycle_label_id,omitempty"`
+	LifecycleAssigneeID int64 `json:"lifecycle_assignee_id,omitempty"`
 	// CorrectionAuthorID binds the expected correction-PR author
 	// (conditional publish with a correction PR).
 	CorrectionAuthorID int64 `json:"correction_author_id,omitempty"`
