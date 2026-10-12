@@ -358,3 +358,46 @@ test('retains in-flight requests across update, suspend, and resume', async () =
   await expect(pending).resolves.toEqual({status: 200});
   owner.dispose();
 });
+
+test('refuses pre-aborted caller requests without sending', async () => {
+  const root = pageRoot();
+  const consumer = new AbortController();
+  consumer.abort();
+  const fetcher = vi.fn().mockResolvedValue({status: 200});
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  await expect(owner.context.request('context', {method: 'PUT', body: 'stale', signal: consumer.signal})).rejects.toThrow('This operation was aborted');
+  expect(fetcher).not.toHaveBeenCalled();
+  owner.dispose();
+});
+
+function abortAwareFetcher() {
+  return vi.fn((_url, init) => Promise.resolve({
+    status: 200,
+    json: () => new Promise((_resolve, reject) => {
+      if (init.signal.aborted) reject(new DOMException('This operation was aborted', 'AbortError'));
+      else init.signal.addEventListener('abort', () => reject(new DOMException('This operation was aborted', 'AbortError')), {once: true});
+    }),
+  }));
+}
+
+test('aborts delayed body reads on caller cancellation', async () => {
+  const root = pageRoot();
+  const consumer = new AbortController();
+  const fetcher = abortAwareFetcher();
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  const response = await owner.context.request('context', {signal: consumer.signal});
+  const reading = response.json();
+  consumer.abort();
+  await expect(reading).rejects.toThrow('This operation was aborted');
+  owner.dispose();
+});
+
+test('aborts delayed body reads on owner retirement', async () => {
+  const root = pageRoot();
+  const fetcher = abortAwareFetcher();
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  const response = await owner.context.request('context');
+  const reading = response.json();
+  owner.retire('authority-revoked');
+  await expect(reading).rejects.toThrow('This operation was aborted');
+});

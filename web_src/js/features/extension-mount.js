@@ -178,37 +178,28 @@ export async function mountContribution(root, hooks = {}) {
   const rawRequest = createScopedRequest(parsed.apiHref, parsed.sessionGeneration, fetcher);
   const request = (relativePath, options = {}) => {
     if (isTerminal()) throw new TypeError('Contribution transport is retired');
+    if (options.signal?.aborted) return Promise.reject(new DOMException('This operation was aborted', 'AbortError'));
     let signal = lifetime.signal;
-    let cleanup = null;
     if (options.signal) {
+      // Manual fan-in: AbortSignal.any needs Chrome 116+ but the pinned
+      // browserslist floor includes Chrome 109. Forwarding listeners last
+      // until the first abort (which removes both), so late
+      // aborts still reach in-flight body reads; nothing is removed early.
       const combined = new AbortController();
-      const onAbort = () => combined.abort();
-      options.signal.addEventListener('abort', onAbort, {once: true});
-      lifetime.signal.addEventListener('abort', onAbort, {once: true});
-      cleanup = () => {
+      const onAbort = () => {
         options.signal.removeEventListener('abort', onAbort);
         lifetime.signal.removeEventListener('abort', onAbort);
+        combined.abort();
       };
+      options.signal.addEventListener('abort', onAbort, {once: true});
+      lifetime.signal.addEventListener('abort', onAbort, {once: true});
       signal = combined.signal;
     }
-    let pending;
-    try {
-      pending = rawRequest(relativePath, {...options, signal});
-    } catch (error) {
-      cleanup?.();
-      throw error;
-    }
-    return Promise.resolve(pending).then(
-      (response) => {
-        cleanup?.();
-        if (isTerminal()) throw new DOMException('Contribution transport is retired', 'AbortError');
-        return response;
-      },
-      (error) => {
-        cleanup?.();
-        throw error;
-      },
-    );
+    const pending = rawRequest(relativePath, {...options, signal});
+    return Promise.resolve(pending).then((response) => {
+      if (isTerminal()) throw new DOMException('Contribution transport is retired', 'AbortError');
+      return response;
+    });
   };
   const stream = (...args) => {
     if (isTerminal()) throw new TypeError('Contribution transport is retired');
