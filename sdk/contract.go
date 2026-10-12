@@ -24,6 +24,12 @@ const (
 	CapabilityServiceBridge           = "native.service.bridge"
 	CapabilityBackgroundOperations    = "native.background.operations"
 	PolicyForgejoUsername             = "forgejo.username"
+
+	// BrowserContractVersion is the canonical browser mount contract
+	// implemented by the host and published in sdk/browser. The host
+	// renders it as data-extension-contract-version; the mount module
+	// refuses any other value. Bump only with a coordinated contract change.
+	BrowserContractVersion = 1
 )
 
 type Actor struct {
