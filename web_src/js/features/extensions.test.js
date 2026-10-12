@@ -826,6 +826,48 @@ test('plain native documents transplant from the hidden home', async () => {
   }
 });
 
+test('dashboard and orgs transplants retain the initial home without a full load', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({
+    content: directContent(`Global Workspace${pageRootMarkup()}`),
+    home: homeMarkup({panels: '<div id="notes-owner">notes</div>'}),
+    navbar: '<a class="item" href="/admin">Admin</a><a class="item active" aria-current="page" href="/workspace">Workspace</a>',
+  });
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const owner = document.getElementById('notes-owner');
+  const home = document.querySelector('[data-extension-panels]');
+  const fetcher = vi.fn(async (url) => {
+    if (url.includes('/admin/orgs')) {
+      return navigationResponse(nativeDocument({title: 'Organizations - Forgejo', pageData: {}, content: plainAdminContent('<div>Orgs</div>'), home: homeMarkup({hidden: true})}));
+    }
+    if (url.includes('/admin')) {
+      return navigationResponse(nativeDocument({title: 'Dashboard - Forgejo', pageData: {}, content: plainAdminContent('<div>Dashboard</div>'), home: homeMarkup({hidden: true})}));
+    }
+    return navigationResponse(nativeDocument({title: 'Workspace', pageData: {extension: {id: 'example'}}, content: directContent(`Global Workspace${pageRootMarkup()}`), home: homeMarkup()}));
+  });
+  const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin'));
+    expect(document.title).toBe('Dashboard - Forgejo');
+    expect(document.querySelector('[data-extension-panels]')).toBe(home);
+    expect(home.hasAttribute('hidden')).toBe(true);
+    expect(document.getElementById('notes-owner')).toBe(owner);
+    expect(assign).not.toHaveBeenCalled();
+    clickWorkspaceLink('/admin/orgs');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/orgs'));
+    expect(document.querySelector('[data-extension-panels]')).toBe(home);
+    expect(document.getElementById('notes-owner')).toBe(owner);
+    expect(assign).not.toHaveBeenCalled();
+  } finally {
+    assign.mockRestore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
 test('push transplant snapshots outgoing scroll before the content swap', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');

@@ -401,14 +401,14 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   // native (transplant full-loads them) until their features migrate.
   let current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
-  // H-0 transplantable layouts. Direct contribution documents and
-  // /admin/users (the first native page whose feature lifecycle is
-  // seam-managed, B02) swap their .page-content region. Unknown layouts
-  // take a full document load until their feature classes migrate.
+  // H-0 transplantable layouts. Direct contribution documents and the
+  // seam-managed admin pages (dashboard, users, orgs) swap their
+  // .page-content region. Unknown layouts take a full document load
+  // until their feature classes migrate.
   function transplantKind(path) {
     const pathname = new URL(path, origin).pathname;
     if (workspaceDirectPath(pathname, appSubPath)) return 'direct';
-    if (pathname === `${appSubPath}/admin/users`) return 'plain';
+    if (pathname === `${appSubPath}/admin` || pathname === `${appSubPath}/admin/users` || pathname === `${appSubPath}/admin/orgs`) return 'plain';
     return null;
   }
 
