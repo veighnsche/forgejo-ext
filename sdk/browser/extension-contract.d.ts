@@ -35,9 +35,11 @@ export interface ContributionRequestOptions {
   signal?: AbortSignal | null;
 }
 
-/** Options for opening a scoped contribution stream. */
+/**
+ * Options for opening a scoped contribution stream. The admitted stream path
+ * accepts no query string and no subprotocols, so none are offered here.
+ */
 export interface ContributionStreamOptions {
-  protocols?: string | string[];
   signal?: AbortSignal | null;
 }
 
