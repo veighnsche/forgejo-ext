@@ -17,7 +17,6 @@ import (
 
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/models/unit"
-	"forgejo.org/modules/base"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
@@ -102,6 +101,7 @@ func Navigation(ctx *context.Context) {
 	// Composition changes the successful HTML presentation, never the native
 	// handler, URL, session, repository assignment or account-state guards.
 	eligibleWorkspace := workspaceDocument(ctx)
+	preferred := false
 
 	for _, listed := range manager.List() {
 		descriptor, transport, ok := manager.Lookup(listed.Manifest.ID)
@@ -109,12 +109,7 @@ func Navigation(ctx *context.Context) {
 			continue
 		}
 		if eligibleWorkspace && descriptor.Manifest.PreferredWorkspace {
-			ctx.HTMLPresentation = func(status int, name base.TplName) base.TplName {
-				if status != http.StatusOK || strings.HasPrefix(string(name), "user/auth/") || strings.HasPrefix(string(name), "status/") || strings.HasPrefix(string(name), "install/") {
-					return name
-				}
-				return renderWorkspace(ctx, name)
-			}
+			preferred = true
 		}
 		for _, p := range descriptor.Manifest.Pages {
 			if p.Route == "" || !allowed(ctx, p) {
@@ -138,6 +133,9 @@ func Navigation(ctx *context.Context) {
 				}
 			}
 		}
+	}
+	if preferred {
+		composePanelsHome(ctx)
 	}
 }
 
@@ -331,6 +329,7 @@ func renderPage(ctx *context.Context, d runtime.Descriptor, transport http.Round
 	ctx.Data["ExtensionAPIBase"] = pageAPIBase(ctx, d, p)
 	ctx.Data["ExtensionAssetBase"] = assetBase
 	ctx.Data["ExtensionEntry"] = assetBase + p.Entry
+	ctx.Data["BrowserContractVersion"] = strconv.Itoa(extension.BrowserContractVersion)
 	ctx.Data["ExtensionSessionGeneration"] = generation
 	ctx.Resp.Header().Set("Cache-Control", "no-store")
 	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
@@ -364,20 +363,29 @@ func workspaceDocument(ctx *context.Context) bool {
 	}
 	dest := ctx.Req.Header.Get("Sec-Fetch-Dest")
 	// This header selects HTML presentation only; native admission remains authoritative.
-	if dest == "empty" && ctx.Req.Header.Get("X-Extension-Workspace-Navigation") == "1" && workspaceDirectPath(ctx.Req.URL.Path, setting.AppSubURL) && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html") {
+	// Transplant fetches serve every eligible path (validWorkspacePath gates
+	// above): the client only fetches transplantable layouts, and the entered
+	// document must carry the home and generation whatever its shape.
+	if dest == "empty" && ctx.Req.Header.Get("X-Extension-Workspace-Navigation") == "1" && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html") {
 		return true
 	}
 	return dest == "document" || dest == "" && strings.Contains(ctx.Req.Header.Get("Accept"), "text/html")
 }
 
-func renderWorkspace(ctx *context.Context, original base.TplName) base.TplName {
+// composePanelsHome sets the panels-home data for every eligible workspace
+// document. The native shared layout (templates/base/footer.tmpl) renders a
+// persistent generic panels region from ExtensionPanels; direct
+// contribution paths additionally receive the no-store generation envelope
+// from renderPage. There is no parallel shell: ordinary native documents
+// keep their templates and gain only data plus the layout region.
+func composePanelsHome(ctx *context.Context) {
 	manager := runtime.GetManager()
 	if manager == nil {
-		return original
+		return
 	}
 	generation, err := sessionGeneration(ctx)
 	if err != nil {
-		return original
+		return
 	}
 	panels := []Link{}
 	for _, listed := range manager.List() {
@@ -394,18 +402,18 @@ func renderWorkspace(ctx *context.Context, original base.TplName) base.TplName {
 			panels = append(panels, Link{ID: p.ID, Title: p.Title, ExtensionID: d.Manifest.ID, Entry: assetBase + p.Entry, APIBase: apiBase, AssetBase: assetBase})
 		}
 	}
-	ctx.Resp.Header().Set("Cache-Control", "no-store")
+	// P1: every eligible document carries the authoritative session
+	// generation so transplants verify the entered page belongs to the live
+	// session before joining it to owners. Cache-Control stays with the
+	// direct renderers (renderPage); native documents keep their headers.
 	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
-	ctx.Data["WorkspacePath"] = setting.AppSubURL + ctx.Req.URL.RequestURI()
-	ctx.Data["WorkspaceSessionGeneration"] = generation
-	direct, _ := ctx.Data["PageIsWorkspacePage"].(bool)
-	ctx.Data["PageIsExtensionWorkspace"] = !direct
+	ctx.Data["ExtensionPanelsHome"] = true
+	// C03 pairing: mount roots carry the SDK-derived browser contract
+	// version; the mount refuses anything else before import.
+	ctx.Data["BrowserContractVersion"] = strconv.Itoa(extension.BrowserContractVersion)
 	ctx.Data["ExtensionPanels"] = panels
+	ctx.Data["ExtensionSessionGeneration"] = generation
 	ctx.PageData["extensionPanels"] = panels
-	if direct {
-		return "extensions/workspace_page"
-	}
-	return "extensions/workspace"
 }
 
 var workspaceAuthPath = regexp.MustCompile(`(^|/)user/(login|logout|sign_up|forgot_password|forget_password|reset_password|recover_account|activate|activate_email|two_factor|webauthn|oauth2|openid|link_account|link_account_signin|link_account_signup)(/|$)|(^|/)user/settings/(change_password|security|applications|keys)(/|$)|(^|/)(install|login/oauth|login/openid|oauth2|openid)(/|$)`)
