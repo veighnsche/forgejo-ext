@@ -15,18 +15,6 @@
   min-height: 30rem;
 }
 
-.extension-workspace-layout {
-  display: flex;
-  flex: 1;
-  min-height: 30rem;
-}
-
-.extension-workspace-frame {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-}
-
 .extension-workspace-panels {
   flex: 0 0 auto;
   width: min(24rem, 35vw);
@@ -48,8 +36,6 @@
 }
 
 @media (max-width: 800px) {
-  .extension-workspace-layout { flex-direction: column; }
-  .extension-workspace-frame { min-height: 65vh; }
   .extension-workspace-panels { width: auto; max-width: none; resize: none; border-left: 0; border-top: 1px solid var(--color-secondary); }
 }
 
