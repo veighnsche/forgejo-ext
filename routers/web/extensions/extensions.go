@@ -4,6 +4,7 @@
 package extensions
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"os"
@@ -60,11 +61,14 @@ func Register(m *web.Route, signedIn, admin any) {
 				guard = admin
 			}
 			m.Get(prefix+"/"+route, NativeSession, guard, pageRoute(scope, route))
+			// Declared subordinate content routes (NFX-C04/H-ROUTE) are
+			// resolved generically against the page's manifest
+			// declarations; undeclared suffixes 404 in the handler.
+			m.Get(prefix+"/"+route+"/*", NativeSession, guard, pageSubroute(scope, route))
 		}
 	}
 	m.Get("/{username}/{reponame}/workspace", NativeSession, signedIn, context.RepoAssignment, context.UnitTypes(), Navigation, repositoryWorkspace)
-	m.Get("/workspace/new", NativeSession, signedIn, workspaceAlias("new"))
-	m.Get("/workspace/requests/{request}", NativeSession, signedIn, workspaceAlias("requests"))
+	m.Get("/{username}/{reponame}/workspace/*", NativeSession, signedIn, context.RepoAssignment, context.UnitTypes(), Navigation, repositorySubroute)
 	m.Get("/-/native/session", NativeSession, signedIn, SessionCheck)
 	m.Methods("GET,HEAD", "/-/native/assets/{extension}/*", NativeSession, signedIn, Assets)
 	m.Methods("GET,HEAD,POST,PUT,PATCH,DELETE", "/-/native/panels/{extension}/{page}/api/*", NativeSession, signedIn, api("panel", true))
@@ -88,7 +92,10 @@ func sessionStreamTest(ctx *context.Context) {
 	}).ServeHTTP(ctx.Resp, ctx.Req)
 }
 
-type Link struct{ ID, Title, ExtensionID, URL, Entry, APIBase, AssetBase, Permission string }
+type Link struct {
+	ID, Title, ExtensionID, URL, Entry, APIBase, AssetBase, Permission string
+	OwnerID                                                            string
+}
 
 // Navigation also runs after repository assignment, when its permission is known.
 func Navigation(ctx *context.Context) {
@@ -204,16 +211,35 @@ func pageRoute(scope, route string) func(*context.Context) {
 	}
 }
 
-// workspaceRequestID matches the opaque single-segment request identifier
-// admitted by the /workspace/requests/{request} alias.
-var workspaceRequestID = regexp.MustCompile(`^d[0-9a-f]{24}$`)
+// matchDirectPattern reports whether a root-relative path matches one
+// declared direct pattern such as "/workspace/requests/{request}".
+// Parameter segments capture one bounded opaque segment; the host
+// applies no product-ID shape rule (NFX-C04/H-ROUTE).
+func matchDirectPattern(path, pattern string) bool {
+	parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
+	segments := strings.Split(pattern, "/")
+	if len(parts) != len(segments) {
+		return false
+	}
+	for i, segment := range segments {
+		if strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}") {
+			if parts[i] == "" || len(parts[i]) > 255 {
+				return false
+			}
+			continue
+		}
+		if segment != parts[i] {
+			return false
+		}
+	}
+	return true
+}
 
 // workspaceDirectPath reports whether path is a workspace root (global or
-// repository) or one of the explicit global workspace aliases served without
-// the extension frame. Aliases match only at the application root after the
-// configured sub-URL, and the requests alias additionally requires the native
-// request-id shape, mirroring the registered routes exactly.
-func workspaceDirectPath(path, appSubURL string) bool {
+// repository) or matches one of the declared generic direct patterns
+// published by the host. Declared patterns match only at the application
+// root after the configured sub-URL, mirroring the registered routes.
+func workspaceDirectPath(path, appSubURL string, patterns []string) bool {
 	if strings.HasSuffix(path, "/workspace") {
 		return true
 	}
@@ -221,38 +247,62 @@ func workspaceDirectPath(path, appSubURL string) bool {
 	if !ok || !strings.HasPrefix(rest, "/") {
 		return false
 	}
-	if rest == "/workspace/new" {
-		return true
+	for _, pattern := range patterns {
+		if matchDirectPattern(rest, pattern) {
+			return true
+		}
 	}
-	segment, ok := strings.CutPrefix(rest, "/workspace/requests/")
-	return ok && workspaceRequestID.MatchString(segment)
+	return false
 }
 
-// workspaceAlias serves an explicit host-owned workspace sub-path from the
-// existing global workspace contribution with identical admission: the native
-// session and signed-in guards run first, then the contribution resolves and
-// renders exactly as the platform root alias does. The requests alias
-// additionally 404s unless the segment is a well-formed request id; title
-// overrides apply to the render copy only, never the registered descriptor.
-func workspaceAlias(shape string) func(*context.Context) {
+// pageSubroute serves a declared subordinate route of a native page with
+// identical admission to its page root: the native session and scope
+// guards run first, then the suffix must match a manifest declaration.
+// Undeclared suffixes 404; declared parameter values are passed through
+// opaquely for the consumer backend to validate.
+func pageSubroute(scope, route string) func(*context.Context) {
 	return func(ctx *context.Context) {
-		if shape == "requests" && !workspaceRequestID.MatchString(ctx.Params("request")) {
-			ctx.NotFound("Page", nil)
-			return
-		}
-		d, transport, p, ok := findRoute(ctx, "global", "workspace")
+		d, transport, p, ok := findRoute(ctx, scope, route)
 		if !ok {
 			ctx.NotFound("Page", nil)
 			return
 		}
-		switch shape {
-		case "new":
-			p.Title = "New Project"
-		case "requests":
-			p.Title = "Build request"
+		sub, _, matched := p.MatchSubroute(ctx.Params("*"))
+		if !matched {
+			ctx.NotFound("Page", nil)
+			return
+		}
+		if sub.Title != "" {
+			p.Title = sub.Title
 		}
 		renderPage(ctx, d, transport, p)
 	}
+}
+
+func repositorySubroute(ctx *context.Context) {
+	if !ctx.Repo.CanRead(unit.TypeCode) {
+		ctx.NotFound("Workspace", nil)
+		return
+	}
+	// Unlike the workspace root, declared subroutes under a repository
+	// path resolve only to a repository-scoped page: the global owner's
+	// content routes stay at the application root and never claim the
+	// repository namespace.
+	d, transport, p, ok := findRoute(ctx, "repository", "workspace")
+	if !ok {
+		ctx.NotFound("Workspace", nil)
+		return
+	}
+	sub, _, matched := p.MatchSubroute(ctx.Params("*"))
+	if !matched {
+		ctx.NotFound("Page", nil)
+		return
+	}
+	if sub.Title != "" {
+		p.Title = sub.Title
+	}
+	ctx.Data["ExtensionRepositoryID"] = strconv.FormatInt(ctx.Repo.Repository.ID, 10)
+	renderPage(ctx, d, transport, p)
 }
 
 func findRoute(ctx *context.Context, scope, route string) (runtime.Descriptor, http.RoundTripper, extension.Page, bool) {
@@ -325,7 +375,7 @@ func renderPage(ctx *context.Context, d runtime.Descriptor, transport http.Round
 	ctx.Data["ExtensionScope"] = p.Scope
 	ctx.Data["ExtensionRepoSettings"] = p.Scope == "repository" && p.Permission == "admin"
 	ctx.Data["PageIsRepoSettings"] = p.Scope == "repository" && p.Permission == "admin"
-	ctx.Data["Extension"] = map[string]string{"ID": d.Manifest.ID, "Name": d.Manifest.Name, "PageID": p.ID, "Title": p.Title}
+	ctx.Data["Extension"] = map[string]string{"ID": d.Manifest.ID, "Name": d.Manifest.Name, "PageID": p.ID, "Title": p.Title, "OwnerID": p.Owner}
 	ctx.Data["ExtensionAPIBase"] = pageAPIBase(ctx, d, p)
 	ctx.Data["ExtensionAssetBase"] = assetBase
 	ctx.Data["ExtensionEntry"] = assetBase + p.Entry
@@ -388,10 +438,19 @@ func composePanelsHome(ctx *context.Context) {
 		return
 	}
 	panels := []Link{}
+	directPatterns := []string{}
 	for _, listed := range manager.List() {
 		d, transport, ok := manager.Lookup(listed.Manifest.ID)
 		if !ok {
 			continue
+		}
+		for _, pg := range d.Manifest.Pages {
+			if pg.Scope != "global" || pg.Route == "" {
+				continue
+			}
+			for _, sub := range pg.Subroutes {
+				directPatterns = append(directPatterns, "/"+pg.Route+"/"+sub.Pattern)
+			}
 		}
 		for _, p := range d.Manifest.Panels {
 			if !authorizesContribution(ctx.Req.Context(), d, transport, panelContribution(p, http.MethodGet), "", ctx.Doer.ID) {
@@ -399,7 +458,16 @@ func composePanelsHome(ctx *context.Context) {
 			}
 			assetBase := setting.AppSubURL + "/-/native/assets/" + d.Manifest.ID + "/"
 			apiBase := setting.AppSubURL + "/-/native/panels/" + d.Manifest.ID + "/" + p.ID + "/api/"
-			panels = append(panels, Link{ID: p.ID, Title: p.Title, ExtensionID: d.Manifest.ID, Entry: assetBase + p.Entry, APIBase: apiBase, AssetBase: assetBase})
+			ownerID := ""
+			if p.Owner != "" {
+				// Canonical shared-owner API identity (NFX-C04/H-OWNER):
+				// the linked panel mounts on the page's API base.
+				if page, _, linked := d.Manifest.OwnerContributions(p.Owner); linked {
+					apiBase = setting.AppSubURL + "/-/native/pages/" + d.Manifest.ID + "/" + page.ID + "/api/"
+					ownerID = p.Owner
+				}
+			}
+			panels = append(panels, Link{ID: p.ID, Title: p.Title, ExtensionID: d.Manifest.ID, Entry: assetBase + p.Entry, APIBase: apiBase, AssetBase: assetBase, OwnerID: ownerID})
 		}
 	}
 	// P1: every eligible document carries the authoritative session
@@ -410,6 +478,11 @@ func composePanelsHome(ctx *context.Context) {
 	ctx.Data["ExtensionPanelsHome"] = true
 	// C03 pairing: mount roots carry the SDK-derived browser contract
 	// version; the mount refuses anything else before import.
+	if len(directPatterns) > 0 {
+		if encoded, err := json.Marshal(directPatterns); err == nil {
+			ctx.Data["ExtensionDirectPatterns"] = string(encoded)
+		}
+	}
 	ctx.Data["BrowserContractVersion"] = strconv.Itoa(extension.BrowserContractVersion)
 	ctx.Data["ExtensionPanels"] = panels
 	ctx.Data["ExtensionSessionGeneration"] = generation

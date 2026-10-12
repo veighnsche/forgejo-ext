@@ -101,6 +101,29 @@ are omitted from navigation and rejected by direct requests. Repository `admin`
 pages use the native repository settings layout. Site administration requires a
 site administrator.
 
+A page may declare bounded subordinate content routes with `subroutes`
+(NFX-C04/H-ROUTE): each `pattern` is 1–3 segments under the page `route`,
+either slug literals or one `{name}` parameter per segment, with an
+optional `title`. For example a global `workspace` page can declare
+`new` and `requests/{request}`. The host registers only declared
+patterns, refuses duplicates and collisions at startup, and passes
+parameter values through as bounded opaque segments — it applies no
+product-ID shape rule; the consumer backend validates product
+identities. Undeclared suffixes are not found, and subroutes can never
+escape their page prefix into native or account namespaces. Declared
+patterns are published to the browser so declared routes present as
+direct contribution paths.
+
+A page and a panel may declare the same `owner` to form one shared
+retained owner (NFX-C04/H-OWNER). The canonical owner identity is the
+pair (extension ID, owner ID). The linked page must be a global routed
+page, each owner links exactly one page and one panel, and both must
+share one `entry`; the host refuses orphaned, duplicated, or
+entry-mismatched links. Both modes mount with the same entry and the
+page's `apiBase` as the one canonical API identity, receive `ownerId`
+in their mount context, and the host mounts a single retained instance
+(the panel root) while the page root acts as its presentation slot.
+
 Page APIs use the private native-web prefix `/-/native/pages/ID/PAGE/api/`,
 preceded by `/user/settings`, `/admin`, or `/OWNER/REPO` for their native scope.
 Assets use `/-/native/assets/ID/`; panel APIs use
@@ -159,6 +182,15 @@ Use the supplied helpers, handle errors, render untrusted values as text, and
 release listeners, timers and requests in cleanup. Native cross-origin request
 protection applies to backend calls. Extensions own their UI and styling inside
 their mount roots.
+
+To change the native route programmatically — for example opening a
+repository from a retained panel — call the context's
+`navigate(path)` instead of assigning `window.location`. The host
+classifies the destination: admitted native paths (including declared
+subroutes) transition in-shell and update retained owners, while
+authentication, credential-bearing and cross-origin destinations keep
+their native full-document handling, and private native prefixes are
+refused. Navigation is display routing only, never authority.
 
 The bounded native route proof establishes retained notes roots, resources and
 streams through admitted native transitions using actual templates, assets and

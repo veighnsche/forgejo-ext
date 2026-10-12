@@ -208,6 +208,12 @@ func TestWorkspaceStaysInsideSubURL(t *testing.T) {
 }
 
 func TestWorkspaceDirectPath(t *testing.T) {
+	// Declared generic direct patterns, as published by the host from
+	// manifest subroute declarations (NFX-C04/H-ROUTE). Parameter values
+	// are bounded opaque segments: the host applies no product-ID shape
+	// rule, so values a consumer backend would reject still count as
+	// direct here and are refused by that backend instead.
+	patterns := []string{"/workspace/new", "/workspace/requests/{request}"}
 	tests := []struct {
 		path      string
 		appSubURL string
@@ -220,11 +226,10 @@ func TestWorkspaceDirectPath(t *testing.T) {
 		{path: "/forge/workspace/new", appSubURL: "/forge", want: true},
 		{path: "/workspace/requests/d0123456789abcdef01234567", want: true},
 		{path: "/forge/workspace/requests/d0123456789abcdef01234567", appSubURL: "/forge", want: true},
+		{path: "/workspace/requests/not-an-id", want: true},
+		{path: "/workspace/requests/ABC-123", want: true},
 		{path: "/workspace/requests", want: false},
 		{path: "/workspace/requests/", want: false},
-		{path: "/workspace/requests/bad", want: false},
-		{path: "/workspace/requests/d0123456789abcdef0123456", want: false},
-		{path: "/workspace/requests/d0123456789ABCDEF01234567", want: false},
 		{path: "/workspace/requests/d0123456789abcdef01234567/extra", want: false},
 		{path: "/workspace/new/extra", want: false},
 		{path: "/workspace/news", want: false},
@@ -237,8 +242,11 @@ func TestWorkspaceDirectPath(t *testing.T) {
 		{path: "/issues", want: false},
 	}
 	for _, tt := range tests {
-		assert.Equal(t, tt.want, workspaceDirectPath(tt.path, tt.appSubURL), tt.path+" sub="+tt.appSubURL)
+		assert.Equal(t, tt.want, workspaceDirectPath(tt.path, tt.appSubURL, patterns), tt.path+" sub="+tt.appSubURL)
 	}
+	// Without declarations only workspace roots are direct.
+	assert.False(t, workspaceDirectPath("/workspace/new", "", nil))
+	assert.False(t, workspaceDirectPath("/workspace/requests/abc", "", nil))
 }
 
 func TestWorkspaceDocumentRequiresBrowserDocumentRequest(t *testing.T) {

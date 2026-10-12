@@ -29,20 +29,27 @@ test('admits native same-origin paths and preserves deep links', () => {
   expect(workspacePath('/workspace/requests/d0123456789abcdef01234567', base, origin)).toBe('/workspace/requests/d0123456789abcdef01234567');
 });
 
-test('classifies the workspace root and explicit aliases as direct', () => {
+test('classifies the workspace root and declared subroutes as direct', () => {
+  // Declared patterns as published by the host (NFX-C04/H-ROUTE).
+  // Parameter values are bounded opaque segments: no product-ID shape
+  // rule, so consumer-rejected values are still direct here.
+  const patterns = ['/workspace/new', '/workspace/requests/{request}'];
   for (const [pathname, sub] of [['/workspace', ''], ['/team/repo/workspace', ''], ['/forge/workspace', '/forge'],
     ['/workspace/new', ''], ['/forge/workspace/new', '/forge'],
-    ['/workspace/requests/d0123456789abcdef01234567', ''], ['/forge/workspace/requests/d0123456789abcdef01234567', '/forge']]) {
-    expect(workspaceDirectPath(pathname, sub)).toBe(true);
+    ['/workspace/requests/d0123456789abcdef01234567', ''], ['/forge/workspace/requests/d0123456789abcdef01234567', '/forge'],
+    ['/workspace/requests/not-an-id', ''], ['/workspace/requests/ABC-123', '']]) {
+    expect(workspaceDirectPath(pathname, sub, patterns)).toBe(true);
   }
   for (const [pathname, sub] of [['/workspace/requests', ''], ['/workspace/requests/', ''],
-    ['/workspace/requests/bad', ''], ['/workspace/requests/d0123456789abcdef0123456', ''],
-    ['/workspace/requests/d0123456789ABCDEF01234567', ''], ['/workspace/requests/d0123456789abcdef01234567/extra', ''],
+    ['/workspace/requests/d0123456789abcdef01234567/extra', ''],
     ['/workspace/new/extra', ''], ['/workspace/news', ''], ['/workspace/old', ''],
     ['/user2/repo1/workspace/new', ''], ['/user2/repo1/workspace/requests/d0123456789abcdef01234567', ''],
     ['/workspace/new', '/forge'], ['/other/workspace/new', '/forge'], ['/forgefoo/workspace/new', '/forge'], ['/issues', '']]) {
-    expect(workspaceDirectPath(pathname, sub)).toBe(false);
+    expect(workspaceDirectPath(pathname, sub, patterns)).toBe(false);
   }
+  // Without declarations only workspace roots are direct.
+  expect(workspaceDirectPath('/workspace/new', '')).toBe(false);
+  expect(workspaceDirectPath('/workspace/requests/abc', '')).toBe(false);
 });
 
 test('keeps auth and external destinations for top-level navigation', () => {
@@ -194,9 +201,11 @@ function panelRootMarkup({panelId = 'notes', generation = 'session-a', appSubURL
   return `<div data-extension-panel data-extension-contract-version="1" data-app-sub-url="${appSubURL}" data-extension-id="example" data-extension-panel-id="${panelId}" data-extension-entry="/-/native/assets/example/panel.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/panels/example/${panelId}/api/" data-extension-session-generation="${generation}"></div>`;
 }
 
-function homeMarkup({generation = 'session-a', appSubURL = '', hidden = false, panels = ''} = {}) {
-  return `<aside id="extension-panels" data-extension-panels data-app-sub-url="${appSubURL}" data-extension-session-generation="${generation}"${hidden ? ' hidden inert' : ''}>${panels}</aside>`;
+function homeMarkup({generation = 'session-a', appSubURL = '', hidden = false, panels = '', subroutes = ''} = {}) {
+  return `<aside id="extension-panels" data-extension-panels data-app-sub-url="${appSubURL}" data-extension-session-generation="${generation}"${subroutes ? ` data-extension-subroutes='${subroutes}'` : ''}${hidden ? ' hidden inert' : ''}>${panels}</aside>`;
 }
+
+const declaredSubroutes = '["/workspace/new","/workspace/requests/{request}"]';
 
 function nativeDocument({title, pageData, navbar = '', content, home}) {
   return `<html><head><title>${title}</title></head><body data-page-data='${JSON.stringify(pageData)}'><nav id="navbar">${navbar}</nav><div class="full height">${content}</div>${home}<footer></footer></body></html>`;
@@ -314,6 +323,34 @@ test('transplant delivers ordered presentation updates to retained panels', asyn
   }
 });
 
+test('a declared shared owner mounts once on its retained panel root', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  const ownerAttrs = 'data-extension-owner-id="workspace" data-extension-entry="/-/native/assets/example/main.js" data-extension-api-base="/-/native/pages/example/spaces/api/"';
+  document.body.innerHTML = liveMarkup({
+    content: directContent(`Global Workspace<div data-extension-page data-extension-contract-version="1" data-app-sub-url="" data-extension-id="example" data-extension-page-id="spaces" ${ownerAttrs} data-extension-asset-base="/-/native/assets/example/" data-extension-session-generation="session-a"></div>`),
+    home: homeMarkup({panels: `<div data-extension-panel data-extension-contract-version="1" data-app-sub-url="" data-extension-id="example" data-extension-panel-id="workspace" ${ownerAttrs} data-extension-asset-base="/-/native/assets/example/" data-extension-session-generation="session-a"></div>`}),
+  });
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const mounts = [];
+  const importer = vi.fn(async () => ({mount: (_root, context) => {
+    mounts.push(context);
+    return {dispose: vi.fn(), update: vi.fn()};
+  }}));
+  try {
+    initExtensionPages(importer);
+    await vi.waitFor(() => expect(mounts).toHaveLength(1));
+    expect(mounts[0]).toEqual(expect.objectContaining({panelId: 'workspace', ownerId: 'workspace', pageId: undefined}));
+    const pageRoot = document.querySelector('[data-extension-page]');
+    expect(pageRoot.hasAttribute('data-extension-owner-presented')).toBe(true);
+    expect(pageRoot.hasAttribute('data-extension-mounted')).toBe(false);
+    expect(importer).toHaveBeenCalledOnce();
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
 test('page owners persist a plain leg parked and readopt on return', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');
@@ -411,7 +448,7 @@ test('a changed contribution parks the live owner and mounts the entered root', 
   window.history.replaceState(null, '', '/workspace');
   document.body.innerHTML = liveMarkup({
     content: directContent(`Global Workspace${pageRootMarkup()}`),
-    home: homeMarkup(),
+    home: homeMarkup({subroutes: declaredSubroutes}),
   });
   window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
   const homeRoot = document.querySelector('[data-extension-page]');
@@ -461,7 +498,7 @@ test('the page shelter disposes the oldest parked owner past four', async () => 
   window.history.replaceState(null, '', '/workspace');
   document.body.innerHTML = liveMarkup({
     content: directContent(`Global Workspace${pageRootMarkup()}`),
-    home: homeMarkup(),
+    home: homeMarkup({subroutes: declaredSubroutes}),
   });
   window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
   const homeRoot = document.querySelector('[data-extension-page]');
@@ -513,7 +550,7 @@ test('the shelter never evicts a persistent shared owner', async () => {
   window.history.replaceState(null, '', '/workspace');
   document.body.innerHTML = liveMarkup({
     content: directContent(`Global Workspace${pageRootMarkup({extra: ' data-extension-persist'})}`),
-    home: homeMarkup(),
+    home: homeMarkup({subroutes: declaredSubroutes}),
   });
   window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
   const homeRoot = document.querySelector('[data-extension-page]');

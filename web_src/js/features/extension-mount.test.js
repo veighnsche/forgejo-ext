@@ -184,6 +184,40 @@ test('mounts a panel under an installation subpath', async () => {
   owner.dispose();
 });
 
+test('mounts a linked owner panel on the canonical page API identity', async () => {
+  const root = document.createElement('div');
+  root.dataset.appSubUrl = '';
+  root.dataset.extensionEntry = '/-/native/assets/example/main.js';
+  root.dataset.extensionAssetBase = '/-/native/assets/example/';
+  root.dataset.extensionApiBase = '/-/native/pages/example/spaces/api/';
+  root.dataset.extensionId = 'example';
+  root.dataset.extensionPanelId = 'workspace';
+  root.dataset.extensionOwnerId = 'workspace';
+  root.dataset.extensionSessionGeneration = 'session-a';
+  root.dataset.extensionContractVersion = '1';
+  const mount = vi.fn();
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount})), websocketClass: FakeSocket});
+  expect(owner).not.toBeNull();
+  expect(mount).toHaveBeenCalledWith(root, expect.objectContaining({
+    pageId: undefined, panelId: 'workspace', ownerId: 'workspace',
+    apiBase: `${window.location.origin}/-/native/pages/example/spaces/api/`,
+  }));
+  owner.dispose();
+  root.dataset.extensionOwnerId = 'Bad Owner';
+  expect(parseMountDataset(root).ok).toBe(false);
+});
+
+test('programmatic navigation delegates to the host and retires with the owner', async () => {
+  const root = pageRoot();
+  const navigator = vi.fn();
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), websocketClass: FakeSocket, navigator});
+  owner.context.navigate('/owner/repo');
+  expect(navigator).toHaveBeenCalledWith('/owner/repo');
+  expect(() => owner.context.navigate('')).toThrow('Navigation path is invalid');
+  owner.retire('authority-revoked');
+  expect(() => owner.context.navigate('/owner/repo')).toThrow('Contribution transport is retired');
+});
+
 test('drives ordered update, suspend, resume, and retire with exact identities', async () => {
   const root = pageRoot();
   const calls = [];

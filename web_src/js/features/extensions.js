@@ -1,4 +1,4 @@
-import {retirePageFeatures, setPageConfig, initPageFeatures} from '../native-lifecycle.js';
+import {retirePageFeatures, setPageConfig, initPageFeatures, setNativeNavigator} from '../native-lifecycle.js';
 import {submitEventSubmitter} from '../utils/dom.js';
 import {mountContribution} from './extension-mount.js';
 
@@ -36,16 +36,38 @@ export function workspacePath(input, base, origin, appSubPath = '') {
   return result.kind === 'native' ? result.path : null;
 }
 
-/** Report whether a pathname is a workspace root or an explicit global workspace alias. */
-export function workspaceDirectPath(pathname, appSubPath = '') {
+function matchDirectPattern(path, pattern) {
+  const parts = path.replace(/\/$/, '').split('/');
+  const segments = pattern.split('/');
+  if (parts.length !== segments.length) return false;
+  return segments.every((segment, i) => {
+    if (segment.startsWith('{') && segment.endsWith('}')) return parts[i] !== '' && parts[i].length <= 255;
+    return segment === parts[i];
+  });
+}
+
+/**
+ * Report whether a pathname is a workspace root or matches one of the
+ * declared generic direct patterns the host publishes from manifest
+ * subroute declarations (NFX-C04/H-ROUTE), e.g.
+ * "/workspace/requests/{request}". Parameter values are bounded opaque
+ * segments: no product-ID shape rule is applied here.
+ */
+export function workspaceDirectPath(pathname, appSubPath = '', patterns = []) {
   if (pathname.endsWith('/workspace')) return true;
   if (!pathname.startsWith(appSubPath)) return false;
   const rest = pathname.slice(appSubPath.length);
   if (!rest.startsWith('/')) return false;
-  if (rest === '/workspace/new') return true;
-  const marker = '/workspace/requests/';
-  if (!rest.startsWith(marker)) return false;
-  return /^d[0-9a-f]{24}$/.test(rest.slice(marker.length));
+  return patterns.some((pattern) => typeof pattern === 'string' && matchDirectPattern(rest, pattern));
+}
+
+function directPatterns(home) {
+  try {
+    const parsed = JSON.parse(home?.dataset.extensionSubroutes ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((pattern) => typeof pattern === 'string') : [];
+  } catch {
+    return [];
+  }
 }
 
 const importExtension = (url) => import(/* webpackIgnore: true */ url);
@@ -92,6 +114,10 @@ function pageIdentity(root) {
   return [dataset.extensionId, dataset.extensionPageId, dataset.extensionApiBase, dataset.extensionSessionGeneration, dataset.extensionContractVersion].join('\0');
 }
 
+function ownerKey(root) {
+  return root.dataset.extensionOwnerId ? `${root.dataset.extensionId}\0${root.dataset.extensionOwnerId}` : null;
+}
+
 // Loose identity without the contract version: finds entered duplicates
 // that are otherwise identical to a parked owner, so version skew takes
 // the retire+conceal path instead of adoption or a second mount.
@@ -113,6 +139,11 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   // the host still listens so transplanted pages mount on entry.
   if (!roots.length && !home) return;
   const pageRoots = new Set(Array.from(roots).filter((root) => root.hasAttribute('data-extension-page')));
+  // NFX-C04/H-OWNER: the host selects one retained instance per declared
+  // shared owner. The linked panel root is that instance; a page root
+  // for the same (extension, owner) is a presentation slot only and
+  // never mounts a competing owner.
+  const panelOwnerKeys = new Set(Array.from(roots).filter((root) => root.hasAttribute('data-extension-panel')).map(ownerKey).filter(Boolean));
   const mounted = [];
   const pending = new Map();
   let leaving = false;
@@ -123,6 +154,10 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   };
   function mountRoot(root) {
     if (leaving || root.hasAttribute('data-extension-mounted')) return;
+    if (root.hasAttribute('data-extension-page') && panelOwnerKeys.has(ownerKey(root))) {
+      root.setAttribute('data-extension-owner-presented', '');
+      return;
+    }
     root.setAttribute('data-extension-mounted', '');
     const controller = new AbortController();
     pending.set(controller, root);
@@ -260,7 +295,12 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
         continue;
       }
       owned.add(owner.root);
-      owner.update({...facts, mode: isPage ? 'page' : 'panel', visible: isPage ? true : panelsVisible});
+      // A linked shared owner's retained panel presents in page mode on
+      // its owner's direct paths (NFX-C04/H-OWNER).
+      const routePath = typeof facts.route === 'string' ? facts.route.split(/[?#]/)[0] : '';
+      const ownerDirect = !isPage && Boolean(owner.root.dataset.extensionOwnerId) &&
+        workspaceDirectPath(routePath, owner.root.dataset.appSubUrl ?? '', directPatterns(home));
+      owner.update({...facts, mode: isPage || ownerDirect ? 'page' : 'panel', visible: isPage ? true : panelsVisible});
     }
     for (const root of entered.values()) {
       if (owned.has(root)) continue;
@@ -414,7 +454,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   // layouts take a full document load until their features migrate.
   function transplantKind(path) {
     const pathname = new URL(path, origin).pathname;
-    if (workspaceDirectPath(pathname, appSubPath)) return 'direct';
+    if (workspaceDirectPath(pathname, appSubPath, directPatterns(home))) return 'direct';
     if (pathname === `${appSubPath}/admin` || pathname === `${appSubPath}/admin/users`) return 'plain';
     return null;
   }
@@ -442,6 +482,16 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     }
   }
   syncPanelsHome(current);
+  // Public programmatic navigation (NFX-C04/H-ROUTE): contributions and
+  // native features request transitions through the host instead of
+  // assigning window.location. Admitted native paths transplant;
+  // host-handled destinations take their native full load; private
+  // native prefixes are refused.
+  setNativeNavigator((url) => {
+    const decision = classifyWorkspaceNavigation(url, base, origin, appSubPath);
+    if (decision.kind === 'native') transplant(decision.path, true);
+    else if (decision.kind === 'top') window.location.assign(decision.url);
+  });
 
   // Active link states are per-page chrome. States copy across matching
   // links so listeners on the live navbar survive the transition.
@@ -624,6 +674,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     checkVersion++;
     pendingCheck = null;
     if (event.persisted) return;
+    setNativeNavigator(null);
     document.removeEventListener('click', onWorkspaceClick);
     document.removeEventListener('submit', onWorkspaceSubmit);
     window.removeEventListener('pagehide', onPageHide);

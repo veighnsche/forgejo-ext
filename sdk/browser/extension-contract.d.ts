@@ -89,6 +89,15 @@ export interface MountContext {
   extensionId: string;
   pageId?: string;
   panelId?: string;
+  /**
+   * Canonical shared-owner identity (NFX-C04/H-OWNER), present only when
+   * the manifest links this page and a panel under one owner. The pair
+   * (extensionId, ownerId) is the owner's one identity: page-mode and
+   * panel-mode mounts of the owner share the same entry, the same
+   * apiBase (the linked page's), and one retained instance selected by
+   * the host. Independent pages and panels omit it.
+   */
+  ownerId?: string;
   /** Scoped API prefix ending in "/api/"; all requests stay under it. */
   apiBase: string;
   /** Scoped asset prefix; the entry module must load from under it. */
@@ -121,6 +130,18 @@ export interface MountContext {
    * and admits the stream from the live cookie session.
    */
   stream: (relativePath: string, options?: ContributionStreamOptions) => ContributionStream;
+  /**
+   * Public programmatic native navigation (NFX-C04/H-ROUTE). Requests a
+   * host transition to a same-origin path (for example a declared
+   * subroute or a native repository path) instead of assigning
+   * `window.location` directly. The host classifies the destination:
+   * admitted native paths swap in-shell and update retained owners;
+   * authentication, credential-bearing, cross-origin, and other
+   * host-handled destinations take their native full-document load;
+   * private native prefixes are refused. The path is display routing
+   * only and never confers authority. Throws once the owner is retired.
+   */
+  navigate: (path: string) => void;
 }
 
 /**

@@ -197,6 +197,13 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 				return fmt.Errorf("native page route %q is already claimed", key)
 			}
 			claimedRoutes[key] = true
+			for _, sub := range page.Subroutes {
+				subKey := key + "/" + sub.Pattern
+				if claimedRoutes[subKey] {
+					return fmt.Errorf("native page route %q is already claimed", subKey)
+				}
+				claimedRoutes[subKey] = true
+			}
 		}
 		log.Info("Extension %s started", entry.Name())
 		go m.observeExit(entry.Name(), item)
@@ -391,6 +398,9 @@ func needsNativeCallback(capabilities []string) bool {
 
 func cloneDescriptor(d Descriptor) Descriptor {
 	d.Manifest.Pages = append([]sdk.Page(nil), d.Manifest.Pages...)
+	for i := range d.Manifest.Pages {
+		d.Manifest.Pages[i].Subroutes = append([]sdk.Subroute(nil), d.Manifest.Pages[i].Subroutes...)
+	}
 	d.Manifest.Panels = append([]sdk.Panel(nil), d.Manifest.Panels...)
 	d.Manifest.Capabilities = append([]string(nil), d.Manifest.Capabilities...)
 	d.Manifest.Policies = append([]string(nil), d.Manifest.Policies...)
