@@ -74,9 +74,9 @@ export interface ResumeValidation {
  * always update().
  */
 export type RetireReason =
-  | 'session-changed'
-  | 'authority-revoked'
-  | 'contribution-unavailable';
+  | 'session-changed' |
+  'authority-revoked' |
+  'contribution-unavailable';
 
 /**
  * Mount context supplied exactly once per root. The contribution receives
@@ -152,4 +152,4 @@ export interface MountHandle {
 export type MountEntry = (
   root: HTMLElement,
   context: MountContext,
-) => void | (() => void) | { dispose: () => void } | MountHandle | Promise<void | (() => void) | { dispose: () => void } | MountHandle>;
+) => void | (() => void) | {dispose: () => void} | MountHandle | Promise<void | (() => void) | {dispose: () => void} | MountHandle>;

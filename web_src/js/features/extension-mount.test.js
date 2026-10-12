@@ -161,7 +161,7 @@ test('closes streams and revokes helpers when mount throws synchronously', async
   const root = pageRoot();
   let captured;
   let opened;
-  const mount = vi.fn((ignored, context) => {
+  const mount = vi.fn((_ignored, context) => {
     captured = context;
     opened = context.stream('socket');
     throw new Error('mount exploded');
@@ -183,7 +183,7 @@ test('closes streams and revokes helpers when mount rejects', async () => {
   const root = pageRoot();
   let captured;
   let opened;
-  const mount = vi.fn(async (ignored, context) => {
+  const mount = vi.fn(async (_ignored, context) => {
     captured = context;
     opened = context.stream('socket');
     throw new Error('async mount failed');
@@ -222,7 +222,7 @@ test('revokes pending helpers and streams when mount never settles', async () =>
   let resolveMount;
   const retire = vi.fn();
   const dispose = vi.fn();
-  const mount = vi.fn((ignored, context) => {
+  const mount = vi.fn((_ignored, context) => {
     captured = context;
     opened = context.stream('socket');
     return new Promise((resolve) => { resolveMount = resolve });
