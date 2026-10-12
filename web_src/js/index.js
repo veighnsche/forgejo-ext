@@ -11,7 +11,7 @@ import {initHeatmap} from './features/heatmap.js';
 import {initImageDiff} from './features/imagediff.js';
 import {initRepoMigration} from './features/repo-migration.js';
 import {initRepoProject} from './features/repo-projects.js';
-import {initTableSort} from './features/tablesort.js';
+import {initTableSort, retireTableSort} from './features/tablesort.js';
 import {initAutoFocusEnd} from './features/autofocus-end.js';
 import {initAdminUserListSearchForm, retireAdminUserListSearchForm} from './features/admin/users.js';
 import {initGlobalFeatures, initPageFeatures, registerGlobalFeature, registerPageFeature} from './native-lifecycle.js';
@@ -115,6 +115,11 @@ registerPageFeature('native-node-enhancement', {
   init: () => enhanceNativeNodes(document),
   retire: retireNativeNodes,
 });
+// Sortable table headers on admin list pages (/admin/users, /admin/orgs).
+registerPageFeature('native-table-sort', {
+  init: initTableSort,
+  retire: retireTableSort,
+});
 
 // Init Gitea's Fomantic settings
 initGiteaFomantic();
@@ -149,7 +154,6 @@ onDomReady(() => {
   initMarkupContent();
   initSshKeyFormParser();
   initStopwatch();
-  initTableSort();
   initAutoFocusEnd();
   initFindFileInRepo();
   initCopyContent();

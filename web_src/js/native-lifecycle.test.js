@@ -3,9 +3,11 @@ import {
   getPageData,
   initGlobalFeatures,
   initPageFeatures,
+  navigateNative,
   registerGlobalFeature,
   registerPageFeature,
   retirePageFeatures,
+  setNativeNavigator,
   setPageConfig,
 } from './native-lifecycle.js';
 
@@ -85,4 +87,26 @@ test('retire bumps the page generation so async work can detect staleness', () =
   // generation must bump regardless so in-flight async work goes stale.
   expect(() => retirePageFeatures()).toThrow('boom');
   expect(currentPageGeneration()).not.toBe(before);
+});
+
+test('native navigation goes through the plugged host navigator when set', () => {
+  const seen = [];
+  setNativeNavigator((url) => seen.push(url));
+  try {
+    navigateNative('/admin/orgs?sort=newest');
+    expect(seen).toEqual(['/admin/orgs?sort=newest']);
+  } finally {
+    setNativeNavigator(null);
+  }
+});
+
+test('native navigation falls back to a history-replacing load without a host', () => {
+  window.history.replaceState(null, '', '/admin/orgs');
+  navigateNative('/admin/orgs?sort=oldest');
+  expect(window.location.pathname + window.location.search).toBe('/admin/orgs?sort=oldest');
+  window.history.replaceState(null, '', '/');
+});
+
+test('navigator registration rejects non-functions', () => {
+  expect(() => setNativeNavigator('nope')).toThrow('function or null');
 });
