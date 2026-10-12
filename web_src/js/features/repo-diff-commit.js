@@ -1,11 +1,15 @@
 import {hideElem, showElem, toggleElem} from '../utils/dom.js';
 import {GET} from '../modules/fetch.js';
+import {currentPageGeneration} from '../native-lifecycle.js';
 
-async function loadBranchesAndTags(area, loadingButton) {
+const branchHandlers = new Map();
+
+async function loadBranchesAndTags(area, loadingButton, generation) {
   loadingButton.classList.add('disabled');
   try {
     const res = await GET(loadingButton.getAttribute('data-fetch-url'));
     const data = await res.json();
+    if (generation !== currentPageGeneration() || !area.isConnected) return;
     hideElem(loadingButton);
     addTags(area, data.tags);
     addBranches(area, data.branches, data.default_branch);
@@ -48,6 +52,14 @@ function addLink(parent, href, text, tooltip) {
 export function initRepoDiffCommitBranchesAndTags() {
   for (const area of document.querySelectorAll('.branch-and-tag-area')) {
     const btn = area.querySelector('.load-branches-and-tags');
-    btn.addEventListener('click', () => loadBranchesAndTags(area, btn));
+    if (!btn || branchHandlers.has(btn)) continue;
+    const handler = () => loadBranchesAndTags(area, btn, currentPageGeneration());
+    branchHandlers.set(btn, handler);
+    btn.addEventListener('click', handler);
   }
+}
+
+export function retireRepoDiffCommitBranchesAndTags() {
+  for (const [btn, handler] of branchHandlers) btn.removeEventListener('click', handler);
+  branchHandlers.clear();
 }

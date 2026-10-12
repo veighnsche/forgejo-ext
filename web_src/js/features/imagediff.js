@@ -2,6 +2,9 @@ import $ from 'jquery';
 import {GET} from '../modules/fetch.js';
 import {hideElem, loadElem, queryElemChildren} from '../utils/dom.js';
 import {parseDom} from '../utils.js';
+import {currentPageGeneration} from '../native-lifecycle.js';
+
+const rangeCleanups = new Set();
 
 function getDefaultSvgBoundsIfUndefined(text, src) {
   const DefaultSize = 300;
@@ -67,22 +70,29 @@ function createContext(imageAfter, imageBefore) {
   };
 }
 
+export function retireImageDiff() {
+  $(document).off('.diff-swipe');
+  for (const cleanup of rangeCleanups) cleanup();
+  rangeCleanups.clear();
+}
+
 export function initImageDiff() {
-  $('.image-diff:not([data-image-diff-loaded])').each(async function() {
-    const $container = $(this);
-    this.setAttribute('data-image-diff-loaded', 'true');
+  $('.image-diff:not([data-image-diff-loaded])').each(async (_index, containerEl) => {
+    const generation = currentPageGeneration();
+    const $container = $(containerEl);
+    containerEl.setAttribute('data-image-diff-loaded', 'true');
 
     // the container may be hidden by "viewed" checkbox, so use the parent's width for reference
     const diffContainerWidth = Math.max($container.closest('.diff-file-box').width() - 300, 100);
 
     const imageInfos = [{
-      path: this.getAttribute('data-path-after'),
-      mime: this.getAttribute('data-mime-after'),
+      path: containerEl.getAttribute('data-path-after'),
+      mime: containerEl.getAttribute('data-mime-after'),
       $images: $container.find('img.image-after'), // matches 3 <img>
       $boundsInfo: $container.find('.bounds-info-after'),
     }, {
-      path: this.getAttribute('data-path-before'),
-      mime: this.getAttribute('data-mime-before'),
+      path: containerEl.getAttribute('data-path-before'),
+      mime: containerEl.getAttribute('data-mime-before'),
       $images: $container.find('img.image-before'), // matches 3 <img>
       $boundsInfo: $container.find('.bounds-info-before'),
     }];
@@ -91,6 +101,7 @@ export function initImageDiff() {
       const [success] = await Promise.all(Array.from(info.$images, (img) => {
         return loadElem(img, info.path);
       }));
+      if (generation !== currentPageGeneration() || !containerEl.isConnected) return;
       // only the first images is associated with $boundsInfo
       if (!success) info.$boundsInfo.text('(image error)');
       if (info.mime === 'image/svg+xml') {
@@ -107,16 +118,18 @@ export function initImageDiff() {
       }
     }));
 
+    if (generation !== currentPageGeneration() || !containerEl.isConnected) return;
+
     const $imagesAfter = imageInfos[0].$images;
     const $imagesBefore = imageInfos[1].$images;
 
-    initSideBySide(this, createContext($imagesAfter[0], $imagesBefore[0]));
+    initSideBySide(containerEl, createContext($imagesAfter[0], $imagesBefore[0]));
     if ($imagesAfter.length > 0 && $imagesBefore.length > 0) {
       initSwipe(createContext($imagesAfter[1], $imagesBefore[1]));
       initOverlay(createContext($imagesAfter[2], $imagesBefore[2]));
     }
 
-    queryElemChildren(this, '.image-diff-tabs', (el) => el.classList.remove('is-loading'));
+    queryElemChildren(containerEl, '.image-diff-tabs', (el) => el.classList.remove('is-loading'));
 
     function initSideBySide(container, sizes) {
       let factor = 1;
@@ -260,11 +273,14 @@ export function initImageDiff() {
 
       const rangeInput = $container[0].querySelector('input[type="range"]');
       function updateOpacity() {
-        if (sizes.imageAfter) {
+        if (sizes.imageAfter && rangeInput) {
           sizes.imageAfter.parentNode.style.opacity = `${rangeInput.value / 100}`;
         }
       }
-      rangeInput?.addEventListener('input', updateOpacity);
+      if (rangeInput) {
+        rangeInput.addEventListener('input', updateOpacity);
+        rangeCleanups.add(() => rangeInput.removeEventListener('input', updateOpacity));
+      }
       updateOpacity();
     }
   });

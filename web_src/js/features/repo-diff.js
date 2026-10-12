@@ -2,151 +2,149 @@ import $ from 'jquery';
 import htmx from 'htmx.org';
 import {initCompReactionSelector} from './comp/ReactionSelector.js';
 import {initRepoIssueContentHistory} from './repo-issue-content.js';
-import {initDiffFileTree} from './repo-diff-filetree.js';
-import {initDiffCommitSelect} from './repo-diff-commitselect.js';
+import {initDiffFileTree, retireDiffFileTree} from './repo-diff-filetree.js';
+import {initDiffCommitSelect, retireDiffCommitSelect} from './repo-diff-commitselect.js';
 import {validateTextareaNonEmpty} from './comp/ComboMarkdownEditor.js';
-import {initViewedCheckboxListenerFor, countAndUpdateViewedFiles, initExpandAndCollapseFilesButton} from './pull-view-file.js';
-import {initImageDiff} from './imagediff.js';
+import {initViewedCheckboxListenerFor, countAndUpdateViewedFiles, initExpandAndCollapseFilesButton, retireViewedFiles} from './pull-view-file.js';
+import {initImageDiff, retireImageDiff} from './imagediff.js';
 import {showErrorToast} from '../modules/toast.js';
 import {submitEventSubmitter, queryElemSiblings, hideElem, showElem} from '../utils/dom.js';
 import {POST, GET} from '../modules/fetch.js';
+import {currentPageGeneration, getPageData} from '../native-lifecycle.js';
 
-const {pageData, i18n} = window.config;
+let diffAttached = false;
+const reviewForms = new Set();
+const toggleEls = new Set();
+
+function onReviewButtonClick(e) {
+  const reviewBox = document.getElementById('review-box');
+  const counter = reviewBox?.querySelector('.review-comments-counter');
+  if (!reviewBox || !counter) return;
+  const form = e.target.closest('form');
+  if (!form || reviewForms.has(form)) return;
+  reviewForms.add(form);
+  form.addEventListener('submit', () => {
+    const num = parseInt(counter.getAttribute('data-pending-comment-number')) + 1 || 1;
+    counter.setAttribute('data-pending-comment-number', String(num));
+    counter.textContent = String(num);
+    reviewBox.classList.remove('pulse');
+    requestAnimationFrame(() => reviewBox.classList.add('pulse'));
+  });
+}
 
 function initRepoDiffReviewButton() {
-  const reviewBox = document.getElementById('review-box');
-  if (!reviewBox) return;
+  if (!document.getElementById('review-box')) return;
+  $(document).on('click', 'button[name="pending_review"]', onReviewButtonClick);
+}
 
-  const counter = reviewBox.querySelector('.review-comments-counter');
-  if (!counter) return;
-
-  $(document).on('click', 'button[name="pending_review"]', (e) => {
-    const $form = $(e.target).closest('form');
-    // Watch for the form's submit event.
-    $form.on('submit', () => {
-      const num = parseInt(counter.getAttribute('data-pending-comment-number')) + 1 || 1;
-      counter.setAttribute('data-pending-comment-number', num);
-      counter.textContent = num;
-
-      reviewBox.classList.remove('pulse');
-      requestAnimationFrame(() => {
-        reviewBox.classList.add('pulse');
-      });
-    });
-  });
+function onFileViewToggle() {
+  for (const el of queryElemSiblings(this)) el.classList.remove('active');
+  this.classList.add('active');
+  const target = document.querySelector(this.getAttribute('data-toggle-selector'));
+  if (!target) return;
+  hideElem(queryElemSiblings(target));
+  showElem(target);
 }
 
 function initRepoDiffFileViewToggle() {
-  $('.file-view-toggle').on('click', function () {
-    for (const el of queryElemSiblings(this)) {
-      el.classList.remove('active');
+  for (const el of document.querySelectorAll('.file-view-toggle')) {
+    if (toggleEls.has(el)) continue;
+    el.addEventListener('click', onFileViewToggle);
+    toggleEls.add(el);
+  }
+}
+
+async function onConversationSubmit(e) {
+  e.preventDefault();
+  const generation = currentPageGeneration();
+  const $form = $(e.target);
+  const textArea = e.target.querySelector('textarea');
+  if (!validateTextareaNonEmpty(textArea)) return;
+  if (e.target.classList.contains('is-loading')) return;
+  try {
+    e.target.classList.add('is-loading');
+    const formData = new FormData($form[0]);
+    const submitter = submitEventSubmitter(e.originalEvent ?? e);
+    const isSubmittedByButton = (submitter?.nodeName === 'BUTTON') || (submitter?.nodeName === 'INPUT' && submitter.type === 'submit');
+    if (isSubmittedByButton && submitter.name) formData.append(submitter.name, submitter.value);
+    const response = await POST(e.target.getAttribute('action'), {data: formData});
+    const $newConversationHolder = $(await response.text());
+    if (generation !== currentPageGeneration()) return;
+    const {path, side, idx} = $newConversationHolder.data();
+    $form.closest('.conversation-holder').replaceWith($newConversationHolder);
+    let selector;
+    if ($form.closest('tr').data('line-type') === 'same') selector = `[data-path="${path}"] .add-code-comment[data-idx="${idx}"]`;
+    else selector = `[data-path="${path}"] .add-code-comment[data-side="${side}"][data-idx="${idx}"]`;
+    for (const el of document.querySelectorAll(selector)) el.classList.add('tw-invisible');
+    $newConversationHolder.find('.dropdown').dropdown();
+    initCompReactionSelector($newConversationHolder);
+  } catch {
+    if (generation === currentPageGeneration()) {
+      console.error('error when submitting conversation', e);
+      showErrorToast(window.config.i18n.network_error);
     }
-    this.classList.add('active');
+  } finally {
+    e.target.classList.remove('is-loading');
+  }
+}
 
-    const target = document.querySelector(this.getAttribute('data-toggle-selector'));
-    if (!target) return;
-
-    hideElem(queryElemSiblings(target));
-    showElem(target);
-  });
+async function onResolveConversation(e) {
+  e.preventDefault();
+  const generation = currentPageGeneration();
+  const comment_id = $(this).data('comment-id');
+  const origin = $(this).data('origin');
+  const action = $(this).data('action');
+  const url = $(this).data('update-url');
+  try {
+    const response = await POST(url, {data: new URLSearchParams({origin, action, comment_id})});
+    const data = await response.text();
+    if (generation !== currentPageGeneration()) return;
+    if ($(this).closest('.conversation-holder').length) {
+      const $conversation = $(data);
+      $(this).closest('.conversation-holder').replaceWith($conversation);
+      $conversation.find('.dropdown').dropdown();
+      initCompReactionSelector($conversation);
+    } else {
+      window.location.reload();
+    }
+  } catch (error) {
+    if (generation === currentPageGeneration()) console.error('Error:', error);
+  }
 }
 
 function initRepoDiffConversationForm() {
-  $(document).on('submit', '.conversation-holder form', async (e) => {
-    e.preventDefault();
+  $(document).on('submit', '.conversation-holder form', onConversationSubmit);
+  $(document).on('click', '.resolve-conversation', onResolveConversation);
+}
 
-    const $form = $(e.target);
-    const textArea = e.target.querySelector('textarea');
-    if (!validateTextareaNonEmpty(textArea)) {
-      return;
-    }
+function onPreviousConversation(e) {
+  const $conversation = $(e.currentTarget).closest('.comment-code-cloud');
+  const $conversations = $('.comment-code-cloud:not(.tw-hidden)');
+  const index = $conversations.index($conversation);
+  const previousIndex = index > 0 ? index - 1 : $conversations.length - 1;
+  const anchor = $conversations.eq(previousIndex).find('.comment').first()[0]?.getAttribute('id');
+  if (anchor) window.location.href = `#${anchor}`;
+}
 
-    if (e.target.classList.contains('is-loading')) return;
-    try {
-      e.target.classList.add('is-loading');
-      const formData = new FormData($form[0]);
-
-      // If the form is submitted by a button, append the button's name and value to the form data.
-      // originalEvent can be undefined, such as an event that's caused by Ctrl+Enter, in that case
-      // sent the event itself.
-      const submitter = submitEventSubmitter(e.originalEvent ?? e);
-      const isSubmittedByButton = (submitter?.nodeName === 'BUTTON') || (submitter?.nodeName === 'INPUT' && submitter.type === 'submit');
-      if (isSubmittedByButton && submitter.name) {
-        formData.append(submitter.name, submitter.value);
-      }
-
-      const response = await POST(e.target.getAttribute('action'), {data: formData});
-      const $newConversationHolder = $(await response.text());
-      const {path, side, idx} = $newConversationHolder.data();
-
-      $form.closest('.conversation-holder').replaceWith($newConversationHolder);
-      let selector;
-      if ($form.closest('tr').data('line-type') === 'same') {
-        selector = `[data-path="${path}"] .add-code-comment[data-idx="${idx}"]`;
-      } else {
-        selector = `[data-path="${path}"] .add-code-comment[data-side="${side}"][data-idx="${idx}"]`;
-      }
-      for (const el of document.querySelectorAll(selector)) {
-        el.classList.add('tw-invisible');
-      }
-      $newConversationHolder.find('.dropdown').dropdown();
-      initCompReactionSelector($newConversationHolder);
-    } catch { // here the caught error might be a jQuery AJAX error (thrown by await $.post), which is not good to use for error message handling
-      console.error('error when submitting conversation', e);
-      showErrorToast(i18n.network_error);
-    } finally {
-      e.target.classList.remove('is-loading');
-    }
-  });
-
-  $(document).on('click', '.resolve-conversation', async function (e) {
-    e.preventDefault();
-    const comment_id = $(this).data('comment-id');
-    const origin = $(this).data('origin');
-    const action = $(this).data('action');
-    const url = $(this).data('update-url');
-
-    try {
-      const response = await POST(url, {data: new URLSearchParams({origin, action, comment_id})});
-      const data = await response.text();
-
-      if ($(this).closest('.conversation-holder').length) {
-        const $conversation = $(data);
-        $(this).closest('.conversation-holder').replaceWith($conversation);
-        $conversation.find('.dropdown').dropdown();
-        initCompReactionSelector($conversation);
-      } else {
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  });
+function onNextConversation(e) {
+  const $conversation = $(e.currentTarget).closest('.comment-code-cloud');
+  const $conversations = $('.comment-code-cloud:not(.tw-hidden)');
+  const index = $conversations.index($conversation);
+  const nextIndex = index < $conversations.length - 1 ? index + 1 : 0;
+  const anchor = $conversations.eq(nextIndex).find('.comment').first()[0]?.getAttribute('id');
+  if (anchor) window.location.href = `#${anchor}`;
 }
 
 export function initRepoDiffConversationNav() {
-  // Previous/Next code review conversation
-  $(document).on('click', '.previous-conversation', (e) => {
-    const $conversation = $(e.currentTarget).closest('.comment-code-cloud');
-    const $conversations = $('.comment-code-cloud:not(.tw-hidden)');
-    const index = $conversations.index($conversation);
-    const previousIndex = index > 0 ? index - 1 : $conversations.length - 1;
-    const $previousConversation = $conversations.eq(previousIndex);
-    const anchor = $previousConversation.find('.comment').first()[0].getAttribute('id');
-    window.location.href = `#${anchor}`;
-  });
-  $(document).on('click', '.next-conversation', (e) => {
-    const $conversation = $(e.currentTarget).closest('.comment-code-cloud');
-    const $conversations = $('.comment-code-cloud:not(.tw-hidden)');
-    const index = $conversations.index($conversation);
-    const nextIndex = index < $conversations.length - 1 ? index + 1 : 0;
-    const $nextConversation = $conversations.eq(nextIndex);
-    const anchor = $nextConversation.find('.comment').first()[0].getAttribute('id');
-    window.location.href = `#${anchor}`;
-  });
+  $(document).on('click', '.previous-conversation', onPreviousConversation);
+  $(document).on('click', '.next-conversation', onNextConversation);
 }
 
-// Will be called when the show more (files) button has been pressed
+export function retireRepoDiffConversationNav() {
+  $(document).off('click', '.previous-conversation', onPreviousConversation);
+  $(document).off('click', '.next-conversation', onNextConversation);
+}
+
 function onShowMoreFiles() {
   initRepoIssueContentHistory();
   initViewedCheckboxListenerFor();
@@ -156,72 +154,64 @@ function onShowMoreFiles() {
 }
 
 export async function loadMoreFiles(url) {
+  const info = getPageData().diffFileInfo;
   const target = document.querySelector('a#diff-show-more-files');
-  if (target?.classList.contains('disabled') || pageData.diffFileInfo.isLoadingNewData) {
-    return;
-  }
-
-  pageData.diffFileInfo.isLoadingNewData = true;
+  if (!info || target?.classList.contains('disabled') || info.isLoadingNewData) return;
+  const generation = currentPageGeneration();
+  info.isLoadingNewData = true;
   target?.classList.add('disabled');
-
   try {
     const response = await GET(url);
     const resp = await response.text();
+    if (generation !== currentPageGeneration()) return;
     const $resp = $(resp);
-    // the response is a full HTML page, we need to extract the relevant contents:
-    // 1. append the newly loaded file list items to the existing list
     $('#diff-incomplete').replaceWith($resp.find('#diff-file-boxes').children());
-    // 2. re-execute the script to append the newly loaded items to the JS variables to refresh the DiffFileTree
     $('body').append($resp.find('script#diff-data-script'));
-
     onShowMoreFiles();
   } catch (error) {
-    console.error('Error:', error);
-    showErrorToast('An error occurred while loading more files.');
+    if (generation === currentPageGeneration()) {
+      console.error('Error:', error);
+      showErrorToast('An error occurred while loading more files.');
+    }
   } finally {
     target?.classList.remove('disabled');
-    pageData.diffFileInfo.isLoadingNewData = false;
+    if (getPageData().diffFileInfo) getPageData().diffFileInfo.isLoadingNewData = false;
+  }
+}
+
+function onShowMoreClick(e) {
+  e.preventDefault();
+  loadMoreFiles(e.target.getAttribute('data-href'));
+}
+
+async function onDiffLoadClick(e) {
+  e.preventDefault();
+  const generation = currentPageGeneration();
+  const $target = $(e.target);
+  if (e.target.classList.contains('disabled')) return;
+  e.target.classList.add('disabled');
+  const url = $target.data('href');
+  try {
+    const response = await GET(url);
+    const resp = await response.text();
+    if (!resp || generation !== currentPageGeneration()) return;
+    $target.parent().replaceWith($(resp).find('#diff-file-boxes .diff-file-body .file-body').children());
+    onShowMoreFiles();
+  } catch (error) {
+    if (generation === currentPageGeneration()) console.error('Error:', error);
+  } finally {
+    e.target.classList.remove('disabled');
   }
 }
 
 function initRepoDiffShowMore() {
-  $(document).on('click', 'a#diff-show-more-files', (e) => {
-    e.preventDefault();
-
-    const linkLoadMore = e.target.getAttribute('data-href');
-    loadMoreFiles(linkLoadMore);
-  });
-
-  $(document).on('click', 'a.diff-load-button', async (e) => {
-    e.preventDefault();
-    const $target = $(e.target);
-
-    if (e.target.classList.contains('disabled')) {
-      return;
-    }
-
-    e.target.classList.add('disabled');
-
-    const url = $target.data('href');
-
-    try {
-      const response = await GET(url);
-      const resp = await response.text();
-
-      if (!resp) {
-        return;
-      }
-      $target.parent().replaceWith($(resp).find('#diff-file-boxes .diff-file-body .file-body').children());
-      onShowMoreFiles();
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      e.target.classList.remove('disabled');
-    }
-  });
+  $(document).on('click', 'a#diff-show-more-files', onShowMoreClick);
+  $(document).on('click', 'a.diff-load-button', onDiffLoadClick);
 }
 
 export function initRepoDiffView() {
+  if (diffAttached) return;
+  diffAttached = true;
   initRepoDiffConversationForm();
   if (!$('#diff-file-boxes').length) return;
   initDiffFileTree();
@@ -231,4 +221,21 @@ export function initRepoDiffView() {
   initRepoDiffFileViewToggle();
   initViewedCheckboxListenerFor();
   initExpandAndCollapseFilesButton();
+}
+
+export function retireRepoDiffView() {
+  $(document).off('submit', '.conversation-holder form', onConversationSubmit);
+  $(document).off('click', '.resolve-conversation', onResolveConversation);
+  $(document).off('click', 'a#diff-show-more-files', onShowMoreClick);
+  $(document).off('click', 'a.diff-load-button', onDiffLoadClick);
+  $(document).off('click', 'button[name="pending_review"]', onReviewButtonClick);
+  retireRepoDiffConversationNav();
+  for (const el of toggleEls) el.removeEventListener('click', onFileViewToggle);
+  toggleEls.clear();
+  reviewForms.clear();
+  retireDiffFileTree();
+  retireDiffCommitSelect();
+  retireViewedFiles();
+  retireImageDiff();
+  diffAttached = false;
 }

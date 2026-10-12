@@ -1,12 +1,29 @@
 import $ from 'jquery';
 import {hideElem, showElem} from '../utils/dom.js';
 import {GET} from '../modules/fetch.js';
+import {currentPageGeneration} from '../native-lifecycle.js';
+
+let graphCleanup = null;
+
+export function retireRepoGraphGit() {
+  graphCleanup?.();
+  graphCleanup = null;
+}
 
 export function initRepoGraphGit() {
   const graphContainer = document.getElementById('git-graph-container');
   if (!graphContainer) return;
+  retireRepoGraphGit();
+  const generation = currentPageGeneration();
+  const cleanups = [];
+  graphCleanup = () => { for (const fn of cleanups) fn(); };
+  const on = (el, type, handler) => {
+    if (!el) return;
+    el.addEventListener(type, handler);
+    cleanups.push(() => el.removeEventListener(type, handler));
+  };
 
-  document.getElementById('flow-color-monochrome')?.addEventListener('click', () => {
+  on(document.getElementById('flow-color-monochrome'), 'click', () => {
     document.getElementById('flow-color-monochrome').classList.add('active');
     document.getElementById('flow-color-colored')?.classList.remove('active');
     graphContainer.classList.remove('colored');
@@ -30,7 +47,7 @@ export function initRepoGraphGit() {
     }
   });
 
-  document.getElementById('flow-color-colored')?.addEventListener('click', () => {
+  on(document.getElementById('flow-color-colored'), 'click', () => {
     document.getElementById('flow-color-colored').classList.add('active');
     document.getElementById('flow-color-monochrome')?.classList.remove('active');
     graphContainer.classList.add('colored');
@@ -67,6 +84,7 @@ export function initRepoGraphGit() {
     (async () => {
       const response = await GET(String(ajaxUrl));
       const html = await response.text();
+      if (generation !== currentPageGeneration() || !graphContainer.isConnected) return;
       const div = document.createElement('div');
       div.innerHTML = html;
       document.getElementById('pagination').innerHTML = div.querySelector('#pagination').innerHTML;
@@ -111,7 +129,7 @@ export function initRepoGraphGit() {
     },
   });
 
-  graphContainer.addEventListener('mouseenter', (e) => {
+  on(graphContainer, 'mouseenter', (e) => {
     if (e.target.matches('#rev-list li')) {
       const flow = e.target.getAttribute('data-flow');
       if (flow === '0') return;
@@ -132,7 +150,7 @@ export function initRepoGraphGit() {
     }
   });
 
-  graphContainer.addEventListener('mouseleave', (e) => {
+  on(graphContainer, 'mouseleave', (e) => {
     if (e.target.matches('#rev-list li')) {
       const flow = e.target.getAttribute('data-flow');
       if (flow === '0') return;
