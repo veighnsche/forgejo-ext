@@ -1,6 +1,6 @@
 import {vi} from 'vitest';
 import htmx from 'htmx.org';
-import {initNativeHtmx, retireNativeHtmx} from './htmx.js';
+import {initNativeHtmx, retireNativeHtmx, setNativeSwapEnhancer} from './htmx.js';
 import {contributionRootSelector, initPageFeatures, registerPageFeature, retirePageFeatures} from './native-lifecycle.js';
 
 vi.mock('htmx.org', () => ({default: {
@@ -83,6 +83,22 @@ test('uses upstream disableSelector and excludes contribution requests', () => {
   expect(privateXHR.abort).not.toHaveBeenCalled();
   expect(page.isConnected).toBe(true);
   expect(home.contains(page)).toBe(true);
+});
+
+test('htmx swaps enhance fresh native nodes and skip contribution content', () => {
+  const enhancer = vi.fn();
+  setNativeSwapEnhancer(enhancer);
+  try {
+    const native = document.getElementById('poll');
+    document.body.dispatchEvent(new CustomEvent('htmx:afterSwap', {bubbles: true, detail: {target: native}}));
+    expect(enhancer).toHaveBeenCalledWith(native);
+    const panel = document.getElementById('panel');
+    document.body.dispatchEvent(new CustomEvent('htmx:afterSwap', {bubbles: true, detail: {target: panel}}));
+    expect(enhancer).toHaveBeenCalledTimes(1);
+    expect(() => setNativeSwapEnhancer('nope')).toThrow('function or null');
+  } finally {
+    setNativeSwapEnhancer(null);
+  }
 });
 
 test('reverse page-feature retirement leaves native DOM available to other cleanup', () => {

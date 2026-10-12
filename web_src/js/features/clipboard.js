@@ -8,7 +8,10 @@ const {copy_success, copy_error} = window.config.i18n;
 // - data-clipboard-text: Direct text to copy
 // - data-clipboard-target: Holds a selector for a <input> or <textarea> whose content is copied
 // - data-clipboard-text-type: When set to 'url' will convert relative to absolute urls
+let clipboardBound = false;
 export function initGlobalCopyToClipboardListener() {
+  if (clipboardBound) return;
+  clipboardBound = true;
   document.addEventListener('click', async (e) => {
     const target = e.target.closest('[data-clipboard-text], [data-clipboard-target]');
     if (!target) return;

@@ -12,6 +12,21 @@ htmx.config.disableSelector = `${htmx.config.disableSelector},${contributionRoot
 
 const pendingNativeRequests = new Map();
 let nativeRoot = null;
+let swapEnhancer = null;
+
+// Fresh HTMX-swapped nodes never pass through the page-feature seam, so the
+// entry module plugs its native node enhancement here; swapped contribution
+// content stays owner-managed and is never enhanced by the host.
+export function setNativeSwapEnhancer(enhancer) {
+  if (enhancer !== null && typeof enhancer !== 'function') throw new Error('native swap enhancer must be a function or null');
+  swapEnhancer = enhancer;
+}
+
+document.body.addEventListener('htmx:afterSwap', (event) => {
+  const target = event.detail?.target;
+  if (!(target instanceof Element) || target.closest(contributionRootSelector)) return;
+  swapEnhancer?.(target);
+});
 
 document.body.addEventListener('htmx:beforeSend', (event) => {
   const {elt, xhr} = event.detail;

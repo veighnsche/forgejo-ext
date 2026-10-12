@@ -15,7 +15,7 @@ import {initTableSort, retireTableSort} from './features/tablesort.js';
 import {initAutoFocusEnd} from './features/autofocus-end.js';
 import {initAdminUserListSearchForm, retireAdminUserListSearchForm} from './features/admin/users.js';
 import {initGlobalFeatures, initPageFeatures, registerGlobalFeature, registerPageFeature} from './native-lifecycle.js';
-import {initNativeHtmx, retireNativeHtmx} from './htmx.js';
+import {initNativeHtmx, retireNativeHtmx, setNativeSwapEnhancer} from './htmx.js';
 import {initAdminConfigs} from './features/admin/config.js';
 import {initMarkupAnchors} from './markup/anchors.js';
 import {initNotificationCount, initNotificationsTable} from './features/notification.js';
@@ -43,10 +43,7 @@ import {
   initGlobalCommonListeners,
   enhanceNativeNodes,
   retireNativeNodes,
-  initDisabledInputs,
-  initGlobalDropzone,
   initGlobalEnterQuickSubmit,
-  initGlobalFormDirtyLeaveConfirm,
   initGlobalLinkActions,
   initHeadNavbarContentToggle,
 } from './features/common-global.js';
@@ -116,6 +113,16 @@ registerGlobalFeature('native-common-listeners', initGlobalCommonListeners);
 // attach once and survive content transplants.
 registerGlobalFeature('native-navbar-toggle', initHeadNavbarContentToggle);
 registerGlobalFeature('native-language-menu', initFootLanguageMenu);
+// Common controls are document-delegated: one handler each, live-DOM queries
+// at event time, so transplanted controls act exactly once.
+registerGlobalFeature('native-clipboard', initGlobalCopyToClipboardListener);
+registerGlobalFeature('native-quick-submit', initGlobalEnterQuickSubmit);
+registerGlobalFeature('native-button-enter', initGlobalButtonClickOnEnter);
+registerGlobalFeature('native-global-buttons', initGlobalButtons);
+registerGlobalFeature('native-link-actions', initGlobalLinkActions);
+// HTMX swaps bypass the page seam; enhance their fresh native nodes through
+// the same tracked enhancement used for transplants.
+setNativeSwapEnhancer((root) => enhanceNativeNodes(root));
 // Fresh-node enhancement flows through the page seam so every transplant
 // enhances its incoming region with no transition-side calls.
 registerPageFeature('native-node-enhancement', {
@@ -135,15 +142,6 @@ initDirAuto();
 onDomReady(() => {
   initGlobalFeatures();
   enhanceNativeNodes(document);
-
-  initDisabledInputs(document);
-  initGlobalButtonClickOnEnter();
-  initGlobalButtons();
-  initGlobalCopyToClipboardListener();
-  initGlobalDropzone();
-  initGlobalEnterQuickSubmit();
-  initGlobalFormDirtyLeaveConfirm();
-  initGlobalLinkActions();
 
   initCommonOrganization();
   initCommonIssueListQuickGoto();
