@@ -182,8 +182,12 @@ test('delayed revalidation conceals page and panel together, then restores or re
 // document is a whole native page (head title, body data-page-data config,
 // navbar, .page-content region, footer) with the persistent panels home from
 // the shared layout (templates/base/footer.tmpl + extensions/panels.tmpl).
-function pageRootMarkup({pageId = 'home', generation = 'session-a', appSubURL = '', extra = ''} = {}) {
-  return `<div data-extension-page data-extension-contract-version="1" data-app-sub-url="${appSubURL}" data-extension-id="example" data-extension-page-id="${pageId}" data-extension-entry="/-/native/assets/example/page.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/pages/example/${pageId}/api/" data-extension-session-generation="${generation}"${extra}></div>`;
+// Static fixture roots carry data-extension-contract-version="1" mirroring
+// the server-rendered extension.BrowserContractVersion joint value (C03);
+// version may be overridden or omitted for skew cases.
+function pageRootMarkup({pageId = 'home', generation = 'session-a', appSubURL = '', extra = '', version = '1'} = {}) {
+  const versionAttr = version === null ? '' : ` data-extension-contract-version="${version}"`;
+  return `<div data-extension-page${versionAttr} data-app-sub-url="${appSubURL}" data-extension-id="example" data-extension-page-id="${pageId}" data-extension-entry="/-/native/assets/example/page.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/pages/example/${pageId}/api/" data-extension-session-generation="${generation}"${extra}></div>`;
 }
 
 function panelRootMarkup({panelId = 'notes', generation = 'session-a', appSubURL = ''} = {}) {
@@ -358,6 +362,44 @@ test('page owners persist a plain leg parked and readopt on return', async () =>
     expect(importer).toHaveBeenCalledTimes(2);
     expect(document.querySelector('.page-content').contains(pageRoot)).toBe(true);
     expect(pageRoot.isConnected).toBe(true);
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test.each([['missing', null], ['mismatched', '2']])('a %s contract version retires the parked owner without adopting or mounting', async (_label, version) => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({
+    content: directContent(`Global Workspace${pageRootMarkup()}`),
+    home: homeMarkup(),
+  });
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const pageRoot = document.querySelector('[data-extension-page]');
+  const retire = vi.fn();
+  const dispose = vi.fn();
+  let mountedResolve;
+  const mountedPromise = new Promise((resolve) => { mountedResolve = resolve });
+  const importer = vi.fn(async () => ({mount: () => {
+    mountedResolve();
+    return {dispose, retire};
+  }}));
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Workspace', pageData: {extension: {id: 'example'}},
+    content: directContent(`Global Workspace${pageRootMarkup({version})}`), home: homeMarkup()})));
+  try {
+    initExtensionPages(importer);
+    await mountedPromise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/workspace?view=all');
+    await vi.waitFor(() => expect(window.location.pathname + window.location.search).toBe('/workspace?view=all'));
+    await vi.waitFor(() => expect(retire).toHaveBeenCalledWith('contribution-unavailable'));
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(importer).toHaveBeenCalledOnce();
+    expect(document.querySelector('.page-content [data-extension-page]')).toBeNull();
+    expect(pageRoot.isConnected).toBe(false);
+    expect(document.querySelector('[data-extension-page-park] [data-extension-page]')).toBeNull();
   } finally {
     window.dispatchEvent(new Event('pagehide'));
     window.config = savedConfig;

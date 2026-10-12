@@ -80,9 +80,18 @@ function focusFragment(hash) {
   if (anchor?.matches('a[href], button, input, select, textarea, [tabindex]')) anchor.focus({preventScroll: true});
 }
 
-// Adopted identity: same contribution plus the live session generation.
-// Generation mismatch is session change (retire path), never adoption.
+// Adopted identity: same contribution plus the live session generation plus
+// the browser contract version. Generation mismatch is session change
+// (retire path), never adoption; version skew is refused the same way.
 function pageIdentity(root) {
+  const dataset = root.dataset;
+  return [dataset.extensionId, dataset.extensionPageId, dataset.extensionApiBase, dataset.extensionSessionGeneration, dataset.extensionContractVersion].join('\0');
+}
+
+// Loose identity without the contract version: finds entered duplicates
+// that are otherwise identical to a parked owner, so version skew takes
+// the retire+conceal path instead of adoption or a second mount.
+function pageIdentityLoose(root) {
   const dataset = root.dataset;
   return [dataset.extensionId, dataset.extensionPageId, dataset.extensionApiBase, dataset.extensionSessionGeneration].join('\0');
 }
@@ -196,9 +205,11 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
       }
     }
     const entered = new Map();
+    const enteredLoose = new Map();
     for (const root of document.querySelectorAll('[data-extension-page]')) {
       if (!entered.has(pageIdentity(root))) entered.set(pageIdentity(root), root);
       else if (!root.hasAttribute('data-extension-mounted')) mountRoot(root);
+      if (!enteredLoose.has(pageIdentityLoose(root))) enteredLoose.set(pageIdentityLoose(root), root);
     }
     const panelsVisible = home ? !home.hasAttribute('hidden') : true;
     const owned = new Set();
@@ -214,9 +225,24 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
           owned.add(owner.root);
           owner.update({...facts, mode: 'page', visible: true});
           owner.resume({sessionGeneration: owner.root.dataset.extensionSessionGeneration});
-        } else {
-          owner.update({...facts, mode: 'page', visible: false});
+          continue;
         }
+        // Version skew: an otherwise identical entered root whose
+        // contract version is missing or differs is never adopted and
+        // never mounted; the parked owner retires and both roots leave
+        // the document. Checked before any adoption or second mount.
+        const skewed = enteredLoose.get(pageIdentityLoose(owner.root));
+        if (skewed && skewed !== owner.root) {
+          entered.delete(pageIdentity(skewed));
+          entered.delete(pageIdentity(owner.root));
+          skewed.remove();
+          owner.root.remove();
+          mounted.splice(mounted.indexOf(owner), 1);
+          pageRoots.delete(owner.root);
+          owner.retire('contribution-unavailable');
+          continue;
+        }
+        owner.update({...facts, mode: 'page', visible: false});
         continue;
       }
       if (!owner.root.isConnected) {
