@@ -3,6 +3,7 @@ import {invertFileFolding} from './file-fold.js';
 import {createTippy} from '../modules/tippy.js';
 import {clippie} from 'clippie';
 import {toAbsoluteUrl} from '../utils.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
 
 export const singleAnchorRegex = /^#[Ln]([1-9][0-9]*)$/;
 export const rangeAnchorRegex = /^#[Ln]([1-9][0-9]*)-[Ln]?([1-9][0-9]*)$/;
@@ -91,6 +92,10 @@ function selectRange(linesEls: Element[], selectionEndEl: Element, selectionStar
   updateCopyPermalinkUrl(selectionEndEl.getAttribute('rel'));
 }
 
+type LineTippy = {destroy: () => void, popper: HTMLElement, hide: () => void};
+const lineTippies = new Set<LineTippy>();
+let codeViewAttached = false;
+
 function showLineButton() {
   const menu = document.querySelector('.code-line-menu');
   if (!menu) return;
@@ -99,19 +104,23 @@ function showLineButton() {
   for (const el of document.querySelectorAll('.code-line-button')) {
     el.remove();
   }
+  for (const instance of lineTippies) instance.destroy();
+  lineTippies.clear();
 
   // find active row and add button
   const tr = document.querySelector('.code-view tr.active');
+  if (!tr) return;
   const td = tr.querySelector('td.lines-num');
+  if (!td) return;
   const btn = document.createElement('button');
   btn.classList.add('code-line-button', 'ui', 'basic', 'button');
   btn.innerHTML = svg('octicon-kebab-horizontal');
   td.prepend(btn);
 
   // put a copy of the menu back into DOM for the next click
-  btn.closest('.code-view').append(menu.cloneNode(true));
+  btn.closest('.code-view')?.append(menu.cloneNode(true));
 
-  createTippy(btn, {
+  const instance = createTippy(btn, {
     trigger: 'click',
     hideOnClick: true,
     content: menu,
@@ -123,85 +132,87 @@ function showLineButton() {
       }, {once: true});
     },
   });
+  // createTippy returns a single instance or an array depending on tippy.js.
+  for (const item of (Array.isArray(instance) ? instance : [instance])) lineTippies.add(item as unknown as LineTippy);
+}
+
+function onLineNumClick(e: Event) {
+  const target = e.target as Element;
+  if (target.closest(contributionRootSelector)) return;
+  if (!target.matches('.lines-num span')) return;
+  const linesEls = getLineEls();
+  const selectedEl = linesEls.find((el) => el.matches(`[rel=${target.id}]`));
+  if (!selectedEl) return;
+  let from;
+  if ((e as MouseEvent).shiftKey) {
+    from = linesEls.find((el) => el.closest('tr')?.classList.contains('active'));
+  }
+  selectRange(linesEls, selectedEl, from);
+  window.getSelection()?.removeAllRanges();
+  showLineButton();
+}
+
+function onHashChange() {
+  let m = window.location.hash.match(rangeAnchorRegex);
+  const linesEls = getLineEls();
+  let first;
+  if (m) {
+    first = linesEls.find((el) => el.matches(`[rel=L${m[1]}]`));
+    if (first) {
+      const last = linesEls.findLast((el) => el.matches(`[rel=L${m[2]}]`));
+      selectRange(linesEls, first, last ?? linesEls.at(-1));
+      if (!isBlame()) showLineButton();
+      window.scrollBy({top: first.getBoundingClientRect().top - 200});
+      return;
+    }
+  }
+  m = window.location.hash.match(singleAnchorRegex);
+  if (m) {
+    first = linesEls.find((el) => el.matches(`[rel=L${m[1]}]`));
+    if (first) {
+      selectRange(linesEls, first);
+      if (!isBlame()) showLineButton();
+      window.scrollBy({top: first.getBoundingClientRect().top - 200});
+    }
+  }
+}
+
+function onFoldClick(e: Event) {
+  const target = e.target as Element;
+  if (target.closest(contributionRootSelector)) return;
+  const foldFileButton = target.closest('.fold-file');
+  if (!foldFileButton) return;
+  const box = foldFileButton.closest('.file-content');
+  if (box) invertFileFolding(box, foldFileButton);
+}
+
+async function onCopyPermalinkClick(e: Event) {
+  const target = e.target as Element;
+  if (target.closest(contributionRootSelector)) return;
+  if (!target.matches('.copy-line-permalink')) return;
+  await clippie(toAbsoluteUrl(target.getAttribute('data-url')));
 }
 
 export function initRepoCodeView() {
+  if (codeViewAttached) return;
+  codeViewAttached = true;
   if (document.querySelector('.code-view .lines-num')) {
-    document.addEventListener('click', (e) => {
-      const target = e.target as Element;
-      if (!target.matches('.lines-num span')) {
-        return;
-      }
-
-      const linesEls = getLineEls();
-      const selectedEl = linesEls.find((el) => {
-        return el.matches(`[rel=${target.id}]`);
-      });
-
-      let from;
-      if (e.shiftKey) {
-        from = linesEls.find((el) => {
-          return el.closest('tr').classList.contains('active');
-        });
-      }
-      selectRange(linesEls, selectedEl, from);
-
-      window.getSelection().removeAllRanges();
-
-      showLineButton();
-    });
-
-    window.addEventListener('hashchange', () => {
-      let m = window.location.hash.match(rangeAnchorRegex);
-      const linesEls = getLineEls();
-      let first;
-      if (m) {
-        first = linesEls.find((el) => el.matches(`[rel=L${m[1]}]`));
-        if (first) {
-          const last = linesEls.findLast((el) => el.matches(`[rel=L${m[2]}]`));
-          selectRange(linesEls, first, last ?? linesEls.at(-1));
-
-          // show code view menu marker (don't show in blame page)
-          if (!isBlame()) {
-            showLineButton();
-          }
-
-          window.scrollBy({top: first.getBoundingClientRect().top - 200});
-          return;
-        }
-      }
-      m = window.location.hash.match(singleAnchorRegex);
-      if (m) {
-        first = linesEls.find((el) => el.matches(`[rel=L${m[1]}]`));
-        if (first) {
-          selectRange(linesEls, first);
-
-          // show code view menu marker (don't show in blame page)
-          if (!isBlame()) {
-            showLineButton();
-          }
-
-          window.scrollBy({top: first.getBoundingClientRect().top - 200});
-        }
-      }
-    });
+    document.addEventListener('click', onLineNumClick);
+    window.addEventListener('hashchange', onHashChange);
     window.dispatchEvent(new Event('hashchange'));
   }
-  document.addEventListener('click', (e) => {
-    const target = e.target as Element;
-    const foldFileButton = target.closest('.fold-file');
-    if (!foldFileButton) {
-      return;
-    }
+  document.addEventListener('click', onFoldClick);
+  document.addEventListener('click', onCopyPermalinkClick);
+}
 
-    invertFileFolding(foldFileButton.closest('.file-content'), foldFileButton);
-  });
-  document.addEventListener('click', async (e) => {
-    const target = e.target as Element;
-    if (!target.matches('.copy-line-permalink')) {
-      return;
-    }
-
-    await clippie(toAbsoluteUrl(target.getAttribute('data-url')));
-  });
+export function retireRepoCodeView() {
+  document.removeEventListener('click', onLineNumClick);
+  window.removeEventListener('hashchange', onHashChange);
+  document.removeEventListener('click', onFoldClick);
+  document.removeEventListener('click', onCopyPermalinkClick);
+  for (const instance of lineTippies) {
+    try { instance.destroy() } catch { /* already gone with the region */ }
+  }
+  lineTippies.clear();
+  codeViewAttached = false;
 }

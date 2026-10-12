@@ -2,6 +2,7 @@ import {svg} from '../svg.js';
 import {toggleElem} from '../utils/dom.js';
 import {pathEscapeSegments} from '../utils/url.js';
 import {GET} from '../modules/fetch.js';
+import {contributionRootSelector, currentPageGeneration} from '../native-lifecycle.js';
 
 const threshold = 50;
 let files = [];
@@ -72,6 +73,7 @@ export function filterRepoFilesWeighted(files, filter) {
 }
 
 function filterRepoFiles(filter) {
+  if (!repoFindFileInput || !repoFindFileTableBody) return;
   const treeLink = repoFindFileInput.getAttribute('data-url-tree-link');
   repoFindFileTableBody.innerHTML = '';
 
@@ -99,19 +101,45 @@ function filterRepoFiles(filter) {
   }
 }
 
-async function loadRepoFiles() {
-  const response = await GET(repoFindFileInput.getAttribute('data-url-data-link'));
-  files = await response.json();
+let activeInput = null;
+let activeGeneration = -1;
+
+function onFindFileInput() {
+  if (!repoFindFileInput || repoFindFileInput !== activeInput) return;
   filterRepoFiles(repoFindFileInput.value);
 }
 
-export function initFindFileInRepo() {
-  repoFindFileInput = document.getElementById('repo-file-find-input');
-  if (!repoFindFileInput) return;
+async function loadRepoFiles(input, generation) {
+  const response = await GET(input.getAttribute('data-url-data-link'));
+  const loaded = await response.json();
+  // Async retirement: drop the result when the page retired or the input
+  // was replaced while the request was in flight.
+  if (generation !== currentPageGeneration() || activeInput !== input || !input.isConnected) return;
+  files = loaded;
+  filterRepoFiles(input.value);
+}
 
+export function initFindFileInRepo() {
+  const input = document.getElementById('repo-file-find-input');
+  if (!input) return;
+  if (input.closest(contributionRootSelector)) return;
+  if (activeInput === input) return;
+  retireFindFileInRepo();
+  repoFindFileInput = input;
+  activeInput = input;
+  activeGeneration = currentPageGeneration();
   repoFindFileTableBody = document.querySelector('#repo-find-file-table tbody');
   repoFindFileNoResult = document.getElementById('repo-find-file-no-result');
-  repoFindFileInput.addEventListener('input', () => filterRepoFiles(repoFindFileInput.value));
+  input.addEventListener('input', onFindFileInput);
+  loadRepoFiles(input, activeGeneration);
+}
 
-  loadRepoFiles();
+export function retireFindFileInRepo() {
+  if (activeInput) activeInput.removeEventListener('input', onFindFileInput);
+  activeInput = null;
+  activeGeneration = -1;
+  repoFindFileInput = null;
+  repoFindFileTableBody = null;
+  repoFindFileNoResult = null;
+  files = [];
 }

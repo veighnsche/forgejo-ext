@@ -79,35 +79,49 @@ export async function createCodeEditor(textarea: HTMLTextAreaElement, filenameIn
     ...getEditorConfigOptions(editorConfig),
   });
 
-  filenameInput.addEventListener('input', onInputDebounce(async () => {
-    const filename = filenameInput.value;
-    const previewable = previewableExts.has(extname(filename));
-    togglePreviewDisplay(previewable);
-    await updateEditor(editor, filename, lineWrapExts);
-  }));
+  const onFilenameInput = onInputDebounce(async () => {
+    const name = filenameInput.value;
+    togglePreviewDisplay(previewableExts.has(extname(name)));
+    await updateEditor(editor, name, lineWrapExts);
+  });
+  filenameInput.addEventListener('input', onFilenameInput);
 
-  const searchButton = document.querySelector('#editor-find');
-  searchButton.addEventListener('click', () => {
+  const searchButton = document.querySelector('#editor-find') as HTMLElement | null;
+  const onSearchClick = () => {
     const search = editor.codemirrorSearch;
     const view = editor.view;
+    if (search.searchPanelOpen(view.state)) search.closeSearchPanel(view);
+    else search.openSearchPanel(view);
+  };
+  searchButton?.addEventListener('click', onSearchClick);
 
-    if (search.searchPanelOpen(view.state)) {
-      search.closeSearchPanel(view);
-    } else {
-      search.openSearchPanel(view);
-    }
-  });
-
+  const switchEl = document.querySelector('#editor-bar .switch');
   const writeTab = document.querySelector('#editor-bar .switch .item[data-tab="write"]');
-  document.querySelector('#editor-bar .switch').addEventListener('click', () => {
-    if (writeTab.classList.contains('active')) {
-      showElem(searchButton);
-    } else {
-      hideElem(searchButton);
-    }
-  });
+  const onSwitchClick = () => {
+    if (!searchButton || !writeTab) return;
+    if (writeTab.classList.contains('active')) showElem(searchButton);
+    else hideElem(searchButton);
+  };
+  switchEl?.addEventListener('click', onSwitchClick);
 
-  return Object.setPrototypeOf(editor.view, SettableEditorView.prototype);
+  const view = Object.setPrototypeOf(editor.view, SettableEditorView.prototype) as SettableEditorView & {__codeEditorCleanup?: () => void};
+  // Retirement destroys the CodeMirror view and every listener wired above.
+  // The textarea keeps its last synced value, so no edit is lost on retire.
+  view.__codeEditorCleanup = () => {
+    filenameInput.removeEventListener('input', onFilenameInput);
+    (onFilenameInput as unknown as {cancel?: () => void}).cancel?.();
+    searchButton?.removeEventListener('click', onSearchClick);
+    switchEl?.removeEventListener('click', onSwitchClick);
+    (window.codeEditors as unknown as Set<unknown> | undefined)?.delete(editor.view);
+    editor.view.destroy();
+  };
+  return view;
+}
+
+export function destroyCodeEditor(view: unknown) {
+  const cleanup = (view as {__codeEditorCleanup?: () => void} | null)?.__codeEditorCleanup;
+  if (typeof cleanup === 'function') cleanup();
+  else if (view && typeof (view as EditorView).destroy === 'function') (view as EditorView).destroy();
 }
 
 function getEditorConfigOptions(ec: null | EditorConfig): Pick<EditorOptions, 'indentSize' | 'tabSize' | 'indentStyle'> {
