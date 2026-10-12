@@ -59,9 +59,13 @@ function validAppSubURL(value) {
 
 function readEnteredConfig(native) {
   const embedded = native.body?.dataset.pageData;
+  // A missing embed means an unknown document: full load. A present but
+  // empty embed (null pageData) transplants with {}: wholesale config
+  // replace leaves no stale keys and feature inits no-op on absent keys.
   if (typeof embedded !== 'string' || !embedded) return null;
   try {
     const parsed = JSON.parse(embedded);
+    if (parsed === null) return {};
     return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
     return null;
