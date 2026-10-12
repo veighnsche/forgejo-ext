@@ -281,3 +281,150 @@ test('reports unavailable streams without a websocket implementation', () => {
   expect(() => createScopedStream('https://forge.example/-/native/pages/example/home/api/', undefined)).toThrow('Contribution streams are unavailable');
   expect(() => createScopedRequest).not.toThrow();
 });
+
+function deferredFetcher() {
+  let resolveFetch;
+  const fetcher = vi.fn(() => new Promise((resolve) => { resolveFetch = resolve }));
+  return {fetcher, resolveFetch: (value) => resolveFetch(value)};
+}
+
+test('cancels in-flight requests on retire and refuses the late response', async () => {
+  const root = pageRoot();
+  const {fetcher, resolveFetch} = deferredFetcher();
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  const pending = owner.context.request('context');
+  owner.retire('authority-revoked');
+  expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+  resolveFetch({status: 200});
+  await expect(pending).rejects.toThrow('Contribution transport is retired');
+});
+
+test('cancels in-flight requests on host invalidation', async () => {
+  const root = pageRoot();
+  const controller = new AbortController();
+  const {fetcher, resolveFetch} = deferredFetcher();
+  const owner = await mountContribution(root, {
+    importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket, signal: controller.signal,
+  });
+  const pending = owner.context.request('context');
+  controller.abort();
+  expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+  resolveFetch({status: 200});
+  await expect(pending).rejects.toThrow('Contribution transport is retired');
+});
+
+test('refuses late responses after mount failure', async () => {
+  const root = pageRoot();
+  const {fetcher, resolveFetch} = deferredFetcher();
+  let pending;
+  const mount = vi.fn((_ignored, context) => {
+    pending = context.request('context');
+    throw new Error('mount exploded');
+  });
+  const silence = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount})), fetcher, websocketClass: FakeSocket});
+    expect(owner).toBeNull();
+    resolveFetch({status: 200});
+    await expect(pending).rejects.toThrow('Contribution transport is retired');
+  } finally {
+    silence.mockRestore();
+  }
+});
+
+test('preserves explicit consumer cancellation alongside the owner lifetime', async () => {
+  const root = pageRoot();
+  const consumer = new AbortController();
+  const fetcher = vi.fn().mockResolvedValue({status: 200});
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  const pending = owner.context.request('context', {signal: consumer.signal});
+  consumer.abort();
+  expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+  await expect(pending).resolves.toEqual({status: 200});
+  owner.dispose();
+});
+
+test('retains in-flight requests across update, suspend, and resume', async () => {
+  const root = pageRoot();
+  const {fetcher, resolveFetch} = deferredFetcher();
+  const handle = {update: vi.fn(), suspend: vi.fn(), resume: vi.fn()};
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: () => handle})), fetcher, websocketClass: FakeSocket});
+  const pending = owner.context.request('context');
+  owner.update({mode: 'page', route: '/team/repo', params: {}, visible: true});
+  owner.suspend();
+  owner.resume({sessionGeneration: 'session-a'});
+  expect(fetcher.mock.calls[0][1].signal.aborted).toBe(false);
+  resolveFetch({status: 200});
+  await expect(pending).resolves.toEqual({status: 200});
+  owner.dispose();
+});
+
+test('refuses pre-aborted caller requests without sending', async () => {
+  const root = pageRoot();
+  const consumer = new AbortController();
+  consumer.abort();
+  const fetcher = vi.fn().mockResolvedValue({status: 200});
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  await expect(owner.context.request('context', {method: 'PUT', body: 'stale', signal: consumer.signal})).rejects.toThrow('This operation was aborted');
+  expect(fetcher).not.toHaveBeenCalled();
+  owner.dispose();
+});
+
+function abortAwareFetcher() {
+  return vi.fn((_url, init) => Promise.resolve({
+    status: 200,
+    json: () => new Promise((_resolve, reject) => {
+      if (init.signal.aborted) reject(new DOMException('This operation was aborted', 'AbortError'));
+      else init.signal.addEventListener('abort', () => reject(new DOMException('This operation was aborted', 'AbortError')), {once: true});
+    }),
+  }));
+}
+
+test('aborts delayed body reads on caller cancellation', async () => {
+  const root = pageRoot();
+  const consumer = new AbortController();
+  const fetcher = abortAwareFetcher();
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  const response = await owner.context.request('context', {signal: consumer.signal});
+  const reading = response.json();
+  consumer.abort();
+  await expect(reading).rejects.toThrow('This operation was aborted');
+  owner.dispose();
+});
+
+test('aborts delayed body reads on owner retirement', async () => {
+  const root = pageRoot();
+  const fetcher = abortAwareFetcher();
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  const response = await owner.context.request('context');
+  const reading = response.json();
+  owner.retire('authority-revoked');
+  await expect(reading).rejects.toThrow('This operation was aborted');
+});
+
+test('aborts delayed body reads on owner retirement with explicit caller signal', async () => {
+  const root = pageRoot();
+  const consumer = new AbortController();
+  const fetcher = abortAwareFetcher();
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  const response = await owner.context.request('context', {signal: consumer.signal});
+  const reading = response.json();
+  owner.retire('authority-revoked');
+  await expect(reading).rejects.toThrow('This operation was aborted');
+});
+
+test('reused caller controller completes repeated polls without aborting completed reads', async () => {
+  const root = pageRoot();
+  const consumer = new AbortController();
+  const fetcher = vi.fn(async () => ({status: 200, json: async () => ({ok: true})}));
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), fetcher, websocketClass: FakeSocket});
+  for (let i = 0; i < 3; i++) {
+    const response = await owner.context.request('context', {signal: consumer.signal});
+    await expect(response.json()).resolves.toEqual({ok: true});
+    expect(fetcher.mock.calls[i][1].signal.aborted).toBe(false);
+  }
+  expect(consumer.signal.aborted).toBe(false);
+  const pending = owner.context.request('context', {signal: consumer.signal});
+  owner.retire('authority-revoked');
+  await expect(pending).rejects.toThrow('Contribution transport is retired');
+});

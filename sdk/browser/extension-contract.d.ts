@@ -107,7 +107,9 @@ export interface MountContext {
   /**
    * Scoped fetch bound to apiBase and the mount's session generation.
    * Rejects cross-origin, credentialed, or encoded-separator targets
-   * without sending them.
+   * without sending them. In-flight requests abort when the owner
+   * retires, disposes, or is invalidated; late responses after
+   * terminal teardown are refused.
    */
   request: (relativePath: string, options?: ContributionRequestOptions) => Promise<Response>;
   /**

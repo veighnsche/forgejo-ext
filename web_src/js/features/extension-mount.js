@@ -148,10 +148,14 @@ export async function mountContribution(root, hooks = {}) {
   // Teardown structures exist before the contribution is invoked, so streams
   // opened by mount are tracked even when mount throws or rejects.
   const sockets = new Set();
+  // Owner lifetime: retiring, disposing, or invalidating the owner aborts
+  // in-flight requests. Update/suspend/resume never touch it.
+  const lifetime = new AbortController();
   let invalidated = false;
   let invalidationReason = 'authority-revoked';
   let state = 'active';
   let owner = null;
+  const isTerminal = () => invalidated || state === 'retired' || state === 'disposed';
   const closeSockets = () => {
     for (const socket of sockets) {
       try {
@@ -166,17 +170,37 @@ export async function mountContribution(root, hooks = {}) {
     if (invalidated) return;
     invalidated = true;
     invalidationReason = reason;
+    lifetime.abort();
     closeSockets();
     owner?.retire(reason);
   };
   signal?.addEventListener('abort', () => invalidate('authority-revoked'), {once: true});
   const rawRequest = createScopedRequest(parsed.apiHref, parsed.sessionGeneration, fetcher);
-  const request = (...args) => {
-    if (invalidated || state === 'retired' || state === 'disposed') throw new TypeError('Contribution transport is retired');
-    return rawRequest(...args);
+  const request = (relativePath, options = {}) => {
+    if (isTerminal()) throw new TypeError('Contribution transport is retired');
+    if (options.signal?.aborted) return Promise.reject(new DOMException('This operation was aborted', 'AbortError'));
+    let signal = lifetime.signal;
+    if (options.signal) {
+      // Native fan-in for the actual supported runtime: Soda's existing
+      // transport (soda-extension.ts) already composes with
+      // AbortSignal.any and no compatibility branch, and the pinned
+      // HappyDOM/Chrome runtime provides it. The older Chrome 109
+      // browserslist note does not describe a consumer that needs a
+      // manual listener framework; building one retained a listener
+      // pair on the persistent owner for every completed request.
+      // This module adds no manual forwarding listeners to retain,
+      // and the native signal still aborts in-flight body reads on
+      // caller or owner abort.
+      signal = AbortSignal.any([options.signal, lifetime.signal]);
+    }
+    const pending = rawRequest(relativePath, {...options, signal});
+    return Promise.resolve(pending).then((response) => {
+      if (isTerminal()) throw new DOMException('Contribution transport is retired', 'AbortError');
+      return response;
+    });
   };
   const stream = (...args) => {
-    if (invalidated || state === 'retired' || state === 'disposed') throw new TypeError('Contribution transport is retired');
+    if (isTerminal()) throw new TypeError('Contribution transport is retired');
     const contribution = createScopedStream(parsed.apiHref, websocketClass)(...args);
     sockets.add(contribution.socket);
     return contribution;
@@ -231,6 +255,7 @@ export async function mountContribution(root, hooks = {}) {
     // Retire already disposes the handle; both states are terminal.
     if (state === 'disposed' || state === 'retired') return;
     state = 'disposed';
+    lifetime.abort();
     closeSockets();
     handle.dispose?.();
   };
@@ -256,6 +281,7 @@ export async function mountContribution(root, hooks = {}) {
     retire: (reason) => {
       if (state === 'retired' || state === 'disposed') return;
       state = 'retired';
+      lifetime.abort();
       closeSockets();
       try {
         handle.retire?.(reason);
