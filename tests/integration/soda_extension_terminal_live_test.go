@@ -30,10 +30,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The inert-socket mode proves that admitted terminal Reserve reaches Soda's
-// host boundary. SODA_R03_HOST_SOCKET selects the real native host path; its
-// task-owned p... project container must be running with a soda-tester account.
-// This is development evidence, not an installed or release qualification run.
+// Live PTY proof requires SODA_R03_HOST_SOCKET pointing at the real native
+// host path; its task-owned project container must be running with a
+// soda-tester account. Without it, set SODA_R03_ALLOW_INERT=1 to check only
+// that admitted terminal Reserve reaches Soda's host boundary (503
+// terminal_unavailable). That inert result is explicitly not live PTY,
+// preservation, or qualification evidence. This is development evidence, not
+// an installed or release qualification run.
 func TestSodaExtensionLiveTerminal(t *testing.T) {
 	backend, dashboard, artifactRoot := os.Getenv("SODA_C03_BACKEND"), os.Getenv("SODA_C03_DASHBOARD"), os.Getenv("SODA_C03_ARTIFACT_DIR")
 	if backend == "" || dashboard == "" || artifactRoot == "" {
@@ -149,10 +152,13 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	require.Equal(t, "invalid_request", badID["error"].(map[string]any)["code"])
 	reserve := request(http.MethodPost, "/terminal-sessions", map[string]any{"cols": 80, "rows": 24, "name": "R03 fixture"}, map[bool]int{true: http.StatusCreated, false: http.StatusServiceUnavailable}[native])
 	if !native {
+		if os.Getenv("SODA_R03_ALLOW_INERT") != "1" {
+			t.Fatal("live terminal proof requires SODA_R03_HOST_SOCKET; set SODA_R03_ALLOW_INERT=1 for admitted-Reserve boundary reachability only, which is not live PTY or preservation proof")
+		}
 		failure, ok := reserve["error"].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "terminal_unavailable", failure["code"])
-		t.Log("admitted Reserve reached Soda; native host socket was not configured")
+		t.Log("admitted Reserve reached Soda; native host socket was not configured (boundary reachability only, NOT live PTY/preservation proof)")
 		return
 	}
 	id, ok := reserve["id"].(string)
@@ -166,7 +172,7 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 		defer done()
 		conn, _, dialErr := websocket.Dial(ctx, base+"/terminal", &websocket.DialOptions{HTTPClient: server.Client(), HTTPHeader: headers})
 		require.NoError(t, dialErr)
-		payload := map[string]any{"action": action, "id": id, "expected_user_id": "2", "repository_id": "1", "session_generation": generation, "cols": 80, "rows": 24}
+		payload := map[string]any{"action": action, "id": id, "repository_id": "1", "session_generation": generation, "cols": 80, "rows": 24}
 		if action == "create" {
 			payload["name"] = name
 		}

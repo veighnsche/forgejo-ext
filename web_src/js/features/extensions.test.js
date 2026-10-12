@@ -376,3 +376,76 @@ test('direct Workspace uses native content and chrome while retaining contributi
   expect(document.querySelector('iframe')).toBeNull();
   window.dispatchEvent(new Event('pagehide'));
 });
+
+// NFX-A01/H-0: the navigation fetch returns a full native document whose head
+// (head_script.tmpl) embeds window.config for the entered page, plus the direct
+// content slot. The transition must leave the live page config matching it.
+function directNavigationDocument({title, pageData, content, generation}) {
+  return `<html><head><title>${title}</title><script>window.config = ${JSON.stringify({appSubUrl: '', pageData})};</script></head><body><main data-workspace-direct data-workspace-session-generation="${generation}"><div data-extension-workspace-direct-content class="page-content extensions">${content}</div></main></body></html>`;
+}
+
+function clickWorkspaceLink(href) {
+  const link = document.createElement('a');
+  link.href = href;
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+// NFX-A01 expected failure: openWorkspace copies content+title but never
+// refreshes window.config.pageData. A02/B02 retire->setPageConfig->init must
+// turn these green; remove .fails then.
+test.fails('native -> contribution -> native refreshes live page config with one retained owner', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo');
+  document.body.innerHTML = '<nav id="navbar"><a href="/team/repo/issues">Issues</a></nav><main data-extension-workspace data-app-sub-url="" data-workspace-path="/team/repo" data-workspace-session-generation="session-a"><iframe data-extension-workspace-frame></iframe><aside class="extension-workspace-panels"><div id="notes-owner">notes</div></aside></main><footer></footer>';
+  window.config = {appSubUrl: '', pageData: {repo: 'team/repo'}};
+  const owner = document.getElementById('notes-owner');
+  const contributionPageData = {extension: {id: 'example'}, apiBase: '/-/native/pages/example/home/api/'};
+  const fetcher = vi.fn(async () => new Response(directNavigationDocument({
+    title: 'Workspace', pageData: contributionPageData, content: '<div class="contribution">contribution</div>', generation: 'session-a',
+  }), {headers: {'X-Extension-Session-Generation': 'session-a'}}));
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/workspace');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/workspace'));
+    expect(document.title).toBe('Workspace');
+    expect(document.querySelector('.contribution').textContent).toBe('contribution');
+    expect(window.config.pageData).toEqual(contributionPageData);
+    clickWorkspaceLink('/team/repo/issues');
+    expect(document.querySelector('[data-extension-workspace-frame]')).not.toBeNull();
+    expect(document.getElementById('notes-owner')).toBe(owner);
+    expect(owner.isConnected).toBe(true);
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test.fails('contribution -> native -> contribution refreshes live page config with one retained owner', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = '<nav id="navbar"><a href="/team/repo/issues">Issues</a></nav><main data-extension-workspace data-workspace-direct data-app-sub-url="" data-workspace-path="/workspace" data-workspace-session-generation="session-a"><div data-extension-workspace-direct-content class="page-content extensions">Global Workspace</div><aside class="extension-workspace-panels"><div id="terminal-owner">Live terminal</div></aside></main><footer></footer>';
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const owner = document.getElementById('terminal-owner');
+  const repoPageData = {extension: {id: 'example'}, repositoryId: '7'};
+  const fetcher = vi.fn(async () => new Response(directNavigationDocument({
+    title: 'Repository Workspace', pageData: repoPageData, content: '<div class="repo-header">team/repo</div>', generation: 'session-a',
+  }), {headers: {'X-Extension-Session-Generation': 'session-a'}}));
+  try {
+    initExtensionWorkspace(fetcher);
+    expect(document.querySelector('iframe')).toBeNull();
+    clickWorkspaceLink('/team/repo/issues');
+    expect(document.querySelector('[data-extension-workspace-frame]')).not.toBeNull();
+    clickWorkspaceLink('/team/repo/workspace');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/workspace'));
+    expect(document.title).toBe('Repository Workspace');
+    expect(window.config.pageData).toEqual(repoPageData);
+    expect(document.querySelector('[data-extension-workspace-frame]')).toBeNull();
+    expect(document.getElementById('terminal-owner')).toBe(owner);
+    expect(owner.isConnected).toBe(true);
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
