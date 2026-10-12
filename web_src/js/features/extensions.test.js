@@ -344,6 +344,58 @@ test('a changed contribution parks the live owner and mounts the entered root', 
   }
 });
 
+test('the page shelter disposes the oldest parked owner past four', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({
+    content: directContent(`Global Workspace${pageRootMarkup()}`),
+    home: homeMarkup(),
+  });
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const homeRoot = document.querySelector('[data-extension-page]');
+  const legs = [
+    ['/workspace/new', 'new'],
+    ['/workspace/requests/d000000000000000000000001', 'req1'],
+    ['/workspace/requests/d000000000000000000000002', 'req2'],
+    ['/team/repo/workspace', 'repohome'],
+  ];
+  const firstDispose = vi.fn();
+  let mountedResolve;
+  const mountedPromise = new Promise((resolve) => { mountedResolve = resolve });
+  const importer = vi.fn(async () => ({mount: () => {
+    mountedResolve();
+    return {dispose: firstDispose};
+  }}));
+  const fetcher = vi.fn(async (url) => {
+    const path = new URL(url, origin).pathname;
+    const leg = legs.find(([prefix]) => path === prefix || path.startsWith(`${prefix}?`));
+    const slot = leg ? `Leg ${leg[1]}${pageRootMarkup({pageId: leg[1]})}` : 'Users';
+    const content = leg ? directContent(slot) : plainAdminContent('<form></form>');
+    return navigationResponse(nativeDocument({title: 'Leg', pageData: {extension: {id: 'example'}},
+      content, home: homeMarkup({hidden: !leg})}));
+  });
+  try {
+    initExtensionPages(importer);
+    await mountedPromise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    importer.mockImplementation(async () => ({mount: () => ({dispose: () => {}})}));
+    initExtensionWorkspace(fetcher);
+    for (const [path] of legs) {
+      clickWorkspaceLink(path);
+      await vi.waitFor(() => expect(window.location.pathname).toBe(path));
+    }
+    clickWorkspaceLink('/admin/users');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
+    await vi.waitFor(() => expect(firstDispose).toHaveBeenCalledOnce());
+    expect(homeRoot.isConnected).toBe(false);
+    expect(document.querySelector('[data-extension-page-park]').children.length).toBe(4);
+    expect(importer).toHaveBeenCalledTimes(5);
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
 test('leaves modified links, downloads and excluded destinations to native handling', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');
