@@ -148,10 +148,14 @@ export async function mountContribution(root, hooks = {}) {
   // Teardown structures exist before the contribution is invoked, so streams
   // opened by mount are tracked even when mount throws or rejects.
   const sockets = new Set();
+  // Owner lifetime: retiring, disposing, or invalidating the owner aborts
+  // in-flight requests. Update/suspend/resume never touch it.
+  const lifetime = new AbortController();
   let invalidated = false;
   let invalidationReason = 'authority-revoked';
   let state = 'active';
   let owner = null;
+  const isTerminal = () => invalidated || state === 'retired' || state === 'disposed';
   const closeSockets = () => {
     for (const socket of sockets) {
       try {
@@ -166,17 +170,48 @@ export async function mountContribution(root, hooks = {}) {
     if (invalidated) return;
     invalidated = true;
     invalidationReason = reason;
+    lifetime.abort();
     closeSockets();
     owner?.retire(reason);
   };
   signal?.addEventListener('abort', () => invalidate('authority-revoked'), {once: true});
   const rawRequest = createScopedRequest(parsed.apiHref, parsed.sessionGeneration, fetcher);
-  const request = (...args) => {
-    if (invalidated || state === 'retired' || state === 'disposed') throw new TypeError('Contribution transport is retired');
-    return rawRequest(...args);
+  const request = (relativePath, options = {}) => {
+    if (isTerminal()) throw new TypeError('Contribution transport is retired');
+    let signal = lifetime.signal;
+    let cleanup = null;
+    if (options.signal) {
+      const combined = new AbortController();
+      const onAbort = () => combined.abort();
+      options.signal.addEventListener('abort', onAbort, {once: true});
+      lifetime.signal.addEventListener('abort', onAbort, {once: true});
+      cleanup = () => {
+        options.signal.removeEventListener('abort', onAbort);
+        lifetime.signal.removeEventListener('abort', onAbort);
+      };
+      signal = combined.signal;
+    }
+    let pending;
+    try {
+      pending = rawRequest(relativePath, {...options, signal});
+    } catch (error) {
+      cleanup?.();
+      throw error;
+    }
+    return Promise.resolve(pending).then(
+      (response) => {
+        cleanup?.();
+        if (isTerminal()) throw new DOMException('Contribution transport is retired', 'AbortError');
+        return response;
+      },
+      (error) => {
+        cleanup?.();
+        throw error;
+      },
+    );
   };
   const stream = (...args) => {
-    if (invalidated || state === 'retired' || state === 'disposed') throw new TypeError('Contribution transport is retired');
+    if (isTerminal()) throw new TypeError('Contribution transport is retired');
     const contribution = createScopedStream(parsed.apiHref, websocketClass)(...args);
     sockets.add(contribution.socket);
     return contribution;
@@ -231,6 +266,7 @@ export async function mountContribution(root, hooks = {}) {
     // Retire already disposes the handle; both states are terminal.
     if (state === 'disposed' || state === 'retired') return;
     state = 'disposed';
+    lifetime.abort();
     closeSockets();
     handle.dispose?.();
   };
@@ -256,6 +292,7 @@ export async function mountContribution(root, hooks = {}) {
     retire: (reason) => {
       if (state === 'retired' || state === 'disposed') return;
       state = 'retired';
+      lifetime.abort();
       closeSockets();
       try {
         handle.retire?.(reason);
