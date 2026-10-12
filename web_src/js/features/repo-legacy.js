@@ -4,7 +4,7 @@ import {
   initRepoIssueComments, initRepoIssueDependencyDelete, initRepoIssueReferenceIssue,
   initRepoIssueTitleEdit, initRepoIssueWipToggle,
   initRepoPullRequestUpdate, updateIssuesMeta, handleReply, initIssueTemplateCommentEditors, initSingleCommentEditor,
-  initRepoIssueAssignMe, reloadConfirmDraftComment,
+  initRepoIssueAssignMe, reloadConfirmDraftComment, retireIssueTemplateCommentEditors,
 } from './repo-issue.js';
 import {initUnicodeEscapeButton} from './repo-unicode-escape.js';
 import {svg} from '../svg.js';
@@ -28,10 +28,45 @@ import {POST} from '../modules/fetch.js';
 import {MarkdownQuote} from '@github/quote-selection';
 import {toAbsoluteUrl} from '../utils.js';
 import {initDropzone, initGlobalShowModal, initDisabledInputs} from './common-global.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
+import '../vendor/jquery.are-you-sure.js';
+
+// Comment-form click bindings (branch selector, sidebar list submits and
+// single selects) share one namespace so init can rebind idempotently and
+// retire can detach exactly those handlers. Dropdown widgets created for
+// the form are tracked for destruction on retire.
+const commentFormClickBindings = [];
+const commentFormWidgets = [];
+
+function bindCommentFormClicks($elements, handler) {
+  for (const el of $elements.get()) {
+    $(el).off('click.repoCommentForm').on('click.repoCommentForm', handler);
+    if (!commentFormClickBindings.includes(el)) commentFormClickBindings.push(el);
+  }
+}
+
+function trackCommentFormWidget($elements) {
+  for (const el of $elements.get()) {
+    if (!commentFormWidgets.includes(el)) commentFormWidgets.push(el);
+  }
+}
+
+export function retireRepoCommentForm() {
+  for (const el of commentFormClickBindings) {
+    $(el).off('click.repoCommentForm');
+  }
+  commentFormClickBindings.length = 0;
+  for (const el of commentFormWidgets) {
+    if (el.isConnected) $(el).dropdown('destroy');
+  }
+  commentFormWidgets.length = 0;
+  retireIssueTemplateCommentEditors();
+}
 
 export function initRepoCommentForm() {
   const $commentForm = $('.comment.form');
   if (!$commentForm.length) return;
+  if ($commentForm[0].closest(contributionRootSelector)) return;
 
   if ($commentForm.find('.field.combo-editor-dropzone').length) {
     // at the moment, if a form has multiple combo-markdown-editors, it must be an issue template form
@@ -41,11 +76,19 @@ export function initRepoCommentForm() {
     initSingleCommentEditor($commentForm);
   }
 
+  // Fresh comment forms must keep the native dirty-leave protection that
+  // initGlobalFormDirtyLeaveConfirm only applies at document boot. The
+  // plugin has no teardown API; only initialize forms it has not seen so
+  // an in-progress draft's baseline is never reset.
+  if ($commentForm.data('ays-orig-field-count') === undefined) {
+    $commentForm.areYouSure();
+  }
+
   function initBranchSelector() {
     const $selectBranch = $('.ui.select-branch');
     const $branchMenu = $selectBranch.find('.reference-list-menu');
     const $isNewIssue = $branchMenu[0]?.classList.contains('new-issue');
-    $branchMenu.find('.item:not(.no-select)').on('click', async function () {
+    bindCommentFormClicks($branchMenu.find('.item:not(.no-select)'), async function () {
       const selectedValue = $(this).data('id');
       const editMode = $('#editing_mode').val();
       $($(this).data('id-selector')).val(selectedValue);
@@ -68,7 +111,7 @@ export function initRepoCommentForm() {
         $selectBranch.find('.ui .branch-name').text(selectedValue);
       }
     });
-    $selectBranch.find('.branch-tag-item').on('click', function () {
+    bindCommentFormClicks($selectBranch.find('.branch-tag-item'), function () {
       hideElem($selectBranch.find('.scrolling.reference-list-menu'));
       $selectBranch.find('.reference .text').removeClass('black');
       showElem($($(this).data('target')));
@@ -87,6 +130,7 @@ export function initRepoCommentForm() {
     let hasUpdateAction = $listMenu.data('action') === 'update';
     const items = {};
 
+    trackCommentFormWidget($(`.${selector}`));
     $(`.${selector}`).dropdown({
       'action': 'nothing', // do not hide the menu if user presses Enter
       fullTextSearch: 'exact',
@@ -113,7 +157,7 @@ export function initRepoCommentForm() {
       },
     });
 
-    $listMenu.find('.item:not(.no-select)').on('click', function (e) {
+    bindCommentFormClicks($listMenu.find('.item:not(.no-select)'), function (e) {
       e.preventDefault();
       if (this.classList.contains('ban-change')) {
         return false;
@@ -192,7 +236,7 @@ export function initRepoCommentForm() {
       $($(this).parent().data('id')).val(listIds.join(','));
       return false;
     });
-    $listMenu.find('.no-select.item').on('click', function (e) {
+    bindCommentFormClicks($listMenu.find('.no-select.item'), function (e) {
       e.preventDefault();
       if (hasUpdateAction) {
         (async () => {
@@ -235,7 +279,7 @@ export function initRepoCommentForm() {
     const $list = $(`.ui${select_id}.list`);
     const hasUpdateAction = $menu.data('action') === 'update';
 
-    $menu.find('.item:not(.no-select)').on('click', function () {
+    bindCommentFormClicks($menu.find('.item:not(.no-select)'), function () {
       $(this).parent().find('.item').each(function () {
         $(this).removeClass('selected active');
       });
@@ -272,7 +316,7 @@ export function initRepoCommentForm() {
       $(`.ui${select_id}.list .no-select`).addClass('tw-hidden');
       $(input_id).val($(this).data('id'));
     });
-    $menu.find('.no-select.item').on('click', function () {
+    bindCommentFormClicks($menu.find('.no-select.item'), function () {
       $(this).parent().find('.item:not(.no-select)').each(function () {
         $(this).removeClass('selected active');
       });
@@ -577,7 +621,13 @@ function preprocessFragment(context) {
   };
 }
 
+let commentEditInstalled = false;
+
 function initRepoIssueCommentEdit() {
+  // Document-delegated edit/quote handlers query the live DOM at event
+  // time, so they install once per document.
+  if (commentEditInstalled) return;
+  commentEditInstalled = true;
   // Edit issue or comment content
   $(document).on('click', '.edit-content', onEditContent);
 
