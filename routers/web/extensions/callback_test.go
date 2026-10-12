@@ -153,6 +153,25 @@ func TestStoppedInstanceRevokesItsAdmissions(t *testing.T) {
 	require.NotNil(t, nativeAdmissions.get(secondToken))
 }
 
+func TestSessionLogoutRetiresOnlyItsAdmissions(t *testing.T) {
+	issue := func(sessionID string) (string, context.Context) {
+		requestContext, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		token, err := nativeAdmissions.issue(&callbackAdmission{instanceID: "logout-instance", sessionID: sessionID, requestCtx: requestContext, cancel: cancel})
+		require.NoError(t, err)
+		t.Cleanup(func() { nativeAdmissions.revoke(token) })
+		return token, requestContext
+	}
+	loggedOutToken, loggedOutContext := issue("session-logging-out")
+	otherToken, otherContext := issue("session-still-active")
+
+	RevokeAdmissionsForSession("session-logging-out")
+	require.ErrorIs(t, loggedOutContext.Err(), context.Canceled)
+	require.Nil(t, nativeAdmissions.get(loggedOutToken))
+	require.NoError(t, otherContext.Err())
+	require.NotNil(t, nativeAdmissions.get(otherToken))
+}
+
 func TestServiceCallbackRequiresExplicitBridgeCapability(t *testing.T) {
 	requestCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
