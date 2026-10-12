@@ -329,7 +329,7 @@ func renderPage(ctx *context.Context, d runtime.Descriptor, transport http.Round
 	ctx.Data["ExtensionAPIBase"] = pageAPIBase(ctx, d, p)
 	ctx.Data["ExtensionAssetBase"] = assetBase
 	ctx.Data["ExtensionEntry"] = assetBase + p.Entry
-	ctx.Data["BrowserContractVersion"] = "1"
+	ctx.Data["BrowserContractVersion"] = strconv.Itoa(extension.BrowserContractVersion)
 	ctx.Data["ExtensionSessionGeneration"] = generation
 	ctx.Resp.Header().Set("Cache-Control", "no-store")
 	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
@@ -408,10 +408,9 @@ func composePanelsHome(ctx *context.Context) {
 	// direct renderers (renderPage); native documents keep their headers.
 	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
 	ctx.Data["ExtensionPanelsHome"] = true
-	// C03 pairing: mount roots carry the browser contract version. The
-	// extension.BrowserContractVersion const lives on C's unmerged branch;
-	// this literal matches its specified value 1 until the const lands.
-	ctx.Data["BrowserContractVersion"] = "1"
+	// C03 pairing: mount roots carry the SDK-derived browser contract
+	// version; the mount refuses anything else before import.
+	ctx.Data["BrowserContractVersion"] = strconv.Itoa(extension.BrowserContractVersion)
 	ctx.Data["ExtensionPanels"] = panels
 	ctx.Data["ExtensionSessionGeneration"] = generation
 	ctx.PageData["extensionPanels"] = panels
