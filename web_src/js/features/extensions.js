@@ -520,6 +520,10 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     // panels home, parked page roots and terminal DOM never leave the
     // owning document.
     const repositoryId = content.querySelector('[data-extension-page]')?.dataset.extensionRepositoryId ?? '';
+    // Snapshot outgoing scroll before retiring/swapping: replacing tall
+    // content can clamp window.scrollY, so reading it afterwards loses
+    // the position Back must restore.
+    const outgoingScrollY = window.scrollY;
     try {
       // Park live page roots before the swap so owners persist the leg.
       window.dispatchEvent(new Event('extension-workspace-will-navigate'));
@@ -538,7 +542,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     current = path;
     const target = new URL(path, origin);
     if (push) {
-      window.history.replaceState({...window.history.state, scrollY: window.scrollY}, '', window.location.href);
+      window.history.replaceState({...window.history.state, scrollY: outgoingScrollY}, '', window.location.href);
       window.history.pushState({...window.history.state, scrollY: 0}, '', path);
       if (target.hash) focusFragment(target.hash);
       else window.scrollTo(0, 0);

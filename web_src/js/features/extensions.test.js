@@ -826,6 +826,33 @@ test('plain native documents transplant from the hidden home', async () => {
   }
 });
 
+test('push transplant snapshots outgoing scroll before the content swap', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({
+    content: directContent(`Global Workspace${pageRootMarkup()}`),
+    home: homeMarkup({panels: '<div id="notes-owner">notes</div>'}),
+  });
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'User accounts - Forgejo', pageData: {adminUserListSearchForm: {}}, content: plainAdminContent('<form id="user-list-search-form"></form>'), home: homeMarkup({hidden: true})})));
+  // Simulate tall->short clamping: scroll reads 800 while the outgoing
+  // tall content is live and 0 once the short entered content swaps in.
+  Object.defineProperty(window, 'scrollY', {configurable: true, get: () => (document.querySelector('#user-list-search-form') ? 0 : 800)});
+  const replaceState = vi.spyOn(window.history, 'replaceState');
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin/users');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
+    expect(replaceState).toHaveBeenCalledWith(expect.objectContaining({scrollY: 800}), '', expect.stringContaining('/workspace'));
+    expect(window.history.state.scrollY).toBe(0);
+  } finally {
+    replaceState.mockRestore();
+    delete window.scrollY;
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
 test('a page-only manifest mounts its entered page after native-first boot', async () => {
   // Blocker 1: with zero panel roots the eligible home is empty on native
   // boot, but the host must still listen so the transplanted page mounts.
