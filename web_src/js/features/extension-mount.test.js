@@ -220,6 +220,7 @@ test('revokes pending helpers and streams when mount never settles', async () =>
   let captured;
   let opened;
   let resolveMount;
+  const retire = vi.fn();
   const dispose = vi.fn();
   const mount = vi.fn((ignored, context) => {
     captured = context;
@@ -233,10 +234,27 @@ test('revokes pending helpers and streams when mount never settles', async () =>
   expect(opened.socket.closed).toBe(true);
   expect(() => captured.request('context')).toThrow('Contribution transport is retired');
   expect(() => captured.stream('socket')).toThrow('Contribution transport is retired');
-  resolveMount({dispose});
+  resolveMount({retire, dispose});
   const owner = await pending;
   expect(owner).toBeNull();
+  expect(retire).toHaveBeenCalledWith('authority-revoked');
   expect(dispose).toHaveBeenCalledOnce();
+});
+
+test('retires a late-settling retire-only handle after invalidation', async () => {
+  const root = pageRoot();
+  const controller = new AbortController();
+  let resolveMount;
+  const retire = vi.fn();
+  const mount = vi.fn(() => new Promise((resolve) => { resolveMount = resolve }));
+  const pending = mountContribution(root, {importer: vi.fn(async () => ({mount})), websocketClass: FakeSocket, signal: controller.signal});
+  await flush();
+  expect(mount).toHaveBeenCalledOnce();
+  controller.abort();
+  resolveMount({retire});
+  const owner = await pending;
+  expect(owner).toBeNull();
+  expect(retire).toHaveBeenCalledWith('authority-revoked');
 });
 
 test('retires the owner when the host aborts after settle', async () => {

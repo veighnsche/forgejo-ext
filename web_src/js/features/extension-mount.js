@@ -146,6 +146,7 @@ export async function mountContribution(root, hooks = {}) {
   // opened by mount are tracked even when mount throws or rejects.
   const sockets = new Set();
   let invalidated = false;
+  let invalidationReason = 'authority-revoked';
   let state = 'active';
   let owner = null;
   const closeSockets = () => {
@@ -161,6 +162,7 @@ export async function mountContribution(root, hooks = {}) {
   const invalidate = (reason) => {
     if (invalidated) return;
     invalidated = true;
+    invalidationReason = reason;
     closeSockets();
     owner?.retire(reason);
   };
@@ -212,8 +214,13 @@ export async function mountContribution(root, hooks = {}) {
     return null;
   }
   if (invalidated) {
-    // The mount settled after host invalidation: never expose it.
-    handle.dispose?.();
+    // The mount settled after host invalidation: never expose it. Mirror
+    // settled teardown so retire-only handles release their resources.
+    try {
+      handle.retire?.(invalidationReason);
+    } finally {
+      handle.dispose?.();
+    }
     return null;
   }
   const disposeHandle = () => {
