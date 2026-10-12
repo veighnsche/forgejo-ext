@@ -135,12 +135,18 @@ function onNextConversation(e) {
   if (anchor) window.location.href = `#${anchor}`;
 }
 
+let conversationNavAttached = false;
+
 export function initRepoDiffConversationNav() {
+  if (conversationNavAttached) return;
+  conversationNavAttached = true;
   $(document).on('click', '.previous-conversation', onPreviousConversation);
   $(document).on('click', '.next-conversation', onNextConversation);
 }
 
 export function retireRepoDiffConversationNav() {
+  if (!conversationNavAttached) return;
+  conversationNavAttached = false;
   $(document).off('click', '.previous-conversation', onPreviousConversation);
   $(document).off('click', '.next-conversation', onNextConversation);
 }
