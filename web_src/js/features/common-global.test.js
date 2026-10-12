@@ -65,6 +65,28 @@ test('re-enhancing the same nodes binds nothing twice', () => {
   }
 });
 
+test('custom dropdowns stay feature-owned: never tracked or destroyed', () => {
+  document.body.innerHTML = `<div class="page-content" id="custom-region">
+      <div class="ui dropdown custom" id="custom-dd"></div>
+      <div class="ui dropdown" id="plain-dd"></div>
+    </div>`;
+  const customDd = document.querySelector('#custom-dd');
+  const plainDd = document.querySelector('#plain-dd');
+  const dropdown = vi.spyOn($.fn, 'dropdown');
+  try {
+    enhanceNativeNodes(document);
+    retireNativeNodes();
+    const destroyed = [];
+    for (const [i, call] of dropdown.mock.calls.entries()) {
+      if (call[0] === 'destroy') destroyed.push(...dropdown.mock.contexts[i].get());
+    }
+    expect(destroyed).toContain(plainDd);
+    expect(destroyed).not.toContain(customDd);
+  } finally {
+    dropdown.mockRestore();
+  }
+});
+
 test('retire destroys region instances, keeps live chrome, and prunes detached nodes', () => {
   document.body.innerHTML = `<div class="page-content" id="region">
       <div class="ui dropdown" id="slot-dd"></div>

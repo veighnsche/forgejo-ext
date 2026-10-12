@@ -177,11 +177,12 @@ const contributionHomeSelector = '[data-extension-panels],[data-extension-page],
 // page seam; already-enhanced nodes are skipped, never double-bound.
 export function enhanceNativeNodes(root = document) {
   // Semantic UI modules.
+  // "custom" dropdowns are managed by their own feature code: they never
+  // enter the enhancement tracker, so retire never destroys them.
   const $uiDropdowns = $(root).find('.ui.dropdown').addBack('.ui.dropdown')
-    .filter((_, el) => !enhancedDropdowns.has(el) && !el.closest(contributionHomeSelector));
+    .filter((_, el) => !el.classList.contains('custom') && !enhancedDropdowns.has(el) && !el.closest(contributionHomeSelector));
 
-  // do not init "custom" dropdowns, "custom" dropdowns are managed by their own code.
-  $uiDropdowns.filter(':not(.custom)').dropdown();
+  $uiDropdowns.dropdown();
 
   // The "jump" means this dropdown is mainly used for "menu" purpose,
   // clicking an item will jump to somewhere else or trigger an action/function.
