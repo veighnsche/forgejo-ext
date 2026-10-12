@@ -13,7 +13,8 @@ import {initRepoMigration} from './features/repo-migration.js';
 import {initRepoProject} from './features/repo-projects.js';
 import {initTableSort} from './features/tablesort.js';
 import {initAutoFocusEnd} from './features/autofocus-end.js';
-import {initAdminUserListSearchForm} from './features/admin/users.js';
+import {initAdminUserListSearchForm, retireAdminUserListSearchForm} from './features/admin/users.js';
+import {initPageFeatures, registerPageFeature} from './native-lifecycle.js';
 import {initAdminConfigs} from './features/admin/config.js';
 import {initMarkupAnchors} from './markup/anchors.js';
 import {initNotificationCount, initNotificationsTable} from './features/notification.js';
@@ -91,6 +92,11 @@ import {initRepoMilestoneEditor} from './features/repo-milestone.js';
 import {initModalClose} from './modules/modal.ts';
 import {initExtensionPages, initExtensionWorkspace} from './features/extensions.js';
 
+registerPageFeature('admin-user-list-search-form', {
+  init: initAdminUserListSearchForm,
+  retire: retireAdminUserListSearchForm,
+});
+
 // Init Gitea's Fomantic settings
 initGiteaFomantic();
 initDirAuto();
@@ -135,7 +141,7 @@ onDomReady(() => {
 
   initAdminCommon();
   initAdminEmails();
-  initAdminUserListSearchForm();
+  initPageFeatures(); // runs registered page features, e.g. admin-user-list-search-form
   initAdminConfigs();
 
   initDashboardRepoList();
