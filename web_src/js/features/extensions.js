@@ -384,14 +384,24 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
 
   // The persistent home is visible on direct contribution paths and
   // hidden+inert on ordinary native shapes; the server renders the initial
-  // state and each transplant resyncs it.
+  // state and each transplant resyncs it. Hiding never drops focus to the
+  // body: focus inside the home moves to the entered content region.
+  // Showing never steals focus.
   function syncPanelsHome(path) {
     if (transplantKind(path) === 'direct') {
       home.removeAttribute('hidden');
       home.removeAttribute('inert');
-    } else {
-      home.setAttribute('hidden', '');
-      home.setAttribute('inert', '');
+      return;
+    }
+    const focusInside = home.contains(document.activeElement);
+    home.setAttribute('hidden', '');
+    home.setAttribute('inert', '');
+    if (focusInside) {
+      const live = liveContent();
+      if (live) {
+        live.setAttribute('tabindex', '-1');
+        live.focus({preventScroll: true});
+      }
     }
   }
   syncPanelsHome(current);

@@ -75,6 +75,15 @@ const (
 
 // HTML calls Context.HTML and renders the template to HTTP response
 func (ctx *Context) HTML(status int, name base.TplName) {
+	// NFX-A02 region_adopt: the panels home composes only on successful
+	// ordinary renders. Navigation sets the data pre-handler; this final
+	// status/template selection keeps error, auth and install documents
+	// free of contribution roots. (The generation header may already be
+	// set on such responses; it is inert there because transplants only
+	// join owners from successful entered documents.)
+	if status != http.StatusOK || strings.HasPrefix(string(name), "user/auth/") || strings.HasPrefix(string(name), "status/") || strings.HasPrefix(string(name), "install/") {
+		ctx.Data["ExtensionPanelsHome"] = false
+	}
 	log.Debug("Template: %s", name)
 
 	tmplStartTime := time.Now()

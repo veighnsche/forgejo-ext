@@ -16,8 +16,18 @@ and its hidden state from disturbing native layout. */
 }
 
 .extension-workspace-panel {
+  display: flex;
+  flex-direction: column;
   padding: 1rem;
   border-bottom: 1px solid var(--color-secondary);
+}
+
+/* The mount div is the sized scroll parent: flex child with a definite
+block size so height:100% contribution chains bind against it. */
+.extension-workspace-panel > [data-extension-panel] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .extension-workspace-panel h2 {

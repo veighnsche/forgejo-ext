@@ -3,7 +3,7 @@
 	{{range .ExtensionPanels}}
 	<section class="extension-workspace-panel" aria-labelledby="extension-panel-{{.ExtensionID}}-{{.ID}}">
 		<h2 id="extension-panel-{{.ExtensionID}}-{{.ID}}">{{.Title}}</h2>
-		<div data-extension-panel data-app-sub-url="{{AppSubUrl}}" data-extension-id="{{.ExtensionID}}" data-extension-panel-id="{{.ID}}" data-extension-entry="{{.Entry}}" data-extension-api-base="{{.APIBase}}" data-extension-asset-base="{{.AssetBase}}" data-extension-session-generation="{{$.ExtensionSessionGeneration}}"{{if $.ExtensionRepositoryID}} data-extension-repository-id="{{$.ExtensionRepositoryID}}"{{end}}></div>
+		<div data-extension-panel data-extension-contract-version="{{$.BrowserContractVersion}}" data-app-sub-url="{{AppSubUrl}}" data-extension-id="{{.ExtensionID}}" data-extension-panel-id="{{.ID}}" data-extension-entry="{{.Entry}}" data-extension-api-base="{{.APIBase}}" data-extension-asset-base="{{.AssetBase}}" data-extension-session-generation="{{$.ExtensionSessionGeneration}}"{{if $.ExtensionRepositoryID}} data-extension-repository-id="{{$.ExtensionRepositoryID}}"{{end}}></div>
 	</section>
 	{{end}}
 </aside>

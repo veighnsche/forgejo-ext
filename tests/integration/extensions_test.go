@@ -447,6 +447,7 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.Contains(t, page.Body.String(), `data-extension-session-generation="`+generation+`">`)
 	require.Contains(t, page.Body.String(), `data-extension-page-id="home"`)
 	require.Contains(t, page.Body.String(), `data-extension-panel-id="status"`)
+	require.Contains(t, page.Body.String(), `data-extension-contract-version="1"`)
 	// NFX-A02 region_adopt: ordinary native pages render as plain documents
 	// with the hidden persistent panels home even with a
 	// preferred-workspace extension installed.
@@ -507,6 +508,15 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 		require.Equal(t, generation, aliased.Header().Get(extension.SessionGenerationHeader))
 	}
 	owner.MakeRequest(t, document("/workspace/requests/not-an-id"), http.StatusNotFound)
+	// Blocker 2: a matched route rendering the HTML error template shares
+	// the footer but must not mount contributions.
+	html404Request := document("/workspace/requests/not-an-id")
+	html404Request.Header.Set("Accept", "text/html")
+	html404 := owner.MakeRequest(t, html404Request, http.StatusNotFound)
+	require.Contains(t, html404.Body.String(), `class="error-code"`)
+	require.NotContains(t, html404.Body.String(), `data-extension-panels`)
+	require.NotContains(t, html404.Body.String(), `data-extension-page`)
+	require.NotContains(t, html404.Body.String(), `data-extension-contract-version`)
 	// The platform strips trailing slashes before routing, so the slashed
 	// alias serves the same canonical page.
 	slashed := owner.MakeRequest(t, document("/workspace/new/"), http.StatusOK)
