@@ -361,7 +361,12 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   };
   const checkSession = () => {
     if (invalidated || pendingCheck) return;
+    // One joined lifecycle: conceal and suspend retained private state
+    // before revalidation, and resume it only after the live session
+    // verifies against the admitted generation. Consumers never
+    // interpret cache/visibility events themselves.
     for (const root of concealTargets()) root.style.display = 'none';
+    for (const owner of mounted) owner.suspend();
     const version = ++checkVersion;
     pendingCheck = liveSessionMatches(checkURL, generation, fetcher).then((matches) => {
       if (version !== checkVersion) return;
@@ -373,7 +378,13 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
     }).finally(() => { if (version === checkVersion) pendingCheck = null; });
   };
   const onPageShow = (event) => { if (event.persisted) checkSession(); };
-  const onVisibilityChange = () => { if (document.visibilityState === 'visible') checkSession(); };
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      for (const owner of mounted) owner.suspend();
+      return;
+    }
+    if (document.visibilityState === 'visible') checkSession();
+  };
   const onPageHide = (event) => {
     checkVersion++;
     pendingCheck = null;
@@ -437,12 +448,19 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   function checkSession() {
     if (invalidated || pendingCheck) return pendingCheck;
     const version = ++checkVersion;
+    // Keep native private content hidden until the live session verifies;
+    // the contribution lifecycle above suspends/resumes/retires owners
+    // against the same admitted generation.
+    const content = liveContent();
+    if (content) content.style.display = 'none';
     const endpoint = new URL(sessionCheckPath(appSubPath), origin);
     pendingCheck = liveSessionMatches(endpoint.href, generation, fetcher)
       .then((matches) => {
         if (version !== checkVersion) return;
         if (!matches) {
           invalidate();
+        } else if (content) {
+          content.style.display = '';
         }
       })
       .finally(() => {
@@ -689,7 +707,12 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     navigationController?.abort();
     checkVersion++;
     pendingCheck = null;
-    if (event.persisted) return;
+    if (event.persisted) {
+      // Cached native content stays hidden until revalidation verifies it.
+      const content = liveContent();
+      if (content) content.style.display = 'none';
+      return;
+    }
     setNativeNavigator(null);
     document.removeEventListener('click', onWorkspaceClick);
     document.removeEventListener('submit', onWorkspaceSubmit);
