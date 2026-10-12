@@ -6,6 +6,7 @@ package integration
 import (
 	"context"
 	"encoding/json"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -515,4 +516,61 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	disabledRequest := NewRequest(t, http.MethodGet, "/explore/repos")
 	disabledRequest.Header.Set("Sec-Fetch-Dest", "document")
 	require.NotContains(t, owner.MakeRequest(t, disabledRequest, http.StatusOK).Body.String(), `data-extension-workspace`)
+}
+
+func extractBodyPageData(t *testing.T, body string) map[string]any {
+	t.Helper()
+	const prefix = `data-page-data="`
+	start := strings.Index(body, prefix)
+	require.NotEqual(t, -1, start, "page must carry machine-readable pageData on <body>")
+	rest := body[start+len(prefix):]
+	end := strings.Index(rest, `"`)
+	require.NotEqual(t, -1, end, "pageData attribute must terminate")
+	var data map[string]any
+	require.NoError(t, json.Unmarshal([]byte(html.UnescapeString(rest[:end])), &data))
+	return data
+}
+
+// NFX-A02 slice 1: every native document carries its pageData as
+// machine-readable JSON on <body> so workspace transitions can refresh the
+// live config from the entered document. Mirrors what getAttribute returns.
+func TestExtensionPageDataEmbed(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	root, err := os.MkdirTemp("", "fe-")
+	require.NoError(t, err)
+	defer os.RemoveAll(root)
+	packageDir := filepath.Join(root, "preferred")
+	require.NoError(t, os.MkdirAll(filepath.Join(packageDir, "assets"), 0o700))
+	executable, err := os.Executable()
+	require.NoError(t, err)
+	script := "#!/bin/sh\nexec '" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'\n"
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
+	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "preferred", Name: "Preferred", Version: "1", Executable: "run", PreferredWorkspace: true,
+		Capabilities: []string{extension.CapabilityContributionAuthorize},
+		Pages:        []extension.Page{{ID: "home", Title: "Home", Scope: "global", Route: "workspace", Entry: "main.js"}}}
+	encoded, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
+	manager := runtime.NewManager(root)
+	require.NoError(t, manager.Start(context.Background()))
+	previous := runtime.GetManager()
+	runtime.SetDefault(manager)
+	defer func() { runtime.SetDefault(previous); require.NoError(t, manager.Close()) }()
+	owner := loginUser(t, "user2")
+	document := func(path string) *RequestWrapper {
+		request := NewRequest(t, http.MethodGet, path)
+		request.Header.Set("Sec-Fetch-Dest", "document")
+		return request
+	}
+	direct := owner.MakeRequest(t, document("/workspace"), http.StatusOK)
+	directData := extractBodyPageData(t, direct.Body.String())
+	require.Equal(t, "preferred", directData["extension"].(map[string]any)["id"])
+	require.Contains(t, directData, "apiBase")
+	framed := owner.MakeRequest(t, document("/explore/repos"), http.StatusOK)
+	require.Contains(t, framed.Body.String(), `data-extension-workspace`)
+	require.Contains(t, extractBodyPageData(t, framed.Body.String()), "extensionPanels")
+	plain := owner.MakeRequest(t, document("/user/settings/security"), http.StatusOK)
+	require.NotContains(t, plain.Body.String(), `data-extension-workspace`)
+	require.NotNil(t, extractBodyPageData(t, plain.Body.String()))
 }
