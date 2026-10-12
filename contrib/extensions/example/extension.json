@@ -4,7 +4,7 @@
   "name": "Example application",
   "version": "1.0.0",
   "executable": "backend",
-  "capabilities": [],
+  "capabilities": ["native.actor.read"],
   "policies": [],
   "preferred_workspace": true,
   "pages": [
