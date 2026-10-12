@@ -17,7 +17,7 @@ import (
 // The envelopes below are the exact bytes emitted by the Soda L07
 // production consumer path (helpers + executor payload builders),
 // captured in .coord/l07-consumer/captured-work.json (sha256
-// 15311d8e10298d9ffd3ecf567536afca73dbd81a7bb538958a165d9596893807).
+// bd4b0a98210abefa014319c3d97c2bc1769bfedd24c591d95cdf40f85ba095d3).
 // Only the time-bound native revision and deadline come from the live
 // fixture reservation; every other field is byte-exact Soda output.
 var lifecycleConsumerJoinCases = []struct {
@@ -40,7 +40,7 @@ var lifecycleConsumerJoinCases = []struct {
 	},
 	{
 		name:         "pr_created",
-		operationID:  "lifecycle:pr_created:pub-1:pr-12-34:attempt-1",
+		operationID:  "lifecycle:pr_created:pub-1:pr-2-34:attempt-1",
 		actorID:      2,
 		repositoryID: 1,
 		kind:         nativeoperation.KindLifecycleReview,
@@ -54,7 +54,7 @@ var lifecycleConsumerJoinCases = []struct {
 		repositoryID: 1,
 		kind:         nativeoperation.KindLifecycleNote,
 		authRevision: "mergeauth-1",
-		payload:      `{"issue_id":5,"content":"Factory completed the accepted work.","merge_ref":"0123456789abcdef0123456789abcdef01234567"}`,
+		payload:      `{"issue_id":5,"content":"Factory completed the accepted work.","merge_ref":"pr/2@0123456789abcdef0123456789abcdef01234567"}`,
 	},
 }
 
