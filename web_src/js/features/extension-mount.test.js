@@ -24,7 +24,9 @@ class FakeSocket {
   }
 }
 
-test('mounts a retained owner with scoped request and stream helpers', async () => {
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test('mounts a retained owner with scoped request and declared stream access', async () => {
   const root = pageRoot();
   const dispose = vi.fn();
   const mount = vi.fn(() => dispose);
@@ -44,9 +46,12 @@ test('mounts a retained owner with scoped request and stream helpers', async () 
     credentials: 'same-origin', redirect: 'error', cache: 'no-store',
   }));
   expect(fetcher.mock.calls[0][1].headers.get('X-Extension-Session-Generation')).toBe('session-a');
-  const socket = owner.context.stream('socket');
-  expect(socket).toBeInstanceOf(FakeSocket);
-  expect(socket.url).toBe(`${window.location.origin}/-/native/pages/example/home/api/socket`.replace(/^http/, 'ws'));
+  // Declared consumer access: ContributionStream {socket, close}.
+  const contribution = owner.context.stream('socket');
+  expect(contribution.socket).toBeInstanceOf(FakeSocket);
+  expect(contribution.socket.url).toBe(`${window.location.origin}/-/native/pages/example/home/api/socket`.replace(/^http/, 'ws'));
+  contribution.close();
+  expect(contribution.socket.closed).toBe(true);
   owner.dispose();
   expect(dispose).toHaveBeenCalledOnce();
 });
@@ -69,7 +74,7 @@ test('mounts a panel under an installation subpath', async () => {
   owner.dispose();
 });
 
-test('drives ordered update, suspend, resume, and retire', async () => {
+test('drives ordered update, suspend, resume, and retire with exact identities', async () => {
   const root = pageRoot();
   const calls = [];
   const handle = {
@@ -80,7 +85,8 @@ test('drives ordered update, suspend, resume, and retire', async () => {
     dispose: vi.fn(() => calls.push(['dispose'])),
   };
   const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: () => handle})), websocketClass: FakeSocket});
-  const socket = owner.context.stream('socket');
+  const contribution = owner.context.stream('socket');
+  const socket = contribution.socket;
   owner.update({mode: 'page', route: '/workspace', params: {}, visible: true});
   owner.update({mode: 'page', route: '/team/repo', params: {}, repositoryId: '7', visible: true});
   expect(handle.update).toHaveBeenCalledTimes(2);
@@ -91,6 +97,8 @@ test('drives ordered update, suspend, resume, and retire', async () => {
   owner.resume({sessionGeneration: 'session-a'});
   expect(handle.resume).toHaveBeenCalledWith({sessionGeneration: 'session-a'});
   expect(socket.closed).toBe(false);
+  expect(owner.root).toBe(root);
+  expect(owner.context.stream).toBeTypeOf('function');
   owner.retire('session-changed');
   expect(socket.closed).toBe(true);
   expect(handle.retire).toHaveBeenCalledWith('session-changed');
@@ -147,6 +155,104 @@ test('revokes transport on retire and disposes exactly once', async () => {
   owner.retire('authority-revoked');
   owner.dispose();
   expect(dispose).toHaveBeenCalledOnce();
+});
+
+test('closes streams and revokes helpers when mount throws synchronously', async () => {
+  const root = pageRoot();
+  let captured;
+  let opened;
+  const mount = vi.fn((ignored, context) => {
+    captured = context;
+    opened = context.stream('socket');
+    throw new Error('mount exploded');
+  });
+  const silence = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount})), websocketClass: FakeSocket});
+    expect(owner).toBeNull();
+    expect(root.textContent).toBe('Could not load this workspace view.');
+    expect(opened.socket.closed).toBe(true);
+    expect(() => captured.request('context')).toThrow('Contribution transport is retired');
+    expect(() => captured.stream('socket')).toThrow('Contribution transport is retired');
+  } finally {
+    silence.mockRestore();
+  }
+});
+
+test('closes streams and revokes helpers when mount rejects', async () => {
+  const root = pageRoot();
+  let captured;
+  let opened;
+  const mount = vi.fn(async (ignored, context) => {
+    captured = context;
+    opened = context.stream('socket');
+    throw new Error('async mount failed');
+  });
+  const silence = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount})), websocketClass: FakeSocket});
+    expect(owner).toBeNull();
+    expect(opened.socket.closed).toBe(true);
+    expect(() => captured.request('context')).toThrow('Contribution transport is retired');
+    expect(() => captured.stream('later')).toThrow('Contribution transport is retired');
+  } finally {
+    silence.mockRestore();
+  }
+});
+
+test('prevents mount after host invalidation while import is pending', async () => {
+  const root = pageRoot();
+  const controller = new AbortController();
+  let resolveImport;
+  const importer = vi.fn(() => new Promise((resolve) => { resolveImport = resolve }));
+  const mount = vi.fn();
+  const pending = mountContribution(root, {importer, websocketClass: FakeSocket, signal: controller.signal});
+  controller.abort();
+  resolveImport({mount});
+  const owner = await pending;
+  expect(owner).toBeNull();
+  expect(mount).not.toHaveBeenCalled();
+});
+
+test('revokes pending helpers and streams when mount never settles', async () => {
+  const root = pageRoot();
+  const controller = new AbortController();
+  let captured;
+  let opened;
+  let resolveMount;
+  const dispose = vi.fn();
+  const mount = vi.fn((ignored, context) => {
+    captured = context;
+    opened = context.stream('socket');
+    return new Promise((resolve) => { resolveMount = resolve });
+  });
+  const pending = mountContribution(root, {importer: vi.fn(async () => ({mount})), websocketClass: FakeSocket, signal: controller.signal});
+  await flush();
+  expect(mount).toHaveBeenCalledOnce();
+  controller.abort();
+  expect(opened.socket.closed).toBe(true);
+  expect(() => captured.request('context')).toThrow('Contribution transport is retired');
+  expect(() => captured.stream('socket')).toThrow('Contribution transport is retired');
+  resolveMount({dispose});
+  const owner = await pending;
+  expect(owner).toBeNull();
+  expect(dispose).toHaveBeenCalledOnce();
+});
+
+test('retires the owner when the host aborts after settle', async () => {
+  const root = pageRoot();
+  const controller = new AbortController();
+  const retire = vi.fn();
+  const dispose = vi.fn();
+  const owner = await mountContribution(root, {
+    importer: vi.fn(async () => ({mount: () => ({retire, dispose})})),
+    websocketClass: FakeSocket, signal: controller.signal,
+  });
+  expect(owner).not.toBeNull();
+  controller.abort();
+  expect(retire).toHaveBeenCalledWith('authority-revoked');
+  expect(dispose).toHaveBeenCalledOnce();
+  expect(() => owner.context.request('context')).toThrow('Contribution transport is retired');
 });
 
 test('reports unavailable streams without a websocket implementation', () => {

@@ -6,6 +6,12 @@
 // owns root visibility/text and the native transition; B's lifecycle hooks own
 // native feature init/teardown. The dataset validators intentionally mirror
 // extensions.js until A02 unifies them; C does not edit that A-owned file.
+//
+// Lifetime guarantees (see sdk/browser/extension-contract.d.ts): update() and
+// suspend()/resume() always preserve the exact root and all retained resources
+// (renderer/socket where used). Only retire() — authority loss or removal —
+// closes contribution streams. Ordinary native navigation arrives as update(),
+// never as suspend() or retire().
 
 function validAppSubURL(value) {
   return typeof value === 'string' && (value === '' ||
@@ -78,7 +84,8 @@ export function createScopedRequest(apiHref, generation, fetcher) {
 }
 
 /**
- * Scoped stream bound to the contribution apiBase. The browser cannot set
+ * Scoped stream bound to the contribution apiBase. Returns the declared
+ * ContributionStream handle ({socket, close}). The browser cannot set
  * handshake headers, so the server admits the stream from the live cookie
  * session; no query string or subprotocols are sent (the server rejects them).
  */
@@ -94,7 +101,7 @@ export function createScopedStream(apiHref, websocketClass) {
       if (options.signal.aborted) socket.close();
       else options.signal.addEventListener('abort', () => socket.close(), {once: true});
     }
-    return socket;
+    return {socket, close: (code, reason) => socket.close(code, reason)};
   };
 }
 
@@ -114,29 +121,60 @@ function normalizeHandle(result) {
 
 /**
  * Mount one retained contribution owner. Returns the owner handle, or null
- * when the root refuses to mount (no import or fetch is attempted then).
- * The host drives update/suspend/resume/retire; A02 calls update alongside
- * native page-feature init and retire alongside native page-feature teardown.
+ * when the root refuses to mount (no import or fetch is attempted then) or
+ * when the host invalidates the mount while it is still pending.
+ *
+ * The host drives update/suspend/resume/retire after mount. Ordinary native
+ * navigation only ever calls update() on the retained owner; retire() runs
+ * solely on authority loss or contribution removal. Native page-feature
+ * teardown owns native DOM only and never retires the admitted shared owner.
+ *
+ * Pass hooks.signal to let the host invalidate while the entry import or an
+ * async mount is still pending: mount is never invoked after invalidation,
+ * pending helpers are revoked, and tracked streams are closed even if the
+ * mount never settles. Aborting after settle retires the owner.
  */
 export async function mountContribution(root, hooks = {}) {
-  const {importer = defaultImporter, fetcher = (...args) => window.fetch(...args), websocketClass = globalThis.WebSocket} = hooks;
+  const {importer = defaultImporter, fetcher = (...args) => window.fetch(...args), websocketClass = globalThis.WebSocket, signal} = hooks;
   const parsed = parseMountDataset(root);
   if (!parsed.ok) {
     root.textContent = 'This workspace view is unavailable.';
     return null;
   }
+  if (signal?.aborted) return null;
+  // Teardown structures exist before the contribution is invoked, so streams
+  // opened by mount are tracked even when mount throws or rejects.
   const sockets = new Set();
+  let invalidated = false;
   let state = 'active';
+  let owner = null;
+  const closeSockets = () => {
+    for (const socket of sockets) {
+      try {
+        socket.close();
+      } catch {
+        // A closing socket never blocks teardown.
+      }
+    }
+    sockets.clear();
+  };
+  const invalidate = (reason) => {
+    if (invalidated) return;
+    invalidated = true;
+    closeSockets();
+    owner?.retire(reason);
+  };
+  signal?.addEventListener('abort', () => invalidate('authority-revoked'), {once: true});
   const rawRequest = createScopedRequest(parsed.apiHref, parsed.sessionGeneration, fetcher);
   const request = (...args) => {
-    if (state === 'retired' || state === 'disposed') throw new TypeError('Contribution transport is retired');
+    if (invalidated || state === 'retired' || state === 'disposed') throw new TypeError('Contribution transport is retired');
     return rawRequest(...args);
   };
   const stream = (...args) => {
-    if (state === 'retired' || state === 'disposed') throw new TypeError('Contribution transport is retired');
-    const socket = createScopedStream(parsed.apiHref, websocketClass)(...args);
-    sockets.add(socket);
-    return socket;
+    if (invalidated || state === 'retired' || state === 'disposed') throw new TypeError('Contribution transport is retired');
+    const contribution = createScopedStream(parsed.apiHref, websocketClass)(...args);
+    sockets.add(contribution.socket);
+    return contribution;
   };
   const context = {
     extensionId: parsed.extensionId,
@@ -154,10 +192,12 @@ export async function mountContribution(root, hooks = {}) {
   try {
     module = await importer(parsed.entryHref);
   } catch (error) {
+    if (invalidated) return null;
     console.error('Could not load workspace view', error);
     root.textContent = 'Could not load this workspace view.';
     return null;
   }
+  if (invalidated) return null;
   if (typeof module.mount !== 'function') {
     root.textContent = 'Could not load this workspace view.';
     return null;
@@ -166,20 +206,16 @@ export async function mountContribution(root, hooks = {}) {
   try {
     handle = normalizeHandle(await module.mount(root, context));
   } catch (error) {
+    invalidate('contribution-unavailable');
     console.error('Could not load workspace view', error);
     root.textContent = 'Could not load this workspace view.';
     return null;
   }
-  const closeSockets = () => {
-    for (const socket of sockets) {
-      try {
-        socket.close();
-      } catch {
-        // A closing socket never blocks teardown.
-      }
-    }
-    sockets.clear();
-  };
+  if (invalidated) {
+    // The mount settled after host invalidation: never expose it.
+    handle.dispose?.();
+    return null;
+  }
   const disposeHandle = () => {
     // Retire already disposes the handle; both states are terminal.
     if (state === 'disposed' || state === 'retired') return;
@@ -187,7 +223,7 @@ export async function mountContribution(root, hooks = {}) {
     closeSockets();
     handle.dispose?.();
   };
-  return {
+  owner = {
     root,
     context,
     update: (presentation) => {
@@ -218,4 +254,5 @@ export async function mountContribution(root, hooks = {}) {
     },
     dispose: disposeHandle,
   };
+  return owner;
 }
