@@ -175,6 +175,7 @@ type NativeRevisionObservation struct {
 
 // BackgroundClient performs background calls without a browser.
 type BackgroundClient interface {
+	ReadOperations(context.Context) (OperationsHandshake, error)
 	ReadNativeRevision(context.Context) (NativeRevisionObservation, error)
 	ReadSnapshot(context.Context, CredentialFile, SnapshotRequest) (NativeSnapshot, error)
 	ReadCreations(context.Context, CredentialFile, CreationRecoveryRequest) (CreationRecoveryPage, error)
