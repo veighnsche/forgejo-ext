@@ -1,3 +1,5 @@
+import {mountContribution} from './extension-mount.js';
+
 function isAuthPath(pathname) {
   return /(?:^|\/)user\/(?:login|logout|sign_up|forgot_password|forget_password|reset_password|recover_account|activate|activate_email|two_factor|webauthn|oauth2|openid|link_account|link_account_signin|link_account_signup)(?:\/|$)/.test(pathname) ||
     /(?:^|\/)user\/settings\/(?:change_password|security|applications|keys)(?:\/|$)/.test(pathname) ||
@@ -45,7 +47,6 @@ export function workspaceDirectPath(pathname, appSubPath = '') {
 }
 
 const importExtension = (url) => import(/* webpackIgnore: true */ url);
-const noop = () => {};
 const sessionCheckPath = (appSubPath) => `${appSubPath}/-/native/session`;
 
 function validAppSubURL(value) {
@@ -54,98 +55,57 @@ function validAppSubURL(value) {
     !/%2f|%5c/i.test(value) && !value.split('/').some((part) => part === '.' || part === '..'));
 }
 
-function nativeMountURL(input, appSubURL) {
-  if (!validAppSubURL(appSubURL) || typeof input !== 'string') return null;
-  try {
-    const url = new URL(input, window.location.href);
-    return url.origin === window.location.origin && !url.username && !url.password && !url.search && !url.hash &&
-      !/%2f|%5c/i.test(url.pathname) && url.pathname.startsWith(`${appSubURL}/`) ? url : null;
-  } catch {
-    return null;
-  }
-}
-
-function nativeAPIPath(pathname, appSubURL, suffix) {
-  if (!pathname.endsWith(suffix)) return false;
-  const prefix = pathname.slice(0, -suffix.length);
-  if (!prefix.startsWith(appSubURL)) return false;
-  const scope = prefix.slice(appSubURL.length);
-  return scope === '' || scope === '/user/settings' || scope === '/admin' || /^\/[^/]+\/[^/]+$/.test(scope);
-}
-
 function liveSessionMatches(url, generation, fetcher) {
   return Promise.resolve().then(() => fetcher(url, {credentials: 'same-origin', cache: 'no-store', redirect: 'manual'}))
     .then((response) => response.status === 204 && response.headers.get('X-Extension-Session-Generation') === generation)
     .catch(() => false);
 }
 
-export async function mountExtension(root, importer = importExtension) {
-  const {appSubUrl, extensionEntry, extensionId, extensionPageId, extensionPanelId, extensionApiBase, extensionAssetBase, extensionSessionGeneration, extensionRepositoryId} = root.dataset;
-  const entry = nativeMountURL(extensionEntry, appSubUrl);
-  const assets = nativeMountURL(extensionAssetBase, appSubUrl);
-  const api = nativeMountURL(extensionApiBase, appSubUrl);
-  const contribution = extensionPageId ? 'pages' : 'panels';
-  const contributionID = extensionPageId || extensionPanelId;
-  const apiSuffix = `/-/native/${contribution}/${extensionId}/${contributionID}/api/`;
-  if (!entry || !assets || !api || assets.pathname !== `${appSubUrl}/-/native/assets/${extensionId}/` ||
-      !entry.href.startsWith(assets.href) || !nativeAPIPath(api.pathname, appSubUrl, apiSuffix) ||
-      !extensionSessionGeneration) {
-    root.textContent = 'This workspace view is unavailable.';
-    return () => {};
-  }
-  const request = (relativePath, options = {}) => {
-    const target = new URL(relativePath, api.href);
-    if (target.origin !== window.location.origin || target.username || target.password ||
-        !target.href.startsWith(api.href) || /%2f|%5c/i.test(target.pathname)) {
-      throw new TypeError('Product API URL is invalid');
-    }
-    const headers = new Headers(options.headers);
-    headers.set('X-Extension-Session-Generation', extensionSessionGeneration);
-    return window.fetch(target.href, {...options, credentials: 'same-origin', redirect: 'error', cache: 'no-store', headers});
-  };
-  try {
-    const module = await importer(entry.href);
-    if (typeof module.mount !== 'function') throw new TypeError('Workspace view must export mount');
-    const result = await module.mount(root, {
-      extensionId,
-      pageId: extensionPageId,
-      panelId: extensionPanelId,
-      appSubUrl,
-      repositoryId: extensionRepositoryId,
-      apiBase: extensionApiBase,
-      assetBase: extensionAssetBase,
-      sessionGeneration: extensionSessionGeneration,
-      request,
-    });
-    return typeof result === 'function' ? result : typeof result?.dispose === 'function' ? () => result.dispose() : noop;
-  } catch (error) {
-    console.error('Could not load workspace view', error);
-    root.textContent = 'Could not load this workspace view.';
-    return noop;
-  }
-}
-
 export function initExtensionPages(importer = importExtension, fetcher = (...args) => window.fetch(...args)) {
   const roots = document.querySelectorAll('[data-extension-page], [data-extension-panel]');
   if (!roots.length) return;
-  const pageRoots = Array.from(roots).filter((root) => root.hasAttribute('data-extension-page'));
-  const disposers = [];
+  const pageRoots = new Set(Array.from(roots).filter((root) => root.hasAttribute('data-extension-page')));
+  const mounted = [];
+  const pending = new Set();
   let leaving = false;
-  for (const root of roots) mountExtension(root, importer).then((dispose) => {
-    if (leaving) dispose();
-    else disposers.push(dispose);
-  });
-  const disposeRoots = () => {
+  const settle = (owner) => {
+    if (!owner) return;
+    if (leaving) owner.dispose();
+    else mounted.push(owner);
+  };
+  for (const root of roots) {
+    const controller = new AbortController();
+    pending.add(controller);
+    mountContribution(root, {importer, fetcher, signal: controller.signal}).then((owner) => {
+      pending.delete(controller);
+      settle(owner);
+    });
+  }
+  function abortPending() {
+    for (const controller of pending) controller.abort();
+    pending.clear();
+  }
+  function disposeRoots() {
     if (leaving) return;
     leaving = true;
-    for (const dispose of disposers) dispose();
-    window.removeEventListener('extension-workspace-invalidated', disposeRoots);
-  };
+    abortPending();
+    for (const owner of mounted.splice(0)) owner.dispose();
+    window.removeEventListener('extension-workspace-invalidated', retireRoots);
+  }
+  function retireRoots() {
+    if (leaving) return;
+    leaving = true;
+    abortPending();
+    for (const owner of mounted.splice(0)) owner.retire('session-changed');
+    window.removeEventListener('extension-workspace-invalidated', retireRoots);
+  }
   window.addEventListener('pagehide', (event) => { if (!event.persisted) disposeRoots(); });
-  window.addEventListener('extension-workspace-invalidated', disposeRoots);
-  if (!pageRoots.length) return;
-  const generation = pageRoots[0].dataset.extensionSessionGeneration;
-  const appSubURL = pageRoots[0].dataset.appSubUrl;
+  window.addEventListener('extension-workspace-invalidated', retireRoots);
+  if (!pageRoots.size) return;
+  const firstPage = pageRoots.values().next().value;
+  const generation = firstPage.dataset.extensionSessionGeneration;
+  const appSubURL = firstPage.dataset.appSubUrl;
+  const pageOwners = () => mounted.filter((owner) => pageRoots.has(owner.root));
   const checkURL = new URL(sessionCheckPath(appSubURL), window.location.origin).href;
   let checkVersion = 0;
   let pendingCheck;
@@ -158,7 +118,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
       root.style.display = '';
       root.textContent = 'Your session changed. Reload Forgejo to continue.';
     }
-    disposeRoots();
+    retireRoots();
   };
   const checkSession = () => {
     if (invalidated || pendingCheck) return;
@@ -167,7 +127,10 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
     pendingCheck = liveSessionMatches(checkURL, generation, fetcher).then((matches) => {
       if (version !== checkVersion) return;
       if (!matches) invalidate();
-      else for (const root of pageRoots) root.style.display = '';
+      else {
+        for (const root of pageRoots) root.style.display = '';
+        for (const owner of pageOwners()) owner.resume({sessionGeneration: generation});
+      }
     }).finally(() => { if (version === checkVersion) pendingCheck = null; });
   };
   const onPageShow = (event) => { if (event.persisted) checkSession(); };
@@ -176,7 +139,10 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
     checkVersion++;
     pendingCheck = null;
     for (const root of pageRoots) root.style.display = 'none';
-    if (event.persisted) return;
+    if (event.persisted) {
+      for (const owner of pageOwners()) owner.suspend();
+      return;
+    }
     window.removeEventListener('pagehide', onPageHide);
     window.removeEventListener('pageshow', onPageShow);
     window.removeEventListener('focus', checkSession);

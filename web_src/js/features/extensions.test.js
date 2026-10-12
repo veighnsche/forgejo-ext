@@ -1,6 +1,6 @@
 import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, mountExtension, initExtensionPages, initExtensionWorkspace} from './extensions.js';
+import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 
 const origin = 'https://forge.example';
 const base = `${origin}/team/repo`;
@@ -67,96 +67,9 @@ test('keeps auth and external destinations out of the frame', () => {
   expect(workspacePath('/forge/team', `${origin}/forge/team/repo`, origin, '/forge')).toBe('/forge/team');
 });
 
-test('mounts an extension with explicit context and disposes its lifecycle', async () => {
-  const root = document.createElement('div');
-  root.dataset.appSubUrl = '';
-  root.dataset.extensionRepositoryId = '7';
-  root.dataset.extensionEntry = '/-/native/assets/example/main.js';
-  root.dataset.extensionAssetBase = '/-/native/assets/example/';
-  root.dataset.extensionApiBase = '/-/native/pages/example/home/api/';
-  root.dataset.extensionId = 'example';
-  root.dataset.extensionPageId = 'home';
-  root.dataset.extensionSessionGeneration = 'session-a';
-  const dispose = vi.fn();
-  const mount = vi.fn(() => dispose);
-  const importer = vi.fn(async () => ({mount}));
-  const unmount = await mountExtension(root, importer);
-  expect(importer).toHaveBeenCalledOnce();
-  expect(mount).toHaveBeenCalledWith(root, expect.objectContaining({
-    extensionId: 'example', pageId: 'home', panelId: undefined, appSubUrl: '', repositoryId: '7',
-    apiBase: '/-/native/pages/example/home/api/', assetBase: '/-/native/assets/example/',
-    sessionGeneration: 'session-a', request: expect.any(Function),
-  }));
-  const oldFetch = window.fetch;
-  window.fetch = vi.fn().mockResolvedValue({status: 200});
-  try {
-    await mount.mock.calls[0][1].request('context', {headers: {'Content-Type': 'application/json'}});
-    expect(window.fetch).toHaveBeenCalledWith(`${window.location.origin}/-/native/pages/example/home/api/context`, expect.objectContaining({
-      credentials: 'same-origin', redirect: 'error', cache: 'no-store',
-      headers: expect.any(Headers),
-    }));
-    expect(window.fetch.mock.calls[0][1].headers.get('X-Extension-Session-Generation')).toBe('session-a');
-    expect(window.fetch.mock.calls[0][1].headers.get('Content-Type')).toBe('application/json');
-    expect(() => mount.mock.calls[0][1].request('../other')).toThrow('Product API URL is invalid');
-  } finally {
-    window.fetch = oldFetch;
-  }
-  unmount();
-  expect(dispose).toHaveBeenCalledOnce();
-});
-
-test('uses the explicit installation prefix for mounted product views and refuses mismatched metadata', async () => {
-  const root = document.createElement('div');
-  root.dataset.appSubUrl = '/forge';
-  root.dataset.extensionEntry = '/forge/-/native/assets/example/home.js';
-  root.dataset.extensionAssetBase = '/forge/-/native/assets/example/';
-  root.dataset.extensionApiBase = '/forge/-/native/pages/example/home/api/';
-  root.dataset.extensionId = 'example';
-  root.dataset.extensionPageId = 'home';
-  root.dataset.extensionSessionGeneration = 'session-a';
-  const mount = vi.fn();
-  const importer = vi.fn(async () => ({mount}));
-  await mountExtension(root, importer);
-  expect(mount).toHaveBeenCalledWith(root, expect.objectContaining({appSubUrl: '/forge', repositoryId: undefined}));
-  expect(() => mount.mock.calls[0][1].request('/-/native/pages/example/home/api/context')).toThrow('Product API URL is invalid');
-
-  root.dataset.appSubUrl = '/wrong';
-  await mountExtension(root, importer);
-  expect(importer).toHaveBeenCalledOnce();
-  expect(root.textContent).toBe('This workspace view is unavailable.');
-});
-
-test.each(['/user/settings', '/admin', '/team/repo'])('mounts the native %s scoped API with root assets', async (scope) => {
-  const root = document.createElement('div');
-  root.dataset.appSubUrl = '/forge';
-  root.dataset.extensionEntry = '/forge/-/native/assets/example/home.js';
-  root.dataset.extensionAssetBase = '/forge/-/native/assets/example/';
-  root.dataset.extensionApiBase = `/forge${scope}/-/native/pages/example/home/api/`;
-  root.dataset.extensionId = 'example';
-  root.dataset.extensionPageId = 'home';
-  root.dataset.extensionSessionGeneration = 'session-a';
-  const mount = vi.fn();
-  const importer = vi.fn(async () => ({mount}));
-  await mountExtension(root, importer);
-  expect(mount).toHaveBeenCalledOnce();
-  const oldFetch = window.fetch;
-  window.fetch = vi.fn().mockResolvedValue({status: 200});
-  try {
-    await mount.mock.calls[0][1].request('context');
-    expect(window.fetch.mock.calls[0][0]).toBe(`${window.location.origin}/forge${scope}/-/native/pages/example/home/api/context`);
-    expect(window.fetch.mock.calls[0][1].headers.get('X-Extension-Session-Generation')).toBe('session-a');
-    expect(() => mount.mock.calls[0][1].request('../other')).toThrow('Product API URL is invalid');
-  } finally {
-    window.fetch = oldFetch;
-  }
-
-  root.dataset.extensionApiBase = '/forge/team/repo/settings/-/native/pages/example/home/api/';
-  await mountExtension(root, importer);
-  root.dataset.extensionApiBase = `/forge${scope}/-/native/pages/example/other/api/`;
-  await mountExtension(root, importer);
-  expect(importer).toHaveBeenCalledOnce();
-});
-
+// Mount validation, scoped transport and the mount/update/suspend/resume/retire
+// lifecycle are owned by extension-mount.js and covered there; these tests
+// cover host mounting, session checks and navigation behavior.
 test('keeps a mounted panel alive when its page enters BFCache', async () => {
   document.body.innerHTML = '<div data-extension-panel data-app-sub-url="" data-extension-id="example" data-extension-panel-id="notes" data-extension-entry="/-/native/assets/example/panel.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/panels/example/notes/api/" data-extension-session-generation="session-a"></div>';
   const dispose = vi.fn();
