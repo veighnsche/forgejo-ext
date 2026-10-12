@@ -1,11 +1,24 @@
+import {contributionRootSelector, navigateNative} from '../native-lifecycle.js';
+
+const attached = new Set();
+
+function onSortClick(event) {
+  const header = event.currentTarget;
+  tableSort(header.getAttribute('data-sortt-asc'), header.getAttribute('data-sortt-desc'), header.getAttribute('data-sortt-default'));
+}
+
 export function initTableSort() {
   for (const header of document.querySelectorAll('th[data-sortt-asc]') || []) {
-    const sorttAsc = header.getAttribute('data-sortt-asc');
-    const sorttDesc = header.getAttribute('data-sortt-desc');
-    const sorttDefault = header.getAttribute('data-sortt-default');
-    header.addEventListener('click', () => {
-      tableSort(sorttAsc, sorttDesc, sorttDefault);
-    });
+    if (attached.has(header) || header.closest(contributionRootSelector)) continue;
+    header.addEventListener('click', onSortClick);
+    attached.add(header);
+  }
+}
+
+export function retireTableSort() {
+  for (const header of attached) {
+    header.removeEventListener('click', onSortClick);
+    attached.delete(header);
   }
 }
 
@@ -18,5 +31,5 @@ function tableSort(normSort, revSort, isDefault) {
   if (!urlSort && isDefault) urlSort = normSort;
 
   url.searchParams.set('sort', urlSort !== normSort ? normSort : revSort);
-  window.location.replace(url.href);
+  navigateNative(url.href);
 }

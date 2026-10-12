@@ -7,11 +7,16 @@
 // navigation. Registered page features must not double-initialize: re-entry
 // without retire is a no-op, and retire runs in reverse registration order.
 
+// Native features must not bind or retire contribution-owned subtrees: the
+// persistent panels home (including parked roots) and page/panel roots.
+export const contributionRootSelector = '[data-extension-panels],[data-extension-page],[data-extension-panel]';
+
 const pageFeatures = new Map();
 const globalFeatures = new Map();
 const activePageFeatures = new Set();
 let globalsInitialized = false;
 let pageGeneration = 0;
+let nativeNavigator = null;
 
 export function registerPageFeature(name, {init, retire}) {
   if (pageFeatures.has(name)) throw new Error(`native feature "${name}" is already registered`);
@@ -77,4 +82,17 @@ export function getPageData() {
 // start and drop their result when it no longer matches.
 export function currentPageGeneration() {
   return pageGeneration;
+}
+
+// The host transition plugs its transplant here; sort-style native
+// navigations then stay in-shell. Plain pages without a host keep the native
+// history-replacing load.
+export function setNativeNavigator(navigate) {
+  if (navigate !== null && typeof navigate !== 'function') throw new Error('native navigator must be a function or null');
+  nativeNavigator = navigate;
+}
+
+export function navigateNative(url) {
+  if (nativeNavigator) nativeNavigator(url);
+  else window.location.replace(url);
 }

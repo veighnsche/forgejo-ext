@@ -11,7 +11,7 @@ import {initHeatmap} from './features/heatmap.js';
 import {initImageDiff} from './features/imagediff.js';
 import {initRepoMigration} from './features/repo-migration.js';
 import {initRepoProject} from './features/repo-projects.js';
-import {initTableSort} from './features/tablesort.js';
+import {initTableSort, retireTableSort} from './features/tablesort.js';
 import {initAutoFocusEnd} from './features/autofocus-end.js';
 import {initAdminUserListSearchForm, retireAdminUserListSearchForm} from './features/admin/users.js';
 import {initGlobalFeatures, initPageFeatures, registerGlobalFeature, registerPageFeature} from './native-lifecycle.js';
@@ -41,6 +41,7 @@ import {
   initGlobalButtons,
   initGlobalCommonListeners,
   enhanceNativeNodes,
+  retireNativeNodes,
   initDisabledInputs,
   initGlobalDropzone,
   initGlobalEnterQuickSubmit,
@@ -108,6 +109,17 @@ registerGlobalFeature('native-common-listeners', initGlobalCommonListeners);
 // attach once and survive content transplants.
 registerGlobalFeature('native-navbar-toggle', initHeadNavbarContentToggle);
 registerGlobalFeature('native-language-menu', initFootLanguageMenu);
+// Fresh-node enhancement flows through the page seam so every transplant
+// enhances its incoming region with no transition-side calls.
+registerPageFeature('native-node-enhancement', {
+  init: () => enhanceNativeNodes(document),
+  retire: retireNativeNodes,
+});
+// Sortable table headers on admin list pages (/admin/users, /admin/orgs).
+registerPageFeature('native-table-sort', {
+  init: initTableSort,
+  retire: retireTableSort,
+});
 
 // Init Gitea's Fomantic settings
 initGiteaFomantic();
@@ -142,7 +154,6 @@ onDomReady(() => {
   initMarkupContent();
   initSshKeyFormParser();
   initStopwatch();
-  initTableSort();
   initAutoFocusEnd();
   initFindFileInRepo();
   initCopyContent();

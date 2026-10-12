@@ -13,6 +13,7 @@ import {showErrorToast} from '../modules/toast.js';
 import {request, POST, GET} from '../modules/fetch.js';
 import '../htmx.js';
 import {initTab} from '../modules/tab.ts';
+import {contributionRootSelector} from '../native-lifecycle.js';
 
 const {appUrl, appSubUrl, i18n} = window.config;
 
@@ -161,15 +162,22 @@ export function initGlobalCommonListeners() {
   document.addEventListener('click', linkAction);
 }
 
+// Elements already enhanced. Retire drops transplanted ones so the outgoing
+// region's instances are destroyed and never pinned; live chrome stays.
+const enhancedDropdowns = new Set();
+const enhancedTabs = new Set();
+
 // Enhances fresh nodes only: fomantic dropdowns and tabs inside root.
-// Called with document at boot and with the transplanted region after a
-// native transition. Never call on already-enhanced nodes.
+// Called with document at boot and after every native transition through the
+// page seam; already-enhanced nodes are skipped, never double-bound.
 export function enhanceNativeNodes(root = document) {
   // Semantic UI modules.
-  const $uiDropdowns = $(root).find('.ui.dropdown').addBack('.ui.dropdown');
+  // "custom" dropdowns are managed by their own feature code: they never
+  // enter the enhancement tracker, so retire never destroys them.
+  const $uiDropdowns = $(root).find('.ui.dropdown').addBack('.ui.dropdown')
+    .filter((_, el) => !el.classList.contains('custom') && !enhancedDropdowns.has(el) && !el.closest(contributionRootSelector));
 
-  // do not init "custom" dropdowns, "custom" dropdowns are managed by their own code.
-  $uiDropdowns.filter(':not(.custom)').dropdown();
+  $uiDropdowns.dropdown();
 
   // The "jump" means this dropdown is mainly used for "menu" purpose,
   // clicking an item will jump to somewhere else or trigger an action/function.
@@ -207,8 +215,43 @@ export function enhanceNativeNodes(root = document) {
   $uiDropdowns.filter('.upward').dropdown('setting', 'direction', 'upward');
   $uiDropdowns.filter('.downward').dropdown('setting', 'direction', 'downward');
 
+  for (const el of $uiDropdowns.get()) {
+    enhancedDropdowns.add(el);
+  }
+
   for (const el of root.querySelectorAll('.tabular.menu')) {
+    if (enhancedTabs.has(el) || el.closest(contributionRootSelector)) continue;
     initTab(el);
+    enhancedTabs.add(el);
+  }
+}
+
+// Destroys fomantic instances in the outgoing transplant region (.page-content)
+// and drops all detached tracked nodes so retired pages are never pinned.
+// Live chrome and persistent contribution homes are untouched.
+export function retireNativeNodes() {
+  // Tooltip poppers are appended outside their target, so removing the
+  // outgoing region alone would orphan them; destroy region-owned
+  // instances while the region is still attached (retire precedes swap).
+  for (const el of document.querySelectorAll('.page-content, .page-content *')) {
+    if (el.closest(contributionRootSelector)) continue;
+    el._tippy?.destroy();
+  }
+  for (const el of enhancedDropdowns) {
+    if (el.closest('.page-content')) {
+      if (el.isConnected) $(el).dropdown('destroy');
+      enhancedDropdowns.delete(el);
+    } else if (!el.isConnected) {
+      enhancedDropdowns.delete(el);
+    }
+  }
+  // Tab listeners are element-scoped anonymous closures that die with their
+  // nodes; retire/swap is synchronous so no event can interleave. Dropping
+  // the tracked region nodes releases the whole subtree for collection.
+  for (const el of enhancedTabs) {
+    if (!el.isConnected || el.closest('.page-content')) {
+      enhancedTabs.delete(el);
+    }
   }
 }
 
