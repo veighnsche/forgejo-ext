@@ -1,5 +1,6 @@
 import {isElemHidden, onInputDebounce, submitEventSubmitter, toggleElem} from '../utils/dom.js';
 import {GET} from '../modules/fetch.js';
+import {contributionRootSelector, currentPageGeneration} from '../native-lifecycle.js';
 
 const {appSubUrl} = window.config;
 const reIssueIndex = /^(\d+)$/; // eg: "123"
@@ -28,15 +29,19 @@ export function parseIssueListQuickGotoLink(repoLink, searchText) {
   return targetUrl;
 }
 
+// One quick-goto form per page; tracked so retire removes exactly what init
+// added and a repeated init never stacks submit/input handlers.
+const attached = new Map();
+
 export function initCommonIssueListQuickGoto() {
   const goto = document.getElementById('issue-list-quick-goto');
-  if (!goto) return;
+  if (!goto || attached.has(goto) || goto.closest(contributionRootSelector)) return;
 
   const form = goto.closest('form');
   const input = form.querySelector('input[name=q]');
   const repoLink = goto.getAttribute('data-repo-link');
 
-  form.addEventListener('submit', (e) => {
+  const onSubmit = (e) => {
     // if there is no goto button, or the form is submitted by non-quick-goto elements, submit the form directly
     let doQuickGoto = !isElemHidden(goto);
     const submitter = submitEventSubmitter(e);
@@ -46,9 +51,11 @@ export function initCommonIssueListQuickGoto() {
     // if there is a goto button, use its link
     e.preventDefault();
     window.location.href = goto.getAttribute('data-issue-goto-link');
-  });
+  };
+  form.addEventListener('submit', onSubmit);
 
   const onInput = async () => {
+    const generation = currentPageGeneration();
     const searchText = input.value;
     // try to check whether the parsed goto link is valid
     let targetUrl = parseIssueListQuickGotoLink(repoLink, searchText);
@@ -56,13 +63,25 @@ export function initCommonIssueListQuickGoto() {
       const res = await GET(`${targetUrl}/info`);
       if (res.status !== 200) targetUrl = '';
     }
-    // if the input value has changed, then ignore the result
+    // if the page was retired while checking, or the input value has
+    // changed, then ignore the result
+    if (generation !== currentPageGeneration()) return;
     if (input.value !== searchText) return;
 
     toggleElem(goto, Boolean(targetUrl));
     goto.setAttribute('data-issue-goto-link', targetUrl);
   };
 
-  input.addEventListener('input', onInputDebounce(onInput));
+  const onInputDebounced = onInputDebounce(onInput);
+  input.addEventListener('input', onInputDebounced);
+  attached.set(goto, {form, input, onSubmit, onInputDebounced});
   onInput();
+}
+
+export function retireCommonIssueListQuickGoto() {
+  for (const [goto, {form, input, onSubmit, onInputDebounced}] of attached) {
+    form.removeEventListener('submit', onSubmit);
+    input.removeEventListener('input', onInputDebounced);
+    attached.delete(goto);
+  }
 }

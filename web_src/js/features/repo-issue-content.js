@@ -3,6 +3,7 @@ import {svg} from '../svg.js';
 import {showErrorToast} from '../modules/toast.js';
 import {GET, POST} from '../modules/fetch.js';
 import {showElem} from '../utils/dom.js';
+import {contributionRootSelector, currentPageGeneration} from '../native-lifecycle.js';
 
 const {appSubUrl} = window.config;
 let i18nTextEdited;
@@ -142,9 +143,13 @@ export async function initRepoIssueContentHistory() {
 
   const repoLink = $('#repolink').val();
   const issueBaseUrl = `${appSubUrl}/${repoLink}/issues/${issueIndex}`;
+  const generation = currentPageGeneration();
 
   try {
     const response = await GET(`${issueBaseUrl}/content-history/overview`);
+    // The page retired while the overview loaded: its menus must not be
+    // built into the outgoing (or a fresh) document.
+    if (generation !== currentPageGeneration()) return;
     const resp = await response.json();
 
     i18nTextEdited = resp.i18n.textEdited;
@@ -152,15 +157,29 @@ export async function initRepoIssueContentHistory() {
     i18nTextDeleteFromHistoryConfirm = resp.i18n.textDeleteFromHistoryConfirm;
     i18nTextOptions = resp.i18n.textOptions;
 
-    if (resp.editedHistoryCountMap[0] && $itemIssue.length) {
+    if (resp.editedHistoryCountMap[0] && $itemIssue.length && !$itemIssue[0].closest(contributionRootSelector)) {
       showContentHistoryMenu(issueBaseUrl, $itemIssue, '0');
     }
     for (const [commentId, _editedCount] of Object.entries(resp.editedHistoryCountMap)) {
       if (commentId === '0') continue;
       const $itemComment = $(`#issuecomment-${commentId}`);
+      if ($itemComment[0]?.closest(contributionRootSelector)) continue;
       showContentHistoryMenu(issueBaseUrl, $itemComment, commentId);
     }
   } catch (error) {
     console.error('Error:', error);
+  }
+}
+
+// Menus and dialogs created here are page-owned. Retire destroys their
+// dropdown widgets and removes them so nothing history-related is pinned
+// (or left rendering) after the native content is swapped out.
+export function retireRepoIssueContentHistory() {
+  for (const menu of document.querySelectorAll('.content-history-menu')) {
+    $(menu).dropdown('destroy');
+    menu.remove();
+  }
+  for (const dialog of document.querySelectorAll('.content-history-detail-dialog')) {
+    dialog.remove();
   }
 }

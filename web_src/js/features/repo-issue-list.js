@@ -7,14 +7,32 @@ import {showErrorToast} from '../modules/toast.js';
 import {createSortable} from '../modules/sortable.js';
 import {DELETE, POST} from '../modules/fetch.js';
 import {parseDom} from '../utils.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
+
+// Element listeners and widget instances owned by the current page. Retire
+// removes exactly what init added; nodes inside retained contribution roots
+// are never bound or destroyed here.
+let bindings = [];
+let authorDropdownEl = null;
+let pinSortable = null;
+let pinSortableWanted = false;
+
+function bind(target, type, handler) {
+  target.addEventListener(type, handler);
+  bindings.push([target, type, handler]);
+}
+
+function isNative(el) {
+  return el && !el.closest(contributionRootSelector);
+}
 
 function initRepoIssueListCheckboxes() {
   const issueSelectAll = document.querySelector('.issue-checkbox-all');
-  if (!issueSelectAll) return; // logged out state
-  const issueCheckboxes = document.querySelectorAll('.issue-checkbox');
+  if (!issueSelectAll || !isNative(issueSelectAll)) return; // logged out state
+  const issueCheckboxes = Array.from(document.querySelectorAll('.issue-checkbox')).filter(isNative);
 
   const syncIssueSelectionState = () => {
-    const checkedCheckboxes = Array.from(issueCheckboxes).filter((el) => el.checked);
+    const checkedCheckboxes = issueCheckboxes.filter((el) => el.checked);
     const anyChecked = Boolean(checkedCheckboxes.length);
     const allChecked = anyChecked && checkedCheckboxes.length === issueCheckboxes.length;
 
@@ -39,60 +57,64 @@ function initRepoIssueListCheckboxes() {
   };
 
   for (const el of issueCheckboxes) {
-    el.addEventListener('change', syncIssueSelectionState);
+    bind(el, 'change', syncIssueSelectionState);
   }
 
-  issueSelectAll.addEventListener('change', () => {
+  bind(issueSelectAll, 'change', () => {
     for (const el of issueCheckboxes) {
       el.checked = issueSelectAll.checked;
     }
     syncIssueSelectionState();
   });
 
-  $('.issue-action').on('click', async function (e) {
-    e.preventDefault();
+  for (const el of document.querySelectorAll('.issue-action')) {
+    if (!isNative(el)) continue;
+    bind(el, 'click', async (e) => {
+      e.preventDefault();
 
-    const url = this.getAttribute('data-url');
-    let action = this.getAttribute('data-action');
-    let elementId = this.getAttribute('data-element-id');
-    let issueIDs = [];
-    for (const el of document.querySelectorAll('.issue-checkbox:checked')) {
-      issueIDs.push(el.getAttribute('data-issue-id'));
-    }
-    issueIDs = issueIDs.join(',');
-    if (!issueIDs) return;
-
-    // for assignee
-    if (elementId === '0' && url.endsWith('/assignee')) {
-      elementId = '';
-      action = 'clear';
-    }
-
-    // for toggle
-    if (action === 'toggle' && e.altKey) {
-      action = 'toggle-alt';
-    }
-
-    // for delete
-    if (action === 'delete') {
-      const confirmText = e.target.getAttribute('data-action-delete-confirm');
-      if (!await confirmModal({content: confirmText, buttonColor: 'orange'})) {
-        return;
+      const url = el.getAttribute('data-url');
+      let action = el.getAttribute('data-action');
+      let elementId = el.getAttribute('data-element-id');
+      let issueIDs = [];
+      for (const cb of document.querySelectorAll('.issue-checkbox:checked')) {
+        issueIDs.push(cb.getAttribute('data-issue-id'));
       }
-    }
+      issueIDs = issueIDs.join(',');
+      if (!issueIDs) return;
 
-    try {
-      await updateIssuesMeta(url, action, issueIDs, elementId);
-      window.location.reload();
-    } catch (err) {
-      showErrorToast(err.responseJSON?.error ?? err.message);
-    }
-  });
+      // for assignee
+      if (elementId === '0' && url.endsWith('/assignee')) {
+        elementId = '';
+        action = 'clear';
+      }
+
+      // for toggle
+      if (action === 'toggle' && e.altKey) {
+        action = 'toggle-alt';
+      }
+
+      // for delete
+      if (action === 'delete') {
+        const confirmText = e.target.getAttribute('data-action-delete-confirm');
+        if (!await confirmModal({content: confirmText, buttonColor: 'orange'})) {
+          return;
+        }
+      }
+
+      try {
+        await updateIssuesMeta(url, action, issueIDs, elementId);
+        window.location.reload();
+      } catch (err) {
+        showErrorToast(err.responseJSON?.error ?? err.message);
+      }
+    });
+  }
 }
 
 function initRepoIssueListAuthorDropdown() {
   const $searchDropdown = $('.user-remote-search');
-  if (!$searchDropdown.length) return;
+  if (!$searchDropdown.length || !isNative($searchDropdown[0])) return;
+  authorDropdownEl = $searchDropdown[0];
 
   let searchUrl = $searchDropdown[0].getAttribute('data-search-url');
   const actionJumpUrl = $searchDropdown[0].getAttribute('data-action-jump-url');
@@ -159,7 +181,8 @@ function initRepoIssueListAuthorDropdown() {
 
 function initPinRemoveButton() {
   for (const button of document.getElementsByClassName('issue-card-unpin')) {
-    button.addEventListener('click', async (event) => {
+    if (!isNative(button)) continue;
+    bind(button, 'click', async (event) => {
       const el = event.currentTarget;
       const id = Number(el.getAttribute('data-issue-id'));
 
@@ -184,7 +207,7 @@ async function pinMoveEnd(e) {
 async function initIssuePinSort() {
   const pinDiv = document.getElementById('issue-pins');
 
-  if (pinDiv === null) return;
+  if (pinDiv === null || !isNative(pinDiv)) return;
 
   // If the User is not a Repo Admin, we don't need to proceed
   if (!pinDiv.hasAttribute('data-is-repo-admin')) return;
@@ -194,15 +217,22 @@ async function initIssuePinSort() {
   // If only one issue pinned, we don't need to make this Sortable
   if (pinDiv.children.length < 2) return;
 
-  createSortable(pinDiv, {
+  pinSortableWanted = true;
+  const instance = await createSortable(pinDiv, {
     group: 'shared',
     onEnd: pinMoveEnd,
   });
+  // The page may have retired while the sortable chunk loaded.
+  if (!pinSortableWanted) {
+    instance.destroy();
+    return;
+  }
+  pinSortable = instance;
 }
 
 function initArchivedLabelFilter() {
   const archivedLabelEl = document.querySelector('#archived-filter-checkbox');
-  if (!archivedLabelEl) {
+  if (!archivedLabelEl || !isNative(archivedLabelEl)) {
     return;
   }
 
@@ -226,7 +256,7 @@ function initArchivedLabelFilter() {
 
   archivedElToggle();
 
-  archivedLabelEl.addEventListener('change', () => {
+  bind(archivedLabelEl, 'change', () => {
     if (archivedLabelEl.checked) {
       url.searchParams.set('archived', 'true');
     } else {
@@ -236,10 +266,29 @@ function initArchivedLabelFilter() {
   });
 }
 
+let listActive = false;
+
 export function initRepoIssueList() {
+  if (listActive) return;
   if (!document.querySelectorAll('.page-content.repository.issue-list, .page-content.repository.milestone-issue-list').length) return;
+  listActive = true;
   initRepoIssueListCheckboxes();
   initRepoIssueListAuthorDropdown();
   initIssuePinSort();
   initArchivedLabelFilter();
+}
+
+export function retireRepoIssueList() {
+  listActive = false;
+  for (const [target, type, handler] of bindings) {
+    target.removeEventListener(type, handler);
+  }
+  bindings = [];
+  if (authorDropdownEl) {
+    if (authorDropdownEl.isConnected) $(authorDropdownEl).dropdown('destroy');
+    authorDropdownEl = null;
+  }
+  pinSortableWanted = false;
+  pinSortable?.destroy();
+  pinSortable = null;
 }
