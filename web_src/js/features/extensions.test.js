@@ -109,6 +109,75 @@ test('removes a cached extension page when the native session changes', async ()
   window.dispatchEvent(new Event('pagehide'));
 });
 
+test('delayed revalidation conceals page and panel together, then restores or retires', async () => {
+  document.body.innerHTML = liveMarkup({
+    content: directContent(`Global Workspace${pageRootMarkup()}`),
+    home: homeMarkup({panels: panelRootMarkup()}),
+  });
+  window.history.replaceState(null, '', '/workspace');
+  const pageRoot = document.querySelector('[data-extension-page]');
+  const panelRoot = document.querySelector('[data-extension-panel]');
+  const home = document.querySelector('[data-extension-panels]');
+  const pageSuspend = vi.fn();
+  const pageResume = vi.fn();
+  const pageDispose = vi.fn();
+  const panelSuspend = vi.fn();
+  const panelResume = vi.fn();
+  const panelDispose = vi.fn();
+  let mountedCount = 0;
+  let bothMounted;
+  const bothPromise = new Promise((resolve) => { bothMounted = resolve });
+  const importer = vi.fn(async () => ({mount: (root) => {
+    mountedCount++;
+    if (mountedCount === 2) bothMounted();
+    return root.hasAttribute('data-extension-page') ?
+      {dispose: pageDispose, suspend: pageSuspend, resume: pageResume} :
+      {dispose: panelDispose, suspend: panelSuspend, resume: panelResume};
+  }}));
+  let resolveCheck;
+  const fetcher = vi.fn(() => new Promise((resolve) => { resolveCheck = resolve }));
+  initExtensionPages(importer, fetcher);
+  await bothPromise;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const cached = () => {
+    const event = new Event('pagehide');
+    Object.defineProperty(event, 'persisted', {value: true});
+    return event;
+  };
+  const restored = () => {
+    const event = new Event('pageshow');
+    Object.defineProperty(event, 'persisted', {value: true});
+    return event;
+  };
+  window.dispatchEvent(cached());
+  expect(pageRoot.style.display).toBe('none');
+  expect(home.style.display).toBe('none');
+  expect(pageSuspend).toHaveBeenCalledOnce();
+  expect(panelSuspend).toHaveBeenCalledOnce();
+  window.dispatchEvent(restored());
+  await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+  expect(pageRoot.style.display).toBe('none');
+  expect(home.style.display).toBe('none');
+  resolveCheck({status: 204, headers: new Headers({'X-Extension-Session-Generation': 'session-a'})});
+  await vi.waitFor(() => expect(pageRoot.style.display).toBe(''));
+  expect(home.style.display).toBe('');
+  expect(pageResume).toHaveBeenCalledOnce();
+  expect(panelResume).toHaveBeenCalledOnce();
+  expect(pageRoot.isConnected).toBe(true);
+  expect(panelRoot.isConnected).toBe(true);
+  expect(pageDispose).not.toHaveBeenCalled();
+  expect(panelDispose).not.toHaveBeenCalled();
+  window.dispatchEvent(cached());
+  window.dispatchEvent(restored());
+  await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+  resolveCheck({status: 204, headers: new Headers({'X-Extension-Session-Generation': 'session-b'})});
+  await vi.waitFor(() => expect(pageRoot.textContent).toContain('Your session changed'));
+  expect(home.textContent).toContain('Your session changed');
+  expect(pageDispose).toHaveBeenCalledOnce();
+  expect(panelDispose).toHaveBeenCalledOnce();
+  window.dispatchEvent(new Event('pagehide'));
+});
+
 // NFX-A02 region_adopt: fixtures mirror the real wire format. Every eligible
 // document is a whole native page (head title, body data-page-data config,
 // navbar, .page-content region, footer) with the persistent panels home from
@@ -232,7 +301,7 @@ test('transplant delivers ordered presentation updates to retained panels', asyn
     initExtensionWorkspace(fetcher);
     clickWorkspaceLink('/admin/users?sort=name');
     await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
-    expect(update).toHaveBeenCalledWith({route: '/admin/users?sort=name', params: {sort: 'name'}, mode: 'panel', visible: true});
+    expect(update).toHaveBeenCalledWith({route: '/admin/users?sort=name', params: {sort: 'name'}, mode: 'panel', visible: false});
     expect(dispose).not.toHaveBeenCalled();
     expect(importer).toHaveBeenCalledOnce();
   } finally {
@@ -275,6 +344,7 @@ test('page owners persist a plain leg parked and readopt on return', async () =>
     await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
     expect(suspend).toHaveBeenCalledOnce();
     expect(dispose).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({route: '/admin/users', params: {}, mode: 'page', visible: false});
     expect(importer).toHaveBeenCalledTimes(2);
     expect(pageRoot.isConnected).toBe(true);
     expect(document.querySelector('[data-extension-page-park]').contains(pageRoot)).toBe(true);
@@ -594,6 +664,35 @@ test('plain native documents transplant from the hidden home', async () => {
     expect(document.querySelector('[data-extension-panels]')).toBe(home);
     expect(home.hasAttribute('hidden')).toBe(false);
     expect(document.querySelector('.page-content').textContent).toContain('Global Workspace');
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('a page-only manifest mounts its entered page after native-first boot', async () => {
+  // Blocker 1: with zero panel roots the eligible home is empty on native
+  // boot, but the host must still listen so the transplanted page mounts.
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/admin/users');
+  document.body.innerHTML = liveMarkup({
+    content: plainAdminContent('<form id="user-list-search-form"></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {adminUserListSearchForm: {SortType: 'name'}}};
+  expect(document.querySelector('[data-extension-page],[data-extension-panel]')).toBeNull();
+  const importer = vi.fn(async () => ({mount: () => ({dispose: () => {}})}));
+  const workspacePageData = {extension: {id: 'example'}};
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Workspace', pageData: workspacePageData,
+    content: directContent(`Global Workspace${pageRootMarkup()}`), home: homeMarkup()})));
+  try {
+    initExtensionPages(importer);
+    initExtensionWorkspace(fetcher);
+    expect(importer).not.toHaveBeenCalled();
+    clickWorkspaceLink('/workspace');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/workspace'));
+    await vi.waitFor(() => expect(importer).toHaveBeenCalledOnce());
+    expect(document.querySelector('.page-content [data-extension-page]').hasAttribute('data-extension-mounted')).toBe(true);
   } finally {
     window.dispatchEvent(new Event('pagehide'));
     window.config = savedConfig;

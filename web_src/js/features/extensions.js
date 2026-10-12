@@ -94,8 +94,11 @@ function liveSessionMatches(url, generation, fetcher) {
 }
 
 export function initExtensionPages(importer = importExtension, fetcher = (...args) => window.fetch(...args)) {
+  const home = document.querySelector('[data-extension-panels]');
   const roots = document.querySelectorAll('[data-extension-page], [data-extension-panel]');
-  if (!roots.length) return;
+  // A page-only manifest leaves the eligible home empty on native boot;
+  // the host still listens so transplanted pages mount on entry.
+  if (!roots.length && !home) return;
   const pageRoots = new Set(Array.from(roots).filter((root) => root.hasAttribute('data-extension-page')));
   const mounted = [];
   const pending = new Map();
@@ -120,9 +123,11 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   // swap the workspace parks live page roots into a hidden shelter inside
   // the persistent panels home; the post-swap sync readopts them into the
   // entered duplicate (same identity reuses the owner, streams suspended
-  // meanwhile). The shelter holds at most four owners; older parked roots
-  // dispose.
-  const home = document.querySelector('[data-extension-panels]');
+  // meanwhile). The shelter holds at most four owners; the oldest parked
+  // root past four disposes, unless it carries data-extension-persist: a
+  // persistent shared owner (the Workspace terminal once C04 joins it) is
+  // never evicted silently, so the bound yields when every parked root
+  // persists.
   let park = home?.querySelector('[data-extension-page-park]') ?? null;
   function parkPageRoots() {
     if (leaving) return;
@@ -138,7 +143,8 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
       park.append(owner.root);
     }
     while (park.children.length > 4) {
-      const oldest = park.firstElementChild;
+      const oldest = Array.from(park.children).find((root) => !root.hasAttribute('data-extension-persist'));
+      if (!oldest) return;
       const owner = mounted.find((candidate) => candidate.root === oldest);
       oldest.remove();
       if (owner) {
@@ -174,12 +180,13 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   // whose contribution persists readopt into the entered duplicate
   // (identity triple plus generation must match; the entered duplicate is
   // discarded unmounted), receive the ordered update, and resume; parked
-  // owners with no matching root stay suspended in the shelter. Owners
-  // whose root left the document without parking dispose (pages) or retire
-  // (panels); genuinely new roots mount. Adoption runs after native init:
-  // native features target native content, never contribution roots, so
-  // init effects on the entered duplicate are discarded with it while the
-  // adopted owner keeps its state.
+  // owners with no matching root stay suspended in the shelter but still
+  // receive current facts as visible:false. Panels report the home's live
+  // visibility. Owners whose root left the document without parking
+  // dispose (pages) or retire (panels); genuinely new roots mount.
+  // Adoption runs after native init: native features target native
+  // content, never contribution roots, so init effects on the entered
+  // duplicate are discarded with it while the adopted owner keeps state.
   function syncContributionRoots(facts) {
     if (leaving) return;
     for (const [controller, root] of Array.from(pending)) {
@@ -193,6 +200,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
       if (!entered.has(pageIdentity(root))) entered.set(pageIdentity(root), root);
       else if (!root.hasAttribute('data-extension-mounted')) mountRoot(root);
     }
+    const panelsVisible = home ? !home.hasAttribute('hidden') : true;
     const owned = new Set();
     for (const owner of Array.from(mounted)) {
       const isPage = pageRoots.has(owner.root);
@@ -206,6 +214,8 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
           owned.add(owner.root);
           owner.update({...facts, mode: 'page', visible: true});
           owner.resume({sessionGeneration: owner.root.dataset.extensionSessionGeneration});
+        } else {
+          owner.update({...facts, mode: 'page', visible: false});
         }
         continue;
       }
@@ -220,7 +230,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
         continue;
       }
       owned.add(owner.root);
-      owner.update({...facts, mode: isPage ? 'page' : 'panel', visible: true});
+      owner.update({...facts, mode: isPage ? 'page' : 'panel', visible: isPage ? true : panelsVisible});
     }
     for (const root of entered.values()) {
       if (owned.has(root)) continue;
@@ -243,13 +253,20 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   let checkVersion = 0;
   let pendingCheck;
   let invalidated = false;
-  // Session invalidation targets the page roots when present; on plain
-  // panel-only documents the persistent home carries the notice instead.
-  const noticeTargets = () => (pageRoots.size ? Array.from(pageRoots) : (home ? [home] : []));
+  // Revalidation conceals the whole retained region at once: every live
+  // page root plus the persistent home (which carries all panel roots and
+  // the parked shelter). Display alone toggles, so connected DOM and
+  // sockets survive a valid session; only a mismatch retires owners and
+  // posts the notice.
+  const concealTargets = () => {
+    const targets = Array.from(pageRoots);
+    if (home && !targets.includes(home)) targets.push(home);
+    return targets;
+  };
   const invalidate = () => {
     if (invalidated) return;
     invalidated = true;
-    for (const root of noticeTargets()) {
+    for (const root of concealTargets()) {
       root.replaceChildren();
       root.style.display = '';
       root.textContent = 'Your session changed. Reload Forgejo to continue.';
@@ -258,13 +275,13 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   };
   const checkSession = () => {
     if (invalidated || pendingCheck) return;
-    for (const root of noticeTargets()) root.style.display = 'none';
+    for (const root of concealTargets()) root.style.display = 'none';
     const version = ++checkVersion;
     pendingCheck = liveSessionMatches(checkURL, generation, fetcher).then((matches) => {
       if (version !== checkVersion) return;
       if (!matches) invalidate();
       else {
-        for (const root of noticeTargets()) root.style.display = '';
+        for (const root of concealTargets()) root.style.display = '';
         for (const owner of mounted) owner.resume({sessionGeneration: generation});
       }
     }).finally(() => { if (version === checkVersion) pendingCheck = null; });
@@ -274,7 +291,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   const onPageHide = (event) => {
     checkVersion++;
     pendingCheck = null;
-    for (const root of noticeTargets()) root.style.display = 'none';
+    for (const root of concealTargets()) root.style.display = 'none';
     if (event.persisted) {
       for (const owner of mounted) owner.suspend();
       return;
