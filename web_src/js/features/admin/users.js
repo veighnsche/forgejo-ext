@@ -4,7 +4,9 @@ import {getPageData} from '../../native-lifecycle.js';
 const attached = new Map();
 
 function onRadioClick(event) {
-  event.currentTarget.form.submit();
+  // requestSubmit (not submit) so validation runs and the submit event fires:
+  // the host seam intercepts the resulting GET navigation for transplant.
+  event.currentTarget.form.requestSubmit();
 }
 
 function onResetClick(event) {
@@ -17,7 +19,7 @@ function onResetClick(event) {
       input.checked = false;
     }
   }
-  form.submit();
+  form.requestSubmit();
 }
 
 export function initAdminUserListSearchForm() {
