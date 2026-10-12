@@ -34,10 +34,10 @@ test('enhanceNativeNodes enhances dropdowns only inside the given root', () => {
 
 test('index wires document-delegated handlers as single globals', () => {
   const index = readFileSync('web_src/js/index.js', 'utf8');
-  for (const name of ['native-dropdowns', 'native-tooltips', 'native-modal-close', 'native-common-listeners']) {
+  for (const name of ['native-dropdowns', 'native-tooltips', 'native-modal-close', 'native-common-listeners', 'native-navbar-toggle', 'native-language-menu']) {
     expect(index).toContain(`registerGlobalFeature('${name}'`);
   }
-  for (const direct of ['initGlobalCommon();', 'initDropdowns();', 'initGlobalTooltips();', 'initModalClose();']) {
+  for (const direct of ['initGlobalCommon();', 'initDropdowns();', 'initGlobalTooltips();', 'initModalClose();', 'initHeadNavbarContentToggle();', 'initFootLanguageMenu();']) {
     expect(index).not.toContain(`\n  ${direct}`);
   }
   expect(index).toContain('initGlobalFeatures();');

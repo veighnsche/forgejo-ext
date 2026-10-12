@@ -104,6 +104,10 @@ registerGlobalFeature('native-dropdowns', initDropdowns);
 registerGlobalFeature('native-tooltips', initGlobalTooltips);
 registerGlobalFeature('native-modal-close', initModalClose);
 registerGlobalFeature('native-common-listeners', initGlobalCommonListeners);
+// Navbar and footer live in the persistent shell chrome, so their handlers
+// attach once and survive content transplants.
+registerGlobalFeature('native-navbar-toggle', initHeadNavbarContentToggle);
+registerGlobalFeature('native-language-menu', initFootLanguageMenu);
 
 // Init Gitea's Fomantic settings
 initGiteaFomantic();
@@ -129,9 +133,6 @@ onDomReady(() => {
   initCompWebHookEditor();
 
   initInstall();
-
-  initHeadNavbarContentToggle();
-  initFootLanguageMenu();
 
   initCommentContent();
   initContextPopups();
