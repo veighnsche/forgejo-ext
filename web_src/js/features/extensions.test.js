@@ -1,6 +1,6 @@
 import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {registerPageFeature, retirePageFeatures} from '../native-lifecycle.js';
+import {currentPageGeneration, initPageFeatures, registerPageFeature, retirePageFeatures} from '../native-lifecycle.js';
 import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 
 const origin = 'https://forge.example';
@@ -630,6 +630,43 @@ test('transplants null pageData as empty config but full-loads a missing embed',
   }
 });
 
+test('admits the dashboard mechanism while other admin layouts keep native loads', async () => {
+  // Fixture mechanism check only: dashboard polling/morph still requires
+  // the actual pinned HTMX real-browser proof.
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('Global Workspace'),
+    home: homeMarkup({panels: '<div id="notes-owner">notes</div>'}),
+    navbar: '<a href="/admin">Dashboard</a>',
+  });
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const owner = document.getElementById('notes-owner');
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({
+    title: 'Administration - Forgejo', pageData: {},
+    content: plainAdminContent('<div hx-get="/admin/system_status" hx-trigger="every 5s" id="dashboard-status"></div>'),
+    home: homeMarkup({hidden: true}),
+  })));
+  const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+  try {
+    initExtensionWorkspace(fetcher);
+    document.querySelector('#navbar a[href="/admin"]').click();
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin'));
+    expect(document.getElementById('dashboard-status')).not.toBeNull();
+    expect(window.config.pageData).toEqual({});
+    expect(document.getElementById('notes-owner')).toBe(owner);
+    expect(owner.isConnected).toBe(true);
+    expect(assign).not.toHaveBeenCalled();
+    clickWorkspaceLink('/admin/orgs');
+    expect(assign).toHaveBeenCalledWith('/admin/orgs');
+    expect(fetcher).toHaveBeenCalledOnce();
+  } finally {
+    assign.mockRestore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
 test('takes a full document load for unknown layouts', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');
@@ -905,7 +942,7 @@ test('documents without a home stay fully native', async () => {
   }
 });
 
-test('retires the document when the entered home carries a foreign generation', async () => {
+test('retires the document on a foreign generation even if native cleanup throws', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');
   document.body.innerHTML = liveMarkup({
@@ -913,6 +950,33 @@ test('retires the document when the entered home carries a foreign generation', 
     home: homeMarkup(),
   });
   window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const content = document.querySelector('.page-content');
+  const home = document.querySelector('[data-extension-panels]');
+  const consumerRetire = vi.fn();
+  initExtensionPages(async () => ({mount: () => ({retire: consumerRetire})}));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const retired = [];
+  let checkCleanup = true;
+  const cleanupError = new Error('native cleanup failed');
+  registerPageFeature('a02-invalidation-cleanup', {
+    init: () => {},
+    retire: () => { if (checkCleanup) retired.push('cleanup'); },
+  });
+  registerPageFeature('a02-invalidation-failure', {
+    init: () => {},
+    retire: () => {
+      if (!checkCleanup) return;
+      expect(content.style.display).toBe('none');
+      expect(home.hasAttribute('hidden')).toBe(true);
+      expect(home.hasAttribute('inert')).toBe(true);
+      expect(content.textContent).toContain('Global Workspace');
+      retired.push('throw');
+      throw cleanupError;
+    },
+  });
+  initPageFeatures();
+  const before = currentPageGeneration();
+  const report = vi.spyOn(console, 'error').mockImplementation(() => {});
   const fetcher = vi.fn(async () => navigationResponse(
     nativeDocument({title: 'Workspace', pageData: {extension: {id: 'example'}},
       content: directContent(`Foreign${pageRootMarkup({generation: 'session-b'})}`), home: homeMarkup({generation: 'session-b'})}),
@@ -926,8 +990,20 @@ test('retires the document when the entered home carries a foreign generation', 
     expect(document.querySelector('[data-extension-page]')).toBeNull();
     expect(document.querySelector('[data-extension-panels]').hasAttribute('hidden')).toBe(true);
     expect(invalidated).toHaveBeenCalledOnce();
+    expect(retired).toEqual(['throw', 'cleanup']);
+    expect(currentPageGeneration()).toBe(before + 1);
+    expect(report).toHaveBeenCalledWith('Could not retire native page features', cleanupError);
+    expect(consumerRetire).toHaveBeenCalledOnce();
+    expect(content.style.display).toBe('');
+    clickWorkspaceLink('/workspace?view=again');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(invalidated).toHaveBeenCalledOnce();
+    expect(consumerRetire).toHaveBeenCalledOnce();
     expect(window.config.pageData).toEqual({extension: {id: 'example'}});
   } finally {
+    checkCleanup = false;
+    retirePageFeatures();
+    report.mockRestore();
     window.removeEventListener('extension-workspace-invalidated', invalidated);
     window.dispatchEvent(new Event('pagehide'));
     window.config = savedConfig;

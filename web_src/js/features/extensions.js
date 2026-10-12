@@ -363,11 +363,19 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     home.setAttribute('hidden', '');
     home.setAttribute('inert', '');
     const content = liveContent();
-    if (content) {
-      content.replaceChildren();
-      content.textContent = 'Your session changed. Reload Forgejo to continue.';
+    if (content) content.style.display = 'none';
+    try {
+      retirePageFeatures();
+    } catch (error) {
+      console.error('Could not retire native page features', error);
+    } finally {
+      if (content) {
+        content.replaceChildren();
+        content.textContent = 'Your session changed. Reload Forgejo to continue.';
+        content.style.display = '';
+      }
+      window.dispatchEvent(new Event('extension-workspace-invalidated'));
     }
-    window.dispatchEvent(new Event('extension-workspace-invalidated'));
   }
 
   function checkSession() {
@@ -401,14 +409,13 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   // native (transplant full-loads them) until their features migrate.
   let current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
-  // H-0 transplantable layouts. Direct contribution documents and
-  // /admin/users (the first native page whose feature lifecycle is
-  // seam-managed, B02) swap their .page-content region. Unknown layouts
-  // take a full document load until their feature classes migrate.
+  // H-0 transplantable layouts: direct contributions, /admin dashboard
+  // and /admin/users. Their native features use the page seam; unknown
+  // layouts take a full document load until their features migrate.
   function transplantKind(path) {
     const pathname = new URL(path, origin).pathname;
     if (workspaceDirectPath(pathname, appSubPath)) return 'direct';
-    if (pathname === `${appSubPath}/admin/users`) return 'plain';
+    if (pathname === `${appSubPath}/admin` || pathname === `${appSubPath}/admin/users`) return 'plain';
     return null;
   }
 
