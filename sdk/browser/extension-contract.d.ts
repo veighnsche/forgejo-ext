@@ -96,6 +96,12 @@ export interface MountContext {
   appSubUrl: string;
   /** Native session generation this mount was admitted under. */
   sessionGeneration: string;
+  /**
+   * Canonical browser contract version implemented by the host.
+   * The mount refuses any other value, binding the consumer build
+   * to a compatible host runtime.
+   */
+  contractVersion: 1;
   /** Observed repository ID (display only, never authority). */
   repositoryId?: string;
   /**

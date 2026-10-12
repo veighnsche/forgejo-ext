@@ -9,6 +9,12 @@
 
 	</div>
 
+	{{/* NFX-A02 region_adopt: the persistent generic panels home. Rendered
+	by the shared native layout on every eligible document (guarded by
+	.ExtensionPanels data); hidden+inert on ordinary native shapes, visible
+	on direct contribution paths via .PageIsWorkspacePage. */}}
+	{{template "extensions/panels" .}}
+
 	{{template "custom/body_outer_post" .}}
 
 	{{template "base/footer_content" .}}

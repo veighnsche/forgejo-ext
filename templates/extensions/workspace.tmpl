@@ -1,9 +1,0 @@
-{{template "base/head" .}}
-<main class="extension-workspace" data-extension-workspace data-app-sub-url="{{AppSubUrl}}" data-workspace-path="{{.WorkspacePath}}" data-workspace-session-generation="{{.WorkspaceSessionGeneration}}">
-	<div class="ui container extension-workspace-notices">{{template "base/alert" .}}</div>
-	<div class="extension-workspace-layout">
-		<iframe class="extension-workspace-frame" title="Forgejo pages" data-extension-workspace-frame sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-modals allow-popups allow-top-navigation-by-user-activation"></iframe>
-		{{template "extensions/panels" .}}
-	</div>
-</main>
-{{template "base/footer" .}}

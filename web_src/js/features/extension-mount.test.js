@@ -11,6 +11,7 @@ function pageRoot() {
   root.dataset.extensionId = 'example';
   root.dataset.extensionPageId = 'home';
   root.dataset.extensionSessionGeneration = 'session-a';
+  root.dataset.extensionContractVersion = '1';
   return root;
 }
 
@@ -38,7 +39,7 @@ test('mounts a retained owner with scoped request and declared stream access', a
   expect(importer).toHaveBeenCalledWith(`${window.location.origin}/-/native/assets/example/main.js`);
   expect(mount).toHaveBeenCalledWith(root, expect.objectContaining({
     extensionId: 'example', pageId: 'home', panelId: undefined, appSubUrl: '',
-    repositoryId: '7', sessionGeneration: 'session-a',
+    repositoryId: '7', sessionGeneration: 'session-a', contractVersion: 1,
     request: expect.any(Function), stream: expect.any(Function),
   }));
   await owner.context.request('context');
@@ -65,11 +66,12 @@ test('mounts a panel under an installation subpath', async () => {
   root.dataset.extensionId = 'example';
   root.dataset.extensionPanelId = 'notes';
   root.dataset.extensionSessionGeneration = 'session-a';
+  root.dataset.extensionContractVersion = '1';
   const mount = vi.fn();
   const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount})), websocketClass: FakeSocket});
   expect(owner).not.toBeNull();
   expect(mount).toHaveBeenCalledWith(root, expect.objectContaining({
-    pageId: undefined, panelId: 'notes', repositoryId: undefined,
+    pageId: undefined, panelId: 'notes', repositoryId: undefined, contractVersion: 1,
   }));
   owner.dispose();
 });
@@ -116,6 +118,8 @@ test('refuses invalid mounts without importing or fetching', async () => {
     (root) => { root.dataset.extensionApiBase = '/-/native/pages/example/other/api/' },
     (root) => { root.dataset.extensionApiBase = '/-/native/pages/other/home/api/' },
     (root) => { delete root.dataset.extensionSessionGeneration },
+    (root) => { delete root.dataset.extensionContractVersion },
+    (root) => { root.dataset.extensionContractVersion = '2' },
     (root) => { root.dataset.appSubUrl = '/wrong' },
   ];
   for (const mutate of cases) {
