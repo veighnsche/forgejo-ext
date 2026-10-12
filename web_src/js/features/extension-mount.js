@@ -14,6 +14,8 @@
 // across ordinary navigation; a sheltered owner suspends and resumes with
 // the same root, resources and stream.
 
+import {navigateNative} from '../native-lifecycle.js';
+
 function validAppSubURL(value) {
   return typeof value === 'string' && (value === '' ||
     /^\/[^/\\?#\s]+(?:\/[^/\\?#\s]+)*$/.test(value) &&
@@ -53,16 +55,21 @@ const browserContractVersion = 1;
 
 /** Validate a contribution root's dataset without importing or fetching. */
 export function parseMountDataset(root) {
-  const {appSubUrl, extensionEntry, extensionId, extensionPageId, extensionPanelId, extensionApiBase, extensionAssetBase, extensionSessionGeneration, extensionRepositoryId, extensionContractVersion} = root.dataset;
+  const {appSubUrl, extensionEntry, extensionId, extensionPageId, extensionPanelId, extensionOwnerId, extensionApiBase, extensionAssetBase, extensionSessionGeneration, extensionRepositoryId, extensionContractVersion} = root.dataset;
   const mode = extensionPageId ? 'page' : 'panel';
   const contributionId = extensionPageId || extensionPanelId;
   if (!extensionId || !contributionId || !extensionSessionGeneration || extensionContractVersion !== String(browserContractVersion)) return {ok: false};
+  if (extensionOwnerId !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(extensionOwnerId)) return {ok: false};
   const entry = nativeMountURL(extensionEntry, appSubUrl);
   const assets = nativeMountURL(extensionAssetBase, appSubUrl);
   const api = nativeMountURL(extensionApiBase, appSubUrl);
   const apiSuffix = `/-/native/${mode}s/${extensionId}/${contributionId}/api/`;
+  // A linked shared owner's panel carries the page's canonical API base
+  // (NFX-C04/H-OWNER): one API identity for both modes.
+  const ownerPageAPI = mode === 'panel' && Boolean(extensionOwnerId) && Boolean(api) &&
+    api.pathname.includes(`/-/native/pages/${extensionId}/`) && api.pathname.endsWith('/api/');
   if (!entry || !assets || !api || assets.pathname !== `${appSubUrl}/-/native/assets/${extensionId}/` ||
-      !entry.href.startsWith(assets.href) || !nativeAPIPath(api.pathname, appSubUrl, apiSuffix)) {
+      !entry.href.startsWith(assets.href) || (!nativeAPIPath(api.pathname, appSubUrl, apiSuffix) && !ownerPageAPI)) {
     return {ok: false};
   }
   return {
@@ -71,6 +78,7 @@ export function parseMountDataset(root) {
     apiHref: api.href,
     assetHref: assets.href,
     extensionId, appSubUrl,
+    ownerId: extensionOwnerId,
     sessionGeneration: extensionSessionGeneration,
     repositoryId: extensionRepositoryId,
   };
@@ -140,7 +148,7 @@ function normalizeHandle(result) {
  * mount never settles. Aborting after settle retires the owner.
  */
 export async function mountContribution(root, hooks = {}) {
-  const {importer = defaultImporter, fetcher = (...args) => window.fetch(...args), websocketClass = globalThis.WebSocket, signal} = hooks;
+  const {importer = defaultImporter, fetcher = (...args) => window.fetch(...args), websocketClass = globalThis.WebSocket, navigator = navigateNative, signal} = hooks;
   const parsed = parseMountDataset(root);
   if (!parsed.ok) {
     root.textContent = 'This workspace view is unavailable.';
@@ -207,10 +215,16 @@ export async function mountContribution(root, hooks = {}) {
     sockets.add(contribution.socket);
     return contribution;
   };
+  const navigate = (path) => {
+    if (isTerminal()) throw new TypeError('Contribution transport is retired');
+    if (typeof path !== 'string' || path === '') throw new TypeError('Navigation path is invalid');
+    navigator(path);
+  };
   const context = {
     extensionId: parsed.extensionId,
     pageId: parsed.mode === 'page' ? parsed.contributionId : undefined,
     panelId: parsed.mode === 'panel' ? parsed.contributionId : undefined,
+    ownerId: parsed.ownerId,
     apiBase: parsed.apiHref,
     assetBase: parsed.assetHref,
     appSubUrl: parsed.appSubUrl,
@@ -219,6 +233,7 @@ export async function mountContribution(root, hooks = {}) {
     repositoryId: parsed.repositoryId,
     request,
     stream,
+    navigate,
   };
   let module;
   try {

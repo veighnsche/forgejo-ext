@@ -415,8 +415,8 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
 	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "preferred", Name: "Preferred", Version: "1", Executable: "run", PreferredWorkspace: true,
 		Capabilities: []string{extension.CapabilityContributionAuthorize},
-		Pages:        []extension.Page{{ID: "home", Title: "Home", Scope: "global", Route: "workspace", Entry: "main.js"}},
-		Panels:       []extension.Panel{{ID: "status", Title: "Status", Entry: "status.js"}}}
+		Pages: []extension.Page{{ID: "home", Title: "Home", Scope: "global", Route: "workspace", Entry: "main.js", Subroutes: []extension.Subroute{{Pattern: "new", Title: "New Project"}, {Pattern: "requests/{request}", Title: "Build request"}}}},
+		Panels: []extension.Panel{{ID: "status", Title: "Status", Entry: "status.js"}}}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
@@ -507,10 +507,14 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 		require.Contains(t, aliased.Body.String(), title)
 		require.Equal(t, generation, aliased.Header().Get(extension.SessionGenerationHeader))
 	}
-	owner.MakeRequest(t, document("/workspace/requests/not-an-id"), http.StatusNotFound)
+	// The host admits declared parameters opaquely (NFX-C04/H-ROUTE);
+	// product-ID validation belongs to the consumer backend, so this
+	// generic page renders for a value Soda would later reject.
+	owner.MakeRequest(t, document("/workspace/requests/not-an-id"), http.StatusOK)
+	owner.MakeRequest(t, document("/workspace/unknown"), http.StatusNotFound)
 	// Blocker 2: a matched route rendering the HTML error template shares
 	// the footer but must not mount contributions.
-	html404Request := document("/workspace/requests/not-an-id")
+	html404Request := document("/workspace/unknown")
 	html404Request.Header.Set("Accept", "text/html")
 	html404 := owner.MakeRequest(t, html404Request, http.StatusNotFound)
 	require.Contains(t, html404.Body.String(), `class="error-code"`)
