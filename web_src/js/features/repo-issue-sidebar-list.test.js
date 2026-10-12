@@ -3,7 +3,7 @@ import {initRepoIssueSidebarList, retireRepoIssueSidebarList} from './repo-issue
 
 // The shared setup stubs $.fn.dropdown as a non-chainable no-op; fomantic
 // returns the jQuery object, which the sidebar init chains on.
-$.fn.dropdown = function () { return this; };
+$.fn.dropdown = function () { return this };
 
 function installSidebar() {
   document.body.innerHTML = `<input type="hidden" id="repolink" value="owner/repo">

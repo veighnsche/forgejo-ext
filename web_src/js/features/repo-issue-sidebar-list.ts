@@ -27,55 +27,55 @@ export function initRepoIssueSidebarList() {
   const dependencyEl = document.getElementById('new-dependency-drop-list');
   if (dependencyEl && !dependencyEl.closest(contributionRootSelector)) {
     $('#new-dependency-drop-list')
-    .dropdown({
-      apiSettings: {
-        beforeSend(settings) {
-          if (!settings.urlData.query.trim()) {
-            settings.url = `${appSubUrl}/${repolink}/issues/search?q={query}&type=${tp}&sort=updated`;
-          } else if (crossRepoSearch) {
-            settings.url = `${appSubUrl}/issues/search?q={query}&priority_repo_id=${repoId}&type=${tp}&sort=relevance`;
-          } else {
-            settings.url = `${appSubUrl}/${repolink}/issues/search?q={query}&type=${tp}&sort=relevance`;
-          }
-          return settings;
-        },
-        onResponse(response: Record<string, {
-          id: string,
-          number: number,
-          title: string,
-          repository: {
-            full_name: string
-          }
-        }>) {
-          const filteredResponse = {success: true, results: []};
-          const currIssueId = $('#new-dependency-drop-list').data('issue-id');
-          // Parse the response from the api to work with our dropdown
-          for (const [_, issue] of Object.entries(response)) {
-            // Don't list current issue in the dependency list.
-            if (issue.id === currIssueId) {
-              continue;
+      .dropdown({
+        apiSettings: {
+          beforeSend(settings) {
+            if (!settings.urlData.query.trim()) {
+              settings.url = `${appSubUrl}/${repolink}/issues/search?q={query}&type=${tp}&sort=updated`;
+            } else if (crossRepoSearch) {
+              settings.url = `${appSubUrl}/issues/search?q={query}&priority_repo_id=${repoId}&type=${tp}&sort=relevance`;
+            } else {
+              settings.url = `${appSubUrl}/${repolink}/issues/search?q={query}&type=${tp}&sort=relevance`;
             }
-            filteredResponse.results.push({
-              name: `#${issue.number} ${issueTitleHTML(htmlEscape(issue.title))
-              }<div class="text small tw-break-anywhere">${htmlEscape(issue.repository.full_name)}</div>`,
-              value: issue.id,
-            });
-          }
-          return filteredResponse;
+            return settings;
+          },
+          onResponse(response: Record<string, {
+            id: string,
+            number: number,
+            title: string,
+            repository: {
+              full_name: string
+            }
+          }>) {
+            const filteredResponse = {success: true, results: []};
+            const currIssueId = $('#new-dependency-drop-list').data('issue-id');
+          // Parse the response from the api to work with our dropdown
+            for (const [_, issue] of Object.entries(response)) {
+            // Don't list current issue in the dependency list.
+              if (issue.id === currIssueId) {
+                continue;
+              }
+              filteredResponse.results.push({
+                name: `#${issue.number} ${issueTitleHTML(htmlEscape(issue.title))
+                }<div class="text small tw-break-anywhere">${htmlEscape(issue.repository.full_name)}</div>`,
+                value: issue.id,
+              });
+            }
+            return filteredResponse;
+          },
+          cache: false,
         },
-        cache: false,
-      },
 
-      fullTextSearch: true,
-    });
+        fullTextSearch: true,
+      });
     trackDropdown(dependencyEl);
   }
 
   $('.menu button.label-exclude-item-btn').each(function () {
     if (this.closest(contributionRootSelector)) return;
-    const button = this;
-    const onExcludeClick = function () {
-      const label = button.closest('.item').querySelector('a.label-filter-item');
+    const $button = $(this);
+    const onExcludeClick = () => {
+      const label = $button.closest('.item').find('a.label-filter-item')[0];
 
       if (!label) {
         return;
@@ -83,8 +83,8 @@ export function initRepoIssueSidebarList() {
 
       excludeLabel(label);
     };
-    $(button).on('click', onExcludeClick);
-    cleanups.push(() => $(button).off('click', onExcludeClick));
+    $button.on('click', onExcludeClick);
+    cleanups.push(() => $button.off('click', onExcludeClick));
   });
 
   // Increase surface area to include a label in the filters

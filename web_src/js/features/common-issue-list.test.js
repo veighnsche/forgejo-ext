@@ -5,6 +5,12 @@ import {initCommonIssueListQuickGoto, parseIssueListQuickGotoLink, retireCommonI
 
 vi.mock('../modules/fetch.js', () => ({GET: vi.fn()}));
 
+afterEach(() => {
+  retireCommonIssueListQuickGoto();
+  document.body.innerHTML = '';
+  window.history.replaceState(null, '', '/');
+});
+
 test('parseIssueListQuickGotoLink', () => {
   expect(parseIssueListQuickGotoLink('/link', '')).toEqual('');
   expect(parseIssueListQuickGotoLink('/link', 'abc')).toEqual('');
@@ -32,12 +38,6 @@ function installQuickGoto() {
   };
 }
 
-afterEach(() => {
-  retireCommonIssueListQuickGoto();
-  document.body.innerHTML = '';
-  window.history.replaceState(null, '', '/');
-});
-
 test('quick goto binds once, resolves against the current repo, and retires cleanly', async () => {
   GET.mockResolvedValue({status: 200});
   const {input, goto} = installQuickGoto();
@@ -57,7 +57,7 @@ test('quick goto binds once, resolves against the current repo, and retires clea
 
 test('a check that finishes after retirement cannot publish a stale goto link', async () => {
   let resolveGet;
-  GET.mockImplementation(() => new Promise((resolve) => { resolveGet = resolve; }));
+  GET.mockImplementation(() => new Promise((resolve) => { resolveGet = resolve }));
   const {input, goto} = installQuickGoto();
   initCommonIssueListQuickGoto();
   // The immediate check for "123" is in flight; retire the page, then let

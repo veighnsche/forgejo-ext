@@ -43,7 +43,7 @@ test('history menus are built from the current repository context and removed on
 test('an overview that resolves after retirement builds no menus', async () => {
   installIssuePage();
   let resolveGet;
-  GET.mockImplementation(() => new Promise((resolve) => { resolveGet = resolve; }));
+  GET.mockImplementation(() => new Promise((resolve) => { resolveGet = resolve }));
   const pending = initRepoIssueContentHistory();
   retirePageFeatures();
   resolveGet(overviewResponse());
