@@ -1,6 +1,7 @@
 import tippy, {followCursor} from 'tippy.js';
 import {isDocumentFragmentOrElementNode} from '../utils/dom.js';
 import {formatDatetime} from '../utils/time.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
 
 const visibleInstances = new Set();
 const arrowSvg = `<svg width="16" height="7"><path d="m0 7 8-7 8 7Z" class="tippy-svg-arrow-outer"/><path d="m0 8 8-7 8 7Z" class="tippy-svg-arrow-inner"/></svg>`;
@@ -120,16 +121,18 @@ function switchTitleToTooltip(target) {
  * According to https://www.w3.org/TR/DOM-Level-3-Events/#events-mouseevent-event-order , mouseover event is fired before mouseenter event
  * Some browsers like PaleMoon don't support "addEventListener('mouseenter', capture)"
  * The tippy by default uses "mouseenter" event to show, so we use "mouseover" event to switch to tippy
- * @param e {Event}
  */
-function lazyTooltipOnMouseHover(e) {
-  e.target.removeEventListener('mouseover', lazyTooltipOnMouseHover, true);
+function lazyTooltipOnMouseHover() {
+  this.removeEventListener('mouseover', lazyTooltipOnMouseHover, true);
+  // A lazily bound native node may have moved into a contribution meanwhile.
+  if (this.closest(contributionRootSelector)) return;
   attachTooltip(this);
 }
 
 // Activate the tooltip for current element.
 // If the element has no aria-label, use the tooltip content as aria-label.
 function attachLazyTooltip(el) {
+  if (el.closest(contributionRootSelector)) return;
   el.addEventListener('mouseover', lazyTooltipOnMouseHover, {capture: true});
 
   // meanwhile, if the element has no aria-label, use the tooltip content as aria-label
@@ -168,7 +171,7 @@ export function initGlobalTooltips() {
             attachLazyTooltip(el);
           }
         }
-      } else if (mutation.type === 'attributes') {
+      } else if (mutation.type === 'attributes' && !mutation.target.closest(contributionRootSelector)) {
         attachTooltip(mutation.target);
       }
     }
