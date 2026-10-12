@@ -278,6 +278,31 @@ test('transplant keeps one home, panels and address across contribution -> nativ
   }
 });
 
+test('a panel mounted on a hidden native-first home receives its initial non-visible presentation', async () => {
+  window.history.replaceState(null, '', '/admin/users');
+  document.body.innerHTML = liveMarkup({
+    content: plainAdminContent('<form id="user-list-search-form"></form>'),
+    home: homeMarkup({hidden: true, panels: panelRootMarkup()}),
+  });
+  const update = vi.fn();
+  const dispose = vi.fn();
+  let mountedResolve;
+  const mountedPromise = new Promise((resolve) => { mountedResolve = resolve });
+  const importer = vi.fn(async () => ({mount: () => {
+    mountedResolve();
+    return {dispose, update};
+  }}));
+  try {
+    initExtensionPages(importer);
+    await mountedPromise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(update).toHaveBeenCalledExactlyOnceWith({route: '/admin/users', params: {}, mode: 'panel', visible: false});
+    expect(dispose).not.toHaveBeenCalled();
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+  }
+});
+
 test('transplant delivers ordered presentation updates to retained panels', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');

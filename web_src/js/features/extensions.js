@@ -118,8 +118,24 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   let leaving = false;
   const settle = (owner) => {
     if (!owner) return;
-    if (leaving) owner.dispose();
-    else mounted.push(owner);
+    if (leaving) {
+      owner.dispose();
+      return;
+    }
+    mounted.push(owner);
+    // Initial presentation: a panel mounted while the persistent home is
+    // hidden (native-first load) starts non-visible, so the host tells it
+    // immediately instead of leaving it to assume visible work until the
+    // first navigation update. Visible mounts need no initial update: the
+    // contract default already matches the host state.
+    if (!owner.root.hasAttribute('data-extension-page') && home?.hasAttribute('hidden')) {
+      const route = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const repositoryId = owner.root.dataset.extensionRepositoryId;
+      owner.update({
+        route, params: Object.fromEntries(new URLSearchParams(window.location.search)),
+        mode: 'panel', visible: false, ...(repositoryId ? {repositoryId} : {}),
+      });
+    }
   };
   function mountRoot(root) {
     if (leaving || root.hasAttribute('data-extension-mounted')) return;
