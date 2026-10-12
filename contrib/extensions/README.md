@@ -120,13 +120,15 @@ return a cleanup function or an object with `dispose()`. Mount is called once pe
 root; cleanup runs on departures that do not retain the document in the browser's
 back/forward cache. Cached documents retain their mounts while suspended. The context contains
 `extensionId`, `pageId` or `panelId`, `apiBase`, `assetBase`, `appSubUrl`,
-`sessionGeneration`, and optional observed `repositoryId`. The repository ID
-selects a display only; it does not widen a global contribution's authority.
+`sessionGeneration`, scoped `request(relativePath, options)`, and optional observed
+`repositoryId`. The request helper applies the native URL/session contract. The
+repository ID selects a display only; it does not widen a global contribution's
+authority.
 
 ```js
-export function mount(root, {apiBase}) {
+export function mount(root, {request}) {
   const controller = new AbortController();
-  fetch(`${apiBase}context`, {signal: controller.signal})
+  request('context', {signal: controller.signal})
     .then((response) => {
       if (!response.ok) throw new Error('Request failed');
       return response.json();
@@ -144,23 +146,87 @@ release listeners, timers and requests in cleanup. Native cross-origin request
 protection applies to backend calls. Extensions own their UI and styling inside
 their mount roots.
 
-A preferred workspace is composed at the original native URL after the native
-handler and permissions succeed. Global and repository Workspace render directly
-through the shared native
-head, navbar, repository header and footer templates. Persistent contribution
-roots remain connected while the host replaces native Workspace content. The
-Workspace owner changes presentation without a remount. Ordinary native browser
-document GETs retain panels beside an iframe at the same canonical pathname,
-query and fragment, preserving native frontend initialization. Workspace itself
-is never framed. Iframe GETs render ordinary pages; Fetch Metadata changes
-presentation only. Authentication, account restrictions, credential flows, partial responses, failed responses and
-external navigation keep their native handling. Flash notices consumed by the
-initial GET render in the composed document. Native history uses the actual page
-address, with no wrapper URL or path query. Reloads and uncached departures create
-new mounts; ordinary navigation preserves mounted panels and execution attachment.
-The host validates the current session at `/-/native/session` before restoring
-private cached state. A panel has actor authority only; a displayed repository does
-not grant repository authority.
+The current preferred-workspace implementation selects an alternate presentation
+after successful native handlers. Workspace renders directly with shared native
+templates; ordinary native documents use an iframe beside retained panels. The
+client copies Workspace content from fetched documents. This mechanism has
+composed navigation and initialization failures; its iframe/content-copy design
+is superseded by the correction target below. Retaining native handlers or reusing
+head/footer templates alone does not establish native frontend lifecycle behavior.
+
+Authentication, account restrictions, credential flows, partial/failed responses
+and external navigation retain native handling. The host checks the current
+session at `/-/native/session` before exposing private cached state. A panel has
+actor authority only; an observed repository does not grant repository authority.
+
+## Native frontend correction target
+
+This is the required ownership boundary for the pending correction, not a claim
+that the current browser interface implements it. Fountain owns the existing
+Forgejo frontend and its extension integration. Consumers render product content
+through that frontend. The reusable capability must work without Soda, its
+template payload, product IDs or domain models.
+
+| Responsibility | Fountain | Consumer |
+| --- | --- | --- |
+| Native shell | Native navigation, account controls, repository headers, notices, footer and approved contribution placement. | Contribution labels and product content; no replacement shell or chrome. |
+| Native page transitions | Canonical URL/appSubUrl/query/fragment/title/history, focus/scroll, page configuration, native feature initialization and teardown, conditional scripts, forms and HTMX. | Content routes and product parameter meaning; invoke native navigation without intercepting core pages. |
+| Contribution registration | Guarded native routes, namespace/collision checks and declared page/panel relationships. | Declare pages, subordinate content routes, panels, scopes and required permissions; validate product identities in its backend. |
+| Mount ownership | Select one instance for a declared shared page/panel owner; retain its connected root while presentation changes. | Render once in the supplied root and retain its own view/resources; no inspection of another mount or host ancestors. |
+| Presentation and context | Publish page/panel mode, current route and parameters, observed repository, visibility and lifecycle updates. | Update displayed content from the supplied facts; browsing must not retarget an existing execution. |
+| Geometry and styling | Usable responsive native containers and the native theme/component contract; initialize native UI mechanisms. | Local content layout, terminal cell sizing and correctly built scoped styles/assets. No body/navbar/footer sizing or global theme replacement. |
+| Browser authority | Native admission, session suspension/revalidation, revocation, guarded request/stream facilities and retirement signals. | Consume the lifecycle and clean up its resources when retired; enforce additional domain/membership/operator policy on every protected operation. |
+| Product and execution | Native collaboration primitives and their native authorization. | Product workflows, durable state, factory policy, terminal protocol/renderer and external process/session ownership. |
+
+The public browser contract needs one canonical definition supplied by Fountain.
+It must express initial mount, subsequent context/presentation updates, suspension,
+validated resumption and final retirement. Scoped HTTP/stream helpers must enforce
+the contribution URL and session lifetime without knowing an application's wire
+protocol. Exact signatures follow the native capability proof; consumers must not
+fill missing platform capabilities with DOM selectors or duplicate transport rules.
+Browser context remains display information, never operation authority.
+
+Persistent contributions retain the same root and local resources, including a
+renderer/socket where used, through ordinary native navigation. The host changes
+presentation within the native layout without disconnecting that owner. Reload
+creates a fresh browser mount through normal
+admission. Authentication, installation, credential flows, errors and departures
+retain their appropriate native handling. Cached return stays private until the
+host revalidates the session; consumers receive the resulting lifecycle instead
+of independently interpreting `pagehide`/`pageshow`. Loss of authority retires the
+mount and its transport, without becoming a product execution command.
+
+Fountain must not encode a consumer's saved-request IDs, Project/terminal-session
+records or factory rules. Consumers declare content routes; Fountain enforces
+their bounded registration and conflicts. The same distinction applies to styles:
+native components and light/dark selection belong to the host, while a consumer
+must compile valid local styles and keep its own forms/settings/dialogs usable.
+
+### Native capability proof and cutover
+
+1. Prove the critical boundary in Fountain using actual native templates, assets,
+   configuration and initializers, with the existing generic notes example. It
+   currently uses HTTP; add or reuse an admitted native test stream for the proof.
+   No Soda imports, template overrides, request IDs or host-DOM inspection belong
+   in the example. Exercise native → contribution → native and the reverse entry
+   order, global/repository context, a working native control after each change,
+   Back/Forward, query/fragment/title, focus/scroll and session invalidation.
+   Assert one mount and identical retained node, resource and socket objects.
+2. Supply the reusable manifest/browser lifecycle contract and native container
+   behavior. Integrate the needed initialization/cleanup into native feature
+   owners; use the existing Forgejo frontend mechanisms rather than a parallel
+   component framework. A whole-document reload cannot establish same-object
+   persistence. A failed native proof is an unresolved capability, not permission
+   to substitute consumer reconnection or another wrapper.
+3. Replace the iframe router, selective full-document extraction and wrapper-only
+   chrome hiding with the proved native lifecycle. Retain native handlers,
+   contribution guards, admission, callbacks and stream revocation. Qualify the
+   affected native feature classes before widening navigation support; the first
+   route proof alone does not establish the whole site's lifecycle.
+4. Migrate consumers to the host contract and remove obsolete shell adapters with
+   their callers/fixtures. Verify the actual installed consumer composition and
+   resources separately; a generic example does not prove an application's xterm
+   behavior, content geometry or emitted stylesheet correctness.
 
 ## Backend interface
 
@@ -188,21 +254,23 @@ a reader. Partition private state by authoritative IDs rather than browser input
 The proxy supports ordinary GET, HEAD, POST, PUT, PATCH and DELETE requests,
 forwards Accept, Accept-Language and Content-Type, and preserves the relative
 API path and query. Requests have a 30-second deadline; request and response
-bodies are limited to 8 MiB. Responses are buffered and only Content-Type and
-status are propagated, with caching disabled. Redirects, WebSocket upgrades and
-server-sent events are rejected. The example demonstrates per-actor storage and
-atomic note replacement without placing extension data in Forgejo tables.
+bodies are limited to 8 MiB. Ordinary responses are buffered and only Content-Type
+and status are propagated, with caching disabled. Redirects and server-sent events
+are rejected. WebSocket requests use a separate same-origin admitted stream path
+that checks continuing native authority and closes on revocation. These streaming
+limits do not inherit the buffered-response contract. The example demonstrates
+per-actor storage and atomic note replacement without placing extension data in
+Forgejo tables.
 
 ## Current boundaries
 
 This foundation provides native contributions, independently built backend
-packages, bounded authenticated HTTP, persistent panel mounts and local package
-management. It does not yet provide long-lived terminal streams, core mutation
-capabilities, service veto hooks, durable event delivery, a marketplace or an
-untrusted-code sandbox. Streaming needs a separately verified session-revocation
-and response-writer integration with this Forgejo version before it can carry a
-terminal. Extend these contracts for demonstrated callers instead of exposing
-arbitrary internal objects or adding parallel authentication systems.
+packages, bounded authenticated HTTP, admitted WebSocket transport, persistent
+panel mounts, bounded native operations and local package management. Ordinary
+buffered HTTP and live-stream handling have separate response/lifetime contracts;
+the browser persistence correction above remains unproved. It does not provide a
+marketplace or an untrusted-code sandbox. Extend demonstrated native capabilities
+instead of exposing arbitrary internal objects or adding parallel authentication.
 
 ## Conditional issue graph changes
 
