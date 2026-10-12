@@ -7,39 +7,27 @@
   min-height: 10rem;
 }
 
-.extension-workspace {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-  min-height: 30rem;
-}
-
-.extension-workspace-layout {
-  display: flex;
-  flex: 1;
-  min-height: 30rem;
-}
-
-.extension-workspace-frame {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-}
-
+/* NFX-A02 region_adopt: the persistent panels home lives in the shared
+native layout after the content wrapper. Geometry/placement beyond the
+structural rules below belongs to lane F; these rules only keep the home
+and its hidden state from disturbing native layout. */
 .extension-workspace-panels {
-  flex: 0 0 auto;
-  width: min(24rem, 35vw);
-  min-width: 14rem;
-  max-width: 50vw;
-  overflow: auto;
-  resize: horizontal;
-  border-left: 1px solid var(--color-secondary);
+  min-width: 0;
 }
 
 .extension-workspace-panel {
+  display: flex;
+  flex-direction: column;
   padding: 1rem;
   border-bottom: 1px solid var(--color-secondary);
+}
+
+/* The mount div is the sized scroll parent: flex child with a definite
+block size so height:100% contribution chains bind against it. */
+.extension-workspace-panel > [data-extension-panel] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .extension-workspace-panel h2 {
@@ -47,14 +35,4 @@
   margin: 0 0 .75rem;
 }
 
-@media (max-width: 800px) {
-  .extension-workspace-layout { flex-direction: column; }
-  .extension-workspace-frame { min-height: 65vh; }
-  .extension-workspace-panels { width: auto; max-width: none; resize: none; border-left: 0; border-top: 1px solid var(--color-secondary); }
-}
-
-.extension-workspace-direct { height: auto; min-height: 0; }
-.extension-workspace-direct .extension-workspace-panels { width: 100%; max-width: none; border: 0; resize: none; }
-.extension-workspace-direct .extension-workspace-panel > h2 { display: none; }
-.extension-workspace-direct .extension-workspace-panel { padding: 0; border: 0; }
-.extension-workspace [hidden], #navbar[hidden], .page-footer[hidden] { display: none !important; }
+#extension-panels[hidden] { display: none !important; }

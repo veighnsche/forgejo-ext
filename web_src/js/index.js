@@ -14,7 +14,7 @@ import {initRepoProject} from './features/repo-projects.js';
 import {initTableSort} from './features/tablesort.js';
 import {initAutoFocusEnd} from './features/autofocus-end.js';
 import {initAdminUserListSearchForm, retireAdminUserListSearchForm} from './features/admin/users.js';
-import {initPageFeatures, registerPageFeature} from './native-lifecycle.js';
+import {initGlobalFeatures, initPageFeatures, registerGlobalFeature, registerPageFeature} from './native-lifecycle.js';
 import {initAdminConfigs} from './features/admin/config.js';
 import {initMarkupAnchors} from './markup/anchors.js';
 import {initNotificationCount, initNotificationsTable} from './features/notification.js';
@@ -39,7 +39,8 @@ import {
   initFootLanguageMenu,
   initGlobalButtonClickOnEnter,
   initGlobalButtons,
-  initGlobalCommon,
+  initGlobalCommonListeners,
+  enhanceNativeNodes,
   initDisabledInputs,
   initGlobalDropzone,
   initGlobalEnterQuickSubmit,
@@ -97,15 +98,26 @@ registerPageFeature('admin-user-list-search-form', {
   retire: retireAdminUserListSearchForm,
 });
 
+// Document-delegated handlers: each initializes once per document and stays
+// single across native transitions; they query live DOM at event time.
+registerGlobalFeature('native-dropdowns', initDropdowns);
+registerGlobalFeature('native-tooltips', initGlobalTooltips);
+registerGlobalFeature('native-modal-close', initModalClose);
+registerGlobalFeature('native-common-listeners', initGlobalCommonListeners);
+// Navbar and footer live in the persistent shell chrome, so their handlers
+// attach once and survive content transplants.
+registerGlobalFeature('native-navbar-toggle', initHeadNavbarContentToggle);
+registerGlobalFeature('native-language-menu', initFootLanguageMenu);
+
 // Init Gitea's Fomantic settings
 initGiteaFomantic();
 initDirAuto();
 
 onDomReady(() => {
-  initGlobalCommon();
+  initGlobalFeatures();
+  enhanceNativeNodes(document);
 
   initDisabledInputs(document);
-  initGlobalTooltips();
   initGlobalButtonClickOnEnter();
   initGlobalButtons();
   initGlobalCopyToClipboardListener();
@@ -113,7 +125,6 @@ onDomReady(() => {
   initGlobalEnterQuickSubmit();
   initGlobalFormDirtyLeaveConfirm();
   initGlobalLinkActions();
-  initDropdowns();
 
   initCommonOrganization();
   initCommonIssueListQuickGoto();
@@ -122,9 +133,6 @@ onDomReady(() => {
   initCompWebHookEditor();
 
   initInstall();
-
-  initHeadNavbarContentToggle();
-  initFootLanguageMenu();
 
   initCommentContent();
   initContextPopups();
@@ -199,7 +207,6 @@ onDomReady(() => {
   initUserAuth();
   initRepoDiffView();
   initColorPickers();
-  initModalClose();
   initExtensionPages();
   initExtensionWorkspace();
 

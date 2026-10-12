@@ -1,4 +1,4 @@
-export function mount(root, {request}) {
+export function mount(root, {request, stream}) {
   root.classList.add('ui', 'form');
   const label = document.createElement('label');
   const field = document.createElement('div');
@@ -72,13 +72,65 @@ export function mount(root, {request}) {
   input.addEventListener('input', onInput);
   save.addEventListener('click', onSave);
   field.append(label, input);
-  root.append(field, save, status, lifetime);
+  const streamStatus = document.createElement('p');
+  streamStatus.dataset.streamConnection = '';
+  streamStatus.textContent = 'Stream: unavailable';
+  const pingButton = document.createElement('button');
+  pingButton.type = 'button';
+  pingButton.className = 'ui button';
+  pingButton.textContent = 'Ping stream';
+  pingButton.disabled = true;
+  const reply = document.createElement('p');
+  reply.dataset.streamReply = '';
+  root.append(field, save, status, lifetime, streamStatus, pingButton, reply);
   load();
+
+  let closeStream;
+  let pings = 0;
+  try {
+    if (typeof stream !== 'function') throw new Error('Stream helper unavailable');
+    const held = stream('stream');
+    const socket = held.socket;
+    closeStream = held.close;
+    if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+      throw new Error('Stream unavailable');
+    }
+    socket.addEventListener('message', (event) => {
+      let payload = null;
+      try {
+        payload = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (payload && typeof payload.hello === 'string' && !streamStatus.dataset.streamConnection) {
+        streamStatus.dataset.streamConnection = payload.hello;
+        streamStatus.textContent = `Stream: connected (${payload.hello})`;
+        pingButton.disabled = false;
+        return;
+      }
+      if (payload && payload.ping !== undefined) {
+        reply.dataset.streamReply = String(payload.ping);
+        reply.textContent = `Reply: ${payload.ping}`;
+      }
+    });
+    socket.addEventListener('close', () => {
+      pingButton.disabled = true;
+      if (!disposed) streamStatus.textContent = 'Stream: closed';
+    });
+    pingButton.addEventListener('click', () => {
+      if (socket.readyState !== WebSocket.OPEN) return;
+      pings += 1;
+      socket.send(JSON.stringify({ping: `ping-${pings}`}));
+    });
+  } catch {
+    streamStatus.textContent = 'Stream: unavailable';
+  }
 
   return () => {
     disposed = true;
     controller.abort();
     window.clearInterval(timer);
+    closeStream?.();
     input.removeEventListener('input', onInput);
     save.removeEventListener('click', onSave);
   };

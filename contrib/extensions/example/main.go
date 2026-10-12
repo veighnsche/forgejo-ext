@@ -16,6 +16,8 @@ import (
 	"unicode/utf8"
 
 	extensions "forgejo.org/extension-sdk"
+
+	"github.com/coder/websocket"
 )
 
 const maxNoteBytes = 16 << 10
@@ -40,7 +42,65 @@ func newHandler(dataDir string) http.Handler {
 	})
 	handler.HandleFunc("GET /notes", notesHandler(dataDir))
 	handler.HandleFunc("PUT /notes", notesHandler(dataDir))
+	handler.HandleFunc("GET /stream", streamHandler())
 	return handler
+}
+
+// streamHandler serves the admitted notes-panel stream: the host proxies an
+// authenticated browser websocket here carrying only host-minted admission,
+// never browser credentials. Admission mirrors the integration fixture:
+// native panel authority, no leaked credential headers, and a native
+// callback round-trip before the socket is accepted. The panel greets with
+// {"hello": username} and echoes JSON payloads (ping replies).
+func streamHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authority, err := extensions.RequestContext(r)
+		if err != nil || authority.Actor.ID == "" || authority.Contribution.Kind != "panel" || authority.Contribution.ID != "notes" {
+			http.Error(w, "Missing native panel authority", http.StatusUnauthorized)
+			return
+		}
+		if r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" || r.Header.Get("Sec-WebSocket-Protocol") != "" || r.Header.Get(extensions.SessionGenerationHeader) != "" {
+			http.Error(w, "browser credential leaked", http.StatusForbidden)
+			return
+		}
+		actor, err := authority.Native().CurrentActor(r.Context())
+		if err != nil {
+			http.Error(w, "native callback", http.StatusForbidden)
+			return
+		}
+		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+		if err != nil {
+			return
+		}
+		defer conn.CloseNow()
+		hello, err := json.Marshal(map[string]string{"hello": actor.Username})
+		if err != nil {
+			return
+		}
+		if err := conn.Write(r.Context(), websocket.MessageText, hello); err != nil {
+			return
+		}
+		for {
+			kind, body, err := conn.Read(r.Context())
+			if err != nil {
+				return
+			}
+			if kind != websocket.MessageText && kind != websocket.MessageBinary {
+				continue
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(body, &payload); err != nil {
+				continue
+			}
+			echo, err := json.Marshal(payload)
+			if err != nil {
+				return
+			}
+			if err := conn.Write(r.Context(), websocket.MessageText, echo); err != nil {
+				return
+			}
+		}
+	}
 }
 
 func notesHandler(dataDir string) http.HandlerFunc {
