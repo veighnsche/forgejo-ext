@@ -161,12 +161,18 @@ export function initGlobalCommonListeners() {
   document.addEventListener('click', linkAction);
 }
 
+// Elements already enhanced. Retire drops transplanted ones so the outgoing
+// region's instances are destroyed and never pinned; live chrome stays.
+const enhancedDropdowns = new Set();
+const enhancedTabs = new Set();
+
 // Enhances fresh nodes only: fomantic dropdowns and tabs inside root.
-// Called with document at boot and with the transplanted region after a
-// native transition. Never call on already-enhanced nodes.
+// Called with document at boot and after every native transition through the
+// page seam; already-enhanced nodes are skipped, never double-bound.
 export function enhanceNativeNodes(root = document) {
   // Semantic UI modules.
-  const $uiDropdowns = $(root).find('.ui.dropdown').addBack('.ui.dropdown');
+  const $uiDropdowns = $(root).find('.ui.dropdown').addBack('.ui.dropdown')
+    .filter((_, el) => !enhancedDropdowns.has(el));
 
   // do not init "custom" dropdowns, "custom" dropdowns are managed by their own code.
   $uiDropdowns.filter(':not(.custom)').dropdown();
@@ -207,8 +213,33 @@ export function enhanceNativeNodes(root = document) {
   $uiDropdowns.filter('.upward').dropdown('setting', 'direction', 'upward');
   $uiDropdowns.filter('.downward').dropdown('setting', 'direction', 'downward');
 
+  for (const el of $uiDropdowns.get()) {
+    enhancedDropdowns.add(el);
+  }
+
   for (const el of root.querySelectorAll('.tabular.menu')) {
+    if (enhancedTabs.has(el)) continue;
     initTab(el);
+    enhancedTabs.add(el);
+  }
+}
+
+// Destroys fomantic instances in the outgoing transplant region and drops all
+// detached tracked nodes so retired pages are never pinned. Live chrome
+// outside the transplant slot is untouched.
+export function retireNativeNodes() {
+  for (const el of enhancedDropdowns) {
+    if (el.closest('[data-extension-workspace-direct-content]')) {
+      if (el.isConnected) $(el).dropdown('destroy');
+      enhancedDropdowns.delete(el);
+    } else if (!el.isConnected) {
+      enhancedDropdowns.delete(el);
+    }
+  }
+  for (const el of enhancedTabs) {
+    if (!el.isConnected || el.closest('[data-extension-workspace-direct-content]')) {
+      enhancedTabs.delete(el);
+    }
   }
 }
 

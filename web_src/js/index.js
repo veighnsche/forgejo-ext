@@ -41,6 +41,7 @@ import {
   initGlobalButtons,
   initGlobalCommonListeners,
   enhanceNativeNodes,
+  retireNativeNodes,
   initDisabledInputs,
   initGlobalDropzone,
   initGlobalEnterQuickSubmit,
@@ -108,6 +109,12 @@ registerGlobalFeature('native-common-listeners', initGlobalCommonListeners);
 // attach once and survive content transplants.
 registerGlobalFeature('native-navbar-toggle', initHeadNavbarContentToggle);
 registerGlobalFeature('native-language-menu', initFootLanguageMenu);
+// Fresh-node enhancement flows through the page seam so every transplant
+// enhances its incoming region with no transition-side calls.
+registerPageFeature('native-node-enhancement', {
+  init: () => enhanceNativeNodes(document),
+  retire: retireNativeNodes,
+});
 
 // Init Gitea's Fomantic settings
 initGiteaFomantic();
