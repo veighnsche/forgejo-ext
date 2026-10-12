@@ -1,9 +1,31 @@
+import {getPageData} from '../../native-lifecycle.js';
+
+// Tracks attached listeners per form so retire removes exactly what init added.
+const attached = new Map();
+
+function onRadioClick(event) {
+  event.currentTarget.form.submit();
+}
+
+function onResetClick(event) {
+  event.preventDefault();
+  // The reset control is an anchor (templates/admin/user/list.tmpl), which has
+  // no form property, so resolve the owning form from the DOM.
+  const form = event.currentTarget.closest('form');
+  for (const input of form.querySelectorAll('input[type=radio]')) {
+    if (input.name.startsWith('status_filter[')) {
+      input.checked = false;
+    }
+  }
+  form.submit();
+}
+
 export function initAdminUserListSearchForm() {
-  const searchForm = window.config.pageData.adminUserListSearchForm;
+  const searchForm = getPageData().adminUserListSearchForm;
   if (!searchForm) return;
 
   const form = document.querySelector('#user-list-search-form');
-  if (!form) return;
+  if (!form || attached.has(form)) return;
 
   for (const button of form.querySelectorAll(`button[name=sort][value="${searchForm.SortType}"]`)) {
     button.classList.add('active');
@@ -18,22 +40,24 @@ export function initAdminUserListSearchForm() {
     }
   }
 
+  const listeners = [];
   for (const radio of form.querySelectorAll('input[type=radio]')) {
-    radio.addEventListener('click', () => {
-      form.submit();
-    });
+    radio.addEventListener('click', onRadioClick);
+    listeners.push([radio, 'click', onRadioClick]);
   }
 
-  const resetButtons = form.querySelectorAll('.j-reset-status-filter');
-  for (const button of resetButtons) {
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-      for (const input of form.querySelectorAll('input[type=radio]')) {
-        if (input.name.startsWith('status_filter[')) {
-          input.checked = false;
-        }
-      }
-      form.submit();
-    });
+  for (const button of form.querySelectorAll('.j-reset-status-filter')) {
+    button.addEventListener('click', onResetClick);
+    listeners.push([button, 'click', onResetClick]);
+  }
+  attached.set(form, listeners);
+}
+
+export function retireAdminUserListSearchForm() {
+  for (const [form, listeners] of attached) {
+    for (const [el, type, handler] of listeners) {
+      el.removeEventListener(type, handler);
+    }
+    attached.delete(form);
   }
 }
