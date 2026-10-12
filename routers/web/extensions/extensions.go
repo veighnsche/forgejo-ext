@@ -371,6 +371,13 @@ func workspaceDocument(ctx *context.Context) bool {
 }
 
 func renderWorkspace(ctx *context.Context, original base.TplName) base.TplName {
+	direct, _ := ctx.Data["PageIsWorkspacePage"].(bool)
+	if !direct {
+		// NFX-A02: ordinary native pages render as plain documents. The
+		// workspace shell exists only on direct contribution paths; in-shell
+		// navigation transplants native content instead of framing it.
+		return original
+	}
 	manager := runtime.GetManager()
 	if manager == nil {
 		return original
@@ -398,14 +405,9 @@ func renderWorkspace(ctx *context.Context, original base.TplName) base.TplName {
 	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
 	ctx.Data["WorkspacePath"] = setting.AppSubURL + ctx.Req.URL.RequestURI()
 	ctx.Data["WorkspaceSessionGeneration"] = generation
-	direct, _ := ctx.Data["PageIsWorkspacePage"].(bool)
-	ctx.Data["PageIsExtensionWorkspace"] = !direct
 	ctx.Data["ExtensionPanels"] = panels
 	ctx.PageData["extensionPanels"] = panels
-	if direct {
-		return "extensions/workspace_page"
-	}
-	return "extensions/workspace"
+	return "extensions/workspace_page"
 }
 
 var workspaceAuthPath = regexp.MustCompile(`(^|/)user/(login|logout|sign_up|forgot_password|forget_password|reset_password|recover_account|activate|activate_email|two_factor|webauthn|oauth2|openid|link_account|link_account_signin|link_account_signup)(/|$)|(^|/)user/settings/(change_password|security|applications|keys)(/|$)|(^|/)(install|login/oauth|login/openid|oauth2|openid)(/|$)`)
