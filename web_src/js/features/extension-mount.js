@@ -47,12 +47,15 @@ function scopedTarget(relativePath, apiHref) {
   return target;
 }
 
+/** Canonical browser contract version implemented by this mount module. Must match the host-rendered data-extension-contract-version. */
+const browserContractVersion = 1;
+
 /** Validate a contribution root's dataset without importing or fetching. */
 export function parseMountDataset(root) {
-  const {appSubUrl, extensionEntry, extensionId, extensionPageId, extensionPanelId, extensionApiBase, extensionAssetBase, extensionSessionGeneration, extensionRepositoryId} = root.dataset;
+  const {appSubUrl, extensionEntry, extensionId, extensionPageId, extensionPanelId, extensionApiBase, extensionAssetBase, extensionSessionGeneration, extensionRepositoryId, extensionContractVersion} = root.dataset;
   const mode = extensionPageId ? 'page' : 'panel';
   const contributionId = extensionPageId || extensionPanelId;
-  if (!extensionId || !contributionId || !extensionSessionGeneration) return {ok: false};
+  if (!extensionId || !contributionId || !extensionSessionGeneration || extensionContractVersion !== String(browserContractVersion)) return {ok: false};
   const entry = nativeMountURL(extensionEntry, appSubUrl);
   const assets = nativeMountURL(extensionAssetBase, appSubUrl);
   const api = nativeMountURL(extensionApiBase, appSubUrl);
@@ -186,6 +189,7 @@ export async function mountContribution(root, hooks = {}) {
     assetBase: parsed.assetHref,
     appSubUrl: parsed.appSubUrl,
     sessionGeneration: parsed.sessionGeneration,
+    contractVersion: browserContractVersion,
     repositoryId: parsed.repositoryId,
     request,
     stream,
