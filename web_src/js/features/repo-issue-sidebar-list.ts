@@ -1,16 +1,32 @@
 import $ from 'jquery';
 import {htmlEscape} from 'escape-goat';
 import {emojiHTML} from './emoji.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
 
 const {appSubUrl} = window.config;
 
+// Bindings and dropdown instances owned by the current page. Retire runs
+// every cleanup exactly once; elements inside retained contribution roots
+// are never bound or destroyed here.
+const cleanups: Array<() => void> = [];
+const sidebarDropdowns = new Set<HTMLElement>();
+let sidebarActive = false;
+
+function trackDropdown(el: HTMLElement) {
+  if (!el.closest(contributionRootSelector)) sidebarDropdowns.add(el);
+}
+
 export function initRepoIssueSidebarList() {
+  if (sidebarActive) return;
+  sidebarActive = true;
   const repolink = $('#repolink').val();
   const repoId = $('#repoId').val();
   const crossRepoSearch = $('#crossRepoSearch').val() === 'true';
   const tp = $('#type').val();
 
-  $('#new-dependency-drop-list')
+  const dependencyEl = document.getElementById('new-dependency-drop-list');
+  if (dependencyEl && !dependencyEl.closest(contributionRootSelector)) {
+    $('#new-dependency-drop-list')
     .dropdown({
       apiSettings: {
         beforeSend(settings) {
@@ -52,32 +68,41 @@ export function initRepoIssueSidebarList() {
 
       fullTextSearch: true,
     });
+    trackDropdown(dependencyEl);
+  }
 
   $('.menu button.label-exclude-item-btn').each(function () {
-    $(this).on('click', function () {
-      const label = this.closest('.item').querySelector('a.label-filter-item');
+    if (this.closest(contributionRootSelector)) return;
+    const button = this;
+    const onExcludeClick = function () {
+      const label = button.closest('.item').querySelector('a.label-filter-item');
 
       if (!label) {
         return;
       }
 
       excludeLabel(label);
-    });
+    };
+    $(button).on('click', onExcludeClick);
+    cleanups.push(() => $(button).off('click', onExcludeClick));
   });
 
   // Increase surface area to include a label in the filters
   for (const labelFilterItem of document.querySelectorAll<HTMLAnchorElement>('.menu a.label-filter-item')) {
+    if (labelFilterItem.closest(contributionRootSelector)) continue;
     const menuItem = labelFilterItem.closest('.item');
-    menuItem.addEventListener('click', (event: MouseEvent) => {
+    const onMenuItemClick = (event: MouseEvent) => {
       if (labelFilterItem === event.target || (event.target as HTMLElement).closest('.label-exclude-item-btn')) {
         return;
       }
 
       labelFilterItem.click();
-    });
+    };
+    menuItem.addEventListener('click', onMenuItemClick);
+    cleanups.push(() => menuItem.removeEventListener('click', onMenuItemClick));
   }
 
-  $('.menu .ui.dropdown.label-filter').on('keydown', (e: KeyboardEvent) => {
+  const onLabelFilterKeydown = (e: KeyboardEvent) => {
     const selectedItem = document.querySelector('.menu .ui.dropdown.label-filter .menu .item.selected');
 
     if (!selectedItem) {
@@ -134,9 +159,24 @@ export function initRepoIssueSidebarList() {
         }
       }
     }
-  });
+  };
+  const $labelFilter = $('.menu .ui.dropdown.label-filter');
+  $labelFilter.on('keydown', onLabelFilterKeydown);
+  cleanups.push(() => $labelFilter.off('keydown', onLabelFilterKeydown));
 
   $('.ui.dropdown.label-filter, .ui.dropdown.select-label').dropdown('setting', {'hideDividers': 'empty'}).dropdown('refreshItems');
+  for (const el of document.querySelectorAll<HTMLElement>('.ui.dropdown.label-filter, .ui.dropdown.select-label')) {
+    trackDropdown(el);
+  }
+}
+
+export function retireRepoIssueSidebarList() {
+  sidebarActive = false;
+  for (const cleanup of cleanups.splice(0)) cleanup();
+  for (const el of sidebarDropdowns) {
+    if (el.isConnected) $(el).dropdown('destroy');
+  }
+  sidebarDropdowns.clear();
 }
 
 /**
