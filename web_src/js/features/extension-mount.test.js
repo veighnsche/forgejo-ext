@@ -84,12 +84,15 @@ test('drives ordered update, suspend, resume, and retire', async () => {
   owner.update({mode: 'page', route: '/workspace', params: {}, visible: true});
   owner.update({mode: 'page', route: '/team/repo', params: {}, repositoryId: '7', visible: true});
   expect(handle.update).toHaveBeenCalledTimes(2);
+  expect(socket.closed).toBe(false);
   owner.suspend();
-  expect(socket.closed).toBe(true);
+  expect(socket.closed).toBe(false);
   expect(handle.suspend).toHaveBeenCalledOnce();
   owner.resume({sessionGeneration: 'session-a'});
   expect(handle.resume).toHaveBeenCalledWith({sessionGeneration: 'session-a'});
+  expect(socket.closed).toBe(false);
   owner.retire('session-changed');
+  expect(socket.closed).toBe(true);
   expect(handle.retire).toHaveBeenCalledWith('session-changed');
   expect(calls).toEqual([
     ['update', '/workspace'], ['update', '/team/repo'],

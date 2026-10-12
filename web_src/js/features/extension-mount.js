@@ -195,9 +195,10 @@ export async function mountContribution(root, hooks = {}) {
       handle.update?.(presentation);
     },
     suspend: () => {
+      // Authority concealment only: sockets stay connected across
+      // suspend/resume. Only retire() closes them.
       if (state !== 'active') return;
       state = 'suspended';
-      closeSockets();
       handle.suspend?.();
     },
     resume: (validation) => {

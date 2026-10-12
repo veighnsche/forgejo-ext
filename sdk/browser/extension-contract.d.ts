@@ -1,12 +1,19 @@
 // Prototype browser contract for native extension contributions (NFX-C01/H-0).
 //
-// Canonical declarations owned by Fountain lane C. Consumers vendor this file
-// by copy; it is the only browser-contract surface a contribution may rely on.
-// Signatures stay narrow until the A03 native capability proof finalizes them.
+// Canonical declarations owned by Fountain lane C. This prototype names the
+// only browser-contract surface a contribution may rely on. Signatures and
+// the smallest real distribution mechanism are selected after H-P (C03),
+// which also removes duplicate generic adapters. Vendoring by copy is not
+// finalized here.
 //
 // Display facts published by the host (route, presentation, observed
 // repository) are never operation authority. Contributions must not inspect
 // host ancestors, another mount, or browser cache events for authority.
+//
+// Guaranteed lifetimes: update() and suspend()/resume() always preserve the
+// root and all retained resources (renderer/socket where used). Only retire()
+// — authority loss or removal — closes contribution streams. Ordinary native
+// navigation arrives as update(), never as suspend() or retire().
 
 /** Where the contribution is mounted: a native page slot or a retained panel. */
 export type ContributionMode = 'page' | 'panel';
@@ -44,8 +51,9 @@ export interface ContributionStreamOptions {
 }
 
 /**
- * Host-managed contribution stream. The host closes the socket when the
- * contribution suspends with concealed state, retires, or loses authority.
+ * Host-managed contribution stream. The socket stays connected across
+ * update() and suspend()/resume(); the host closes it only on retire() or
+ * authority loss.
  */
 export interface ContributionStream {
   readonly socket: WebSocket;
@@ -60,12 +68,15 @@ export interface ResumeValidation {
   sessionGeneration: string;
 }
 
-/** Why the host is retiring a mount. Never a product execution command. */
+/**
+ * Why the host is retiring a mount. Never a product execution command, and
+ * never ordinary navigation: navigation of the admitted shared owner is
+ * always update().
+ */
 export type RetireReason =
   | 'session-changed'
   | 'authority-revoked'
-  | 'contribution-unavailable'
-  | 'host-navigation';
+  | 'contribution-unavailable';
 
 /**
  * Mount context supplied exactly once per root. The contribution receives
@@ -93,8 +104,10 @@ export interface MountContext {
   request: (relativePath: string, options?: ContributionRequestOptions) => Promise<Response>;
   /**
    * Scoped stream bound to apiBase and the mount's session generation.
-   * The host closes it on suspension with concealed state, retirement,
-   * or authority loss.
+   * The socket survives update() and suspend()/resume(); the host closes
+   * it only on retire() or authority loss. No query string, subprotocols,
+   * or handshake headers are sent: the admitted stream path rejects them
+   * and admits the stream from the live cookie session.
    */
   stream: (relativePath: string, options?: ContributionStreamOptions) => ContributionStream;
 }
@@ -106,16 +119,28 @@ export interface MountContext {
 export interface MountHandle {
   /** Release listeners, timers, and requests. Called at most once. */
   dispose?: () => void;
-  /** Apply ordered host presentation/context updates. */
+  /**
+   * Apply ordered host presentation/context updates. Ordinary native
+   * visibility, mode, and context changes arrive here; the root and all
+   * retained resources (renderer/socket where used) stay connected.
+   */
   update?: (presentation: ContributionPresentation) => void;
   /**
-   * Conceal private state and pause visible work. Retained resources
-   * (including renderer/socket where used) stay connected.
+   * Authority concealment: hide private state and pause visible work while
+   * the host revalidates the session. The root and all retained resources
+   * (renderer/socket where used) stay connected; only retire() closes them.
    */
   suspend?: () => void;
-  /** Rebind visible work after the host revalidates the session. */
+  /**
+   * Rebind visible work after the host revalidates the session.
+   * Suspend/resume never drops the socket.
+   */
   resume?: (validation: ResumeValidation) => void;
-  /** Final teardown after authority loss or removal. Release everything. */
+  /**
+   * Final teardown after authority loss or removal. The host closes
+   * contribution streams first. Ordinary navigation never retires the
+   * admitted shared owner; it arrives as update().
+   */
   retire?: (reason: RetireReason) => void;
 }
 
