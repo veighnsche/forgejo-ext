@@ -327,10 +327,17 @@ func TestExtensionNativePermissions(t *testing.T) {
 	readerWorkspaceRequest.Header.Set("Sec-Fetch-Dest", "document")
 	readerWorkspace := reader.MakeRequest(t, readerWorkspaceRequest, http.StatusOK)
 	require.NotContains(t, readerWorkspace.Body.String(), `data-extension-panel-id="status"`)
-	// NFX-A02: ordinary native pages render as plain documents.
+	// NFX-A02 region_adopt: ordinary native pages render as plain documents
+	// with the hidden persistent panels home, never a parallel shell.
 	plainRequest := NewRequest(t, http.MethodGet, "/explore/repos")
 	plainRequest.Header.Set("Sec-Fetch-Dest", "document")
-	require.NotContains(t, owner.MakeRequest(t, plainRequest, http.StatusOK).Body.String(), `data-extension-workspace`)
+	plainResponse := owner.MakeRequest(t, plainRequest, http.StatusOK)
+	plainGeneration := plainResponse.Header().Get(extension.SessionGenerationHeader)
+	require.Contains(t, plainResponse.Body.String(), `data-extension-panels`)
+	require.Contains(t, plainResponse.Body.String(), `data-extension-session-generation="`+plainGeneration+`" hidden inert>`)
+	require.Contains(t, plainResponse.Body.String(), `data-extension-panel-id="status"`)
+	require.NotContains(t, plainResponse.Body.String(), `data-extension-page`)
+	require.NotContains(t, ownerWorkspace.Body.String(), ` hidden inert>`)
 	apiRequest(owner, ownerGeneration, http.MethodGet, "/-/native/panels/pages/status/api/context", http.StatusOK)
 	apiRequest(reader, readerGeneration, http.MethodGet, "/-/native/panels/pages/status/api/context", http.StatusNotFound)
 	siteAdmin := loginUser(t, "user1")
@@ -436,28 +443,34 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	generation := page.Header().Get(extension.SessionGenerationHeader)
 	require.Len(t, generation, 43)
 	require.Contains(t, page.Body.String(), "Native workspace flash survives")
-	require.Contains(t, page.Body.String(), `data-workspace-direct`)
-	require.Contains(t, page.Body.String(), `data-extension-session-generation="`+generation+`"`)
+	require.Contains(t, page.Body.String(), `data-extension-panels`)
+	require.Contains(t, page.Body.String(), `data-extension-session-generation="`+generation+`">`)
+	require.Contains(t, page.Body.String(), `data-extension-page-id="home"`)
 	require.Contains(t, page.Body.String(), `data-extension-panel-id="status"`)
-	// NFX-A02: ordinary native pages render as plain documents even with a
+	// NFX-A02 region_adopt: ordinary native pages render as plain documents
+	// with the hidden persistent panels home even with a
 	// preferred-workspace extension installed.
 	plainResponse := owner.MakeRequest(t, document("/explore/repos?sort=updated"), http.StatusOK)
-	require.NotContains(t, plainResponse.Body.String(), `data-extension-workspace`)
-	require.NotContains(t, plainResponse.Body.String(), `data-extension-panel-id="status"`)
+	plainGeneration := plainResponse.Header().Get(extension.SessionGenerationHeader)
+	require.Contains(t, plainResponse.Body.String(), `data-extension-panels`)
+	require.Contains(t, plainResponse.Body.String(), `data-extension-session-generation="`+plainGeneration+`" hidden inert>`)
+	require.Contains(t, plainResponse.Body.String(), `data-extension-panel-id="status"`)
+	require.NotContains(t, plainResponse.Body.String(), `data-extension-page`)
 	require.NotContains(t, plainResponse.Body.String(), ">Extensions</")
 	require.Empty(t, plainResponse.Header().Get("Location"))
 
 	// An iframe request receives the original Forgejo page. It does not gain
-	// the persistent workspace shell merely because its URL is eligible.
+	// the panels home merely because its URL is eligible.
 	iframeRequest := NewRequest(t, http.MethodGet, "/explore/repos?sort=updated")
 	iframeRequest.Header.Set("Sec-Fetch-Dest", "iframe")
 	iframeResponse := owner.MakeRequest(t, iframeRequest, http.StatusOK)
-	require.NotContains(t, iframeResponse.Body.String(), `data-extension-workspace`)
+	require.NotContains(t, iframeResponse.Body.String(), `data-extension-panels`)
 
-	// Account-state pages retain their own document even when the native shell
-	// is preferred for ordinary browsing.
+	// Account-state pages retain their own document even when the panels
+	// home is preferred for ordinary browsing.
 	securityResponse := owner.MakeRequest(t, document("/user/settings/security"), http.StatusOK)
-	require.NotContains(t, securityResponse.Body.String(), `data-extension-workspace`)
+	require.NotContains(t, securityResponse.Body.String(), `data-extension-panels`)
+	require.Empty(t, securityResponse.Header().Get(extension.SessionGenerationHeader))
 	unauthenticatedSettings := NewRequest(t, http.MethodGet, "/user/settings/security")
 	unauthenticatedSettings.Header.Set("Sec-Fetch-Dest", "document")
 	MakeRequest(t, unauthenticatedSettings, http.StatusSeeOther)
@@ -465,20 +478,22 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	for _, path := range []string{"/workspace?view=projects", "/user2/repo1/workspace?view=projects", "/workspace/new", "/workspace/requests/d0123456789abcdef01234567"} {
 		direct := owner.MakeRequest(t, document(path), http.StatusOK)
 		html := direct.Body.String()
-		require.Contains(t, html, `data-workspace-direct`)
+		require.Contains(t, html, `data-extension-panels`)
+		require.Contains(t, html, `data-extension-session-generation="`+generation+`">`)
+		require.Contains(t, html, `data-extension-page`)
 		require.NotContains(t, html, `<iframe`)
 		require.Contains(t, html, `<nav  id="navbar"`)
 		require.Contains(t, html, `id="navbar-logo"`)
 		require.Contains(t, html, `/user/settings`)
 		require.Contains(t, html, `data-extension-panel-id="status"`)
-		require.Contains(t, html, `data-workspace-path="`+path+`"`)
 		require.Equal(t, generation, direct.Header().Get(extension.SessionGenerationHeader))
 		fetchRequest := NewRequest(t, http.MethodGet, path)
 		fetchRequest.Header.Set("Sec-Fetch-Dest", "empty")
 		fetchRequest.Header.Set("Accept", "text/html")
 		fetchRequest.Header.Set("X-Extension-Workspace-Navigation", "1")
 		fetched := owner.MakeRequest(t, fetchRequest, http.StatusOK)
-		require.Contains(t, fetched.Body.String(), `data-workspace-direct`)
+		require.Contains(t, fetched.Body.String(), `data-extension-panels`)
+		require.Contains(t, fetched.Body.String(), `data-extension-session-generation="`+generation+`">`)
 		require.NotContains(t, fetched.Body.String(), `<iframe`)
 		require.Equal(t, generation, fetched.Header().Get(extension.SessionGenerationHeader))
 		if strings.HasPrefix(path, "/user2/") {
@@ -495,13 +510,18 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	// The platform strips trailing slashes before routing, so the slashed
 	// alias serves the same canonical page.
 	slashed := owner.MakeRequest(t, document("/workspace/new/"), http.StatusOK)
-	require.Contains(t, slashed.Body.String(), `data-workspace-direct`)
+	require.Contains(t, slashed.Body.String(), `data-extension-panels`)
+	require.Contains(t, slashed.Body.String(), `data-extension-session-generation="`+generation+`">`)
 	require.Contains(t, slashed.Body.String(), "New Project")
 	owner.MakeRequest(t, document("/workspace/requests/"), http.StatusNotFound)
 	// The same segments under a repository path stay product-controlled: they
-	// do not resolve to the global workspace contribution.
+	// do not resolve to the global workspace contribution. The plain 404
+	// carries no HTML home or page root, but Navigation middleware ran so
+	// the generation envelope is present.
 	product := owner.MakeRequest(t, document("/user2/repo1/workspace/new"), http.StatusNotFound)
-	require.NotContains(t, product.Body.String(), `data-extension-workspace`)
+	require.NotContains(t, product.Body.String(), `data-extension-panels`)
+	require.NotContains(t, product.Body.String(), `data-extension-page`)
+	require.Equal(t, generation, product.Header().Get(extension.SessionGenerationHeader))
 	check := owner.MakeRequest(t, NewRequest(t, http.MethodGet, "/-/native/session"), http.StatusNoContent)
 	require.Equal(t, generation, check.Header().Get(extension.SessionGenerationHeader))
 	require.Empty(t, check.Body.String())
@@ -518,7 +538,7 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	runtime.SetDefault(disabledManager)
 	disabledRequest := NewRequest(t, http.MethodGet, "/explore/repos")
 	disabledRequest.Header.Set("Sec-Fetch-Dest", "document")
-	require.NotContains(t, owner.MakeRequest(t, disabledRequest, http.StatusOK).Body.String(), `data-extension-workspace`)
+	require.NotContains(t, owner.MakeRequest(t, disabledRequest, http.StatusOK).Body.String(), `data-extension-panels`)
 }
 
 func extractBodyPageData(t *testing.T, body string) map[string]any {
@@ -571,15 +591,19 @@ func TestExtensionPageDataEmbed(t *testing.T) {
 	require.Equal(t, "preferred", directData["extension"].(map[string]any)["id"])
 	require.Contains(t, directData, "apiBase")
 	explore := owner.MakeRequest(t, document("/explore/repos"), http.StatusOK)
-	require.NotContains(t, explore.Body.String(), `data-extension-workspace`)
-	require.NotNil(t, extractBodyPageData(t, explore.Body.String()))
+	exploreHTML := explore.Body.String()
+	require.Contains(t, exploreHTML, `data-extension-panels`)
+	require.NotNil(t, extractBodyPageData(t, exploreHTML))
 	plain := owner.MakeRequest(t, document("/admin/users"), http.StatusOK)
-	require.NotContains(t, plain.Body.String(), `data-extension-workspace`)
-	require.NotNil(t, extractBodyPageData(t, plain.Body.String()))
+	plainHTML := plain.Body.String()
+	require.Contains(t, plainHTML, `data-extension-panels`)
+	require.NotNil(t, extractBodyPageData(t, plainHTML))
 	// P1: every eligible shape carries the same authoritative generation so
-	// in-shell transplants verify before joining entered HTML to owners.
+	// transplants verify before joining entered HTML to owners.
 	directGeneration := direct.Header().Get(extension.SessionGenerationHeader)
 	require.Len(t, directGeneration, 43)
 	require.Equal(t, directGeneration, explore.Header().Get(extension.SessionGenerationHeader))
 	require.Equal(t, directGeneration, plain.Header().Get(extension.SessionGenerationHeader))
+	require.Contains(t, exploreHTML, `data-extension-session-generation="`+directGeneration+`" hidden inert>`)
+	require.Contains(t, plainHTML, `data-extension-session-generation="`+directGeneration+`" hidden inert>`)
 }
