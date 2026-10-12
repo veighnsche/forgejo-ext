@@ -13,7 +13,11 @@
       "title": "Workspace",
       "scope": "global",
       "entry": "page.js",
-      "route": "workspace"
+      "route": "workspace",
+      "subroutes": [
+        {"pattern": "new", "title": "New Project"},
+        {"pattern": "requests/{request}", "title": "Build request"}
+      ]
     },
     {
       "id": "preferences",
@@ -29,7 +33,11 @@
       "scope": "repository",
       "permission": "read",
       "entry": "page.js",
-      "route": "workspace"
+      "route": "workspace",
+      "subroutes": [
+        {"pattern": "new", "title": "New Project"},
+        {"pattern": "requests/{request}", "title": "Build request"}
+      ]
     },
     {
       "id": "administration",

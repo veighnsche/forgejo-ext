@@ -228,14 +228,16 @@ func TestWorkspaceDirectPath(t *testing.T) {
 		{path: "/forge/workspace/requests/d0123456789abcdef01234567", appSubURL: "/forge", want: true},
 		{path: "/workspace/requests/not-an-id", want: true},
 		{path: "/workspace/requests/ABC-123", want: true},
+		{path: "/user2/repo1/workspace/new", want: true},
+		{path: "/user2/repo1/workspace/requests/d0123456789abcdef01234567", want: true},
+		{path: "/forge/team/repo/workspace/new", appSubURL: "/forge", want: true},
 		{path: "/workspace/requests", want: false},
 		{path: "/workspace/requests/", want: false},
 		{path: "/workspace/requests/d0123456789abcdef01234567/extra", want: false},
 		{path: "/workspace/new/extra", want: false},
 		{path: "/workspace/news", want: false},
 		{path: "/workspace/old", want: false},
-		{path: "/user2/repo1/workspace/new", want: false},
-		{path: "/user2/repo1/workspace/requests/d0123456789abcdef01234567", want: false},
+		{path: "/user2/repo1/workspace/old", want: false},
 		{path: "/workspace/new", appSubURL: "/forge", want: false},
 		{path: "/other/workspace/new", appSubURL: "/forge", want: false},
 		{path: "/forgefoo/workspace/new", appSubURL: "/forge", want: false},
@@ -247,6 +249,7 @@ func TestWorkspaceDirectPath(t *testing.T) {
 	// Without declarations only workspace roots are direct.
 	assert.False(t, workspaceDirectPath("/workspace/new", "", nil))
 	assert.False(t, workspaceDirectPath("/workspace/requests/abc", "", nil))
+	assert.False(t, workspaceDirectPath("/user2/repo1/workspace/new", "", nil))
 }
 
 func TestWorkspaceDocumentRequiresBrowserDocumentRequest(t *testing.T) {

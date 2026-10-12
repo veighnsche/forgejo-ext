@@ -51,14 +51,41 @@ function matchDirectPattern(path, pattern) {
  * declared generic direct patterns the host publishes from manifest
  * subroute declarations (NFX-C04/H-ROUTE), e.g.
  * "/workspace/requests/{request}". Parameter values are bounded opaque
- * segments: no product-ID shape rule is applied here.
+ * segments: no product-ID shape rule is applied here. Declared patterns
+ * also admit their repository form "/{owner}/{repo}/workspace/...": the
+ * host registers those routes generically (repositorySubroute) and the
+ * global owner's content routes never claim the repository namespace.
  */
 export function workspaceDirectPath(pathname, appSubPath = '', patterns = []) {
   if (pathname.endsWith('/workspace')) return true;
   if (!pathname.startsWith(appSubPath)) return false;
   const rest = pathname.slice(appSubPath.length);
   if (!rest.startsWith('/')) return false;
-  return patterns.some((pattern) => typeof pattern === 'string' && matchDirectPattern(rest, pattern));
+  if (patterns.some((pattern) => typeof pattern === 'string' && matchDirectPattern(rest, pattern))) return true;
+  const segments = rest.split('/').filter((segment) => segment !== '');
+  if (segments.length < 4 || segments[2] !== 'workspace') return false;
+  const candidate = `/workspace/${segments.slice(3).join('/')}`;
+  return patterns.some((pattern) => typeof pattern === 'string' && matchDirectPattern(candidate, pattern));
+}
+
+const reservedTopSegments = new Set(['user', 'users', 'admin', 'org', 'orgs', 'explore', 'issues', 'pulls', 'milestones', 'notifications', 'search', 'api', '-', 'login', 'logout', 'assets', 'help', 'settings', 'workspace', 'tailnet']);
+
+/**
+ * Report whether a pathname has the native repository shape
+ * "/{owner}/{repo}/..." past the installation subpath (NFX-C07). Reserved
+ * top-level namespaces never count as an owner. Admission only selects
+ * the in-shell transition; the transplant still validates the entered
+ * document (panels home, page config, session generation) and falls back
+ * to a full native load for any shape it cannot join.
+ */
+export function isRepositoryPath(pathname, appSubPath = '') {
+  if (!pathname.startsWith(appSubPath)) return false;
+  const rest = pathname.slice(appSubPath.length);
+  if (!rest.startsWith('/')) return false;
+  const segments = rest.split('/').filter((segment) => segment !== '');
+  if (segments.length < 2) return false;
+  if (reservedTopSegments.has(segments[0])) return false;
+  return segments.every((segment) => segment.length <= 255 && !segment.includes('%'));
 }
 
 function directPatterns(home) {
@@ -465,13 +492,16 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   // native (transplant full-loads them) until their features migrate.
   let current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
-  // H-0 transplantable layouts: direct contributions, /admin dashboard
-  // and /admin/users. Their native features use the page seam; unknown
-  // layouts take a full document load until their features migrate.
+  // Transplantable layouts (NFX-C07): direct contributions (global and
+  // repository workspace roots plus their declared subroutes), the /admin
+  // dashboard and /admin/users, and native repository documents. Their
+  // native features use the page seam; every other layout takes a full
+  // document load until its features migrate.
   function transplantKind(path) {
     const pathname = new URL(path, origin).pathname;
     if (workspaceDirectPath(pathname, appSubPath, directPatterns(home))) return 'direct';
     if (pathname === `${appSubPath}/admin` || pathname === `${appSubPath}/admin/users`) return 'plain';
+    if (isRepositoryPath(pathname, appSubPath)) return 'plain';
     return null;
   }
 
