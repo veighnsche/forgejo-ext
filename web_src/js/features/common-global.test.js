@@ -65,15 +65,21 @@ test('re-enhancing the same nodes binds nothing twice', () => {
   }
 });
 
-test('retire destroys slot instances, keeps live chrome, and prunes detached nodes', () => {
-  document.body.innerHTML = `<div data-extension-workspace-direct-content id="slot">
+test('retire destroys region instances, keeps live chrome, and prunes detached nodes', () => {
+  document.body.innerHTML = `<div class="page-content" id="region">
       <div class="ui dropdown" id="slot-dd"></div>
     </div>
-    <div class="ui dropdown" id="chrome-dd"></div>`;
+    <div class="ui dropdown" id="chrome-dd"></div>
+    <div data-extension-panels id="home">
+      <div class="ui dropdown" id="home-dd"></div>
+    </div>`;
   const slotDd = document.querySelector('#slot-dd');
+  const homeDd = document.querySelector('#home-dd');
   const dropdown = vi.spyOn($.fn, 'dropdown');
   try {
     enhanceNativeNodes(document);
+    const firstEnhanced = dropdown.mock.contexts.flatMap((ctx) => ctx.get());
+    expect(firstEnhanced).not.toContain(homeDd);
     retireNativeNodes();
     const destroyed = [];
     for (const [i, call] of dropdown.mock.calls.entries()) {
@@ -90,7 +96,7 @@ test('retire destroys slot instances, keeps live chrome, and prunes detached nod
     expect(enhanced).not.toContain(document.querySelector('#chrome-dd'));
 
     // Detached nodes are pruned without destroy and re-enhance on return.
-    const slot = document.querySelector('#slot');
+    const slot = document.querySelector('#region');
     slot.remove();
     dropdown.mockClear();
     retireNativeNodes();

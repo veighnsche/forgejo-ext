@@ -166,13 +166,19 @@ export function initGlobalCommonListeners() {
 const enhancedDropdowns = new Set();
 const enhancedTabs = new Set();
 
+// Contribution-owned subtrees are never enhanced: the persistent panels home
+// (with its parked shelter) and mounted page/panel roots. Native content and
+// chrome live outside them. Selector agreed with lane A as the transplant
+// boundary's complement; the transplant region itself is .page-content.
+const contributionHomeSelector = '[data-extension-panels],[data-extension-page],[data-extension-panel]';
+
 // Enhances fresh nodes only: fomantic dropdowns and tabs inside root.
 // Called with document at boot and after every native transition through the
 // page seam; already-enhanced nodes are skipped, never double-bound.
 export function enhanceNativeNodes(root = document) {
   // Semantic UI modules.
   const $uiDropdowns = $(root).find('.ui.dropdown').addBack('.ui.dropdown')
-    .filter((_, el) => !enhancedDropdowns.has(el));
+    .filter((_, el) => !enhancedDropdowns.has(el) && !el.closest(contributionHomeSelector));
 
   // do not init "custom" dropdowns, "custom" dropdowns are managed by their own code.
   $uiDropdowns.filter(':not(.custom)').dropdown();
@@ -218,26 +224,29 @@ export function enhanceNativeNodes(root = document) {
   }
 
   for (const el of root.querySelectorAll('.tabular.menu')) {
-    if (enhancedTabs.has(el)) continue;
+    if (enhancedTabs.has(el) || el.closest(contributionHomeSelector)) continue;
     initTab(el);
     enhancedTabs.add(el);
   }
 }
 
-// Destroys fomantic instances in the outgoing transplant region and drops all
-// detached tracked nodes so retired pages are never pinned. Live chrome
-// outside the transplant slot is untouched.
+// Destroys fomantic instances in the outgoing transplant region (.page-content)
+// and drops all detached tracked nodes so retired pages are never pinned.
+// Live chrome and persistent contribution homes are untouched.
 export function retireNativeNodes() {
   for (const el of enhancedDropdowns) {
-    if (el.closest('[data-extension-workspace-direct-content]')) {
+    if (el.closest('.page-content')) {
       if (el.isConnected) $(el).dropdown('destroy');
       enhancedDropdowns.delete(el);
     } else if (!el.isConnected) {
       enhancedDropdowns.delete(el);
     }
   }
+  // Tab listeners are element-scoped anonymous closures that die with their
+  // nodes; retire/swap is synchronous so no event can interleave. Dropping
+  // the tracked region nodes releases the whole subtree for collection.
   for (const el of enhancedTabs) {
-    if (!el.isConnected || el.closest('[data-extension-workspace-direct-content]')) {
+    if (!el.isConnected || el.closest('.page-content')) {
       enhancedTabs.delete(el);
     }
   }
