@@ -221,6 +221,32 @@ must compile valid local styles and keep its own forms/settings/dialogs usable.
    order, global/repository context, a working native control after each change,
    Back/Forward, query/fragment/title, focus/scroll and session invalidation.
    Assert one mount and identical retained node, resource and socket objects.
+
+   NFX-A01 reconciliation (against Fountain `6abafdb409`): the retained
+   diagnostic drivers (`9e4bce97e2`, originally `test.fails`) named the first
+   failing subject — the entered document's live page configuration never
+   followed the transition across both shapes. The two actual native template
+   shapes are the direct contribution document (`templates/extensions/page.tmpl`
+   rendering `extensions/content` inside `base/head`/`base/footer`) and the
+   plain native document carrying the shared panels home hidden and inert
+   (`templates/base/footer.tmpl` rendering `extensions/panels`; error, auth and
+   install documents stay free of contribution roots). The transplant in
+   `web_src/js/features/extensions.js` now brackets each swap with
+   retire → `setPageConfig` → init (`web_src/js/native-lifecycle.js`), fed by
+   the machine-readable body embed (`templates/base/head.tmpl`), so
+   `window.config.pageData` follows each entered document while one retained
+   owner survives both entry orders; the drivers pass unmarked
+   (`1b631320f0`, `7e9bbe6338`). First real cases: native control — the admin
+   user-list search form (`web_src/js/features/admin/users.js`, submitted via
+   `requestSubmit` so the host intercepts the GET navigation); configuration —
+   `adminUserListSearchForm` versus the extension page data carried per
+   document; admitted stream — the notes panel stream
+   (`GET /stream` in `contrib/extensions/example/main.go`, consumed through
+   `stream('stream')` in `contrib/extensions/example/assets/panel.js`). Seam
+   writers: A owns the transplant, B owns the lifecycle seam and the control,
+   C owns the retained-owner mount. NFX-A01 therefore closes on its original
+   finish condition; the Soda task ledger count remains for the delivery lane
+   to reconcile.
 2. Supply the reusable manifest/browser lifecycle contract and native container
    behavior. Integrate the needed initialization/cleanup into native feature
    owners; use the existing Forgejo frontend mechanisms rather than a parallel
