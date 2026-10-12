@@ -15,6 +15,7 @@ import {initTableSort, retireTableSort} from './features/tablesort.js';
 import {initAutoFocusEnd} from './features/autofocus-end.js';
 import {initAdminUserListSearchForm, retireAdminUserListSearchForm} from './features/admin/users.js';
 import {initGlobalFeatures, initPageFeatures, registerGlobalFeature, registerPageFeature} from './native-lifecycle.js';
+import {initNativeHtmx, retireNativeHtmx} from './htmx.js';
 import {initAdminConfigs} from './features/admin/config.js';
 import {initMarkupAnchors} from './markup/anchors.js';
 import {initNotificationCount, initNotificationsTable} from './features/notification.js';
@@ -94,6 +95,12 @@ import {initRepoMilestoneEditor} from './features/repo-milestone.js';
 import {initModalClose} from './modules/modal.ts';
 import {initExtensionPages, initExtensionWorkspace} from './features/extensions.js';
 
+// Register first so reverse retirement cleans HTMX after other native
+// features release their outgoing DOM, before A replaces the content.
+registerPageFeature('native-htmx', {
+  init: initNativeHtmx,
+  retire: retireNativeHtmx,
+});
 registerPageFeature('admin-user-list-search-form', {
   init: initAdminUserListSearchForm,
   retire: retireAdminUserListSearchForm,
