@@ -158,8 +158,9 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 		failure, ok := reserve["error"].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "terminal_unavailable", failure["code"])
-		t.Log("admitted Reserve reached Soda; native host socket was not configured (boundary reachability only, NOT live PTY/preservation proof)")
-		return
+		// Boundary reachability only: report as skipped, never as a passing
+		// live-PTY or preservation result (NFX-I02).
+		t.Skip("admitted Reserve reached Soda; native host socket was not configured (boundary reachability only, NOT live PTY/preservation proof)")
 	}
 	id, ok := reserve["id"].(string)
 	require.True(t, ok)
