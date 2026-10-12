@@ -87,6 +87,20 @@ test('custom dropdowns stay feature-owned: never tracked or destroyed', () => {
   }
 });
 
+test('retire destroys tooltip instances owned by the outgoing region only', () => {
+  document.body.innerHTML = `<div class="page-content"><span id="tip-in"></span></div>
+    <span id="tip-out"></span>`;
+  const tipIn = document.querySelector('#tip-in');
+  const tipOut = document.querySelector('#tip-out');
+  const destroyIn = vi.fn();
+  const destroyOut = vi.fn();
+  tipIn._tippy = {destroy: destroyIn};
+  tipOut._tippy = {destroy: destroyOut};
+  retireNativeNodes();
+  expect(destroyIn).toHaveBeenCalledTimes(1);
+  expect(destroyOut).not.toHaveBeenCalled();
+});
+
 test('retire destroys region instances, keeps live chrome, and prunes detached nodes', () => {
   document.body.innerHTML = `<div class="page-content" id="region">
       <div class="ui dropdown" id="slot-dd"></div>

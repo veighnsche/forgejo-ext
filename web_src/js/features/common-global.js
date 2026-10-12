@@ -235,6 +235,12 @@ export function enhanceNativeNodes(root = document) {
 // and drops all detached tracked nodes so retired pages are never pinned.
 // Live chrome and persistent contribution homes are untouched.
 export function retireNativeNodes() {
+  // Tooltip poppers are appended outside their target, so removing the
+  // outgoing region alone would orphan them; destroy region-owned
+  // instances while the region is still attached (retire precedes swap).
+  for (const el of document.querySelectorAll('.page-content, .page-content *')) {
+    el._tippy?.destroy();
+  }
   for (const el of enhancedDropdowns) {
     if (el.closest('.page-content')) {
       if (el.isConnected) $(el).dropdown('destroy');
