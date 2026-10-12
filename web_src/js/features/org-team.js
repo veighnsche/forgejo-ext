@@ -2,8 +2,13 @@ import $ from 'jquery';
 
 const {appSubUrl} = window.config;
 
+// The Fomantic search widget owns its DOM/listeners once initialized; track
+// the box so retire destroys exactly the widget init created.
+let attachedBox = null;
+
 export function initOrgTeamSearchRepoBox() {
   const $searchRepoBox = $('#search-repo-box');
+  if (!$searchRepoBox.length || attachedBox === $searchRepoBox[0]) return;
   $searchRepoBox.search({
     minCharacters: 2,
     apiSettings: {
@@ -22,4 +27,13 @@ export function initOrgTeamSearchRepoBox() {
     searchFields: ['full_name'],
     showNoResults: false,
   });
+  attachedBox = $searchRepoBox[0];
+}
+
+export function retireOrgTeamSearchRepoBox() {
+  if (!attachedBox) return;
+  if (typeof $.fn.search === 'function') {
+    $(attachedBox).search('destroy');
+  }
+  attachedBox = null;
 }

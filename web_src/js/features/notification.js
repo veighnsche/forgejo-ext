@@ -5,29 +5,55 @@ import {toggleElem} from '../utils/dom.js';
 const {appSubUrl, notificationSettings, assetVersionEncoded} = window.config;
 let notificationSequenceNumber = 0;
 
+// Tracks attached links so retire removes exactly what init added and the
+// polling refresh (which replaces the table DOM, then re-calls init) binds
+// only the fresh links.
+const attachedTableLinks = new Set();
+let pageShowAttached = false;
+
+function onNotificationLinkClick(e) {
+  e.target.closest('.notifications-item').setAttribute('data-remove', 'true');
+}
+
+function onNotificationPageShow(e) {
+  if (e.persisted) { // page was restored from bfcache
+    const table = document.getElementById('notification_table');
+    const unreadCountEl = document.querySelector('.notifications-unread-count');
+    let unreadCount = parseInt(unreadCountEl.textContent);
+    for (const item of table.querySelectorAll('.notifications-item[data-remove="true"]')) {
+      item.remove();
+      unreadCount -= 1;
+    }
+    unreadCountEl.textContent = unreadCount;
+  }
+}
+
 export function initNotificationsTable() {
   const table = document.getElementById('notification_table');
   if (!table) return;
 
   // when page restores from bfcache, delete previously clicked items
-  window.addEventListener('pageshow', (e) => {
-    if (e.persisted) { // page was restored from bfcache
-      const table = document.getElementById('notification_table');
-      const unreadCountEl = document.querySelector('.notifications-unread-count');
-      let unreadCount = parseInt(unreadCountEl.textContent);
-      for (const item of table.querySelectorAll('.notifications-item[data-remove="true"]')) {
-        item.remove();
-        unreadCount -= 1;
-      }
-      unreadCountEl.textContent = unreadCount;
-    }
-  });
+  if (!pageShowAttached) {
+    window.addEventListener('pageshow', onNotificationPageShow);
+    pageShowAttached = true;
+  }
 
   // mark clicked unread links for deletion on bfcache restore
   for (const link of table.querySelectorAll('.notifications-item[data-status="1"] .notifications-link')) {
-    link.addEventListener('click', (e) => {
-      e.target.closest('.notifications-item').setAttribute('data-remove', 'true');
-    });
+    if (attachedTableLinks.has(link)) continue;
+    link.addEventListener('click', onNotificationLinkClick);
+    attachedTableLinks.add(link);
+  }
+}
+
+export function retireNotificationsTable() {
+  if (pageShowAttached) {
+    window.removeEventListener('pageshow', onNotificationPageShow);
+    pageShowAttached = false;
+  }
+  for (const link of attachedTableLinks) {
+    link.removeEventListener('click', onNotificationLinkClick);
+    attachedTableLinks.delete(link);
   }
 }
 
