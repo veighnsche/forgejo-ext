@@ -17,12 +17,38 @@ import {contributionRootSelector} from '../native-lifecycle.js';
 
 const {appUrl, appSubUrl, i18n} = window.config;
 
-export function initGlobalFormDirtyLeaveConfirm() {
-  // Warn users that try to leave a page after entering data into a form.
-  // Except on sign-in pages, and for forms marked as 'ignore-dirty'.
-  if (!$('.user.signin').length) {
-    $('form:not(.ignore-dirty)').areYouSure();
+// Dirty-form guards bind per form element, so they follow the page lifetime:
+// fresh forms are guarded by enhanceNativeNodes and retired forms are dropped
+// with their nodes (the vendor plugin has no destroy; its listeners die with
+// the replaced node). Sign-in pages and 'ignore-dirty' forms stay exempt.
+const enhancedForms = new Set();
+const enhancedDropzones = new Set();
+
+function scopedElements(root, selector) {
+  const found = Array.from(root.querySelectorAll(selector));
+  if (root.nodeType === 1 && root.matches(selector)) found.unshift(root);
+  return found;
+}
+
+function enhanceNativeForms(root) {
+  if ($('.user.signin').length) return;
+  for (const el of scopedElements(root, 'form:not(.ignore-dirty)')) {
+    if (enhancedForms.has(el) || el.closest(contributionRootSelector)) continue;
+    enhancedForms.add(el);
+    $(el).areYouSure();
   }
+}
+
+function enhanceNativeDropzones(root) {
+  for (const el of scopedElements(root, '.dropzone')) {
+    if (enhancedDropzones.has(el) || el.dropzone || el.closest(contributionRootSelector)) continue;
+    enhancedDropzones.add(el);
+    initDropzone(el).catch((error) => console.error(error));
+  }
+}
+
+export function initGlobalFormDirtyLeaveConfirm() {
+  enhanceNativeForms(document);
 }
 
 export function initHeadNavbarContentToggle() {
@@ -47,7 +73,10 @@ export function initFootLanguageMenu() {
   $('.language-menu a[lang]').on('click', linkLanguageAction);
 }
 
+let quickSubmitBound = false;
 export function initGlobalEnterQuickSubmit() {
+  if (quickSubmitBound) return;
+  quickSubmitBound = true;
   $(document).on('keydown', '.js-quick-submit', (e) => {
     if (((e.ctrlKey && !e.altKey) || e.metaKey) && (e.key === 'Enter')) {
       handleGlobalEnterQuickSubmit(e.target);
@@ -56,7 +85,10 @@ export function initGlobalEnterQuickSubmit() {
   });
 }
 
+let buttonClickOnEnterBound = false;
 export function initGlobalButtonClickOnEnter() {
+  if (buttonClickOnEnterBound) return;
+  buttonClickOnEnterBound = true;
   $(document).on('keypress', 'div.ui.button,span.ui.button', (e) => {
     if (e.code === ' ' || e.code === 'Enter') {
       e.target.click();
@@ -224,6 +256,12 @@ export function enhanceNativeNodes(root = document) {
     initTab(el);
     enhancedTabs.add(el);
   }
+
+  // Form helpers share the page lifetime: fresh forms, disabled modal inputs
+  // and dropzones in the incoming region are enhanced exactly once.
+  enhanceNativeForms(root);
+  initDisabledInputs(root);
+  enhanceNativeDropzones(root);
 }
 
 // Destroys fomantic instances in the outgoing transplant region (.page-content)
@@ -253,21 +291,31 @@ export function retireNativeNodes() {
       enhancedTabs.delete(el);
     }
   }
+  for (const el of enhancedForms) {
+    if (!el.isConnected || el.closest('.page-content')) {
+      enhancedForms.delete(el);
+    }
+  }
+  for (const el of enhancedDropzones) {
+    if (!el.isConnected || el.closest('.page-content')) {
+      if (el.isConnected) el.dropzone?.destroy();
+      enhancedDropzones.delete(el);
+    }
+  }
 }
 
 // Sometimes unrelated inputs are stored in forms for convenience, for example,
 // modal inputs. To prevent them from blocking the forms for noJS clients they
 // are disabled by default. TypeScript: root is HTMLElement
 export function initDisabledInputs(root) {
-  for (const el of root.querySelectorAll('input.js-enable[disabled]')) {
+  for (const el of scopedElements(root, 'input.js-enable[disabled]')) {
+    if (el.closest(contributionRootSelector)) continue;
     el.removeAttribute('disabled');
   }
 }
 
 export function initGlobalDropzone() {
-  for (const el of document.querySelectorAll('.dropzone')) {
-    initDropzone(el);
-  }
+  enhanceNativeDropzones(document);
 }
 
 export async function initDropzone(dropzoneEl, zone = undefined) {
@@ -423,57 +471,65 @@ async function linkAction(e) {
   }
 }
 
-export function initGlobalLinkActions() {
-  function showDeletePopup(e) {
-    e.preventDefault();
-    const $this = $(this || e.target);
-    const dataArray = $this.data();
+function showDeletePopup(e, trigger = e.target) {
+  e.preventDefault();
+  const $this = $(trigger);
+  const dataArray = $this.data();
 
-    const modalID = $this[0].getAttribute('data-modal-id');
-    if (!modalID) {
-      throw new Error('This button does not specify which modal it wants to open.');
-    }
-
-    const $dialog = $(`#${modalID}`);
-    $dialog.find('.name').text($this.data('name'));
-    for (const [key, value] of Object.entries(dataArray)) {
-      if (key && key.startsWith('data')) {
-        $dialog.find(`.${key}`).text(value);
-      }
-    }
-
-    $dialog.modal({
-      closable: false,
-      onApprove: async () => {
-        if ($this.data('type') === 'form') {
-          document.querySelector($this.data('form')).requestSubmit();
-          return;
-        }
-        if ($this[0].getAttribute('hx-confirm')) {
-          e.detail.issueRequest(true);
-          return;
-        }
-        const postData = new FormData();
-        for (const [key, value] of Object.entries(dataArray)) {
-          if (key && key.startsWith('data')) {
-            postData.append(key.slice(4), value);
-          }
-          if (key === 'id') {
-            postData.append('id', value);
-          }
-        }
-
-        const response = await POST($this.data('url'), {data: postData});
-        if (response.ok) {
-          const data = await response.json();
-          window.location.href = data.redirect;
-        }
-      },
-    }).modal('show');
+  const modalID = $this[0].getAttribute('data-modal-id');
+  if (!modalID) {
+    throw new Error('This button does not specify which modal it wants to open.');
   }
 
-  // Helpers.
-  $('.delete-button').on('click', showDeletePopup);
+  const $dialog = $(`#${modalID}`);
+  $dialog.find('.name').text($this.data('name'));
+  for (const [key, value] of Object.entries(dataArray)) {
+    if (key && key.startsWith('data')) {
+      $dialog.find(`.${key}`).text(value);
+    }
+  }
+
+  $dialog.modal({
+    closable: false,
+    onApprove: async () => {
+      if ($this.data('type') === 'form') {
+        document.querySelector($this.data('form')).requestSubmit();
+        return;
+      }
+      if ($this[0].getAttribute('hx-confirm')) {
+        e.detail.issueRequest(true);
+        return;
+      }
+      const postData = new FormData();
+      for (const [key, value] of Object.entries(dataArray)) {
+        if (key && key.startsWith('data')) {
+          postData.append(key.slice(4), value);
+        }
+        if (key === 'id') {
+          postData.append('id', value);
+        }
+      }
+
+      const response = await POST($this.data('url'), {data: postData});
+      if (response.ok) {
+        const data = await response.json();
+        window.location.href = data.redirect;
+      }
+    },
+  }).modal('show');
+}
+
+// Document-delegated and registered once as a global feature: fresh
+// transplanted delete buttons work without rebinding, and repeated init
+// calls (e.g. from the comment editor) can never stack a second handler.
+let linkActionsBound = false;
+export function initGlobalLinkActions() {
+  if (linkActionsBound) return;
+  linkActionsBound = true;
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('.delete-button');
+    if (trigger) showDeletePopup(e, trigger);
+  });
 
   document.addEventListener('htmx:confirm', (e) => {
     e.preventDefault();
@@ -489,98 +545,108 @@ export function initGlobalLinkActions() {
   });
 }
 
-export function initGlobalShowModal() {
-  // A ".show-modal" button will show a modal dialog defined by its "data-modal" attribute.
-  // Each "data-modal-{target}" attribute will be filled to target element's value or text-content.
-  // * First, try to query '#target'
-  // * Then, try to query '.target'
-  // * Then, try to query 'target' as HTML tag
-  // If there is a ".{attr}" part like "data-modal-form.action", then the form's "action" attribute will be set.
-  $('.show-modal').on('click', function (e) {
-    e.preventDefault();
-    const modalSelector = this.getAttribute('data-modal');
-    const $modal = $(modalSelector);
-    if (!$modal.length) {
-      throw new Error('no modal for this action');
-    }
-    const modalAttrPrefix = 'data-modal-';
-    for (const attrib of this.attributes) {
-      if (!attrib.name.startsWith(modalAttrPrefix)) {
-        continue;
-      }
-
-      const attrTargetCombo = attrib.name.substring(modalAttrPrefix.length);
-      const [attrTargetName, attrTargetAttr] = attrTargetCombo.split('.');
-      // try to find target by: "#target" -> ".target" -> "target tag"
-      let $attrTarget = $modal.find(`#${attrTargetName}`);
-      if (!$attrTarget.length) $attrTarget = $modal.find(`.${attrTargetName}`);
-      if (!$attrTarget.length) $attrTarget = $modal.find(`${attrTargetName}`);
-      if (!$attrTarget.length) continue; // TODO: show errors in dev mode to remind developers that there is a bug
-
-      if (attrTargetAttr) {
-        $attrTarget[0][attrTargetAttr] = attrib.value;
-      } else if ($attrTarget[0].matches('input, textarea')) {
-        $attrTarget.val(attrib.value); // FIXME: add more supports like checkbox
-      } else {
-        $attrTarget.text(attrib.value); // FIXME: it should be more strict here, only handle div/span/p
-      }
+// A ".show-modal" button shows the modal defined by its "data-modal" attribute.
+// Delegated once on the document, so transplanted buttons need no rebinding
+// and repeated init calls cannot stack duplicate modal actions.
+function showModalAction(e) {
+  const trigger = e.target.closest('.show-modal');
+  if (!trigger) return;
+  e.preventDefault();
+  const modalSelector = trigger.getAttribute('data-modal');
+  const $modal = $(modalSelector);
+  if (!$modal.length) {
+    throw new Error('no modal for this action');
+  }
+  const modalAttrPrefix = 'data-modal-';
+  for (const attrib of trigger.attributes) {
+    if (!attrib.name.startsWith(modalAttrPrefix)) {
+      continue;
     }
 
-    $modal.modal('setting', {
-      onApprove: () => {
-        // "form-fetch-action" can handle network errors gracefully,
-        // so keep the modal dialog to make users can re-submit the form if anything wrong happens.
-        if ($modal.find('.form-fetch-action').length) return false;
-      },
-    }).modal('show');
-  });
-}
+    const attrTargetCombo = attrib.name.substring(modalAttrPrefix.length);
+    const [attrTargetName, attrTargetAttr] = attrTargetCombo.split('.');
+    // try to find target by: "#target" -> ".target" -> "target tag"
+    let $attrTarget = $modal.find(`#${attrTargetName}`);
+    if (!$attrTarget.length) $attrTarget = $modal.find(`.${attrTargetName}`);
+    if (!$attrTarget.length) $attrTarget = $modal.find(`${attrTargetName}`);
+    if (!$attrTarget.length) continue; // TODO: show errors in dev mode to remind developers that there is a bug
 
-export function initGlobalButtons() {
-  // There are many "cancel button" elements in modal dialogs, Fomantic UI expects they are button-like elements but never submit a form.
-  // However, Gitea misuses the modal dialog and put the cancel buttons inside forms, so we must prevent the form submission.
-  // There are a few cancel buttons in non-modal forms, and there are some dynamically created forms (eg: the "Edit Issue Content")
-  document.addEventListener('click', (e) => {
-    if (e.target.matches('form button.ui.cancel.button')) {
-      e.preventDefault();
+    if (attrTargetAttr) {
+      $attrTarget[0][attrTargetAttr] = attrib.value;
+    } else if ($attrTarget[0].matches('input, textarea')) {
+      $attrTarget.val(attrib.value); // FIXME: add more supports like checkbox
+    } else {
+      $attrTarget.text(attrib.value); // FIXME: it should be more strict here, only handle div/span/p
     }
-  });
-
-  for (const showPanelButton of document.querySelectorAll('.show-panel')) {
-    showPanelButton.addEventListener('click', (e) => {
-      // a '.show-panel' element can show a panel, by `data-panel="selector"`
-      // if it has "toggle" class, it toggles the panel
-      e.preventDefault();
-      const sel = e.currentTarget.getAttribute('data-panel');
-      if (e.currentTarget.classList.contains('toggle')) {
-        toggleElem(sel);
-      } else {
-        showElem(sel);
-      }
-    });
   }
 
-  for (const hidePanelButton of document.querySelectorAll('.hide-panel')) {
-    hidePanelButton.addEventListener('click', (e) => {
-      // a `.hide-panel` element can hide a panel, by `data-panel="selector"` or `data-panel-closest="selector"`
-      e.preventDefault();
-      let sel = e.currentTarget.getAttribute('data-panel');
-      if (sel) {
-        const element = document.querySelector(sel);
-        hideElem(element);
-        resetForms(element);
-        return;
+  $modal.modal('setting', {
+    onApprove: () => {
+      // "form-fetch-action" can handle network errors gracefully,
+      // so keep the modal dialog to make users can re-submit the form if anything wrong happens.
+      if ($modal.find('.form-fetch-action').length) return false;
+    },
+  }).modal('show');
+}
+
+let showModalBound = false;
+export function initGlobalShowModal() {
+  if (showModalBound) return;
+  showModalBound = true;
+  document.addEventListener('click', showModalAction);
+}
+
+// Panel toggles query live DOM at event time, so one delegated document
+// handler covers transplanted buttons with no per-element rebinding.
+function panelAction(e) {
+  const showButton = e.target.closest('.show-panel');
+  if (showButton) {
+    // a '.show-panel' element can show a panel, by `data-panel="selector"`
+    // if it has "toggle" class, it toggles the panel
+    e.preventDefault();
+    const sel = showButton.getAttribute('data-panel');
+    if (showButton.classList.contains('toggle')) {
+      toggleElem(sel);
+    } else {
+      showElem(sel);
+    }
+    return;
+  }
+  const hideButton = e.target.closest('.hide-panel');
+  if (!hideButton) return;
+  // a `.hide-panel` element can hide a panel, by `data-panel="selector"` or `data-panel-closest="selector"`
+  e.preventDefault();
+  let sel = hideButton.getAttribute('data-panel');
+  if (sel) {
+    const element = document.querySelector(sel);
+    hideElem(element);
+    resetForms(element);
+    return;
+  }
+  sel = hideButton.getAttribute('data-panel-closest');
+  if (sel) {
+    const element = hideButton.closest(sel);
+    hideElem(element);
+    resetForms(element);
+    return;
+  }
+  // should never happen, otherwise there is a bug in code
+  showErrorToast('Nothing to hide');
+}
+
+let globalButtonsBound = false;
+export function initGlobalButtons() {
+  if (!globalButtonsBound) {
+    globalButtonsBound = true;
+    // There are many "cancel button" elements in modal dialogs, Fomantic UI expects they are button-like elements but never submit a form.
+    // However, Gitea misuses the modal dialog and put the cancel buttons inside forms, so we must prevent the form submission.
+    // There are a few cancel buttons in non-modal forms, and there are some dynamically created forms (eg: the "Edit Issue Content")
+    document.addEventListener('click', (e) => {
+      if (e.target.matches('form button.ui.cancel.button')) {
+        e.preventDefault();
       }
-      sel = e.currentTarget.getAttribute('data-panel-closest');
-      if (sel) {
-        const element = e.currentTarget.closest(sel);
-        hideElem(element);
-        resetForms(element);
-        return;
-      }
-      // should never happen, otherwise there is a bug in code
-      showErrorToast('Nothing to hide');
     });
+    document.addEventListener('click', panelAction);
   }
 
   initGlobalShowModal();

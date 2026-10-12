@@ -1,7 +1,8 @@
 import $ from 'jquery';
 import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {enhanceNativeNodes, retireNativeNodes} from './common-global.js';
+import {enhanceNativeNodes, initGlobalButtons, initGlobalLinkActions, initGlobalShowModal, retireNativeNodes} from './common-global.js';
+import {createDropzone} from './dropzone.js';
 
 // The dirty-confirm vendor plugin needs a global jQuery at import time and is
 // outside this test's scope (fresh-node enhancement + index wiring).
@@ -9,6 +10,11 @@ vi.mock('../vendor/jquery.are-you-sure.js', () => ({}));
 // htmx's ESM bundle needs XPathEvaluator at import time, absent in happy-dom;
 // its error listeners are outside this test's scope.
 vi.mock('../htmx.js', () => ({}));
+vi.mock('./dropzone.js', () => ({createDropzone: vi.fn(async (el) => {
+  const dz = {destroy: vi.fn()};
+  el.dropzone = dz;
+  return dz;
+})}));
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -34,15 +40,16 @@ test('enhanceNativeNodes enhances dropdowns only inside the given root', () => {
 
 test('index wires document-delegated handlers as single globals', () => {
   const index = readFileSync('web_src/js/index.js', 'utf8');
-  for (const name of ['native-dropdowns', 'native-tooltips', 'native-modal-close', 'native-common-listeners', 'native-navbar-toggle', 'native-language-menu']) {
+  for (const name of ['native-dropdowns', 'native-tooltips', 'native-modal-close', 'native-common-listeners', 'native-navbar-toggle', 'native-language-menu', 'native-clipboard', 'native-quick-submit', 'native-button-enter', 'native-global-buttons', 'native-link-actions']) {
     expect(index).toContain(`registerGlobalFeature('${name}'`);
   }
-  for (const direct of ['initGlobalCommon();', 'initDropdowns();', 'initGlobalTooltips();', 'initModalClose();', 'initHeadNavbarContentToggle();', 'initFootLanguageMenu();']) {
+  for (const direct of ['initGlobalCommon();', 'initDropdowns();', 'initGlobalTooltips();', 'initModalClose();', 'initHeadNavbarContentToggle();', 'initFootLanguageMenu();', 'initGlobalButtons();', 'initGlobalLinkActions();', 'initGlobalCopyToClipboardListener();', 'initGlobalEnterQuickSubmit();', 'initGlobalButtonClickOnEnter();', 'initGlobalFormDirtyLeaveConfirm();', 'initGlobalDropzone();', 'initDisabledInputs(document);']) {
     expect(index).not.toContain(`\n  ${direct}`);
   }
   expect(index).toContain('initGlobalFeatures();');
   expect(index).toContain('enhanceNativeNodes(document);');
   expect(index).toContain(`registerPageFeature('native-node-enhancement'`);
+  expect(index).toContain('setNativeSwapEnhancer(');
 });
 
 test('re-enhancing the same nodes binds nothing twice', () => {
@@ -154,4 +161,91 @@ test('retire destroys region instances, keeps live chrome, and prunes detached n
   } finally {
     dropdown.mockRestore();
   }
+});
+
+test('show-modal is delegated once and survives trigger replacement', () => {
+  document.body.innerHTML = `<div class="page-content"><button class="show-modal" id="open" data-modal="#dlg">open</button></div>
+    <div id="dlg" class="ui modal"><span class="name"></span></div>`;
+  $.fn.modal = vi.fn(function () { return this });
+  const modal = $.fn.modal;
+  try {
+    initGlobalShowModal();
+    initGlobalShowModal();
+    initGlobalButtons();
+    document.querySelector('#open').click();
+    expect(modal.mock.calls.filter((call) => call[0] === 'show')).toHaveLength(1);
+    // Transplant: the trigger node is replaced wholesale, with no rebinding.
+    document.querySelector('.page-content').innerHTML = '<button class="show-modal" id="open2" data-modal="#dlg">open</button>';
+    modal.mockClear();
+    document.querySelector('#open2').click();
+    expect(modal.mock.calls.filter((call) => call[0] === 'show')).toHaveLength(1);
+  } finally {
+    delete $.fn.modal;
+  }
+});
+
+test('delete-button opens its modal once after repeated init', () => {
+  document.body.innerHTML = `<div class="page-content"><button class="delete-button" id="del" data-modal-id="del-dlg" data-name="thing">del</button></div>
+    <div id="del-dlg"><span class="name"></span></div>`;
+  $.fn.modal = vi.fn(function () { return this });
+  const modal = $.fn.modal;
+  try {
+    initGlobalLinkActions();
+    initGlobalLinkActions();
+    initGlobalLinkActions();
+    document.querySelector('#del').click();
+    expect(modal.mock.calls.filter((call) => call[0] === 'show')).toHaveLength(1);
+    expect(document.querySelector('#del-dlg .name').textContent).toBe('thing');
+  } finally {
+    delete $.fn.modal;
+  }
+});
+
+test('panel toggles act once per click after repeated init', () => {
+  document.body.innerHTML = `<button class="show-panel toggle" data-panel="#panel">toggle</button><div id="panel" class="tw-hidden"></div>`;
+  initGlobalButtons();
+  initGlobalButtons();
+  const panel = document.querySelector('#panel');
+  document.querySelector('.show-panel').click();
+  expect(panel.classList.contains('tw-hidden')).toBe(false);
+  document.querySelector('.show-panel').click();
+  expect(panel.classList.contains('tw-hidden')).toBe(true);
+});
+
+test('dirty-form guards bind fresh forms once and rebind after retire', () => {
+  document.body.innerHTML = `<div class="page-content"><form id="f1"><input name="a"></form></div>
+    <div data-extension-page><form id="f2"></form></div>`;
+  $.fn.areYouSure = vi.fn();
+  try {
+    enhanceNativeNodes(document);
+    expect($.fn.areYouSure).toHaveBeenCalledTimes(1);
+    enhanceNativeNodes(document);
+    expect($.fn.areYouSure).toHaveBeenCalledTimes(1);
+    retireNativeNodes();
+    enhanceNativeNodes(document);
+    expect($.fn.areYouSure).toHaveBeenCalledTimes(2);
+  } finally {
+    delete $.fn.areYouSure;
+  }
+});
+
+test('enhancement enables fresh disabled inputs but leaves contribution inputs alone', () => {
+  document.body.innerHTML = `<div class="page-content"><input class="js-enable" id="native-in" disabled></div>
+    <div data-extension-panel><input class="js-enable" id="owned-in" disabled></div>`;
+  enhanceNativeNodes(document);
+  expect(document.querySelector('#native-in').hasAttribute('disabled')).toBe(false);
+  expect(document.querySelector('#owned-in').hasAttribute('disabled')).toBe(true);
+});
+
+test('dropzones initialize once per fresh node and are destroyed on retire', async () => {
+  document.body.innerHTML = `<div class="page-content"><div class="dropzone" id="dz-in"></div></div>
+    <div class="dropzone" id="dz-chrome"></div>`;
+  createDropzone.mockClear();
+  enhanceNativeNodes(document);
+  await vi.waitFor(() => expect(createDropzone).toHaveBeenCalledTimes(2));
+  enhanceNativeNodes(document);
+  expect(createDropzone).toHaveBeenCalledTimes(2);
+  retireNativeNodes();
+  expect(document.querySelector('#dz-in').dropzone.destroy).toHaveBeenCalledTimes(1);
+  expect(document.querySelector('#dz-chrome').dropzone.destroy).not.toHaveBeenCalled();
 });
