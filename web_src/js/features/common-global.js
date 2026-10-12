@@ -153,9 +153,20 @@ async function formFetchAction(e) {
   await fetchActionDoRequest(formEl, reqUrl, reqOpt);
 }
 
-export function initGlobalCommon() {
+// Document-level listeners: registered once as a global feature, never
+// retired or re-attached across native transitions.
+export function initGlobalCommonListeners() {
+  initSubmitEventPolyfill();
+  document.addEventListener('submit', formFetchAction);
+  document.addEventListener('click', linkAction);
+}
+
+// Enhances fresh nodes only: fomantic dropdowns and tabs inside root.
+// Called with document at boot and with the transplanted region after a
+// native transition. Never call on already-enhanced nodes.
+export function enhanceNativeNodes(root = document) {
   // Semantic UI modules.
-  const $uiDropdowns = $('.ui.dropdown');
+  const $uiDropdowns = $(root).find('.ui.dropdown').addBack('.ui.dropdown');
 
   // do not init "custom" dropdowns, "custom" dropdowns are managed by their own code.
   $uiDropdowns.filter(':not(.custom)').dropdown();
@@ -196,13 +207,9 @@ export function initGlobalCommon() {
   $uiDropdowns.filter('.upward').dropdown('setting', 'direction', 'upward');
   $uiDropdowns.filter('.downward').dropdown('setting', 'direction', 'downward');
 
-  for (const el of document.querySelectorAll('.tabular.menu')) {
+  for (const el of root.querySelectorAll('.tabular.menu')) {
     initTab(el);
   }
-
-  initSubmitEventPolyfill();
-  document.addEventListener('submit', formFetchAction);
-  document.addEventListener('click', linkAction);
 }
 
 // Sometimes unrelated inputs are stored in forms for convenience, for example,
