@@ -1,4 +1,5 @@
 import {retirePageFeatures, setPageConfig, initPageFeatures} from '../native-lifecycle.js';
+import {submitEventSubmitter} from '../utils/dom.js';
 import {mountContribution} from './extension-mount.js';
 
 function isAuthPath(pathname) {
@@ -332,6 +333,13 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       window.location.assign(path);
       return;
     }
+    // P1: verify the entered document belongs to the live session before
+    // touching any retained state. A foreign generation means the cookie or
+    // actor changed out from under the shell: retire, never join.
+    if (response.headers.get('X-Extension-Session-Generation') !== generation) {
+      invalidate();
+      return;
+    }
     let html;
     try {
       html = await response.text();
@@ -350,8 +358,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       window.location.assign(path);
       return;
     }
-    if (kind === 'direct' && (response.headers.get('X-Extension-Session-Generation') !== generation ||
-        incoming.dataset.workspaceSessionGeneration !== generation)) {
+    if (kind === 'direct' && incoming.dataset.workspaceSessionGeneration !== generation) {
       invalidate();
       return;
     }
@@ -406,6 +413,30 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   }
   document.addEventListener('click', onWorkspaceClick);
 
+  // GET forms navigate like links: same-origin GET submits to transplantable
+  // paths stay in-shell. formFetchAction runs first (index.js order) and
+  // claims .form-fetch-action forms; POST and targeted forms keep native load.
+  function onWorkspaceSubmit(event) {
+    if (event.defaultPrevented) return;
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (form.target && form.target !== '_self') return;
+    if ((form.getAttribute('method') || 'get').toLowerCase() !== 'get') return;
+    const formData = new FormData(form);
+    const submitter = submitEventSubmitter(event);
+    const submitterName = submitter?.getAttribute('name');
+    if (submitterName) formData.append(submitterName, submitter.getAttribute('value') || '');
+    const params = new URLSearchParams();
+    for (const [key, value] of formData) params.append(key, value.toString());
+    const target = new URL(form.getAttribute('action') || window.location.href, window.location.href);
+    target.search = params.toString();
+    const decision = classifyWorkspaceNavigation(target.href, window.location.href, origin, appSubPath);
+    if (decision.kind !== 'native') return;
+    event.preventDefault();
+    transplant(decision.path, true);
+  }
+  document.addEventListener('submit', onWorkspaceSubmit);
+
   function updateHistory(path) {
     const state = window.history.state;
     window.history.replaceState(state, '', path);
@@ -427,6 +458,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     workspace.style.display = 'none';
     if (event.persisted) return;
     document.removeEventListener('click', onWorkspaceClick);
+    document.removeEventListener('submit', onWorkspaceSubmit);
     window.removeEventListener('pagehide', onPageHide);
     window.removeEventListener('pageshow', onPageShow);
     window.removeEventListener('focus', checkSession);

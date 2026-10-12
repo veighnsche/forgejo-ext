@@ -414,31 +414,80 @@ test('contribution -> native -> contribution refreshes live page config with one
   }
 });
 
-test('native -> contribution -> native refreshes live page config with one retained owner', async () => {
+// P1: real /admin/users output carries no workspace region (the server only
+// shells direct contribution paths), so a shell booted there would contradict
+// the server. Native-first order is: plain boot, native navigation to the
+// contribution (full load, first mount), then in-shell transplants.
+test('plain native documents boot without a shell and navigate natively', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/admin/users');
-  document.body.innerHTML = shellMarkup({path: '/admin/users', slot: '<form id="user-list-search-form"></form>'});
+  document.body.innerHTML = '<nav id="navbar"></nav><div role="main" class="page-content admin"><div class="ui container flex-container"><div class="flex-container-main"><form id="user-list-search-form"></form></div></div></div><footer></footer>';
   window.config = {appSubUrl: '', pageData: {adminUserListSearchForm: {SortType: 'name'}}};
-  const owner = document.getElementById('notes-owner');
-  const adminPageData = {adminUserListSearchForm: {SortType: 'name'}};
-  const workspacePageData = {extension: {id: 'example'}};
-  const fetcher = vi.fn(async (url) => navigationResponse(url.includes('/admin/users') ?
-    plainAdminDocument({title: 'Users - Forgejo', pageData: adminPageData, content: '<form id="user-list-search-form"></form>'}) :
-    directDocument({title: 'Workspace', pageData: workspacePageData, content: 'Global Workspace', generation: 'session-a'})));
+  const fetcher = vi.fn();
+  try {
+    initExtensionWorkspace(fetcher);
+    expect(document.querySelector('[data-extension-workspace]')).toBeNull();
+    const link = document.createElement('a');
+    link.href = '/workspace';
+    document.body.append(link);
+    const event = new MouseEvent('click', {bubbles: true, cancelable: true});
+    link.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+    link.remove();
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('retires the shell when the entered document carries a foreign generation', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = shellMarkup({path: '/workspace'});
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const fetcher = vi.fn(async () => navigationResponse(
+    directDocument({title: 'Workspace', pageData: {extension: {id: 'example'}}, content: 'Foreign', generation: 'session-b'}),
+    'session-b'));
+  const invalidated = vi.fn();
+  window.addEventListener('extension-workspace-invalidated', invalidated);
   try {
     initExtensionWorkspace(fetcher);
     clickWorkspaceLink('/workspace?view=all');
-    await vi.waitFor(() => expect(window.location.pathname + window.location.search).toBe('/workspace?view=all'));
-    expect(document.title).toBe('Workspace');
-    expect(window.config.pageData).toEqual(workspacePageData);
-    expect(document.getElementById('notes-owner')).toBe(owner);
-    clickWorkspaceLink('/admin/users');
-    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
-    expect(document.title).toBe('Users - Forgejo');
-    expect(document.querySelector('#user-list-search-form')).not.toBeNull();
+    await vi.waitFor(() => expect(document.querySelector('[data-extension-workspace]').textContent).toContain('Your session changed'));
+    expect(document.querySelector('[data-extension-workspace-direct-content]')).toBeNull();
+    expect(invalidated).toHaveBeenCalledOnce();
+    expect(window.config.pageData).toEqual({extension: {id: 'example'}});
+  } finally {
+    window.removeEventListener('extension-workspace-invalidated', invalidated);
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('transplants same-origin GET form submits and leaves POST forms native', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = shellMarkup({path: '/workspace',
+    slot: '<form id="user-list-search-form" method="get" action="/admin/users"><input type="search" name="q" value="alice"><button type="submit" name="sort" value="email">Sort</button></form>'});
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const adminPageData = {adminUserListSearchForm: {SortType: 'email'}};
+  const fetcher = vi.fn(async () => navigationResponse(plainAdminDocument({title: 'Users', pageData: adminPageData, content: '<form id="user-list-search-form"></form>'})));
+  try {
+    initExtensionWorkspace(fetcher);
+    document.querySelector('#user-list-search-form').requestSubmit(document.querySelector('button[name="sort"]'));
+    await vi.waitFor(() => expect(window.location.pathname + window.location.search).toBe('/admin/users?q=alice&sort=email'));
+    expect(fetcher).toHaveBeenCalledOnce();
     expect(window.config.pageData).toEqual(adminPageData);
-    expect(document.getElementById('notes-owner')).toBe(owner);
-    expect(owner.isConnected).toBe(true);
+    const post = document.createElement('form');
+    post.method = 'post';
+    post.action = '/admin/users';
+    document.body.append(post);
+    const event = new Event('submit', {bubbles: true, cancelable: true});
+    post.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(fetcher).toHaveBeenCalledOnce();
+    post.remove();
   } finally {
     window.dispatchEvent(new Event('pagehide'));
     window.config = savedConfig;

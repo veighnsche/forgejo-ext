@@ -113,6 +113,12 @@ func Navigation(ctx *context.Context) {
 				if status != http.StatusOK || strings.HasPrefix(string(name), "user/auth/") || strings.HasPrefix(string(name), "status/") || strings.HasPrefix(string(name), "install/") {
 					return name
 				}
+				// P1: every eligible document carries the authoritative session
+				// generation so in-shell transplants verify the entered page
+				// belongs to the live session before joining it to owners.
+				if generation, err := sessionGeneration(ctx); err == nil {
+					ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
+				}
 				return renderWorkspace(ctx, name)
 			}
 		}

@@ -560,7 +560,7 @@ func TestExtensionPageDataEmbed(t *testing.T) {
 	previous := runtime.GetManager()
 	runtime.SetDefault(manager)
 	defer func() { runtime.SetDefault(previous); require.NoError(t, manager.Close()) }()
-	owner := loginUser(t, "user2")
+	owner := loginUser(t, "user1")
 	document := func(path string) *RequestWrapper {
 		request := NewRequest(t, http.MethodGet, path)
 		request.Header.Set("Sec-Fetch-Dest", "document")
@@ -573,7 +573,13 @@ func TestExtensionPageDataEmbed(t *testing.T) {
 	explore := owner.MakeRequest(t, document("/explore/repos"), http.StatusOK)
 	require.NotContains(t, explore.Body.String(), `data-extension-workspace`)
 	require.NotNil(t, extractBodyPageData(t, explore.Body.String()))
-	plain := owner.MakeRequest(t, document("/user/settings/security"), http.StatusOK)
+	plain := owner.MakeRequest(t, document("/admin/users"), http.StatusOK)
 	require.NotContains(t, plain.Body.String(), `data-extension-workspace`)
 	require.NotNil(t, extractBodyPageData(t, plain.Body.String()))
+	// P1: every eligible shape carries the same authoritative generation so
+	// in-shell transplants verify before joining entered HTML to owners.
+	directGeneration := direct.Header().Get(extension.SessionGenerationHeader)
+	require.Len(t, directGeneration, 43)
+	require.Equal(t, directGeneration, explore.Header().Get(extension.SessionGenerationHeader))
+	require.Equal(t, directGeneration, plain.Header().Get(extension.SessionGenerationHeader))
 }
