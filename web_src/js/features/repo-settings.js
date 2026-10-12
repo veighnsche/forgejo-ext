@@ -3,12 +3,18 @@ import {minimatch} from 'minimatch';
 import {onInputDebounce, toggleElem} from '../utils/dom.js';
 import {POST} from '../modules/fetch.js';
 import {createCodemirror} from './codemirror.ts';
+import {contributionRootSelector} from '../native-lifecycle.js';
 
 const {appSubUrl} = window.config;
+
+// Access-mode dropdowns configured for the current page; retire destroys
+// exactly those instances.
+const collaborationDropdowns = new Set();
 
 export function initRepoSettingsCollaboration() {
   // Change collaborator access mode
   $('.page-content.repository .ui.dropdown.access-mode').each((_, el) => {
+    if (collaborationDropdowns.has(el) || el.closest(contributionRootSelector)) return;
     const $dropdown = $(el);
     const $text = $dropdown.find('> .text');
     $dropdown.dropdown({
@@ -41,7 +47,15 @@ export function initRepoSettingsCollaboration() {
         }, 0);
       },
     });
+    collaborationDropdowns.add(el);
   });
+}
+
+export function retireRepoSettingsCollaboration() {
+  for (const el of collaborationDropdowns) {
+    if (el.isConnected) $(el).dropdown('destroy');
+    collaborationDropdowns.delete(el);
+  }
 }
 
 export function initRepoSettingSearchTeamBox() {
