@@ -4,10 +4,11 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["dom", "esnext"],
+    "allowJs": true,
+    "checkJs": true,
     "noEmit": true,
-    "strict": false,
-    "skipLibCheck": true,
+    "strict": true,
     "types": []
   },
-  "include": ["extension-contract.d.ts"]
+  "include": ["extension-contract.d.ts", "../../contrib/extensions/example/assets/*.js"]
 }

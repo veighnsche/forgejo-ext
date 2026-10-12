@@ -1,4 +1,11 @@
-export function mount(root, {request, stream}) {
+/**
+ * @param {HTMLElement} root
+ * @param {import('../../../../sdk/browser/extension-contract.js').MountContext} context
+ * @returns {import('../../../../sdk/browser/extension-contract.js').MountHandle}
+ */
+export function mount(root, context) {
+  if (context.contractVersion !== 1) throw new TypeError('Unsupported browser contract version');
+  const {request, stream} = context;
   root.classList.add('ui', 'form');
   const label = document.createElement('label');
   const field = document.createElement('div');
@@ -24,13 +31,26 @@ export function mount(root, {request, stream}) {
   const lifetime = document.createElement('p');
   lifetime.dataset.panelLifetime = '';
   const started = Date.now();
-  const update = () => {
+  const updateLifetime = () => {
     lifetime.textContent = `Mounted for ${Math.floor((Date.now() - started) / 1000)} seconds`;
   };
-  update();
-  const timer = window.setInterval(update, 1000);
+  /** @type {number | undefined} */
+  let timer;
   const controller = new AbortController();
   let disposed = false;
+  let visible = true;
+  let suspended = false;
+  const syncVisibleWork = () => {
+    root.hidden = disposed || suspended || !visible;
+    if (root.hidden) {
+      window.clearInterval(timer);
+      timer = undefined;
+    } else if (timer === undefined) {
+      updateLifetime();
+      timer = window.setInterval(updateLifetime, 1000);
+    }
+  };
+  syncVisibleWork();
   const load = async () => {
     try {
       const response = await request('notes', {signal: controller.signal});
@@ -85,53 +105,84 @@ export function mount(root, {request, stream}) {
   root.append(field, save, status, lifetime, streamStatus, pingButton, reply);
   load();
 
+  /** @type {(() => void) | undefined} */
   let closeStream;
+  /** @type {WebSocket | undefined} */
+  let socket;
   let pings = 0;
+  /** @param {MessageEvent} event */
+  const onMessage = (event) => {
+    if (disposed) return;
+    let payload = null;
+    try {
+      payload = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    if (payload && typeof payload.hello === 'string' && !streamStatus.dataset.streamConnection) {
+      streamStatus.dataset.streamConnection = payload.hello;
+      streamStatus.textContent = `Stream: connected (${payload.hello})`;
+      pingButton.disabled = false;
+      return;
+    }
+    if (payload && payload.ping !== undefined) {
+      reply.dataset.streamReply = String(payload.ping);
+      reply.textContent = `Reply: ${payload.ping}`;
+    }
+  };
+  const onClose = () => {
+    pingButton.disabled = true;
+    if (!disposed) streamStatus.textContent = 'Stream: closed';
+  };
+  const onPing = () => {
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    pings += 1;
+    socket.send(JSON.stringify({ping: `ping-${pings}`}));
+  };
   try {
-    if (typeof stream !== 'function') throw new Error('Stream helper unavailable');
     const held = stream('stream');
-    const socket = held.socket;
+    socket = held.socket;
     closeStream = held.close;
     if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
       throw new Error('Stream unavailable');
     }
-    socket.addEventListener('message', (event) => {
-      let payload = null;
-      try {
-        payload = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-      if (payload && typeof payload.hello === 'string' && !streamStatus.dataset.streamConnection) {
-        streamStatus.dataset.streamConnection = payload.hello;
-        streamStatus.textContent = `Stream: connected (${payload.hello})`;
-        pingButton.disabled = false;
-        return;
-      }
-      if (payload && payload.ping !== undefined) {
-        reply.dataset.streamReply = String(payload.ping);
-        reply.textContent = `Reply: ${payload.ping}`;
-      }
-    });
-    socket.addEventListener('close', () => {
-      pingButton.disabled = true;
-      if (!disposed) streamStatus.textContent = 'Stream: closed';
-    });
-    pingButton.addEventListener('click', () => {
-      if (socket.readyState !== WebSocket.OPEN) return;
-      pings += 1;
-      socket.send(JSON.stringify({ping: `ping-${pings}`}));
-    });
+    socket.addEventListener('message', onMessage);
+    socket.addEventListener('close', onClose);
+    pingButton.addEventListener('click', onPing);
   } catch {
     streamStatus.textContent = 'Stream: unavailable';
   }
 
-  return () => {
+  const dispose = () => {
+    if (disposed) return;
     disposed = true;
     controller.abort();
-    window.clearInterval(timer);
+    syncVisibleWork();
     closeStream?.();
+    socket?.removeEventListener('message', onMessage);
+    socket?.removeEventListener('close', onClose);
+    pingButton.removeEventListener('click', onPing);
     input.removeEventListener('input', onInput);
     save.removeEventListener('click', onSave);
+    input.value = '';
+    reply.textContent = '';
+    delete streamStatus.dataset.streamConnection;
+  };
+  return {
+    update: (presentation) => {
+      visible = presentation.visible;
+      lifetime.title = `${presentation.mode}: ${presentation.route}`;
+      syncVisibleWork();
+    },
+    suspend: () => {
+      suspended = true;
+      syncVisibleWork();
+    },
+    resume: () => {
+      suspended = false;
+      syncVisibleWork();
+    },
+    retire: dispose,
+    dispose,
   };
 }

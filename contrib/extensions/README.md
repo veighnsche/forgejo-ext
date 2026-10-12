@@ -19,6 +19,7 @@ separately from this source checkout with its pinned Go toolchain:
 ```sh
 mkdir -p .artifacts/packages/example/assets
 go build -o .artifacts/packages/example/backend ./contrib/extensions/example
+./node_modules/.bin/tsc -p sdk/browser
 cp contrib/extensions/example/extension.json .artifacts/packages/example/
 cp contrib/extensions/example/assets/*.js .artifacts/packages/example/assets/
 ```
@@ -115,18 +116,31 @@ request; it does not fall back to manifest-only visibility.
 
 ## Browser lifecycle
 
+The canonical browser definition is
+[sdk/browser/extension-contract.d.ts](../../sdk/browser/extension-contract.d.ts).
+Consumers keep a local type-only mirror, recording its source revision and
+SHA-256 and checking the copied body against that pin. Re-sync the mirror from the
+canonical definition when it changes; keep its provenance and pin check together.
+An isolated consumer compile needs only this definition and the consumer source.
+The example typecheck above checks its actual browser entries; emitted JavaScript
+has no runtime SDK import. The host injects `request` and `stream` through context.
+
 An entry module exports `mount(root, context)`. It may be asynchronous and may
-return a cleanup function or an object with `dispose()`. Mount is called once per
-root; cleanup runs on departures that do not retain the document in the browser's
-back/forward cache. Cached documents retain their mounts while suspended. The context contains
+return a cleanup function, an object with `dispose()`, or a lifecycle handle with
+`update()`, `suspend()`, `resume()` and `retire()`. Mount is called once per root.
+Visible retained owners receive presentation/context updates; sheltered owners
+suspend and resume while retaining the same root, resources and stream. Final
+retirement follows authority loss or contribution removal. The context contains
 `extensionId`, `pageId` or `panelId`, `apiBase`, `assetBase`, `appSubUrl`,
-`sessionGeneration`, scoped `request(relativePath, options)`, and optional observed
-`repositoryId`. The request helper applies the native URL/session contract. The
-repository ID selects a display only; it does not widen a global contribution's
-authority.
+`sessionGeneration`, `contractVersion`, scoped `request(relativePath, options)`
+and `stream(relativePath, options)`, and optional observed `repositoryId`.
+Check the contract version expected by the consumer build before using either
+helper. The helpers apply the native URL/session contract. The repository ID
+selects a display only; it does not widen a global contribution's authority.
 
 ```js
-export function mount(root, {request}) {
+export function mount(root, {contractVersion, request}) {
+  if (contractVersion !== 1) throw new Error('Unsupported browser contract');
   const controller = new AbortController();
   request('context', {signal: controller.signal})
     .then((response) => {
@@ -141,18 +155,15 @@ export function mount(root, {request}) {
 }
 ```
 
-Use same-origin fetches, handle errors, render untrusted values as text, and
+Use the supplied helpers, handle errors, render untrusted values as text, and
 release listeners, timers and requests in cleanup. Native cross-origin request
 protection applies to backend calls. Extensions own their UI and styling inside
 their mount roots.
 
-The current preferred-workspace implementation selects an alternate presentation
-after successful native handlers. Workspace renders directly with shared native
-templates; ordinary native documents use an iframe beside retained panels. The
-client copies Workspace content from fetched documents. This mechanism has
-composed navigation and initialization failures; its iframe/content-copy design
-is superseded by the correction target below. Retaining native handlers or reusing
-head/footer templates alone does not establish native frontend lifecycle behavior.
+The bounded native route proof establishes retained notes roots, resources and
+streams through admitted native transitions using actual templates, assets and
+initializers. Broader native feature/route cutover and installed consumer proof
+remain separate qualifications.
 
 Authentication, account restrictions, credential flows, partial/failed responses
 and external navigation retain native handling. The host checks the current
@@ -161,11 +172,11 @@ actor authority only; an observed repository does not grant repository authority
 
 ## Native frontend correction target
 
-This is the required ownership boundary for the pending correction, not a claim
-that the current browser interface implements it. Fountain owns the existing
-Forgejo frontend and its extension integration. Consumers render product content
-through that frontend. The reusable capability must work without Soda, its
-template payload, product IDs or domain models.
+Fountain owns the existing Forgejo frontend and its extension integration.
+Consumers render product content through that frontend. The bounded native proof
+establishes the retention mechanism; the table defines ownership for the remaining
+feature/route cutover and consumer integration. The reusable capability works
+without Soda, its template payload, product IDs or domain models.
 
 | Responsibility | Fountain | Consumer |
 | --- | --- | --- |
@@ -178,12 +189,10 @@ template payload, product IDs or domain models.
 | Browser authority | Native admission, session suspension/revalidation, revocation, guarded request/stream facilities and retirement signals. | Consume the lifecycle and clean up its resources when retired; enforce additional domain/membership/operator policy on every protected operation. |
 | Product and execution | Native collaboration primitives and their native authorization. | Product workflows, durable state, factory policy, terminal protocol/renderer and external process/session ownership. |
 
-The public browser contract needs one canonical definition supplied by Fountain.
-It must express initial mount, subsequent context/presentation updates, suspension,
-validated resumption and final retirement. Scoped HTTP/stream helpers must enforce
-the contribution URL and session lifetime without knowing an application's wire
-protocol. Exact signatures follow the native capability proof; consumers must not
-fill missing platform capabilities with DOM selectors or duplicate transport rules.
+The canonical definition expresses initial mount, context/presentation updates,
+suspension, validated resumption and final retirement. Host-injected HTTP/stream
+helpers enforce the contribution URL and session lifetime; consumers own their
+application wire protocol and render within the supplied root.
 Browser context remains display information, never operation authority.
 
 Persistent contributions retain the same root and local resources, including a
@@ -204,9 +213,9 @@ must compile valid local styles and keep its own forms/settings/dialogs usable.
 
 ### Native capability proof and cutover
 
-1. Prove the critical boundary in Fountain using actual native templates, assets,
-   configuration and initializers, with the existing generic notes example. It
-   currently uses HTTP; add or reuse an admitted native test stream for the proof.
+1. The bounded critical-boundary proof is established using actual native templates,
+   assets, configuration and initializers with the generic notes example's HTTP
+   and admitted native stream. Extend qualification as further routes are admitted.
    No Soda imports, template overrides, request IDs or host-DOM inspection belong
    in the example. Exercise native → contribution → native and the reverse entry
    order, global/repository context, a working native control after each change,
@@ -218,11 +227,11 @@ must compile valid local styles and keep its own forms/settings/dialogs usable.
    component framework. A whole-document reload cannot establish same-object
    persistence. A failed native proof is an unresolved capability, not permission
    to substitute consumer reconnection or another wrapper.
-3. Replace the iframe router, selective full-document extraction and wrapper-only
-   chrome hiding with the proved native lifecycle. Retain native handlers,
-   contribution guards, admission, callbacks and stream revocation. Qualify the
-   affected native feature classes before widening navigation support; the first
-   route proof alone does not establish the whole site's lifecycle.
+3. Complete the wider native feature/route cutover through the proved lifecycle and
+   remove remaining obsolete wrapper callers. Retain native handlers, contribution
+   guards, admission, callbacks and stream revocation. Qualify affected native
+   feature classes before widening navigation support; the bounded route proof
+   does not establish the whole site's lifecycle.
 4. Migrate consumers to the host contract and remove obsolete shell adapters with
    their callers/fixtures. Verify the actual installed consumer composition and
    resources separately; a generic example does not prove an application's xterm

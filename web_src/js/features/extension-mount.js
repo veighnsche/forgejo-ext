@@ -10,8 +10,9 @@
 // Lifetime guarantees (see sdk/browser/extension-contract.d.ts): update() and
 // suspend()/resume() always preserve the exact root and all retained resources
 // (renderer/socket where used). Only retire() — authority loss or removal —
-// closes contribution streams. Ordinary native navigation arrives as update(),
-// never as suspend() or retire().
+// closes contribution streams. The visible retained owner receives update()
+// across ordinary navigation; a sheltered owner suspends and resumes with
+// the same root, resources and stream.
 
 function validAppSubURL(value) {
   return typeof value === 'string' && (value === '' ||
@@ -128,9 +129,10 @@ function normalizeHandle(result) {
  * when the host invalidates the mount while it is still pending.
  *
  * The host drives update/suspend/resume/retire after mount. Ordinary native
- * navigation only ever calls update() on the retained owner; retire() runs
- * solely on authority loss or contribution removal. Native page-feature
- * teardown owns native DOM only and never retires the admitted shared owner.
+ * navigation updates the visible retained owner; a sheltered owner suspends
+ * and resumes without dropping its resources or stream. Retirement follows
+ * authority loss or contribution removal. Native page-feature teardown owns
+ * native DOM only and never retires the admitted shared owner.
  *
  * Pass hooks.signal to let the host invalidate while the entry import or an
  * async mount is still pending: mount is never invoked after invalidation,
@@ -267,8 +269,8 @@ export async function mountContribution(root, hooks = {}) {
       handle.update?.(presentation);
     },
     suspend: () => {
-      // Authority concealment only: sockets stay connected across
-      // suspend/resume. Only retire() closes them.
+      // Shelter or session revalidation conceals the owner without dropping
+      // its sockets. Only retire() closes them.
       if (state !== 'active') return;
       state = 'suspended';
       handle.suspend?.();

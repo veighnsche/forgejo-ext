@@ -1,10 +1,10 @@
-// Prototype browser contract for native extension contributions (NFX-C01/H-0).
+// Canonical browser contract for native extension contributions (NFX-C03/H-N).
 //
-// Canonical declarations owned by Fountain lane C. This prototype names the
-// only browser-contract surface a contribution may rely on. Signatures and
-// the smallest real distribution mechanism are selected after H-P (C03),
-// which also removes duplicate generic adapters. Vendoring by copy is not
-// finalized here.
+// Consumers typecheck against this public definition or a byte-identical,
+// locally pinned mirror recording its source commit, body hash and version.
+// Type imports are erased: the host supplies request/stream through mount()
+// and drives the returned lifecycle handle, with no consumer runtime host adapter.
+// Consumer entries refuse an unexpected contractVersion before any effects.
 //
 // Display facts published by the host (route, presentation, observed
 // repository) are never operation authority. Contributions must not inspect
@@ -72,8 +72,8 @@ export interface ResumeValidation {
 
 /**
  * Why the host is retiring a mount. Never a product execution command, and
- * never ordinary navigation: navigation of the admitted shared owner is
- * always update().
+ * never ordinary navigation: the visible shared owner receives update();
+ * sheltered owners suspend and resume without retirement.
  */
 export type RetireReason =
   | 'session-changed' |
@@ -98,8 +98,9 @@ export interface MountContext {
   sessionGeneration: string;
   /**
    * Canonical browser contract version implemented by the host.
-   * The mount refuses any other value, binding the consumer build
-   * to a compatible host runtime.
+   * The host refuses a mismatched mount dataset. Consumer entries also
+   * check their built expected version before any effects, binding the
+   * consumer build to a compatible host runtime.
    */
   contractVersion: 1;
   /** Observed repository ID (display only, never authority). */
@@ -150,7 +151,8 @@ export interface MountHandle {
   /**
    * Final teardown after authority loss or removal. The host closes
    * contribution streams first. Ordinary navigation never retires the
-   * admitted shared owner; it arrives as update().
+   * admitted shared owner; visible owners update and sheltered owners
+   * suspend and resume with full retention.
    */
   retire?: (reason: RetireReason) => void;
 }

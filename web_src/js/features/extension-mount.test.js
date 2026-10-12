@@ -1,5 +1,7 @@
 import {vi} from 'vitest';
 import {mountContribution, parseMountDataset, createScopedRequest, createScopedStream} from './extension-mount.js';
+import {mount as mountExamplePage} from '../../../contrib/extensions/example/assets/page.js';
+import {mount as mountExamplePanel} from '../../../contrib/extensions/example/assets/panel.js';
 
 function pageRoot() {
   const root = document.createElement('div');
@@ -26,6 +28,112 @@ class FakeSocket {
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test('example page refuses a different consumer contract version before effects', async () => {
+  const root = document.createElement('div');
+  root.textContent = 'unchanged';
+  const request = vi.fn();
+  const stream = vi.fn();
+  const createElement = vi.spyOn(document, 'createElement');
+  try {
+    await expect(mountExamplePage(root, {contractVersion: 2, request, stream})).rejects.toThrow('Unsupported browser contract version');
+    expect(root.textContent).toBe('unchanged');
+    expect(createElement).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+  } finally {
+    createElement.mockRestore();
+  }
+});
+
+test('example panel refuses a different consumer contract version before effects', () => {
+  const root = document.createElement('div');
+  const request = vi.fn();
+  const stream = vi.fn();
+  const createElement = vi.spyOn(document, 'createElement');
+  const setInterval = vi.spyOn(window, 'setInterval');
+  try {
+    expect(() => mountExamplePanel(root, {contractVersion: 2, request, stream})).toThrow('Unsupported browser contract version');
+    expect(root.childNodes).toHaveLength(0);
+    expect(root.className).toBe('');
+    expect(createElement).not.toHaveBeenCalled();
+    expect(setInterval).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+  } finally {
+    setInterval.mockRestore();
+    createElement.mockRestore();
+  }
+});
+
+test('example lifecycle pauses visible work and retains its connected root and stream until retirement', async () => {
+  vi.useFakeTimers();
+  const sockets = [];
+  class ExampleSocket extends EventTarget {
+    readyState = WebSocket.OPEN;
+    send = vi.fn();
+    constructor() {
+      super();
+      sockets.push(this);
+    }
+    close() {
+      this.readyState = WebSocket.CLOSED;
+      this.dispatchEvent(new Event('close'));
+    }
+  }
+  const root = pageRoot();
+  document.body.append(root);
+  let owner;
+  try {
+    const fetcher = vi.fn().mockResolvedValue({ok: true, text: async () => 'private notes'});
+    owner = await mountContribution(root, {importer: async () => ({mount: mountExamplePanel}), fetcher, websocketClass: ExampleSocket});
+    await vi.advanceTimersByTimeAsync(0);
+    const input = root.querySelector('textarea');
+    const lifetime = root.querySelector('[data-panel-lifetime]');
+    const streamStatus = root.querySelector('[data-stream-connection]');
+    const socket = sockets[0];
+    socket.dispatchEvent(new MessageEvent('message', {data: JSON.stringify({hello: 'retained-stream'})}));
+    expect(input.value).toBe('private notes');
+    expect(vi.getTimerCount()).toBe(1);
+    owner.update({mode: 'page', route: '/workspace', params: {}, visible: true});
+    expect(lifetime.title).toBe('page: /workspace');
+    await vi.advanceTimersByTimeAsync(1000);
+    const beforeSuspend = lifetime.textContent;
+    owner.suspend();
+    expect(root.hidden).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(lifetime.textContent).toBe(beforeSuspend);
+    expect(socket.readyState).toBe(WebSocket.OPEN);
+    expect(input.value).toBe('private notes');
+    owner.resume({sessionGeneration: 'session-a'});
+    expect(root.hidden).toBe(false);
+    expect(vi.getTimerCount()).toBe(1);
+    expect(lifetime.textContent).not.toBe(beforeSuspend);
+    owner.update({mode: 'panel', route: '/admin', params: {}, visible: false});
+    expect(root.hidden).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    owner.update({mode: 'panel', route: '/admin/users', params: {}, visible: true});
+    expect(vi.getTimerCount()).toBe(1);
+    expect(owner.root).toBe(root);
+    expect(root.isConnected).toBe(true);
+    expect(root.querySelector('textarea')).toBe(input);
+    expect(sockets).toHaveLength(1);
+    expect(socket.readyState).toBe(WebSocket.OPEN);
+    owner.retire('session-changed');
+    expect(socket.readyState).toBe(WebSocket.CLOSED);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(input.value).toBe('');
+    expect(root.hidden).toBe(true);
+    socket.dispatchEvent(new MessageEvent('message', {data: JSON.stringify({hello: 'late'})}));
+    expect(streamStatus.dataset.streamConnection).toBeUndefined();
+  } finally {
+    owner?.dispose();
+    root.remove();
+    vi.useRealTimers();
+  }
+});
 
 test('mounts a retained owner with scoped request and declared stream access', async () => {
   const root = pageRoot();
