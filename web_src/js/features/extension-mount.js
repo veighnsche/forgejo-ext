@@ -181,19 +181,17 @@ export async function mountContribution(root, hooks = {}) {
     if (options.signal?.aborted) return Promise.reject(new DOMException('This operation was aborted', 'AbortError'));
     let signal = lifetime.signal;
     if (options.signal) {
-      // Manual fan-in: AbortSignal.any needs Chrome 116+ but the pinned
-      // browserslist floor includes Chrome 109. Forwarding listeners last
-      // until the first abort (which removes both), so late
-      // aborts still reach in-flight body reads; nothing is removed early.
-      const combined = new AbortController();
-      const onAbort = () => {
-        options.signal.removeEventListener('abort', onAbort);
-        lifetime.signal.removeEventListener('abort', onAbort);
-        combined.abort();
-      };
-      options.signal.addEventListener('abort', onAbort, {once: true});
-      lifetime.signal.addEventListener('abort', onAbort, {once: true});
-      signal = combined.signal;
+      // Native fan-in for the actual supported runtime: Soda's existing
+      // transport (soda-extension.ts) already composes with
+      // AbortSignal.any and no compatibility branch, and the pinned
+      // HappyDOM/Chrome runtime provides it. The older Chrome 109
+      // browserslist note does not describe a consumer that needs a
+      // manual listener framework; building one retained a listener
+      // pair on the persistent owner for every completed request.
+      // This module adds no manual forwarding listeners to retain,
+      // and the native signal still aborts in-flight body reads on
+      // caller or owner abort.
+      signal = AbortSignal.any([options.signal, lifetime.signal]);
     }
     const pending = rawRequest(relativePath, {...options, signal});
     return Promise.resolve(pending).then((response) => {
