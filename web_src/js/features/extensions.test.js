@@ -603,6 +603,33 @@ test('leaves modified links, downloads and excluded destinations to native handl
   }
 });
 
+test('transplants null pageData as empty config but full-loads a missing embed', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({content: directContent('Global Workspace'), home: homeMarkup()});
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const fetcher = vi.fn(async (url) => {
+    if (url.includes('null-config')) {
+      return navigationResponse(`<html><head><title>Users</title></head><body data-page-data='null'><nav id="navbar"></nav>${plainAdminContent('<form></form>')}${homeMarkup({hidden: true})}<footer></footer></body></html>`);
+    }
+    return navigationResponse(`<html><head><title>Users</title></head><body><nav id="navbar"></nav>${plainAdminContent('<form></form>')}${homeMarkup({hidden: true})}<footer></footer></body></html>`);
+  });
+  const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin/users?null-config=1');
+    await vi.waitFor(() => expect(window.location.pathname + window.location.search).toBe('/admin/users?null-config=1'));
+    expect(window.config.pageData).toEqual({});
+    expect(assign).not.toHaveBeenCalled();
+    clickWorkspaceLink('/admin/users?missing-embed=1');
+    await vi.waitFor(() => expect(assign).toHaveBeenCalledWith(expect.stringContaining('/admin/users?missing-embed=1')));
+  } finally {
+    assign.mockRestore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
 test('takes a full document load for unknown layouts', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');
