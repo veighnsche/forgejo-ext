@@ -10,11 +10,12 @@ import {initImageDiff, retireImageDiff} from './imagediff.js';
 import {showErrorToast} from '../modules/toast.js';
 import {submitEventSubmitter, queryElemSiblings, hideElem, showElem} from '../utils/dom.js';
 import {POST, GET} from '../modules/fetch.js';
-import {currentPageGeneration, getPageData} from '../native-lifecycle.js';
+import {contributionRootSelector, currentPageGeneration, getPageData} from '../native-lifecycle.js';
 
 let diffAttached = false;
 const reviewForms = new Set();
 const toggleEls = new Set();
+let reactionController = null;
 
 function onReviewButtonClick(e) {
   const reviewBox = document.getElementById('review-box');
@@ -48,7 +49,7 @@ function onFileViewToggle() {
 
 function initRepoDiffFileViewToggle() {
   for (const el of document.querySelectorAll('.file-view-toggle')) {
-    if (toggleEls.has(el)) continue;
+    if (toggleEls.has(el) || el.closest(contributionRootSelector)) continue;
     el.addEventListener('click', onFileViewToggle);
     toggleEls.add(el);
   }
@@ -77,7 +78,7 @@ async function onConversationSubmit(e) {
     else selector = `[data-path="${path}"] .add-code-comment[data-side="${side}"][data-idx="${idx}"]`;
     for (const el of document.querySelectorAll(selector)) el.classList.add('tw-invisible');
     $newConversationHolder.find('.dropdown').dropdown();
-    initCompReactionSelector($newConversationHolder);
+    initCompReactionSelector($newConversationHolder, {signal: reactionController?.signal});
   } catch {
     if (generation === currentPageGeneration()) {
       console.error('error when submitting conversation', e);
@@ -103,7 +104,7 @@ async function onResolveConversation(e) {
       const $conversation = $(data);
       $(this).closest('.conversation-holder').replaceWith($conversation);
       $conversation.find('.dropdown').dropdown();
-      initCompReactionSelector($conversation);
+      initCompReactionSelector($conversation, {signal: reactionController?.signal});
     } else {
       window.location.reload();
     }
@@ -221,6 +222,7 @@ function initRepoDiffShowMore() {
 export function initRepoDiffView() {
   if (diffAttached) return;
   diffAttached = true;
+  reactionController = new AbortController();
   initRepoDiffConversationForm();
   if (!$('#diff-file-boxes').length) return;
   initDiffFileTree();
@@ -246,5 +248,7 @@ export function retireRepoDiffView() {
   retireDiffCommitSelect();
   retireViewedFiles();
   retireImageDiff();
+  reactionController?.abort();
+  reactionController = null;
   diffAttached = false;
 }

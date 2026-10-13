@@ -5,7 +5,10 @@ import {hideElem, showElem} from '../utils/dom.js';
 
 const {appSubUrl, notificationSettings, enableTimeTracking, assetVersionEncoded} = window.config;
 
+let stopwatchInitialized = false;
+
 export function initStopwatch() {
+  if (stopwatchInitialized) return;
   if (!enableTimeTracking) {
     return;
   }
@@ -16,6 +19,7 @@ export function initStopwatch() {
   if (!stopwatchEl || !stopwatchPopup) {
     return;
   }
+  stopwatchInitialized = true;
 
   stopwatchEl.removeAttribute('href'); // intended for noscript mode only
 

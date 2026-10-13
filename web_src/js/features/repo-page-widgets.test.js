@@ -9,7 +9,7 @@ import {initRepoBranchButton, retireRepoBranchButton} from './repo-branch.ts';
 import {initRepoEllipsisButton, retireRepoEllipsisButton, initCommitStatuses, retireCommitStatuses, initCommitNotes, retireCommitNotes} from './repo-commit.js';
 import {initRepoMigration, retireRepoMigration} from './repo-migration.js';
 import {initRepoMigrationStatusChecker, retireRepoMigrationStatusChecker} from './repo-migrate.js';
-import {initRepoArchiveLinks, initRepoCloneLink, initRepoCommonFilterSearchDropdown, retireRepoCommon} from './repo-common.js';
+import {initRepoArchiveLinks, initRepoCloneLink, initRepoCommonBranchOrTagDropdown, initRepoCommonFilterSearchDropdown, retireRepoCommon} from './repo-common.js';
 import {initRepoTemplateSearch, retireRepoTemplateSearch} from './repo-template.js';
 import {initRepoSettingGitHook, retireRepoSettingGitHook, initRepoSettingBranches, retireRepoSettingBranches, initRepoSettingsCollaboration, retireRepoSettingsCollaboration} from './repo-settings.js';
 import {initRepoProject, retireRepoProject} from './repo-projects.js';
@@ -177,6 +177,25 @@ test('repository branch filtering enters the native page with original push hist
   expect(dropdown).toHaveBeenLastCalledWith('destroy');
   options.onChange('', '', $choice);
   expect(navigate).toHaveBeenCalledOnce();
+});
+
+test('branch-or-tag dropdown switches reference lists once and retire detaches', () => {
+  document.body.innerHTML = '<div class="choose branch"><div class="dropdown"><div class="scrolling reference-list-menu"></div><div id="branches" class="tw-hidden">branches</div><button class="branch-tag-item" data-target="#branches">show</button></div></div><div data-extension-panel><div class="choose branch"><div class="dropdown"><button class="branch-tag-item" data-target="#owned">owned</button></div></div></div><div id="owned" class="tw-hidden"></div>';
+  initRepoCommonBranchOrTagDropdown('.choose.branch .dropdown');
+  initRepoCommonBranchOrTagDropdown('.choose.branch .dropdown');
+  document.querySelector('#branches').closest('.dropdown').querySelector('.branch-tag-item').click();
+  expect(document.getElementById('branches').classList.contains('tw-hidden')).toBe(false);
+  document.querySelector('[data-extension-panel] .branch-tag-item').click();
+  expect(document.getElementById('owned').classList.contains('tw-hidden')).toBe(true);
+  retireRepoCommon();
+  document.getElementById('branches').classList.add('tw-hidden');
+  document.querySelector('.choose.branch .branch-tag-item').click();
+  expect(document.getElementById('branches').classList.contains('tw-hidden')).toBe(true);
+  // re-entry rebinds fresh nodes
+  document.body.innerHTML = '<div class="choose branch"><div class="dropdown"><div class="scrolling reference-list-menu"></div><div id="tags" class="tw-hidden">tags</div><button class="branch-tag-item" data-target="#tags">show</button></div></div>';
+  initRepoCommonBranchOrTagDropdown('.choose.branch .dropdown');
+  document.querySelector('.branch-tag-item').click();
+  expect(document.getElementById('tags').classList.contains('tw-hidden')).toBe(false);
 });
 
 test('template search destroys its widget and releases owner-selection callbacks', () => {

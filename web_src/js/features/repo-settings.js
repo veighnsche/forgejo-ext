@@ -99,9 +99,10 @@ export function retireRepoSettingsCollaboration() {
 }
 
 export function initRepoSettingSearchTeamBox() {
-  retireRepoSettingSearchTeamBox();
   const searchTeamBox = document.getElementById('search-team-box');
   if (!searchTeamBox || searchTeamBox.closest(contributionRootSelector)) return;
+  if (teamSearch === searchTeamBox) return;
+  retireRepoSettingSearchTeamBox();
   teamSearch = searchTeamBox;
 
   $(searchTeamBox).search({

@@ -14,6 +14,7 @@ import {contributionRootSelector, currentPageGeneration} from '../native-lifecyc
 // retire rebuilds them against the entered document.
 let editorView = null;
 let editorGeneration = -1;
+let editorTabController = null;
 let previewHandler = null;
 let previewTabEl = null;
 let quickPullEls = [];
@@ -50,7 +51,8 @@ function onPreviewClick(form) {
 function initEditPreviewTab($form) {
   const $tabMenu = $form.find('.switch');
   if (!$tabMenu.length) return;
-  initTab($tabMenu[0]);
+  editorTabController = new AbortController();
+  initTab($tabMenu[0], {signal: editorTabController.signal});
   const $previewTab = $tabMenu.find(`.item[data-tab="${$tabMenu.data('preview')}"]`);
   if ($previewTab.length) {
     previewTabEl = $previewTab[0];
@@ -192,6 +194,8 @@ export function initRepoEditor() {
 }
 
 export function retireRepoEditor() {
+  editorTabController?.abort();
+  editorTabController = null;
   if (previewTabEl && previewHandler) $(previewTabEl).off('click', previewHandler);
   previewTabEl = null;
   previewHandler = null;

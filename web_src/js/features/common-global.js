@@ -51,10 +51,13 @@ export function initGlobalFormDirtyLeaveConfirm() {
   enhanceNativeForms(document);
 }
 
+let navbarToggleBound = false;
 export function initHeadNavbarContentToggle() {
+  if (navbarToggleBound) return;
   const navbar = document.getElementById('navbar');
   const btn = document.getElementById('navbar-expand-toggle');
   if (!navbar || !btn) return;
+  navbarToggleBound = true;
 
   btn.addEventListener('click', () => {
     const isExpanded = btn.classList.contains('active');
@@ -63,7 +66,11 @@ export function initHeadNavbarContentToggle() {
   });
 }
 
+let languageMenuBound = false;
 export function initFootLanguageMenu() {
+  if (languageMenuBound) return;
+  languageMenuBound = true;
+
   async function linkLanguageAction() {
     const $this = $(this);
     await GET($this.data('url'));
@@ -187,7 +194,9 @@ async function formFetchAction(e) {
 }
 
 // Document-level listeners: registered once as a global feature, never
-// retired or re-attached across native transitions.
+// retired or re-attached across native transitions. Repeat calls are safe:
+// both listeners are module-level function references, so the DOM ignores
+// duplicate addEventListener registrations.
 export function initGlobalCommonListeners() {
   initSubmitEventPolyfill();
   document.addEventListener('submit', formFetchAction);

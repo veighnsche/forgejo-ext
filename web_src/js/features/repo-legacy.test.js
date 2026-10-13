@@ -11,8 +11,10 @@ vi.mock('./comp/ComboMarkdownEditor.js', () => ({
   getComboMarkdownEditor: () => null,
   initComboMarkdownEditor: vi.fn(async () => ({})),
 }));
+vi.mock('./comp/ReactionSelector.js', () => ({initCompReactionSelector: vi.fn()}));
 
-const {initRepoCommentForm, retireRepoCommentForm} = await import('./repo-legacy.js');
+const {initRepoCommentForm, retireRepoCommentForm, initRepository, retireRepository} = await import('./repo-legacy.js');
+const {initCompReactionSelector} = await import('./comp/ReactionSelector.js');
 
 function installCommentForm() {
   document.body.innerHTML = `<form class="comment form">
@@ -34,7 +36,9 @@ function installCommentForm() {
 
 afterEach(() => {
   retireRepoCommentForm();
+  retireRepository();
   document.body.innerHTML = '';
+  vi.clearAllMocks();
 });
 
 test('label list-submit toggles once per click and detaches on retire', () => {
@@ -52,6 +56,71 @@ test('label list-submit toggles once per click and detaches on retire', () => {
   item.click();
   expect(item.classList.contains('checked')).toBe(true);
   expect(document.getElementById('label_ids').value).toBe('5');
+});
+
+test('repository options toggles bind once and retire detaches', () => {
+  document.body.innerHTML = `<div class="page-content repository"><div class="repository settings options">
+    <input type="checkbox" class="enable-system" data-target="#wiki-box" checked><div id="wiki-box"></div>
+  </div></div>`;
+  initRepository();
+  initRepository();
+  const toggle = document.querySelector('.enable-system');
+  const box = document.getElementById('wiki-box');
+  toggle.checked = false;
+  toggle.dispatchEvent(new Event('change', {bubbles: true}));
+  expect(box.classList.contains('disabled')).toBe(true);
+  retireRepository();
+  toggle.checked = true;
+  toggle.dispatchEvent(new Event('change', {bubbles: true}));
+  expect(box.classList.contains('disabled')).toBe(true);
+  // re-entry with fresh nodes rebinds
+  document.body.innerHTML = `<div class="page-content repository"><div class="repository settings options">
+    <input type="checkbox" class="enable-system" data-target="#tracker-box" checked><div id="tracker-box"></div>
+  </div></div>`;
+  initRepository();
+  const fresh = document.querySelector('.enable-system');
+  fresh.checked = false;
+  fresh.dispatchEvent(new Event('change', {bubbles: true}));
+  expect(document.getElementById('tracker-box').classList.contains('disabled')).toBe(true);
+});
+
+test('milestone clear-date and compare show-form act once and retire detaches', () => {
+  document.body.innerHTML = `<div class="page-content repository">
+    <div class="repository new milestone"><button id="clear-date" type="button">clear</button><input id="deadline" value="2026-01-01"></div>
+    <div class="repository compare pull"><div><button class="show-form" type="button">form</button></div><div class="pullrequest-form tw-hidden">form</div></div>
+  </div>`;
+  initRepository();
+  initRepository();
+  document.getElementById('clear-date').click();
+  expect(document.getElementById('deadline').value).toBe('');
+  document.querySelector('.show-form').click();
+  expect(document.querySelector('.pullrequest-form').classList.contains('tw-hidden')).toBe(false);
+  retireRepository();
+  document.getElementById('deadline').value = '2026-02-02';
+  document.getElementById('clear-date').click();
+  expect(document.getElementById('deadline').value).toBe('2026-02-02');
+});
+
+test('contribution-owned repository roots are never bound', () => {
+  document.body.innerHTML = `<div data-extension-panel><div class="page-content repository"><div class="repository settings options">
+    <input type="checkbox" class="enable-system" data-target="#owned-box" checked><div id="owned-box"></div>
+  </div></div></div>`;
+  initRepository();
+  const toggle = document.querySelector('.enable-system');
+  toggle.checked = false;
+  toggle.dispatchEvent(new Event('change', {bubbles: true}));
+  expect(document.getElementById('owned-box').classList.contains('disabled')).toBe(false);
+});
+
+test('issue pages wire reactions with a page-owned abort signal', () => {
+  document.body.innerHTML = `<div class="page-content repository"><div class="repository view issue"></div></div>`;
+  initRepository();
+  expect(initCompReactionSelector).toHaveBeenCalledOnce();
+  const signal = initCompReactionSelector.mock.lastCall[1]?.signal;
+  expect(signal).toBeInstanceOf(AbortSignal);
+  expect(signal.aborted).toBe(false);
+  retireRepository();
+  expect(signal.aborted).toBe(true);
 });
 
 test('fresh comment form gains dirty-leave protection exactly once', () => {

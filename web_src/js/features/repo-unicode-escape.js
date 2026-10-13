@@ -1,7 +1,11 @@
 import {hideElem, queryElemSiblings, showElem, toggleElem} from '../utils/dom.js';
 import {contributionRootSelector} from '../native-lifecycle.js';
 
+let unicodeEscapeBound = false;
+
 export function initUnicodeEscapeButton() {
+  if (unicodeEscapeBound) return;
+  unicodeEscapeBound = true;
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.escape-button, .unescape-button, .toggle-escape-button');
     if (!btn || btn.closest(contributionRootSelector)) return;

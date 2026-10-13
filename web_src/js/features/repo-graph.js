@@ -1,19 +1,26 @@
 import $ from 'jquery';
 import {hideElem, showElem} from '../utils/dom.js';
 import {GET} from '../modules/fetch.js';
-import {currentPageGeneration} from '../native-lifecycle.js';
+import {contributionRootSelector, currentPageGeneration} from '../native-lifecycle.js';
 
 let graphCleanup = null;
+let graphEl = null;
+let graphDropdownEl = null;
 
 export function retireRepoGraphGit() {
   graphCleanup?.();
   graphCleanup = null;
+  if (graphDropdownEl?.isConnected) $(graphDropdownEl).dropdown('destroy');
+  graphDropdownEl = null;
+  graphEl = null;
 }
 
 export function initRepoGraphGit() {
   const graphContainer = document.getElementById('git-graph-container');
-  if (!graphContainer) return;
+  if (!graphContainer || graphContainer.closest(contributionRootSelector)) return;
+  if (graphCleanup && graphEl === graphContainer) return;
   retireRepoGraphGit();
+  graphEl = graphContainer;
   const generation = currentPageGeneration();
   const cleanups = [];
   graphCleanup = () => { for (const fn of cleanups) fn(); };
@@ -101,33 +108,36 @@ export function initRepoGraphGit() {
   }
 
   const flowSelectRefsDropdown = document.getElementById('flow-select-refs-dropdown');
-  $(flowSelectRefsDropdown).dropdown('set selected', dropdownSelected);
-  $(flowSelectRefsDropdown).dropdown({
-    clearable: true,
-    fullTextSeach: 'exact',
-    onRemove(toRemove) {
-      if (toRemove === '...flow-hide-pr-refs') {
-        params.delete('hide-pr-refs');
-      } else {
-        const branches = params.getAll('branch');
-        params.delete('branch');
-        for (const branch of branches) {
-          if (branch !== toRemove) {
-            params.append('branch', branch);
+  if (flowSelectRefsDropdown && !flowSelectRefsDropdown.closest(contributionRootSelector)) {
+    graphDropdownEl = flowSelectRefsDropdown;
+    $(flowSelectRefsDropdown).dropdown('set selected', dropdownSelected);
+    $(flowSelectRefsDropdown).dropdown({
+      clearable: true,
+      fullTextSeach: 'exact',
+      onRemove(toRemove) {
+        if (toRemove === '...flow-hide-pr-refs') {
+          params.delete('hide-pr-refs');
+        } else {
+          const branches = params.getAll('branch');
+          params.delete('branch');
+          for (const branch of branches) {
+            if (branch !== toRemove) {
+              params.append('branch', branch);
+            }
           }
         }
-      }
-      updateGraph();
-    },
-    onAdd(toAdd) {
-      if (toAdd === '...flow-hide-pr-refs') {
-        params.set('hide-pr-refs', true);
-      } else {
-        params.append('branch', toAdd);
-      }
-      updateGraph();
-    },
-  });
+        updateGraph();
+      },
+      onAdd(toAdd) {
+        if (toAdd === '...flow-hide-pr-refs') {
+          params.set('hide-pr-refs', true);
+        } else {
+          params.append('branch', toAdd);
+        }
+        updateGraph();
+      },
+    });
+  }
 
   on(graphContainer, 'mouseenter', (e) => {
     if (e.target.matches('#rev-list li')) {

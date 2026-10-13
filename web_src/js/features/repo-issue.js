@@ -353,7 +353,10 @@ export function retireRepoPullRequestAllowMaintainerEdit() {
 
 export function initRepoIssueReferenceRepositorySearch() {
   const $search = $('.issue_reference_repository_search').filter((_, el) => !el.closest(contributionRootSelector));
-  $search
+  const tracked = new Set(bucket(widgetInstances, 'reference-repository-search').map(([el]) => el));
+  const $fresh = $search.filter((_, el) => !tracked.has(el));
+  if (!$fresh.length) return;
+  $fresh
     .dropdown({
       apiSettings: {
         url: `${appSubUrl}/repo/search?q={query}&limit=20`,
@@ -377,7 +380,7 @@ export function initRepoIssueReferenceRepositorySearch() {
       },
       fullTextSearch: true,
     });
-  for (const el of $search.get()) {
+  for (const el of $fresh.get()) {
     trackWidget('reference-repository-search', el, (widgetEl) => $(widgetEl).dropdown('destroy'));
   }
 }

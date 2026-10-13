@@ -2,9 +2,10 @@ import $ from 'jquery';
 import {GET} from '../modules/fetch.js';
 import {hideElem, loadElem, queryElemChildren} from '../utils/dom.js';
 import {parseDom} from '../utils.js';
-import {currentPageGeneration} from '../native-lifecycle.js';
+import {contributionRootSelector, currentPageGeneration} from '../native-lifecycle.js';
 
 const rangeCleanups = new Set();
+const imageDiffContainers = new Set();
 
 function getDefaultSvgBoundsIfUndefined(text, src) {
   const DefaultSize = 300;
@@ -74,13 +75,20 @@ export function retireImageDiff() {
   $(document).off('.diff-swipe');
   for (const cleanup of rangeCleanups) cleanup();
   rangeCleanups.clear();
+  for (const containerEl of imageDiffContainers) {
+    $(containerEl).find('.swipe-bar').off('mousedown.imageDiff');
+    containerEl.removeAttribute('data-image-diff-loaded');
+  }
+  imageDiffContainers.clear();
 }
 
 export function initImageDiff() {
   $('.image-diff:not([data-image-diff-loaded])').each(async (_index, containerEl) => {
+    if (containerEl.closest(contributionRootSelector)) return;
     const generation = currentPageGeneration();
     const $container = $(containerEl);
     containerEl.setAttribute('data-image-diff-loaded', 'true');
+    imageDiffContainers.add(containerEl);
 
     // the container may be hidden by "viewed" checkbox, so use the parent's width for reference
     const diffContainerWidth = Math.max($container.closest('.diff-file-box').width() - 300, 100);
@@ -221,7 +229,7 @@ export function initImageDiff() {
         swipe.style.height = `${sizes.maxSize.height * factor + 30}px`;
       }
 
-      $container.find('.swipe-bar').on('mousedown', function(e) {
+      $container.find('.swipe-bar').on('mousedown.imageDiff', function(e) {
         e.preventDefault();
 
         const $swipeBar = $(this);

@@ -9,8 +9,12 @@ export function pollingOk() {
 
 // The native HTMX trigger and delegated handler query the current page.
 // They do not capture a retired workflow dispatch element.
+let actionsListBound = false;
+
 export function initRepoActionsList() {
   window.pollingOk = pollingOk;
+  if (actionsListBound) return;
+  actionsListBound = true;
   document.addEventListener('click', (event) => {
     const dropdown = document.getElementById('workflow_dispatch_dropdown');
     if (!dropdown || dropdown.closest(contributionRootSelector)) return;

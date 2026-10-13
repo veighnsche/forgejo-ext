@@ -71,12 +71,16 @@ async function receiveUpdateCount(event) {
   }
 }
 
+let countInitialized = false;
+
 export function initNotificationCount() {
+  if (countInitialized) return;
   const $notificationCount = $('.notification_count');
 
   if (!$notificationCount.length) {
     return;
   }
+  countInitialized = true;
 
   let usingPeriodicPoller = false;
   const startPeriodicPoller = (timeout, lastCount) => {
