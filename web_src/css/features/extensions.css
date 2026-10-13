@@ -7,19 +7,44 @@
   min-height: 10rem;
 }
 
-/* NFX-A02 region_adopt: the persistent panels home lives in the shared
-native layout after the content wrapper. Geometry/placement beyond the
-structural rules below belongs to lane F; these rules only keep the home
-and its hidden state from disturbing native layout. */
+/* NFX-A04/H-C: the persistent panels home lives in the shared native
+layout after the content wrapper. When visible it supplies the reachable
+responsive space for page/panel presentation: it fills the remaining
+viewport column, each panel section shares that space, and the mount
+scrolls internally. Hidden homes never disturb native layout. */
 .extension-workspace-panels {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
+}
+
+.extension-workspace-panels:not([hidden]) {
+  flex: 1 1 auto;
+  min-height: 24rem;
+}
+
+/* On a direct contribution page the content wrapper holds only native
+chrome (heading, notices, repository header); the panels home takes the
+remaining space instead of splitting it evenly. */
+body:has(> #extension-panels:not([hidden])) > .full.height {
+  flex-grow: 0;
+  padding-bottom: 0;
 }
 
 .extension-workspace-panel {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-height: 0;
   padding: 1rem;
   border-bottom: 1px solid var(--color-secondary);
+}
+
+/* A shared owner's panel presents the page itself on direct paths; its
+section heading duplicates the native page heading. */
+.extension-workspace-panel:has(> [data-extension-owner-id]) > h2 {
+  display: none;
 }
 
 /* The mount div is the sized scroll parent: flex child with a definite
@@ -36,3 +61,24 @@ block size so height:100% contribution chains bind against it. */
 }
 
 #extension-panels[hidden] { display: none !important; }
+
+/* NFX-A04/H-C: no vacant competing mount. A page root the host presents
+through its retained panel owner, and the owner-presented page section,
+take no layout space. */
+[data-extension-page][data-extension-owner-presented] { display: none !important; }
+
+.extension-page-owner-presented {
+  padding-block: 0;
+}
+
+/* Compact viewports keep the same composition with a shorter floor so
+native chrome and notices stay reachable above the panels. */
+@media (max-width: 767.98px) {
+  .extension-workspace-panels:not([hidden]) {
+    min-height: 18rem;
+  }
+
+  .extension-workspace-panel {
+    padding: .75rem;
+  }
+}

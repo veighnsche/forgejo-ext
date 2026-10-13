@@ -415,8 +415,8 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
 	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "preferred", Name: "Preferred", Version: "1", Executable: "run", PreferredWorkspace: true,
 		Capabilities: []string{extension.CapabilityContributionAuthorize},
-		Pages: []extension.Page{{ID: "home", Title: "Home", Scope: "global", Route: "workspace", Entry: "main.js", Subroutes: []extension.Subroute{{Pattern: "new", Title: "New Project"}, {Pattern: "requests/{request}", Title: "Build request"}}}},
-		Panels: []extension.Panel{{ID: "status", Title: "Status", Entry: "status.js"}}}
+		Pages:        []extension.Page{{ID: "home", Title: "Home", Scope: "global", Route: "workspace", Entry: "main.js", Subroutes: []extension.Subroute{{Pattern: "new", Title: "New Project"}, {Pattern: "requests/{request}", Title: "Build request"}}}},
+		Panels:       []extension.Panel{{ID: "status", Title: "Status", Entry: "status.js"}}}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
@@ -553,6 +553,59 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	disabledRequest := NewRequest(t, http.MethodGet, "/explore/repos")
 	disabledRequest.Header.Set("Sec-Fetch-Dest", "document")
 	require.NotContains(t, owner.MakeRequest(t, disabledRequest, http.StatusOK).Body.String(), `data-extension-panels`)
+}
+
+// NFX-A04/H-C: a declared shared owner composes through the native shell
+// as one retained panel instance. The page slot emits no vacant competing
+// mount on global or repository workspace documents, while native chrome
+// (navbar, repository header, notices) stays in the document.
+func TestExtensionSharedOwnerComposition(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	root, err := os.MkdirTemp("", "fe-")
+	require.NoError(t, err)
+	defer os.RemoveAll(root)
+	packageDir := filepath.Join(root, "shared")
+	require.NoError(t, os.MkdirAll(filepath.Join(packageDir, "assets"), 0o700))
+	executable, err := os.Executable()
+	require.NoError(t, err)
+	script := "#!/bin/sh\nexec '" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'\n"
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
+	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "shared", Name: "Shared", Version: "1", Executable: "run", PreferredWorkspace: true,
+		Capabilities: []string{extension.CapabilityContributionAuthorize},
+		Pages:        []extension.Page{{ID: "spaces", Title: "Workspace", Scope: "global", Route: "workspace", Entry: "main.js", Owner: "workspace"}},
+		Panels:       []extension.Panel{{ID: "workspace", Title: "Workspace", Entry: "main.js", Owner: "workspace"}}}
+	encoded, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
+	manager := runtime.NewManager(root)
+	require.NoError(t, manager.Start(context.Background()))
+	previous := runtime.GetManager()
+	runtime.SetDefault(manager)
+	defer func() {
+		runtime.SetDefault(previous)
+		require.NoError(t, manager.Close())
+	}()
+	owner := loginUser(t, "user2")
+	document := func(path string) *RequestWrapper {
+		request := NewRequest(t, http.MethodGet, path)
+		request.Header.Set("Sec-Fetch-Dest", "document")
+		return request
+	}
+	for _, path := range []string{"/workspace", "/user2/repo1/workspace"} {
+		page := owner.MakeRequest(t, document(path), http.StatusOK)
+		html := page.Body.String()
+		require.Contains(t, html, `data-extension-panels`, path)
+		require.Contains(t, html, `data-extension-panel-id="workspace"`, path)
+		require.Contains(t, html, `data-extension-owner-id="workspace"`, path)
+		require.Contains(t, html, `extension-page-owner-presented`, path)
+		require.NotContains(t, html, `data-extension-page`, path)
+		require.Contains(t, html, `<nav  id="navbar"`, path)
+		if strings.HasPrefix(path, "/user2/") {
+			require.Contains(t, html, `class="repo-header"`, path)
+			require.Contains(t, html, `data-extension-repository-id="1"`, path)
+		}
+	}
 }
 
 func extractBodyPageData(t *testing.T, body string) map[string]any {

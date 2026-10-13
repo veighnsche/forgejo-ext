@@ -376,6 +376,50 @@ test('a declared shared owner mounts once on its retained panel root', async () 
   }
 });
 
+test('owner-presented page slots emit no competing mount and the home supplies responsive space', () => {
+  const content = readFileSync('templates/extensions/content.tmpl', 'utf8');
+  expect(content).toContain('$ownerPresented');
+  expect(content).toContain('{{if not $ownerPresented}}<div class="extension-page-mount" data-extension-page');
+  expect(content).toContain('extension-page-owner-presented');
+  const css = readFileSync('web_src/css/features/extensions.css', 'utf8');
+  expect(css).toContain('[data-extension-page][data-extension-owner-presented] { display: none !important; }');
+  expect(css).toContain('.extension-workspace-panels:not([hidden])');
+  expect(css).toContain('body:has(> #extension-panels:not([hidden])) > .full.height');
+  expect(css).toContain('@media (max-width: 767.98px)');
+});
+
+test('a shared owner without a page root receives initial page-mode presentation', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  const ownerAttrs = 'data-extension-owner-id="workspace" data-extension-entry="/-/native/assets/example/main.js" data-extension-api-base="/-/native/pages/example/spaces/api/"';
+  // Server-suppressed page slot (NFX-A04/H-C): only the retained panel root.
+  document.body.innerHTML = liveMarkup({
+    content: directContent('Global Workspace'),
+    home: homeMarkup({panels: `<div data-extension-panel data-extension-contract-version="1" data-app-sub-url="" data-extension-id="example" data-extension-panel-id="workspace" ${ownerAttrs} data-extension-asset-base="/-/native/assets/example/" data-extension-session-generation="session-a"></div>`}),
+  });
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const update = vi.fn();
+  const dispose = vi.fn();
+  let mountedResolve;
+  const mountedPromise = new Promise((resolve) => { mountedResolve = resolve });
+  const importer = vi.fn(async () => ({mount: () => {
+    mountedResolve();
+    return {dispose, update};
+  }}));
+  try {
+    initExtensionPages(importer);
+    await mountedPromise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(importer).toHaveBeenCalledOnce();
+    expect(document.querySelector('[data-extension-page]')).toBeNull();
+    expect(update).toHaveBeenCalledExactlyOnceWith({route: '/workspace', params: {}, mode: 'page', visible: true});
+    expect(dispose).not.toHaveBeenCalled();
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
 test('page owners persist a plain leg parked and readopt on return', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');

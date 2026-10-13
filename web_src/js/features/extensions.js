@@ -157,15 +157,23 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
     // Initial presentation: a panel mounted while the persistent home is
     // hidden (native-first load) starts non-visible, so the host tells it
     // immediately instead of leaving it to assume visible work until the
-    // first navigation update. Visible mounts need no initial update: the
+    // first navigation update. A shared owner mounted visible on one of
+    // its direct paths presents in page mode (NFX-A04/H-C), so it is told
+    // at once as well. Other visible mounts need no initial update: the
     // contract default already matches the host state.
-    if (!owner.root.hasAttribute('data-extension-page') && home?.hasAttribute('hidden')) {
+    if (!owner.root.hasAttribute('data-extension-page')) {
       const route = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       const repositoryId = owner.root.dataset.extensionRepositoryId;
-      owner.update({
+      const facts = {
         route, params: Object.fromEntries(new URLSearchParams(window.location.search)),
-        mode: 'panel', visible: false, ...(repositoryId ? {repositoryId} : {}),
-      });
+        ...(repositoryId ? {repositoryId} : {}),
+      };
+      if (home?.hasAttribute('hidden')) {
+        owner.update({...facts, mode: 'panel', visible: false});
+      } else if (owner.root.dataset.extensionOwnerId &&
+        workspaceDirectPath(window.location.pathname, owner.root.dataset.appSubUrl ?? '', directPatterns(home))) {
+        owner.update({...facts, mode: 'page', visible: true});
+      }
     }
   };
   function mountRoot(root) {
