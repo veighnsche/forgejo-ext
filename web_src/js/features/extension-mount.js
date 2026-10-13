@@ -215,10 +215,11 @@ export async function mountContribution(root, hooks = {}) {
     sockets.add(contribution.socket);
     return contribution;
   };
-  const navigate = (path) => {
+  const navigate = (path, {replace = false} = {}) => {
     if (isTerminal()) throw new TypeError('Contribution transport is retired');
     if (typeof path !== 'string' || path === '') throw new TypeError('Navigation path is invalid');
-    navigator(path);
+    if (typeof replace !== 'boolean') throw new TypeError('Navigation history option is invalid');
+    navigator(path, {replace});
   };
   const context = {
     extensionId: parsed.extensionId,

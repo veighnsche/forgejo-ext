@@ -198,7 +198,9 @@ their mount roots.
 
 To change the native route programmatically — for example opening a
 repository from a retained panel — call the context's
-`navigate(path)` instead of assigning `window.location`. The host
+`navigate(path, options?)` instead of assigning `window.location`. Navigation
+adds a browser history entry by default; use `{replace: true}` to replace the
+current entry after saving a revision. The host
 classifies the destination: admitted native paths (including declared
 subroutes) transition in-shell and update retained owners, while
 authentication, credential-bearing and cross-origin destinations keep

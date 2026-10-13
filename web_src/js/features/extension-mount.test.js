@@ -212,7 +212,13 @@ test('programmatic navigation delegates to the host and retires with the owner',
   const navigator = vi.fn();
   const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: vi.fn()})), websocketClass: FakeSocket, navigator});
   owner.context.navigate('/owner/repo');
-  expect(navigator).toHaveBeenCalledWith('/owner/repo');
+  expect(navigator).toHaveBeenLastCalledWith('/owner/repo', {replace: false});
+  owner.context.navigate('/workspace/requests/d0123456789abcdef01234567', {replace: true});
+  expect(navigator).toHaveBeenLastCalledWith('/workspace/requests/d0123456789abcdef01234567', {replace: true});
+  owner.context.navigate('/workspace/new', {});
+  expect(navigator).toHaveBeenLastCalledWith('/workspace/new', {replace: false});
+  expect(() => owner.context.navigate('/owner/repo', {replace: 'yes'})).toThrow('Navigation history option is invalid');
+  expect(navigator).toHaveBeenCalledTimes(3);
   expect(() => owner.context.navigate('')).toThrow('Navigation path is invalid');
   owner.retire('authority-revoked');
   expect(() => owner.context.navigate('/owner/repo')).toThrow('Contribution transport is retired');

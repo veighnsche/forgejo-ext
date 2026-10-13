@@ -36,6 +36,12 @@ export interface ContributionPresentation {
   visible: boolean;
 }
 
+/** Browser history intent for an ordinary host-owned native transition. */
+export interface ContributionNavigationOptions {
+  /** Replace the current history entry; omitted/false adds a new entry. */
+  replace?: boolean;
+}
+
 /** Fetch subset the host forwards for a scoped contribution request. */
 export interface ContributionRequestOptions {
   method?: string;
@@ -139,9 +145,11 @@ export interface MountContext {
    * authentication, credential-bearing, cross-origin, and other
    * host-handled destinations take their native full-document load;
    * private native prefixes are refused. The path is display routing
-   * only and never confers authority. Throws once the owner is retired.
+   * only and never confers authority. Adds a history entry by default;
+   * `{replace: true}` replaces it, for example after saving a draft revision.
+   * Throws once the owner is retired.
    */
-  navigate: (path: string) => void;
+  navigate: (path: string, options?: ContributionNavigationOptions) => void;
 }
 
 /**
