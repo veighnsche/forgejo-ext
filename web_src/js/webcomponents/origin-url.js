@@ -14,8 +14,8 @@ export function toOriginUrl(urlStr) {
   return urlStr;
 }
 
-window.customElements.define('origin-url', class extends HTMLElement {
+export class OriginUrl extends HTMLElement {
   connectedCallback() {
     this.textContent = toOriginUrl(this.getAttribute('data-url'));
   }
-});
+}
