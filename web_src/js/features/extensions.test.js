@@ -1833,54 +1833,120 @@ test('programmatic push refuses without fetch and accepts in-shell', async () =>
   }
 });
 
-test('Back/Forward traversal refuses by restoring the address and accepts by transplanting', async () => {
+test('refused Back/Forward keep the real history positions and the forward tip', async () => {
   const savedConfig = window.config;
-  window.history.replaceState(null, '', '/team/repo/issues/7');
+  const issuesDoc = () => nativeDocument({title: 'Issue', pageData: {},
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'), home: homeMarkup({hidden: true})});
+  const usersDoc = () => nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})});
+  window.history.replaceState(null, '', '/team/repo');
   document.body.innerHTML = liveMarkup({
-    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
+    content: directContent('Repo home'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const fetcher = vi.fn(async (url) => navigationResponse(url.includes('/admin/users') ? usersDoc() : issuesDoc()));
+  let answer = false;
+  const restore = stubConfirm(() => answer);
+  try {
+    initExtensionWorkspace(fetcher);
+    // Real in-shell pushes build [repo, issues(dirty-to-be), users(tip)].
+    clickWorkspaceLink('/team/repo/issues/7');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues/7'));
+    clickWorkspaceLink('/admin/users');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
+    const lengthAtTip = window.history.length;
+    // Return to the middle entry and make it dirty there.
+    window.history.back();
+    await vi.waitFor(() => expect(document.querySelector('form.comment.form')).not.toBeNull());
+    expect(window.location.pathname).toBe('/team/repo/issues/7');
+    const form = document.querySelector('form.comment.form');
+    const textarea = form.querySelector('textarea');
+    typeNativeDraft(textarea, 'traversal draft', form);
+    fetcher.mockClear();
+    // Refuse Back: original middle position, draft and forward tip survive.
+    window.history.back();
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues/7'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(window.location.pathname).toBe('/team/repo/issues/7');
+    expect(window.history.length).toBe(lengthAtTip);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(textarea.isConnected).toBe(true);
+    expect(textarea.value).toBe('traversal draft');
+    // Refuse Forward: still on the dirty middle entry, tip not truncated.
+    window.history.forward();
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues/7'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(window.location.pathname).toBe('/team/repo/issues/7');
+    expect(window.history.length).toBe(lengthAtTip);
+    expect(textarea.value).toBe('traversal draft');
+    // Accept Forward: the original tip is still reachable.
+    answer = true;
+    window.history.forward();
+    await vi.waitFor(() => expect(document.querySelector('.page-content').textContent).toContain('Users'));
+    expect(window.location.pathname).toBe('/admin/users');
+    expect(window.history.length).toBe(lengthAtTip);
+  } finally {
+    restore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('accepted Back from a dirty page transplants the previous entry', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('Repo home'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Issue', pageData: {},
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'), home: homeMarkup({hidden: true})})));
+  const restore = stubConfirm(() => true);
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/team/repo/issues/7');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues/7'));
+    const form = document.querySelector('form.comment.form');
+    typeNativeDraft(form.querySelector('textarea'), 'leaving draft', form);
+    window.history.back();
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo'));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalled();
+  } finally {
+    restore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('already-current fragment clicks preserve a dirty draft without prompting or fetching', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/issues/7#note');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form><a href="#note">Note</a><h2 id="user-content-note">Note</h2>'),
     home: homeMarkup({hidden: true}),
   });
   window.config = {appSubUrl: '', pageData: {}};
   const form = document.querySelector('form.comment.form');
-  typeNativeDraft(form.querySelector('textarea'), 'traversal draft', form);
-  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
-    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
-  const restoreRefuse = stubConfirm(() => false);
+  const textarea = form.querySelector('textarea');
+  typeNativeDraft(textarea, 'current fragment draft', form);
+  const fetcher = vi.fn();
+  const restore = stubConfirm(() => { throw new Error('already-current fragment must not prompt') });
   try {
     initExtensionWorkspace(fetcher);
-    window.history.replaceState(window.history.state, '', '/admin/users');
-    window.dispatchEvent(new PopStateEvent('popstate'));
-    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues/7'));
-    expect(window.confirm).toHaveBeenCalledOnce();
+    const lengthBefore = window.history.length;
+    document.querySelector('a[href="#note"]').click();
+    document.querySelector('a[href="#note"]').click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(window.location.hash).toBe('#note');
+    expect(window.history.length).toBe(lengthBefore);
+    expect(document.querySelector('textarea')).toBe(textarea);
+    expect(textarea.value).toBe('current fragment draft');
     expect(fetcher).not.toHaveBeenCalled();
-    expect(form.isConnected).toBe(true);
-    expect(form.querySelector('textarea').value).toBe('traversal draft');
   } finally {
-    restoreRefuse();
-    window.dispatchEvent(new Event('pagehide'));
-    window.config = savedConfig;
-  }
-
-  window.history.replaceState(null, '', '/team/repo/issues/7');
-  document.body.innerHTML = liveMarkup({
-    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
-    home: homeMarkup({hidden: true}),
-  });
-  window.config = {appSubUrl: '', pageData: {}};
-  typeNativeDraft(document.querySelector('textarea'), 'traversal draft', document.querySelector('form'));
-  const fetcher2 = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
-    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
-  const restoreAccept = stubConfirm(() => true);
-  try {
-    initExtensionWorkspace(fetcher2);
-    window.history.replaceState(window.history.state, '', '/admin/users');
-    window.dispatchEvent(new PopStateEvent('popstate'));
-    await vi.waitFor(() => expect(document.querySelector('.page-content').textContent).toContain('Users'));
-    expect(window.confirm).toHaveBeenCalledOnce();
-    expect(fetcher2).toHaveBeenCalledOnce();
-    expect(window.location.pathname).toBe('/admin/users');
-  } finally {
-    restoreAccept();
+    restore();
     window.dispatchEvent(new Event('pagehide'));
     window.config = savedConfig;
   }

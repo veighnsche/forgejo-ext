@@ -565,6 +565,17 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   // The live document is the current route; unknown layouts stay fully
   // native (transplant full-loads them) until their features migrate.
   let current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  // Refused traversals restore the original history position with a
+  // compensating move, never pushState (which truncates forward entries).
+  // Host-created entries carry an index in their state; the landed index
+  // gives the signed traversal step. Foreign entries without an index fall
+  // back to restoring the address in place.
+  const INDEX_KEY = '__workspaceNavIndex';
+  let restoring = false;
+  let currentIndex = typeof window.history.state?.[INDEX_KEY] === 'number' ? window.history.state[INDEX_KEY] : 0;
+  try {
+    window.history.replaceState({...window.history.state, [INDEX_KEY]: currentIndex}, '', window.location.href);
+  } catch {}
 
   // Ordinary routes keep their authoritative native handlers. The entered
   // renderer's content/config/home envelope decides eligibility; there is
@@ -627,15 +638,23 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     }
   }
 
-  async function transplant(path, push = false, traversal = false, excludeForm = null) {
+  async function transplant(path, push = false, traversal = false, excludeForm = null, traversalStep = 0) {
     const target = new URL(path, origin);
     const previous = new URL(current, origin);
     navigationController?.abort();
+    // Already-current URL (same path, query and fragment, including repeat
+    // fragment clicks): native anchor behaviour only. No dirty prompt, no
+    // fetch, no history entry; the draft and page objects stay untouched.
+    if (target.href === previous.href) {
+      if (target.hash) focusFragment(target.hash);
+      return true;
+    }
     if (target.pathname === previous.pathname && target.search === previous.search && target.hash !== previous.hash) {
       navigationVersion++;
       if (push) {
-        window.history.replaceState({...window.history.state, scrollY: window.scrollY}, '', window.location.href);
-        window.history.pushState({...window.history.state, scrollY: 0}, '', path);
+        window.history.replaceState({...window.history.state, scrollY: window.scrollY, [INDEX_KEY]: currentIndex}, '', window.location.href);
+        window.history.pushState({...window.history.state, scrollY: 0, [INDEX_KEY]: currentIndex + 1}, '', path);
+        currentIndex++;
       } else updateHistory(path);
       current = path;
       if (target.hash) focusFragment(target.hash);
@@ -644,7 +663,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
         route: path, params: Object.fromEntries(target.searchParams),
         ...(home.dataset.extensionRepositoryId ? {repositoryId: home.dataset.extensionRepositoryId} : {}),
       }}));
-      return;
+      return true;
     }
     if (hasDirtyNativeForm(excludeForm)) {
       let confirmed = false;
@@ -654,11 +673,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
         confirmed = false;
       }
       if (!confirmed) {
-        if (traversal) {
-          try {
-            window.history.pushState(window.history.state, '', current);
-          } catch {}
-        }
+        if (traversal) restoreTraversalPosition(traversalStep);
         return false;
       }
     }
@@ -734,8 +749,9 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       document.title = native.title;
       current = path;
       if (push) {
-        window.history.replaceState({...window.history.state, scrollY: outgoingScrollY}, '', window.location.href);
-        window.history.pushState({...window.history.state, scrollY: 0}, '', path);
+        window.history.replaceState({...window.history.state, scrollY: outgoingScrollY, [INDEX_KEY]: currentIndex}, '', window.location.href);
+        window.history.pushState({...window.history.state, scrollY: 0, [INDEX_KEY]: currentIndex + 1}, '', path);
+        currentIndex++;
       } else updateHistory(path);
       // Native custom elements also observe entered facts on connection.
       live.replaceWith(content);
@@ -808,15 +824,45 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
 
   function updateHistory(path) {
     const state = window.history.state;
-    window.history.replaceState(state, '', path);
+    // Traversal already landed on this URL; rewriting the entry is a no-op
+    // there and must not touch the surrounding stack positions.
+    if (new URL(path, origin).href !== window.location.href) window.history.replaceState(state, '', path);
+    if (typeof state?.[INDEX_KEY] === 'number') currentIndex = state[INDEX_KEY];
+  }
+
+  // Move back to the entry a refused traversal came from. The compensating
+  // move fires one popstate, which onPopState consumes without transplanting.
+  function restoreTraversalPosition(step) {
+    if (step) {
+      restoring = true;
+      try {
+        window.history.go(-step);
+        return;
+      } catch {
+        restoring = false;
+      }
+    }
+    try {
+      window.history.replaceState(window.history.state, '', current);
+    } catch {}
   }
 
   const onPopState = () => {
     if (invalidated) return;
+    if (restoring) {
+      restoring = false;
+      if (typeof window.history.state?.[INDEX_KEY] === 'number') currentIndex = window.history.state[INDEX_KEY];
+      return;
+    }
     navigationVersion++;
+    const landedIndex = window.history.state?.[INDEX_KEY];
+    const step = typeof landedIndex === 'number' ? landedIndex - currentIndex : 0;
     const path = workspacePath(`${window.location.pathname}${window.location.search}${window.location.hash}`, base, origin, appSubPath);
-    if (!path || path === current) return;
-    transplant(path, false, true).then((proceeded) => {
+    if (!path || path === current) {
+      if (typeof landedIndex === 'number') currentIndex = landedIndex;
+      return;
+    }
+    transplant(path, false, true, null, step).then((proceeded) => {
       if (proceeded !== false && !invalidated) window.scrollTo(0, window.history.state?.scrollY ?? 0);
     });
   };
