@@ -112,7 +112,14 @@ product-ID shape rule; the consumer backend validates product
 identities. Undeclared suffixes are not found, and subroutes can never
 escape their page prefix into native or account namespaces. Declared
 patterns are published to the browser so declared routes present as
-direct contribution paths.
+direct contribution paths, including their repository form
+`/{owner}/{repo}/workspace/...` (NFX-C07). The bundled example declares
+`new` and `requests/{request}` on both its global and repository
+workspace pages. Native repository documents (`/{owner}/{repo}` and
+below, excluding reserved top-level namespaces) also transition
+in-shell as ordinary native shapes with the panels home hidden; any
+entered document the host cannot join (failed, partial, or
+session-foreign) keeps its native full-document load.
 
 A page and a panel may declare the same `owner` to form one shared
 retained owner (NFX-C04/H-OWNER). The canonical owner identity is the
@@ -144,6 +151,12 @@ The canonical browser definition is
 Consumers keep a local type-only mirror, recording its source revision and
 SHA-256 and checking the copied body against that pin. Re-sync the mirror from the
 canonical definition when it changes; keep its provenance and pin check together.
+Current canonical pin (NFX-C07): source `a9ba2ce0ba` (NFX-C04 owner/route
+contract), body SHA-256 `b1269647e41dae92ee625aecbe51ae57a6deeb0321ca0c66f5fcf31152951788`,
+`contractVersion`/`BrowserContractVersion` 1. The `ownerId` and `navigate`
+context members arrived with that revision; mirrors pinned to the earlier
+`d240b821a4` body (`651dc6eb...`) are superseded and must re-sync before
+consuming shared-owner or programmatic-navigation behavior.
 An isolated consumer compile needs only this definition and the consumer source.
 The example typecheck above checks its actual browser entries; emitted JavaScript
 has no runtime SDK import. The host injects `request` and `stream` through context.
@@ -154,9 +167,9 @@ return a cleanup function, an object with `dispose()`, or a lifecycle handle wit
 Visible retained owners receive presentation/context updates; sheltered owners
 suspend and resume while retaining the same root, resources and stream. Final
 retirement follows authority loss or contribution removal. The context contains
-`extensionId`, `pageId` or `panelId`, `apiBase`, `assetBase`, `appSubUrl`,
-`sessionGeneration`, `contractVersion`, scoped `request(relativePath, options)`
-and `stream(relativePath, options)`, and optional observed `repositoryId`.
+`extensionId`, `pageId` or `panelId`, optional `ownerId`, `apiBase`, `assetBase`, `appSubUrl`,
+`sessionGeneration`, `contractVersion`, scoped `request(relativePath, options)`,
+`stream(relativePath, options)` and `navigate(path)`, and optional observed `repositoryId`.
 Check the contract version expected by the consumer build before using either
 helper. The helpers apply the native URL/session contract. The repository ID
 selects a display only; it does not widen a global contribution's authority.
@@ -335,9 +348,11 @@ This foundation provides native contributions, independently built backend
 packages, bounded authenticated HTTP, admitted WebSocket transport, persistent
 panel mounts, bounded native operations and local package management. Ordinary
 buffered HTTP and live-stream handling have separate response/lifetime contracts;
-the browser persistence correction above remains unproved. It does not provide a
-marketplace or an untrusted-code sandbox. Extend demonstrated native capabilities
-instead of exposing arbitrary internal objects or adding parallel authentication.
+the retained-owner persistence mechanism is proved at its bounded scope above,
+while wider feature/route cutover and installed consumer proof remain separate
+qualifications. It does not provide a marketplace or an untrusted-code sandbox.
+Extend demonstrated native capabilities instead of exposing arbitrary internal
+objects or adding parallel authentication.
 
 ## Conditional issue graph changes
 

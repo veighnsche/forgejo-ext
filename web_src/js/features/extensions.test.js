@@ -1,7 +1,7 @@
 import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {currentPageGeneration, initPageFeatures, registerPageFeature, retirePageFeatures} from '../native-lifecycle.js';
-import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, initExtensionPages, initExtensionWorkspace} from './extensions.js';
+import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, isRepositoryPath, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 import {mount as mountExamplePanel} from '../../../contrib/extensions/example/assets/panel.js';
 
 const origin = 'https://forge.example';
@@ -33,24 +33,42 @@ test('admits native same-origin paths and preserves deep links', () => {
 test('classifies the workspace root and declared subroutes as direct', () => {
   // Declared patterns as published by the host (NFX-C04/H-ROUTE).
   // Parameter values are bounded opaque segments: no product-ID shape
-  // rule, so consumer-rejected values are still direct here.
+  // rule, so consumer-rejected values are still direct here. Their
+  // repository form is direct too (NFX-C07): the host registers
+  // "/{owner}/{repo}/workspace/*" generically and the transplant still
+  // validates the entered document before joining it.
   const patterns = ['/workspace/new', '/workspace/requests/{request}'];
   for (const [pathname, sub] of [['/workspace', ''], ['/team/repo/workspace', ''], ['/forge/workspace', '/forge'],
     ['/workspace/new', ''], ['/forge/workspace/new', '/forge'],
     ['/workspace/requests/d0123456789abcdef01234567', ''], ['/forge/workspace/requests/d0123456789abcdef01234567', '/forge'],
-    ['/workspace/requests/not-an-id', ''], ['/workspace/requests/ABC-123', '']]) {
+    ['/workspace/requests/not-an-id', ''], ['/workspace/requests/ABC-123', ''],
+    ['/user2/repo1/workspace/new', ''], ['/user2/repo1/workspace/requests/d0123456789abcdef01234567', ''],
+    ['/forge/team/repo/workspace/new', '/forge'], ['/forge/team/repo/workspace/requests/abc', '/forge']]) {
     expect(workspaceDirectPath(pathname, sub, patterns)).toBe(true);
   }
   for (const [pathname, sub] of [['/workspace/requests', ''], ['/workspace/requests/', ''],
     ['/workspace/requests/d0123456789abcdef01234567/extra', ''],
     ['/workspace/new/extra', ''], ['/workspace/news', ''], ['/workspace/old', ''],
-    ['/user2/repo1/workspace/new', ''], ['/user2/repo1/workspace/requests/d0123456789abcdef01234567', ''],
+    ['/user2/repo1/workspace/old', ''], ['/user2/repo1/workspace/requests/abc/extra', ''],
     ['/workspace/new', '/forge'], ['/other/workspace/new', '/forge'], ['/forgefoo/workspace/new', '/forge'], ['/issues', '']]) {
     expect(workspaceDirectPath(pathname, sub, patterns)).toBe(false);
   }
   // Without declarations only workspace roots are direct.
   expect(workspaceDirectPath('/workspace/new', '')).toBe(false);
   expect(workspaceDirectPath('/workspace/requests/abc', '')).toBe(false);
+  expect(workspaceDirectPath('/user2/repo1/workspace/new', '')).toBe(false);
+});
+
+test('recognizes native repository shapes without claiming reserved namespaces', () => {
+  for (const [pathname, sub] of [['/team/repo', ''], ['/team/repo/issues/7', ''], ['/team/repo/workspace', ''],
+    ['/forge/team/repo', '/forge'], ['/forge/team/repo/pulls', '/forge']]) {
+    expect(isRepositoryPath(pathname, sub)).toBe(true);
+  }
+  for (const [pathname, sub] of [['/workspace', ''], ['/workspace/new', ''], ['/admin', ''], ['/admin/users', ''],
+    ['/user/settings/profile', ''], ['/explore/repos', ''], ['/issues', ''], ['/team', ''],
+    ['/team/repo', '/forge'], ['/other/team/repo', '/forge']]) {
+    expect(isRepositoryPath(pathname, sub)).toBe(false);
+  }
 });
 
 test('keeps auth and external destinations for top-level navigation', () => {
@@ -915,10 +933,83 @@ test('takes a full document load for unknown layouts', async () => {
   const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
   try {
     initExtensionWorkspace(fetcher);
-    clickWorkspaceLink('/team/repo/issues');
+    clickWorkspaceLink('/issues');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetcher).not.toHaveBeenCalled();
-    expect(assign).toHaveBeenCalledWith(expect.stringContaining('/team/repo/issues'));
+    expect(assign).toHaveBeenCalledWith(expect.stringContaining('/issues'));
+    expect(document.querySelector('.page-content').textContent).toBe('Global Workspace');
+  } finally {
+    assign.mockRestore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('transplants repository documents and repository workspace subroutes in-shell', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('Global Workspace'),
+    home: homeMarkup({panels: '<div id="notes-owner">notes</div>', subroutes: declaredSubroutes}),
+  });
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const owner = document.getElementById('notes-owner');
+  const home = document.querySelector('[data-extension-panels]');
+  const fetcher = vi.fn(async (url) => {
+    if (url.includes('/team/repo/workspace/new')) {
+      return navigationResponse(nativeDocument({title: 'New Project', pageData: {extension: {id: 'example'}},
+        content: directContent('Repo New Project'), home: homeMarkup({subroutes: declaredSubroutes})}));
+    }
+    return navigationResponse(nativeDocument({title: 'team/repo - Forgejo', pageData: {},
+      content: '<div role="main" class="page-content repository"><div class="ui container">Repo Home</div></div>',
+      home: homeMarkup({hidden: true, subroutes: declaredSubroutes})}));
+  });
+  const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/team/repo');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo'));
+    expect(document.title).toBe('team/repo - Forgejo');
+    expect(document.querySelector('.page-content').textContent).toContain('Repo Home');
+    expect(home.hasAttribute('hidden')).toBe(true);
+    expect(document.getElementById('notes-owner')).toBe(owner);
+    clickWorkspaceLink('/team/repo/workspace/new');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/workspace/new'));
+    expect(document.querySelector('.page-content').textContent).toContain('Repo New Project');
+    expect(home.hasAttribute('hidden')).toBe(false);
+    expect(document.getElementById('notes-owner')).toBe(owner);
+    expect(owner.isConnected).toBe(true);
+    expect(assign).not.toHaveBeenCalled();
+  } finally {
+    assign.mockRestore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('full-loads failed and partial transplant responses without joining them', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({content: directContent('Global Workspace'), home: homeMarkup()});
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
+  const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+  const fetcher = vi.fn(async (url) => {
+    if (url.includes('broken=1')) return new Response('nope', {status: 500, headers: {'X-Extension-Session-Generation': 'session-a'}});
+    if (url.includes('partial=1')) {
+      return navigationResponse('<html><head><title>Partial</title></head><body><div>no content region</div></body></html>');
+    }
+    throw new Error('network down');
+  });
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin/users?broken=1');
+    await vi.waitFor(() => expect(assign).toHaveBeenCalledWith(expect.stringContaining('/admin/users?broken=1')));
+    expect(document.querySelector('.page-content').textContent).toBe('Global Workspace');
+    clickWorkspaceLink('/admin/users?partial=1');
+    await vi.waitFor(() => expect(assign).toHaveBeenCalledWith(expect.stringContaining('/admin/users?partial=1')));
+    expect(document.querySelector('.page-content').textContent).toBe('Global Workspace');
+    clickWorkspaceLink('/admin/users?down=1');
+    await vi.waitFor(() => expect(assign).toHaveBeenCalledWith(expect.stringContaining('/admin/users?down=1')));
     expect(document.querySelector('.page-content').textContent).toBe('Global Workspace');
   } finally {
     assign.mockRestore();

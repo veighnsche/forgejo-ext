@@ -237,8 +237,11 @@ func matchDirectPattern(path, pattern string) bool {
 
 // workspaceDirectPath reports whether path is a workspace root (global or
 // repository) or matches one of the declared generic direct patterns
-// published by the host. Declared patterns match only at the application
-// root after the configured sub-URL, mirroring the registered routes.
+// published by the host. Declared patterns match at the application root
+// after the configured sub-URL and in their repository form
+// "/{owner}/{repo}/workspace/...", mirroring the registered routes
+// (NFX-C07; the global owner's routes never claim the repository
+// namespace).
 func workspaceDirectPath(path, appSubURL string, patterns []string) bool {
 	if strings.HasSuffix(path, "/workspace") {
 		return true
@@ -249,6 +252,16 @@ func workspaceDirectPath(path, appSubURL string, patterns []string) bool {
 	}
 	for _, pattern := range patterns {
 		if matchDirectPattern(rest, pattern) {
+			return true
+		}
+	}
+	segments := strings.FieldsFunc(rest, func(r rune) bool { return r == '/' })
+	if len(segments) < 4 || segments[2] != "workspace" {
+		return false
+	}
+	candidate := "/workspace/" + strings.Join(segments[3:], "/")
+	for _, pattern := range patterns {
+		if matchDirectPattern(candidate, pattern) {
 			return true
 		}
 	}
