@@ -21,6 +21,7 @@ import (
 	repo_service "forgejo.org/services/repository"
 	user_service "forgejo.org/services/user"
 	"forgejo.org/tests"
+	"forgejo.org/tests/forgery"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/stretchr/testify/assert"
@@ -88,15 +89,16 @@ func TestRepoAddMoreUnitsHighlighting(t *testing.T) {
 	unit_model.LoadUnitConfig()
 
 	// Create a known-good repo, with some units disabled.
-	repo, _, f := tests.CreateDeclarativeRepo(t, user, "", []unit_model.Type{
+	repo := forgery.CreateRepository(t, user, nil)
+	forgery.EnableRepoUnits(t, repo,
 		unit_model.TypeCode,
 		unit_model.TypePullRequests,
 		unit_model.TypeProjects,
 		unit_model.TypeActions,
 		unit_model.TypeIssues,
 		unit_model.TypeWiki,
-	}, []unit_model.Type{unit_model.TypePackages}, nil)
-	defer f()
+	)
+	forgery.DisableRepoUnits(t, repo, unit_model.TypePackages)
 
 	setUserHints := func(t *testing.T, hints bool) func() {
 		saved := user.EnableRepoUnitHints
@@ -179,7 +181,8 @@ func TestRepoAddMoreUnits(t *testing.T) {
 	unit_model.LoadUnitConfig()
 
 	// Create a known-good repo, with all units enabled.
-	repo, _, f := tests.CreateDeclarativeRepo(t, user, "", []unit_model.Type{
+	repo := forgery.CreateRepository(t, user, nil)
+	forgery.EnableRepoUnits(t, repo,
 		unit_model.TypeCode,
 		unit_model.TypePullRequests,
 		unit_model.TypeProjects,
@@ -187,8 +190,7 @@ func TestRepoAddMoreUnits(t *testing.T) {
 		unit_model.TypeActions,
 		unit_model.TypeIssues,
 		unit_model.TypeWiki,
-	}, nil, nil)
-	defer f()
+	)
 
 	assertAddMore := func(t *testing.T, present bool) {
 		t.Helper()

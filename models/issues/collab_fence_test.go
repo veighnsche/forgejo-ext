@@ -27,6 +27,8 @@ func TestCollabWritersFenceWhileHeld(t *testing.T) {
 
 	require.ErrorIs(t, UpdateComment(ctx, &Comment{ID: 1}, 1, doer), nativeoperation.ErrBusy)
 	require.ErrorIs(t, DeleteComment(ctx, &Comment{ID: 1}), nativeoperation.ErrBusy)
+	require.ErrorIs(t, DeleteLabelInOrg(ctx, 3, 3), nativeoperation.ErrBusy)
+	require.ErrorIs(t, DeleteLabelInRepo(ctx, 1, 1), nativeoperation.ErrBusy)
 	require.ErrorIs(t, func() error {
 		_, err := CreateReaction(ctx, &ReactionOptions{DoerID: doer.ID, IssueID: issue.ID})
 		return err

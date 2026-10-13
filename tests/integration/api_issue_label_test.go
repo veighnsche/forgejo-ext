@@ -172,6 +172,69 @@ func TestAPIRemoveIssueLabel(t *testing.T) {
 	unittest.AssertCount(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: issueLabel.LabelID}, 0)
 }
 
+func TestAPIRemoveIssueLabelByID(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
+	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{RepoID: repo.ID})
+	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
+	issueLabel := unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID})
+	token := getUserToken(t, owner.LowerName, auth_model.AccessTokenScopeWriteIssue)
+
+	deleteURLWrongRepo := fmt.Sprintf("/api/v1/repos/user2/repo2/issues/1/labels/%d", issueLabel.LabelID)
+	req := NewRequest(t, "DELETE", deleteURLWrongRepo).AddTokenAuth(token)
+	req.Header.Add("Accept", "application/vnd.github+json")
+	resp := MakeRequest(t, req, http.StatusUnprocessableEntity)
+	assert.Contains(t, resp.Body.String(), "label does not exist")
+
+	deleteURL := fmt.Sprintf("/api/v1/repos/%s/%s/issues/%d/labels/%d", owner.Name, repo.Name, issue.Index, issueLabel.LabelID)
+	req = NewRequest(t, "DELETE", deleteURL).AddTokenAuth(token)
+	req.Header.Add("Accept", "application/vnd.github+json") // allows reading the label while removing it from the issue
+	resp = MakeRequest(t, req, http.StatusOK)
+
+	var apiLabels []*api.Label
+	DecodeJSON(t, resp, &apiLabels)
+	require.Len(t, apiLabels, 1)
+	assert.EqualValues(t, 1, apiLabels[0].ID)
+	assert.Equal(t, "label1", apiLabels[0].Name)
+}
+
+func TestAPIRemoveOrganizationIssueLabelByID(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 3})
+	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 6, RepoID: repo.ID})
+	orgLabel := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 4, OrgID: repo.OwnerID})
+	foreignRepoLabel := unittest.AssertExistsAndLoadBean(t, &issues_model.Label{ID: 1, RepoID: 1})
+	foreignOrgLabel := &issues_model.Label{OrgID: 6, Name: "private-org-label", Color: "#123456"}
+	unittest.AssertSuccessfulInsert(t, foreignOrgLabel)
+	token := getUserToken(t, "user1", auth_model.AccessTokenScopeWriteIssue)
+	labelsURL := fmt.Sprintf("/api/v1/repos/%s/%s/issues/%d/labels", repo.OwnerName, repo.Name, issue.Index)
+
+	req := NewRequestWithJSON(t, "POST", labelsURL, &api.IssueLabelsOption{
+		Labels: []any{orgLabel.ID},
+	}).AddTokenAuth(token)
+	MakeRequest(t, req, http.StatusOK)
+	unittest.AssertExistsAndLoadBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: orgLabel.ID})
+
+	for _, foreignLabel := range []*issues_model.Label{foreignRepoLabel, foreignOrgLabel} {
+		req = NewRequest(t, "DELETE", fmt.Sprintf("%s/%d", labelsURL, foreignLabel.ID)).AddTokenAuth(token)
+		req.Header.Add("Accept", "application/vnd.github+json")
+		resp := MakeRequest(t, req, http.StatusUnprocessableEntity)
+		assert.NotContains(t, resp.Body.String(), foreignLabel.Name)
+	}
+
+	req = NewRequest(t, "DELETE", fmt.Sprintf("%s/%d", labelsURL, orgLabel.ID)).AddTokenAuth(token)
+	req.Header.Add("Accept", "application/vnd.github+json")
+	resp := MakeRequest(t, req, http.StatusOK)
+	var apiLabels []*api.Label
+	DecodeJSON(t, resp, &apiLabels)
+	require.Len(t, apiLabels, 1)
+	assert.Equal(t, orgLabel.ID, apiLabels[0].ID)
+	assert.Equal(t, orgLabel.Name, apiLabels[0].Name)
+	unittest.AssertNotExistsBean(t, &issues_model.IssueLabel{IssueID: issue.ID, LabelID: orgLabel.ID})
+}
+
 func TestAPIRemoveIssueLabelByName(t *testing.T) {
 	defer unittest.OverrideFixtures("tests/integration/fixtures/TestAPIRemoveIssueLabelByName")()
 	defer tests.PrepareTestEnv(t)()

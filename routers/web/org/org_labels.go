@@ -107,7 +107,7 @@ func DeleteLabel(ctx *context.Context) {
 	orgID := ctx.Org.Organization.ID
 	labelID := ctx.FormInt64("id")
 	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(labelID, "delete"), 0, func(ctx stdCtx.Context) error {
-		return issues_model.DeleteLabel(ctx, orgID, labelID)
+		return issues_model.DeleteLabelInOrg(ctx, orgID, labelID)
 	}); err != nil {
 		if operation_service.IsBusy(err) {
 			ctx.Flash.Error("A native operation is in progress; retry shortly.")
