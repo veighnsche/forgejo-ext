@@ -63,6 +63,8 @@ export default {
     return {
       // internal state
       loading: false,
+      retired: false,
+      requestController: new AbortController(),
       initialLoadComplete: false,
       needLoadingWithLogCursors: null,
       intervalID: null,
@@ -207,19 +209,18 @@ export default {
     // but with the initializing data being passed in this should end up as a synchronous invocation.  loadJob is
     // responsible for setting up its refresh interval during this first invocation.
     await this.loadJob({initialJobData: this.initialJobData, initialArtifactData: this.initialArtifactData});
+    if (this.retired) return;
     document.body.addEventListener('click', this.closeDropdown);
     this.hashChangeListener();
     window.addEventListener('hashchange', this.hashChangeListener);
   },
 
   beforeUnmount() {
+    if (this.isFullScreen && this.$el.isConnected) this.toggleFullScreen();
+    this.retired = true;
+    this.requestController.abort();
     document.body.removeEventListener('click', this.closeDropdown);
     window.removeEventListener('hashchange', this.hashChangeListener);
-  },
-
-  unmounted() {
-    // clear the interval timer when the component is unmounted
-    // even our page is rendered once, not spa style
     if (this.intervalID) {
       clearInterval(this.intervalID);
       this.intervalID = null;
@@ -239,11 +240,13 @@ export default {
 
     // cancel a run
     cancelRun() {
+      if (this.retired) return;
       POST(`${this.run.link}/cancel`);
     },
 
     // approve a run
     approveRun() {
+      if (this.retired) return;
       const url = `${this.run.commit.branch.link}#pull-request-trust-panel`;
       window.location.href = url;
     },
@@ -253,14 +256,14 @@ export default {
     },
 
     async fetchArtifacts() {
-      const resp = await GET(`${this.actionsURL}/runs/${this.runIndex}/artifacts`);
+      const resp = await GET(`${this.actionsURL}/runs/${this.runIndex}/artifacts`, {signal: this.requestController.signal});
       return await resp.json();
     },
 
     async deleteArtifact(name) {
-      if (!window.confirm(this.locale.confirmDeleteArtifact.replace('%s', name))) return;
+      if (this.retired || !window.confirm(this.locale.confirmDeleteArtifact.replace('%s', name))) return;
       await DELETE(`${this.run.link}/artifacts/${name}`);
-      await this.loadJob();
+      if (!this.retired) await this.loadJob();
     },
 
     getLogCursors() {
@@ -275,12 +278,13 @@ export default {
     async fetchJob(logCursors) {
       const resp = await POST(
         `${this.actionsURL}/runs/${this.runIndex}/jobs/${this.jobIndex}/attempt/${this.attemptNumber}`,
-        {data: {logCursors}},
+        {data: {logCursors}, signal: this.requestController.signal},
       );
       return await resp.json();
     },
 
     async loadJob(initializationData) {
+      if (this.retired) return;
       const isInitializing = initializationData !== undefined;
       let myLoadingLogCursors = this.getLogCursors();
       if (this.loading) {
@@ -317,9 +321,12 @@ export default {
               ]);
             }
           } catch (err) {
+            if (this.retired) return;
             if (err instanceof TypeError) return; // avoid network error while unloading page
             throw err;
           }
+
+          if (this.retired) return;
 
           // We can be done as long as needLoadingWithLogCursors is null, or the same as what we just loaded.
           if (this.needLoadingWithLogCursors === null || JSON.stringify(this.needLoadingWithLogCursors) === JSON.stringify(myLoadingLogCursors)) {
@@ -362,17 +369,21 @@ export default {
           this.intervalID = setInterval(this.loadJob, 1000);
         }
       } finally {
-        this.loading = false;
-        this.initialLoadComplete = true;
+        if (!this.retired) {
+          this.loading = false;
+          this.initialLoadComplete = true;
+        }
       }
     },
 
     navigateToAttempt(attempt) {
+      if (this.retired) return;
       const url = `${this.actionsURL}/runs/${this.runIndex}/jobs/${this.jobIndex}/attempt/${attempt.number}`;
       window.location.href = url;
     },
 
     navigateToMostRecentAttempt() {
+      if (this.retired) return;
       const url = `${this.actionsURL}/runs/${this.runIndex}/jobs/${this.jobIndex}`;
       window.location.href = url;
     },
@@ -428,6 +439,7 @@ export default {
       }
     },
     async hashChangeListener() {
+      if (this.retired) return;
       const selectedLogStep = window.location.hash;
       if (!selectedLogStep) return;
       const [_, step, _line] = selectedLogStep.split('-');
@@ -438,7 +450,7 @@ export default {
         // so logline can be selected by querySelector
         await this.loadJob();
       }
-      this.$refs.stepList.scrollIntoView(step, selectedLogStep);
+      if (!this.retired) this.$refs.stepList.scrollIntoView(step, selectedLogStep);
     },
 
     runAttemptLabel(attempt) {

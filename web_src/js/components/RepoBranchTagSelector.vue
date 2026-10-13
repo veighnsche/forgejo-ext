@@ -9,7 +9,9 @@ import {GET} from '../modules/fetch.js';
 export default {
   components: {SvgIcon},
 
-  // no `data()`, at the moment, the `data()` is provided by the init code, which is not ideal and should be fixed in the future
+  // Native selector state is supplied by the feature entry; request/listener
+  // lifetime stays with this mounted component.
+  data: () => ({requestController: new AbortController(), retired: false}),
 
   computed: {
     active() {
@@ -61,15 +63,18 @@ export default {
       this.refNameText = this.tagName;
     }
 
-    document.body.addEventListener('click', (event) => {
-      if (this.$el.contains(event.target)) return;
-      if (this.menuVisible) {
-        this.menuVisible = false;
-      }
-    });
+    document.body.addEventListener('click', this.closeOnOutsideClick, {signal: this.requestController.signal});
+  },
+  beforeUnmount() {
+    this.retired = true;
+    this.requestController.abort();
   },
   methods: {
+    closeOnOutsideClick(event) {
+      if (!this.retired && !this.$el.contains(event.target)) this.menuVisible = false;
+    },
     selectItem(item) {
+      if (this.retired) return;
       const prev = this.getSelected();
       if (prev !== null) {
         prev.selected = false;
@@ -103,12 +108,12 @@ export default {
       }
     },
     createNewBranch() {
-      if (!this.showCreateNewBranch) return;
+      if (this.retired || !this.showCreateNewBranch) return;
       this.$refs.newBranchForm.requestSubmit();
     },
     focusSearchField() {
       nextTick(() => {
-        this.$refs.searchField.focus();
+        if (!this.retired) this.$refs.searchField?.focus();
       });
     },
     getSelected() {
@@ -182,7 +187,7 @@ export default {
       this.fetchBranchesOrTags();
     },
     async fetchBranchesOrTags() {
-      if (!['branches', 'tags'].includes(this.mode) || this.isLoading) return;
+      if (this.retired || !['branches', 'tags'].includes(this.mode) || this.isLoading) return;
       // only fetch when branch/tag list has not been initialized
       if (this.hasListInitialized[this.mode] ||
         (this.mode === 'branches' && !this.showBranchesInDropdown) ||
@@ -192,8 +197,9 @@ export default {
       }
       this.isLoading = true;
       try {
-        const resp = await GET(`${this.repoLink}/${this.mode}/list`);
+        const resp = await GET(`${this.repoLink}/${this.mode}/list`, {signal: this.requestController.signal});
         const {results} = await resp.json();
+        if (this.retired) return;
         for (const result of results) {
           let selected = false;
           if (this.mode === 'branches') {
@@ -205,9 +211,10 @@ export default {
         }
         this.hasListInitialized[this.mode] = true;
       } catch (e) {
+        if (this.retired) return;
         showErrorToast(`Network error when fetching ${this.mode}, error: ${e}`);
       } finally {
-        this.isLoading = false;
+        if (!this.retired) this.isLoading = false;
       }
     },
   },

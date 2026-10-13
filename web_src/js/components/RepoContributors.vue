@@ -70,6 +70,7 @@ export default {
   },
   data: () => ({
     isLoading: false,
+    graphController: null,
     errorText: '',
     totalStats: {},
     sortedContributors: {},
@@ -83,7 +84,7 @@ export default {
   mounted() {
     this.fetchGraphData();
 
-    $('#repo-contributors').dropdown({
+    $(this.$el.querySelector('#repo-contributors')).dropdown({
       onChange: (val) => {
         this.xAxisMin = this.xAxisStart;
         this.xAxisMax = this.xAxisEnd;
@@ -91,6 +92,10 @@ export default {
         this.sortContributors();
       },
     });
+  },
+  beforeUnmount() {
+    this.graphController?.abort();
+    $(this.$el.querySelector('#repo-contributors')).dropdown('destroy');
   },
   methods: {
     sortContributors() {
@@ -112,17 +117,24 @@ export default {
     },
 
     async fetchGraphData() {
+      this.graphController?.abort();
+      const controller = new AbortController();
+      this.graphController = controller;
       this.isLoading = true;
       try {
         let response;
         do {
-          response = await GET(`${this.repoLink}/activity/contributors/data`);
+          if (controller.signal.aborted) return;
+          response = await GET(`${this.repoLink}/activity/contributors/data`, {signal: controller.signal});
+          if (controller.signal.aborted) return;
           if (response.status === 202) {
             await sleep(1000); // wait for 1 second before retrying
           }
         } while (response.status === 202);
+        if (controller.signal.aborted) return;
         if (response.ok) {
           const data = await response.json();
+          if (controller.signal.aborted) return;
           const {total, ...rest} = data;
           // below line might be deleted if we are sure go produces map always sorted by keys
           total.weeks = Object.fromEntries(Object.entries(total.weeks).map((x) => [parseInt(x[0]), x[1]]).sort((a, b) => a[0] - b[0]));
@@ -146,9 +158,9 @@ export default {
           this.errorText = response.statusText;
         }
       } catch (err) {
-        this.errorText = err.message;
+        if (!controller.signal.aborted) this.errorText = err.message;
       } finally {
-        this.isLoading = false;
+        if (!controller.signal.aborted) this.isLoading = false;
       }
     },
 

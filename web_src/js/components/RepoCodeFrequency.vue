@@ -20,8 +20,6 @@ import {chartJsColors} from '../utils/color.js';
 import {sleep} from '../utils.js';
 import 'chartjs-adapter-dayjs-4/dist/chartjs-adapter-dayjs-4.esm';
 
-const {pageData} = window.config;
-
 Chart.defaults.color = chartJsColors.text;
 Chart.defaults.borderColor = chartJsColors.border;
 
@@ -44,26 +42,38 @@ export default {
   },
   data: () => ({
     isLoading: false,
+    graphController: null,
     errorText: '',
-    repoLink: pageData.repoLink || [],
+    repoLink: window.config.pageData.repoLink || '',
     data: [],
   }),
   mounted() {
     this.fetchGraphData();
   },
+  beforeUnmount() {
+    this.graphController?.abort();
+  },
   methods: {
     async fetchGraphData() {
+      this.graphController?.abort();
+      const controller = new AbortController();
+      this.graphController = controller;
       this.isLoading = true;
       try {
         let response;
         do {
-          response = await GET(`${this.repoLink}/activity/code-frequency/data`);
+          if (controller.signal.aborted) return;
+          response = await GET(`${this.repoLink}/activity/code-frequency/data`, {signal: controller.signal});
+          if (controller.signal.aborted) return;
           if (response.status === 202) {
             await sleep(1000); // wait for 1 second before retrying
           }
         } while (response.status === 202);
+        if (controller.signal.aborted) return;
         if (response.ok) {
-          this.data = await response.json();
+          const data = await response.json();
+          if (controller.signal.aborted) return;
+          this.data = data;
           const weekValues = Object.values(this.data);
           const start = weekValues[0].week;
           const end = firstStartDateAfterDate(new Date());
@@ -74,9 +84,9 @@ export default {
           this.errorText = response.statusText;
         }
       } catch (err) {
-        this.errorText = err.message;
+        if (!controller.signal.aborted) this.errorText = err.message;
       } finally {
-        this.isLoading = false;
+        if (!controller.signal.aborted) this.isLoading = false;
       }
     },
 
