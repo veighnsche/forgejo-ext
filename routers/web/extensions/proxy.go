@@ -29,6 +29,13 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 			ctx.Error(http.StatusForbidden, "Same-origin request required")
 			return
 		}
+		// Native routing normalizes repeated slashes. Inspect the original
+		// path before it can be used to admit an extension handler.
+		original, err := url.ParseRequestURI(ctx.Req.RequestURI)
+		if err != nil || strings.Contains(original.EscapedPath(), "//") {
+			ctx.Error(http.StatusBadRequest, "Invalid extension path")
+			return
+		}
 		manager := runtime.GetManager()
 		if manager == nil {
 			ctx.NotFound("Page", nil)

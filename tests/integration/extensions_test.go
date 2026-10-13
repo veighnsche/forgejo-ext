@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -94,6 +95,7 @@ func init() {
 	if os.Getenv(extension.SocketEnv) == "" {
 		return
 	}
+	var transportStarted, transportCanceled atomic.Bool
 	if err := extension.Serve(extension.Application{Policies: testUsernamePolicies(), AuthorizeContribution: func(_ context.Context, request extension.ContributionRequest) (extension.ContributionDecision, error) {
 		if request.Contribution.Kind == "panel" && request.Contribution.ID == "status" && request.ActorID == "4" {
 			return extension.ContributionDecision{Allowed: false, DenialCode: "test_policy"}, nil
@@ -104,6 +106,33 @@ func init() {
 		if err != nil {
 			http.Error(w, "authority", http.StatusForbidden)
 			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/transport/") {
+			actor, err := authority.Native().CurrentActor(r.Context())
+			if err != nil {
+				http.Error(w, "native callback", http.StatusForbidden)
+				return
+			}
+			switch r.URL.Path {
+			case "/transport/path":
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]string{"path": r.URL.Path, "query": r.URL.RawQuery, "actor_id": actor.ID})
+				return
+			case "/transport/stalled":
+				w.Header().Set("Content-Type", "text/plain")
+				_, _ = w.Write([]byte("waiting"))
+				if err := http.NewResponseController(w).Flush(); err != nil {
+					return
+				}
+				transportStarted.Store(true)
+				<-r.Context().Done()
+				transportCanceled.Store(true)
+				return
+			case "/transport/state":
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]bool{"started": transportStarted.Load(), "canceled": transportCanceled.Load()})
+				return
+			}
 		}
 		if r.URL.Path == "/headers" {
 			if _, err := authority.Native().CurrentActor(r.Context()); err != nil {

@@ -93,6 +93,14 @@ func TestExtensionWebSocketNativeBoundary(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, conn)
 	}
+	for _, suffix := range []string{"%2e%2e/stream", "streams/%2fescape", "streams//escape"} {
+		path = "/-/native/pages/pages/global/api/" + suffix
+		conn, response, err := dial(headers)
+		require.Error(t, err)
+		require.Nil(t, conn)
+		require.NotNil(t, response)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+	}
 	path = "/-/native/pages/pages/global/api/redirect-stream"
 	redirected, _, redirectErr := dial(headers)
 	require.Error(t, redirectErr)
