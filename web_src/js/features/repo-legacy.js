@@ -1,26 +1,17 @@
 import $ from 'jquery';
 import {
-  initRepoIssueBranchSelect, initRepoIssueCodeCommentCancel, initRepoIssueCommentDelete,
-  initRepoIssueComments, initRepoIssueDependencyDelete, initRepoIssueReferenceIssue,
-  initRepoIssueTitleEdit, initRepoIssueWipToggle,
-  initRepoPullRequestUpdate, updateIssuesMeta, handleReply, initIssueTemplateCommentEditors, initSingleCommentEditor,
+  updateIssuesMeta, handleReply, initIssueTemplateCommentEditors, initSingleCommentEditor,
   initRepoIssueAssignMe, reloadConfirmDraftComment, retireIssueTemplateCommentEditors,
 } from './repo-issue.js';
-import {initUnicodeEscapeButton} from './repo-unicode-escape.js';
 import {svg} from '../svg.js';
 import {htmlEscape} from 'escape-goat';
-import {initRepoBranchTagSelector} from './repo-branch-tag-selector.js';
 import {
-  initRepoCloneLink, initRepoCommonBranchOrTagDropdown, initRepoCommonFilterSearchDropdown,
+  initRepoCommonBranchOrTagDropdown, initRepoCommonFilterSearchDropdown,
 } from './repo-common.js';
-import {initCompLabelEdit} from './comp/LabelEdit.js';
-import {initRepoDiffConversationNav} from './repo-diff.js';
+import {initCompLabelEdit, retireCompLabelEdit} from './comp/LabelEdit.js';
 import {showErrorToast} from '../modules/toast.js';
 import {initCommentContent, initMarkupContent} from '../markup/content.js';
 import {initCompReactionSelector} from './comp/ReactionSelector.js';
-import {initRepoSettingBranches} from './repo-settings.js';
-import {initRepoPullRequestMergeForm} from './repo-issue-pr-form.js';
-import {initRepoPullRequestCommitStatus} from './repo-issue-pr-status.js';
 import {hideElem, showElem} from '../utils/dom.js';
 import {getComboMarkdownEditor, initComboMarkdownEditor} from './comp/ComboMarkdownEditor.js';
 import {attachRefIssueContextPopup} from './contextpopup.js';
@@ -37,6 +28,29 @@ import '../vendor/jquery.are-you-sure.js';
 // the form are tracked for destruction on retire.
 const commentFormClickBindings = [];
 const commentFormWidgets = [];
+let repositoryState = null;
+const repositoryBindings = new Set();
+
+function bindRepository($elements, events, handler) {
+  const namespaced = events.split(' ').map((event) => `${event}.repositoryNative`).join(' ');
+  for (const element of $elements) {
+    if (element.closest(contributionRootSelector)) continue;
+    $(element).on(namespaced, handler);
+    repositoryBindings.add(element);
+  }
+}
+
+export function retireRepository() {
+  const state = repositoryState;
+  repositoryState = null;
+  state?.controller.abort();
+  for (const element of repositoryBindings) $(element).off('.repositoryNative');
+  repositoryBindings.clear();
+  retireCompLabelEdit();
+  for (const container of state?.root.querySelectorAll('.combo-markdown-editor') ?? []) {
+    if (!container.closest(contributionRootSelector)) getComboMarkdownEditor(container)?.destroy();
+  }
+}
 
 function bindCommentFormClicks($elements, handler) {
   for (const el of $elements.get()) {
@@ -346,6 +360,9 @@ export function initRepoCommentForm() {
 }
 
 async function onEditContent(event) {
+  const state = repositoryState;
+  if (!state || !state.root.contains(this) || this.closest(contributionRootSelector)) return;
+  const {signal} = state.controller;
   event.preventDefault();
 
   const segment = this.closest('.header').nextElementSibling;
@@ -380,8 +397,9 @@ async function onEditContent(event) {
         params.append('files[]', fileInput.value);
       }
 
-      const response = await POST(editContentZone.getAttribute('data-update-url'), {data: params});
+      const response = await POST(editContentZone.getAttribute('data-update-url'), {data: params, signal});
       const data = await response.json();
+      if (signal.aborted || !editContentZone.isConnected) return;
       if (response.status === 400) {
         showErrorToast(data.errorMessage);
         return;
@@ -410,7 +428,7 @@ async function onEditContent(event) {
       initMarkupContent();
       initCommentContent();
     } catch (error) {
-      console.error(error);
+      if (!signal.aborted) console.error(error);
     }
   };
 
@@ -420,11 +438,16 @@ async function onEditContent(event) {
     initDisabledInputs(editContentZone);
     const dropzone = editContentZone.querySelector('.dropzone');
     if (dropzone && !dropzone.dropzone) await initDropzone(dropzone, editContentZone);
+    if (signal.aborted || !editContentZone.isConnected) return;
     comboMarkdownEditor = await initComboMarkdownEditor(editContentZone.querySelector('.combo-markdown-editor'));
+    if (signal.aborted || !editContentZone.isConnected) {
+      comboMarkdownEditor.destroy();
+      return;
+    }
     dropzone?.dropzone?.emit('reload');
-    editContentZone.addEventListener('ce-quick-submit', saveAndRefresh);
-    editContentZone.querySelector('button[data-button-name="cancel-edit"]').addEventListener('click', cancelAndReset);
-    editContentZone.querySelector('button[data-button-name="save-edit"]').addEventListener('click', saveAndRefresh);
+    editContentZone.addEventListener('ce-quick-submit', saveAndRefresh, {signal});
+    editContentZone.querySelector('button[data-button-name="cancel-edit"]').addEventListener('click', cancelAndReset, {signal});
+    editContentZone.querySelector('button[data-button-name="save-edit"]').addEventListener('click', saveAndRefresh, {signal});
   } else {
     const tabEditor = editContentZone.querySelector('.combo-markdown-editor').querySelector('.switch > [data-tab-for=markdown-writer]');
     tabEditor?.click();
@@ -442,14 +465,15 @@ async function onEditContent(event) {
 }
 
 export function initRepository() {
-  if (!$('.page-content.repository').length) return;
-
-  initRepoBranchTagSelector('.js-branch-tag-selector');
+  retireRepository();
+  const root = document.querySelector('.page-content.repository');
+  if (!root || root.closest(contributionRootSelector)) return;
+  repositoryState = {root, controller: new AbortController()};
 
   // Options
   if ($('.repository.settings.options').length > 0) {
     // Enable or select internal/external wiki system and issue tracker.
-    $('.enable-system').on('change', function () {
+    bindRepository($('.enable-system'), 'change', function () {
       if (this.checked) {
         $($(this).data('target')).removeClass('disabled');
         if (!$(this).data('context')) $($(this).data('context')).addClass('disabled');
@@ -458,7 +482,7 @@ export function initRepository() {
         if (!$(this).data('context')) $($(this).data('context')).removeClass('disabled');
       }
     });
-    $('.enable-system-radio').on('change', function () {
+    bindRepository($('.enable-system-radio'), 'change', function () {
       if (this.value === 'false') {
         $($(this).data('target')).addClass('disabled');
         if ($(this).data('context') !== undefined) $($(this).data('context')).removeClass('disabled');
@@ -468,7 +492,7 @@ export function initRepository() {
       }
     });
     const $trackerIssueStyleRadios = $('.js-tracker-issue-style');
-    $trackerIssueStyleRadios.on('change input', () => {
+    bindRepository($trackerIssueStyleRadios, 'change input', () => {
       const checkedVal = $trackerIssueStyleRadios.filter(':checked').val();
       $('#tracker-issue-style-regex-box').toggleClass('disabled', checkedVal !== 'regexp');
     });
@@ -479,7 +503,7 @@ export function initRepository() {
 
   // Milestones
   if ($('.repository.new.milestone').length > 0) {
-    $('#clear-date').on('click', () => {
+    bindRepository($('#clear-date'), 'click', () => {
       $('#deadline').val('');
       return false;
     });
@@ -487,7 +511,7 @@ export function initRepository() {
 
   // Repo Creation
   if ($('.repository.new.repo').length > 0) {
-    $('input[name="gitignores"], input[name="license"]').on('change', () => {
+    bindRepository($('input[name="gitignores"], input[name="license"]'), 'change', () => {
       const gitignores = $('input[name="gitignores"]').val();
       const license = $('input[name="license"]').val();
       if (gitignores || license) {
@@ -503,36 +527,18 @@ export function initRepository() {
     initRepoCommonFilterSearchDropdown('.choose.branch .dropdown');
   }
 
-  initRepoCloneLink();
-  initRepoSettingBranches();
-
   // Issues
   if ($('.repository.view.issue').length > 0) {
     initRepoIssueCommentEdit();
 
-    initRepoIssueBranchSelect();
-    initRepoIssueTitleEdit();
-    initRepoIssueWipToggle();
-    initRepoIssueComments();
-
-    initRepoDiffConversationNav();
-    initRepoIssueReferenceIssue();
-
-    initRepoIssueCommentDelete();
-    initRepoIssueDependencyDelete();
-    initRepoIssueCodeCommentCancel();
-    initRepoPullRequestUpdate();
-    initCompReactionSelector($(document));
-
-    initRepoPullRequestMergeForm();
-    initRepoPullRequestCommitStatus();
+    initCompReactionSelector($(root), {signal: repositoryState.controller.signal});
   }
 
   // Pull request
   const $repoComparePull = $('.repository.compare.pull');
   if ($repoComparePull.length > 0) {
     // show pull request form
-    $repoComparePull.find('button.show-form').on('click', function (e) {
+    bindRepository($repoComparePull.find('button.show-form'), 'click', function (e) {
       e.preventDefault();
       hideElem($(this).parent());
 
@@ -540,8 +546,6 @@ export function initRepository() {
       showElem($form);
     });
   }
-
-  initUnicodeEscapeButton();
 }
 
 const filters = {
@@ -633,6 +637,8 @@ function initRepoIssueCommentEdit() {
 
   // Quote reply
   $(document).on('click', '.quote-reply', async (event) => {
+    const state = repositoryState;
+    if (!state || !state.root.contains(event.target) || event.target.closest(contributionRootSelector)) return;
     event.preventDefault();
     const quote = new MarkdownQuote('', preprocessFragment(event.target.getAttribute('data-context')));
 
@@ -643,6 +649,7 @@ function initRepoIssueCommentEdit() {
 
       const replyButton = event.target.closest('.comment-code-cloud').querySelector('button.comment-form-reply');
       editorTextArea = (await handleReply($(replyButton))).textarea;
+      if (state.controller.signal.aborted || !editorTextArea.isConnected) return;
 
       quote.range = currentRange;
     } else {

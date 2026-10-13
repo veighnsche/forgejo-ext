@@ -48,6 +48,52 @@ test('B07 handles comp ownership and the page-owned dashboard', () => {
   expect(index).not.toContain('\n  initDashboardRepoList();');
 });
 
+test('B07 registers the remaining native repository widgets with their actual retirement hooks', () => {
+  const features = [
+    ['repo-branch-button', 'initRepoBranchButton', 'retireRepoBranchButton'],
+    ['repo-branch-tag-selector', 'initRepoBranchTagSelector', 'retireRepoBranchTagSelector'],
+    ['repo-ellipsis', 'initRepoEllipsisButton', 'retireRepoEllipsisButton'],
+    ['repo-migration', 'initRepoMigration', 'retireRepoMigration'],
+    ['repo-migration-status', 'initRepoMigrationStatusChecker', 'retireRepoMigrationStatusChecker'],
+    ['repo-project', 'initRepoProject', 'retireRepoProject'],
+    ['repo-release', 'initRepoRelease', 'retireRepoRelease'],
+    ['repo-release-new', 'initRepoReleaseNew', 'retireRepoReleaseNew'],
+    ['repo-settings-git-hook', 'initRepoSettingGitHook', 'retireRepoSettingGitHook'],
+    ['repo-settings-team-search', 'initRepoSettingSearchTeamBox', 'retireRepoSettingSearchTeamBox'],
+    ['repo-settings-branches', 'initRepoSettingBranches', 'retireRepoSettingBranches'],
+    ['repo-template-search', 'initRepoTemplateSearch', 'retireRepoTemplateSearch'],
+    ['repo-topic-bar', 'initRepoTopicBar', 'retireRepoTopicBar'],
+    ['repository', 'initRepository', 'retireRepository'],
+    ['repo-search', 'initRepositorySearch', 'retireRepositorySearch'],
+    ['repo-milestone-editor', 'initRepoMilestoneEditor', 'retireRepoMilestoneEditor'],
+    ['commit-statuses', 'initCommitStatuses', 'retireCommitStatuses'],
+    ['commit-notes', 'initCommitNotes', 'retireCommitNotes'],
+    ['repo-activity-top-authors', 'initRepoActivityTopAuthorsChart', 'retireRepoActivityTopAuthorsChart'],
+    ['repo-action-view', 'initRepositoryActionView', 'retireRepositoryActionView'],
+    ['repo-contributors', 'initRepoContributors', 'retireRepoContributors'],
+    ['repo-code-frequency', 'initRepoCodeFrequency', 'retireRepoCodeFrequency'],
+    ['repo-recent-commits', 'initRepoRecentCommits', 'retireRepoRecentCommits'],
+  ];
+  for (const [name, init, retire] of features) {
+    expect(index).toContain(`registerPageFeature('${name}', {init: ${init}, retire: ${retire}})`);
+    expect(index).not.toContain(`\n  ${init}();`);
+  }
+  expect(index).toContain("registerPageFeature('repo-common', {");
+  expect(index).toContain('retire: retireRepoCommon');
+  expect(index).not.toContain('\n  initRepoArchiveLinks();');
+  expect(index).not.toContain('\n  initRepoCloneLink();');
+  expect(index).toContain("registerGlobalFeature('stopwatch', initStopwatch)");
+  expect(index).toContain("registerGlobalFeature('repo-unicode-escape', initUnicodeEscapeButton)");
+  expect(index).toContain("registerGlobalFeature('repo-actions-list', initRepoActionsList)");
+});
+
+test('native boot reads declarative page data before initial page features', () => {
+  const boot = index.slice(index.indexOf('onDomReady(() => {'));
+  expect(boot).toContain('const pageData = readNativePageData(document);');
+  expect(boot.indexOf('if (pageData) setPageConfig(pageData);')).toBeLessThan(boot.indexOf('initGlobalFeatures();'));
+  expect(boot.indexOf('if (pageData) setPageConfig(pageData);')).toBeLessThan(boot.indexOf('initPageFeatures();'));
+});
+
 test('SearchUserBox init is idempotent and retire destroys the widget', () => {
   const calls = [];
   $.fn.search = vi.fn(function (...args) { calls.push(args); return this });

@@ -1,4 +1,5 @@
 import {createApp} from 'vue';
+import {resetDiffTreeStore} from '../modules/stores.js';
 
 let fileTreeApp = null;
 let fileTreeEl = null;
@@ -20,4 +21,5 @@ export function retireDiffFileTree() {
   fileTreeApp?.unmount();
   fileTreeApp = null;
   fileTreeEl = null;
+  resetDiffTreeStore();
 }

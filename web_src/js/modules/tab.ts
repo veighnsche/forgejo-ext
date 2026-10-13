@@ -1,4 +1,4 @@
-export function initTab(parentEl: Element) {
+export function initTab(parentEl: Element, {signal}: {signal?: AbortSignal} = {}) {
   if (!parentEl) {
     return;
   }
@@ -31,6 +31,6 @@ export function initTab(parentEl: Element) {
 
       // Not really sure if this is useful, it is kept from how Fomantic did it.
       ev.preventDefault();
-    }, {passive: false});
+    }, {passive: false, signal});
   }
 }

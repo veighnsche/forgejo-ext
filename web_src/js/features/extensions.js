@@ -1,6 +1,6 @@
-import {retirePageFeatures, setPageConfig, initPageFeatures, setNativeNavigator} from '../native-lifecycle.js';
+import {retirePageFeatures, setPageConfig, readNativePageData, initPageFeatures, setNativeNavigator} from '../native-lifecycle.js';
 import {submitEventSubmitter} from '../utils/dom.js';
-import {mountContribution} from './extension-mount.js';
+import {mountContribution, parseMountDataset} from './extension-mount.js';
 
 function isAuthPath(pathname) {
   return /(?:^|\/)user\/(?:login|logout|sign_up|forgot_password|forget_password|reset_password|recover_account|activate|activate_email|two_factor|webauthn|oauth2|openid|link_account|link_account_signin|link_account_signup)(?:\/|$)/.test(pathname) ||
@@ -20,6 +20,7 @@ export function classifyWorkspaceNavigation(input, base, origin, appSubPath = ''
   } catch {
     return {kind: 'reject'};
   }
+  if (['mailto:', 'tel:'].includes(url.protocol)) return {kind: 'top', url: url.href};
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return {kind: 'reject'};
   if (/%2f|%5c/i.test(url.pathname)) return {kind: 'reject'};
   if (appSubPath && !url.pathname.startsWith(`${appSubPath}/`)) return {kind: 'top', url: url.href};
@@ -68,26 +69,6 @@ export function workspaceDirectPath(pathname, appSubPath = '', patterns = []) {
   return patterns.some((pattern) => typeof pattern === 'string' && matchDirectPattern(candidate, pattern));
 }
 
-const reservedTopSegments = new Set(['user', 'users', 'admin', 'org', 'orgs', 'explore', 'issues', 'pulls', 'milestones', 'notifications', 'search', 'api', '-', 'login', 'logout', 'assets', 'help', 'settings', 'workspace', 'tailnet']);
-
-/**
- * Report whether a pathname has the native repository shape
- * "/{owner}/{repo}/..." past the installation subpath (NFX-C07). Reserved
- * top-level namespaces never count as an owner. Admission only selects
- * the in-shell transition; the transplant still validates the entered
- * document (panels home, page config, session generation) and falls back
- * to a full native load for any shape it cannot join.
- */
-export function isRepositoryPath(pathname, appSubPath = '') {
-  if (!pathname.startsWith(appSubPath)) return false;
-  const rest = pathname.slice(appSubPath.length);
-  if (!rest.startsWith('/')) return false;
-  const segments = rest.split('/').filter((segment) => segment !== '');
-  if (segments.length < 2) return false;
-  if (reservedTopSegments.has(segments[0])) return false;
-  return segments.every((segment) => segment.length <= 255 && !segment.includes('%'));
-}
-
 function directPatterns(home) {
   try {
     const parsed = JSON.parse(home?.dataset.extensionSubroutes ?? '[]');
@@ -106,21 +87,6 @@ function validAppSubURL(value) {
     !/%2f|%5c/i.test(value) && !value.split('/').some((part) => part === '.' || part === '..'));
 }
 
-function readEnteredConfig(native) {
-  const embedded = native.body?.dataset.pageData;
-  // A missing embed means an unknown document: full load. A present but
-  // empty embed (null pageData) transplants with {}: wholesale config
-  // replace leaves no stale keys and feature inits no-op on absent keys.
-  if (typeof embedded !== 'string' || !embedded) return null;
-  try {
-    const parsed = JSON.parse(embedded);
-    if (parsed === null) return {};
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function focusFragment(hash) {
   let id = hash.slice(1);
   try {
@@ -128,7 +94,7 @@ function focusFragment(hash) {
   } catch {
     // Keep the raw fragment when it is not valid percent-encoding.
   }
-  const anchor = document.getElementById(id);
+  const anchor = document.getElementById(id) ?? document.getElementById(`user-content-${id}`) ?? document.getElementsByName(`user-content-${id}`)[0];
   anchor?.scrollIntoView();
   if (anchor?.matches('a[href], button, input, select, textarea, [tabindex]')) anchor.focus({preventScroll: true});
 }
@@ -143,6 +109,16 @@ function pageIdentity(root) {
 
 function ownerKey(root) {
   return root.dataset.extensionOwnerId ? `${root.dataset.extensionId}\0${root.dataset.extensionOwnerId}` : null;
+}
+
+// The native renderer re-authorizes panel contributions on every eligible
+// document. Session continuity alone does not retain permission or a changed
+// contribution definition. Repository ID remains a display fact, not identity.
+function panelIdentity(root) {
+  const dataset = root.dataset;
+  return [dataset.extensionId, dataset.extensionPanelId, dataset.extensionOwnerId,
+    dataset.extensionEntry, dataset.extensionApiBase, dataset.extensionAssetBase,
+    dataset.appSubUrl, dataset.extensionSessionGeneration, dataset.extensionContractVersion].join('\0');
 }
 
 // Loose identity without the contract version: finds entered duplicates
@@ -253,6 +229,60 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
       }
     }
   }
+  function reconcilePanels(enteredHome) {
+    if (!home || leaving) return;
+    const entered = new Map();
+    for (const root of enteredHome.querySelectorAll('[data-extension-panel]')) {
+      if (!parseMountDataset(root).ok || root.dataset.extensionSessionGeneration !== home.dataset.extensionSessionGeneration ||
+          root.dataset.appSubUrl !== home.dataset.appSubUrl) continue;
+      entered.set(panelIdentity(root), root);
+    }
+    panelOwnerKeys.clear();
+    for (const root of entered.values()) {
+      const key = ownerKey(root);
+      if (key) panelOwnerKeys.add(key);
+    }
+    for (const root of home.querySelectorAll('[data-extension-panel]')) {
+      const peer = entered.get(panelIdentity(root));
+      if (peer) {
+        entered.delete(panelIdentity(root));
+        if (peer.dataset.extensionRepositoryId === undefined) delete root.dataset.extensionRepositoryId;
+        else root.dataset.extensionRepositoryId = peer.dataset.extensionRepositoryId;
+        continue;
+      }
+      // Withdrawn admissions retire even when the session generation is
+      // unchanged. Abort a pending mount before it can publish private UI.
+      for (const [controller, pendingRoot] of pending) {
+        if (pendingRoot !== root) continue;
+        controller.abort();
+        pending.delete(controller);
+      }
+      const owner = mounted.find((candidate) => candidate.root === root);
+      root.setAttribute('hidden', '');
+      root.setAttribute('inert', '');
+      const section = root.closest('.extension-workspace-panel');
+      (section?.parentElement === home ? section : root).remove();
+      if (owner) {
+        mounted.splice(mounted.indexOf(owner), 1);
+        try {
+          owner.retire('authority-revoked');
+        } catch (error) {
+          console.error('Could not retire withdrawn contribution', error);
+        }
+      }
+    }
+    for (const root of entered.values()) {
+      const section = root.closest('.extension-workspace-panel');
+      home.append(section?.parentElement === enteredHome ? section : root);
+      mountRoot(root);
+    }
+  }
+  function prepareContributionRoots(event) {
+    // Only a fetched native document carries fresh panel admission facts.
+    // Hash-only moves and BFCache session checks do not revoke declarations.
+    if (event.detail?.panelsHome) reconcilePanels(event.detail.panelsHome);
+    parkPageRoots();
+  }
   function abortPending() {
     for (const controller of pending.keys()) controller.abort();
     pending.clear();
@@ -263,7 +293,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
     abortPending();
     for (const owner of mounted.splice(0)) owner.dispose();
     window.removeEventListener('extension-workspace-invalidated', retireRoots);
-    window.removeEventListener('extension-workspace-will-navigate', parkPageRoots);
+    window.removeEventListener('extension-workspace-will-navigate', prepareContributionRoots);
     window.removeEventListener('extension-workspace-navigation', onWorkspaceNavigation);
   }
   function retireRoots() {
@@ -272,7 +302,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
     abortPending();
     for (const owner of mounted.splice(0)) owner.retire('session-changed');
     window.removeEventListener('extension-workspace-invalidated', retireRoots);
-    window.removeEventListener('extension-workspace-will-navigate', parkPageRoots);
+    window.removeEventListener('extension-workspace-will-navigate', prepareContributionRoots);
     window.removeEventListener('extension-workspace-navigation', onWorkspaceNavigation);
   }
   // Each transplant swaps the native content region. Parked page owners
@@ -364,7 +394,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   }
   window.addEventListener('pagehide', (event) => { if (!event.persisted) disposeRoots(); });
   window.addEventListener('extension-workspace-invalidated', retireRoots);
-  window.addEventListener('extension-workspace-will-navigate', parkPageRoots);
+  window.addEventListener('extension-workspace-will-navigate', prepareContributionRoots);
   window.addEventListener('extension-workspace-navigation', onWorkspaceNavigation);
   if (!pageRoots.size && !home) return;
   const firstPage = pageRoots.size ? pageRoots.values().next().value : null;
@@ -471,6 +501,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     } catch (error) {
       console.error('Could not retire native page features', error);
     } finally {
+      setPageConfig({});
       if (content) {
         content.replaceChildren();
         content.textContent = 'Your session changed. Reload Forgejo to continue.';
@@ -518,17 +549,13 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   // native (transplant full-loads them) until their features migrate.
   let current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
-  // Transplantable layouts (NFX-C07): direct contributions (global and
-  // repository workspace roots plus their declared subroutes), the /admin
-  // dashboard and /admin/users, and native repository documents. Their
-  // native features use the page seam; every other layout takes a full
-  // document load until its features migrate.
+  // Ordinary routes keep their authoritative native handlers. The entered
+  // renderer's content/config/home envelope decides eligibility; there is
+  // no product-specific route whitelist or parallel document renderer.
   function transplantKind(path) {
     const pathname = new URL(path, origin).pathname;
     if (workspaceDirectPath(pathname, appSubPath, directPatterns(home))) return 'direct';
-    if (pathname === `${appSubPath}/admin` || pathname === `${appSubPath}/admin/users`) return 'plain';
-    if (isRepositoryPath(pathname, appSubPath)) return 'plain';
-    return null;
+    return 'plain';
   }
 
   // The persistent home is visible on direct contribution paths and
@@ -559,9 +586,9 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   // assigning window.location. Admitted native paths transplant;
   // host-handled destinations take their native full load; private
   // native prefixes are refused.
-  setNativeNavigator((url) => {
-    const decision = classifyWorkspaceNavigation(url, base, origin, appSubPath);
-    if (decision.kind === 'native') transplant(decision.path, true);
+  setNativeNavigator((url, {replace}) => {
+    const decision = classifyWorkspaceNavigation(url, window.location.href, origin, appSubPath);
+    if (decision.kind === 'native') transplant(decision.path, !replace);
     else if (decision.kind === 'top') window.location.assign(decision.url);
   });
 
@@ -577,20 +604,31 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     }
     for (const link of live.querySelectorAll('a[href]')) {
       const peer = incomingByHref.get(new URL(link.getAttribute('href'), origin).href);
-      if (!peer) continue;
-      link.classList.toggle('active', peer.classList.contains('active'));
-      if (peer.hasAttribute('aria-current')) link.setAttribute('aria-current', peer.getAttribute('aria-current'));
+      link.classList.toggle('active', Boolean(peer?.classList.contains('active')));
+      if (peer?.hasAttribute('aria-current')) link.setAttribute('aria-current', peer.getAttribute('aria-current'));
       else link.removeAttribute('aria-current');
     }
   }
 
-  async function transplant(path, push = false) {
-    const kind = transplantKind(path);
-    if (!kind) {
-      window.location.assign(path);
+  async function transplant(path, push = false, traversal = false) {
+    const target = new URL(path, origin);
+    const previous = new URL(current, origin);
+    navigationController?.abort();
+    if (target.pathname === previous.pathname && target.search === previous.search && target.hash !== previous.hash) {
+      navigationVersion++;
+      if (push) {
+        window.history.replaceState({...window.history.state, scrollY: window.scrollY}, '', window.location.href);
+        window.history.pushState({...window.history.state, scrollY: 0}, '', path);
+      } else updateHistory(path);
+      current = path;
+      if (target.hash) focusFragment(target.hash);
+      if (!traversal) window.dispatchEvent(new HashChangeEvent('hashchange', {oldURL: previous.href, newURL: target.href}));
+      home.dispatchEvent(new CustomEvent('extension-workspace-navigation', {bubbles: true, detail: {
+        route: path, params: Object.fromEntries(target.searchParams),
+        ...(home.dataset.extensionRepositoryId ? {repositoryId: home.dataset.extensionRepositoryId} : {}),
+      }}));
       return;
     }
-    navigationController?.abort();
     navigationController = new AbortController();
     const version = ++navigationVersion;
     const signal = navigationController.signal;
@@ -635,7 +673,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     const live = liveContent();
     const content = native.querySelector('.page-content');
     const enteredHome = native.querySelector('[data-extension-panels]');
-    const pageData = readEnteredConfig(native);
+    const pageData = readNativePageData(native);
     if (!live || !content || !pageData || !enteredHome) {
       window.location.assign(path);
       return;
@@ -648,35 +686,45 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     // Only Fountain's native content region is replaced. The persistent
     // panels home, parked page roots and terminal DOM never leave the
     // owning document.
-    const repositoryId = content.querySelector('[data-extension-page]')?.dataset.extensionRepositoryId ?? '';
+    const repositoryId = enteredHome.dataset.extensionRepositoryId ?? content.querySelector('[data-extension-page]')?.dataset.extensionRepositoryId ?? '';
     // Snapshot outgoing scroll before retiring/swapping: replacing tall
     // content can clamp window.scrollY, so reading it afterwards loses
     // the position Back must restore.
     const outgoingScrollY = window.scrollY;
+    const focusInContent = live.contains(document.activeElement);
     try {
       // Park live page roots before the swap so owners persist the leg.
-      window.dispatchEvent(new Event('extension-workspace-will-navigate'));
+      window.dispatchEvent(new CustomEvent('extension-workspace-will-navigate', {detail: {panelsHome: enteredHome}}));
       retirePageFeatures();
-      live.replaceChildren(...content.childNodes);
-      live.className = content.className;
-      syncNavbarStates(native);
-      syncPanelsHome(path);
       setPageConfig(pageData);
+      document.body.dataset.pageData = JSON.stringify(pageData);
+      document.title = native.title;
+      current = path;
+      if (push) {
+        window.history.replaceState({...window.history.state, scrollY: outgoingScrollY}, '', window.location.href);
+        window.history.pushState({...window.history.state, scrollY: 0}, '', path);
+      } else updateHistory(path);
+      // Native custom elements also observe entered facts on connection.
+      live.replaceWith(content);
+      if (focusInContent) {
+        content.setAttribute('tabindex', '-1');
+        content.focus({preventScroll: true});
+      }
+      syncNavbarStates(native);
+      if (enteredHome.dataset.extensionSubroutes === undefined) delete home.dataset.extensionSubroutes;
+      else home.dataset.extensionSubroutes = enteredHome.dataset.extensionSubroutes;
+      syncPanelsHome(path);
+      if (repositoryId) home.dataset.extensionRepositoryId = repositoryId;
+      else delete home.dataset.extensionRepositoryId;
+      // Initializers read the entered address as well as its page data.
       initPageFeatures();
     } catch {
       window.location.assign(path);
       return;
     }
-    document.title = native.title;
-    current = path;
-    const target = new URL(path, origin);
     if (push) {
-      window.history.replaceState({...window.history.state, scrollY: outgoingScrollY}, '', window.location.href);
-      window.history.pushState({...window.history.state, scrollY: 0}, '', path);
       if (target.hash) focusFragment(target.hash);
       else window.scrollTo(0, 0);
-    } else {
-      updateHistory(path);
     }
     home.dispatchEvent(new CustomEvent('extension-workspace-navigation', {bubbles: true, detail: {
       route: `${target.pathname}${target.search}${target.hash}`,
@@ -716,7 +764,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     if (submitterName) formData.append(submitterName, submitter.getAttribute('value') || '');
     const params = new URLSearchParams();
     for (const [key, value] of formData) params.append(key, value.toString());
-    const target = new URL(form.getAttribute('action') || window.location.href, window.location.href);
+    const target = new URL(submitter?.getAttribute('formaction') || form.getAttribute('action') || window.location.href, window.location.href);
     target.search = params.toString();
     const decision = classifyWorkspaceNavigation(target.href, window.location.href, origin, appSubPath);
     if (decision.kind !== 'native') return;
@@ -735,7 +783,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     navigationVersion++;
     const path = workspacePath(`${window.location.pathname}${window.location.search}${window.location.hash}`, base, origin, appSubPath);
     if (!path || path === current) return;
-    transplant(path).then(() => {
+    transplant(path, false, true).then(() => {
       if (!invalidated) window.scrollTo(0, window.history.state?.scrollY ?? 0);
     });
   };

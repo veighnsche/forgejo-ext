@@ -1,29 +1,40 @@
 import {hideElem, showElem, toggleElem} from '../utils/dom.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
 
-const service = document.getElementById('service_type');
-const user = document.getElementById('auth_username');
-const pass = document.getElementById('auth_password');
-const token = document.getElementById('auth_token');
-const mirror = document.getElementById('mirror');
-const lfs = document.getElementById('lfs');
-const lfsSettings = document.getElementById('lfs_settings');
-const lfsEndpoint = document.getElementById('lfs_endpoint');
-const items = document.querySelectorAll('#migrate_items input[type=checkbox]');
+let migrationController = null;
+
+export function retireRepoMigration() {
+  migrationController?.abort();
+  migrationController = null;
+}
 
 export function initRepoMigration() {
+  retireRepoMigration();
+  const service = document.getElementById('service_type');
+  if (!service || service.closest(contributionRootSelector)) return;
+  const user = document.getElementById('auth_username');
+  const pass = document.getElementById('auth_password');
+  const token = document.getElementById('auth_token');
+  const mirror = document.getElementById('mirror');
+  const lfs = document.getElementById('lfs');
+  const lfsSettings = document.getElementById('lfs_settings');
+  const lfsEndpoint = document.getElementById('lfs_endpoint');
+  const items = document.querySelectorAll('#migrate_items input[type=checkbox]');
+  migrationController = new AbortController();
+  const {signal} = migrationController;
   checkAuth();
   setLFSSettingsVisibility();
 
-  user?.addEventListener('input', () => {checkItems(false)});
-  pass?.addEventListener('input', () => {checkItems(false)});
-  token?.addEventListener('input', () => {checkItems(true)});
-  mirror?.addEventListener('change', () => {checkItems(true)});
+  user?.addEventListener('input', () => {checkItems(false)}, {signal});
+  pass?.addEventListener('input', () => {checkItems(false)}, {signal});
+  token?.addEventListener('input', () => {checkItems(true)}, {signal});
+  mirror?.addEventListener('change', () => {checkItems(true)}, {signal});
   document.getElementById('lfs_settings_show')?.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
     showElem(lfsEndpoint);
-  });
-  lfs?.addEventListener('change', setLFSSettingsVisibility);
+  }, {signal});
+  lfs?.addEventListener('change', setLFSSettingsVisibility, {signal});
 
   const cloneAddr = document.getElementById('clone_addr');
   cloneAddr?.addEventListener('change', () => {
@@ -31,42 +42,42 @@ export function initRepoMigration() {
     if (cloneAddr.value && !repoName?.value) { // Only modify if repo_name input is blank
       repoName.value = cloneAddr.value.match(/^(.*\/)?((.+?)(\.git)?\/?)$/)[3];
     }
-  });
-}
+  }, {signal});
 
-function checkAuth() {
-  if (!service) return;
-  const serviceType = Number(service.value);
+  function checkAuth() {
+    if (!service) return;
+    const serviceType = Number(service.value);
 
   // hack for pagure importer.
-  if (serviceType !== 10) {
-    checkItems(serviceType !== 1);
-  }
-}
-
-function checkItems(tokenAuth) {
-  let enableItems;
-  if (tokenAuth) {
-    enableItems = token?.value !== '';
-  } else {
-    enableItems = user?.value !== '' || pass?.value !== '';
-  }
-  if (enableItems && Number(service?.value) > 1) {
-    if (mirror?.checked) {
-      for (const item of items) {
-        item.disabled = item.name !== 'wiki';
-      }
-      return;
+    if (serviceType !== 10) {
+      checkItems(serviceType !== 1);
     }
-    for (const item of items) item.disabled = false;
-  } else {
-    for (const item of items) item.disabled = true;
   }
-}
 
-function setLFSSettingsVisibility() {
-  if (!lfs) return;
-  const visible = lfs.checked;
-  toggleElem(lfsSettings, visible);
-  hideElem(lfsEndpoint);
+  function checkItems(tokenAuth) {
+    let enableItems;
+    if (tokenAuth) {
+      enableItems = token?.value !== '';
+    } else {
+      enableItems = user?.value !== '' || pass?.value !== '';
+    }
+    if (enableItems && Number(service?.value) > 1) {
+      if (mirror?.checked) {
+        for (const item of items) {
+          item.disabled = item.name !== 'wiki';
+        }
+        return;
+      }
+      for (const item of items) item.disabled = false;
+    } else {
+      for (const item of items) item.disabled = true;
+    }
+  }
+
+  function setLFSSettingsVisibility() {
+    if (!lfs) return;
+    const visible = lfs.checked;
+    toggleElem(lfsSettings, visible);
+    hideElem(lfsEndpoint);
+  }
 }

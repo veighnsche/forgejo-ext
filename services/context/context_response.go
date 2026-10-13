@@ -75,6 +75,9 @@ const (
 
 // HTML calls Context.HTML and renders the template to HTTP response
 func (ctx *Context) HTML(status int, name base.TplName) {
+	if ctx.Repo != nil && ctx.Repo.Repository != nil {
+		ctx.Data["ExtensionRepositoryID"] = strconv.FormatInt(ctx.Repo.Repository.ID, 10)
+	}
 	// NFX-A02 region_adopt: the panels home composes only on successful
 	// ordinary renders. Navigation sets the data pre-handler; this final
 	// status/template selection keeps error, auth and install documents

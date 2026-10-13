@@ -3,30 +3,47 @@ import {stripTags} from '../utils.js';
 import {hideElem, queryElemChildren, showElem} from '../utils/dom.js';
 import {POST} from '../modules/fetch.js';
 import {showErrorToast} from '../modules/toast.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
 
 const {appSubUrl} = window.config;
+let topicController = null;
+let configuredTopicDropdown = null;
+let topicErrorToast;
+
+export function retireRepoTopicBar() {
+  topicController?.abort();
+  topicController = null;
+  topicErrorToast?.hideToast();
+  topicErrorToast = undefined;
+  if (configuredTopicDropdown) $(configuredTopicDropdown).dropdown('destroy');
+  configuredTopicDropdown = null;
+}
 
 export function initRepoTopicBar() {
+  retireRepoTopicBar();
   const mgrBtn = document.getElementById('manage_topic');
-  if (!mgrBtn) return;
+  if (!mgrBtn || mgrBtn.closest(contributionRootSelector)) return;
+  topicController = new AbortController();
+  const {signal} = topicController;
 
   const editDiv = document.getElementById('topic_edit');
   const viewDiv = document.getElementById('repo-topics');
   const topicDropdown = editDiv.querySelector('.ui.dropdown');
+  configuredTopicDropdown = topicDropdown;
   let lastErrorToast;
 
   mgrBtn.addEventListener('click', () => {
     hideElem(viewDiv);
     showElem(editDiv);
     topicDropdown.querySelector('input.search').focus();
-  });
+  }, {signal});
 
   document.querySelector('#cancel_topic_edit').addEventListener('click', () => {
     lastErrorToast?.hideToast();
     hideElem(editDiv);
     showElem(viewDiv);
     mgrBtn.focus();
-  });
+  }, {signal});
 
   document.getElementById('save_topic').addEventListener('click', async (e) => {
     lastErrorToast?.hideToast();
@@ -35,10 +52,14 @@ export function initRepoTopicBar() {
     const data = new FormData();
     data.append('topics', topics);
 
-    const response = await POST(e.target.getAttribute('data-link'), {data});
+    const response = await POST(e.target.getAttribute('data-link'), {data, signal}).catch((error) => {
+      if (!signal.aborted) throw error;
+    });
+    if (signal.aborted || !editDiv.isConnected) return;
 
     if (response.ok) {
       const responseData = await response.json();
+      if (signal.aborted || !editDiv.isConnected) return;
       if (responseData.status === 'ok') {
         queryElemChildren(viewDiv, '.repo-topic', (el) => el.remove());
         if (topics.length) {
@@ -59,7 +80,9 @@ export function initRepoTopicBar() {
     } else if (response.status === 422) {
       // how to test: input topic like " invalid topic " (with spaces), and select it from the list, then "Save"
       const responseData = await response.json();
+      if (signal.aborted || !editDiv.isConnected) return;
       lastErrorToast = showErrorToast(responseData.message, {duration: 5000});
+      topicErrorToast = lastErrorToast;
       if (responseData.invalidTopics && responseData.invalidTopics.length > 0) {
         const {invalidTopics} = responseData;
         const topicLabels = queryElemChildren(topicDropdown, 'a.ui.label');
@@ -71,7 +94,7 @@ export function initRepoTopicBar() {
         }
       }
     }
-  });
+  }, {signal});
 
   $(topicDropdown).dropdown({
     allowAdditions: true,

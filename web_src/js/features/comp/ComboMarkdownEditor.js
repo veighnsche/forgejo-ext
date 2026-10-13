@@ -45,6 +45,20 @@ class ComboMarkdownEditor {
     this.options = options;
     this.container = container;
     this.elementIdSuffix = ComboMarkdownEditor.idSuffixCounter++;
+    this.controller = new AbortController();
+    this.controller.signal.addEventListener('abort', () => this.previewController?.abort(), {once: true});
+  }
+
+  destroy() {
+    if (this.controller.signal.aborted) return;
+    this.controller.abort();
+    cancelAnimationFrame(this.focusFrame);
+    this.ignoredTabToast?.hideToast();
+    this.textareaAutosize?.destroy();
+    this.switchToTextarea();
+    if (this.linkModal) $(this.linkModal).modal('destroy');
+    if (this.container._giteaComboMarkdownEditor === this) delete this.container._giteaComboMarkdownEditor;
+    if (this.textarea?._giteaComboMarkdownEditor === this) delete this.textarea._giteaComboMarkdownEditor;
   }
 
   async init() {
@@ -67,15 +81,15 @@ class ComboMarkdownEditor {
   }
 
   setupContainer() {
-    initTextExpander(this.container.querySelector('text-expander'));
-    this.container.addEventListener('ce-editor-content-changed', (e) => this.options?.onContentChanged?.(this, e));
+    initTextExpander(this.container.querySelector('text-expander'), {signal: this.controller.signal});
+    this.container.addEventListener('ce-editor-content-changed', (e) => this.options?.onContentChanged?.(this, e), {signal: this.controller.signal});
   }
 
   setupTextarea() {
     this.textarea = this.container.querySelector('.markdown-text-editor');
     this.textarea._giteaComboMarkdownEditor = this;
     this.textarea.id = `_combo_markdown_editor_${this.elementIdSuffix}`;
-    this.textarea.addEventListener('input', (e) => this.options?.onContentChanged?.(this, e));
+    this.textarea.addEventListener('input', (e) => this.options?.onContentChanged?.(this, e), {signal: this.controller.signal});
     this.applyEditorHeights(this.textarea, this.options.editorHeights);
 
     if (this.textarea.getAttribute('data-disable-autosize') !== 'true') {
@@ -92,10 +106,10 @@ class ComboMarkdownEditor {
     }
     this.textareaMarkdownToolbar.querySelector('button[data-md-action="indent"]')?.addEventListener('click', () => {
       this.indentSelection(false, false);
-    });
+    }, {signal: this.controller.signal});
     this.textareaMarkdownToolbar.querySelector('button[data-md-action="unindent"]')?.addEventListener('click', () => {
       this.indentSelection(true, false);
-    });
+    }, {signal: this.controller.signal});
     this.textareaMarkdownToolbar.querySelector('button[data-md-action="new-table"]')?.setAttribute('data-modal', `div[data-markdown-table-modal-id="${this.elementIdSuffix}"]`);
     this.textareaMarkdownToolbar.querySelector('button[data-md-action="new-link"]')?.setAttribute('data-modal', `div[data-markdown-link-modal-id="${this.elementIdSuffix}"]`);
 
@@ -114,11 +128,11 @@ class ComboMarkdownEditor {
     this.textarea.addEventListener('focus', () => {
       this.tabEnabled = false;
       this.ignoredTabAction = false;
-    });
+    }, {signal: this.controller.signal});
     this.textarea.addEventListener('pointerup', () => {
       // Assume if a pointer is used then Tab handling is a bit less of an issue.
       this.tabEnabled = true;
-    });
+    }, {signal: this.controller.signal});
     this.textarea.addEventListener('keydown', (e) => {
       if (e.shiftKey) {
         e.target._shiftDown = true;
@@ -165,15 +179,16 @@ class ComboMarkdownEditor {
       } else if (noModifiers) {
         this.activateTabHandling();
       }
-    });
+    }, {signal: this.controller.signal});
     this.textarea.addEventListener('keyup', (e) => {
       if (!e.shiftKey) {
         e.target._shiftDown = false;
       }
-    });
+    }, {signal: this.controller.signal});
 
     const monospaceButton = this.container.querySelector('.markdown-switch-monospace');
     const monospaceEnabled = localStorage?.getItem('markdown-editor-monospace') === 'true';
+    this.textarea.classList.toggle('tw-font-mono', monospaceEnabled);
     const monospaceText = monospaceButton.getAttribute(monospaceEnabled ? 'data-disable-text' : 'data-enable-text');
     monospaceButton.setAttribute('data-tooltip-content', monospaceText);
     monospaceButton.setAttribute('aria-label', monospaceText);
@@ -188,17 +203,17 @@ class ComboMarkdownEditor {
       monospaceButton.setAttribute('data-tooltip-content', text);
       monospaceButton.setAttribute('aria-label', text);
       monospaceButton.setAttribute('aria-checked', String(enabled));
-    });
+    }, {signal: this.controller.signal});
 
     const easymdeButton = this.container.querySelector('.markdown-switch-easymde');
     easymdeButton?.addEventListener('click', async (e) => {
       e.preventDefault();
       this.userPreferredEditor = 'easymde';
       await this.switchToEasyMDE();
-    });
+    }, {signal: this.controller.signal});
 
     if (this.dropzone) {
-      initTextareaPaste(this.textarea, this.dropzone);
+      initTextareaPaste(this.textarea, this.dropzone, {signal: this.controller.signal});
     }
   }
 
@@ -237,28 +252,35 @@ class ComboMarkdownEditor {
 
     tabEditor.addEventListener('click', () => {
       toolbar.classList.remove('markdown-toolbar-hidden');
-      requestAnimationFrame(() => {
-        this.focus();
+      this.focusFrame = requestAnimationFrame(() => {
+        if (!this.controller.signal.aborted) this.focus();
       });
-    });
+    }, {signal: this.controller.signal});
 
-    initTab(switchEl);
+    initTab(switchEl, {signal: this.controller.signal});
 
     this.previewUrl = tabPreviewer.getAttribute('data-preview-url');
     this.previewContext = tabPreviewer.getAttribute('data-preview-context');
     this.previewMode = this.options.previewMode ?? 'comment';
     this.previewWiki = this.options.previewWiki ?? false;
     tabPreviewer.addEventListener('click', async () => {
+      this.previewController?.abort();
+      const controller = new AbortController();
+      this.previewController = controller;
       toolbar.classList.add('markdown-toolbar-hidden');
       const formData = new FormData();
       formData.append('mode', this.previewMode);
       formData.append('context', this.previewContext);
       formData.append('text', this.value());
       formData.append('wiki', this.previewWiki);
-      const response = await POST(this.previewUrl, {data: formData});
-      const data = await response.text();
-      renderPreviewPanelContent($(panelPreviewer), data);
-    });
+      try {
+        const response = await POST(this.previewUrl, {data: formData, signal: controller.signal});
+        const data = await response.text();
+        if (!controller.signal.aborted && !this.controller.signal.aborted) renderPreviewPanelContent($(panelPreviewer), data);
+      } catch (error) {
+        if (!controller.signal.aborted && !this.controller.signal.aborted) throw error;
+      }
+    }, {signal: this.controller.signal});
   }
 
   addNewTable(event) {
@@ -300,7 +322,7 @@ class ComboMarkdownEditor {
 
     const button = newTableModal.querySelector('button[data-selector-name="ok-button"]');
     button.setAttribute('data-element-id', this.elementIdSuffix);
-    button.addEventListener('click', this.addNewTable);
+    button.addEventListener('click', this.addNewTable, {signal: this.controller.signal});
   }
 
   addNewLink(event) {
@@ -331,6 +353,7 @@ class ComboMarkdownEditor {
 
   setupLinkInserter() {
     const newLinkModal = this.container.querySelector('div[data-modal-name="new-markdown-link"]');
+    this.linkModal = newLinkModal;
     newLinkModal.setAttribute('data-markdown-link-modal-id', this.elementIdSuffix);
     const textarea = document.getElementById(`_combo_markdown_editor_${this.elementIdSuffix}`);
 
@@ -352,7 +375,7 @@ class ComboMarkdownEditor {
 
     const button = newLinkModal.querySelector('button[data-selector-name="ok-button"]');
     button.setAttribute('data-element-id', this.elementIdSuffix);
-    button.addEventListener('click', this.addNewLink);
+    button.addEventListener('click', this.addNewLink, {signal: this.controller.signal});
   }
 
   prepareEasyMDEToolbarActions() {
@@ -384,6 +407,8 @@ class ComboMarkdownEditor {
   }
 
   switchToTextarea() {
+    if (this.tribute) this.tribute.detach(this.tributeElement);
+    this.tribute = null;
     if (!this.easyMDE) return;
     showElem(this.textareaMarkdownToolbar);
     if (this.easyMDE) {
@@ -396,6 +421,7 @@ class ComboMarkdownEditor {
     if (this.easyMDE) return;
     // EasyMDE's CSS should be loaded via webpack config, otherwise our own styles can not overwrite the default styles.
     const {default: EasyMDE} = await import(/* webpackChunkName: "easymde" */'easymde');
+    if (this.controller.signal.aborted || this.easyMDE) return;
     const easyMDEOpt = {
       autoDownloadFontAwesome: false,
       element: this.textarea,
@@ -435,8 +461,16 @@ class ComboMarkdownEditor {
       },
     });
     this.applyEditorHeights(this.container.querySelector('.CodeMirror-scroll'), this.options.editorHeights);
-    await attachTribute(this.easyMDE.codemirror.getInputField(), {mentions: true, emoji: true});
-    initEasyMDEPaste(this.easyMDE, this.dropzone);
+    const easyMDE = this.easyMDE;
+    const input = easyMDE.codemirror.getInputField();
+    const tribute = await attachTribute(input, {mentions: true, emoji: true});
+    if (this.controller.signal.aborted || this.easyMDE !== easyMDE) {
+      tribute.detach(input);
+      return;
+    }
+    this.tribute = tribute;
+    this.tributeElement = input;
+    initEasyMDEPaste(easyMDE, this.dropzone, {signal: this.controller.signal});
     hideElem(this.textareaMarkdownToolbar);
   }
 
@@ -654,7 +688,16 @@ export async function initComboMarkdownEditor(container, options = {}) {
   if (!container) {
     throw new Error('initComboMarkdownEditor: container is null');
   }
+  const existing = getComboMarkdownEditor(container);
+  if (existing) {
+    await existing.initialized;
+    return existing;
+  }
   const editor = new ComboMarkdownEditor(container, options);
-  await editor.init();
+  editor.initialized = editor.init().catch((error) => {
+    editor.destroy();
+    throw error;
+  });
+  await editor.initialized;
   return editor;
 }

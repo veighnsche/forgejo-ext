@@ -72,6 +72,30 @@ export function retirePageFeatures() {
 // window.config values (appUrl, i18n, ...) stay untouched.
 export function setPageConfig(pageData) {
   window.config.pageData = pageData ?? {};
+  window.config.mentionValues = Array.from(new Map((window.config.pageData.mentionValues ?? []).map((value) => [value.name, value])).values());
+}
+
+// Native leaf templates contribute contextual data without executing scripts.
+// Use the same envelope on document boot and on an entered native render.
+export function readNativePageData(native) {
+  const embedded = native.body?.dataset.pageData;
+  if (typeof embedded !== 'string' || !embedded) return null;
+  try {
+    let data = JSON.parse(embedded) ?? {};
+    if (typeof data !== 'object' || Array.isArray(data)) return null;
+    for (const script of native.querySelectorAll('script[data-native-page-data]')) {
+      if (script.closest(contributionRootSelector)) continue;
+      const key = script.dataset.nativePageData;
+      const value = JSON.parse(script.textContent);
+      if (!key || !value || typeof value !== 'object') return null;
+      const field = script.hasAttribute('data-native-page-data-list') ?
+        [...(data[key] ?? []), value] : Array.isArray(value) ? value : {...data[key], ...value};
+      data = {...data, [key]: field};
+    }
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 export function getPageData() {
@@ -92,7 +116,8 @@ export function setNativeNavigator(navigate) {
   nativeNavigator = navigate;
 }
 
-export function navigateNative(url) {
-  if (nativeNavigator) nativeNavigator(url);
-  else window.location.replace(url);
+export function navigateNative(url, {replace = true} = {}) {
+  if (nativeNavigator) nativeNavigator(url, {replace});
+  else if (replace) window.location.replace(url);
+  else window.location.assign(url);
 }

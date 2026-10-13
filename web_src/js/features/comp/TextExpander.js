@@ -2,7 +2,7 @@ import {matchEmoji, matchMention} from '../../utils/match.js';
 import {emojiHTML, emojiString} from '../emoji.js';
 const {customEmojis} = window.config;
 
-export function initTextExpander(expander) {
+export function initTextExpander(expander, {signal} = {}) {
   expander?.addEventListener('text-expander-change', ({detail: {key, provide, text}}) => {
     if (key === ':') {
       const matches = matchEmoji(text);
@@ -59,12 +59,12 @@ export function initTextExpander(expander) {
 
       provide({matched: true, fragment: ul});
     }
-  });
+  }, {signal});
   expander?.addEventListener('text-expander-value', ({detail}) => {
     if (detail?.item) {
       // add a space after @mentions as it's likely the user wants one
       const suffix = detail.key === '@' ? ' ' : '';
       detail.value = `${detail.item.getAttribute('data-value')}${suffix}`;
     }
-  });
+  }, {signal});
 }

@@ -1,0 +1,12 @@
+<script type="application/json" data-native-page-data="mentionValues">[
+{{$comma := false}}
+{{range .Participants}}{{if $comma}},{{end}}{{$comma = true}}
+{"key": "{{.Name}} {{.FullName}}", "value": {{.Name}}, "name": {{.Name}}, "fullname": {{.FullName}}, "avatar": {{.AvatarLink $.Context}}}
+{{end}}
+{{range .Assignees}}{{if $comma}},{{end}}{{$comma = true}}
+{"key": "{{.Name}} {{.FullName}}", "value": {{.Name}}, "name": {{.Name}}, "fullname": {{.FullName}}, "avatar": {{.AvatarLink $.Context}}}
+{{end}}
+{{range .MentionableTeams}}{{if $comma}},{{end}}{{$comma = true}}
+{"key": "{{$.MentionableTeamsOrg}}/{{.Name}}", "value": "{{$.MentionableTeamsOrg}}/{{.Name}}", "name": "{{$.MentionableTeamsOrg}}/{{.Name}}", "avatar": {{$.MentionableTeamsOrgAvatar}}}
+{{end}}
+]</script>

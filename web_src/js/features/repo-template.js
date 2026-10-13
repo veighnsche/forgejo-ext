@@ -1,11 +1,29 @@
 import $ from 'jquery';
 import {htmlEscape} from 'escape-goat';
 import {hideElem, showElem} from '../utils/dom.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
 
 const {appSubUrl} = window.config;
+let templateRoot = null;
+let templateSearch = null;
+let templateOwner = null;
+
+export function retireRepoTemplateSearch() {
+  if (templateRoot) $(templateRoot).off('.repoTemplate');
+  if (templateOwner) $(templateOwner).off('.repoTemplate');
+  if (templateSearch) $(templateSearch).dropdown('destroy');
+  templateRoot = null;
+  templateSearch = null;
+  templateOwner = null;
+}
 
 export function initRepoTemplateSearch() {
+  retireRepoTemplateSearch();
   const $repoTemplate = $('#repo_template');
+  if (!$repoTemplate.length || $repoTemplate[0].closest(contributionRootSelector)) return;
+  templateRoot = $repoTemplate[0];
+  templateSearch = document.getElementById('repo_template_search');
+  templateOwner = document.getElementById('uid');
   const checkTemplate = function () {
     const $templateUnits = $('#template_units');
     const $nonTemplate = $('#non_template');
@@ -17,7 +35,7 @@ export function initRepoTemplateSearch() {
       showElem($nonTemplate);
     }
   };
-  $repoTemplate.on('change', checkTemplate);
+  $repoTemplate.on('change.repoTemplate', checkTemplate);
   checkTemplate();
 
   const changeOwner = function () {
@@ -46,6 +64,6 @@ export function initRepoTemplateSearch() {
         fullTextSearch: true,
       });
   };
-  $('#uid').on('change', changeOwner);
+  $('#uid').on('change.repoTemplate', changeOwner);
   changeOwner();
 }

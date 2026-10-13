@@ -1,6 +1,18 @@
+import {contributionRootSelector, navigateNative} from '../native-lifecycle.js';
+
+let searchController = null;
+
+export function retireRepositorySearch() {
+  searchController?.abort();
+  searchController = null;
+}
+
 export function initRepositorySearch() {
+  retireRepositorySearch();
   const repositorySearchForm = document.querySelector('#repo-search-form');
-  if (!repositorySearchForm) return;
+  if (!repositorySearchForm || repositorySearchForm.closest(contributionRootSelector)) return;
+  searchController = new AbortController();
+  const {signal} = searchController;
 
   repositorySearchForm.addEventListener('change', (e) => {
     e.preventDefault();
@@ -17,6 +29,8 @@ export function initRepositorySearch() {
     }
 
     params.delete('clear-filter');
-    window.location.search = params.toString();
-  });
+    const url = new URL(window.location.href);
+    url.search = params.toString();
+    navigateNative(url.href);
+  }, {signal});
 }

@@ -1,27 +1,55 @@
 import {hideElem, showElem} from '../utils/dom.js';
-import {initComboMarkdownEditor} from './comp/ComboMarkdownEditor.js';
+import {getComboMarkdownEditor, initComboMarkdownEditor} from './comp/ComboMarkdownEditor.js';
+import {contributionRootSelector} from '../native-lifecycle.js';
+
+let attachmentsController = null;
+let releaseController = null;
+let releaseEditor = null;
+let newAttachmentCount = 0;
+
+export function retireRepoRelease() {
+  attachmentsController?.abort();
+  attachmentsController = null;
+}
+
+export function retireRepoReleaseNew() {
+  releaseController?.abort();
+  releaseController = null;
+  releaseEditor?.destroy();
+  releaseEditor = null;
+}
 
 export function initRepoRelease() {
+  retireRepoRelease();
+  attachmentsController = new AbortController();
+  const {signal} = attachmentsController;
   for (const el of document.querySelectorAll('.remove-rel-attach')) {
+    if (el.closest(contributionRootSelector)) continue;
     el.addEventListener('click', (e) => {
       const uuid = e.target.getAttribute('data-uuid');
       const id = e.target.getAttribute('data-id');
       document.querySelector(`input[name='attachment-del-${uuid}']`).value =
         'true';
       hideElem(`#attachment-${id}`);
-    });
+    }, {signal});
   }
 }
 
 export function initRepoReleaseNew() {
-  if (!document.querySelector('.repository.new.release')) return;
+  retireRepoReleaseNew();
+  const root = document.querySelector('.repository.new.release');
+  if (!root || root.closest(contributionRootSelector)) return;
+  releaseController = new AbortController();
+  const {signal} = releaseController;
+  newAttachmentCount = 0;
 
-  initTagNameEditor();
-  initRepoReleaseEditor();
-  initAddExternalLinkButton();
+  initTagNameEditor(signal);
+  const initialized = initRepoReleaseEditor();
+  initAddExternalLinkButton(signal);
+  return initialized;
 }
 
-function initTagNameEditor() {
+function initTagNameEditor(signal) {
   const el = document.getElementById('tag-name-editor');
   if (!el) return;
 
@@ -50,22 +78,23 @@ function initTagNameEditor() {
       title_input.value = value;
     }
     previousTag = value;
-  });
+  }, {signal});
 }
 
-function initRepoReleaseEditor() {
+async function initRepoReleaseEditor() {
   const editor = document.querySelector(
     '.repository.new.release .combo-markdown-editor',
   );
   if (!editor) {
     return;
   }
-  initComboMarkdownEditor(editor);
+  const initialized = initComboMarkdownEditor(editor);
+  releaseEditor = getComboMarkdownEditor(editor);
+  const instance = await initialized;
+  if (releaseEditor !== instance || !editor.isConnected) instance.destroy();
 }
 
-let newAttachmentCount = 0;
-
-function initAddExternalLinkButton() {
+function initAddExternalLinkButton(signal) {
   const addExternalLinkButton = document.getElementById('add-external-link');
   if (!addExternalLinkButton) return;
 
@@ -92,11 +121,11 @@ function initAddExternalLinkButton() {
     const attachmentDel = newAttachment.querySelector('.remove-rel-attach');
     attachmentDel.addEventListener('click', () => {
       newAttachment.remove();
-    });
+    }, {signal});
 
     attachmentTemplate.parentNode.insertBefore(
       newAttachment,
       attachmentTemplate,
     );
-  });
+  }, {signal});
 }

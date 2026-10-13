@@ -1,7 +1,7 @@
 import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {currentPageGeneration, initPageFeatures, registerPageFeature, retirePageFeatures} from '../native-lifecycle.js';
-import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, isRepositoryPath, initExtensionPages, initExtensionWorkspace} from './extensions.js';
+import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 import {mount as mountExamplePanel} from '../../../contrib/extensions/example/assets/panel.js';
 
 const origin = 'https://forge.example';
@@ -57,18 +57,6 @@ test('classifies the workspace root and declared subroutes as direct', () => {
   expect(workspaceDirectPath('/workspace/new', '')).toBe(false);
   expect(workspaceDirectPath('/workspace/requests/abc', '')).toBe(false);
   expect(workspaceDirectPath('/user2/repo1/workspace/new', '')).toBe(false);
-});
-
-test('recognizes native repository shapes without claiming reserved namespaces', () => {
-  for (const [pathname, sub] of [['/team/repo', ''], ['/team/repo/issues/7', ''], ['/team/repo/workspace', ''],
-    ['/forge/team/repo', '/forge'], ['/forge/team/repo/pulls', '/forge']]) {
-    expect(isRepositoryPath(pathname, sub)).toBe(true);
-  }
-  for (const [pathname, sub] of [['/workspace', ''], ['/workspace/new', ''], ['/admin', ''], ['/admin/users', ''],
-    ['/user/settings/profile', ''], ['/explore/repos', ''], ['/issues', ''], ['/team', ''],
-    ['/team/repo', '/forge'], ['/other/team/repo', '/forge']]) {
-    expect(isRepositoryPath(pathname, sub)).toBe(false);
-  }
 });
 
 test('keeps auth and external destinations for top-level navigation', () => {
@@ -347,12 +335,12 @@ function persistedPageShowEvent() {
   return event;
 }
 
-function panelRootMarkup({panelId = 'notes', generation = 'session-a', appSubURL = ''} = {}) {
-  return `<div data-extension-panel data-extension-contract-version="1" data-app-sub-url="${appSubURL}" data-extension-id="example" data-extension-panel-id="${panelId}" data-extension-entry="/-/native/assets/example/panel.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/panels/example/${panelId}/api/" data-extension-session-generation="${generation}"></div>`;
+function panelRootMarkup({panelId = 'notes', generation = 'session-a', appSubURL = '', ownerId = '', apiBase = `/-/native/panels/example/${panelId}/api/`, version = '1', repositoryId = ''} = {}) {
+  return `<div data-extension-panel data-extension-contract-version="${version}" data-app-sub-url="${appSubURL}" data-extension-id="example" data-extension-panel-id="${panelId}"${ownerId ? ` data-extension-owner-id="${ownerId}"` : ''} data-extension-entry="/-/native/assets/example/panel.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="${apiBase}" data-extension-session-generation="${generation}"${repositoryId ? ` data-extension-repository-id="${repositoryId}"` : ''}></div>`;
 }
 
-function homeMarkup({generation = 'session-a', appSubURL = '', hidden = false, panels = '', subroutes = ''} = {}) {
-  return `<aside id="extension-panels" data-extension-panels data-app-sub-url="${appSubURL}" data-extension-session-generation="${generation}"${subroutes ? ` data-extension-subroutes='${subroutes}'` : ''}${hidden ? ' hidden inert' : ''}>${panels}</aside>`;
+function homeMarkup({generation = 'session-a', appSubURL = '', hidden = false, panels = '', subroutes = '', repositoryId = ''} = {}) {
+  return `<aside id="extension-panels" data-extension-panels data-app-sub-url="${appSubURL}" data-extension-session-generation="${generation}"${subroutes ? ` data-extension-subroutes='${subroutes}'` : ''}${repositoryId ? ` data-extension-repository-id="${repositoryId}"` : ''}${hidden ? ' hidden inert' : ''}>${panels}</aside>`;
 }
 
 const declaredSubroutes = '["/workspace/new","/workspace/requests/{request}"]';
@@ -384,6 +372,30 @@ function clickWorkspaceLink(href) {
 function navigationResponse(html, generation = 'session-a') {
   return new Response(html, {headers: {'X-Extension-Session-Generation': generation}});
 }
+
+test('fragment-only navigation preserves native drafts and emits native hash behavior', async () => {
+  const savedConfig = window.config;
+  window.config = {pageData: {}};
+  window.history.replaceState(null, '', '/user2/repo1?tab=code');
+  document.body.innerHTML = liveMarkup({content: directContent('<input id="draft" value="pending"><a href="#note">Note</a><h2 id="user-content-note">Note</h2>'), home: homeMarkup({hidden: true})});
+  const input = document.getElementById('draft');
+  const fetcher = vi.fn();
+  const hash = vi.fn();
+  window.addEventListener('hashchange', hash);
+  try {
+    initExtensionWorkspace(fetcher);
+    document.querySelector('a[href="#note"]').click();
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/user2/repo1?tab=code#note');
+    expect(document.getElementById('draft')).toBe(input);
+    expect(input.value).toBe('pending');
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(hash).toHaveBeenCalledOnce();
+  } finally {
+    window.removeEventListener('hashchange', hash);
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
 
 test('transplant keeps one home, panels and address across contribution -> native', async () => {
   const savedConfig = window.config;
@@ -480,7 +492,7 @@ test('transplant delivers ordered presentation updates to retained panels', asyn
   }}));
   const adminPageData = {adminUserListSearchForm: {SortType: 'name'}};
   const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: adminPageData,
-    content: plainAdminContent('<form></form>'), home: homeMarkup({hidden: true})})));
+    content: plainAdminContent('<form></form>'), home: homeMarkup({hidden: true, panels: panelRootMarkup()})})));
   try {
     initExtensionPages(importer);
     await mountedPromise;
@@ -493,6 +505,163 @@ test('transplant delivers ordered presentation updates to retained panels', asyn
     expect(dispose).not.toHaveBeenCalled();
     expect(importer).toHaveBeenCalledOnce();
   } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('native admission withdrawal retires private panels and keeps the admitted Workspace owner and socket', async () => {
+  const savedConfig = window.config;
+  const savedWebSocket = globalThis.WebSocket;
+  const sockets = [];
+  globalThis.WebSocket = class {
+    close = vi.fn();
+    constructor() { sockets.push(this) }
+  };
+  const workspace = panelRootMarkup({panelId: 'workspace', ownerId: 'workspace', apiBase: '/-/native/pages/example/spaces/api/'});
+  document.body.innerHTML = liveMarkup({content: directContent('Workspace'), home: homeMarkup({panels: `${workspace}<section class="extension-workspace-panel">Private panel${panelRootMarkup()}</section>`})});
+  window.history.replaceState(null, '', '/workspace');
+  window.config = {appSubUrl: '', pageData: {}};
+  const home = document.querySelector('[data-extension-panels]');
+  const workspaceRoot = home.querySelector('[data-extension-panel-id="workspace"]');
+  const privateRoot = home.querySelector('[data-extension-panel-id="notes"]');
+  const handles = new Map();
+  const importer = vi.fn(async () => ({mount(root, context) {
+    context.stream('events');
+    root.textContent = context.panelId === 'notes' ? 'Private retained state' : 'Workspace terminal';
+    const handle = {update: vi.fn(), retire: vi.fn(), dispose: vi.fn()};
+    handles.set(context.panelId, handle);
+    return handle;
+  }}));
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Repository', pageData: {}, content: directContent('Native repository'),
+    home: homeMarkup({hidden: true, repositoryId: '1', panels: panelRootMarkup({panelId: 'workspace', ownerId: 'workspace', apiBase: '/-/native/pages/example/spaces/api/', repositoryId: '1'})})})));
+  try {
+    initExtensionPages(importer);
+    await vi.waitFor(() => expect(handles.size).toBe(2));
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/user2/repo1');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/user2/repo1'));
+    expect(document.querySelector('[data-extension-panels]')).toBe(home);
+    expect(home.querySelector('[data-extension-panel-id="workspace"]')).toBe(workspaceRoot);
+    expect(workspaceRoot.textContent).toBe('Workspace terminal');
+    expect(workspaceRoot.dataset.extensionRepositoryId).toBe('1');
+    expect(handles.get('workspace').update).toHaveBeenCalledWith({route: '/user2/repo1', params: {}, repositoryId: '1', mode: 'panel', visible: false});
+    expect(handles.get('workspace').retire).not.toHaveBeenCalled();
+    expect(sockets[0].close).not.toHaveBeenCalled();
+    expect(privateRoot.isConnected).toBe(false);
+    expect(home.textContent).not.toContain('Private retained state');
+    expect(home.querySelector('.extension-workspace-panel')).toBeNull();
+    expect(handles.get('notes').retire).toHaveBeenCalledWith('authority-revoked');
+    expect(handles.get('notes').dispose).toHaveBeenCalledOnce();
+    expect(sockets[1].close).toHaveBeenCalledOnce();
+    expect(importer).toHaveBeenCalledTimes(2);
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+    globalThis.WebSocket = savedWebSocket;
+  }
+});
+
+test('a native home admits a new shared owner after empty boot without a competing page mount', async () => {
+  const savedConfig = window.config;
+  document.body.innerHTML = liveMarkup({content: directContent('Native page'), home: homeMarkup({hidden: true})});
+  window.history.replaceState(null, '', '/admin/users');
+  window.config = {appSubUrl: '', pageData: {}};
+  const panel = panelRootMarkup({panelId: 'workspace', ownerId: 'workspace', apiBase: '/-/native/pages/example/spaces/api/'});
+  const page = pageRootMarkup().replace('data-extension-entry=', 'data-extension-owner-id="workspace" data-extension-entry=');
+  const importer = vi.fn(async () => ({mount: () => ({update: vi.fn(), dispose: vi.fn()})}));
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Workspace', pageData: {}, content: directContent(page),
+    home: homeMarkup({panels: `<section class="extension-workspace-panel"><h2>Workspace</h2>${panel}</section>`})})));
+  try {
+    initExtensionPages(importer);
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/workspace');
+    await vi.waitFor(() => expect(importer).toHaveBeenCalledOnce());
+    const root = document.querySelector('[data-extension-panel]');
+    expect(root.closest('.extension-workspace-panel').querySelector('h2').textContent).toBe('Workspace');
+    expect(document.querySelector('[data-extension-page]').hasAttribute('data-extension-owner-presented')).toBe(true);
+    expect(document.querySelector('[data-extension-page]').hasAttribute('data-extension-mounted')).toBe(false);
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('a changed panel API retires its old admission before mounting the new native declaration', async () => {
+  const savedConfig = window.config;
+  document.body.innerHTML = liveMarkup({content: directContent('Workspace'), home: homeMarkup({panels: panelRootMarkup()})});
+  window.history.replaceState(null, '', '/workspace');
+  window.config = {appSubUrl: '', pageData: {}};
+  const oldRoot = document.querySelector('[data-extension-panel]');
+  const retire = vi.fn();
+  const contexts = [];
+  const importer = vi.fn(async () => ({mount(_root, context) { contexts.push(context); return {retire, dispose: vi.fn()} }}));
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Repository', pageData: {}, content: directContent('Repository'),
+    home: homeMarkup({hidden: true, panels: panelRootMarkup({apiBase: '/user2/repo1/-/native/panels/example/notes/api/'})})})));
+  try {
+    initExtensionPages(importer);
+    await vi.waitFor(() => expect(contexts).toHaveLength(1));
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/user2/repo1');
+    await vi.waitFor(() => expect(contexts).toHaveLength(2));
+    expect(retire).toHaveBeenCalledWith('authority-revoked');
+    expect(oldRoot.isConnected).toBe(false);
+    expect(document.querySelector('[data-extension-panel]')).not.toBe(oldRoot);
+    expect(new URL(contexts[1].apiBase).pathname).toBe('/user2/repo1/-/native/panels/example/notes/api/');
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('native withdrawal aborts a panel import before it can publish private state', async () => {
+  const savedConfig = window.config;
+  document.body.innerHTML = liveMarkup({content: directContent('Workspace'), home: homeMarkup({panels: panelRootMarkup()})});
+  window.history.replaceState(null, '', '/workspace');
+  window.config = {appSubUrl: '', pageData: {}};
+  const oldRoot = document.querySelector('[data-extension-panel]');
+  let finishImport;
+  const mount = vi.fn();
+  const importer = vi.fn(() => new Promise((resolve) => { finishImport = resolve }));
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {}, content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  try {
+    initExtensionPages(importer);
+    await vi.waitFor(() => expect(importer).toHaveBeenCalledOnce());
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin/users');
+    await vi.waitFor(() => expect(oldRoot.isConnected).toBe(false));
+    finishImport({mount});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mount).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-extension-panel]')).toBeNull();
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('withdrawn private panel leaves the document even if its consumer cleanup fails', async () => {
+  const savedConfig = window.config;
+  document.body.innerHTML = liveMarkup({content: directContent('Workspace'), home: homeMarkup({panels: panelRootMarkup()})});
+  window.history.replaceState(null, '', '/workspace');
+  window.config = {appSubUrl: '', pageData: {}};
+  const oldRoot = document.querySelector('[data-extension-panel]');
+  const error = new Error('consumer cleanup failed');
+  const importer = vi.fn(async () => ({mount: () => ({retire: () => { throw error }, dispose: vi.fn()})}));
+  const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {}, content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  try {
+    initExtensionPages(importer);
+    await vi.waitFor(() => expect(oldRoot.hasAttribute('data-extension-mounted')).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin/users');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
+    expect(oldRoot.isConnected).toBe(false);
+    expect(oldRoot.hidden).toBe(true);
+    expect(report).toHaveBeenCalledWith('Could not retire withdrawn contribution', error);
+  } finally {
+    report.mockRestore();
     window.dispatchEvent(new Event('pagehide'));
     window.config = savedConfig;
   }
@@ -886,7 +1055,7 @@ test('transplants null pageData as empty config but full-loads a missing embed',
   }
 });
 
-test('admits the dashboard mechanism while other admin layouts keep native loads', async () => {
+test('admits ordinary rendered admin layouts through the native envelope', async () => {
   // Fixture mechanism check only: dashboard polling/morph still requires
   // the actual pinned HTMX real-browser proof.
   const savedConfig = window.config;
@@ -914,8 +1083,9 @@ test('admits the dashboard mechanism while other admin layouts keep native loads
     expect(owner.isConnected).toBe(true);
     expect(assign).not.toHaveBeenCalled();
     clickWorkspaceLink('/admin/orgs');
-    expect(assign).toHaveBeenCalledWith('/admin/orgs');
-    expect(fetcher).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/orgs'));
+    expect(assign).not.toHaveBeenCalled();
+    expect(fetcher).toHaveBeenCalledTimes(2);
   } finally {
     assign.mockRestore();
     window.dispatchEvent(new Event('pagehide'));
@@ -923,7 +1093,7 @@ test('admits the dashboard mechanism while other admin layouts keep native loads
   }
 });
 
-test('takes a full document load for unknown layouts', async () => {
+test('retains the native document on an ordinary route with a valid render envelope', async () => {
   const savedConfig = window.config;
   window.history.replaceState(null, '', '/workspace');
   document.body.innerHTML = liveMarkup({content: directContent('Global Workspace'), home: homeMarkup()});
@@ -934,10 +1104,9 @@ test('takes a full document load for unknown layouts', async () => {
   try {
     initExtensionWorkspace(fetcher);
     clickWorkspaceLink('/issues');
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetcher).not.toHaveBeenCalled();
-    expect(assign).toHaveBeenCalledWith(expect.stringContaining('/issues'));
-    expect(document.querySelector('.page-content').textContent).toBe('Global Workspace');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/issues'));
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(assign).not.toHaveBeenCalled();
   } finally {
     assign.mockRestore();
     window.dispatchEvent(new Event('pagehide'));
@@ -1362,7 +1531,7 @@ test('retires the document on a foreign generation even if native cleanup throws
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(invalidated).toHaveBeenCalledOnce();
     expect(consumerRetire).toHaveBeenCalledOnce();
-    expect(window.config.pageData).toEqual({extension: {id: 'example'}});
+    expect(window.config.pageData).toEqual({});
   } finally {
     checkCleanup = false;
     retirePageFeatures();
@@ -1412,10 +1581,12 @@ test('brackets transplants with retire, config refresh and init in order', async
   window.config = {appSubUrl: '', pageData: {extension: {id: 'example'}}};
   const order = [];
   let observedConfig = null;
+  let observedAddress;
   registerPageFeature('a02-bracketing-probe', {
     init: () => {
       order.push('init');
       observedConfig = window.config.pageData;
+      observedAddress = window.location.pathname + window.location.search;
     },
     retire: () => {
       order.push('retire');
@@ -1428,10 +1599,11 @@ test('brackets transplants with retire, config refresh and init in order', async
     nativeDocument({title: 'Workspace', pageData: workspacePageData, content: directContent('Global Workspace'), home: homeMarkup()})));
   try {
     initExtensionWorkspace(fetcher);
-    clickWorkspaceLink('/admin/users');
+    clickWorkspaceLink('/admin/users?sort=name');
     await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
     expect(order).toEqual(['init']);
     expect(observedConfig).toEqual(adminPageData);
+    expect(observedAddress).toBe('/admin/users?sort=name');
     clickWorkspaceLink('/workspace');
     await vi.waitFor(() => expect(window.location.pathname).toBe('/workspace'));
     expect(order).toEqual(['init', 'retire', 'init']);

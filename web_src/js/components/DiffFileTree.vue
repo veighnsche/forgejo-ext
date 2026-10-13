@@ -79,6 +79,7 @@ export default {
   mounted() {
     // Default to true if unset
     this.store.fileTreeIsVisible = localStorage.getItem(LOCAL_STORAGE_KEY) !== 'false';
+    this.updateState(this.store.fileTreeIsVisible);
     document.querySelector('.diff-toggle-file-tree-button').addEventListener('click', this.toggleVisibility);
 
     this.hashChangeListener = () => {

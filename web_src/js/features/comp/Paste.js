@@ -2,11 +2,11 @@ import {POST} from '../../modules/fetch.js';
 import {getPastedContent, replaceTextareaSelection} from '../../utils/dom.js';
 import {isUrl} from '../../utils/url.js';
 
-async function uploadFile(file, uploadUrl) {
+async function uploadFile(file, uploadUrl, signal) {
   const formData = new FormData();
   formData.append('file', file, file.name);
 
-  const res = await POST(uploadUrl, {data: formData});
+  const res = await POST(uploadUrl, {data: formData, signal});
   return await res.json();
 }
 
@@ -80,21 +80,27 @@ class CodeMirrorEditor {
   }
 }
 
-async function handleClipboardImages(editor, dropzone, images, e) {
+async function handleClipboardImages(editor, dropzone, images, e, signal) {
+  if (!dropzone || !images.length) return;
   const uploadUrl = dropzone.getAttribute('data-upload-url');
 
-  if (!dropzone || !uploadUrl || !images.length) return;
+  if (!uploadUrl) return;
 
   e.preventDefault();
   e.stopPropagation();
 
   for (const img of images) {
+    if (signal?.aborted) return;
     const name = img.name.slice(0, img.name.lastIndexOf('.'));
 
     const placeholder = `![${name}](uploading...)`;
     editor.insertPlaceholder(placeholder);
 
-    const {uuid} = await uploadFile(img, uploadUrl);
+    const {uuid} = await uploadFile(img, uploadUrl, signal).catch((error) => {
+      if (!signal?.aborted) throw error;
+      return {};
+    });
+    if (signal?.aborted) return;
 
     const url = `/attachments/${uuid}`;
     const text = `![${name}](${url})`;
@@ -121,22 +127,22 @@ function handleClipboardText(textarea, text, e) {
   }
 }
 
-export function initEasyMDEPaste(easyMDE, dropzone) {
+export function initEasyMDEPaste(easyMDE, dropzone, {signal} = {}) {
   easyMDE.codemirror.on('paste', (_, e) => {
     const {images} = getPastedContent(e);
     if (images.length) {
-      handleClipboardImages(new CodeMirrorEditor(easyMDE.codemirror), dropzone, images, e);
+      handleClipboardImages(new CodeMirrorEditor(easyMDE.codemirror), dropzone, images, e, signal);
     }
   });
 }
 
-export function initTextareaPaste(textarea, dropzone) {
+export function initTextareaPaste(textarea, dropzone, {signal} = {}) {
   textarea.addEventListener('paste', (e) => {
     const {images, text} = getPastedContent(e);
     if (images.length) {
-      handleClipboardImages(new TextareaEditor(textarea), dropzone, images, e);
+      handleClipboardImages(new TextareaEditor(textarea), dropzone, images, e, signal);
     } else if (text) {
       handleClipboardText(textarea, text, e);
     }
-  });
+  }, {signal});
 }

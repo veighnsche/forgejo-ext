@@ -172,7 +172,10 @@ export async function loadMoreFiles(url) {
     if (generation !== currentPageGeneration()) return;
     const $resp = $(resp);
     $('#diff-incomplete').replaceWith($resp.find('#diff-file-boxes').children());
-    $('body').append($resp.find('script#diff-data-script'));
+    const patch = JSON.parse($resp.find('script#diff-data-script').text());
+    const {files, ...details} = patch;
+    Object.assign(info, details);
+    info.files.push(...files);
     onShowMoreFiles();
   } catch (error) {
     if (generation === currentPageGeneration()) {

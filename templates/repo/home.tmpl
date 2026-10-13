@@ -138,7 +138,6 @@
 								{{end}}
 							</div>
 						</button>
-						{{template "repo/clone_script" .}}{{/* the script will update `.js-clone-url` and related elements */}}
 					</div>
 				{{end}}
 				{{if and (not $isHomepage) (not .IsViewFile) (not .IsBlame)}}{{/* IsViewDirectory (not home), TODO: split the templates, avoid using "if" tricks */}}
