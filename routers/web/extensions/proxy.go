@@ -124,16 +124,50 @@ func proxy(ctx *webcontext.Context, transport http.RoundTripper, authority exten
 	proxyWithAdmission(ctx, transport, authority, "", requestContext)
 }
 
+// scopedExtensionPath confines the wildcard API/stream suffix to the
+// extension's own root. Dot segments, empty interior segments, backslashes,
+// controls and encoded separators are refused before any admitted request
+// reaches the backend, so a suffix cannot escape into another handler.
+func scopedExtensionPath(star string) (string, bool) {
+	if star == "" || star == "/" {
+		return "/", true
+	}
+	lower := strings.ToLower(star)
+	if strings.ContainsAny(star, "\\") || strings.Contains(lower, "%2f") || strings.Contains(lower, "%5c") || strings.Contains(lower, "%2e") {
+		return "", false
+	}
+	for _, r := range star {
+		if r < 0x20 || r == 0x7f {
+			return "", false
+		}
+	}
+	segments := strings.Split(star, "/")
+	for i, segment := range segments {
+		if segment == "." || segment == ".." {
+			return "", false
+		}
+		if segment == "" && i != len(segments)-1 {
+			return "", false
+		}
+	}
+	return "/" + star, true
+}
+
 func proxyWithAdmission(ctx *webcontext.Context, transport http.RoundTripper, authority extension.Authority, admission string, requestContext context.Context) {
 	if ctx.Req.Header.Get("Upgrade") != "" || strings.Contains(strings.ToLower(ctx.Req.Header.Get("Accept")), "text/event-stream") {
 		ctx.Error(http.StatusNotImplemented, "Streaming is not enabled")
+		return
+	}
+	targetPath, scoped := scopedExtensionPath(ctx.Params("*"))
+	if !scoped {
+		ctx.Error(http.StatusBadRequest, "Invalid extension path")
 		return
 	}
 	var body io.ReadCloser = http.NoBody
 	if ctx.Req.Body != nil && ctx.Req.Body != http.NoBody {
 		body = http.MaxBytesReader(ctx.Resp, ctx.Req.Body, maxResponseBytes)
 	}
-	target := &url.URL{Scheme: "http", Host: "extension", Path: "/" + ctx.Params("*"), RawQuery: ctx.Req.URL.RawQuery}
+	target := &url.URL{Scheme: "http", Host: "extension", Path: targetPath, RawQuery: ctx.Req.URL.RawQuery}
 	req, err := http.NewRequestWithContext(requestContext, ctx.Req.Method, target.String(), body)
 	if err != nil {
 		ctx.Error(http.StatusBadRequest)
@@ -158,7 +192,11 @@ func proxyWithAdmission(ctx *webcontext.Context, transport http.RoundTripper, au
 		return
 	}
 	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 && response.StatusCode < 400 || strings.HasPrefix(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
+	// A stalled backend body must not outlive the admitted request: client
+	// disconnect or the request deadline retires the read immediately.
+	stopBody := context.AfterFunc(requestContext, func() { _ = response.Body.Close() })
+	defer stopBody()
+	if response.StatusCode < 200 || (response.StatusCode >= 300 && response.StatusCode < 400) || strings.HasPrefix(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
 		ctx.Error(http.StatusBadGateway, "Unsupported service response")
 		return
 	}

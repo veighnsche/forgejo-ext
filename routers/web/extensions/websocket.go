@@ -72,6 +72,11 @@ func proxyWebSocket(ctx *webcontext.Context, transport http.RoundTripper, author
 		ctx.Error(http.StatusUnauthorized)
 		return
 	}
+	targetPath, scoped := scopedExtensionPath(ctx.Params("*"))
+	if !scoped {
+		ctx.Error(http.StatusBadRequest, "Invalid extension path")
+		return
+	}
 	select {
 	case extensionStreams <- struct{}{}:
 		defer func() { <-extensionStreams }()
@@ -96,7 +101,7 @@ func proxyWebSocket(ctx *webcontext.Context, transport http.RoundTripper, author
 	headers.Set(extension.AdmissionHeader, admission)
 	// Origin is a host-validated protocol input, not authority supplied by the app.
 	headers.Set("Origin", ctx.Req.Header.Get("Origin"))
-	target := (&url.URL{Scheme: "ws", Host: "extension", Path: "/" + ctx.Params("*")}).String()
+	target := (&url.URL{Scheme: "ws", Host: "extension", Path: targetPath}).String()
 	handshake, done := context.WithTimeout(streamCtx, streamCheckTimeout)
 	backend, response, err := websocket.Dial(handshake, target, &websocket.DialOptions{HTTPClient: &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, HTTPHeader: headers, CompressionMode: websocket.CompressionDisabled})
 	done()
