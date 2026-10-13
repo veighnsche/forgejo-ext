@@ -1,8 +1,19 @@
 import {isDarkTheme} from '../utils.js';
 import {makeCodeCopyButton} from './codecopy.js';
-import {displayError} from './common.js';
+import {displayError, nativeMarkupElements} from './common.js';
+import {currentPageGeneration} from '../native-lifecycle.js';
 
 const {mermaidMaxSourceCharacters} = window.config;
+const renders = new Set();
+
+export function retireMermaid() {
+  for (const render of renders) {
+    render.observer?.disconnect();
+    clearTimeout(render.timer);
+    render.block.remove();
+  }
+  renders.clear();
+}
 
 // margin removal is for https://github.com/mermaid-js/mermaid/issues/4907
 const iframeCss = `:root {color-scheme: normal}
@@ -11,8 +22,9 @@ body {margin: 0; padding: 0; overflow: hidden}
 blockquote, dd, dl, figure, h1, h2, h3, h4, h5, h6, hr, p, pre {margin: 0}`;
 
 export async function renderMermaid() {
-  const els = document.querySelectorAll('.markup code.language-mermaid');
+  const els = nativeMarkupElements('.markup code.language-mermaid');
   if (!els.length) return;
+  const generation = currentPageGeneration();
 
   const {default: mermaid} = await import(/* webpackChunkName: "mermaid" */'mermaid');
 
@@ -23,6 +35,7 @@ export async function renderMermaid() {
   });
 
   for (const el of els) {
+    if (generation !== currentPageGeneration() || !el.isConnected) continue;
     const pre = el.closest('pre');
     if (pre.hasAttribute('data-render-done')) continue;
 
@@ -35,7 +48,7 @@ export async function renderMermaid() {
     try {
       await mermaid.parse(source);
     } catch (err) {
-      displayError(pre, err);
+      if (generation === currentPageGeneration() && pre.isConnected) displayError(pre, err);
       continue;
     }
 
@@ -43,6 +56,7 @@ export async function renderMermaid() {
       // can't use bindFunctions here because we can't cross the iframe boundary. This
       // means js-based interactions won't work but they aren't intended to work either
       const {svg} = await mermaid.render('mermaid', source);
+      if (generation !== currentPageGeneration() || !pre.isConnected) continue;
 
       const iframe = document.createElement('iframe');
       iframe.classList.add('markup-render', 'tw-invisible');
@@ -55,6 +69,8 @@ export async function renderMermaid() {
       const btn = makeCodeCopyButton();
       btn.setAttribute('data-clipboard-text', source);
       mermaidBlock.append(btn);
+      const render = {block: mermaidBlock};
+      renders.add(render);
 
       const updateIframeHeight = () => {
         const body = iframe.contentWindow?.document?.body;
@@ -64,10 +80,15 @@ export async function renderMermaid() {
       };
 
       iframe.addEventListener('load', () => {
+        if (generation !== currentPageGeneration() || !pre.isConnected) {
+          mermaidBlock.remove();
+          renders.delete(render);
+          return;
+        }
         pre.replaceWith(mermaidBlock);
         mermaidBlock.classList.remove('tw-hidden');
         updateIframeHeight();
-        setTimeout(() => { // avoid flash of iframe background
+        render.timer = setTimeout(() => { // avoid flash of iframe background
           mermaidBlock.classList.remove('is-loading');
           iframe.classList.remove('tw-invisible');
         }, 0);
@@ -75,14 +96,15 @@ export async function renderMermaid() {
         // update height when element's visibility state changes, for example when the diagram is inside
         // a <details> + <summary> block and the <details> block becomes visible upon user interaction, it
         // would initially set a incorrect height and the correct height is set during this callback.
-        (new IntersectionObserver(() => {
+        render.observer = new IntersectionObserver(() => {
           updateIframeHeight();
-        }, {root: document.documentElement})).observe(iframe);
+        }, {root: document.documentElement});
+        render.observer.observe(iframe);
       });
 
       document.body.append(mermaidBlock);
     } catch (err) {
-      displayError(pre, err);
+      if (generation === currentPageGeneration() && pre.isConnected) displayError(pre, err);
     }
   }
 }

@@ -1,7 +1,20 @@
 import {POST} from '../modules/fetch.js';
 import {showErrorToast} from '../modules/toast.js';
+import {nativeMarkupElements} from './common.js';
 
 const preventListener = (e) => e.preventDefault();
+let tasklistController = new AbortController();
+
+export function retireMarkupTasklist() {
+  tasklistController.abort();
+  tasklistController = new AbortController();
+  for (const markup of nativeMarkupElements('.markup[data-can-edit=true]')) {
+    for (const checkbox of markup.querySelectorAll('.task-list-item input[type=checkbox]')) {
+      checkbox.removeAttribute('data-editable');
+      checkbox.removeEventListener('click', preventListener);
+    }
+  }
+}
 
 /**
  * Attaches `input` handlers to markdown rendered tasklist checkboxes in comments.
@@ -11,16 +24,17 @@ const preventListener = (e) => e.preventDefault();
  * error it resets the checkbox to its original value.
  */
 export function initMarkupTasklist() {
-  for (const el of document.querySelectorAll(`.markup[data-can-edit=true]`) || []) {
+  for (const el of nativeMarkupElements('.markup[data-can-edit=true]')) {
     const container = el.parentNode;
     const checkboxes = el.querySelectorAll(`.task-list-item input[type=checkbox]`);
 
     for (const checkbox of checkboxes) {
       if (checkbox.hasAttribute('data-editable')) {
-        return;
+        continue;
       }
 
       checkbox.setAttribute('data-editable', 'true');
+      const signal = tasklistController.signal;
       checkbox.addEventListener('input', async () => {
         const checkboxCharacter = checkbox.checked ? 'x' : ' ';
         const position = parseInt(checkbox.getAttribute('data-source-position')) + 1;
@@ -62,8 +76,9 @@ export function initMarkupTasklist() {
           requestBody.append('content', newContent);
           requestBody.append('context', context);
           requestBody.append('content_version', contentVersion);
-          const response = await POST(updateUrl, {data: requestBody});
+          const response = await POST(updateUrl, {data: requestBody, signal});
           const data = await response.json();
+          if (signal.aborted) return;
           if (response.status === 400) {
             showErrorToast(data.errorMessage);
             return;
@@ -71,6 +86,7 @@ export function initMarkupTasklist() {
           editContentZone.setAttribute('data-content-version', data.contentVersion);
           rawContent.textContent = newContent;
         } catch (err) {
+          if (signal.aborted) return;
           checkbox.checked = !checkbox.checked;
           console.error(err);
         }
@@ -79,7 +95,7 @@ export function initMarkupTasklist() {
         for (const checkbox of checkboxes) {
           checkbox.removeEventListener('click', preventListener);
         }
-      });
+      }, {signal});
     }
 
     // Enable the checkboxes as they are initially disabled by the markdown renderer

@@ -1,4 +1,5 @@
-import {displayError} from './common.js';
+import {displayError, nativeMarkupElements} from './common.js';
+import {currentPageGeneration} from '../native-lifecycle.js';
 
 function targetElement(el) {
   // The target element is either the current element if it has the
@@ -7,8 +8,9 @@ function targetElement(el) {
 }
 
 export async function renderMath() {
-  const els = document.querySelectorAll('.markup code.language-math');
+  const els = nativeMarkupElements('.markup code.language-math');
   if (!els.length) return;
+  const generation = currentPageGeneration();
 
   const [{default: katex}] = await Promise.all([
     import(/* webpackChunkName: "katex" */'katex/dist/katex.js'),
@@ -20,6 +22,7 @@ export async function renderMath() {
   const MAX_EXPAND = 1000;
 
   for (const el of els) {
+    if (generation !== currentPageGeneration() || !el.isConnected) continue;
     const target = targetElement(el);
     if (target.hasAttribute('data-render-done')) continue;
     const source = el.textContent;

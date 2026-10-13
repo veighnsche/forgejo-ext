@@ -1,6 +1,21 @@
 import {flushPromises, mount} from '@vue/test-utils';
 import ContextPopup from './ContextPopup.vue';
 
+test('retirement aborts the real popup request and discards a late response', async () => {
+  let resolve;
+  const body = new Promise((accept) => { resolve = accept });
+  const fetch = vi.spyOn(global, 'fetch').mockResolvedValue({ok: true, json: () => body});
+  const popup = mount(ContextPopup);
+  const pending = popup.vm.load({owner: 'user2', repo: 'repo1', index: 1});
+  await flushPromises();
+  const {signal} = fetch.mock.calls[0][1];
+  popup.unmount();
+  expect(signal.aborted).toBe(true);
+  resolve({title: 'Retired private issue'});
+  await pending;
+  expect(popup.vm.issue).toBeNull();
+});
+
 async function assertPopup(popupData, expectedIconColor, expectedIcon) {
   const date = new Date('2024-07-13T22:00:00Z');
 

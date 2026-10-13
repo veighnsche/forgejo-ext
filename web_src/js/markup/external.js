@@ -1,5 +1,15 @@
+import {nativeMarkupElements} from './common.js';
+
+let externalListener;
+
+export function retireExternal() {
+  window.removeEventListener('message', externalListener);
+  externalListener = undefined;
+}
+
 export function renderExternal() {
-  const giteaExternalRender = document.querySelector('iframe.external-render');
+  retireExternal();
+  const [giteaExternalRender] = nativeMarkupElements('iframe.external-render');
   if (!giteaExternalRender) return;
 
   giteaExternalRender.contentWindow.postMessage({requestOffsetHeight: true}, '*');
@@ -12,5 +22,6 @@ export function renderExternal() {
     giteaExternalRender.style.overflow = 'hidden';
     window.removeEventListener('message', eventListener);
   };
+  externalListener = eventListener;
   window.addEventListener('message', eventListener);
 }

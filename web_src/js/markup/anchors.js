@@ -1,4 +1,12 @@
 import {svg} from '../svg.js';
+import {nativeMarkupElements} from './common.js';
+
+let anchorController = new AbortController();
+
+export function retireMarkupAnchors() {
+  anchorController.abort();
+  anchorController = new AbortController();
+}
 
 const addPrefix = (str) => `user-content-${str}`;
 const removePrefix = (str) => str.replace(/^user-content-/, '');
@@ -7,7 +15,12 @@ const hasPrefix = (str) => str.startsWith('user-content-');
 // scroll to anchor while respecting the `user-content` prefix that exists on the target
 function scrollToAnchor(encodedId) {
   if (!encodedId) return;
-  const id = decodeURIComponent(encodedId);
+  let id;
+  try {
+    id = decodeURIComponent(encodedId);
+  } catch {
+    return;
+  }
   const prefixedId = addPrefix(id);
   let el = document.getElementById(prefixedId);
 
@@ -28,12 +41,13 @@ function scrollToAnchor(encodedId) {
 }
 
 export function initMarkupAnchors() {
-  const markupEls = document.querySelectorAll('.markup');
+  const markupEls = nativeMarkupElements('.markup');
   if (!markupEls.length) return;
 
   for (const markupEl of markupEls) {
     // create link icons for markup headings, the resulting link href will remove `user-content-`
     for (const heading of markupEl.querySelectorAll('h1, h2, h3, h4, h5, h6')) {
+      if (heading.querySelector(':scope > .anchor')) continue;
       const a = document.createElement('a');
       a.classList.add('anchor');
       a.setAttribute('href', `#${encodeURIComponent(removePrefix(heading.id))}`);
@@ -53,13 +67,13 @@ export function initMarkupAnchors() {
     for (const a of markupEl.querySelectorAll('a[name]')) {
       const name = a.getAttribute('name');
       if (!name) continue;
-      a.setAttribute('name', addPrefix(a.name));
+      if (!hasPrefix(name)) a.setAttribute('name', addPrefix(name));
     }
 
     for (const a of markupEl.querySelectorAll('a[href^="#"]')) {
       a.addEventListener('click', (e) => {
         scrollToAnchor(e.currentTarget.getAttribute('href')?.substring(1));
-      });
+      }, {signal: anchorController.signal});
     }
   }
 

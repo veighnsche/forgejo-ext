@@ -1,11 +1,24 @@
 import {createApp} from 'vue';
 import {translateMonth, translateDay} from '../utils.js';
+import {contributionRootSelector, currentPageGeneration} from '../native-lifecycle.js';
+
+let mountedHeatmap;
+
+export function retireHeatmap() {
+  mountedHeatmap?.view?.unmount();
+  mountedHeatmap = undefined;
+}
 
 export async function initHeatmap() {
   const el = document.getElementById('user-heatmap');
-  if (!el) return;
+  if (!el || el.closest(contributionRootSelector) || mountedHeatmap?.el === el) return;
+  retireHeatmap();
+  const mount = {el};
+  mountedHeatmap = mount;
+  const generation = currentPageGeneration();
 
   const {default: ActivityHeatmap} = await import(/* webpackChunkName: "activity-heatmap" */'../components/ActivityHeatmap.vue');
+  if (mountedHeatmap !== mount || generation !== currentPageGeneration() || !el.isConnected) return;
   try {
     const heatmap = {};
     for (const {contributions, timestamp} of JSON.parse(el.getAttribute('data-heatmap-data'))) {
@@ -31,6 +44,7 @@ export async function initHeatmap() {
     };
 
     const View = createApp(ActivityHeatmap, {values, locale});
+    mount.view = View;
     View.mount(el);
     el.classList.remove('is-loading');
   } catch (err) {

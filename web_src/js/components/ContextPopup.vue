@@ -14,6 +14,7 @@ export default {
     issue: null,
     i18nErrorOccurred: i18n.error_occurred,
     i18nErrorMessage: null,
+    requestController: null,
   }),
   computed: {
     createdAt() {
@@ -88,23 +89,30 @@ export default {
       }
     });
   },
+  beforeUnmount() {
+    this.requestController?.abort();
+  },
   methods: {
     async load(data) {
+      const controller = new AbortController();
+      this.requestController?.abort();
+      this.requestController = controller;
       this.loading = true;
       this.i18nErrorMessage = null;
 
       try {
-        const response = await GET(`${appSubUrl}/${data.owner}/${data.repo}/issues/${data.index}/info`);
+        const response = await GET(`${appSubUrl}/${data.owner}/${data.repo}/issues/${data.index}/info`, {signal: controller.signal});
         const respJson = await response.json();
+        if (controller.signal.aborted) return;
         if (!response.ok) {
           this.i18nErrorMessage = respJson.message ?? i18n.network_error;
           return;
         }
         this.issue = respJson;
       } catch {
-        this.i18nErrorMessage = i18n.network_error;
+        if (!controller.signal.aborted) this.i18nErrorMessage = i18n.network_error;
       } finally {
-        this.loading = false;
+        if (!controller.signal.aborted) this.loading = false;
       }
     },
   },

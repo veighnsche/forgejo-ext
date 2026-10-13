@@ -1,3 +1,9 @@
+import {contributionRootSelector} from '../native-lifecycle.js';
+
+export function nativeMarkupElements(selector) {
+  return Array.from(document.querySelectorAll(selector)).filter((el) => !el.closest(contributionRootSelector));
+}
+
 export function displayError(el, err) {
   el.classList.remove('is-loading');
   const errorNode = document.createElement('pre');

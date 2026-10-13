@@ -1,8 +1,21 @@
 import {createTippy} from '../modules/tippy.js';
+import {contributionRootSelector, currentPageGeneration} from '../native-lifecycle.js';
+
+const pickers = new Map();
+
+export function retireColorPickers() {
+  for (const {controller, tooltip, square} of pickers.values()) {
+    controller.abort();
+    tooltip.destroy();
+    square.remove();
+  }
+  pickers.clear();
+}
 
 export async function initColorPickers() {
-  const els = document.getElementsByClassName('js-color-picker-input');
+  const els = Array.from(document.getElementsByClassName('js-color-picker-input')).filter((el) => !el.closest(contributionRootSelector));
   if (!els.length) return;
+  const generation = currentPageGeneration();
 
   await Promise.all([
     import(/* webpackChunkName: "colorpicker" */'vanilla-colorful/hex-color-picker.js'),
@@ -10,6 +23,7 @@ export async function initColorPickers() {
   ]);
 
   for (const el of els) {
+    if (generation !== currentPageGeneration() || !el.isConnected || pickers.has(el)) continue;
     initPicker(el);
   }
 }
@@ -23,6 +37,8 @@ function updatePicker(el, newValue) {
 }
 
 function initPicker(el) {
+  const controller = new AbortController();
+  const {signal} = controller;
   const input = el.querySelector('input');
 
   const square = document.createElement('div');
@@ -35,14 +51,14 @@ function initPicker(el) {
     input.value = e.detail.value;
     input.focus();
     updateSquare(square, e.detail.value);
-  });
+  }, {signal});
 
   input.addEventListener('input', (e) => {
     updateSquare(square, e.target.value);
     updatePicker(picker, e.target.value);
-  });
+  }, {signal});
 
-  createTippy(input, {
+  const tooltip = createTippy(input, {
     trigger: 'focus click',
     theme: 'bare',
     hideOnClick: true,
@@ -53,6 +69,7 @@ function initPicker(el) {
       updatePicker(picker, input.value);
     },
   });
+  pickers.set(el, {controller, tooltip, square});
 
   // init precolors
   for (const colorEl of el.querySelectorAll('.precolors .color')) {
@@ -61,6 +78,6 @@ function initPicker(el) {
       input.value = newValue;
       input.dispatchEvent(new Event('input', {bubbles: true}));
       updateSquare(square, newValue);
-    });
+    }, {signal});
   }
 }
