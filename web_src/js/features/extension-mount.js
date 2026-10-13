@@ -291,6 +291,15 @@ export async function mountContribution(root, hooks = {}) {
       handle.suspend?.();
     },
     resume: (validation) => {
+      if (state === 'retired' || state === 'disposed') return;
+      // Verified resumption: only the admitted session generation may
+      // resume retained private state. A mismatch (including a missing
+      // validation) is an account/session change, never a resumption:
+      // retire so private state and transport cannot continue stale.
+      if (validation?.sessionGeneration !== parsed.sessionGeneration) {
+        owner.retire('session-changed');
+        return;
+      }
       if (state !== 'suspended') return;
       state = 'active';
       handle.resume?.(validation);

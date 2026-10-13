@@ -2,6 +2,7 @@ import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {currentPageGeneration, initPageFeatures, registerPageFeature, retirePageFeatures} from '../native-lifecycle.js';
 import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, initExtensionPages, initExtensionWorkspace} from './extensions.js';
+import {mount as mountExamplePanel} from '../../../contrib/extensions/example/assets/panel.js';
 
 const origin = 'https://forge.example';
 const base = `${origin}/team/repo`;
@@ -185,6 +186,125 @@ test('delayed revalidation conceals page and panel together, then restores or re
   window.dispatchEvent(new Event('pagehide'));
 });
 
+test('hidden and focus revalidation suspend first and resume only after verification', async () => {
+  document.body.innerHTML = liveMarkup({
+    content: directContent(`Global Workspace${pageRootMarkup()}`),
+    home: homeMarkup({panels: panelRootMarkup()}),
+  });
+  window.history.replaceState(null, '', '/workspace');
+  const pageRoot = document.querySelector('[data-extension-page]');
+  const home = document.querySelector('[data-extension-panels]');
+  const suspends = [];
+  const resumes = [];
+  const disposes = [];
+  let mountedCount = 0;
+  let bothMounted;
+  const bothPromise = new Promise((resolve) => { bothMounted = resolve });
+  const importer = vi.fn(async () => ({mount: () => {
+    mountedCount++;
+    if (mountedCount === 2) bothMounted();
+    const suspend = vi.fn();
+    const resume = vi.fn();
+    const dispose = vi.fn();
+    suspends.push(suspend);
+    resumes.push(resume);
+    disposes.push(dispose);
+    return {dispose, suspend, resume};
+  }}));
+  let resolveCheck;
+  const fetcher = vi.fn(() => new Promise((resolve) => { resolveCheck = resolve }));
+  initExtensionPages(importer, fetcher);
+  await bothPromise;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  // Document hidden: host suspension without any session fetch.
+  Object.defineProperty(document, 'visibilityState', {configurable: true, value: 'hidden'});
+  document.dispatchEvent(new Event('visibilitychange'));
+  for (const suspend of suspends) expect(suspend).toHaveBeenCalledOnce();
+  expect(fetcher).not.toHaveBeenCalled();
+  Object.defineProperty(document, 'visibilityState', {configurable: true, value: 'visible'});
+  // Focus revalidation stays suspended and concealed until verified.
+  window.dispatchEvent(new Event('focus'));
+  await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+  expect(pageRoot.style.display).toBe('none');
+  expect(home.style.display).toBe('none');
+  for (const resume of resumes) expect(resume).not.toHaveBeenCalled();
+  resolveCheck({status: 204, headers: new Headers({'X-Extension-Session-Generation': 'session-a'})});
+  await vi.waitFor(() => expect(pageRoot.style.display).toBe(''));
+  for (const resume of resumes) expect(resume).toHaveBeenCalledOnce();
+  for (const dispose of disposes) expect(dispose).not.toHaveBeenCalled();
+  // Account change on the next revalidation retires instead of resuming.
+  window.dispatchEvent(new Event('focus'));
+  await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+  for (const suspend of suspends) expect(suspend).toHaveBeenCalledTimes(2);
+  resolveCheck({status: 204, headers: new Headers({'X-Extension-Session-Generation': 'session-b'})});
+  await vi.waitFor(() => expect(pageRoot.textContent).toContain('Your session changed'));
+  for (const resume of resumes) expect(resume).toHaveBeenCalledOnce();
+  for (const dispose of disposes) expect(dispose).toHaveBeenCalledOnce();
+  delete document.visibilityState;
+  window.dispatchEvent(new Event('pagehide'));
+});
+
+test('the real notes panel retains private state and stream only through verified resumption', async () => {
+  const sockets = [];
+  class HostSocket extends EventTarget {
+    static OPEN = 1;
+    static CLOSED = 3;
+    readyState = 1;
+    send = vi.fn();
+    constructor() {
+      super();
+      sockets.push(this);
+    }
+    close() {
+      this.readyState = 3;
+      this.dispatchEvent(new Event('close'));
+    }
+  }
+  const originalWebSocket = globalThis.WebSocket;
+  globalThis.WebSocket = HostSocket;
+  document.body.innerHTML = liveMarkup({
+    content: directContent('Global Workspace'),
+    home: homeMarkup({panels: panelRootMarkup()}),
+  });
+  window.history.replaceState(null, '', '/workspace');
+  let resolveCheck;
+  const fetcher = vi.fn((url) => {
+    if (String(url).includes('/-/native/session')) return new Promise((resolve) => { resolveCheck = resolve });
+    return Promise.resolve({ok: true, status: 200, text: async () => 'private notes'});
+  });
+  const cached = persistedPageHideEvent;
+  const restored = persistedPageShowEvent;
+  try {
+    initExtensionPages(async () => ({mount: mountExamplePanel}), fetcher);
+    const input = await vi.waitFor(() => {
+      const field = document.querySelector('textarea');
+      expect(field?.value).toBe('private notes');
+      return field;
+    });
+    expect(sockets).toHaveLength(1);
+    window.dispatchEvent(cached());
+    expect(document.querySelector('[data-extension-panel]').hidden).toBe(true);
+    expect(sockets[0].readyState).toBe(1);
+    window.dispatchEvent(restored());
+    await vi.waitFor(() => expect(fetcher.mock.calls.some(([url]) => String(url).includes('/-/native/session'))).toBe(true));
+    expect(document.querySelector('[data-extension-panel]').hidden).toBe(true);
+    resolveCheck({status: 204, headers: new Headers({'X-Extension-Session-Generation': 'session-a'})});
+    await vi.waitFor(() => expect(document.querySelector('[data-extension-panel]').hidden).toBe(false));
+    expect(input.value).toBe('private notes');
+    expect(sockets[0].readyState).toBe(1);
+    window.dispatchEvent(cached());
+    window.dispatchEvent(restored());
+    await vi.waitFor(() => expect(fetcher.mock.calls.filter(([url]) => String(url).includes('/-/native/session'))).toHaveLength(2));
+    resolveCheck({status: 204, headers: new Headers({'X-Extension-Session-Generation': 'session-b'})});
+    await vi.waitFor(() => expect(sockets[0].readyState).toBe(3));
+    expect(input.value).toBe('');
+    expect(document.querySelector('[data-extension-panels]').textContent).toContain('Your session changed');
+  } finally {
+    globalThis.WebSocket = originalWebSocket;
+    window.dispatchEvent(new Event('pagehide'));
+  }
+});
+
 // NFX-A02 region_adopt: fixtures mirror the real wire format. Every eligible
 // document is a whole native page (head title, body data-page-data config,
 // navbar, .page-content region, footer) with the persistent panels home from
@@ -195,6 +315,18 @@ test('delayed revalidation conceals page and panel together, then restores or re
 function pageRootMarkup({pageId = 'home', generation = 'session-a', appSubURL = '', extra = '', version = '1'} = {}) {
   const versionAttr = version === null ? '' : ` data-extension-contract-version="${version}"`;
   return `<div data-extension-page${versionAttr} data-app-sub-url="${appSubURL}" data-extension-id="example" data-extension-page-id="${pageId}" data-extension-entry="/-/native/assets/example/page.js" data-extension-asset-base="/-/native/assets/example/" data-extension-api-base="/-/native/pages/example/${pageId}/api/" data-extension-session-generation="${generation}"${extra}></div>`;
+}
+
+function persistedPageHideEvent() {
+  const event = new Event('pagehide');
+  Object.defineProperty(event, 'persisted', {value: true});
+  return event;
+}
+
+function persistedPageShowEvent() {
+  const event = new Event('pageshow');
+  Object.defineProperty(event, 'persisted', {value: true});
+  return event;
 }
 
 function panelRootMarkup({panelId = 'notes', generation = 'session-a', appSubURL = ''} = {}) {

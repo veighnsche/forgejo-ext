@@ -501,6 +501,40 @@ test('retains in-flight requests across update, suspend, and resume', async () =
   owner.dispose();
 });
 
+test('a mismatched resume retires instead of resuming stale private state', async () => {
+  const root = pageRoot();
+  const handle = {
+    suspend: vi.fn(),
+    resume: vi.fn(),
+    retire: vi.fn(),
+    dispose: vi.fn(),
+  };
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: () => handle})), websocketClass: FakeSocket});
+  const contribution = owner.context.stream('socket');
+  owner.suspend();
+  expect(handle.suspend).toHaveBeenCalledOnce();
+  owner.resume({sessionGeneration: 'session-b'});
+  expect(handle.resume).not.toHaveBeenCalled();
+  expect(handle.retire).toHaveBeenCalledWith('session-changed');
+  expect(handle.dispose).toHaveBeenCalledOnce();
+  expect(contribution.socket.closed).toBe(true);
+  expect(() => owner.context.request('context')).toThrow('Contribution transport is retired');
+  expect(() => owner.context.stream('socket')).toThrow('Contribution transport is retired');
+  // A later well-formed resume cannot resurrect the retired owner.
+  owner.resume({sessionGeneration: 'session-a'});
+  expect(handle.resume).not.toHaveBeenCalled();
+});
+
+test('a missing resume validation retires instead of resuming', async () => {
+  const root = pageRoot();
+  const handle = {suspend: vi.fn(), resume: vi.fn(), retire: vi.fn(), dispose: vi.fn()};
+  const owner = await mountContribution(root, {importer: vi.fn(async () => ({mount: () => handle})), websocketClass: FakeSocket});
+  owner.suspend();
+  owner.resume();
+  expect(handle.resume).not.toHaveBeenCalled();
+  expect(handle.retire).toHaveBeenCalledWith('session-changed');
+});
+
 test('refuses pre-aborted caller requests without sending', async () => {
   const root = pageRoot();
   const consumer = new AbortController();
