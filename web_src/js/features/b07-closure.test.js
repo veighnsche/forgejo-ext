@@ -41,11 +41,11 @@ test('B07 removes bare page calls for converted features', () => {
   expect(index).toContain('initGlobalFeatures();');
 });
 
-test('B07 handles comp ownership and flags dashboard product question', () => {
+test('B07 handles comp ownership and the page-owned dashboard', () => {
   expect(index).toContain(`registerPageFeature('comp-search-user-box'`);
   expect(index).toContain(`registerPageFeature('comp-webhook-editor'`);
-  expect(index).toContain('FLAGGED (B07, not decided)');
-  expect(index).toContain('initDashboardRepoList();');
+  expect(index).toContain("registerPageFeature('dashboard-repo-list', {init: initDashboardRepoList, retire: retireDashboardRepoList})");
+  expect(index).not.toContain('\n  initDashboardRepoList();');
 });
 
 test('SearchUserBox init is idempotent and retire destroys the widget', () => {

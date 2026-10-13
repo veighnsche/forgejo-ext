@@ -3,7 +3,7 @@ import $ from 'jquery';
 import {SvgIcon} from '../svg.js';
 import {GET} from '../modules/fetch.js';
 
-const {appSubUrl, assetUrlPrefix, pageData} = window.config;
+const {appSubUrl, assetUrlPrefix} = window.config;
 
 // make sure this matches templates/repo/commit_status.tmpl
 const commitStatus = {
@@ -17,6 +17,7 @@ const commitStatus = {
 export default {
   components: {SvgIcon},
   data() {
+    const {pageData} = window.config;
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('repo-search-tab') || 'repos';
     const reposFilter = params.get('repo-search-filter') || 'all';
@@ -36,6 +37,7 @@ export default {
       finalPage: 1,
       searchQuery,
       isLoading: false,
+      searchController: null,
       staticPrefix: assetUrlPrefix,
       counts: {},
       repoTypes: {
@@ -114,6 +116,10 @@ export default {
       'public': this.textShowOnlyPublic,
       'both': this.textShowBothPrivatePublic,
     };
+  },
+
+  beforeUnmount() {
+    this.searchController?.abort();
   },
 
   methods: {
@@ -219,6 +225,9 @@ export default {
     },
 
     async searchRepos() {
+      this.searchController?.abort();
+      const controller = new AbortController();
+      this.searchController = controller;
       this.isLoading = true;
 
       const searchedMode = this.repoTypes[this.reposFilter].searchMode;
@@ -229,20 +238,21 @@ export default {
       try {
         if (!this.reposTotalCount) {
           const totalCountSearchURL = `${this.subUrl}/repo/search?count_only=1&uid=${this.uid}&team_id=${this.teamId}&q=&page=1&mode=`;
-          response = await GET(totalCountSearchURL);
+          response = await GET(totalCountSearchURL, {signal: controller.signal});
+          if (controller.signal.aborted) return;
           this.reposTotalCount = response.headers.get('X-Total-Count') ?? '?';
         }
 
-        response = await GET(searchedURL);
+        response = await GET(searchedURL, {signal: controller.signal});
         json = await response.json();
       } catch {
-        if (searchedURL === this.searchURL) {
+        if (!controller.signal.aborted && searchedURL === this.searchURL) {
           this.isLoading = false;
         }
         return;
       }
 
-      if (searchedURL === this.searchURL) {
+      if (!controller.signal.aborted && searchedURL === this.searchURL) {
         this.repos = json.data.map((webSearchRepo) => {
           return {
             ...webSearchRepo.repository,

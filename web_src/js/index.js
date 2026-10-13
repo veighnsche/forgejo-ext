@@ -2,7 +2,7 @@
 import './bootstrap.js';
 
 import {initRepoActivityTopAuthorsChart} from './features/repo-activity-top-authors.ts';
-import {initDashboardRepoList} from './features/dashboard-repo-list.ts';
+import {initDashboardRepoList, retireDashboardRepoList} from './features/dashboard-repo-list.ts';
 
 import {initGlobalCopyToClipboardListener} from './features/clipboard.js';
 import {initContextPopups} from './features/contextpopup.js';
@@ -218,6 +218,7 @@ registerPageFeature('ssh-key-form-parser', {init: initSshKeyFormParser, retire: 
 // widgets/listeners; their retire destroys/removes exactly what init added.
 registerPageFeature('comp-search-user-box', {init: initCompSearchUserBox, retire: retireCompSearchUserBox});
 registerPageFeature('comp-webhook-editor', {init: initCompWebHookEditor, retire: retireCompWebHookEditor});
+registerPageFeature('dashboard-repo-list', {init: initDashboardRepoList, retire: retireDashboardRepoList});
 
 // Init Gitea's Fomantic settings
 initGiteaFomantic();
@@ -240,13 +241,6 @@ onDomReady(() => {
   initStopwatch();
   initAutoFocusEnd();
   initCopyContent();
-
-  // FLAGGED (B07, not decided): the Vue dashboard repo-list mounts a Vue
-  // app with no unmount/retire. Whether it should become a page feature
-  // (unmount on retire), stay document-lifetime, or be replaced is a
-  // product question for the dashboard owner; B07 leaves the boot call
-  // as-is and does not register it.
-  initDashboardRepoList();
 
   initRepoActivityTopAuthorsChart();
   initRepoArchiveLinks();
