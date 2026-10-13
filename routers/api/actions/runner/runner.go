@@ -428,7 +428,9 @@ func (*Service) UpdateLog(
 	}
 
 	var remove func()
-	if req.Msg.NoMore {
+	// Only finalize when this request ends at the acknowledged log length.
+	// Out-of-order or stale final batches must leave the log open for retries.
+	if req.Msg.NoMore && !task.LogInStorage && req.Msg.Index <= ack && req.Msg.Index+int64(len(req.Msg.Rows)) == task.LogLength {
 		task.LogInStorage = true
 		updateTaskColumns = append(updateTaskColumns, "log_in_storage")
 		remove, err = actions.TransferLogs(ctx, task.LogFilename)
@@ -437,6 +439,9 @@ func (*Service) UpdateLog(
 		}
 	}
 
+	if len(updateTaskColumns) == 0 {
+		return res, nil
+	}
 	if err := actions_model.UpdateTask(ctx, task, updateTaskColumns...); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("update task: %w", err))
 	}
