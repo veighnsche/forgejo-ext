@@ -1,6 +1,6 @@
 import {vi} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {currentPageGeneration, initPageFeatures, registerPageFeature, retirePageFeatures} from '../native-lifecycle.js';
+import {currentPageGeneration, initPageFeatures, navigateNative, registerPageFeature, retirePageFeatures} from '../native-lifecycle.js';
 import {classifyWorkspaceNavigation, workspacePath, workspaceDirectPath, initExtensionPages, initExtensionWorkspace} from './extensions.js';
 import {mount as mountExamplePanel} from '../../../contrib/extensions/example/assets/panel.js';
 
@@ -1609,6 +1609,329 @@ test('brackets transplants with retire, config refresh and init in order', async
     expect(order).toEqual(['init', 'retire', 'init']);
   } finally {
     retirePageFeatures();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+// NFX-B05 dirty-form departure guard: areYouSure/beforeunload protects full
+// loads, but in-shell transplants replace .page-content without unloading.
+// The host reuses the mature .dirty/.dirty-file markers with native confirm,
+// without dispatching global beforeunload handlers (stopwatch/notification
+// close workers there). Happy-dom lacks :input so tests type then apply the
+// mature marker directly; a real browser marks .dirty on typing.
+function typeNativeDraft(textarea, value, form, dirtyClass = 'dirty') {
+  textarea.value = value;
+  textarea.dispatchEvent(new Event('input', {bubbles: true}));
+  form.classList.add(dirtyClass);
+}
+
+function stubConfirm(impl) {
+  const saved = window.confirm;
+  window.confirm = vi.fn(impl);
+  return () => {
+    if (saved === undefined) delete window.confirm;
+    else window.confirm = saved;
+  };
+}
+
+test('dirty comment link refuses without fetch and accepts in-shell with warning', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const form = document.querySelector('form.comment.form');
+  const textarea = form.querySelector('textarea');
+  typeNativeDraft(textarea, 'typed draft content', form);
+  expect(form.classList.contains('dirty')).toBe(true);
+  const beforeunload = vi.fn();
+  window.addEventListener('beforeunload', beforeunload);
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('<form id="user-list-search-form"></form>'), home: homeMarkup({hidden: true})})));
+  const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+  const restoreRefuse = stubConfirm(() => false);
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin/users');
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(window.confirm).toHaveBeenCalledExactlyOnceWith('You have unsaved changes!');
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+    expect(beforeunload).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/team/repo/issues/7');
+    expect(textarea.isConnected).toBe(true);
+    expect(textarea.value).toBe('typed draft content');
+    expect(form.classList.contains('dirty')).toBe(true);
+  } finally {
+    restoreRefuse();
+    window.removeEventListener('beforeunload', beforeunload);
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+    assign.mockRestore();
+  }
+
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const form2 = document.querySelector('form.comment.form');
+  typeNativeDraft(form2.querySelector('textarea'), 'typed draft content', form2);
+  const fetcher2 = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('<form id="user-list-search-form"></form>'), home: homeMarkup({hidden: true})})));
+  const assign2 = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+  const restoreAccept = stubConfirm(() => true);
+  try {
+    initExtensionWorkspace(fetcher2);
+    clickWorkspaceLink('/admin/users');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher2).toHaveBeenCalledOnce();
+    expect(assign2).not.toHaveBeenCalled();
+    expect(document.querySelector('#user-list-search-form')).not.toBeNull();
+  } finally {
+    restoreAccept();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+    assign2.mockRestore();
+  }
+});
+
+test('editor dirty-file link refuses and preserves the draft', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/_edit/main/README.md');
+  document.body.innerHTML = liveMarkup({
+    content: '<div role="main" class="page-content repository"><div class="ui container"><form class="ui edit form"><textarea id="edit_area" name="content">initial</textarea></form></div></div>',
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const form = document.querySelector('form.ui.edit.form');
+  const textarea = form.querySelector('textarea');
+  typeNativeDraft(textarea, 'edited file content', form, 'dirty-file');
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  const restore = stubConfirm(() => false);
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin/users');
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/team/repo/_edit/main/README.md');
+    expect(textarea.isConnected).toBe(true);
+    expect(textarea.value).toBe('edited file content');
+    expect(form.classList.contains('dirty-file')).toBe(true);
+  } finally {
+    restore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('GET submit with another dirty form refuses then accepts; submitting form alone never prompts', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form><form id="search" method="get" action="/admin/users"><input type="search" name="q" value="alice"></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const comment = document.querySelector('form.comment.form');
+  typeNativeDraft(comment.querySelector('textarea'), 'comment draft', comment);
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  const restoreRefuse = stubConfirm(() => false);
+  try {
+    initExtensionWorkspace(fetcher);
+    document.querySelector('#search').requestSubmit();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/team/repo/issues/7');
+    expect(comment.querySelector('textarea').value).toBe('comment draft');
+  } finally {
+    restoreRefuse();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form id="search" method="get" action="/admin/users"><input type="search" name="q" value="alice"></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const search = document.querySelector('#search');
+  search.classList.add('dirty');
+  const fetcher2 = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  const restoreAccept = stubConfirm(() => { throw new Error('submitting GET must not prompt') });
+  try {
+    initExtensionWorkspace(fetcher2);
+    search.requestSubmit();
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
+    expect(fetcher2).toHaveBeenCalledOnce();
+    expect(window.location.search).toBe('?q=alice');
+  } finally {
+    restoreAccept();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('programmatic push refuses without fetch and accepts in-shell', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const form = document.querySelector('form.comment.form');
+  typeNativeDraft(form.querySelector('textarea'), 'push draft', form);
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  const restoreRefuse = stubConfirm(() => false);
+  try {
+    initExtensionWorkspace(fetcher);
+    navigateNative('/admin/users', {replace: false});
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/team/repo/issues/7');
+    expect(form.querySelector('textarea').value).toBe('push draft');
+  } finally {
+    restoreRefuse();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  typeNativeDraft(document.querySelector('textarea'), 'push draft', document.querySelector('form'));
+  const fetcher2 = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  const restoreAccept = stubConfirm(() => true);
+  try {
+    initExtensionWorkspace(fetcher2);
+    navigateNative('/admin/users', {replace: false});
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher2).toHaveBeenCalledOnce();
+  } finally {
+    restoreAccept();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('Back/Forward traversal refuses by restoring the address and accepts by transplanting', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const form = document.querySelector('form.comment.form');
+  typeNativeDraft(form.querySelector('textarea'), 'traversal draft', form);
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  const restoreRefuse = stubConfirm(() => false);
+  try {
+    initExtensionWorkspace(fetcher);
+    window.history.replaceState(window.history.state, '', '/admin/users');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues/7'));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(form.isConnected).toBe(true);
+    expect(form.querySelector('textarea').value).toBe('traversal draft');
+  } finally {
+    restoreRefuse();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  typeNativeDraft(document.querySelector('textarea'), 'traversal draft', document.querySelector('form'));
+  const fetcher2 = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  const restoreAccept = stubConfirm(() => true);
+  try {
+    initExtensionWorkspace(fetcher2);
+    window.history.replaceState(window.history.state, '', '/admin/users');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await vi.waitFor(() => expect(document.querySelector('.page-content').textContent).toContain('Users'));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher2).toHaveBeenCalledOnce();
+    expect(window.location.pathname).toBe('/admin/users');
+  } finally {
+    restoreAccept();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('same-hash navigation with a dirty form preserves the draft without prompting', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form><a href="#note">Note</a><h2 id="user-content-note">Note</h2>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const form = document.querySelector('form.comment.form');
+  const textarea = form.querySelector('textarea');
+  typeNativeDraft(textarea, 'hash draft', form);
+  const fetcher = vi.fn();
+  const restore = stubConfirm(() => { throw new Error('hash-only must not prompt') });
+  try {
+    initExtensionWorkspace(fetcher);
+    document.querySelector('a[href="#note"]').click();
+    expect(window.location.hash).toBe('#note');
+    expect(document.querySelector('textarea')).toBe(textarea);
+    expect(textarea.value).toBe('hash draft');
+    expect(form.classList.contains('dirty')).toBe(true);
+    expect(fetcher).not.toHaveBeenCalled();
+  } finally {
+    restore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('clean link navigation never prompts', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/issues/7');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('Users'), home: homeMarkup({hidden: true})})));
+  const restore = stubConfirm(() => { throw new Error('clean navigation must not prompt') });
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/admin/users');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin/users'));
+    expect(fetcher).toHaveBeenCalledOnce();
+  } finally {
+    restore();
     window.dispatchEvent(new Event('pagehide'));
     window.config = savedConfig;
   }

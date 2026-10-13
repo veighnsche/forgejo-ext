@@ -99,6 +99,23 @@ function focusFragment(hash) {
   if (anchor?.matches('a[href], button, input, select, textarea, [tabindex]')) anchor.focus({preventScroll: true});
 }
 
+// Mature dirty tracking marks native forms with .dirty (default) or
+// .dirty-file (editor silent). Only the transplant region matters: the
+// persistent home and parked page roots survive, navbar/footer sync in
+// place. Ignore-dirty forms are explicitly exempt. Never dispatch global
+// beforeunload here: stopwatch/notification close workers there.
+function hasDirtyNativeForm(excludeForm = null) {
+  const region = document.querySelector('.page-content');
+  if (!region) return false;
+  for (const form of region.querySelectorAll('form.dirty, form.dirty-file')) {
+    if (form === excludeForm || !form.isConnected) continue;
+    if (form.classList.contains('ignore-dirty')) continue;
+    if (form.closest('[data-extension-page],[data-extension-panel]')) continue;
+    return true;
+  }
+  return false;
+}
+
 // Adopted identity: same contribution plus the live session generation plus
 // the browser contract version. Generation mismatch is session change
 // (retire path), never adoption; version skew is refused the same way.
@@ -610,7 +627,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     }
   }
 
-  async function transplant(path, push = false, traversal = false) {
+  async function transplant(path, push = false, traversal = false, excludeForm = null) {
     const target = new URL(path, origin);
     const previous = new URL(current, origin);
     navigationController?.abort();
@@ -628,6 +645,22 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
         ...(home.dataset.extensionRepositoryId ? {repositoryId: home.dataset.extensionRepositoryId} : {}),
       }}));
       return;
+    }
+    if (hasDirtyNativeForm(excludeForm)) {
+      let confirmed = false;
+      try {
+        confirmed = window.confirm?.('You have unsaved changes!') ?? false;
+      } catch {
+        confirmed = false;
+      }
+      if (!confirmed) {
+        if (traversal) {
+          try {
+            window.history.pushState(window.history.state, '', current);
+          } catch {}
+        }
+        return false;
+      }
     }
     navigationController = new AbortController();
     const version = ++navigationVersion;
@@ -769,7 +802,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     const decision = classifyWorkspaceNavigation(target.href, window.location.href, origin, appSubPath);
     if (decision.kind !== 'native') return;
     event.preventDefault();
-    transplant(decision.path, true);
+    transplant(decision.path, true, false, form);
   }
   document.addEventListener('submit', onWorkspaceSubmit);
 
@@ -783,8 +816,8 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     navigationVersion++;
     const path = workspacePath(`${window.location.pathname}${window.location.search}${window.location.hash}`, base, origin, appSubPath);
     if (!path || path === current) return;
-    transplant(path, false, true).then(() => {
-      if (!invalidated) window.scrollTo(0, window.history.state?.scrollY ?? 0);
+    transplant(path, false, true).then((proceeded) => {
+      if (proceeded !== false && !invalidated) window.scrollTo(0, window.history.state?.scrollY ?? 0);
     });
   };
   window.addEventListener('popstate', onPopState);
