@@ -434,8 +434,7 @@ test('transplant keeps one home, panels and address across contribution -> nativ
     expect(pushState).toHaveBeenCalledOnce();
     expect(document.querySelector('#navbar a[href="/workspace"]').classList.contains('active')).toBe(false);
     expect(document.querySelector('#navbar a[href="/workspace"]').hasAttribute('aria-current')).toBe(false);
-    window.history.replaceState({nativeState: 'retained'}, '', '/workspace');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.history.back();
     await vi.waitFor(() => expect(document.querySelector('.page-content').textContent).toContain('Global Workspace'));
     expect(home.hasAttribute('hidden')).toBe(false);
     expect(home.hasAttribute('inert')).toBe(false);
@@ -1914,6 +1913,85 @@ test('accepted Back from a dirty page transplants the previous entry', async () 
     await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo'));
     expect(window.confirm).toHaveBeenCalledOnce();
     expect(fetcher).toHaveBeenCalled();
+  } finally {
+    restore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('native line/graph history entries survive a refused dirty traversal', async () => {
+  const savedConfig = window.config;
+  const codeDoc = () => nativeDocument({title: 'Code', pageData: {},
+    content: directContent('<a href="/team/repo/issues">Issues</a><form class="comment form"><textarea name="content">initial</textarea></form>'), home: homeMarkup({hidden: true})});
+  const issuesDoc = () => nativeDocument({title: 'Issues', pageData: {},
+    content: directContent('<form class="comment form"><textarea name="content">initial</textarea></form>'), home: homeMarkup({hidden: true})});
+  window.history.replaceState(null, '', '/workspace');
+  document.body.innerHTML = liveMarkup({
+    content: directContent('Global Workspace'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const fetcher = vi.fn(async (url) => navigationResponse(url.includes('/issues') ? issuesDoc() : codeDoc()));
+  let answer = false;
+  const restore = stubConfirm(() => answer);
+  try {
+    initExtensionWorkspace(fetcher);
+    clickWorkspaceLink('/team/repo');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo'));
+    // Native feature writes, exactly as repo-code/repo-graph perform them.
+    window.history.pushState(null, null, '#L12');
+    window.history.pushState(null, null, '#L20');
+    window.history.replaceState({}, '', '?mode=monochrome#L20');
+    clickWorkspaceLink('/team/repo/issues');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues'));
+    const lengthAtTip = window.history.length;
+    const form = document.querySelector('form.comment.form');
+    typeNativeDraft(form.querySelector('textarea'), 'tip draft', form);
+    fetcher.mockClear();
+    // Refuse Back across the native entries: exact tip position restored.
+    window.history.back();
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(window.location.pathname).toBe('/team/repo/issues');
+    expect(window.history.length).toBe(lengthAtTip);
+    expect(form.querySelector('textarea').value).toBe('tip draft');
+    // Accept Back: the native line entry is landed on, not overwritten.
+    answer = true;
+    window.history.back();
+    await vi.waitFor(() => expect(window.location.hash).toBe('#L20'));
+    expect(window.location.pathname).toBe('/team/repo');
+    expect(window.location.search).toBe('?mode=monochrome');
+    // Forward returns to the original tip.
+    window.history.forward();
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/issues'));
+    expect(window.history.length).toBe(lengthAtTip);
+  } finally {
+    restore();
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('repeating an unchanged native GET submission still performs the GET', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/admin/users?q=alice');
+  document.body.innerHTML = liveMarkup({
+    content: plainAdminContent('<form id="search" method="get" action="/admin/users"><input type="search" name="q" value="alice"></form>'),
+    home: homeMarkup({hidden: true}),
+  });
+  window.config = {appSubUrl: '', pageData: {}};
+  const fetcher = vi.fn(async () => navigationResponse(nativeDocument({title: 'Users', pageData: {},
+    content: plainAdminContent('<form id="search" method="get" action="/admin/users"><input type="search" name="q" value="alice"></form>'), home: homeMarkup({hidden: true})})));
+  const restore = stubConfirm(() => { throw new Error('clean GET must not prompt') });
+  try {
+    initExtensionWorkspace(fetcher);
+    document.querySelector('#search').requestSubmit();
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(document.querySelector('#search')).not.toBeNull());
+    document.querySelector('#search').requestSubmit();
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(window.location.pathname + window.location.search).toBe('/admin/users?q=alice');
   } finally {
     restore();
     window.dispatchEvent(new Event('pagehide'));

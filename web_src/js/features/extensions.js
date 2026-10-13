@@ -573,9 +573,34 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   const INDEX_KEY = '__workspaceNavIndex';
   let restoring = false;
   let currentIndex = typeof window.history.state?.[INDEX_KEY] === 'number' ? window.history.state[INDEX_KEY] : 0;
+  const nativePushState = window.history.pushState.bind(window.history);
+  const nativeReplaceState = window.history.replaceState.bind(window.history);
   try {
-    window.history.replaceState({...window.history.state, [INDEX_KEY]: currentIndex}, '', window.location.href);
+    nativeReplaceState({...window.history.state, [INDEX_KEY]: currentIndex}, '', window.location.href);
   } catch {}
+  // Native features own same-document history writes (code line selections
+  // push entries; the commit graph rewrites its query in place). The host
+  // coordinates them here instead of letting them create unindexed entries
+  // or wipe the entry state: pushes take the next host index, replacements
+  // keep the current one, and the tracked route follows the real address.
+  const trackNativeWrite = (url) => {
+    if (url == null) return;
+    try {
+      const next = new URL(url, window.location.href);
+      if (next.origin === origin) current = `${next.pathname}${next.search}${next.hash}`;
+    } catch {}
+  };
+  window.history.pushState = (state, title, url) => {
+    const stamped = {...(state && typeof state === 'object' ? state : {}), scrollY: 0, [INDEX_KEY]: currentIndex + 1};
+    nativePushState(stamped, title, url);
+    currentIndex++;
+    trackNativeWrite(url);
+  };
+  window.history.replaceState = (state, title, url) => {
+    const stamped = {...(state && typeof state === 'object' ? state : {}), [INDEX_KEY]: currentIndex};
+    nativeReplaceState(stamped, title, url);
+    trackNativeWrite(url);
+  };
 
   // Ordinary routes keep their authoritative native handlers. The entered
   // renderer's content/config/home envelope decides eligibility; there is
@@ -638,22 +663,24 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     }
   }
 
-  async function transplant(path, push = false, traversal = false, excludeForm = null, traversalStep = 0) {
+  async function transplant(path, push = false, traversal = false, excludeForm = null, traversalStep = 0, viaSubmit = false) {
     const target = new URL(path, origin);
     const previous = new URL(current, origin);
     navigationController?.abort();
     // Already-current URL (same path, query and fragment, including repeat
     // fragment clicks): native anchor behaviour only. No dirty prompt, no
     // fetch, no history entry; the draft and page objects stay untouched.
-    if (target.href === previous.href) {
+    // A native GET submission is not an anchor click: repeating an
+    // unchanged query must still perform its native GET/refresh.
+    if (!viaSubmit && target.href === previous.href) {
       if (target.hash) focusFragment(target.hash);
       return true;
     }
     if (target.pathname === previous.pathname && target.search === previous.search && target.hash !== previous.hash) {
       navigationVersion++;
       if (push) {
-        window.history.replaceState({...window.history.state, scrollY: window.scrollY, [INDEX_KEY]: currentIndex}, '', window.location.href);
-        window.history.pushState({...window.history.state, scrollY: 0, [INDEX_KEY]: currentIndex + 1}, '', path);
+        nativeReplaceState({...window.history.state, scrollY: window.scrollY, [INDEX_KEY]: currentIndex}, '', window.location.href);
+        nativePushState({...window.history.state, scrollY: 0, [INDEX_KEY]: currentIndex + 1}, '', path);
         currentIndex++;
       } else updateHistory(path);
       current = path;
@@ -749,8 +776,8 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       document.title = native.title;
       current = path;
       if (push) {
-        window.history.replaceState({...window.history.state, scrollY: outgoingScrollY, [INDEX_KEY]: currentIndex}, '', window.location.href);
-        window.history.pushState({...window.history.state, scrollY: 0, [INDEX_KEY]: currentIndex + 1}, '', path);
+        nativeReplaceState({...window.history.state, scrollY: outgoingScrollY, [INDEX_KEY]: currentIndex}, '', window.location.href);
+        nativePushState({...window.history.state, scrollY: 0, [INDEX_KEY]: currentIndex + 1}, '', path);
         currentIndex++;
       } else updateHistory(path);
       // Native custom elements also observe entered facts on connection.
@@ -818,7 +845,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     const decision = classifyWorkspaceNavigation(target.href, window.location.href, origin, appSubPath);
     if (decision.kind !== 'native') return;
     event.preventDefault();
-    transplant(decision.path, true, false, form);
+    transplant(decision.path, true, false, form, 0, true);
   }
   document.addEventListener('submit', onWorkspaceSubmit);
 
@@ -826,7 +853,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     const state = window.history.state;
     // Traversal already landed on this URL; rewriting the entry is a no-op
     // there and must not touch the surrounding stack positions.
-    if (new URL(path, origin).href !== window.location.href) window.history.replaceState(state, '', path);
+    if (new URL(path, origin).href !== window.location.href) nativeReplaceState(state, '', path);
     if (typeof state?.[INDEX_KEY] === 'number') currentIndex = state[INDEX_KEY];
   }
 
@@ -843,7 +870,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       }
     }
     try {
-      window.history.replaceState(window.history.state, '', current);
+      nativeReplaceState(window.history.state, '', current);
     } catch {}
   }
 
