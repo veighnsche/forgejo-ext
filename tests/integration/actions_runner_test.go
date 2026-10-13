@@ -220,9 +220,10 @@ func (r *mockRunner) fetchMultipleTasks(t *testing.T, taskCapacity *int64, timeo
 }
 
 type mockTaskOutcome struct {
-	result  runnerv1.Result
-	outputs map[string]string
-	logRows []*runnerv1.LogRow
+	result             runnerv1.Result
+	outputs            map[string]string
+	logRows            []*runnerv1.LogRow
+	sendEmptyUpdateLog bool
 }
 
 func (r *mockRunner) execTask(t *testing.T, task *runnerv1.Task, outcome *mockTaskOutcome) {
@@ -231,10 +232,20 @@ func (r *mockRunner) execTask(t *testing.T, task *runnerv1.Task, outcome *mockTa
 			TaskId: task.Id,
 			Index:  int64(idx),
 			Rows:   []*runnerv1.LogRow{lr},
-			NoMore: idx == len(outcome.logRows)-1,
+			NoMore: !outcome.sendEmptyUpdateLog && (idx == len(outcome.logRows)-1),
 		}))
 		require.NoError(t, err)
 		assert.EqualValues(t, idx+1, resp.Msg.AckIndex)
+	}
+	if outcome.sendEmptyUpdateLog {
+		resp, err := r.client.runnerServiceClient.UpdateLog(t.Context(), connect.NewRequest(&runnerv1.UpdateLogRequest{
+			TaskId: task.Id,
+			Index:  int64(len(outcome.logRows)),
+			Rows:   []*runnerv1.LogRow{},
+			NoMore: true,
+		}))
+		require.NoError(t, err)
+		assert.EqualValues(t, len(outcome.logRows), resp.Msg.AckIndex)
 	}
 	sentOutputKeys := make([]string, 0, len(outcome.outputs))
 	for outputKey, outputValue := range outcome.outputs {

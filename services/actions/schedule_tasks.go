@@ -100,22 +100,26 @@ func startScheduleRow(ctx context.Context, now time.Time, row *actions_model.Act
 	}, func(ctx context.Context) error {
 		schedule, err := func(row *actions_model.ActionScheduleSpec) (cron.Schedule, error) {
 			if err := CreateScheduleTask(ctx, row.Schedule); err != nil {
-				return nil, fmt.Errorf("CreateScheduleTask: %v", err)
+				return nil, fmt.Errorf("CreateScheduleTask: %w", err)
 			}
 
 			// Parse the spec
 			schedule, err := row.Parse()
 			if err != nil {
-				return nil, fmt.Errorf("Parse(Spec=%v): %v", row.Spec, err)
+				return nil, fmt.Errorf("Parse(Spec=%v): %w", row.Spec, err)
 			}
 			return schedule, nil
 		}(row)
 		if err != nil {
 			log.Error("RepoID=%v WorkflowID=%v: %v", row.Schedule.RepoID, row.Schedule.WorkflowID, err)
-			actionConfig.DisableWorkflow(row.Schedule.WorkflowID)
-			if err := repo_model.UpdateRepoUnit(ctx, cfg); err != nil {
-				log.Error("RepoID=%v WorkflowID=%v: CreateScheduleTask: %v", row.Schedule.RepoID, row.Schedule.WorkflowID, err)
-				return err
+			if errors.Is(err, actions_model.ErrPersistentScheduling) {
+				// Disable only failures requiring a workflow change. Transient
+				// failures must remain eligible for the next scheduling attempt.
+				actionConfig.DisableWorkflow(row.Schedule.WorkflowID)
+				if err := repo_model.UpdateRepoUnit(ctx, cfg); err != nil {
+					log.Error("RepoID=%v WorkflowID=%v: CreateScheduleTask: %v", row.Schedule.RepoID, row.Schedule.WorkflowID, err)
+					return err
+				}
 			}
 			return nil
 		}
@@ -171,17 +175,17 @@ func createScheduleTask(ctx context.Context, cron *actions_model.ActionSchedule)
 
 	workflow, err := act_model.ReadWorkflow(bytes.NewReader(cron.Content), false)
 	if err != nil {
-		return err
+		return fmt.Errorf("read workflow: %w (%w)", err, actions_model.ErrPersistentScheduling)
 	}
 	notifications, err := workflow.Notifications()
 	if err != nil {
-		return err
+		return fmt.Errorf("workflow.Notifications: %w (%w)", err, actions_model.ErrPersistentScheduling)
 	}
 	run.NotifyEmail = notifications
 
 	err = ConfigureActionRunConcurrency(workflow, run, vars, map[string]any{})
 	if err != nil {
-		return err
+		return fmt.Errorf("ConfigureActionRunConcurrency: %w (%w)", err, actions_model.ErrPersistentScheduling)
 	}
 
 	if run.ConcurrencyType == actions_model.CancelInProgress {
@@ -210,7 +214,13 @@ func createScheduleTask(ctx context.Context, cron *actions_model.ActionSchedule)
 		jobparser.ExpandInstanceReusableWorkflows(expandInstanceReusableWorkflows(ctx)),
 	)
 	if err != nil {
-		return err
+		// There are probably both persistent and non-persistent errors that can come out of the jobparser, but most of
+		// them would be persistent.  A non-persistent error would be expanding an instance reusable workflow and
+		// finding the repo/workflow don't exist -- that state could change on a future scheduling run, but, it's a
+		// narrow edge case compared to the much more likely parsing errors.  Therefore this error is marked as a
+		// PersistentSchedulingError since it's more likely that disabling the workflow makes sense for this scheduling
+		// task creation error.
+		return fmt.Errorf("actions_model.JobParser: %w (%w)", err, actions_model.ErrPersistentScheduling)
 	}
 
 	// Insert the action run and its associated jobs into the database

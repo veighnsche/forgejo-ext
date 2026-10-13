@@ -177,7 +177,7 @@ func DeleteLabel(ctx *context.Context) {
 	repoID := ctx.Repo.Repository.ID
 	labelID := ctx.FormInt64("id")
 	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(labelID, "delete"), repoID, func(ctx stdCtx.Context) error {
-		return issues_model.DeleteLabel(ctx, repoID, labelID)
+		return issues_model.DeleteLabelInRepo(ctx, repoID, labelID)
 	}); err != nil {
 		if operation_service.IsBusy(err) {
 			ctx.Flash.Error("A native operation is in progress; retry shortly.")

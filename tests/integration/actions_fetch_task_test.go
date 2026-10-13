@@ -5,24 +5,53 @@ package integration
 
 import (
 	"net/url"
-	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 
 	actions_model "forgejo.org/models/actions"
+	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
-	files_service "forgejo.org/services/repository/files"
-	"forgejo.org/tests"
+	"forgejo.org/tests/forgery"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+	"code.forgejo.org/xorm/xorm/convert"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func createFetchTaskTestRepository(
+	t *testing.T,
+	owner *user_model.User,
+	workflowFileName,
+	workflowFileContent string,
+) *repo_model.Repository {
+	t.Helper()
+
+	fileSystem := forgery.MapFS{
+		".forgejo/workflows/" + workflowFileName: &fstest.MapFile{
+			Data: []byte(workflowFileContent),
+		},
+	}
+
+	opts := &forgery.CreateRepositoryOptions{
+		LatestSha: new(string),
+		Name:      "repo-many-tasks",
+		Files:     fileSystem,
+	}
+
+	repo := forgery.CreateRepository(t, owner, opts)
+
+	var unitConfig convert.Conversion
+	forgery.EnableRepoUnit(t, repo, unit_model.TypeActions, unitConfig)
+
+	return repo
+}
 
 func TestActionFetchTask_TaskCapacity(t *testing.T) {
 	if !setting.Database.Type.IsSQLite3() {
@@ -34,13 +63,7 @@ func TestActionFetchTask_TaskCapacity(t *testing.T) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
 		// create the repo
-		repo, _, f := tests.CreateDeclarativeRepo(t, user2, "repo-many-tasks",
-			[]unit_model.Type{unit_model.TypeActions}, nil,
-			[]*files_service.ChangeRepoFile{
-				{
-					Operation: "create",
-					TreePath:  ".forgejo/workflows/matrix.yml",
-					ContentReader: strings.NewReader(`
+		repo := createFetchTaskTestRepository(t, user2, "matrix.yml", `
 on:
   push:
 jobs:
@@ -55,11 +78,7 @@ jobs:
     steps:
       - run: echo ${{ matrix.d1 }} ${{ matrix.d2 }} ${{ matrix.d3 }}
       - run: sleep 2
-`),
-				},
-			},
-		)
-		defer f()
+`)
 
 		runner := newMockRunner()
 		runner.registerAsRepoRunner(t, user2.Name, repo.Name, "mock-runner", []string{"ubuntu-latest"})
@@ -103,13 +122,7 @@ func TestActionFetchTask_Idempotent(t *testing.T) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
 		// create the repo
-		repo, _, f := tests.CreateDeclarativeRepo(t, user2, "repo-many-tasks",
-			[]unit_model.Type{unit_model.TypeActions}, nil,
-			[]*files_service.ChangeRepoFile{
-				{
-					Operation: "create",
-					TreePath:  ".forgejo/workflows/matrix.yml",
-					ContentReader: strings.NewReader(`
+		repo := createFetchTaskTestRepository(t, user2, "matrix.yml", `
 on:
   push:
 jobs:
@@ -120,11 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: sleep 2
-`),
-				},
-			},
-		)
-		defer f()
+`)
 
 		runner := newMockRunner()
 		runner.registerAsRepoRunner(t, user2.Name, repo.Name, "mock-runner", []string{"ubuntu-latest"})
@@ -205,13 +214,7 @@ func TestActionFetchTask_IdempotentConcurrent(t *testing.T) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
 		// create the repo
-		repo, _, f := tests.CreateDeclarativeRepo(t, user2, "repo-many-tasks",
-			[]unit_model.Type{unit_model.TypeActions}, nil,
-			[]*files_service.ChangeRepoFile{
-				{
-					Operation: "create",
-					TreePath:  ".forgejo/workflows/matrix.yml",
-					ContentReader: strings.NewReader(`
+		repo := createFetchTaskTestRepository(t, user2, "matrix.yml", `
 on:
   push:
 jobs:
@@ -223,11 +226,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: sleep 2
-`),
-				},
-			},
-		)
-		defer f()
+`)
 
 		runner := newMockRunner()
 		runner.registerAsRepoRunner(t, user2.Name, repo.Name, "mock-runner", []string{"ubuntu-latest"})
@@ -300,13 +299,7 @@ func TestActionFetchTask_RequestedJob(t *testing.T) {
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 
 		// create the repo
-		repo, _, f := tests.CreateDeclarativeRepo(t, user2, "repo-many-tasks",
-			[]unit_model.Type{unit_model.TypeActions}, nil,
-			[]*files_service.ChangeRepoFile{
-				{
-					Operation: "create",
-					TreePath:  ".forgejo/workflows/simple.yml",
-					ContentReader: strings.NewReader(`
+		repo := createFetchTaskTestRepository(t, user2, "simple.yml", `
 on:
   push:
 jobs:
@@ -322,11 +315,7 @@ jobs:
     runs-on: debian
     steps:
       - run: echo OK
-`),
-				},
-			},
-		)
-		defer f()
+`)
 
 		debianRunner := newMockRunner()
 		debianRunner.registerAsRepoRunner(t, user2.Name, repo.Name, "debian-runner", []string{"debian"})

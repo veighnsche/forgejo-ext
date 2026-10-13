@@ -1,7 +1,7 @@
 # Native extensions
 
 This experimental extension interface adds independently installed packages to
-Forgejo 15.0.9. A package contains a native backend executable, a manifest and
+Forgejo 15.0.10. A package contains a native backend executable, a manifest and
 browser assets. Installing or replacing it does not rebuild Forgejo. Packages
 start with Forgejo; changes require a stop and restart.
 
