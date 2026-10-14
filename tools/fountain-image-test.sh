@@ -18,7 +18,7 @@ container=$("$engine" run -d --mount "type=bind,src=$out/data,dst=/data" \
   -e FORGEJO__security__INSTALL_LOCK=true -e FORGEJO__server__DISABLE_SSH=true \
   -e FORGEJO__extensions__ENABLED=true -e FORGEJO__extensions__REQUIRED_IDS=example \
   "$image")
-cleanup() { "$engine" logs "$container" > "$out/container.log" 2>&1; "$engine" rm -f "$container" >/dev/null; }
+cleanup() { "$engine" logs "$container" > "$out/container.log" 2>&1; "$engine" rm -fv "$container" >/dev/null; }
 trap cleanup EXIT
 # The first boot writes configuration but cannot become ready without its required package.
 for ((i=0; i<60; i++)); do

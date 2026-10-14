@@ -34,16 +34,18 @@ cd "$out/source"
 # Upstream format/tidy gates compare generated changes with Git. Give them an
 # isolated baseline instead of accidentally inspecting the caller's checkout.
 git init -q
-git add .
+git add --force .
 git -c user.name=release-check -c user.email=release-check@example.invalid commit -qm 'Exact source baseline'
 npm ci --no-audit --no-fund
 # Reuse the upstream source gates, then the SDK/host fixtures relevant to this track.
 make checks lint-frontend test-frontend
+git diff --exit-code # Refuse any source mutation left by the gates.
 go test -tags 'sqlite sqlite_unlock_notify' ./modules/extensions ./modules/setting ./services/extensions ./cmd ./contrib/extensions/example
 (cd sdk && go test ./...)
 mkdir "$out/example"
 cp -R contrib/extensions/example/extension.json contrib/extensions/example/assets "$out/example/"
 CGO_ENABLED=0 go build -trimpath -o "$out/example/backend" ./contrib/extensions/example
+chmod 755 "$out/example/backend"
 # Upstream Makefile archive identity; no .git or workstation state enters the build.
 echo "$version+gitea-1.22.0" > VERSION
 rm -rf "$out/source/.git" # Only the task-owned source-check baseline.
@@ -60,10 +62,10 @@ image=$(cat "$out/image-id")
 bash tools/fountain-image-test.sh "$image" "$version" "$commit" "$out"
 # Copy the actual shipped executable, not a second compilation.
 container=$("$engine" create "$image")
-trap '"$engine" rm -f "$container" >/dev/null' EXIT
+trap '"$engine" rm -fv "$container" >/dev/null' EXIT
 "$engine" cp "$container:/app/gitea/gitea" "$out/fountain-$version-linux-amd64"
 "$engine" cp "$container:/usr/share/licenses/fountain/LICENSE" "$out/LICENSE"
-"$engine" rm "$container" >/dev/null
+"$engine" rm -v "$container" >/dev/null
 trap - EXIT
 # Recover the shipped frontend, then reuse upstream's source distribution
 # recipe (generated bindata and vendored Go dependencies, without recompiling).
