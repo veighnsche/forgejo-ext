@@ -30,13 +30,21 @@ RUN cp /*-alpine-linux-musl*/lib/ld-musl-*.so.1 /lib || true
 
 RUN apk --no-cache add build-base git nodejs npm
 
-COPY . ${GOPATH}/src/forgejo.org
 WORKDIR ${GOPATH}/src/forgejo.org
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+COPY go.mod go.sum ./
+COPY sdk ./sdk
+COPY third_party ./third_party
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
 
 RUN make clean-no-bindata
 RUN make frontend
-RUN go build contrib/environment-to-ini/environment-to-ini.go && xx-verify environment-to-ini
-RUN LDFLAGS="-buildid=" make FORGEJO_GENERATE_SKIP_HASH=true RELEASE_VERSION=$RELEASE_VERSION GOFLAGS="-trimpath" go-check generate-backend static-executable && xx-verify gitea
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    go build contrib/environment-to-ini/environment-to-ini.go && xx-verify environment-to-ini
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    LDFLAGS="-buildid=" make FORGEJO_GENERATE_SKIP_HASH=true RELEASE_VERSION=$RELEASE_VERSION GOFLAGS="-trimpath" go-check generate-backend static-executable && xx-verify gitea
 
 # Copy local files
 COPY docker/root /tmp/local
@@ -53,11 +61,14 @@ RUN chmod 644 /go/src/forgejo.org/contrib/autocompletion/bash_autocomplete
 
 FROM data.forgejo.org/oci/alpine:3.23
 ARG RELEASE_VERSION
+ARG SOURCE_REVISION
+ARG SOURCE_URL=https://codeberg.org/forgejo/forgejo
 LABEL maintainer="contact@forgejo.org" \
       org.opencontainers.image.authors="Forgejo" \
       org.opencontainers.image.url="https://forgejo.org" \
       org.opencontainers.image.documentation="https://forgejo.org/download/#container-image" \
-      org.opencontainers.image.source="https://codeberg.org/forgejo/forgejo" \
+      org.opencontainers.image.source="${SOURCE_URL}" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
       org.opencontainers.image.version="${RELEASE_VERSION}" \
       org.opencontainers.image.vendor="Forgejo" \
       org.opencontainers.image.licenses="GPL-3.0-or-later" \
@@ -106,3 +117,4 @@ COPY --from=build-env /go/src/forgejo.org/gitea /app/gitea/gitea
 RUN ln -s /app/gitea/gitea /app/gitea/forgejo-cli
 COPY --from=build-env /go/src/forgejo.org/environment-to-ini /usr/local/bin/environment-to-ini
 COPY --from=build-env /go/src/forgejo.org/contrib/autocompletion/bash_autocomplete /etc/profile.d/gitea_bash_autocomplete.sh
+COPY LICENSE /usr/share/licenses/fountain/LICENSE

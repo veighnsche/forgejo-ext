@@ -6,6 +6,9 @@
 # Folders
 _obj
 _test
+/.git
+/.artifacts
+/node_modules
 
 # IntelliJ
 .idea
