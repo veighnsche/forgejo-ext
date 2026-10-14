@@ -40,8 +40,8 @@ jobs:
           commit=$(git rev-parse "refs/tags/$TAG^{commit}")
           repo=$(gh api "repos/$GITHUB_REPOSITORY")
           jq -e '.private == false' <<< "$repo"
-          default_branch=$(jq -r '.default_branch' <<< "$repo")
-          [[ $GITHUB_REF == "refs/heads/$default_branch" ]]
+          # Reuse caches on a stable maintained branch across release tags.
+          [[ $GITHUB_REF == refs/heads/* ]]
           # Release the reviewed workflow implementation, never load scripts
           # from an unrelated dispatch branch or a moving ref.
           [[ $commit == "$GITHUB_SHA" ]]

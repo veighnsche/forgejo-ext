@@ -54,7 +54,7 @@ release time for downloadable files; normal container gzip layers stay compatibl
 with Docker/GHCR and unchanged layers are reused. No xz level-9 recompression or
 parallel multi-platform release is added.
 
-Dispatch on the default branch so subsequent releases can restore the previous
+Dispatch on the same maintained branch so subsequent releases can restore the previous
 release's caches. Cache mounts are saved separately with the
 [action recommended by Docker](https://docs.docker.com/build/ci/github-actions/cache/#cache-mounts);
 the layer cache alone does not save compiler/module mount contents. Cache keys
@@ -70,14 +70,14 @@ publication entry point and reuses the same build recipes, rather than adopting
 the Codeberg publishing infrastructure or creating another compiler pipeline.
 
 After separately authorizing publication, push a reviewed tag at the exact
-default-branch HEAD and dispatch from the default branch (omit `--ref`):
+maintained-branch HEAD and dispatch from that branch:
 
 ```sh
-gh workflow run fountain-release.yml \
+gh workflow run fountain-release.yml --ref codex/fountain-extensions \
   -f tag=v15.0.10-fountain.1
 ```
 
-The workflow refuses a non-default-branch dispatch or a mismatch between the
+The workflow refuses a tag dispatch or a mismatch between the
 dispatch commit and the existing tag,
 an existing GitHub release, an existing image version tag, registry errors, or a
 private source repository. It creates a draft release with all assets before
@@ -88,8 +88,11 @@ behavior require a real authorized run; local tests cannot establish them.
 
 First-release prerequisites:
 
-- A public GitHub source repository, Actions enabled, workflow on its default
-  branch, the reviewed tag, and `GITHUB_TOKEN` permissions for contents/packages.
+- A public GitHub source repository, Actions enabled, workflow registered on its
+  default branch and present on the maintained branch, the reviewed tag at that
+  maintained branch's dispatch commit, and `GITHUB_TOKEN` permissions for
+  contents/packages. The example uses this checkout's maintained branch; choose
+  the branch carrying the intended Fountain source when that changes.
 - Configure the `fountain-release` GitHub environment with required reviewer
   approval if desired. Configure package access for this repository if an
   existing GHCR package is reused.
