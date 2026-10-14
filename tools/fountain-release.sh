@@ -44,6 +44,7 @@ cp -R contrib/extensions/example/extension.json contrib/extensions/example/asset
 CGO_ENABLED=0 go build -trimpath -o "$out/example/backend" ./contrib/extensions/example
 # Upstream Makefile archive identity; no .git or workstation state enters the build.
 echo "$version+gitea-1.22.0" > VERSION
+rm -rf "$out/source/.git" # Only the task-owned source-check baseline.
 engine=${CONTAINER_ENGINE:-docker}
 build=("$engine" build)
 if [[ $engine == docker && ${GITHUB_ACTIONS:-} == true ]]; then

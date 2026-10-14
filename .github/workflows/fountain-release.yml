@@ -84,12 +84,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Refuse to overwrite a version tag. Registry errors fail closed.
-          if docker manifest inspect "$IMAGE:$VERSION" > "$OUT/existing-manifest.json" 2> "$OUT/registry-error.txt"; then
-            echo 'Image tag already exists; choose a new version.' >&2
-            exit 1
+          # A never-created GHCR package can return "denied" from the registry.
+          # Use the owning account's package API to distinguish absence/errors.
+          owner_type=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.type')
+          package_owner="users/$GITHUB_REPOSITORY_OWNER"
+          if [[ $owner_type == Organization ]]; then package_owner="orgs/$GITHUB_REPOSITORY_OWNER"; fi
+          if gh api --paginate "$package_owner/packages/container/fountain/versions" --jq '.[].metadata.container.tags[]' \
+              > "$OUT/existing-tags.txt" 2> "$OUT/package-error.txt"; then
+            if grep -Fx "$VERSION" "$OUT/existing-tags.txt"; then
+              echo 'Image tag already exists; choose a new version.' >&2
+              exit 1
+            fi
+          else
+            grep -F '(HTTP 404)' "$OUT/package-error.txt"
           fi
-          grep -Eq 'manifest unknown|no such manifest' "$OUT/registry-error.txt"
           config=$(cat "$OUT/image-id")
           docker tag "$config" "$IMAGE:$VERSION"
           docker push "$IMAGE:$VERSION"
