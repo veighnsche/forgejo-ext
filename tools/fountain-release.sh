@@ -28,7 +28,7 @@ export GOPATH="${GOPATH:-$HOME/go}"
 for path in "$TMPDIR" "$npm_config_cache" "$GOCACHE" "$GOPATH"; do [[ $path == /home/* ]]; done
 source_name="fountain-$version-source.tar.gz"
 git archive --format=tar --prefix="fountain-$version/" "$commit" | gzip -1n > "$out/$source_name"
-[[ $(gzip -dc "$out/$source_name" | git get-tar-commit-id) == "$commit" ]]
+[[ $(gzip -dc "$out/$source_name" | { git get-tar-commit-id; cat >/dev/null; }) == "$commit" ]]
 tar -xzf "$out/$source_name" --strip-components=1 -C "$out/source"
 cd "$out/source"
 # Upstream format/tidy gates compare generated changes with Git. Give them an

@@ -38,11 +38,14 @@ jobs:
           set -euo pipefail
           [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-fountain\.[1-9][0-9]*$ ]]
           commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          repo=$(gh api "repos/$GITHUB_REPOSITORY")
+          jq -e '.private == false' <<< "$repo"
+          default_branch=$(jq -r '.default_branch' <<< "$repo")
+          [[ $GITHUB_REF == "refs/heads/$default_branch" ]]
           # Release the reviewed workflow implementation, never load scripts
           # from an unrelated dispatch branch or a moving ref.
           [[ $commit == "$GITHUB_SHA" ]]
           git checkout --detach "$commit"
-          gh api "repos/$GITHUB_REPOSITORY" --jq '.private == false' | grep -Fx true
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo 'Release already exists; choose a new version.' >&2
             exit 1
@@ -62,8 +65,24 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - uses: docker/setup-buildx-action@v4
+        id: buildx
       - name: Expose GitHub build cache
         uses: crazy-max/ghaction-github-runtime@v4
+      - name: Restore native compiler and module caches
+        uses: actions/cache@v5
+        id: mounts
+        with:
+          path: /home/runner/fountain-buildkit-cache
+          key: fountain-buildkit-amd64-${{ hashFiles('Dockerfile', 'go.sum', 'sdk/go.sum') }}-${{ steps.release.outputs.commit }}
+          restore-keys: |
+            fountain-buildkit-amd64-${{ hashFiles('Dockerfile', 'go.sum', 'sdk/go.sum') }}-
+      - name: Inject and save BuildKit cache mounts
+        uses: reproducible-containers/buildkit-cache-dance@v3
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          cache-dir: /home/runner/fountain-buildkit-cache
+          dockerfile: Dockerfile
+          skip-extraction: ${{ steps.mounts.outputs.cache-hit }}
       - name: Source gates, build once, test image
         env:
           VERSION: ${{ steps.release.outputs.version }}
