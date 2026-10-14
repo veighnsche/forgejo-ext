@@ -36,6 +36,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          mkdir -p "$TMPDIR"
           [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-fountain\.[1-9][0-9]*$ ]]
           commit=$(git rev-parse "refs/tags/$TAG^{commit}")
           repo=$(gh api "repos/$GITHUB_REPOSITORY")
@@ -50,10 +51,24 @@ jobs:
             echo 'Release already exists; choose a new version.' >&2
             exit 1
           fi
+          # Check version availability before source checks or compilation.
+          # A never-created GHCR package can return "denied" from the registry;
+          # its owner's package API distinguishes absence from other errors.
+          owner_type=$(jq -r '.owner.type' <<< "$repo")
+          package_owner="users/$GITHUB_REPOSITORY_OWNER"
+          if [[ $owner_type == Organization ]]; then package_owner="orgs/$GITHUB_REPOSITORY_OWNER"; fi
+          if gh api --paginate "$package_owner/packages/container/fountain/versions" --jq '.[].metadata.container.tags[]' \
+              > "$TMPDIR/existing-tags.txt" 2> "$TMPDIR/package-error.txt"; then
+            if grep -Fx "${TAG#v}" "$TMPDIR/existing-tags.txt"; then
+              echo 'Image tag already exists; choose a new version.' >&2
+              exit 1
+            fi
+          else
+            grep -F '(HTTP 404)' "$TMPDIR/package-error.txt"
+          fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fountain" >> "$GITHUB_OUTPUT"
-          mkdir -p "$TMPDIR"
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26.9'
@@ -103,20 +118,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # A never-created GHCR package can return "denied" from the registry.
-          # Use the owning account's package API to distinguish absence/errors.
-          owner_type=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.type')
-          package_owner="users/$GITHUB_REPOSITORY_OWNER"
-          if [[ $owner_type == Organization ]]; then package_owner="orgs/$GITHUB_REPOSITORY_OWNER"; fi
-          if gh api --paginate "$package_owner/packages/container/fountain/versions" --jq '.[].metadata.container.tags[]' \
-              > "$OUT/existing-tags.txt" 2> "$OUT/package-error.txt"; then
-            if grep -Fx "$VERSION" "$OUT/existing-tags.txt"; then
-              echo 'Image tag already exists; choose a new version.' >&2
-              exit 1
-            fi
-          else
-            grep -F '(HTTP 404)' "$OUT/package-error.txt"
-          fi
           config=$(cat "$OUT/image-id")
           docker tag "$config" "$IMAGE:$VERSION"
           docker push "$IMAGE:$VERSION"
