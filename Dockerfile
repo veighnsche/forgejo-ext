@@ -2,9 +2,6 @@ FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/xx AS xx
 
 FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/golang:1.26-alpine3.23 AS build-tools
 
-ARG GOPROXY
-ENV GOPROXY=${GOPROXY:-https://proxy.golang.org,direct}
-
 ARG TAGS="sqlite sqlite_unlock_notify"
 ENV TAGS="bindata timetzdata $TAGS"
 ARG CGO_EXTRA_CFLAGS
@@ -42,6 +39,8 @@ COPY assets ./assets
 RUN make frontend
 
 FROM build-tools AS build-env
+ARG GOPROXY
+ENV GOPROXY=${GOPROXY:-https://proxy.golang.org,direct}
 COPY go.mod go.sum ./
 COPY sdk ./sdk
 COPY third_party ./third_party
