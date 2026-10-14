@@ -19,7 +19,7 @@ import (
 	"github.com/coder/websocket"
 )
 
-func notesRequest(t *testing.T, handler http.Handler, method string, actorID string, body string) *httptest.ResponseRecorder {
+func notesRequest(t *testing.T, handler http.Handler, method, actorID, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequest(method, "/notes", strings.NewReader(body))
 	authority, err := json.Marshal(extensions.Authority{

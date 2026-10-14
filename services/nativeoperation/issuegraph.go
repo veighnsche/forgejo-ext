@@ -7,6 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"os"
+
 	sdk "forgejo.org/extension-sdk"
 	"forgejo.org/models/db"
 	authmodel "forgejo.org/models/extensionauth"
@@ -18,8 +21,6 @@ import (
 	user_model "forgejo.org/models/user"
 	execcontext "forgejo.org/modules/nativeoperation"
 	notify_service "forgejo.org/services/notify"
-	"io"
-	"os"
 )
 
 func parseIssueGraphPayload(data []byte) (*sdk.IssueGraphPayload, error) {

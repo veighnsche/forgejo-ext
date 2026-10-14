@@ -16,6 +16,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/extensions"
 	"forgejo.org/modules/setting"
+
 	"github.com/stretchr/testify/require"
 )
 

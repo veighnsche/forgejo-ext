@@ -5,6 +5,9 @@ package nativeoperation
 import (
 	"context"
 	"encoding/json"
+	"testing"
+	"time"
+
 	sdk "forgejo.org/extension-sdk"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
@@ -15,9 +18,8 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	execcontext "forgejo.org/modules/nativeoperation"
+
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func graphPayload() sdk.IssueGraphPayload {
@@ -26,6 +28,7 @@ func graphPayload() sdk.IssueGraphPayload {
 		Dependencies: []sdk.IssueGraphDependency{{Issue: sdk.IssueGraphRef{Key: "second"}, Prerequisite: sdk.IssueGraphRef{Key: "first"}}},
 	}
 }
+
 func graphIntent(t *testing.T, id string, p sdk.IssueGraphPayload) *ValidIntent {
 	t.Helper()
 	r, err := model.ReadReservation(t.Context())
@@ -37,6 +40,7 @@ func graphIntent(t *testing.T, id string, p sdk.IssueGraphPayload) *ValidIntent 
 	require.NoError(t, err)
 	return intent
 }
+
 func graphDecision(t *testing.T) authmodel.SubmissionDecision {
 	t.Helper()
 	ctx := t.Context()
@@ -51,6 +55,7 @@ func graphDecision(t *testing.T) authmodel.SubmissionDecision {
 	require.NoError(t, err)
 	return authmodel.SubmissionDecision{TokenID: token.ID, ActorID: 2, CredentialFingerprint: authmodel.CredentialFingerprint(token.TokenHash, token.TokenSalt)}
 }
+
 func TestParseIssueGraph(t *testing.T) {
 	raw, err := json.Marshal(graphPayload())
 	require.NoError(t, err)
@@ -61,6 +66,7 @@ func TestParseIssueGraph(t *testing.T) {
 	_, err = parseIssueGraphPayload([]byte(`{"creates":[{"key":"first","title":"Title","body":"Body","close":true}]}`))
 	require.ErrorIs(t, err, ErrInvalidIntent)
 }
+
 func TestIssueGraphSubmitReplayEditAndDependencies(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	useIsolatedAppData(t)
@@ -100,6 +106,7 @@ func TestIssueGraphSubmitReplayEditAndDependencies(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, edges)
 }
+
 func TestIssueGraphCycleRollsBackWholePrimary(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	useIsolatedAppData(t)
@@ -118,6 +125,7 @@ func TestIssueGraphCycleRollsBackWholePrimary(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, before, after)
 }
+
 func TestIssueGraphPrimaryCancellationAndRecovery(t *testing.T) {
 	for _, cancel := range []bool{false, true} {
 		t.Run(map[bool]string{false: "committed", true: "cancelled"}[cancel], func(t *testing.T) {

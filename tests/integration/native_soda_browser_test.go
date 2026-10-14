@@ -36,7 +36,8 @@ func TestNativeSodaBrowserJoin(t *testing.T) {
 	packages, err := os.MkdirTemp(root, "b-")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, os.RemoveAll(packages)) })
-	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "soda", Name: "Soda", Version: "development", Executable: "run", PreferredWorkspace: true,
+	manifest := extension.Manifest{
+		Protocol: extension.Protocol, ID: "soda", Name: "Soda", Version: "development", Executable: "run", PreferredWorkspace: true,
 		Capabilities: []string{extension.CapabilityActorRead, extension.CapabilityRepositoryRead, extension.CapabilityContributionAuthorize},
 		Pages:        []extension.Page{{ID: "spaces", Route: "workspace", Title: "Workspace", Scope: "global", Entry: "soda-spaces-entry.js", Owner: "workspace", Subroutes: []extension.Subroute{{Pattern: "new", Title: "New project"}, {Pattern: "requests/{request}", Title: "Project request"}}}},
 		Panels:       []extension.Panel{{ID: "workspace", Title: "Workspace", Entry: "soda-spaces-entry.js", Owner: "workspace"}},

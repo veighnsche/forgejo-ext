@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/setting"
+
 	"github.com/stretchr/testify/require"
 )
 

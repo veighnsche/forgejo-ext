@@ -38,10 +38,10 @@ func installStreamExtension(t *testing.T) *runtime.Manager {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(root) })
 	packageDir := filepath.Join(root, "pages")
-	require.NoError(t, os.MkdirAll(filepath.Join(packageDir, "assets"), 0700))
+	require.NoError(t, os.MkdirAll(filepath.Join(packageDir, "assets"), 0o700))
 	executable, err := os.Executable()
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte("#!/bin/sh\nexec '"+strings.ReplaceAll(executable, "'", "'\"'\"'")+"'\n"), 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte("#!/bin/sh\nexec '"+strings.ReplaceAll(executable, "'", "'\"'\"'")+"'\n"), 0o700))
 	manifest := extension.Manifest{
 		Protocol:     extension.Protocol,
 		ID:           "pages",
@@ -56,8 +56,8 @@ func installStreamExtension(t *testing.T) *runtime.Manager {
 	}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
 	manager := runtime.NewManager(root)
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
 	require.NoError(t, manager.SetInstanceStopped(web_extensions.RevokeAdmissionsForInstance))

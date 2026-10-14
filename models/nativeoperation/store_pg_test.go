@@ -11,14 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/xorm/xorm"
-	"code.forgejo.org/xorm/xorm/names"
 	"forgejo.org/models/db"
 	model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
-	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for the disposable PostgreSQL fixture
 
+	"code.forgejo.org/xorm/xorm"
+	"code.forgejo.org/xorm/xorm/names"
 	"github.com/stretchr/testify/require"
+
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for the disposable PostgreSQL fixture
 )
 
 // useDisposablePostgres connects the real claim code to a disposable

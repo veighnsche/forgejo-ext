@@ -423,7 +423,7 @@ func (s *Service) finalizePRCreate(ctx context.Context, op *model.Operation, exe
 // prCreateRefTip reads one internal-ref tip for completion binding. A
 // missing ref reports absent; an unreadable ref reports not-OK and the
 // caller treats the state as uncertain.
-func (s *Service) prCreateRefTip(ctx context.Context, repoPath, ref string) (tip string, absent bool, ok bool) {
+func (s *Service) prCreateRefTip(ctx context.Context, repoPath, ref string) (tip string, absent, ok bool) {
 	value, err := s.readRef(ctx, repoPath, ref)
 	if err != nil {
 		if git.IsErrNotExist(err) {

@@ -15,9 +15,10 @@ import (
 	"time"
 
 	"forgejo.org/modules/json"
-	_ "forgejo.org/modules/session"
 	"forgejo.org/modules/setting"
 	forgejo_context "forgejo.org/services/context"
+
+	_ "forgejo.org/modules/session"
 
 	"code.forgejo.org/go-chi/session"
 	"github.com/klauspost/compress/gzhttp"

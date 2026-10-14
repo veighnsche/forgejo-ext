@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	user_model "forgejo.org/models/user"
 	"net/http"
 
+	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
 	runtime "forgejo.org/services/extensions"
 )

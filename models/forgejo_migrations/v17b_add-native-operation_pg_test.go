@@ -9,9 +9,9 @@ import (
 
 	"code.forgejo.org/xorm/xorm"
 	"code.forgejo.org/xorm/xorm/names"
-	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for the disposable PostgreSQL fixture
-
 	"github.com/stretchr/testify/require"
+
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for the disposable PostgreSQL fixture
 )
 
 // Test_addNativeOperationOnPostgres proves a fresh PostgreSQL initializes the

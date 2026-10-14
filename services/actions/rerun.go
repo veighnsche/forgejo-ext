@@ -79,7 +79,6 @@ func RerunAllJobs(ctx context.Context, run *actions_model.ActionRun) ([]*actions
 		RunID: run.ID,
 	}, func(ctx context.Context) error {
 		return db.WithTx(ctx, func(ctx context.Context) error {
-
 			// Wipe all artifacts before a rerun to prevent stale artifacts from polluting artifacts collected during the
 			// rerun.
 			if err := actions_model.SetArtifactsOfRunDeleted(ctx, run.ID); err != nil {

@@ -415,7 +415,6 @@ func DeleteInactiveUsers(ctx context.Context, olderThan time.Duration) error {
 }
 
 func doDeleteInactiveUsers(ctx context.Context, users user_model.UserList) error {
-
 	// FIXME: should only update authorized_keys file once after all deletions.
 	for _, u := range users {
 		select {

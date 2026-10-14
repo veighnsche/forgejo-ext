@@ -381,7 +381,7 @@ type publishStubRefs struct {
 	failAll bool
 }
 
-func (s publishStubRefs) CommitID(_ context.Context, _ string, ref string) (string, error) {
+func (s publishStubRefs) CommitID(_ context.Context, _, ref string) (string, error) {
 	if s.failAll {
 		return "", errors.New("repository unreadable")
 	}

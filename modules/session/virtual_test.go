@@ -6,8 +6,9 @@ package session
 import (
 	"testing"
 
-	"code.forgejo.org/go-chi/session"
 	"forgejo.org/modules/json"
+
+	"code.forgejo.org/go-chi/session"
 	"github.com/stretchr/testify/require"
 )
 

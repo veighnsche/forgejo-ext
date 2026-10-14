@@ -8,16 +8,17 @@ import (
 	"os"
 	"testing"
 
-	"code.forgejo.org/xorm/xorm"
-	"code.forgejo.org/xorm/xorm/names"
 	sdk "forgejo.org/extension-sdk"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/extensionauth"
 	"forgejo.org/models/unittest"
-	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"code.forgejo.org/xorm/xorm"
+	"code.forgejo.org/xorm/xorm/names"
 	"github.com/stretchr/testify/require"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // This selected fixture uses the same native token, binding, account and

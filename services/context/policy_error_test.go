@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"forgejo.org/modules/extensions"
+
 	"github.com/stretchr/testify/require"
 )
 

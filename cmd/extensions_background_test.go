@@ -52,10 +52,12 @@ func TestExtensionBindingCommandsValidateArguments(t *testing.T) {
 	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "bind", "--installation", "x"}); err == nil {
 		t.Fatal("incomplete bind arguments must fail")
 	}
-	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "bind",
+	if err := app.Run(context.Background(), []string{
+		"forgejo", "extensions", "bind",
 		"--installation", "11111111-2222-4333-8444-555555555555",
 		"--token-id", "1", "--actor-id", "2", "--repository-id", "3",
-		"--kind", "pull_request.delete"}); err == nil {
+		"--kind", "pull_request.delete",
+	}); err == nil {
 		t.Fatal("unknown bind kind must fail")
 	}
 	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "unbind"}); err == nil {

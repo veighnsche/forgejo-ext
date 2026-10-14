@@ -21,6 +21,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/tests"
+
 	"github.com/stretchr/testify/require"
 )
 

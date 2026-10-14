@@ -26,8 +26,9 @@ import (
 	"forgejo.org/tests"
 
 	"github.com/coder/websocket"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // Live PTY proof requires SODA_R03_HOST_SOCKET pointing at the real native

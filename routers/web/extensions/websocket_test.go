@@ -12,9 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/go-chi/session"
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/modules/setting"
+
+	"code.forgejo.org/go-chi/session"
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"

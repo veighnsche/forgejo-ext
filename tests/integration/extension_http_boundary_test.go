@@ -14,6 +14,7 @@ import (
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/modules/setting"
 	"forgejo.org/tests"
+
 	"github.com/stretchr/testify/require"
 )
 

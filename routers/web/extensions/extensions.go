@@ -14,14 +14,14 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/net/websocket"
-
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	runtime "forgejo.org/services/extensions"
+
+	"golang.org/x/net/websocket"
 )
 
 // NativeSession excludes API and reverse-proxy credentials from the extension surface.
@@ -502,8 +502,10 @@ func composePanelsHome(ctx *context.Context) {
 	ctx.PageData["extensionPanels"] = panels
 }
 
-var workspaceAuthPath = regexp.MustCompile(`(^|/)user/(login|logout|sign_up|forgot_password|forget_password|reset_password|recover_account|activate|activate_email|two_factor|webauthn|oauth2|openid|link_account|link_account_signin|link_account_signup)(/|$)|(^|/)user/settings/(change_password|security|applications|keys)(/|$)|(^|/)(install|login/oauth|login/openid|oauth2|openid)(/|$)`)
-var workspaceCredentialKey = regexp.MustCompile(`(?i)^(token|password|secret|client_secret|authorization|auth|code|credential|session|api_key|private_key|.*_token)$`)
+var (
+	workspaceAuthPath      = regexp.MustCompile(`(^|/)user/(login|logout|sign_up|forgot_password|forget_password|reset_password|recover_account|activate|activate_email|two_factor|webauthn|oauth2|openid|link_account|link_account_signin|link_account_signup)(/|$)|(^|/)user/settings/(change_password|security|applications|keys)(/|$)|(^|/)(install|login/oauth|login/openid|oauth2|openid)(/|$)`)
+	workspaceCredentialKey = regexp.MustCompile(`(?i)^(token|password|secret|client_secret|authorization|auth|code|credential|session|api_key|private_key|.*_token)$`)
+)
 
 func validWorkspacePath(path string) bool {
 	u, err := url.Parse(path)

@@ -461,7 +461,7 @@ func (s *Service) ReconcilePublish(ctx context.Context, prepared *PreparedPublis
 
 // publishTip reads one reconcile ref tip. A missing ref reports absent; an
 // unreadable ref reports not-OK and the caller retains the fence.
-func (s *Service) publishTip(ctx context.Context, repoPath, ref string) (tip string, absent bool, ok bool) {
+func (s *Service) publishTip(ctx context.Context, repoPath, ref string) (tip string, absent, ok bool) {
 	value, err := s.readRef(ctx, repoPath, ref)
 	if err != nil {
 		if git.IsErrNotExist(err) {

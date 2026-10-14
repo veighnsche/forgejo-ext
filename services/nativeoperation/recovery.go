@@ -542,7 +542,7 @@ func (s *Service) recoverOrdinary(ctx context.Context, assessment *RecoveryAsses
 
 // recoveryTip reads one ref tip for reconciliation. A missing ref reports
 // absent; an unreadable repository fences with missing evidence.
-func (s *Service) recoveryTip(ctx context.Context, assessment *RecoveryAssessment, repoPath, ref string) (tip string, absent bool, fence bool, err error) {
+func (s *Service) recoveryTip(ctx context.Context, assessment *RecoveryAssessment, repoPath, ref string) (tip string, absent, fence bool, err error) {
 	tip, err = s.readRef(ctx, repoPath, ref)
 	if err != nil {
 		if git.IsErrNotExist(err) {

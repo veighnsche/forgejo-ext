@@ -99,7 +99,6 @@ func UpdateMigrationsByType(ctx context.Context, tp structs.GitServiceType, exte
 }
 
 func doUpdateMigrationsByType(ctx context.Context, tp structs.GitServiceType, externalUserID string, userID int64) error {
-
 	if err := issues_model.UpdateIssuesMigrationsByType(ctx, tp, externalUserID, userID); err != nil {
 		return err
 	}

@@ -25,7 +25,7 @@ type stubRefs struct {
 	err  error
 }
 
-func (s stubRefs) CommitID(_ context.Context, _ string, ref string) (string, error) {
+func (s stubRefs) CommitID(_ context.Context, _, ref string) (string, error) {
 	if s.err != nil {
 		return "", s.err
 	}

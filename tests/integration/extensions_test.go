@@ -442,10 +442,12 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	script := "#!/bin/sh\nexec '" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'\n"
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
-	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "preferred", Name: "Preferred", Version: "1", Executable: "run", PreferredWorkspace: true,
+	manifest := extension.Manifest{
+		Protocol: extension.Protocol, ID: "preferred", Name: "Preferred", Version: "1", Executable: "run", PreferredWorkspace: true,
 		Capabilities: []string{extension.CapabilityContributionAuthorize},
 		Pages:        []extension.Page{{ID: "home", Title: "Home", Scope: "global", Route: "workspace", Entry: "main.js", Subroutes: []extension.Subroute{{Pattern: "new", Title: "New Project"}, {Pattern: "requests/{request}", Title: "Build request"}}}},
-		Panels:       []extension.Panel{{ID: "status", Title: "Status", Entry: "status.js"}}}
+		Panels:       []extension.Panel{{ID: "status", Title: "Status", Entry: "status.js"}},
+	}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
@@ -599,10 +601,12 @@ func TestExtensionSharedOwnerComposition(t *testing.T) {
 	require.NoError(t, err)
 	script := "#!/bin/sh\nexec '" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'\n"
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
-	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "shared", Name: "Shared", Version: "1", Executable: "run", PreferredWorkspace: true,
+	manifest := extension.Manifest{
+		Protocol: extension.Protocol, ID: "shared", Name: "Shared", Version: "1", Executable: "run", PreferredWorkspace: true,
 		Capabilities: []string{extension.CapabilityContributionAuthorize},
 		Pages:        []extension.Page{{ID: "spaces", Title: "Workspace", Scope: "global", Route: "workspace", Entry: "main.js", Owner: "workspace"}},
-		Panels:       []extension.Panel{{ID: "workspace", Title: "Workspace", Entry: "main.js", Owner: "workspace"}}}
+		Panels:       []extension.Panel{{ID: "workspace", Title: "Workspace", Entry: "main.js", Owner: "workspace"}},
+	}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
@@ -664,9 +668,11 @@ func TestExtensionPageDataEmbed(t *testing.T) {
 	require.NoError(t, err)
 	script := "#!/bin/sh\nexec '" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'\n"
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
-	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "preferred", Name: "Preferred", Version: "1", Executable: "run", PreferredWorkspace: true,
+	manifest := extension.Manifest{
+		Protocol: extension.Protocol, ID: "preferred", Name: "Preferred", Version: "1", Executable: "run", PreferredWorkspace: true,
 		Capabilities: []string{extension.CapabilityContributionAuthorize},
-		Pages:        []extension.Page{{ID: "home", Title: "Home", Scope: "global", Route: "workspace", Entry: "main.js"}}}
+		Pages:        []extension.Page{{ID: "home", Title: "Home", Scope: "global", Route: "workspace", Entry: "main.js"}},
+	}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
