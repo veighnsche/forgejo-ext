@@ -26,6 +26,8 @@ Podman wrapper with equivalent build/run/cp/inspect commands. Configure that
 wrapper's storage, run root, networking and SELinux mounts for the workstation.
 Output, temporary files and caches must resolve under `/home`; configure the
 container engine's storage there as well. The output directory must not exist.
+Use a short `TMPDIR` under `/home` for Unix socket fixtures; by default the
+script allocates a unique short directory directly below the home directory.
 The script leaves its isolated source, logs, disposable data and artifacts there
 for inspection; it removes only containers it created, never shared caches.
 

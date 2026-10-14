@@ -17,8 +17,10 @@ out=$3
 for tool in go npm gcc make tar gzip jq "${CONTAINER_ENGINE:-docker}"; do command -v "$tool" >/dev/null; done
 mkdir "$out" # Refuse to overwrite an earlier attempt.
 out=$(realpath "$out")
-mkdir "$out/source" "$out/tmp"
-export TMPDIR="$out/tmp"
+mkdir "$out/source"
+# Extension fixtures use Unix sockets; keep temporary paths short even when
+# the chosen output directory is deeply nested.
+export TMPDIR="${TMPDIR:-$(mktemp -d "$HOME/.fountain-tmp.XXXXXX")}"
 export npm_config_cache="${npm_config_cache:-$HOME/.npm}"
 export GOTOOLCHAIN=go1.26.9
 export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
