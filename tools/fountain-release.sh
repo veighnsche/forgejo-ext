@@ -69,8 +69,9 @@ trap '"$engine" rm -fv "$container" >/dev/null' EXIT
 trap - EXIT
 # Recover the shipped frontend, then reuse upstream's source distribution
 # recipe (generated bindata and vendored Go dependencies, without recompiling).
-"$engine" run --rm --mount "type=bind,src=$out/source,dst=/release-source" \
-  "$image" forgejo embedded extract --overwrite --include-vendored --destination /release-source 'public/**'
+"$out/fountain-$version-linux-amd64" --work-path "$out/source" \
+  --custom-path "$out/source/custom" --config "$out/source/custom/conf/app.ini" \
+  embedded extract --overwrite --include-vendored --destination "$out/source" 'public/**'
 GZIP=-1 make VERSION="$version+gitea-1.22.0" TAGS=bindata FORGEJO_GENERATE_SKIP_HASH=true sources-tarbal
 prepared="forgejo-src-$version+gitea-1.22.0.tar.gz"
 cp "dist/release/$prepared" "$out/$prepared"
