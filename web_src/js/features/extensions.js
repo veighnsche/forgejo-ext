@@ -584,7 +584,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
   // or wipe the entry state: pushes take the next host index, replacements
   // keep the current one, and the tracked route follows the real address.
   const trackNativeWrite = (url) => {
-    if (url == null) return;
+    if (url === null || url === undefined) return;
     try {
       const next = new URL(url, window.location.href);
       if (next.origin === origin) current = `${next.pathname}${next.search}${next.hash}`;
