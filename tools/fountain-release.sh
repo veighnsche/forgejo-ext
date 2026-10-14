@@ -14,7 +14,7 @@ out=$3
 [[ $out == /home/* && $(uname -sm) == 'Linux x86_64' ]]
 [[ $(git rev-parse HEAD) == "$commit" ]]
 [[ -z $(git status --porcelain --untracked-files=normal) ]]
-for tool in go npm gcc make tar gzip jq "${CONTAINER_ENGINE:-docker}"; do command -v "$tool" >/dev/null; done
+for tool in go npm gcc make tar gzip jq sha256sum "${CONTAINER_ENGINE:-docker}"; do command -v "$tool" >/dev/null; done
 mkdir "$out" # Refuse to overwrite an earlier attempt.
 out=$(realpath "$out")
 mkdir "$out/source"
@@ -72,7 +72,7 @@ trap - EXIT
 "$out/fountain-$version-linux-amd64" --work-path "$out/source" \
   --custom-path "$out/source/custom" --config "$out/source/custom/conf/app.ini" \
   embedded extract --overwrite --include-vendored --destination "$out/source" 'public/**'
-GZIP=-1 make VERSION="$version+gitea-1.22.0" TAGS=bindata FORGEJO_GENERATE_SKIP_HASH=true sources-tarbal
+GZIP=-1 make SHASUM=sha256sum VERSION="$version+gitea-1.22.0" TAGS=bindata FORGEJO_GENERATE_SKIP_HASH=true sources-tarbal
 prepared="forgejo-src-$version+gitea-1.22.0.tar.gz"
 cp "dist/release/$prepared" "$out/$prepared"
 gzip -1n "$out/fountain-$version-linux-amd64"
