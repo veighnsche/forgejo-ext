@@ -1,11 +1,10 @@
 FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/xx AS xx
 
-FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/golang:1.26-alpine3.23 AS build-env
+FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/golang:1.26-alpine3.23 AS build-tools
 
 ARG GOPROXY
 ENV GOPROXY=${GOPROXY:-https://proxy.golang.org,direct}
 
-ARG RELEASE_VERSION
 ARG TAGS="sqlite sqlite_unlock_notify"
 ENV TAGS="bindata timetzdata $TAGS"
 ARG CGO_EXTRA_CFLAGS
@@ -33,6 +32,16 @@ RUN apk --no-cache add build-base git nodejs npm
 WORKDIR ${GOPATH}/src/forgejo.org
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+
+# Cache the complete native frontend independently of backend/version changes.
+FROM build-tools AS frontend
+COPY Makefile webpack.config.js tailwind.config.js ./
+COPY web_src ./web_src
+COPY public ./public
+COPY assets ./assets
+RUN make frontend
+
+FROM build-tools AS build-env
 COPY go.mod go.sum ./
 COPY sdk ./sdk
 COPY third_party ./third_party
@@ -40,9 +49,10 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 
 RUN make clean-no-bindata
-RUN make frontend
+COPY --from=frontend /go/src/forgejo.org/public ./public
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     go build contrib/environment-to-ini/environment-to-ini.go && xx-verify environment-to-ini
+ARG RELEASE_VERSION
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     LDFLAGS="-buildid=" make FORGEJO_GENERATE_SKIP_HASH=true RELEASE_VERSION=$RELEASE_VERSION GOFLAGS="-trimpath" go-check generate-backend static-executable && xx-verify gitea
 
