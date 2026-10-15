@@ -18,6 +18,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
@@ -239,6 +240,7 @@ func TestAPIPullAllowMaintainerEditRestrictedHead(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.NotNil(t, forkRepo)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		_, err = files_service.ChangeRepoFiles(git.DefaultContext, forkRepo, forkUser, &files_service.ChangeRepoFilesOptions{
 			Files: []*files_service.ChangeRepoFile{
@@ -266,6 +268,7 @@ func TestAPIPullAllowMaintainerEditRestrictedHead(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		// Create a pull request that is unexpectedly backwards -- normally we'd request a branch from the fork to be
 		// merged into the original base repo. But there's nothing preventing us from creating a pull request for the
 		// base to be pulled into the fork:
@@ -289,6 +292,7 @@ func TestAPIPullAllowMaintainerEditRestrictedHead(t *testing.T) {
 		}
 		err = pull_service.NewPullRequest(git.DefaultContext, forkRepo, pullIssue, nil, nil, pullRequest, nil)
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		// forkUser is the owner of forkRepo, and therefore a maintainer of forkRepo.  `AllowMaintainerEdit` should
 		// allow forkUser to edit the head of the PR... except that, in this case, the owner of the PR delegated that
@@ -552,6 +556,7 @@ func createOutdatedPR(t *testing.T, actor, forkOrg *user_model.User, baseRepoOwn
 	})
 	require.NoError(t, err)
 	assert.NotEmpty(t, headRepo)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 	// create a commit on base Repo
 	_, err = files_service.ChangeRepoFiles(git.DefaultContext, baseRepo, baseRepoOwner, &files_service.ChangeRepoFilesOptions{
@@ -580,6 +585,7 @@ func createOutdatedPR(t *testing.T, actor, forkOrg *user_model.User, baseRepoOwn
 	})
 	require.NoError(t, err)
 
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	// create a commit on head Repo
 	_, err = files_service.ChangeRepoFiles(git.DefaultContext, headRepo, actor, &files_service.ChangeRepoFilesOptions{
 		Files: []*files_service.ChangeRepoFile{
@@ -607,6 +613,7 @@ func createOutdatedPR(t *testing.T, actor, forkOrg *user_model.User, baseRepoOwn
 	})
 	require.NoError(t, err)
 
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	// create Pull
 	pullIssue := &issues_model.Issue{
 		RepoID:   baseRepo.ID,
@@ -626,6 +633,7 @@ func createOutdatedPR(t *testing.T, actor, forkOrg *user_model.User, baseRepoOwn
 	}
 	err = pull_service.NewPullRequest(git.DefaultContext, baseRepo, pullIssue, nil, nil, pullRequest, nil)
 	require.NoError(t, err)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{Title: "Test Pull -to-update-"})
 	require.NoError(t, issue.LoadPullRequest(db.DefaultContext))

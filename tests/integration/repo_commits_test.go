@@ -8,10 +8,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	auth_model "forgejo.org/models/auth"
+	git_model "forgejo.org/models/git"
+	repo_model "forgejo.org/models/repo"
+	"forgejo.org/models/unittest"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
@@ -144,25 +149,43 @@ func TestRepoCommitsStatusParallel(t *testing.T) {
 	commitURL, exists := doc.doc.Find("#commits-table tbody tr td.sha a").Attr("href")
 	assert.True(t, exists)
 	assert.NotEmpty(t, commitURL)
+	commitID := path.Base(commitURL)
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerName: "user2", Name: "repo1"})
+	before := unittest.GetCount(t, &git_model.CommitStatus{RepoID: repo.ID, SHA: commitID})
+	token := getUserToken(t, "user2", auth_model.AccessTokenScopeWriteRepository)
 
 	var wg sync.WaitGroup
 	for i := range 10 {
 		wg.Add(1)
 		go func(parentT *testing.T, i int) {
+			defer wg.Done()
 			parentT.Run(fmt.Sprintf("ParallelCreateStatus_%d", i), func(t *testing.T) {
-				ctx := NewAPITestContext(t, "user2", "repo1", auth_model.AccessTokenScopeWriteRepository)
-				runBody := doAPICreateCommitStatus(ctx, path.Base(commitURL), api.CreateStatusOption{
-					State:       api.CommitStatusPending,
-					TargetURL:   "http://test.ci/",
-					Description: "",
-					Context:     "testci",
-				})
-				runBody(t)
-				wg.Done()
+				// Pending status inserts refuse native contention before their
+				// effect. Retry only that refusal; the exact count below rules
+				// out duplicated inserts.
+				deadline := time.Now().Add(30 * time.Second)
+				var resp *httptest.ResponseRecorder
+				for {
+					req := NewRequestWithJSON(t, http.MethodPost,
+						fmt.Sprintf("/api/v1/repos/user2/repo1/statuses/%s", commitID),
+						api.CreateStatusOption{State: api.CommitStatusPending, TargetURL: "http://test.ci/", Context: "testci"},
+					).AddTokenAuth(token)
+					resp = MakeRequest(t, req, NoExpectedStatus)
+					if resp.Code != http.StatusServiceUnavailable || !strings.Contains(resp.Body.String(), "A native operation is in progress; retry shortly.") || time.Now().After(deadline) {
+						break
+					}
+					select {
+					case <-time.After(time.Duration(50+i*5) * time.Millisecond):
+					case <-t.Context().Done():
+						t.Fatal(t.Context().Err())
+					}
+				}
+				require.Equal(t, http.StatusCreated, resp.Code, resp.Body.String())
 			})
 		}(t, i)
 	}
 	wg.Wait()
+	unittest.AssertCount(t, &git_model.CommitStatus{RepoID: repo.ID, SHA: commitID}, before+10)
 }
 
 func TestRepoCommitsStatusMultiple(t *testing.T) {

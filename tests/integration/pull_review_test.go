@@ -30,6 +30,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/queue"
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
@@ -2075,6 +2076,7 @@ func (tester *PullRequestCommentPlacementTester) withBranchCheckout(action func(
 	require.NoError(tester.t, git.NewCommand(tester.t.Context(), "checkout").AddDynamicArguments(branch).Run(&git.RunOpts{Dir: dstPath}))
 
 	action(dstPath)
+	require.NoError(tester.t, queue.GetManager().FlushAll(tester.t.Context(), time.Minute))
 }
 
 func (tester *PullRequestCommentPlacementTester) assertFilesChangedDiff(expectedCommitID string, rowAssertions []diffTableRow, note ...string) {

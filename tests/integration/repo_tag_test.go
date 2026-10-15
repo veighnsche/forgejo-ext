@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"forgejo.org/models"
 	auth_model "forgejo.org/models/auth"
@@ -17,6 +18,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/queue"
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/services/release"
@@ -145,6 +147,7 @@ func TestCreateNewTagProtected(t *testing.T) {
 
 			_, _, err = git.NewCommand(git.DefaultContext, "push", "--tags", "--force").RunStdString(&git.RunOpts{Dir: dstPath})
 			require.NoError(t, err)
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 			req := NewRequestf(t, "GET", "/%s/releases/tag/v-1.1", repo.FullName())
 			resp := MakeRequest(t, req, http.StatusOK)
 			htmlDoc := NewHTMLParser(t, resp.Body)
@@ -174,6 +177,7 @@ func TestSyncRepoTags(t *testing.T) {
 
 			_, _, err = git.NewCommand(git.DefaultContext, "push", "--tags").RunStdString(&git.RunOpts{Dir: dstPath})
 			require.NoError(t, err)
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			testTag := func(t *testing.T) {
 				t.Helper()
@@ -213,12 +217,14 @@ func TestRepushTag(t *testing.T) {
 		require.NoError(t, err)
 		_, _, err = git.NewCommand(git.DefaultContext, "push", "origin", "--tags", "v2.0").RunStdString(&git.RunOpts{Dir: dstPath})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		// create a release for the tag
 		createdRelease := createNewReleaseUsingAPI(t, token, owner, repo, "v2.0", "", "Release of v2.0", "desc")
 		assert.False(t, createdRelease.IsDraft)
 		// delete the tag
 		_, _, err = git.NewCommand(git.DefaultContext, "push", "origin", "--delete", "v2.0").RunStdString(&git.RunOpts{Dir: dstPath})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		// query the release by API and it should be a draft
 		req := NewRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/%s/releases/tags/%s", owner.Name, repo.Name, "v2.0")).AddTokenAuth(token)
 		resp := MakeRequest(t, req, http.StatusOK)
@@ -228,6 +234,7 @@ func TestRepushTag(t *testing.T) {
 		// re-push the tag
 		_, _, err = git.NewCommand(git.DefaultContext, "push", "origin", "--tags", "v2.0").RunStdString(&git.RunOpts{Dir: dstPath})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		// query the release by API and it should not be a draft
 		req = NewRequest(t, "GET", fmt.Sprintf("/api/v1/repos/%s/%s/releases/tags/%s", owner.Name, repo.Name, "v2.0"))
 		resp = MakeRequest(t, req, http.StatusOK)

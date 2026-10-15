@@ -19,6 +19,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/translation"
 	app_context "forgejo.org/services/context"
 	issue_service "forgejo.org/services/issue"
@@ -70,6 +71,7 @@ func TestPullrequestReopen(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		// Create an head repository.
 		headRepo, err := repo_service.ForkRepositoryAndUpdates(git.DefaultContext, user2, org26, repo_service.ForkRepoOptions{
 			BaseRepo: baseRepo,
@@ -77,6 +79,7 @@ func TestPullrequestReopen(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.NotEmpty(t, headRepo)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		// Add a change to the head repository, so a pull request can be opened.
 		_, err = files_service.ChangeRepoFiles(git.DefaultContext, headRepo, user2, &files_service.ChangeRepoFilesOptions{
@@ -105,6 +108,7 @@ func TestPullrequestReopen(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		// Create the pull request.
 		pullIssue := &issues_model.Issue{
 			RepoID:   baseRepo.ID,
@@ -124,6 +128,7 @@ func TestPullrequestReopen(t *testing.T) {
 		}
 		err = pull_service.NewPullRequest(git.DefaultContext, baseRepo, pullIssue, nil, nil, pullRequest, nil)
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{Title: "Testing reopen functionality"})
 

@@ -1202,65 +1202,50 @@ func shuffleSlice(slice []int64) {
 }
 
 func bulkCreatePRs(t *testing.T, prCount int, repo *repo_model.Repository, token string, labelIDs []int64, milestoneID int64) {
-	var createAllPRs sync.WaitGroup
-	var errorListMutex sync.Mutex
-	var errorList []any
+	// Fixture construction must finish before the concurrent merge requests.
+	// Native admission deliberately refuses overlapping ordinary writers.
 	for i := range prCount {
-		createAllPRs.Add(1)
-		go func(i int) {
-			defer createAllPRs.Done()
-			defer func() {
-				if r := recover(); r != nil {
-					errorListMutex.Lock()
-					defer errorListMutex.Unlock()
-					errorList = append(errorList, r)
-				}
-			}()
+		// We're going to create two branches; a new target branch where the PR will merge *into*, and a new
+		// head branch where the PR will merge *from*.  This test is about finding internal concurrency
+		// conflicts within Forgejo that prevent merges, and, merging simultaneously into the *same branch*
+		// would have natural conflicts that aren't what we're attempting to test.
+		targetBranchName := fmt.Sprintf("target-branch-%d", i)
+		req := NewRequestWithJSON(t,
+			"POST",
+			fmt.Sprintf("/api/v1/repos/%s/%s/branches", repo.OwnerName, repo.Name),
+			&api.CreateBranchRepoOption{
+				OldRefName: "main",
+				BranchName: targetBranchName,
+			}).AddTokenAuth(token)
+		MakeRequest(t, req, http.StatusCreated)
 
-			// We're going to create two branches; a new target branch where the PR will merge *into*, and a new
-			// head branch where the PR will merge *from*.  This test is about finding internal concurrency
-			// conflicts within Forgejo that prevent merges, and, merging simultaneously into the *same branch*
-			// would have natural conflicts that aren't what we're attempting to test.
-			targetBranchName := fmt.Sprintf("target-branch-%d", i)
-			req := NewRequestWithJSON(t,
-				"POST",
-				fmt.Sprintf("/api/v1/repos/%s/%s/branches", repo.OwnerName, repo.Name),
-				&api.CreateBranchRepoOption{
-					OldRefName: "main",
-					BranchName: targetBranchName,
-				}).AddTokenAuth(token)
-			MakeRequest(t, req, http.StatusCreated)
+		// Create the head branch that we'll be trying to merge from, with a file change:
+		headBranchName := fmt.Sprintf("update-%d", i)
+		req = NewRequestWithJSON(t,
+			"POST",
+			fmt.Sprintf("/api/v1/repos/%s/%s/contents/README-%d.md", repo.OwnerName, repo.Name, i),
+			&api.CreateFileOptions{
+				FileOptions: api.FileOptions{
+					NewBranchName: headBranchName,
+				},
+				ContentBase64: base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "Hello, world %d!\n", i)),
+			}).AddTokenAuth(token)
+		MakeRequest(t, req, http.StatusCreated)
 
-			// Create the head branch that we'll be trying to merge from, with a file change:
-			headBranchName := fmt.Sprintf("update-%d", i)
-			req = NewRequestWithJSON(t,
-				"POST",
-				fmt.Sprintf("/api/v1/repos/%s/%s/contents/README-%d.md", repo.OwnerName, repo.Name, i),
-				&api.CreateFileOptions{
-					FileOptions: api.FileOptions{
-						NewBranchName: headBranchName,
-					},
-					ContentBase64: base64.StdEncoding.EncodeToString(fmt.Appendf(nil, "Hello, world %d!\n", i)),
-				}).AddTokenAuth(token)
-			MakeRequest(t, req, http.StatusCreated)
-
-			// Create a PR for the branch
-			myLabelIDs := slices.Clone(labelIDs)
-			shuffleSlice(myLabelIDs) // use a random ordering for labels as it may cause deadlocks when their count of assigned issues is updated
-			req = NewRequestWithJSON(t, http.MethodPost,
-				fmt.Sprintf("/api/v1/repos/%s/%s/pulls", repo.OwnerName, repo.Name),
-				&api.CreatePullRequestOption{
-					Head:      headBranchName,
-					Base:      targetBranchName,
-					Title:     fmt.Sprintf("create PR from branch %s", headBranchName),
-					Labels:    myLabelIDs,
-					Milestone: milestoneID,
-				}).AddTokenAuth(token)
-			MakeRequest(t, req, http.StatusCreated)
-		}(i)
+		// Create a PR for the branch
+		myLabelIDs := slices.Clone(labelIDs)
+		shuffleSlice(myLabelIDs) // use a random ordering for labels as it may cause deadlocks when their count of assigned issues is updated
+		req = NewRequestWithJSON(t, http.MethodPost,
+			fmt.Sprintf("/api/v1/repos/%s/%s/pulls", repo.OwnerName, repo.Name),
+			&api.CreatePullRequestOption{
+				Head:      headBranchName,
+				Base:      targetBranchName,
+				Title:     fmt.Sprintf("create PR from branch %s", headBranchName),
+				Labels:    myLabelIDs,
+				Milestone: milestoneID,
+			}).AddTokenAuth(token)
+		MakeRequest(t, req, http.StatusCreated)
 	}
-	createAllPRs.Wait()
-	assert.Empty(t, errorList)
 }
 
 func TestMergeConcurrency(t *testing.T) {
@@ -1327,6 +1312,8 @@ func TestMergeConcurrency(t *testing.T) {
 			var mergeAllPRs sync.WaitGroup
 			var errorListMutex sync.Mutex
 			var errorList []any
+			retryIndices := make(chan int, concurrentCount)
+			start := make(chan struct{})
 			for i := range concurrentCount {
 				mergeAllPRs.Add(1)
 				go func(i int) {
@@ -1338,6 +1325,7 @@ func TestMergeConcurrency(t *testing.T) {
 							errorList = append(errorList, r)
 						}
 					}()
+					<-start
 
 					targetBranchName := fmt.Sprintf("target-branch-%d", i)
 					headBranchName := fmt.Sprintf("update-%d", i)
@@ -1347,6 +1335,8 @@ func TestMergeConcurrency(t *testing.T) {
 						HeadBranch: headBranchName,
 						BaseBranch: targetBranchName,
 					})
+					oldTip, err := git.GetFullCommitID(t.Context(), repo.RepoPath(), git.BranchPrefix+targetBranchName)
+					require.NoError(t, err)
 
 					req := NewRequestWithJSON(t,
 						"POST",
@@ -1355,12 +1345,44 @@ func TestMergeConcurrency(t *testing.T) {
 							Do:                "merge",
 							MergeMessageField: fmt.Sprintf("Merge %s", targetBranchName),
 						}).AddTokenAuth(token)
-					resp := MakeRequest(t, req, http.StatusOK)
+					resp := MakeRequest(t, req, NoExpectedStatus)
+					nativeBusy := strings.Contains(resp.Body.String(), "A native operation is in progress; retry shortly.") ||
+						strings.Contains(resp.Body.String(), "native mutation reservation is busy")
+					if resp.Code == http.StatusServiceUnavailable && nativeBusy {
+						// Only retry a refused writer after proving it changed neither
+						// the PR nor its target ref. Partial merges must fail this test.
+						current := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: pr.ID})
+						require.False(t, current.HasMerged)
+						newTip, err := git.GetFullCommitID(t.Context(), repo.RepoPath(), git.BranchPrefix+targetBranchName)
+						require.NoError(t, err)
+						require.Equal(t, oldTip, newTip)
+						retryIndices <- i
+						return
+					}
+					require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
 					assert.Empty(t, resp.Body.String())
 				}(i)
 			}
+			close(start)
 			mergeAllPRs.Wait()
 			assert.Empty(t, errorList)
+			close(retryIndices)
+			assert.Less(t, len(retryIndices), concurrentCount, "at least one concurrent merge must be admitted")
+			// Complete only the verified, effect-free refusals after the first
+			// concurrent wave has finished and released its ownership.
+			for i := range retryIndices {
+				targetBranchName := fmt.Sprintf("target-branch-%d", i)
+				pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{
+					HeadRepoID: repo.ID,
+					HeadBranch: fmt.Sprintf("update-%d", i),
+				})
+				req := NewRequestWithJSON(t, http.MethodPost,
+					fmt.Sprintf("/api/v1/repos/%s/%s/pulls/%d/merge", repo.OwnerName, repo.Name, pr.Index),
+					&forms.MergePullRequestForm{Do: "merge", MergeMessageField: fmt.Sprintf("Merge %s", targetBranchName)},
+				).AddTokenAuth(token)
+				resp := MakeRequest(t, req, http.StatusOK)
+				assert.Empty(t, resp.Body.String())
+			}
 		}
 
 		// Verify that: Logs had no errors
@@ -1452,6 +1474,7 @@ func TestMergeHTTPRequestCancellation(t *testing.T) {
 			assert.Empty(t, errorList)
 		}
 
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		// Verify that all PRs are in a consistent state of merged or not (not a corrupt state):
 		gitRepo, err := gitrepo.OpenRepository(t.Context(), repo)
 		require.NoError(t, err)
