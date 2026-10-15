@@ -93,7 +93,7 @@ func runControllerHelper(knobs testFixtureKnobs) int {
 			if err != nil {
 				return sdk.LifecycleObservation{}, err
 			}
-			return controllerFixtureCall(stateDir, knobs, call, verification)
+			return controllerFixtureCall(ctx, stateDir, knobs, call, verification)
 		},
 	}
 	if err := sdk.Serve(application); err != nil {
@@ -103,7 +103,7 @@ func runControllerHelper(knobs testFixtureKnobs) int {
 	return 0
 }
 
-func controllerFixtureCall(stateDir string, knobs testFixtureKnobs, call sdk.LifecycleCall, verification sdk.LifecycleVerification) (sdk.LifecycleObservation, error) {
+func controllerFixtureCall(ctx context.Context, stateDir string, knobs testFixtureKnobs, call sdk.LifecycleCall, verification sdk.LifecycleVerification) (sdk.LifecycleObservation, error) {
 	fail := func(err error) (sdk.LifecycleObservation, error) { return sdk.LifecycleObservation{}, err }
 	switch call.Operation {
 	case sdk.LifecycleObserve:
@@ -111,6 +111,23 @@ func controllerFixtureCall(stateDir string, knobs testFixtureKnobs, call sdk.Lif
 	case sdk.LifecycleActivate:
 		if !verification.DesiredEnabled {
 			return fail(errors.New("activation is not desired"))
+		}
+		if knobs.GateActivate {
+			if err := os.WriteFile(filepath.Join(stateDir, "activate.entered"), nil, 0o600); err != nil {
+				return fail(err)
+			}
+			for {
+				if _, err := os.Stat(filepath.Join(stateDir, "activate.release")); err == nil {
+					break
+				} else if !os.IsNotExist(err) {
+					return fail(err)
+				}
+				select {
+				case <-ctx.Done():
+					return fail(ctx.Err())
+				case <-time.After(5 * time.Millisecond):
+				}
+			}
 		}
 		if knobs.SlowActivateMs > 0 {
 			time.Sleep(time.Duration(knobs.SlowActivateMs) * time.Millisecond)

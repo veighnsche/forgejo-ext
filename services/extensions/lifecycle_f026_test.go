@@ -136,9 +136,19 @@ func TestF026StateReadsMakeZeroControllerCalls(t *testing.T) {
 // F26-1: during accepted activation the exact state fixture reports
 // pending with closed admission from local observations alone.
 func TestF026StateDuringActivationReportsPending(t *testing.T) {
-	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller", SlowActivateMs: 3000}, true)
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller", GateActivate: true}, true)
+	stateDir := controllerStateDir(h)
+	release := filepath.Join(stateDir, "activate.release")
+	t.Cleanup(func() { _ = os.WriteFile(release, nil, 0o600) })
 	requestEnabledAccept(t, h.m, "sample", "0", h.sha, true)
-	base := readObserveCount(controllerStateDir(h))
+	// The task's initial observation must finish before measuring reads.
+	// Hold activation itself until every pending-state assertion completes.
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(filepath.Join(stateDir, "activate.entered"))
+		return err == nil
+	}, 10*time.Second, 5*time.Millisecond)
+	base := readObserveCount(stateDir)
+	require.Positive(t, base)
 
 	response, reject := h.m.ControlState(context.Background(), "controller", "sample")
 	require.Nil(t, reject)
@@ -148,8 +158,9 @@ func TestF026StateDuringActivationReportsPending(t *testing.T) {
 	require.True(t, response.Entry.DesiredEnabled)
 	require.NotNil(t, response.Entry.PendingOperation)
 	require.Equal(t, packages.IntentActivate, *response.Entry.PendingOperation)
-	require.Equal(t, base, readObserveCount(controllerStateDir(h)),
+	require.Equal(t, base, readObserveCount(stateDir),
 		"activation state reads must not call the controller")
+	require.NoError(t, os.WriteFile(release, nil, 0o600))
 	waitActiveOpDone(t, h.m)
 	settled, reject := h.m.ControlState(context.Background(), "controller", "sample")
 	require.Nil(t, reject)

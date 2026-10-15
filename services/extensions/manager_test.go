@@ -84,6 +84,7 @@ type testFixtureKnobs struct {
 	Role           string `json:"role"`
 	FailActivate   bool   `json:"fail_activate"`
 	SlowActivateMs int    `json:"slow_activate_ms"`
+	GateActivate   bool   `json:"gate_activate,omitempty"`
 	SlowStartMs    int    `json:"slow_start_ms"`
 	CrashAfterMs   int    `json:"crash_after_ms"`
 }
