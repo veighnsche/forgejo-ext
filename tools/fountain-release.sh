@@ -38,10 +38,7 @@ git add --force .
 git -c user.name=release-check -c user.email=release-check@example.invalid commit -qm 'Exact source baseline'
 npm ci --no-audit --no-fund
 # Reuse the upstream source gates, then the SDK/host fixtures relevant to this track.
-make checks lint-frontend test-frontend
-git diff --exit-code # Refuse any source mutation left by the gates.
-go test -tags 'sqlite sqlite_unlock_notify' ./modules/extensions ./modules/setting ./services/extensions ./cmd ./contrib/extensions/example
-(cd sdk && go test ./...)
+FOUNTAIN_CHECK_ISOLATED=1 make fountain-check-release
 mkdir "$out/example"
 cp -R contrib/extensions/example/extension.json contrib/extensions/example/assets "$out/example/"
 CGO_ENABLED=0 go build -trimpath -o "$out/example/backend" ./contrib/extensions/example

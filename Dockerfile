@@ -1,3 +1,5 @@
+# xx is the upstream cross-compilation shim; its complete root is its interface.
+# hadolint ignore=DL3006
 FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/xx AS xx
 
 FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/golang:1.26-alpine3.23 AS build-tools
@@ -9,8 +11,11 @@ ARG CGO_EXTRA_CFLAGS
 #
 # Transparently cross compile for the target platform
 #
+# hadolint ignore=DL3067
 COPY --from=xx / /
 ARG TARGETPLATFORM
+# Upstream Alpine repositories select the supported package revisions.
+# hadolint ignore=DL3018
 RUN apk --no-cache add clang lld
 RUN xx-apk --no-cache add gcc musl-dev
 ENV CGO_ENABLED=1
@@ -24,6 +29,7 @@ RUN xx-go --wrap
 #
 RUN cp /*-alpine-linux-musl*/lib/ld-musl-*.so.1 /lib || true
 
+# hadolint ignore=DL3018
 RUN apk --no-cache add build-base git nodejs npm
 
 WORKDIR ${GOPATH}/src/forgejo.org
@@ -86,6 +92,7 @@ LABEL maintainer="contact@forgejo.org" \
 
 EXPOSE 22 3000
 
+# hadolint ignore=DL3018
 RUN apk --no-cache add \
     bash \
     ca-certificates \
@@ -100,6 +107,7 @@ RUN apk --no-cache add \
     gnupg \
     && rm -rf /var/cache/apk/*
 
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 RUN addgroup \
     -S -g 1000 \
     git && \
@@ -121,7 +129,7 @@ ENTRYPOINT ["/usr/bin/entrypoint"]
 CMD ["/usr/bin/s6-svscan", "/etc/s6"]
 
 COPY --from=build-env /tmp/local /
-RUN cd /usr/local/bin ; ln -s gitea forgejo
+RUN ln -s /usr/local/bin/gitea /usr/local/bin/forgejo
 COPY --from=build-env /go/src/forgejo.org/gitea /app/gitea/gitea
 RUN ln -s /app/gitea/gitea /app/gitea/forgejo-cli
 COPY --from=build-env /go/src/forgejo.org/environment-to-ini /usr/local/bin/environment-to-ini

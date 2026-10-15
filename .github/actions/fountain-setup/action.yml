@@ -1,0 +1,59 @@
+name: Set up Fountain source checks
+description: Install the repository toolchain and locked source dependencies
+inputs:
+  dependencies:
+    description: Install locked frontend dependencies
+    default: 'true'
+  browser:
+    description: Install the pinned Chromium fixture
+    default: 'false'
+  lfs:
+    description: Install the pinned Git LFS fixture tool
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Admit candidate identity and short temporary paths
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          [[ $GITHUB_REF_NAME == "ci/fountain-$GITHUB_SHA" ]]
+        fi
+        echo "TMPDIR=$(mktemp -d "$HOME/fc.XXXXXXXX")" >> "$GITHUB_ENV"
+    - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      with:
+        go-version: '1.26.9'
+        cache-dependency-path: |
+          go.sum
+          sdk/go.sum
+          third_party/go-chi-session/go.sum
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      with:
+        node-version-file: .node-version
+        cache: npm
+    - name: Install the selected npm version
+      shell: bash
+      run: |
+        npm install --prefix "$HOME/.local/fountain-ci" --no-audit --no-fund npm@11.11.0
+        echo "$HOME/.local/fountain-ci/node_modules/.bin" >> "$GITHUB_PATH"
+    - name: Install locked dependencies
+      if: inputs.dependencies == 'true'
+      shell: bash
+      run: npm ci --no-audit --no-fund
+    - name: Install verified Git LFS
+      if: inputs.lfs == 'true'
+      shell: bash
+      run: |
+        curl --fail --silent --show-error --location \
+          https://github.com/git-lfs/git-lfs/releases/download/v3.8.0/git-lfs-linux-amd64-v3.8.0.tar.gz \
+          --output "$TMPDIR/git-lfs.tar.gz"
+        printf '%s  %s\n' e455e00f15d9b95661b8d53498ffb0c3367962cf1ec73c31ab7369516cd6ab8d "$TMPDIR/git-lfs.tar.gz" | sha256sum --check
+        mkdir -p "$HOME/.local/fountain-ci/bin"
+        tar -xzf "$TMPDIR/git-lfs.tar.gz" --strip-components=1 \
+          -C "$HOME/.local/fountain-ci/bin" git-lfs-3.8.0/git-lfs
+        echo "$HOME/.local/fountain-ci/bin" >> "$GITHUB_PATH"
+    - name: Install Chromium
+      if: inputs.browser == 'true'
+      shell: bash
+      run: npx --no-install playwright install --with-deps chromium

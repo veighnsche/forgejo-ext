@@ -44,7 +44,7 @@ GXZ_PACKAGE ?= github.com/ulikunitz/xz/cmd/gxz@v0.5.15 # renovate: datasource=go
 SWAGGER_PACKAGE ?= github.com/go-swagger/go-swagger/cmd/swagger@v0.33.2 # renovate: datasource=go
 XGO_PACKAGE ?= src.techknowlogick.com/xgo@latest
 GO_LICENSES_PACKAGE ?= github.com/google/go-licenses/v2@v2.0.1 # renovate: datasource=go
-GOVULNCHECK_PACKAGE ?= golang.org/x/vuln/cmd/govulncheck@v1 # renovate: datasource=go
+GOVULNCHECK_PACKAGE ?= golang.org/x/vuln/cmd/govulncheck@v1.1.4 # renovate: datasource=go
 DEADCODE_PACKAGE ?= golang.org/x/tools/cmd/deadcode@v0.43.0 # renovate: datasource=go
 ERRORTYPE_PACKAGE ?= fillmore-labs.com/errortype@v0.0.11 # renovate: datasource=go
 RENOVATE_NPM_PACKAGE ?= renovate@43.86.1 # renovate: datasource=docker packageName=data.forgejo.org/renovate/renovate
@@ -439,7 +439,13 @@ lint-frontend: lint-js tsc lint-css
 lint-frontend-fix: lint-js-fix lint-css-fix
 
 .PHONY: lint-backend
-lint-backend: lint-go lint-go-vet lint-editorconfig lint-renovate lint-locale lint-locale-usage lint-disposable-emails lint-single-response
+BACKEND_LINT_CHECKS = lint-go-vet lint-editorconfig lint-renovate lint-locale lint-locale-usage lint-disposable-emails lint-single-response
+lint-backend: lint-go $(BACKEND_LINT_CHECKS)
+
+# The upstream dead-code baseline describes only the main executable, not the
+# independently consumed extension SDK. Keep it in lint-backend for maintenance.
+.PHONY: lint-backend-analysis
+lint-backend-analysis: lint-go-analysis $(BACKEND_LINT_CHECKS)
 
 .PHONY: lint-backend-fix
 lint-backend-fix: lint-go-fix lint-go-vet lint-editorconfig lint-disposable-emails-fix
@@ -466,9 +472,7 @@ lint-swagger: node_modules
 
 .PHONY: lint-renovate
 lint-renovate: node_modules
-	npx --yes --package $(RENOVATE_NPM_PACKAGE) -- renovate-config-validator --no-global .forgejo/renovate.json > .lint-renovate 2>&1 || true
-	@if grep --quiet --extended-regexp -e '^( ERROR:)' .lint-renovate ; then cat .lint-renovate ; rm .lint-renovate ; exit 1 ; fi
-	@rm .lint-renovate
+	npx --yes --package $(RENOVATE_NPM_PACKAGE) -- renovate-config-validator --no-global .forgejo/renovate.json
 
 .PHONY: lint-locale
 lint-locale:
@@ -484,10 +488,14 @@ lint-md: node_modules
 
 RUN_DEADCODE = $(GO) run $(DEADCODE_PACKAGE) -generated=false -f='{{println .Path}}{{range .Funcs}}{{printf "\t%s\n" .Name}}{{end}}{{println}}' -test forgejo.org
 
-.PHONY: lint-go
-lint-go:
+.PHONY: lint-go-analysis
+lint-go-analysis:
 	$(GO) run $(GOLANGCI_LINT_PACKAGE) run $(GOLANGCI_LINT_ARGS) \
 	|| (code=$$?; echo "Please run 'make lint-go-fix' and commit the result"; exit $${code})
+	$(GO) run $(ERRORTYPE_PACKAGE) ./...
+
+.PHONY: lint-go
+lint-go: lint-go-analysis
 	$(RUN_DEADCODE) > .cur-deadcode-out
 	@$(DIFF) .deadcode-out .cur-deadcode-out >.deadcode.diff || true
 	@if grep -qE '^[+][^+]' .deadcode.diff ; then \
@@ -502,7 +510,6 @@ lint-go:
 		echo "Looks like you removed dead code. Thank you!"; \
 		echo "Run 'make lint-go-fix' and commit the result to accept."; \
 	fi
-	$(GO) run $(ERRORTYPE_PACKAGE) ./...
 
 .PHONY: lint-go-fix
 lint-go-fix:
@@ -576,6 +583,12 @@ test-remote-cacher:
 .PHONY: test-frontend
 test-frontend: node_modules
 	npx vitest
+
+# These targets require a disposable, clean checkout: upstream generators can
+# rewrite tracked files and stage SVGs. See docs/fountain-testing.md.
+.PHONY: fountain-check-source fountain-check-unit fountain-check-database fountain-check-browser fountain-check-packaging fountain-check-release
+fountain-check-source fountain-check-unit fountain-check-database fountain-check-browser fountain-check-packaging fountain-check-release:
+	bash tools/fountain-check.sh $(patsubst fountain-check-%,%,$@)
 
 .PHONY: test-frontend-coverage
 test-frontend-coverage: node_modules

@@ -20,7 +20,7 @@ bash tools/fountain-release.sh 15.0.10-fountain.1 "$(git rev-parse HEAD)" \
 ```
 
 Prerequisites: Go 1.26.9 (selected by the script), Node as pinned in
-`.node-version`, npm, Git, GCC for native SQLite tests, GNU make/tar, gzip, jq and
+`.node-version`, npm 11.11.0 as selected by `package.json`, Git, GCC for native SQLite tests, GNU make/tar, gzip, jq and
 a working native Docker engine with BuildKit. `CONTAINER_ENGINE` may name a
 Podman wrapper with equivalent build/run/cp/inspect commands. Configure that
 wrapper's storage, run root, networking and SELinux mounts for the workstation.
@@ -31,10 +31,15 @@ script allocates a unique short directory directly below the home directory.
 The script leaves its isolated source, logs, disposable data and artifacts there
 for inspection; it removes only containers it created, never shared caches.
 
-The script archives the exact HEAD commit before generation. It runs upstream
-`make checks lint-frontend test-frontend`, existing extension/setting/CLI/example
+The script archives the exact HEAD commit before generation. It runs
+`make fountain-check-release`, sharing the existing upstream source checks,
+frontend lint/tests, strict browser SDK checks, extension/setting/CLI/example
 tests and standalone SDK tests before the expensive container build. Formatting
-and tidy gates compare against an isolated Git baseline. The single container
+and tidy gates compare both worktree and index against an isolated Git baseline.
+The complete hosted push gate additionally includes broad Go units, PostgreSQL,
+SQLite integration and a native browser journey; see
+[Fountain testing](fountain-testing.md). Local release checks do not replace that
+qualification. The single container
 build uses the existing Dockerfile and Makefile's frontend, bindata and static
 executable recipes. Its default upstream platforms and rootless recipe remain
 available; this release track publishes only native `linux/amd64`.
