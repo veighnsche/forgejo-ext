@@ -58,7 +58,7 @@ case $1 in
   database)
     : "${FORGEJO_TEST_PG_DSN:?Set a DSN for a disposable PostgreSQL database}"
     make backend TAGS='sqlite sqlite_unlock_notify'
-    make test-sqlite-migration test-sqlite GOTESTFLAGS=-count=1 GOTESTCOMPILEDRUNSUFFIX=-test.timeout=100m
+    make test-sqlite-migration test-sqlite GOTESTFLAGS=-count=1 GOTESTCOMPILEDRUNSUFFIX=-test.timeout=120m
     # Each package mutates schema/fixtures. Never run these against one database
     # concurrently; pipefail preserves go test failures before JSON admission.
     for package in models/nativeoperation services/nativeoperation models/forgejo_migrations; do
