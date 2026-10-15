@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"forgejo.org/models"
 	actions_model "forgejo.org/models/actions"
@@ -506,6 +507,12 @@ var (
 
 // DeleteBranch delete branch
 func DeleteBranch(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, gitRepo *git.Repository, branchName string) error {
+	return deleteBranch(ctx, doer, repo, gitRepo, branchName, 0)
+}
+
+// wait permits post-merge completion to wait for independent deferred owners.
+// Ordinary branch deletion retains its single-attempt admission behavior.
+func deleteBranch(ctx context.Context, doer *user_model.User, repo *repo_model.Repository, gitRepo *git.Repository, branchName string, wait time.Duration) error {
 	err := repo.MustNotBeArchived()
 	if err != nil {
 		return err
@@ -543,12 +550,12 @@ func DeleteBranch(ctx context.Context, doer *user_model.User, repo *repo_model.R
 	// identity and the execution capability so the reference-transaction
 	// checkpoint binds the delete to this owner.
 	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
-	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyBranchDelete, fmt.Sprintf("%d/%s", repo.ID, branchName), nativeoperation_service.Scope{
+	err = nativeoperation_service.Default().WithOrdinaryOwnershipWait(ctx, nativeoperation_service.FamilyBranchDelete, fmt.Sprintf("%d/%s", repo.ID, branchName), nativeoperation_service.Scope{
 		RepositoryID: repo.ID,
 		Ref:          git.BranchPrefix + branchName,
 		OldOID:       commit.ID.String(),
 		NewOID:       objectFormat.EmptyObjectID().String(),
-	}, func(ctx context.Context) error {
+	}, wait, func(ctx context.Context) error {
 		if err := db.WithTx(ctx, func(ctx context.Context) error {
 			if !notExist {
 				if err := git_model.AddDeletedBranch(ctx, repo.ID, branchName, doer.ID); err != nil {
@@ -614,11 +621,19 @@ func DeleteBranchAfterMerge(ctx context.Context, doer *user_model.User, pr *issu
 	if err := pull_service.RetargetChildrenOnMerge(ctx, doer, pr); err != nil {
 		return err
 	}
-	if err := DeleteBranch(ctx, doer, pr.HeadRepo, headRepo, pr.HeadBranch); err != nil {
+	if err := deleteBranch(ctx, doer, pr.HeadRepo, headRepo, pr.HeadBranch, time.Second); err != nil {
 		return err
 	}
 
-	if err := issues_model.AddDeletePRBranchComment(ctx, doer, pr.BaseRepo, pr.Issue.ID, pr.HeadBranch); err != nil {
+	// Record the completion comment under a fresh collaboration owner; the
+	// branch-delete recovery contract stays limited to its own Git effect.
+	if err := nativeoperation_service.Default().WithOrdinaryOwnershipWait(ctx,
+		nativeoperation_service.FamilyCollaboration,
+		nativeoperation_service.CommentCreateResource(pr.Issue.ID),
+		nativeoperation_service.Scope{RepositoryID: pr.BaseRepoID}, time.Second,
+		func(ctx context.Context) error {
+			return issues_model.AddDeletePRBranchComment(ctx, doer, pr.BaseRepo, pr.Issue.ID, pr.HeadBranch)
+		}); err != nil {
 		// Do not fail here as branch has already been deleted
 		log.Error("DeleteBranchAfterMerge: %v", err)
 	}
