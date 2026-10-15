@@ -486,13 +486,14 @@ func TestF026MaintenanceGuardRootOwnedContract(t *testing.T) {
 		require.False(t, maintenanceHeld(owned))
 		holder, err := os.OpenFile(owned, os.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
 		require.NoError(t, err)
+		require.Error(t, syscall.Flock(int(holder.Fd()), syscall.LOCK_EX|syscall.LOCK_NB), "active shared guard must exclude maintenance")
+		release()
 		require.NoError(t, syscall.Flock(int(holder.Fd()), syscall.LOCK_EX|syscall.LOCK_NB))
 		_, err = acquireMaintenanceGuard(owned)
 		require.Error(t, err, "exclusive exclusion must refuse the shared guard")
 		require.True(t, maintenanceHeld(owned))
 		require.NoError(t, syscall.Flock(int(holder.Fd()), syscall.LOCK_UN))
 		require.NoError(t, holder.Close())
-		release()
 		require.NoError(t, os.WriteFile(filepath.Join(owned, "operation.json"), []byte(`{}`), 0o600))
 		_, err = acquireMaintenanceGuard(owned)
 		require.Error(t, err, "the marker must refuse the shared guard")
@@ -512,40 +513,32 @@ func TestF026MaintenanceGuardRootOwnedContract(t *testing.T) {
 	require.False(t, maintenanceHeld(""), "standalone Fountain has no fence")
 }
 
-// Snapshot coherence with invalid requested state: a malformed
-// optional intent is preserved as a generation-zero row across
-// snapshot reads, state serves it failed without host calls, and
-// reconcile reports it failed without rejecting the pass.
+// Invalid durable intent is unavailable, never a fabricated disabled row.
+// Every manager-control reader rejects it before effects or mutation adoption.
 func TestF026SnapshotCoherenceWithInvalidIntent(t *testing.T) {
 	root := t.TempDir()
 	m := controlManager(t, root)
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".intents"), 0o700))
-	require.NoError(t, os.WriteFile(filepath.Join(root, ".intents", "sample.json"), []byte(`{"schema":`), 0o600))
-
-	first, reject := m.ControlSnapshot(context.Background(), "soda")
-	require.Nil(t, reject)
-	second, reject := m.ControlSnapshot(context.Background(), "soda")
-	require.Nil(t, reject)
-	require.Equal(t, first, second, "snapshot reads are coherent")
-	require.Len(t, first.Entries, 2)
-	require.Equal(t, "sample", first.Entries[0].PackageID)
-	require.Equal(t, "0", first.Entries[0].Generation)
-	require.False(t, first.Entries[0].DesiredEnabled)
-
-	state, reject := m.ControlState(context.Background(), "soda", "sample")
-	require.Nil(t, reject)
-	require.False(t, state.AdmissionOpen)
-	require.Equal(t, "0", state.Entry.Generation)
-	observed := lifecycleResult(t, m.Observe("sample"))
-	require.Equal(t, packages.LifecycleFailed, observed.State)
-
-	reconciled, reject := m.ControlReconcile(context.Background(), "soda")
-	require.Nil(t, reject, "invalid intent fails its row, never the pass")
-	byID := make(map[string]ControlReconcileEntry)
-	for _, entry := range reconciled.Entries {
-		byID[entry.PackageID] = entry
+	path := filepath.Join(root, ".intents", "sample.json")
+	invalid := []byte(`{"schema":`)
+	require.NoError(t, os.WriteFile(path, invalid, 0o600))
+	for range 2 {
+		_, reject := m.ControlSnapshot(context.Background(), "soda")
+		require.NotNil(t, reject)
+		require.Equal(t, http.StatusServiceUnavailable, reject.HTTPStatus)
 	}
-	malformed := byID["sample"]
-	require.Equal(t, "available", malformed.State)
-	require.Nil(t, malformed.Error)
+	_, reject := m.ControlState(context.Background(), "soda", "sample")
+	require.NotNil(t, reject)
+	require.Equal(t, http.StatusServiceUnavailable, reject.HTTPStatus)
+	_, reject = m.ControlReconcile(context.Background(), "soda")
+	require.NotNil(t, reject)
+	require.Equal(t, http.StatusServiceUnavailable, reject.HTTPStatus)
+	m.mu.Lock()
+	mutation := m.mutation
+	m.mu.Unlock()
+	require.Empty(t, mutation)
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, invalid, after)
+	require.Equal(t, packages.LifecycleFailed, m.Observe("sample").State)
 }

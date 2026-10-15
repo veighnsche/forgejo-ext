@@ -79,8 +79,8 @@ func (m *Manager) controlCatalog() ([]sdk.CatalogPackage, string) {
 // controlSnapshotEntries builds the sorted snapshot rows: every required
 // row with its real installation UUID and receipt pins, plus every
 // optional row managed by the authenticated controller, including
-// absent and disabled rows. A malformed optional intent is preserved as
-// a generation-"0" disabled row, never omitted. Missing optional
+// absent and disabled rows. Malformed optional intent rejects the snapshot;
+// it must never be mistaken for a generation-zero absence. Missing optional
 // UUID/version/digest is null.
 func (m *Manager) controlSnapshotEntries(controllerID string) ([]packages.SnapshotEntry, error) {
 	entries, _ := m.controlCatalog()
@@ -143,10 +143,7 @@ func (m *Manager) controlSnapshotEntries(controllerID string) ([]packages.Snapsh
 		}
 		intent, err := packages.LoadIntent(m.root, id)
 		if err != nil {
-			// Malformed requested state is preserved, never omitted and
-			// never read as a fresh absence.
-			rows = append(rows, row)
-			continue
+			return nil, errors.New("optional requested state is unavailable")
 		}
 		row.Generation = intent.Generation
 		row.DesiredEnabled = intent.DesiredEnabled
@@ -405,7 +402,7 @@ func (m *Manager) ControlSnapshot(ctx context.Context, controllerID string) (Con
 // with stopped effects and closed admission. Anything else carries a
 // non-null bounded error. Controller or socket unavailability yields
 // failed rows with error unavailable.
-func (m *Manager) reconcileRow(row packages.SnapshotEntry, catalogEntry *sdk.CatalogPackage, controllerReady bool, draining, fenced bool) ControlReconcileEntry {
+func (m *Manager) reconcileRow(row packages.SnapshotEntry, catalogEntry *sdk.CatalogPackage, controllerReady, draining, fenced bool) ControlReconcileEntry {
 	entry := ControlReconcileEntry{
 		PackageID:        row.PackageID,
 		InstallationID:   row.InstallationID,
@@ -665,10 +662,7 @@ func (m *Manager) ControlCache(ctx context.Context, controllerID string, target 
 func controlRemaining(ctx context.Context, ceiling time.Duration) (time.Duration, bool) {
 	remaining := ceiling
 	if deadline, ok := ctx.Deadline(); ok {
-		remaining = time.Until(deadline)
-		if remaining > ceiling {
-			remaining = ceiling
-		}
+		remaining = min(time.Until(deadline), ceiling)
 	}
 	if remaining <= 0 {
 		return 0, false

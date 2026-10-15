@@ -10,7 +10,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net/http"
 	"os"
 	"path/filepath"
@@ -101,14 +101,13 @@ func TestControlSnapshotEntries(t *testing.T) {
 	require.False(t, optional.DesiredEnabled)
 	require.Nil(t, optional.InstallationID)
 
-	// A malformed optional intent is preserved, never omitted.
+	// A malformed optional intent is preserved and rejects the snapshot.
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".intents"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".intents", "sample.json"), []byte(`{"schema":`), 0o600))
 	rows, err = m.controlSnapshotEntries("soda")
-	require.NoError(t, err)
-	require.Len(t, rows, 2)
-	require.Equal(t, "sample", rows[0].PackageID)
-	require.Equal(t, "0", rows[0].Generation)
+	require.Error(t, err)
+	require.Nil(t, rows)
+	require.NoError(t, os.Remove(filepath.Join(root, ".intents", "sample.json")))
 
 	// A missing required installation is invalid storage, not absence.
 	require.NoError(t, os.Remove(filepath.Join(root, ".installations", "soda.json")))
