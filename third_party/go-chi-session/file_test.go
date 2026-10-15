@@ -14,11 +14,44 @@
 
 package session
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
+
+type fileTestGC struct {
+	sync.Mutex
+	stopped bool
+}
+
+type fileTestProvider struct {
+	FileProvider
+	gc *fileTestGC
+}
+
+func (p *fileTestProvider) GC() {
+	p.gc.Lock()
+	defer p.gc.Unlock()
+	if !p.gc.stopped {
+		p.FileProvider.GC()
+	}
+}
 
 func Test_FileProvider(t *testing.T) {
+	root := t.TempDir()
+	gc := new(fileTestGC)
+	name := t.Name()
+	RegisterFn(name, func() Provider { return &fileTestProvider{gc: gc} })
+	t.Cleanup(func() {
+		// Sessioner timers have no cancellation API. Wait for active GC and
+		// prevent further filesystem access before TempDir removes the root.
+		gc.Lock()
+		gc.stopped = true
+		gc.Unlock()
+		delete(providers, name)
+	})
 	testProvider(t, Options{
-		Provider:       "file",
-		ProviderConfig: t.TempDir(),
+		Provider:       name,
+		ProviderConfig: root,
 	})
 }
