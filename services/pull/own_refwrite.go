@@ -5,25 +5,20 @@ package pull
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
-	"forgejo.org/modules/setting"
 )
 
 // This file carries the pull package's ordinary-ownership primitive. The
 // pull package cannot import services/nativeoperation (that package drives
 // pull.Merge for conditional execution), so the claim protocol is mirrored
 // here from leaf packages only. services/nativeoperation/guard.go is the
-// canonical implementation: owner strings, scope JSON and the
+// canonical implementation (shared locally through own_ordinary.go): owner strings, scope JSON and the
 // claim-before-effects order below must stay wire-compatible with it, and
 // the compatibility test pins the shared format.
 
@@ -64,59 +59,13 @@ func refWriteResource(repoID int64, kind, ref string) string {
 // driven under an existing execution (conditional merges, bound hook
 // callbacks) never claim twice.
 func withRefWriteOwnership(ctx context.Context, resource string, scope refWriteScope, fn func(ctx context.Context) error) error {
-	if execcontext.FromContext(ctx) != nil {
-		return fn(ctx)
-	}
-	// A canceled caller cannot hold the domain: claiming would strand
-	// the reservation when the release below fails on the same ctx.
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if resource == "" {
-		return errors.New("ordinary ownership requires a writer identity")
-	}
-
-	dir := filepath.Join(setting.AppDataPath, "nativeop-exec")
-	path, secret, err := execcontext.WriteCapabilityFile(dir)
-	if err != nil {
-		return err
-	}
-	nonce := make([]byte, 8)
-	_, _ = rand.Read(nonce)
-	owner := "ord:" + familyRefWrite + "/" + resource + "/" + hex.EncodeToString(nonce)
-	release := func() {
-		_ = os.Remove(path)
-	}
-
 	scope.Kind = nativeoperation_model.OwnerOrdinary
 	scope.Family = familyRefWrite
 	encoded, err := json.Marshal(scope)
 	if err != nil {
-		release()
 		return err
 	}
-	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, owner, string(encoded), execcontext.Verifier(secret))
-	if err != nil {
-		release()
-		if errors.Is(err, nativeoperation_model.ErrBusy) {
-			return fmt.Errorf("%w: ordinary writer %s is fenced", nativeoperation_model.ErrBusy, familyRefWrite)
-		}
-		if errors.Is(err, nativeoperation_model.ErrInhibited) {
-			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", nativeoperation_model.ErrInhibited, familyRefWrite)
-		}
-		return err
-	}
-	owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: path})
-	fnErr := fn(owned)
-	if err := nativeoperation_model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
-		release()
-		if fnErr != nil {
-			return fmt.Errorf("%w (and failed to release %s: %v)", fnErr, owner, err)
-		}
-		return fmt.Errorf("failed to release %s: %w", owner, err)
-	}
-	release()
-	return fnErr
+	return withPullOwnership(ctx, familyRefWrite, resource, string(encoded), fn)
 }
 
 // recordRefWriteResult records the realized new OID of the calling ref
@@ -140,11 +89,20 @@ func recordRefWriteResult(ctx context.Context, newOID string) error {
 	if reservation.Owner != exec.Owner {
 		return nativeoperation_model.ErrWrongOwner
 	}
-	var scope refWriteScope
+	// A nested ref write must preserve the enclosing owner's fields,
+	// including the PR sweep's bound head branch.
+	var scope map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(reservation.Scope), &scope); err != nil {
 		return err
 	}
-	scope.NewOID = newOID
+	if scope == nil {
+		return errors.New("ref scope is not an object")
+	}
+	encodedOID, err := json.Marshal(newOID)
+	if err != nil {
+		return err
+	}
+	scope["new_oid"] = encodedOID
 	encoded, err := json.Marshal(scope)
 	if err != nil {
 		return err

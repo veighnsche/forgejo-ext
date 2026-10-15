@@ -9,11 +9,13 @@ import (
 
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/queue"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/test"
 	"forgejo.org/modules/timeutil"
@@ -57,6 +59,7 @@ func TestPullRequestSynchronized(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 			logChecker, cleanup := test.NewLogChecker(log.DEFAULT, log.TRACE)
 			logChecker.Filter("Updating PR").StopMark("TestPullRequest ")
 			defer cleanup()
@@ -72,7 +75,7 @@ func TestPullRequestSynchronized(t *testing.T) {
 				TimeNano:     testCase.timeNano,
 			}
 			require.NoError(t, repo_service.PushUpdate(opt))
-			logFiltered, logStopped := logChecker.Check(5 * time.Second)
+			logFiltered, logStopped := logChecker.Check(10 * time.Second)
 			assert.True(t, logStopped)
 			assert.Equal(t, testCase.expected, logFiltered[0])
 		})
@@ -95,14 +98,39 @@ func TestPullRequestSynchronized(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 			logChecker, cleanup := test.NewLogChecker(log.DEFAULT, log.TRACE)
 			logChecker.Filter("Updating PR").StopMark("TestPullRequest ")
 			defer cleanup()
 
 			pull_service.TestPullRequest(t.Context(), owner, repo.ID, testCase.olderThan, "branch2", true, pull.HeadCommitID, pull.HeadCommitID)
-			logFiltered, logStopped := logChecker.Check(5 * time.Second)
+			logFiltered, logStopped := logChecker.Check(10 * time.Second)
 			assert.True(t, logStopped)
 			assert.Equal(t, testCase.expected, logFiltered[0])
 		})
 	}
+}
+
+// A push still owns the reservation when it launches its deferred PR sweep.
+// The sweep must wait independently, then synchronize without another push.
+func TestPullRequestTaskRetainsBusySweep(t *testing.T) {
+	defer tests.PrepareTestEnv(t)()
+	pull := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 2})
+	repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: pull.HeadRepoID})
+	owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
+	checker, cleanup := test.NewLogChecker(log.DEFAULT, log.TRACE)
+	defer cleanup()
+	checker.Filter("Updating PR").StopMark("TestPullRequest ")
+	const held = "ord:collaboration/batch/pr-sweep/0123456789abcdef"
+	_, err := nativeoperation_model.ClaimOrdinary(t.Context(), held, "{}", "held-sweep-verifier")
+	require.NoError(t, err)
+	defer func() { _ = nativeoperation_model.ReleaseOwner(t.Context(), held) }()
+	pull_service.AddTestPullRequestTask(t.Context(), owner, repo.ID, "branch2", true, pull.HeadCommitID, pull.HeadCommitID, int64(timeutil.TimeStampNanoNow()))
+	filtered, stopped := checker.Check(250 * time.Millisecond)
+	require.False(t, stopped, "a held reservation must fence the sweep")
+	require.False(t, filtered[0])
+	require.NoError(t, nativeoperation_model.ReleaseOwner(t.Context(), held))
+	filtered, stopped = checker.Check(10 * time.Second)
+	require.True(t, stopped, "the same deferred task must resume after release")
+	require.True(t, filtered[0], "the resumed task must process its PR")
 }

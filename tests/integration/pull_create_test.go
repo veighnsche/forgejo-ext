@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
@@ -23,6 +24,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/graceful"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/test"
 	repo_service "forgejo.org/services/repository"
 	files_service "forgejo.org/services/repository/files"
@@ -34,6 +36,7 @@ import (
 )
 
 func testPullCreate(t *testing.T, session *TestSession, user, repo string, toSelf bool, targetBranch, sourceBranch, title string) *httptest.ResponseRecorder {
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	req := NewRequest(t, "GET", path.Join(user, repo))
 	resp := session.MakeRequest(t, req, http.StatusOK)
 
@@ -71,6 +74,7 @@ func testPullCreate(t *testing.T, session *TestSession, user, repo string, toSel
 		"title": title,
 	})
 	resp = session.MakeRequest(t, req, http.StatusOK)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	return resp
 }
 

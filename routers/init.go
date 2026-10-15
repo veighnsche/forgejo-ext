@@ -144,6 +144,7 @@ func InitWebInstalled(ctx context.Context) {
 
 	mustInitCtx(ctx, models.Init)
 	mustInitCtx(ctx, auth_model.Init)
+	mustInit(pull_service.InitPullRequestTaskQueue)
 	mustInitCtx(ctx, repo_service.Init)
 
 	// Booting long running goroutines.
@@ -166,6 +167,7 @@ func InitWebInstalled(ctx context.Context) {
 	mustInit(svg.Init)
 
 	actions_service.Init()
+	pull_service.StartPullRequestTasks()
 	mustInit(stats.Init)
 
 	mustInit(actions_router.InitOIDC)

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
@@ -48,9 +49,9 @@ func jobEmitterQueueHandler(items ...*jobUpdate) []*jobUpdate {
 		// Deferred work claims fresh ownership before its effects and
 		// never borrows the completing parent's execution. A busy gate
 		// retains the item for a later attempt instead of dropping it.
-		err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.RunResource(nativeoperation_service.ActionsRunOpEmitter), nativeoperation_service.Scope{
+		err := nativeoperation_service.Default().WithOrdinaryOwnershipWait(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.RunResource(nativeoperation_service.ActionsRunOpEmitter), nativeoperation_service.Scope{
 			RunID: update.RunID,
-		}, func(ctx context.Context) error {
+		}, time.Second, func(ctx context.Context) error {
 			return checkJobsOfRun(ctx, update.RunID, 0)
 		})
 		if err != nil {

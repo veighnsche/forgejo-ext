@@ -102,10 +102,21 @@ func (s *Service) ClassifyTransaction(ctx context.Context, req TransactionReques
 	if err != nil {
 		return TransactionDecision{}, err
 	}
-	if repository.ID != scope.RepositoryID {
-		return TransactionDecision{Reason: "operation scope mismatch"}, nil
-	}
 	if ownerKind == nativeoperation_model.OwnerOrdinary {
+		family, resource, ok := splitOrdinaryResource(reservation.Owner)
+		if ok && family == FamilyCollaboration && resource == CollabBatchResource("pr-sweep") && scope.Family == FamilyCollaboration {
+			allowed, err := sweepPermitsPRRefs(ctx, scope, repository.ID, req.Lines)
+			if err != nil {
+				return TransactionDecision{}, err
+			}
+			if !allowed {
+				return TransactionDecision{Reason: "operation scope mismatch"}, nil
+			}
+			return TransactionDecision{Allowed: true}, nil
+		}
+		if repository.ID != scope.RepositoryID {
+			return TransactionDecision{Reason: "operation scope mismatch"}, nil
+		}
 		for _, line := range req.Lines {
 			ref := line.Ref
 			if wiki && scope.Family == FamilyMirrorSync {
@@ -116,6 +127,9 @@ func (s *Service) ClassifyTransaction(ctx context.Context, req TransactionReques
 			}
 		}
 		return TransactionDecision{Allowed: true}, nil
+	}
+	if repository.ID != scope.RepositoryID {
+		return TransactionDecision{Reason: "operation scope mismatch"}, nil
 	}
 	if ownerKind != nativeoperation_model.OwnerConditional {
 		return TransactionDecision{Reason: "operation scope mismatch"}, nil
@@ -128,6 +142,41 @@ func (s *Service) ClassifyTransaction(ctx context.Context, req TransactionReques
 	default:
 		return TransactionDecision{Reason: "unknown transaction phase"}, nil
 	}
+}
+
+// A PR sweep owns the pushed head repository, while a fork's derived head
+// ref lives in its base repository. Resolve that exact private ref through
+// the authoritative PR row; this grants no branch, tag, merge or wiki write.
+// Batch recovery remains fenced for intervention, including these effects.
+func sweepPermitsPRRefs(ctx context.Context, scope Scope, baseRepoID int64, lines []RefLine) (bool, error) {
+	if scope.RepositoryID <= 0 || !strings.HasPrefix(scope.HeadRef, git.BranchPrefix) || scope.HeadRef == git.BranchPrefix || len(lines) == 0 {
+		return false, nil
+	}
+	for _, line := range lines {
+		indexText, ok := strings.CutPrefix(line.Ref, "refs/pull/")
+		if !ok || isZeroOID(line.New) {
+			return false, nil
+		}
+		indexText, ok = strings.CutSuffix(indexText, "/head")
+		if !ok {
+			return false, nil
+		}
+		index, err := strconv.ParseInt(indexText, 10, 64)
+		if err != nil || index <= 0 || strconv.FormatInt(index, 10) != indexText {
+			return false, nil
+		}
+		pr, err := issues_model.GetPullRequestByIndex(ctx, baseRepoID, index)
+		if err != nil {
+			if issues_model.IsErrPullRequestNotExist(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		if pr.HasMerged || pr.HeadRepoID != scope.RepositoryID || git.BranchPrefix+pr.HeadBranch != scope.HeadRef {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // Main and wiki repositories share a native repository ID but have separate

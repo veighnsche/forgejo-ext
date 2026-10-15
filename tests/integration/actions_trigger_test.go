@@ -29,6 +29,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
@@ -95,6 +96,7 @@ jobs:
 		})
 		require.NoError(t, err)
 
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		baseGitRepo, err := gitrepo.OpenRepository(db.DefaultContext, baseRepo)
 		require.NoError(t, err)
 		defer func() {
@@ -326,8 +328,12 @@ jobs:
 					unittest.AssertSuccessfulDelete(t, &actions_model.ActionRunJob{RepoID: baseRepo.ID})
 				}()
 
+				// Finish the previous event before manipulating fixture rows.
+				// Production notifications run under independent queued ownership.
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 				// trigger the onType event
 				testCase.doSomething()
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 				count := testCase.actionRunCount
 				context := fmt.Sprintf("%[1]s / %[1]s (pull_request)", testCase.onType)
 
@@ -558,6 +564,7 @@ jobs:
 			BaseRepo:   baseRepo,
 			Type:       issues_model.PullRequestGitea,
 		}
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		err = pull_service.NewPullRequest(git.DefaultContext, baseRepo, pullIssue, nil, nil, pullRequest, nil)
 		require.NoError(t, err)
 		// if a PR "synchronized" event races the "opened" event by having the same SHA, it must be skipped. See https://codeberg.org/forgejo/forgejo/issues/2009.
@@ -614,6 +621,7 @@ jobs:
 			BaseRepo:   baseRepo,
 			Type:       issues_model.PullRequestGitea,
 		}
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		err = pull_service.NewPullRequest(git.DefaultContext, baseRepo, pullIssue, nil, nil, pullRequest, nil)
 		require.NoError(t, err)
 
@@ -745,6 +753,7 @@ jobs:
 				BaseRepo:   baseRepo,
 				Type:       issues_model.PullRequestGitea,
 			}
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 			err = pull_service.NewPullRequest(git.DefaultContext, baseRepo, pullIssue, nil, nil, pullRequest, nil)
 			require.NoError(t, err)
 
@@ -892,6 +901,7 @@ jobs:
 				BaseRepo:   baseRepo,
 				Type:       issues_model.PullRequestGitea,
 			}
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 			err = pull_service.NewPullRequest(git.DefaultContext, baseRepo, pullIssue, nil, nil, pullRequest, nil)
 			require.NoError(t, err)
 
@@ -1015,6 +1025,7 @@ func TestActionsCreateDeleteRefEvent(t *testing.T) {
 			IsPrivate:     false,
 		})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		assert.NotEmpty(t, repo)
 
 		// enable actions
@@ -1023,6 +1034,7 @@ func TestActionsCreateDeleteRefEvent(t *testing.T) {
 			Type:   unit_model.TypeActions,
 		}}, nil)
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		// add workflow file to the repo
 		addWorkflowToBaseResp, err := files_service.ChangeRepoFiles(git.DefaultContext, repo, user2, &files_service.ChangeRepoFilesOptions{
@@ -1050,18 +1062,22 @@ func TestActionsCreateDeleteRefEvent(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		assert.NotEmpty(t, addWorkflowToBaseResp)
 
 		// Get the commit ID of the default branch
 		gitRepo, err := gitrepo.OpenRepository(git.DefaultContext, repo)
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		defer gitRepo.Close()
 		branch, err := git_model.GetBranch(db.DefaultContext, repo.ID, repo.DefaultBranch)
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		// create a branch
 		err = repo_service.CreateNewBranchFromCommit(db.DefaultContext, user2, repo, gitRepo, branch.CommitID, "test-create-branch")
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		run := unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{
 			Title:      "add workflow",
 			RepoID:     repo.ID,
@@ -1075,6 +1091,7 @@ func TestActionsCreateDeleteRefEvent(t *testing.T) {
 		// create a tag
 		err = release_service.CreateNewTag(db.DefaultContext, user2, repo, branch.CommitID, "test-create-tag", "test create tag event")
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		run = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{
 			Title:      "add workflow",
 			RepoID:     repo.ID,
@@ -1088,6 +1105,7 @@ func TestActionsCreateDeleteRefEvent(t *testing.T) {
 		// delete the branch
 		err = repo_service.DeleteBranch(db.DefaultContext, user2, repo, gitRepo, "test-create-branch")
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		run = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{
 			Title:      "add workflow",
 			RepoID:     repo.ID,
@@ -1101,8 +1119,10 @@ func TestActionsCreateDeleteRefEvent(t *testing.T) {
 		// delete the tag
 		tag, err := repo_model.GetRelease(db.DefaultContext, repo.ID, "test-create-tag")
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		err = release_service.DeleteReleaseByID(db.DefaultContext, repo, tag, user2, true)
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		run = unittest.AssertExistsAndLoadBean(t, &actions_model.ActionRun{
 			Title:      "add workflow",
 			RepoID:     repo.ID,
@@ -1695,8 +1715,9 @@ jobs:
 			_, err := files_service.ChangeRepoFiles(t.Context(), repo, user2, &opts)
 			require.NoError(t, err)
 
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 			// Verify that the expected notifications have been generated and queued.
-			assert.Len(t, receivedInput, 3)
+			require.Len(t, receivedInput, 3)
 			assert.Equal(t, webhook_module.HookEventCreate, receivedInput[0].Event)
 			assert.Equal(t, git.RefName("refs/heads/main"), receivedInput[0].Ref)
 			assert.Empty(t, receivedInput[0].Commit)
@@ -1709,7 +1730,9 @@ jobs:
 
 			// Dispatch the buffered inputs.
 			for _, input := range receivedInput {
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 				require.NoError(t, oldNotify(t.Context(), input))
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 			}
 
 			runs, err := db.Find[actions_model.ActionRun](t.Context(), actions_model.FindRunOptions{RepoID: repo.ID})
@@ -1792,7 +1815,9 @@ jobs:
 
 			// Dispatch the buffered inputs.
 			for _, input := range receivedInput {
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 				require.NoError(t, oldNotify(t.Context(), input))
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 			}
 
 			runs, err := db.Find[actions_model.ActionRun](t.Context(), actions_model.FindRunOptions{RepoID: repo.ID})
@@ -2297,6 +2322,7 @@ jobs:
 					BaseRepo:   baseRepo,
 					Type:       issues_model.PullRequestGitea,
 				}
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 				err = pull_service.NewPullRequest(git.DefaultContext, baseRepo, pullIssue, nil, nil, pullRequest, nil)
 				require.NoError(t, err)
 

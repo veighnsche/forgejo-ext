@@ -151,8 +151,12 @@ func (s *Service) WithOrdinaryOwnershipWait(ctx context.Context, family, resourc
 	deadline := time.Now().Add(timeout)
 	backoff := 100 * time.Millisecond
 	for {
-		err := s.WithOrdinaryOwnership(ctx, family, resource, scope, fn)
-		if !isBusyOnly(err) || time.Now().After(deadline) {
+		entered := false
+		err := s.WithOrdinaryOwnership(ctx, family, resource, scope, func(owned context.Context) error {
+			entered = true
+			return fn(owned)
+		})
+		if entered || !isBusyOnly(err) || time.Now().After(deadline) {
 			return err
 		}
 		select {

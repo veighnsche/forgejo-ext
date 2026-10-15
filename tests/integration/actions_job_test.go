@@ -777,6 +777,7 @@ func createWorkflowFile(t *testing.T, authToken, ownerName, repoName, treePath s
 	resp := MakeRequest(t, req, http.StatusCreated)
 	var fileResponse api.FileResponse
 	DecodeJSON(t, resp, &fileResponse)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	return &fileResponse
 }
 

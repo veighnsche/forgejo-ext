@@ -106,11 +106,11 @@ func pushUpdates(optsList []*repo_module.PushUpdateOptions) error {
 			NewOID: opts.NewCommitID,
 		})
 	}
-	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyPushCompletion, fmt.Sprintf("%d/batch-%d", repo.ID, len(optsList)), nativeoperation_service.Scope{
+	return nativeoperation_service.Default().WithOrdinaryOwnershipWait(ctx, nativeoperation_service.FamilyPushCompletion, fmt.Sprintf("%d/batch-%d", repo.ID, len(optsList)), nativeoperation_service.Scope{
 		RepositoryID: repo.ID,
 		Refs:         scoped,
 		PusherID:     optsList[0].PusherID,
-	}, func(ctx context.Context) error {
+	}, time.Second, func(ctx context.Context) error {
 		gitRepo, err := gitrepo.OpenRepository(ctx, repo)
 		if err != nil {
 			return fmt.Errorf("OpenRepository[%s]: %w", repo.FullName(), err)

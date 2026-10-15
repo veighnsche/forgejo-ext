@@ -8,7 +8,9 @@ import (
 	"time"
 
 	nativeoperation_model "forgejo.org/models/nativeoperation"
+	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
+	user_model "forgejo.org/models/user"
 	execcontext "forgejo.org/modules/nativeoperation"
 
 	"github.com/stretchr/testify/require"
@@ -144,4 +146,54 @@ func TestCollabPullRefinementNoOps(t *testing.T) {
 	RefineCollabPullScope(ctx, "pull-proof", []ScopedRef{{Ref: "refs/pull/1/head", NewOID: testHead}})
 	require.False(t, classify().Allowed)
 	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, "ord:collaboration/issue/1/title/abcdef0123456789"))
+}
+
+func TestPRSweepBindsDerivedHeadRefs(t *testing.T) {
+	for _, test := range []struct {
+		name, ref, branch, resource, proof string
+		headRepoID, baseRepoID             int64
+		wiki, deletion, allowed            bool
+	}{
+		{name: "same repository", headRepoID: 1, baseRepoID: 1, branch: "branch2", ref: "refs/pull/3/head", allowed: true},
+		{name: "fork head", headRepoID: 11, baseRepoID: 10, branch: "branch2", ref: "refs/pull/1/head", allowed: true},
+		{name: "unrelated repository", headRepoID: 1, baseRepoID: 10, branch: "branch2", ref: "refs/pull/1/head"},
+		{name: "different head branch", headRepoID: 1, baseRepoID: 1, branch: "master", ref: "refs/pull/3/head"},
+		{name: "missing PR", headRepoID: 1, baseRepoID: 1, branch: "branch2", ref: "refs/pull/999/head"},
+		{name: "merged PR", headRepoID: 1, baseRepoID: 1, branch: "branch1", ref: "refs/pull/2/head"},
+		{name: "branch write", headRepoID: 1, baseRepoID: 1, branch: "branch2", ref: "refs/heads/branch2"},
+		{name: "merge ref", headRepoID: 1, baseRepoID: 1, branch: "branch2", ref: "refs/pull/3/merge"},
+		{name: "deletion", headRepoID: 1, baseRepoID: 1, branch: "branch2", ref: "refs/pull/3/head", deletion: true},
+		{name: "wiki", headRepoID: 1, baseRepoID: 1, branch: "branch2", ref: "refs/pull/3/head", wiki: true},
+		{name: "other collaboration", headRepoID: 1, baseRepoID: 1, branch: "branch2", ref: "refs/pull/3/head", resource: "issue/1/title"},
+		{name: "wrong proof", headRepoID: 1, baseRepoID: 1, branch: "branch2", ref: "refs/pull/3/head", proof: "forged"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			unittest.PrepareTestEnv(t)
+			resource := test.resource
+			if resource == "" {
+				resource = CollabBatchResource("pr-sweep")
+			}
+			proof := test.proof
+			if proof == "" {
+				proof = "sweep-proof"
+			}
+			scope, err := encodeScope(Scope{Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyCollaboration, RepositoryID: test.headRepoID, HeadRef: "refs/heads/" + test.branch})
+			require.NoError(t, err)
+			_, err = nativeoperation_model.ClaimOrdinary(t.Context(), "ord:collaboration/"+resource+"/0123456789abcdef", scope, execcontext.Verifier("sweep-proof"))
+			require.NoError(t, err)
+			repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: test.baseRepoID})
+			owner := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: repo.OwnerID})
+			repoName := repo.Name
+			if test.wiki {
+				repoName += ".wiki"
+			}
+			newOID := testHead
+			if test.deletion {
+				newOID = "0000000000000000000000000000000000000000"
+			}
+			decision, err := NewService().ClassifyTransaction(t.Context(), TransactionRequest{OwnerName: owner.Name, RepoName: repoName, Phase: PhasePrepared, Proof: proof, Lines: []RefLine{{Ref: test.ref, Old: testBase, New: newOID}}})
+			require.NoError(t, err)
+			require.Equal(t, test.allowed, decision.Allowed, decision.Reason)
+		})
+	}
 }

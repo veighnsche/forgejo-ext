@@ -295,7 +295,7 @@ func testPR(id int64) error {
 	// stays outside the claim.
 	var pr *issues_model.PullRequest
 	updated := false
-	if err := withCollabOwnership(ctx, CollabPullResource(id, "refresh"), 0, func(ctx context.Context) error {
+	if err := withCollabOwnershipWait(ctx, CollabPullResource(id, "refresh"), collabScope{}, func(ctx context.Context) error {
 		pr, updated = testPRProtected(ctx, id)
 		return nil
 	}); err != nil {

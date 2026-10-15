@@ -52,6 +52,7 @@ case $1 in
     (cd sdk && go test -count=1 ./...)
     go test -race -count=1 -tags 'sqlite sqlite_unlock_notify' \
       ./models/nativeoperation ./services/nativeoperation ./services/extensions ./modules/session ./routers/common \
+      ./services/pull ./services/actions ./services/repository \
       code.forgejo.org/go-chi/session
     ;;
   database)

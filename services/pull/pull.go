@@ -5,7 +5,6 @@ package pull
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -16,18 +15,15 @@ import (
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
-	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/base"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
-	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
 	nativeoperation "forgejo.org/modules/nativeoperation"
-	"forgejo.org/modules/process"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/sync"
@@ -330,52 +326,23 @@ func checkForInvalidation(ctx context.Context, requests issues_model.PullRequest
 	if err != nil {
 		return fmt.Errorf("GetRepositoryByIDCtx: %w", err)
 	}
-	// The deferred invalidation must not borrow the caller's execution:
-	// it can outlive the enclosing claim, so it carries a stripped
-	// context and claims fresh ownership of its own inside.
-	goCtx := nativeoperation.NewContext(ctx, nil)
-	go func() {
-		// FIXME: graceful: We need to tell the manager we're doing something...
-		err := InvalidateCodeComments(goCtx, requests, doer, repo, newCommitID)
-		if err != nil {
-			log.Error("PullRequestList.InvalidateCodeComments: %v", err)
-		}
-	}()
-	return nil
-}
-
-// AddTestPullRequestTask adds new test tasks by given head/base repository and head/base branch,
-// and generate new patch for testing as needed.
-func AddTestPullRequestTask(ctx context.Context, doer *user_model.User, repoID int64, branch string, isSync bool, oldCommitID, newCommitID string, timeNano int64) {
-	description := fmt.Sprintf("AddTestPullRequestTask [head_repo_id: %d, head_branch: %s]: only pull requests created before nano time %d will be considered", repoID, branch, timeNano)
-	log.Trace(description)
-	go graceful.GetManager().RunWithShutdownContext(func(shutdownCtx context.Context) {
-		// make it a process to allow for cancellation (especially during integration tests where no global shutdown happens)
-		ctx, _, finished := process.GetManager().AddContext(shutdownCtx, description)
-		defer finished()
-		// There is no sensible way to shut this down ":-("
-		// If you don't let it run all the way then you will lose data
-		// TODO: graceful: TestPullRequest needs to become a queue!
-
-		TestPullRequest(ctx, doer, repoID, timeNano, branch, isSync, oldCommitID, newCommitID)
-	})
+	// Invalidation completes inside the sweep's existing ownership. It
+	// must not outlive that claim and race a subsequent native writer.
+	return InvalidateCodeComments(ctx, requests, doer, repo, newCommitID)
 }
 
 func TestPullRequest(ctx context.Context, doer *user_model.User, repoID, olderThan int64, branch string, isSync bool, oldCommitID, newCommitID string) {
-	// One collaboration writer owns the PR test sweep before its
-	// effects, advancing the native revision so old accepted-input
-	// observations go stale. A busy gate logs and skips like any other
-	// transient worker error; the next push re-triggers the sweep.
-	if err := withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), repoID, func(ctx context.Context) error {
+	if err := testPullRequest(ctx, doer, repoID, olderThan, branch, isSync, oldCommitID, newCommitID); err != nil {
+		log.Error("TestPullRequest(%d:%s): %v", repoID, branch, err)
+	}
+}
+
+func testPullRequest(ctx context.Context, doer *user_model.User, repoID, olderThan int64, branch string, isSync bool, oldCommitID, newCommitID string) error {
+	// The deferred sweep owns its effects independently of the push.
+	return withCollabOwnershipScope(ctx, CollabBatchResource("pr-sweep"), collabScope{RepositoryID: repoID, HeadRef: git.BranchPrefix + branch}, func(ctx context.Context) error {
 		doTestPullRequest(ctx, doer, repoID, olderThan, branch, isSync, oldCommitID, newCommitID)
 		return nil
-	}); err != nil {
-		if errors.Is(err, nativeoperation_model.ErrBusy) || errors.Is(err, nativeoperation_model.ErrInhibited) {
-			log.Debug("TestPullRequest(%d:%s) deferred: %v", repoID, branch, err)
-		} else {
-			log.Error("TestPullRequest(%d:%s): %v", repoID, branch, err)
-		}
-	}
+	})
 }
 
 func doTestPullRequest(ctx context.Context, doer *user_model.User, repoID, olderThan int64, branch string, isSync bool, oldCommitID, newCommitID string) {

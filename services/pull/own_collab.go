@@ -5,17 +5,12 @@ package pull
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"time"
 
 	nativeoperation_model "forgejo.org/models/nativeoperation"
-	execcontext "forgejo.org/modules/nativeoperation"
-	"forgejo.org/modules/setting"
 )
 
 // This file carries the pull package's ordinary-ownership primitive for
@@ -40,6 +35,7 @@ type collabScope struct {
 	Kind         string `json:"kind"`
 	Family       string `json:"family,omitempty"`
 	RepositoryID int64  `json:"repository_id"`
+	HeadRef      string `json:"head_ref,omitempty"`
 }
 
 // The collaboration resource builders mirror the service builders in
@@ -81,59 +77,39 @@ func CollabBatchResource(op string) string {
 // (conditional operations, bound hook callbacks, enclosing service
 // claims) never claim twice.
 func withCollabOwnership(ctx context.Context, resource string, repositoryID int64, fn func(ctx context.Context) error) error {
-	if execcontext.FromContext(ctx) != nil {
-		return fn(ctx)
-	}
-	// A canceled caller cannot hold the domain: claiming would strand
-	// the reservation when the release below fails on the same ctx.
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if resource == "" {
-		return errors.New("ordinary ownership requires a writer identity")
-	}
+	return withCollabOwnershipScope(ctx, resource, collabScope{RepositoryID: repositoryID}, fn)
+}
 
-	dir := filepath.Join(setting.AppDataPath, "nativeop-exec")
-	path, secret, err := execcontext.WriteCapabilityFile(dir)
+func withCollabOwnershipScope(ctx context.Context, resource string, scope collabScope, fn func(context.Context) error) error {
+	scope.Kind = nativeoperation_model.OwnerOrdinary
+	scope.Family = familyCollaboration
+	encoded, err := json.Marshal(scope)
 	if err != nil {
 		return err
 	}
-	nonce := make([]byte, 8)
-	_, _ = rand.Read(nonce)
-	owner := "ord:" + familyCollaboration + "/" + resource + "/" + hex.EncodeToString(nonce)
-	release := func() {
-		_ = os.Remove(path)
-	}
+	return withPullOwnership(ctx, familyCollaboration, resource, string(encoded), fn)
+}
 
-	encoded, err := json.Marshal(collabScope{
-		Kind:         nativeoperation_model.OwnerOrdinary,
-		Family:       familyCollaboration,
-		RepositoryID: repositoryID,
-	})
-	if err != nil {
-		release()
-		return err
-	}
-	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, owner, string(encoded), execcontext.Verifier(secret))
-	if err != nil {
-		release()
-		if errors.Is(err, nativeoperation_model.ErrBusy) {
-			return fmt.Errorf("%w: ordinary writer %s is fenced", nativeoperation_model.ErrBusy, familyCollaboration)
+// Deferred workers may briefly wait for their parent to release ownership.
+// This never lends the parent's execution and never retries actual effects.
+// Longer contention returns to the durable queue for its normal retry cycle.
+func withCollabOwnershipWait(ctx context.Context, resource string, scope collabScope, fn func(context.Context) error) error {
+	deadline := time.Now().Add(time.Second)
+	backoff := 25 * time.Millisecond
+	for {
+		entered := false
+		err := withCollabOwnershipScope(ctx, resource, scope, func(owned context.Context) error {
+			entered = true
+			return fn(owned)
+		})
+		if entered || !errors.Is(err, nativeoperation_model.ErrBusy) || !time.Now().Before(deadline) {
+			return err
 		}
-		if errors.Is(err, nativeoperation_model.ErrInhibited) {
-			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", nativeoperation_model.ErrInhibited, familyCollaboration)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(min(backoff, time.Until(deadline))):
 		}
-		return err
+		backoff = min(backoff*2, 250*time.Millisecond)
 	}
-	owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: path})
-	fnErr := fn(owned)
-	if err := nativeoperation_model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
-		release()
-		if fnErr != nil {
-			return fmt.Errorf("%w (and failed to release %s: %v)", fnErr, owner, err)
-		}
-		return fmt.Errorf("failed to release %s: %w", owner, err)
-	}
-	release()
-	return fnErr
 }

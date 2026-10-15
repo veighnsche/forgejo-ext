@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
@@ -142,4 +143,19 @@ func TestOrdinaryOwnershipRefusesWhileInhibited(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, idle.Idle)
 	require.Equal(t, start.Revision, idle.Revision)
+}
+
+func TestOrdinaryOwnershipWaitDoesNotRepeatEffects(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	service := admissionService(t, nil, 0)
+	calls := 0
+	err := service.WithOrdinaryOwnershipWait(t.Context(), FamilyCollaboration, CollabBatchResource("pr-sweep"), Scope{RepositoryID: 1}, time.Second, func(context.Context) error {
+		calls++
+		return nativeoperation_model.ErrBusy
+	})
+	require.ErrorIs(t, err, nativeoperation_model.ErrBusy)
+	require.Equal(t, 1, calls, "callback errors must never replay effects")
+	state, err := service.ReadNativeRevision(t.Context())
+	require.NoError(t, err)
+	require.True(t, state.Idle)
 }

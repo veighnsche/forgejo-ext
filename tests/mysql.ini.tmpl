@@ -21,6 +21,19 @@ DATADIR = tests/{{TEST_TYPE}}/gitea-{{TEST_TYPE}}-mysql/indexers/issues.queue
 [queue.stats_recalc] # override below default of `immediate` to avoid locking issues
 TYPE = channel
 
+; Deferred native work needs asynchronous queues with retained retries.
+[queue.push_update]
+TYPE = channel
+
+[queue.actions_ready_job]
+TYPE = channel
+
+[queue.pr_sweep]
+TYPE = channel
+
+[queue.pr_patch_checker]
+TYPE = channel
+
 [queue]
 TYPE = immediate
 

@@ -66,7 +66,10 @@ func testPullMerge(t *testing.T, session *TestSession, user, repo, pullnum strin
 		options["delete_branch_after_merge"] = "on"
 	}
 
-	return testPullMergeForm(t, session, http.StatusOK, user, repo, pullnum, options)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+	response := testPullMergeForm(t, session, http.StatusOK, user, repo, pullnum, options)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+	return response
 }
 
 func testPullMergeForm(t *testing.T, session *TestSession, expectedCode int, user, repo, pullnum string, addOptions optionsPullMerge) *httptest.ResponseRecorder {

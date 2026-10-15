@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"testing"
+	"time"
 
 	auth_model "forgejo.org/models/auth"
 	repo_model "forgejo.org/models/repo"
@@ -21,6 +22,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/queue"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/translation"
 	app_context "forgejo.org/services/context"
@@ -86,6 +88,7 @@ func TestCreateFileOnProtectedBranch(t *testing.T) {
 }
 
 func testEditFile(t *testing.T, session *TestSession, user, repo, branch, filePath, newContent string) *httptest.ResponseRecorder {
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	// Get to the 'edit this file' page
 	req := NewRequest(t, "GET", path.Join(user, repo, "_edit", branch, filePath))
 	resp := session.MakeRequest(t, req, http.StatusOK)
@@ -105,6 +108,7 @@ func testEditFile(t *testing.T, session *TestSession, user, repo, branch, filePa
 		},
 	)
 	session.MakeRequest(t, req, http.StatusSeeOther)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 	// Verify the change
 	req = NewRequest(t, "GET", path.Join(user, repo, "raw/branch", branch, filePath))
@@ -115,6 +119,7 @@ func testEditFile(t *testing.T, session *TestSession, user, repo, branch, filePa
 }
 
 func testEditFileToNewBranch(t *testing.T, session *TestSession, user, repo, branch, targetBranch, filePath, newContent string) *httptest.ResponseRecorder {
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	// Get to the 'edit this file' page
 	req := NewRequest(t, "GET", path.Join(user, repo, "_edit", branch, filePath))
 	resp := session.MakeRequest(t, req, http.StatusOK)
@@ -135,6 +140,7 @@ func testEditFileToNewBranch(t *testing.T, session *TestSession, user, repo, bra
 		},
 	)
 	session.MakeRequest(t, req, http.StatusSeeOther)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 	// Verify the change
 	req = NewRequest(t, "GET", path.Join(user, repo, "raw/branch", targetBranch, filePath))
