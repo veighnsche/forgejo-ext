@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 
+	sdk "forgejo.org/extension-sdk"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
 	runtime "forgejo.org/services/extensions"
@@ -54,20 +55,22 @@ func StartRuntime(ctx context.Context) (close func() error, err error) {
 	if err := manager.SetInstanceStopped(RevokeAdmissionsForInstance); err != nil {
 		return nil, err
 	}
-	if err := manager.Start(ctx); err != nil {
-		return nil, err
-	}
-	for _, descriptor := range manager.List() {
-		for _, page := range descriptor.Manifest.Pages {
+	if err := manager.SetManifestValidator(func(manifest sdk.Manifest) error {
+		for _, page := range manifest.Pages {
 			if page.Scope != "global" || page.Route == "" {
 				continue
 			}
 			_, err := user_model.GetUserByName(ctx, page.Route)
 			if !user_model.IsErrUserNotExist(err) {
-				_ = manager.Close()
-				return nil, fmt.Errorf("native page route %q cannot claim an existing or unavailable account", page.Route)
+				return fmt.Errorf("native page route %q cannot claim an existing or unavailable account", page.Route)
 			}
 		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := manager.Start(ctx); err != nil {
+		return nil, err
 	}
 	runtime.SetDefault(manager)
 	return func() error {

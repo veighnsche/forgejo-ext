@@ -83,6 +83,7 @@ type testFixtureKnobs struct {
 	Role           string `json:"role"`
 	FailActivate   bool   `json:"fail_activate"`
 	SlowActivateMs int    `json:"slow_activate_ms"`
+	SlowStartMs    int    `json:"slow_start_ms"`
 	CrashAfterMs   int    `json:"crash_after_ms"`
 }
 
@@ -101,6 +102,9 @@ func runTestHelper() int {
 		return holdTestLock(dir)
 	}
 	knobs := readTestKnobs()
+	if knobs.SlowStartMs > 0 {
+		time.Sleep(time.Duration(knobs.SlowStartMs) * time.Millisecond)
+	}
 	switch knobs.Role {
 	case "plain-exit":
 		os.Exit(1)
@@ -200,6 +204,19 @@ func shortTestRoot(t *testing.T) string {
 	return root
 }
 
+func waitStartupFinished(t *testing.T, m *Manager) {
+	t.Helper()
+	m.mu.Lock()
+	done := m.startupDone
+	m.mu.Unlock()
+	require.NotNil(t, done)
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("optional startup pass did not finish")
+	}
+}
+
 func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 	root := shortTestRoot(t)
 	installTestPackage(t, root, "sample")
@@ -209,6 +226,7 @@ func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	waitStartupFinished(t, m)
 	defer m.Close()
 	if lock, err := packages.AcquirePackageLock(root); err == nil {
 		_ = lock.Close()
@@ -272,6 +290,7 @@ func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatalf("manager could not restart after cleanup: %v", err)
 	}
+	waitStartupFinished(t, m)
 	if _, _, ok := m.Lookup("sample"); !ok {
 		t.Fatal("extension missing after manager restart")
 	}
@@ -279,8 +298,7 @@ func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 
 // A failed startup retains no partial state. Optional package failure
 // is isolated and never fails startup, so the competing-route host
-// configuration error is the fatal trigger here: the first backend
-// starts, the second claim fails, and everything is torn down.
+// configuration error is rejected before starting any backend.
 func TestManagerStartFailureCleansUp(t *testing.T) {
 	root := shortTestRoot(t)
 	for _, id := range []string{"a-sample", "z-second"} {
@@ -300,7 +318,7 @@ func TestManagerStartFailureCleansUp(t *testing.T) {
 		t.Fatal("partial startup remained registered")
 	}
 	runtimeDirs, err := os.ReadDir(filepath.Join(root, ".runtime"))
-	if err != nil || len(runtimeDirs) != 0 {
+	if (err != nil && !os.IsNotExist(err)) || len(runtimeDirs) != 0 {
 		t.Fatalf("runtime process directory remained: %+v, %v", runtimeDirs, err)
 	}
 	lock, err := packages.AcquirePackageLock(root)
@@ -327,6 +345,7 @@ func TestStartupDiagnosticDoesNotExposeManifestContents(t *testing.T) {
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatalf("optional package failure must not fail startup: %v", err)
 	}
+	waitStartupFinished(t, m)
 	t.Cleanup(func() { _ = m.Close() })
 	if _, _, ok := m.Lookup("sample"); ok {
 		t.Fatal("broken extension must not serve admission")
@@ -365,6 +384,7 @@ func TestManagerRejectsUndeclaredRuntimeHandlers(t *testing.T) {
 		if err := manager.Start(context.Background()); err != nil {
 			t.Fatalf("optional package failure must not fail startup: %v", err)
 		}
+		waitStartupFinished(t, manager)
 		t.Cleanup(func() { _ = manager.Close() })
 		if _, _, ok := manager.Lookup("sample"); ok {
 			t.Fatalf("unmatched declaration %s serves admission", declarations)
@@ -394,6 +414,7 @@ func TestDisabledPackageSkipped(t *testing.T) {
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	waitStartupFinished(t, m)
 	defer m.Close()
 	if len(m.List()) != 0 {
 		t.Fatal("disabled extension started")
@@ -429,6 +450,7 @@ func TestRequiredExtensionStartup(t *testing.T) {
 	if err := manager.Start(context.Background()); err != nil {
 		t.Fatalf("enabled required package failed: %v", err)
 	}
+	waitStartupFinished(t, manager)
 	defer manager.Close()
 }
 
@@ -447,6 +469,7 @@ func TestRequiredPolicyFailsClosedAfterCrash(t *testing.T) {
 	if err := manager.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	waitStartupFinished(t, manager)
 	defer manager.Close()
 	decision, err := manager.EvaluateRequiredPolicy(context.Background(), sdk.PolicyForgejoUsername, sdk.PolicyRequest{Operation: "create", Username: "soda-tester"})
 	if err != nil || !decision.Allowed {
@@ -482,6 +505,7 @@ func TestRequiredPolicyRuntimeDecision(t *testing.T) {
 			if err := manager.Start(context.Background()); err != nil {
 				t.Fatal(err)
 			}
+			waitStartupFinished(t, manager)
 			defer manager.Close()
 			SetDefault(manager)
 			defer SetDefault(nil)
@@ -526,4 +550,28 @@ func TestManagerRefusesCompetingNativeRoutes(t *testing.T) {
 	if len(m.List()) != 0 {
 		t.Fatal("failed startup retained partial route registry")
 	}
+}
+
+// A deliberately slow optional handshake proves core readiness is independent
+// of the optional process, while shutdown still joins its eventual cleanup.
+func TestOptionalHandshakeDoesNotBlockCoreReadiness(t *testing.T) {
+	root := shortTestRoot(t)
+	installTestPackage(t, root, "sample")
+	intent := setDesiredState(t, root, "sample", true)
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".data", "sample"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".data", "sample", "fixture.json"), []byte(`{"slow_start_ms":1500}`), 0o600))
+	m := NewManager(root)
+	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
+	t.Cleanup(func() { _ = m.Close() })
+	started := time.Now()
+	require.NoError(t, m.Start(context.Background()))
+	require.Less(t, time.Since(started), time.Second)
+	_, _, ready := m.Lookup("sample")
+	require.False(t, ready, "slow optional handshake must remain closed")
+	waitStartupFinished(t, m)
+	_, _, ready = m.Lookup("sample")
+	require.True(t, ready)
+	after, err := packages.LoadIntent(root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, intent.Generation, after.Generation)
 }

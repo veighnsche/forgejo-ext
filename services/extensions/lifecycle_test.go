@@ -21,6 +21,7 @@ func startLifecycleManager(t *testing.T, root string, requiredIDs ...string) *Ma
 	m := NewManager(root, requiredIDs...)
 	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	require.NoError(t, m.Start(context.Background()))
+	waitStartupFinished(t, m)
 	t.Cleanup(func() { _ = m.Close() })
 	return m
 }
@@ -124,6 +125,7 @@ func TestRequiredPackageIsolation(t *testing.T) {
 	require.NoError(t, m.SetCallbackHandlerFactory(func(string) http.Handler { return http.NotFoundHandler() }))
 	configureTestCatalog(t, m, root, testCatalogEntry("soda", "1.0", true, ""), testCatalogEntry("optional", "1.0", false, ""))
 	require.NoError(t, m.Start(context.Background()))
+	waitStartupFinished(t, m)
 	t.Cleanup(func() { _ = m.Close() })
 
 	refused := lifecycleResult(t, m.Deactivate(context.Background(), packages.LifecycleRequest{PackageID: "soda", Operation: sdk.LifecycleDeactivate}))
@@ -184,6 +186,7 @@ func TestInterruptedDeactivateReobservedOnRestart(t *testing.T) {
 	primer := NewManager(root)
 	primer.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	require.NoError(t, primer.Start(context.Background()))
+	waitStartupFinished(t, primer)
 	installation, err := packages.LoadInstallation(root, "sample")
 	require.NoError(t, err)
 	require.NoError(t, primer.Close())
@@ -195,6 +198,7 @@ func TestInterruptedDeactivateReobservedOnRestart(t *testing.T) {
 	restarted := NewManager(root)
 	restarted.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	require.NoError(t, restarted.Start(context.Background()))
+	waitStartupFinished(t, restarted)
 	t.Cleanup(func() { _ = restarted.Close() })
 	// No effect is retried blindly: the package stays stopped and the
 	// definite disabled outcome finalizes the intent.
@@ -219,6 +223,7 @@ func TestInterruptedActivateReobservedOnRestart(t *testing.T) {
 	primer := NewManager(root)
 	primer.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	require.NoError(t, primer.Start(context.Background()))
+	waitStartupFinished(t, primer)
 	installation, err := packages.LoadInstallation(root, "sample")
 	require.NoError(t, err)
 	require.NoError(t, primer.Close())
@@ -230,12 +235,17 @@ func TestInterruptedActivateReobservedOnRestart(t *testing.T) {
 	restarted := NewManager(root)
 	restarted.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	require.NoError(t, restarted.Start(context.Background()))
+	waitStartupFinished(t, restarted)
 	t.Cleanup(func() { _ = restarted.Close() })
 	_, _, ok := restarted.Lookup("sample")
-	require.True(t, ok, "requested-enabled package must run after restart")
+	require.False(t, ok, "interrupted enable must wait for explicit retry")
 	observed := lifecycleResult(t, restarted.Observe("sample"))
-	require.Equal(t, packages.LifecycleEnabled, observed.State)
-	require.False(t, observed.Unconfirmed)
+	require.Equal(t, packages.LifecycleFailed, observed.State)
+	require.True(t, observed.Unconfirmed)
+	intent, err := packages.LoadIntent(root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "1", intent.Generation)
+	require.NotNil(t, intent.PendingOperation)
 }
 
 func TestInstallAndActivateReportsDownloadFailure(t *testing.T) {

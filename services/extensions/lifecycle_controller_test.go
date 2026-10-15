@@ -587,6 +587,8 @@ func TestRestartReobservationAdopts(t *testing.T) {
 	require.NoError(t, m.SetCallbackHandlerFactory(func(instanceID string) http.Handler {
 		return testAuthorizeMux(m, instanceID)
 	}))
+	// Keep automatic boot adoption deferred while checking the closed state.
+	require.NoError(t, m.acquireMutation("test-guard"))
 	require.NoError(t, m.Start(context.Background()))
 	t.Cleanup(func() { _ = m.Close() })
 	h.m = m
@@ -594,7 +596,8 @@ func TestRestartReobservationAdopts(t *testing.T) {
 	require.Equal(t, packages.LifecycleFailed, observed.State)
 	require.True(t, observed.Unconfirmed)
 	_, _, ok := m.Lookup("sample")
-	require.True(t, ok, "ordinary backend restarted with the manager")
+	require.False(t, ok, "optional backend waits for admitted activation")
+	m.releaseMutation()
 
 	requestEnabledAccept(t, m, "sample", "1", h.sha, true)
 	waitActiveOpDone(t, m)

@@ -26,6 +26,7 @@ func TestServiceCallbackLifecycle(t *testing.T) {
 	})
 	require.NoError(t, m.SetServiceCallbackEndpoint(path, handler))
 	require.NoError(t, m.Start(context.Background()))
+	waitStartupFinished(t, m)
 	t.Cleanup(func() { _ = m.Close() })
 	info, err := os.Lstat(path)
 	require.NoError(t, err)
@@ -46,6 +47,7 @@ func TestServiceCallbackLifecycle(t *testing.T) {
 	_, err = os.Lstat(path)
 	require.ErrorIs(t, err, os.ErrNotExist)
 	require.NoError(t, m.Start(context.Background()))
+	waitStartupFinished(t, m)
 	// A replacement at the configured path belongs to its creator, not to this
 	// listener. Close must not remove it via Go's automatic Unix socket cleanup.
 	require.NoError(t, os.Remove(path))
@@ -109,6 +111,7 @@ func TestServiceBridgeRequiresConfiguredEndpoint(t *testing.T) {
 	require.NoError(t, m.SetServiceCallbackEndpoint(path, http.NotFoundHandler()))
 	require.NoError(t, m.SetCallbackHandlerFactory(func(string) http.Handler { return http.NotFoundHandler() }))
 	require.NoError(t, m.Start(context.Background()))
+	waitStartupFinished(t, m)
 	privateSocket, err := os.Lstat(filepath.Join(m.running["sample"].runtimeDir, "c"))
 	require.NoError(t, err)
 	require.Equal(t, os.FileMode(0o600), privateSocket.Mode().Perm())
@@ -129,6 +132,7 @@ func TestServiceCallbackReclaimsStaleSocket(t *testing.T) {
 	m := NewManager(filepath.Join(root, "packages"))
 	require.NoError(t, m.SetServiceCallbackEndpoint(path, http.NotFoundHandler()))
 	require.NoError(t, m.Start(context.Background()))
+	waitStartupFinished(t, m)
 	t.Cleanup(func() { _ = m.Close() })
 	info, err := os.Lstat(path)
 	require.NoError(t, err)

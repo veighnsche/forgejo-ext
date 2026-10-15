@@ -44,6 +44,7 @@ func startBackgroundManager(t *testing.T, root string) (*Manager, uint32) {
 	self := uint32(os.Geteuid())
 	require.NoError(t, manager.SetServiceBridgePeers(map[uint32]string{self: "bgsample"}))
 	require.NoError(t, manager.Start(context.Background()))
+	waitStartupFinished(t, manager)
 	t.Cleanup(func() { _ = manager.Close() })
 	return manager, self
 }
@@ -84,6 +85,7 @@ func TestServiceBootstrapLifecycle(t *testing.T) {
 	_, ok = manager.VerifyBackgroundAdmission(replacement)
 	require.False(t, ok, "runtime stop must revoke service admissions")
 	require.NoError(t, manager.Start(context.Background()))
+	waitStartupFinished(t, manager)
 	preserved, err := packages.LoadInstallation(root, "bgsample")
 	require.NoError(t, err)
 	require.Equal(t, installation, preserved)

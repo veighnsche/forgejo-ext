@@ -52,6 +52,7 @@ type running struct {
 }
 
 type Manager struct {
+	validateManifest       func(sdk.Manifest) error
 	root                   string
 	requiredIDs            []string
 	mu                     sync.Mutex
@@ -210,6 +211,18 @@ func (m *Manager) SetCallbackHandlerFactory(factory func(instanceID string) http
 	return nil
 }
 
+// SetManifestValidator installs host-specific admission checks, including
+// account route reservations, for both startup and later activation.
+func (m *Manager) SetManifestValidator(validate func(sdk.Manifest) error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.started {
+		return errors.New("extension manager already started")
+	}
+	m.validateManifest = validate
+	return nil
+}
+
 // SetInstanceStopped installs a callback to revoke admissions owned by an
 // instance. The callback must not call back into Manager: it runs under m.mu.
 func (m *Manager) SetInstanceStopped(callback func(instanceID string)) error {
@@ -224,7 +237,7 @@ func (m *Manager) SetInstanceStopped(callback func(instanceID string)) error {
 
 // Start loads the trusted catalog once, bootstraps and starts required
 // packages synchronously, then restores desired optional backends
-// best-effort before returning core readiness. Required-first: an
+// asynchronously after core readiness. Required-first: an
 // optional backend, download, or controller call never blocks or fails
 // core startup. Optional package failure closes only that package's
 // admission and is reconciled by the bounded startup pass; deterministic
@@ -370,6 +383,38 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 		}
 		return nil
 	}
+	// Validate static host claims without starting optional processes. A slow
+	// optional handshake must never sit on the core-readiness path.
+	for _, entry := range entries {
+		id := entry.Name()
+		if !entry.IsDir() || strings.HasPrefix(id, ".") {
+			continue
+		}
+		if !sdk.ValidID(id) {
+			return fail(errors.New("invalid extension package directory name"))
+		}
+		if !slices.Contains(m.requiredIDs, id) {
+			intent, err := packages.LoadIntent(m.root, id)
+			if err != nil || !intent.DesiredEnabled {
+				continue
+			}
+		}
+		manifest, err := sdk.LoadManifest(filepath.Join(m.root, id))
+		if err != nil || manifest.ID != id {
+			continue // Required validation below is fatal; optional failure is isolated.
+		}
+		if slices.Contains(manifest.Capabilities, sdk.CapabilityServiceBridge) && m.serviceCallback == nil {
+			return fail(errServiceCallbackUnconfigured)
+		}
+		if m.validateManifest != nil {
+			if err := m.validateManifest(manifest); err != nil {
+				return fail(err)
+			}
+		}
+		if err := claimRoutes(manifest); err != nil {
+			return fail(err)
+		}
+	}
 	registerRunning := func(item *running) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -387,81 +432,20 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 			log.Error("Extension %s startup failed: %v", id, err)
 			return fail(fmt.Errorf("start extension %q: %w", id, err))
 		}
-		if err := claimRoutes(item.descriptor.Manifest); err != nil {
-			m.stopOneDetached(id, item)
-			return fail(err)
-		}
 		registerRunning(item)
 		log.Info("Extension %s started", id)
 		go m.observeExit(id, item)
-	}
-	// Optional backends restore best-effort: installed bytes with
-	// desired intent start without downloads and without controller
-	// calls. A failure closes only that package's admission; the
-	// bounded startup pass reconciles effects afterwards. A configured
-	// maintenance marker defers all optional work to the
-	// post-exclusion reconcile instead.
-	if !maintenanceHeld(m.maintenanceDir) {
-		for _, entry := range entries {
-			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-				continue
-			}
-			if !sdk.ValidID(entry.Name()) {
-				return fail(errors.New("invalid extension package directory name"))
-			}
-			if slices.Contains(m.requiredIDs, entry.Name()) {
-				continue
-			}
-			if err := ctx.Err(); err != nil {
-				return fail(err)
-			}
-			id := entry.Name()
-			intent, err := packages.LoadIntent(m.root, id)
-			if err != nil {
-				log.Error("Extension %s startup skipped: requested state unavailable", id)
-				continue
-			}
-			if !intent.DesiredEnabled {
-				continue
-			}
-			item, err := m.startOne(filepath.Join(m.root, id), id)
-			if err != nil {
-				if errors.Is(err, errServiceCallbackUnconfigured) {
-					return fail(err)
-				}
-				log.Error("Extension %s startup failed: %v", id, err)
-				continue
-			}
-			if err := claimRoutes(item.descriptor.Manifest); err != nil {
-				m.stopOneDetached(id, item)
-				return fail(err)
-			}
-			registerRunning(item)
-			log.Info("Extension %s started", id)
-			go m.observeExit(id, item)
-		}
 	}
 	m.mu.Lock()
 	m.started = true
 	m.startupDone = make(chan struct{})
 	startupDone, lifeCtx := m.startupDone, m.lifeCtx
 	m.mu.Unlock()
-	// Re-observe interrupted lifecycle operations against the live
-	// registry; this refreshes observations only and retries no effects.
-	m.reconcileLifecycle()
 	// Optional lifecycle effects (controller activation, residual
 	// stops, grant refresh) reconcile on the bounded schedule only
 	// after Start has released its mutex and returned core readiness.
 	go m.runStartupOptionalPass(lifeCtx, startupDone)
 	return nil
-}
-
-// stopOneDetached stops a not-yet-registered backend without holding
-// m.mu: it snapshots nothing and only tears down the fresh item.
-func (m *Manager) stopOneDetached(id string, item *running) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.stopOne(id, item, false)
 }
 
 func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
@@ -477,6 +461,11 @@ func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 	}
 	if manifest.ID != dirName {
 		return nil, errors.New("package directory must match manifest id")
+	}
+	if m.validateManifest != nil {
+		if err := m.validateManifest(manifest); err != nil {
+			return nil, err
+		}
 	}
 	// The installer assigns installation identity; start only re-reads the
 	// recorded UUID so restart and replacement preserve it.

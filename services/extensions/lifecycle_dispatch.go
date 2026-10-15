@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	sdk "forgejo.org/extension-sdk"
@@ -124,7 +123,7 @@ func (m *Manager) issueCallAdmission(call sdk.LifecycleCall, desired bool, clean
 	}
 	m.mu.Unlock()
 	if instance == "" {
-		return "", errors.New("lifecycle controller is not ready")
+		return "", errControllerNotReady
 	}
 	token, err := m.IssueLifecycleAdmission(&BackgroundAdmission{
 		Lifecycle:        true,
@@ -186,7 +185,7 @@ func (m *Manager) dispatchLifecycleCall(ctx context.Context, controllerID string
 	defer m.RevokeLifecycleAdmission(token)
 	transport, _, ready := m.controllerEndpoint(controllerID)
 	if !ready {
-		return sdk.LifecycleObservation{}, errors.New("lifecycle controller is not ready")
+		return sdk.LifecycleObservation{}, errControllerNotReady
 	}
 	if err := sdk.ValidateLifecycleCall(call, time.Now().Unix()); err != nil {
 		return sdk.LifecycleObservation{}, err
@@ -379,7 +378,7 @@ func (m *Manager) observeControlledOnce(ctx context.Context, controllerID string
 	transport, instance, ready := m.controllerEndpoint(controllerID)
 	_, _ = transport, instance
 	if !ready {
-		return sdk.LifecycleObservation{}, errors.New("lifecycle controller is not ready")
+		return sdk.LifecycleObservation{}, errControllerNotReady
 	}
 	call := buildCall(controllerID, instance, entry, intent.InstallationID, intent.Generation, sdk.LifecycleObserve, budgetLeft)
 	token, err := m.issueCallAdmission(call, intent.DesiredEnabled, false)
@@ -396,7 +395,7 @@ func (m *Manager) observeControlledOnce(ctx context.Context, controllerID string
 func (m *Manager) activateControlledOnce(ctx context.Context, controllerID string, entry sdk.CatalogPackage, intent packages.Intent, budgetLeft int64) (sdk.LifecycleObservation, error) {
 	_, instance, ready := m.controllerEndpoint(controllerID)
 	if !ready {
-		return sdk.LifecycleObservation{}, errors.New("lifecycle controller is not ready")
+		return sdk.LifecycleObservation{}, errControllerNotReady
 	}
 	call := buildCall(controllerID, instance, entry, intent.InstallationID, intent.Generation, sdk.LifecycleActivate, budgetLeft)
 	token, err := m.issueCallAdmission(call, intent.DesiredEnabled, false)
@@ -413,7 +412,7 @@ func (m *Manager) activateControlledOnce(ctx context.Context, controllerID strin
 func (m *Manager) deactivateControlledOnce(ctx context.Context, controllerID string, entry sdk.CatalogPackage, intent packages.Intent, budgetLeft int64) (sdk.LifecycleObservation, error) {
 	_, instance, ready := m.controllerEndpoint(controllerID)
 	if !ready {
-		return sdk.LifecycleObservation{}, errors.New("lifecycle controller is not ready")
+		return sdk.LifecycleObservation{}, errControllerNotReady
 	}
 	call := buildCall(controllerID, instance, entry, intent.InstallationID, intent.Generation, sdk.LifecycleDeactivate, budgetLeft)
 	token, err := m.issueCallAdmission(call, intent.DesiredEnabled, false)
@@ -860,7 +859,7 @@ func (m *Manager) ensureControlledBytes(ctx context.Context, entry sdk.CatalogPa
 func (m *Manager) revalidateForEffect(entry sdk.CatalogPackage, intent packages.Intent) error {
 	_, _, ready := m.controllerEndpoint(entry.LifecycleController)
 	if !ready {
-		return errors.New("lifecycle controller is not ready")
+		return errControllerNotReady
 	}
 	current, err := packages.LoadIntent(m.root, entry.ID)
 	if err != nil {
@@ -891,12 +890,10 @@ type activateSequenceResult struct {
 
 // transportBlocked reports explicit pre-effect controller or socket
 // unavailability: only this failure class merits a scheduled retry.
+var errControllerNotReady = errors.New("lifecycle controller is not ready")
+
 func transportBlocked(err error) bool {
-	if err == nil {
-		return false
-	}
-	message := err.Error()
-	return strings.Contains(message, "unreachable") || strings.Contains(message, "not ready")
+	return errors.Is(err, errControllerNotReady)
 }
 
 // runActivateSequence runs the shared first-enable effect ordering for
@@ -1178,6 +1175,7 @@ func opDeadlineFromContext(ctx context.Context, capSeconds int64) int64 {
 func (m *Manager) runStartupOptionalPass(lifeCtx context.Context, done chan struct{}) {
 	defer close(done)
 	start := time.Now()
+	resolved := make(map[string]bool)
 	ctx, cancel := context.WithTimeout(lifeCtx, time.Duration(startupReconcileTotalSeconds)*time.Second)
 	defer cancel()
 	for _, offset := range startupReconcileOffsets {
@@ -1189,7 +1187,7 @@ func (m *Manager) runStartupOptionalPass(lifeCtx context.Context, done chan stru
 			}
 		}
 		attemptCtx, attemptCancel := context.WithTimeout(ctx, time.Duration(startupAttemptSeconds)*time.Second)
-		terminal := m.reconcileStableAttempt(attemptCtx)
+		terminal := m.reconcileStableAttempt(attemptCtx, resolved)
 		attemptCancel()
 		if ctx.Err() != nil {
 			return
@@ -1200,13 +1198,34 @@ func (m *Manager) runStartupOptionalPass(lifeCtx context.Context, done chan stru
 	}
 }
 
+// startupEntries includes installed standalone packages as well as catalog
+// targets. Only the trusted catalog can assign a lifecycle controller.
+func (m *Manager) startupEntries() []sdk.CatalogPackage {
+	entries, _ := m.controlCatalog()
+	if m.catalogPath != "" {
+		return entries
+	}
+	known := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		known[entry.ID] = true
+	}
+	dirs, _ := os.ReadDir(m.root)
+	for _, dir := range dirs {
+		id := dir.Name()
+		if dir.IsDir() && sdk.ValidID(id) && !known[id] {
+			entries = append(entries, sdk.CatalogPackage{ID: id})
+		}
+	}
+	return entries
+}
+
 // reconcileStableAttempt runs one startup attempt under the single
 // mutation slot: it is skipped entirely while another operation owns
 // the slot, so accepted admin work never queues behind reconciliation.
-func (m *Manager) reconcileStableAttempt(ctx context.Context) bool {
+func (m *Manager) reconcileStableAttempt(ctx context.Context, resolved map[string]bool) bool {
 	// A never-activated catalog has no boot work and must not briefly
 	// reserve the mutation slot against its first admin request.
-	entries, _ := m.controlCatalog()
+	entries := m.startupEntries()
 	hasIntent := false
 	for _, entry := range entries {
 		if entry.Required {
@@ -1221,11 +1240,16 @@ func (m *Manager) reconcileStableAttempt(ctx context.Context) bool {
 	if !hasIntent {
 		return true
 	}
+	release, err := acquireMaintenanceGuard(m.maintenanceDir)
+	if err != nil {
+		return true // Explicit post-maintenance reconciliation owns resumption.
+	}
+	defer release()
 	if err := m.acquireMutation("startup"); err != nil {
 		return false
 	}
 	defer m.releaseMutation()
-	return m.reconcileStablePass(ctx, true)
+	return m.reconcileStablePass(ctx, true, resolved)
 }
 
 // reconcileStablePass runs ordinary boot reconciliation over stable
@@ -1241,7 +1265,7 @@ func (m *Manager) reconcileStableAttempt(ctx context.Context) bool {
 // returns true when every row reached a definite outcome and only
 // unavailability-blocked rows merit another attempt. The caller holds
 // the single mutation slot.
-func (m *Manager) reconcileStablePass(ctx context.Context, settlePending bool) bool {
+func (m *Manager) reconcileStablePass(ctx context.Context, settlePending bool, resolved map[string]bool) bool {
 	terminal := true
 	if maintenanceHeld(m.maintenanceDir) {
 		return true
@@ -1252,16 +1276,18 @@ func (m *Manager) reconcileStablePass(ctx context.Context, settlePending bool) b
 	if !started {
 		return true
 	}
-	entries, _ := m.controlCatalog()
+	entries := m.startupEntries()
 	for _, entry := range entries {
-		if ctx.Err() != nil {
-			return true
-		}
-		if entry.Required {
+		if entry.Required || resolved[entry.ID] {
 			continue
+		}
+		if ctx.Err() != nil {
+			return false
 		}
 		if m.reconcileStableRow(ctx, entry, settlePending) {
 			terminal = false
+		} else if resolved != nil {
+			resolved[entry.ID] = true
 		}
 	}
 	return terminal
@@ -1287,7 +1313,17 @@ func (m *Manager) reconcileStableRow(ctx context.Context, entry sdk.CatalogPacka
 		return false
 	}
 	if intent.PendingOperation != nil {
-		if !settlePending || entry.LifecycleController == "" {
+		if !settlePending {
+			return false
+		}
+		if entry.LifecycleController == "" {
+			// Interrupted operations are observed, never replayed. Only
+			// an already established outcome may clear pending, without
+			// manufacturing a new administrator decision/generation.
+			alive, unknown := m.backendRunning(id)
+			if !unknown && alive == intent.DesiredEnabled {
+				_, _ = packages.StorePendingSameGeneration(m.root, id, intent.DesiredEnabled, nil, intent.Generation)
+			}
 			return false
 		}
 		return m.settlePendingRow(ctx, entry, intent)
@@ -1366,7 +1402,11 @@ func (m *Manager) bootEnableRow(ctx context.Context, entry sdk.CatalogPackage, i
 		return false
 	}
 	if result.blocked {
-		return true
+		// Only definite pre-effect unavailability is retried. Restore
+		// stable intent under the same generation; transport failures
+		// after dispatch remain uncertain and retain pending instead.
+		_, err := packages.StorePendingSameGeneration(m.root, id, true, nil, intent.Generation)
+		return err == nil
 	}
 	return false
 }

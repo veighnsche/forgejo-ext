@@ -520,7 +520,7 @@ func (m *Manager) ControlReconcile(ctx context.Context, controllerID string) (Co
 	// downloads, no generation rewrites, no pending replays; a
 	// maintenance-deferred target resumes once exclusion drops because
 	// this pass takes the normal shared guard above.
-	m.reconcileStablePass(ctx, false)
+	m.reconcileStablePass(ctx, false, nil)
 	rows, err = m.controlSnapshotEntries(controllerID)
 	if err != nil {
 		return empty, controlReject(http.StatusServiceUnavailable, "unavailable", "extension snapshot storage is invalid")
