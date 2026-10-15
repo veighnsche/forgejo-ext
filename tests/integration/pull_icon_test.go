@@ -18,6 +18,7 @@ import (
 	unit_model "forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/queue"
 	issue_service "forgejo.org/services/issue"
 	pull_service "forgejo.org/services/pull"
 	files_service "forgejo.org/services/repository/files"
@@ -175,6 +176,8 @@ func createClosedWipPullRequest(ctx context.Context, t *testing.T, user *user_mo
 
 	err := issue_service.ChangeTitle(ctx, pull.Issue, user, "WIP: "+pull.Issue.Title)
 	require.NoError(t, err)
+	// Title changes schedule PR work before the next fixture mutation.
+	require.NoError(t, queue.GetManager().FlushAll(ctx, time.Minute))
 
 	err = issue_service.ChangeStatus(ctx, pull.Issue, user, "", true)
 	require.NoError(t, err)
@@ -205,6 +208,7 @@ func createMergedPullRequest(ctx context.Context, t *testing.T, user *user_model
 }
 
 func createPullRequest(t *testing.T, user *user_model.User, repo *repo_model.Repository, branch, title string) *issues_model.PullRequest {
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	_, err := files_service.ChangeRepoFiles(git.DefaultContext, repo, user, &files_service.ChangeRepoFilesOptions{
 		Files: []*files_service.ChangeRepoFile{
 			{
@@ -231,6 +235,7 @@ func createPullRequest(t *testing.T, user *user_model.User, repo *repo_model.Rep
 	})
 
 	require.NoError(t, err)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 	pullIssue := &issues_model.Issue{
 		RepoID:   repo.ID,
@@ -251,6 +256,7 @@ func createPullRequest(t *testing.T, user *user_model.User, repo *repo_model.Rep
 	}
 	err = pull_service.NewPullRequest(git.DefaultContext, repo, pullIssue, nil, nil, pullRequest, nil)
 	require.NoError(t, err)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 	return pullRequest
 }
