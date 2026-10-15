@@ -34,6 +34,12 @@ type Manifest struct {
 	Capabilities       []string `json:"capabilities,omitempty"`
 	Policies           []string `json:"policies,omitempty"`
 	PreferredWorkspace bool     `json:"preferred_workspace,omitempty"`
+	// LifecycleController names the required package that controls this
+	// package's external effects. It is omitted for packages with no
+	// external effects. Catalog and extracted manifest must agree on it
+	// exactly; the required-set and controller-readiness checks that need
+	// release configuration stay with the manager.
+	LifecycleController string `json:"lifecycle_controller,omitempty"`
 }
 
 type Page struct {
@@ -105,19 +111,22 @@ func (m Manifest) Validate() error {
 	if m.Protocol != Protocol {
 		return fmt.Errorf("unsupported extension protocol %d", m.Protocol)
 	}
-	if !slug.MatchString(m.ID) || strings.TrimSpace(m.Name) == "" || strings.TrimSpace(m.Version) == "" {
+	if !slug.MatchString(m.ID) || strings.TrimSpace(m.Name) == "" || !validPackageVersion(m.Version) {
 		return errors.New("extension id, name, or version is invalid")
 	}
 	if !safeRelative(m.Executable) {
 		return errors.New("extension executable path is invalid")
 	}
-	if err := validateNames(m.Capabilities, map[string]bool{
-		CapabilityActorRead: true, CapabilityRepositoryRead: true,
-		CapabilityOwnedRepositoriesSearch: true, CapabilityOrganizationOwnership: true,
-		CapabilityPublicKeysRead: true, CapabilityContributionAuthorize: true,
-		CapabilityServiceBridge: true, CapabilityBackgroundOperations: true,
-	}, "capability"); err != nil {
+	if err := validateNames(m.Capabilities, catalogCapabilities(), "capability"); err != nil {
 		return err
+	}
+	if m.LifecycleController != "" {
+		if !ValidID(m.LifecycleController) || len(m.LifecycleController) > maximumPackageIDBytes {
+			return fmt.Errorf("extension %q has an invalid lifecycle controller", m.ID)
+		}
+		if m.LifecycleController == m.ID {
+			return fmt.Errorf("extension %q cannot control itself", m.ID)
+		}
 	}
 	if err := validateNames(m.Policies, map[string]bool{PolicyForgejoUsername: true}, "policy"); err != nil {
 		return err

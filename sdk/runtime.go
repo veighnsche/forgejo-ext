@@ -22,15 +22,27 @@ type Application struct {
 	HTTP                  http.Handler
 	AuthorizeContribution ContributionAuthorizer
 	Policies              map[string]PolicyHandler
+	// Lifecycle handles generic lifecycle operations for the required
+	// controller extension. It runs on the SDK-owned lifecycle endpoint
+	// before ordinary HTTP routes dispatch. Extensions without external
+	// effects leave it nil and keep existing backend start/stop behavior.
+	Lifecycle LifecycleHandler
 }
 
 type Registration struct {
 	AuthorizesContribution bool     `json:"authorizes_contribution"`
 	Policies               []string `json:"policies"`
+	// Lifecycle reports whether the extension registered a lifecycle
+	// handler. The handshake must match this to the installed manifest's
+	// lifecycle capability (see ValidateLifecycleRegistration).
+	Lifecycle bool `json:"lifecycle"`
 }
 
 func (a Application) registration() Registration {
-	registration := Registration{AuthorizesContribution: a.AuthorizeContribution != nil}
+	registration := Registration{
+		AuthorizesContribution: a.AuthorizeContribution != nil,
+		Lifecycle:              a.Lifecycle != nil,
+	}
 	for id, handler := range a.Policies {
 		if handler != nil {
 			registration.Policies = append(registration.Policies, id)
@@ -42,6 +54,35 @@ func (a Application) registration() Registration {
 
 func (a Application) handler() http.Handler {
 	mux := http.NewServeMux()
+	// The SDK-owned lifecycle endpoint runs before ordinary routes: the
+	// manager's lifecycle call carries its own opaque authority, never a
+	// browser Actor, so it must not fall through to Application.HTTP.
+	mux.HandleFunc("POST "+LifecyclePath, func(w http.ResponseWriter, r *http.Request) {
+		if a.Lifecycle == nil {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.RawQuery != "" {
+			http.Error(w, "lifecycle calls accept no query parameters", http.StatusBadRequest)
+			return
+		}
+		call, err := decodeLifecycleBody(r.Body)
+		if err != nil {
+			http.Error(w, "invalid lifecycle call", http.StatusBadRequest)
+			return
+		}
+		authority, err := LifecycleContext(r)
+		if err != nil {
+			http.Error(w, "lifecycle authority is not admitted", http.StatusForbidden)
+			return
+		}
+		observation, err := a.Lifecycle(r.Context(), authority, call)
+		if err != nil {
+			http.Error(w, "lifecycle operation unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, observation)
+	})
 	mux.HandleFunc("POST /v1/contribution/authorize", func(w http.ResponseWriter, r *http.Request) {
 		if a.AuthorizeContribution == nil {
 			http.NotFound(w, r)
@@ -99,6 +140,20 @@ func decodeRequest(r *http.Request, target any) error {
 		return errors.New("multiple JSON values")
 	}
 	return nil
+}
+
+// decodeLifecycleBody reads one lifecycle call body bounded at 16 KiB and
+// strictly decodes it: unknown fields, duplicate keys, trailing data,
+// wrong scalar types and missing required fields are rejected.
+func decodeLifecycleBody(body io.Reader) (LifecycleCall, error) {
+	data, err := io.ReadAll(io.LimitReader(body, MaximumLifecycleBodyBytes+1))
+	if err != nil {
+		return LifecycleCall{}, errors.New("read lifecycle call failed")
+	}
+	if len(data) > MaximumLifecycleBodyBytes {
+		return LifecycleCall{}, errors.New("lifecycle call exceeds limit")
+	}
+	return DecodeLifecycleCall(data)
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

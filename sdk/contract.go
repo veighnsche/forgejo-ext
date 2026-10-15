@@ -6,14 +6,15 @@ package extensions
 import "context"
 
 const (
-	ContextHeader           = "X-Forgejo-Extension-Context"
-	AdmissionHeader         = "X-Forgejo-Extension-Admission"
-	SessionGenerationHeader = "X-Extension-Session-Generation"
-	SocketEnv               = "FORGEJO_EXTENSION_SOCKET"
-	CallbackEnv             = "FORGEJO_EXTENSION_CALLBACK_SOCKET"
-	ServiceCallbackEnv      = "FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET"
-	ServiceCallbackPeerEnv  = "FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID"
-	DataEnv                 = "FORGEJO_EXTENSION_DATA"
+	ContextHeader            = "X-Forgejo-Extension-Context"
+	AdmissionHeader          = "X-Forgejo-Extension-Admission"
+	LifecycleAdmissionHeader = "X-Forgejo-Extension-Lifecycle-Admission"
+	SessionGenerationHeader  = "X-Extension-Session-Generation"
+	SocketEnv                = "FORGEJO_EXTENSION_SOCKET"
+	CallbackEnv              = "FORGEJO_EXTENSION_CALLBACK_SOCKET"
+	ServiceCallbackEnv       = "FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET"
+	ServiceCallbackPeerEnv   = "FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID"
+	DataEnv                  = "FORGEJO_EXTENSION_DATA"
 
 	CapabilityActorRead               = "native.actor.read"
 	CapabilityRepositoryRead          = "native.repository.read"
@@ -23,6 +24,7 @@ const (
 	CapabilityContributionAuthorize   = "native.contribution.authorize"
 	CapabilityServiceBridge           = "native.service.bridge"
 	CapabilityBackgroundOperations    = "native.background.operations"
+	CapabilityExtensionLifecycle      = "native.extension.lifecycle"
 	PolicyForgejoUsername             = "forgejo.username"
 
 	// BrowserContractVersion is the canonical browser mount contract

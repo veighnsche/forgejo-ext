@@ -103,6 +103,54 @@ func RequestContext(r *http.Request) (Authority, error) {
 	return authority, nil
 }
 
+// LifecycleContext accepts a lifecycle authority only from the private
+// extension listener. The opaque manager-issued token arrives in the
+// lifecycle admission header; it is held unexported so encoding the
+// authority can never expose it. The callback socket selection and
+// server-peer pinning reuse the existing callback transport primitives.
+// LifecycleContext never consults RequestContext, CurrentActor or a
+// fabricated site administrator: authority exists only because the manager
+// has already admitted an admin request or is reconciling persisted
+// authorized intent. An ordinary Actor admission is rejected here, and a
+// lifecycle token is rejected by RequestContext: the two admissions are
+// never interchangeable.
+func LifecycleContext(r *http.Request) (LifecycleAuthority, error) {
+	var authority LifecycleAuthority
+	token := r.Header.Get(LifecycleAdmissionHeader)
+	if token == "" || len(token) > 8192 {
+		return LifecycleAuthority{}, errors.New("missing or oversized lifecycle admission")
+	}
+	authority.admission = token
+	authority.callbackSocket = os.Getenv(CallbackEnv)
+	if serviceSocket := os.Getenv(ServiceCallbackEnv); serviceSocket != "" {
+		authority.callbackSocket = serviceSocket
+		authority.serviceCallback = true
+		if raw := os.Getenv(ServiceCallbackPeerEnv); raw != "" {
+			uid, err := strconv.ParseUint(raw, 10, 32)
+			if err != nil {
+				return LifecycleAuthority{}, errors.New("invalid service callback peer identity")
+			}
+			authority.servicePeerUID = uint32(uid)
+			authority.servicePeerPinned = true
+		}
+	}
+	if authority.callbackSocket == "" {
+		return LifecycleAuthority{}, errors.New("lifecycle callback is unavailable")
+	}
+	return authority, nil
+}
+
+// lifecycleExpectedUID resolves the pinned server UID for a lifecycle
+// authority: per-instance hosts run the callback listener as this
+// process's own UID, while the shared service callback pins the fixed
+// service identity from the environment.
+func (a LifecycleAuthority) lifecycleExpectedUID() uint32 {
+	if a.serviceCallback && a.servicePeerPinned {
+		return a.servicePeerUID
+	}
+	return uint32(os.Geteuid())
+}
+
 func decimalID(id string) bool {
 	if id == "" || id[0] == '0' {
 		return false
@@ -139,6 +187,29 @@ type nativeClient struct {
 	expectedUID uint32
 }
 
+// dialPinnedUnixSocket dials a private host callback socket and pins the
+// listener against the expected server UID via kernel peer credentials,
+// reusing the existing server-peer pinning for every callback flavor.
+// Merely reaching a writable socket is insufficient: other extension
+// processes may share the UID, so the dial verifies the listener identity
+// before anything is sent.
+func dialPinnedUnixSocket(ctx context.Context, socket string, expectedUID uint32) (net.Conn, error) {
+	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socket)
+	if err != nil {
+		return nil, err
+	}
+	peer, err := PeerCredential(conn)
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	if peer.UID != expectedUID {
+		_ = conn.Close()
+		return nil, errors.New("callback host peer is not permitted")
+	}
+	return conn, nil
+}
+
 func (c *nativeClient) call(ctx context.Context, request CallbackRequest) (CallbackResponse, error) {
 	if c.socket == "" || c.admission == "" {
 		return CallbackResponse{}, errors.New("native callback is unavailable")
@@ -148,21 +219,9 @@ func (c *nativeClient) call(ctx context.Context, request CallbackRequest) (Callb
 	if err != nil {
 		return CallbackResponse{}, err
 	}
+	expected := c.expectedUID
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		conn, err := (&net.Dialer{}).DialContext(ctx, "unix", c.socket)
-		if err != nil {
-			return nil, err
-		}
-		peer, err := PeerCredential(conn)
-		if err != nil {
-			_ = conn.Close()
-			return nil, err
-		}
-		if peer.UID != c.expectedUID {
-			_ = conn.Close()
-			return nil, errors.New("native callback host peer is not permitted")
-		}
-		return conn, nil
+		return dialPinnedUnixSocket(ctx, c.socket, expected)
 	}}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport}

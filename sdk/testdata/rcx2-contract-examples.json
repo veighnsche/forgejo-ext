@@ -1,0 +1,347 @@
+{
+  "fixture_only": true,
+  "fixture_notice": "Structural wire examples only. All URLs use example.invalid; all archive sizes and hashes (including catalog_sha256), versions and identities are synthetic. No artifact bytes or published release are claimed. The clock must be injected for deadline validation. The envelope and scenario labels are fixture metadata, not accepted protocol fields. Capability sets illustrate valid SDK shape; real release capabilities must equal their verified manifests.",
+  "fixture_clock_unix": 1792100000,
+  "catalog": {
+    "version": 1,
+    "packages": [
+      {
+        "id": "soda",
+        "version": "1.0.0",
+        "url": "https://releases.example.invalid/v1.0.0/soda-extension-1.0.0-linux-x86_64.tar.gz",
+        "size": 1024,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "required": true,
+        "fountain_protocol": 1,
+        "browser_contract": 1,
+        "capabilities": [
+          "native.actor.read",
+          "native.repository.read",
+          "native.repositories.owned.search",
+          "native.organization.ownership",
+          "native.user.public_keys.read",
+          "native.contribution.authorize",
+          "native.service.bridge",
+          "native.background.operations",
+          "native.extension.lifecycle"
+        ]
+      },
+      {
+        "id": "tailnet",
+        "version": "1.0.0",
+        "url": "https://releases.example.invalid/v1.0.0/tailnet-extension-1.0.0-linux-x86_64.tar.gz",
+        "size": 2048,
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "required": false,
+        "fountain_protocol": 1,
+        "browser_contract": 1,
+        "capabilities": [
+          "native.actor.read",
+          "native.service.bridge"
+        ],
+        "lifecycle_controller": "soda"
+      }
+    ]
+  },
+  "intent": {
+    "schema": 1,
+    "package_id": "tailnet",
+    "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+    "generation": "7",
+    "desired_enabled": true,
+    "pending_operation": null
+  },
+  "lifecycle_call": {
+    "controller_id": "soda",
+    "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+    "package_id": "tailnet",
+    "package_version": "1.0.0",
+    "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+    "generation": "7",
+    "operation": "observe",
+    "deadline_unix": 1792100010
+  },
+  "lifecycle_observation": {
+    "controller_id": "soda",
+    "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+    "package_id": "tailnet",
+    "package_version": "1.0.0",
+    "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+    "generation": "7",
+    "operation": "observe",
+    "deadline_unix": 1792100010,
+    "state": "running",
+    "effect_generation": "6",
+    "admission_ready": true,
+    "detail": "Owned runtime is running with a current operational grant."
+  },
+  "lifecycle_authorization": {
+    "call": {
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "package_id": "tailnet",
+      "package_version": "1.0.0",
+      "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "7",
+      "operation": "observe",
+      "deadline_unix": 1792100010
+    },
+    "desired_enabled": true
+  },
+  "manager_state": {
+    "catalog_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "controller_id": "soda",
+    "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+    "controller_ready": true,
+    "admission_open": true,
+    "entry": {
+      "package_id": "tailnet",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "7",
+      "desired_enabled": true,
+      "pending_operation": null,
+      "installed_version": "1.0.0",
+      "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "required": false
+    }
+  },
+  "snapshot": {
+    "catalog_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "entries": [
+      {
+        "package_id": "soda",
+        "installation_id": "550e8400-e29b-41d4-a716-446655440001",
+        "generation": "0",
+        "desired_enabled": true,
+        "pending_operation": null,
+        "installed_version": "1.0.0",
+        "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "required": true
+      },
+      {
+        "package_id": "tailnet",
+        "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+        "generation": "7",
+        "desired_enabled": true,
+        "pending_operation": null,
+        "installed_version": "1.0.0",
+        "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "required": false
+      }
+    ]
+  },
+  "reconcile_response": {
+    "catalog_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "entries": [
+      {
+        "package_id": "soda",
+        "installation_id": "550e8400-e29b-41d4-a716-446655440001",
+        "generation": "0",
+        "desired_enabled": true,
+        "pending_operation": null,
+        "installed_version": "1.0.0",
+        "package_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "required": true,
+        "backend": "running",
+        "effects": "not_required",
+        "state": "enabled",
+        "admission_open": true,
+        "error": null
+      },
+      {
+        "package_id": "tailnet",
+        "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+        "generation": "7",
+        "desired_enabled": true,
+        "pending_operation": null,
+        "installed_version": "1.0.0",
+        "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "required": false,
+        "backend": "running",
+        "effects": "running",
+        "state": "enabled",
+        "admission_open": true,
+        "error": null
+      }
+    ]
+  },
+  "activation_in_progress": {
+    "fixture_notice": "The host grant may become ready before the optional backend handshake; ordinary admission stays closed until Fountain durably clears pending and registers that backend.",
+    "intent": {
+      "schema": 1,
+      "package_id": "tailnet",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "desired_enabled": true,
+      "pending_operation": "activate"
+    },
+    "lifecycle_call": {
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "package_id": "tailnet",
+      "package_version": "1.0.0",
+      "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "operation": "activate",
+      "deadline_unix": 1792100300
+    },
+    "lifecycle_observation": {
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "package_id": "tailnet",
+      "package_version": "1.0.0",
+      "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "operation": "activate",
+      "deadline_unix": 1792100300,
+      "state": "running",
+      "effect_generation": "6",
+      "admission_ready": true,
+      "detail": "Existing owned runtime adopted without restart or reenrollment."
+    },
+    "manager_state": {
+      "catalog_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "controller_ready": true,
+      "admission_open": false,
+      "entry": {
+        "package_id": "tailnet",
+        "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+        "generation": "8",
+        "desired_enabled": true,
+        "pending_operation": "activate",
+        "installed_version": "1.0.0",
+        "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "required": false
+      }
+    }
+  },
+  "disabled_after_cleanup": {
+    "fixture_notice": "Disable increments intent generation; it may clean resources created under an older effect generation. Confirmed stopped has a null effect_generation.",
+    "intent": {
+      "schema": 1,
+      "package_id": "tailnet",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "desired_enabled": false,
+      "pending_operation": null
+    },
+    "lifecycle_call": {
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "package_id": "tailnet",
+      "package_version": "1.0.0",
+      "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "operation": "deactivate",
+      "deadline_unix": 1792100120
+    },
+    "lifecycle_observation": {
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "package_id": "tailnet",
+      "package_version": "1.0.0",
+      "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "operation": "deactivate",
+      "deadline_unix": 1792100120,
+      "state": "stopped",
+      "effect_generation": null,
+      "admission_ready": false,
+      "detail": "Owned runtime stopped; operational admission is closed."
+    },
+    "manager_state": {
+      "catalog_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "controller_ready": true,
+      "admission_open": false,
+      "entry": {
+        "package_id": "tailnet",
+        "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+        "generation": "8",
+        "desired_enabled": false,
+        "pending_operation": null,
+        "installed_version": "1.0.0",
+        "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "required": false
+      }
+    }
+  },
+  "failed_enable_cleanup": {
+    "fixture_notice": "Only the still-active failed-enable command's internal cleanup admission may authorize this deactivate while desired=true/pending=activate. There is no client-controlled cleanup flag. Confirmed cleanup does not complete enablement or clear pending.",
+    "intent": {
+      "schema": 1,
+      "package_id": "tailnet",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "desired_enabled": true,
+      "pending_operation": "activate"
+    },
+    "lifecycle_call": {
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "package_id": "tailnet",
+      "package_version": "1.0.0",
+      "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "operation": "deactivate",
+      "deadline_unix": 1792100120
+    },
+    "lifecycle_authorization": {
+      "call": {
+        "controller_id": "soda",
+        "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+        "package_id": "tailnet",
+        "package_version": "1.0.0",
+        "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+        "generation": "8",
+        "operation": "deactivate",
+        "deadline_unix": 1792100120
+      },
+      "desired_enabled": true
+    },
+    "lifecycle_observation": {
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "package_id": "tailnet",
+      "package_version": "1.0.0",
+      "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+      "generation": "8",
+      "operation": "deactivate",
+      "deadline_unix": 1792100120,
+      "state": "stopped",
+      "effect_generation": null,
+      "admission_ready": false,
+      "detail": "Failed activation cleaned up; explicit retry is required."
+    },
+    "manager_state": {
+      "catalog_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "controller_id": "soda",
+      "controller_instance_id": "dddddddddddddddddddddddddddddddd",
+      "controller_ready": true,
+      "admission_open": false,
+      "entry": {
+        "package_id": "tailnet",
+        "installation_id": "550e8400-e29b-41d4-a716-446655440000",
+        "generation": "8",
+        "desired_enabled": true,
+        "pending_operation": "activate",
+        "installed_version": "1.0.0",
+        "package_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "required": false
+      }
+    }
+  }
+}
