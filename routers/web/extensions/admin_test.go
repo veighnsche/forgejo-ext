@@ -313,13 +313,12 @@ func TestAdminEnableFailureRendersTruthfully(t *testing.T) {
 
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		after, err := packages.LoadIntent(root, "sample")
-		require.NoError(t, err)
-		if after.PendingOperation == nil {
+		observed := manager.Observe("sample")
+		if observed.State == packages.LifecycleFailed && observed.Error != nil {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("accepted enablement never settled")
+			t.Fatal("accepted backend failure never appeared in status")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -574,7 +573,9 @@ func TestAdminSettingsResolutions(t *testing.T) {
 func TestStartRuntimeWiresConfiguredCatalogPath(t *testing.T) {
 	root := adminTestRoot(t)
 	previousCatalog, previousRequired := setting.Extensions.CatalogPath, setting.Extensions.RequiredIDs
-	t.Cleanup(func() { setting.Extensions.CatalogPath, setting.Extensions.RequiredIDs = previousCatalog, previousRequired })
+	t.Cleanup(func() {
+		setting.Extensions.CatalogPath, setting.Extensions.RequiredIDs = previousCatalog, previousRequired
+	})
 
 	setting.Extensions.CatalogPath = filepath.Join(root, "absent-catalog.json")
 	setting.Extensions.RequiredIDs = []string{"soda"}

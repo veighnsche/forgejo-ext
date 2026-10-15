@@ -206,6 +206,12 @@ func mergeControlledEffect(base packages.LifecycleResult, id string, controlled,
 		return fail("requested and observed state disagree")
 	}
 	if !backendAlive && effect.state == sdk.LifecycleStateStopped {
+		// A confirmed teardown remains disabled when optional package bytes
+		// have disappeared; the persisted intent and controller own cleanup.
+		base.State = packages.LifecycleDisabled
+		base.Unconfirmed = false
+		base.Error = nil
+		base.Progress = "external effects stopped"
 		return base
 	}
 	return fail("residual effects need an explicit disable")

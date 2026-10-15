@@ -386,9 +386,9 @@ func archiveSHAHex(t *testing.T, archive []byte) string {
 
 // F26-4: core is ready before a delayed optional socket, and an
 // optional failure is isolated: the required controller serves from
-// Start return while the crashed optional backend is restored by the
-// bounded pass with adoption, never a duplicate effect.
-func TestF026OptionalCrashRestoredCoreUndisturbed(t *testing.T) {
+// Start return. An explicit bounded reconcile after a later crash restores
+// the optional backend with adoption, never a persistent polling loop.
+func TestF026OptionalCrashReconcilesCoreUndisturbed(t *testing.T) {
 	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller"}, true)
 	h.m.mu.Lock()
 	controllerInstance := h.m.controllers["controller"].instanceID
@@ -408,6 +408,8 @@ func TestF026OptionalCrashRestoredCoreUndisturbed(t *testing.T) {
 	_, _, ok = h.m.Lookup("sample")
 	require.False(t, ok, "crashed backend loses admission")
 
+	_, reject := h.m.ControlReconcile(context.Background(), "controller")
+	require.Nil(t, reject)
 	restored := waitObserveState(t, h.m, "sample", packages.LifecycleEnabled, 60*time.Second)
 	require.False(t, restored.Unconfirmed)
 	h.m.mu.Lock()

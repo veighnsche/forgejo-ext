@@ -110,6 +110,9 @@ type Manager struct {
 	// A second adoption while it is set gets operation_in_progress.
 	// Guarded by mu; done closes when the task ends.
 	activeOp *activeOperation
+	// acceptMu excludes Close from durable adoption; concurrent requests
+	// use TryLock and remain conflicts rather than queued mutations.
+	acceptMu sync.Mutex
 	// startupDone closes when the bounded startup optional pass ends.
 	// Guarded by mu; nil when no pass is running.
 	startupDone chan struct{}
@@ -151,6 +154,8 @@ type controllerState struct {
 }
 
 var defaultManager atomic.Pointer[Manager]
+
+var errServiceCallbackUnconfigured = errors.New("service callback configuration failed")
 
 func SetDefault(manager *Manager) {
 	defaultManager.Store(manager)
@@ -296,6 +301,29 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 		return err
 	}
 
+	// Reject contradictory required intent before acquisition or replacement.
+	for _, id := range m.requiredIDs {
+		intent, err := packages.LoadIntent(m.root, id)
+		if err != nil {
+			return fail(fmt.Errorf("required extension %q requested state unavailable", id))
+		}
+		if intent.Generation != "0" && !intent.DesiredEnabled {
+			return fail(fmt.Errorf("required extension %q is disabled", id))
+		}
+	}
+	// Required bootstrap reuses exact installed receipts first, the
+	// verified archive cache second, and bounded HTTPS acquisition only
+	// when neither is available, so exact cached packages reboot
+	// offline. There is no separate bootstrap image and no bundled
+	// core package. It preserves installation UUIDs and writes no
+	// intents itself.
+	if len(m.requiredIDs) != 0 {
+		requiredCatalog := sdk.Catalog{Version: sdk.CatalogVersion, Packages: append([]sdk.CatalogPackage(nil), m.catalog...)}
+		if err := packages.BootstrapRequired(ctx, m.store, requiredCatalog, m.requiredIDs, nil); err != nil {
+			return fail(fmt.Errorf("required extension bootstrap failed: %v", err))
+		}
+	}
+
 	entries, err := os.ReadDir(m.root)
 	if err != nil {
 		return fail(errors.New("cannot list extension packages"))
@@ -314,33 +342,11 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 		if !entry.IsDir() {
 			return fail(fmt.Errorf("required extension %q is not a package directory", entry.Name()))
 		}
-		intent, err := packages.LoadIntent(m.root, entry.Name())
-		if err != nil {
-			return fail(fmt.Errorf("required extension %q requested state unavailable", entry.Name()))
-		}
-		// Required packages are always desired by configuration and
-		// carry no intent; only a persisted disabled intent fails
-		// closed here.
-		if intent.Generation != "0" && !intent.DesiredEnabled {
-			return fail(fmt.Errorf("required extension %q is disabled", entry.Name()))
-		}
 		required[entry.Name()] = true
 	}
 	for _, id := range m.requiredIDs {
 		if !required[id] {
 			return fail(fmt.Errorf("required extension %q is missing", id))
-		}
-	}
-	// Required bootstrap reuses exact installed receipts first, the
-	// verified archive cache second, and bounded HTTPS acquisition only
-	// when neither is available, so exact cached packages reboot
-	// offline. There is no separate bootstrap image and no bundled
-	// core package. It preserves installation UUIDs and writes no
-	// intents itself.
-	if len(m.requiredIDs) != 0 {
-		requiredCatalog := sdk.Catalog{Version: sdk.CatalogVersion, Packages: append([]sdk.CatalogPackage(nil), m.catalog...)}
-		if err := packages.BootstrapRequired(ctx, m.store, requiredCatalog, m.requiredIDs, nil); err != nil {
-			return fail(fmt.Errorf("required extension bootstrap failed: %v", err))
 		}
 	}
 	claimedRoutes := make(map[string]bool)
@@ -420,6 +426,9 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 			}
 			item, err := m.startOne(filepath.Join(m.root, id), id)
 			if err != nil {
+				if errors.Is(err, errServiceCallbackUnconfigured) {
+					return fail(err)
+				}
 				log.Error("Extension %s startup failed: %v", id, err)
 				continue
 			}
@@ -434,6 +443,8 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 	}
 	m.mu.Lock()
 	m.started = true
+	m.startupDone = make(chan struct{})
+	startupDone, lifeCtx := m.startupDone, m.lifeCtx
 	m.mu.Unlock()
 	// Re-observe interrupted lifecycle operations against the live
 	// registry; this refreshes observations only and retries no effects.
@@ -441,7 +452,7 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 	// Optional lifecycle effects (controller activation, residual
 	// stops, grant refresh) reconcile on the bounded schedule only
 	// after Start has released its mutex and returned core readiness.
-	go m.runStartupOptionalPass()
+	go m.runStartupOptionalPass(lifeCtx, startupDone)
 	return nil
 }
 
@@ -456,7 +467,7 @@ func (m *Manager) stopOneDetached(id string, item *running) {
 func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 	phase := "package validation"
 	defer func() {
-		if err != nil {
+		if err != nil && !errors.Is(err, errServiceCallbackUnconfigured) {
 			err = errors.New(phase + " failed")
 		}
 	}()
@@ -474,8 +485,7 @@ func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 		return nil, err
 	}
 	if slices.Contains(manifest.Capabilities, sdk.CapabilityServiceBridge) && m.serviceCallback == nil {
-		phase = "service callback configuration"
-		return nil, errors.New("service callback endpoint is unavailable")
+		return nil, errServiceCallbackUnconfigured
 	}
 	executable := filepath.Join(packageDir, filepath.FromSlash(manifest.Executable))
 	phase = "executable validation"
@@ -839,13 +849,17 @@ func (m *Manager) Close() error {
 	// package store, so unfinished effects remain pending and an
 	// offline CLI blocked on the lock proceeds only after the task
 	// has fully ended.
-	if m.lifeCancel != nil {
-		m.lifeCancel()
-	}
+	m.acceptMu.Lock()
 	m.mu.Lock()
+	m.started = false
+	cancel := m.lifeCancel
 	active := m.activeOp
 	startupDone := m.startupDone
 	m.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	m.acceptMu.Unlock()
 	if active != nil {
 		<-active.done
 	}

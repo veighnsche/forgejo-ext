@@ -470,6 +470,9 @@ func (m *Manager) reconcileRow(row packages.SnapshotEntry, catalogEntry *sdk.Cat
 // rows within the total ceiling.
 func (m *Manager) ControlReconcile(ctx context.Context, controllerID string) (ControlReconcileResponse, *ControlError) {
 	var empty ControlReconcileResponse
+	if err := ctx.Err(); err != nil {
+		return empty, controlReject(http.StatusServiceUnavailable, "unavailable", "reconcile request already cancelled")
+	}
 	budget := time.Duration(managerReconcileSeconds) * time.Second
 	if deadline, ok := ctx.Deadline(); ok {
 		if remaining := time.Until(deadline); remaining < budget {

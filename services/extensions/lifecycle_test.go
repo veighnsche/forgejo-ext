@@ -5,6 +5,7 @@ package extensions
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -115,11 +116,12 @@ func TestDeactivateAfterBackendLoss(t *testing.T) {
 
 func TestRequiredPackageIsolation(t *testing.T) {
 	root := shortTestRoot(t)
-	installTestPackage(t, root, "soda")
+	installCatalogPackage(t, root, testCatalogEntry("soda", "1.0", true, ""), nil)
 	installTestPackage(t, root, "optional")
 	setDesiredState(t, root, "optional", true)
 	m := NewManager(root, "soda")
 	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
+	require.NoError(t, m.SetCallbackHandlerFactory(func(string) http.Handler { return http.NotFoundHandler() }))
 	configureTestCatalog(t, m, root, testCatalogEntry("soda", "1.0", true, ""), testCatalogEntry("optional", "1.0", false, ""))
 	require.NoError(t, m.Start(context.Background()))
 	t.Cleanup(func() { _ = m.Close() })

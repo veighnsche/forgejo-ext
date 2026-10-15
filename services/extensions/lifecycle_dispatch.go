@@ -563,6 +563,10 @@ func (m *Manager) RequestEnabled(ctx context.Context, id, expectedGeneration, ca
 		operation = sdk.LifecycleDeactivate
 		state = packages.LifecycleDeactivating
 	}
+	if !m.acceptMu.TryLock() {
+		return packages.FailedResult(operation, id, packages.LifecycleErrInProgress, "another extension operation is active")
+	}
+	defer m.acceptMu.Unlock()
 	adopted, failure := m.adoptMutation(id, "", expectedGeneration, catalogSHA, enabled)
 	if failure != nil {
 		return *failure
@@ -1171,16 +1175,7 @@ func opDeadlineFromContext(ctx context.Context, capSeconds int64) int64 {
 // budget: the post-exclusion reconcile resumes deferred targets. After
 // the final failure core stays ready and the optional row stays
 // failed and unavailable. There is no persistent poll loop.
-func (m *Manager) runStartupOptionalPass() {
-	m.mu.Lock()
-	if m.startupDone != nil {
-		m.mu.Unlock()
-		return
-	}
-	done := make(chan struct{})
-	m.startupDone = done
-	lifeCtx := m.lifeCtx
-	m.mu.Unlock()
+func (m *Manager) runStartupOptionalPass(lifeCtx context.Context, done chan struct{}) {
 	defer close(done)
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(lifeCtx, time.Duration(startupReconcileTotalSeconds)*time.Second)
@@ -1209,6 +1204,23 @@ func (m *Manager) runStartupOptionalPass() {
 // mutation slot: it is skipped entirely while another operation owns
 // the slot, so accepted admin work never queues behind reconciliation.
 func (m *Manager) reconcileStableAttempt(ctx context.Context) bool {
+	// A never-activated catalog has no boot work and must not briefly
+	// reserve the mutation slot against its first admin request.
+	entries, _ := m.controlCatalog()
+	hasIntent := false
+	for _, entry := range entries {
+		if entry.Required {
+			continue
+		}
+		intent, err := packages.LoadIntent(m.root, entry.ID)
+		if err != nil || intent.Generation != "0" {
+			hasIntent = true
+			break
+		}
+	}
+	if !hasIntent {
+		return true
+	}
 	if err := m.acquireMutation("startup"); err != nil {
 		return false
 	}

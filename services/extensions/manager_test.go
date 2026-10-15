@@ -410,10 +410,11 @@ func TestRequiredExtensionStartup(t *testing.T) {
 	manager := NewManager(root, "soda")
 	sodaEntry := testCatalogEntry("soda", "1.0", true, "")
 	configureTestCatalog(t, manager, root, sodaEntry)
-	if err := manager.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "missing") {
+	require.NoError(t, manager.SetCallbackHandlerFactory(func(string) http.Handler { return http.NotFoundHandler() }))
+	if err := manager.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "bootstrap failed") {
 		t.Fatalf("missing required package accepted: %v", err)
 	}
-	installTestPackage(t, root, "soda")
+	installCatalogPackage(t, root, sodaEntry, nil)
 	persistDesiredState(t, root, "soda", false)
 	if err := manager.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("disabled required package accepted: %v", err)
@@ -437,6 +438,7 @@ func TestRequiredPolicyFailsClosedAfterCrash(t *testing.T) {
 	installCatalogPackage(t, root, sodaEntry, map[string]any{"policies": []string{"forgejo.username"}})
 	manager := NewManager(root, "soda")
 	configureTestCatalog(t, manager, root, sodaEntry)
+	require.NoError(t, manager.SetCallbackHandlerFactory(func(string) http.Handler { return http.NotFoundHandler() }))
 	manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1", "FORGEJO_EXTENSION_TEST_POLICY=allow"}
 	var stopped string
 	if err := manager.SetInstanceStopped(func(instanceID string) { stopped = instanceID }); err != nil {
@@ -475,6 +477,7 @@ func TestRequiredPolicyRuntimeDecision(t *testing.T) {
 			installCatalogPackage(t, root, sodaEntry, map[string]any{"policies": []string{"forgejo.username"}})
 			manager := NewManager(root, "soda")
 			configureTestCatalog(t, manager, root, sodaEntry)
+			require.NoError(t, manager.SetCallbackHandlerFactory(func(string) http.Handler { return http.NotFoundHandler() }))
 			manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1", "FORGEJO_EXTENSION_TEST_POLICY=" + outcome}
 			if err := manager.Start(context.Background()); err != nil {
 				t.Fatal(err)
