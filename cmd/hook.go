@@ -343,6 +343,9 @@ func runHookReferenceTransaction(ctx context.Context, c *cli.Command) error {
 
 	repoUser := os.Getenv(repo_module.EnvRepoUsername)
 	repoName := os.Getenv(repo_module.EnvRepoName)
+	if isWiki, _ := strconv.ParseBool(os.Getenv(repo_module.EnvRepoIsWiki)); isWiki && !strings.HasSuffix(repoName, ".wiki") {
+		repoName += ".wiki"
+	}
 	if repoUser == "" || repoName == "" || len(os.Getenv("SSH_ORIGINAL_COMMAND")) == 0 {
 		return nil
 	}

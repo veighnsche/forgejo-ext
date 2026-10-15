@@ -342,3 +342,50 @@ func TestReferenceTransactionPreparingKeepsPreparedAdmission(t *testing.T) {
 		})
 	}
 }
+
+func TestReferenceTransactionTargetNamespace(t *testing.T) {
+	defer test.MockVariableValue(&setting.InternalToken, "fixture")()
+	defer test.MockVariableValue(&setting.InstallLock, true)()
+	t.Setenv(repo_module.EnvIsInternal, "false")
+	t.Setenv(repo_module.EnvRepoUsername, "user2")
+	t.Setenv("SSH_ORIGINAL_COMMAND", "git-receive-pack")
+	requests := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/hook/reference-transaction/") {
+			requests <- r.URL.Path
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = io.WriteString(w, `{"UserMsg":"native operation in progress"}`)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	defer test.MockVariableValue(&setting.LocalURL, server.URL+"/")()
+	for _, fixture := range []struct{ name, wiki, want string }{
+		{"repo1", "false", "repo1"},
+		{"repo1", "true", "repo1.wiki"},
+		{"repo1.wiki", "true", "repo1.wiki"},
+		{"repo1.wiki", "false", "repo1.wiki"},
+	} {
+		t.Run(fixture.name+"/wiki="+fixture.wiki, func(t *testing.T) {
+			t.Setenv(repo_module.EnvRepoName, fixture.name)
+			t.Setenv(repo_module.EnvRepoIsWiki, fixture.wiki)
+			input, err := os.CreateTemp(t.TempDir(), "stdin")
+			require.NoError(t, err)
+			defer input.Close()
+			_, err = io.WriteString(input, strings.Repeat("0", 40)+" "+strings.Repeat("1", 40)+" refs/heads/main\n")
+			require.NoError(t, err)
+			_, err = input.Seek(0, 0)
+			require.NoError(t, err)
+			defer test.MockVariableValue(&os.Stdin, input)()
+			app := &cli.Command{Commands: []*cli.Command{subcmdHookReferenceTransaction()}, ExitErrHandler: func(context.Context, *cli.Command, error) {}}
+			require.Error(t, app.Run(t.Context(), []string{"forgejo", "reference-transaction", "prepared"}))
+			select {
+			case target := <-requests:
+				assert.Equal(t, "/api/internal/hook/reference-transaction/user2/"+fixture.want, target)
+			default:
+				t.Fatal("prepared transaction must contact admission")
+			}
+		})
+	}
+}
