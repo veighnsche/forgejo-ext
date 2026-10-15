@@ -700,53 +700,57 @@ func TestMaintenanceGuardBlocksMutation(t *testing.T) {
 // installed bytes satisfy the pin. Trust anchors come from the
 // environment; no test client bypasses the bounded production fetcher.
 func TestEnableDownloadsCatalogArtifact(t *testing.T) {
-	root := shortTestRoot(t)
-	installLifecyclePackage(t, root, "controller", controllerManifest, testFixtureKnobs{Role: "controller"})
-	installLifecyclePackage(t, root, "sample", sampleManifest, testFixtureKnobs{})
-	body := buildSampleArchive(t)
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(body)
-	}))
-	t.Cleanup(server.Close)
-	sum := sha256.Sum256(body)
-	sampleEntry := testCatalogEntry("sample", "1.0.0", false, "controller")
-	sampleEntry.Capabilities = []string{"native.actor.read"}
-	sampleEntry.URL = server.URL + "/sample.tar.gz"
-	sampleEntry.Size = int64(len(body))
-	sampleEntry.SHA256 = hex.EncodeToString(sum[:])
-	controllerEntry := testCatalogEntry("controller", "1.0.0", true, "")
-	controllerEntry.Capabilities = []string{"native.extension.lifecycle"}
-	// The required controller ships an exact installed receipt, as
-	// production installs do; only the optional bytes download.
-	require.NoError(t, packages.WriteReceipt(filepath.Join(root, "controller"), controllerEntry))
-	certPath := filepath.Join(root, "test-ca.pem")
-	require.NoError(t, os.WriteFile(certPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0o600))
-	t.Setenv("SSL_CERT_FILE", certPath)
+	for _, controller := range []string{"controller", ""} {
+		t.Run("controller="+controller, func(t *testing.T) {
+			root := shortTestRoot(t)
+			installLifecyclePackage(t, root, "controller", controllerManifest, testFixtureKnobs{Role: "controller"})
+			installLifecyclePackage(t, root, "sample", sampleManifest, testFixtureKnobs{})
+			body := buildSampleArchive(t, controller)
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write(body)
+			}))
+			t.Cleanup(server.Close)
+			sum := sha256.Sum256(body)
+			sampleEntry := testCatalogEntry("sample", "1.0.0", false, controller)
+			sampleEntry.Capabilities = []string{"native.actor.read"}
+			sampleEntry.URL = server.URL + "/sample.tar.gz"
+			sampleEntry.Size = int64(len(body))
+			sampleEntry.SHA256 = hex.EncodeToString(sum[:])
+			controllerEntry := testCatalogEntry("controller", "1.0.0", true, "")
+			controllerEntry.Capabilities = []string{"native.extension.lifecycle"}
+			// The required controller ships an exact installed receipt, as
+			// production installs do; only the optional bytes download.
+			require.NoError(t, packages.WriteReceipt(filepath.Join(root, "controller"), controllerEntry))
+			certPath := filepath.Join(root, "test-ca.pem")
+			require.NoError(t, os.WriteFile(certPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0o600))
+			t.Setenv("SSL_CERT_FILE", certPath)
 
-	m := NewManager(root, "controller")
-	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
-	configureTestCatalog(t, m, root, controllerEntry, sampleEntry)
-	require.NoError(t, m.SetCallbackHandlerFactory(func(instanceID string) http.Handler {
-		return testAuthorizeMux(m, instanceID)
-	}))
-	require.NoError(t, m.Start(context.Background()))
-	t.Cleanup(func() { _ = m.Close() })
-	sha := m.catalogSHA
-	requestEnabledAccept(t, m, "sample", "0", sha, true)
-	waitActiveOpDone(t, m)
-	downloaded := lifecycleResult(t, m.Observe("sample"))
-	require.Equal(t, packages.LifecycleEnabled, downloaded.State)
-	require.False(t, downloaded.Unconfirmed)
-	require.NoError(t, packages.ValidateInstalled(root, sampleEntry))
+			m := NewManager(root, "controller")
+			m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
+			configureTestCatalog(t, m, root, controllerEntry, sampleEntry)
+			require.NoError(t, m.SetCallbackHandlerFactory(func(instanceID string) http.Handler {
+				return testAuthorizeMux(m, instanceID)
+			}))
+			require.NoError(t, m.Start(context.Background()))
+			t.Cleanup(func() { _ = m.Close() })
+			sha := m.catalogSHA
+			requestEnabledAccept(t, m, "sample", "0", sha, true)
+			waitActiveOpDone(t, m)
+			downloaded := lifecycleResult(t, m.Observe("sample"))
+			require.Equal(t, packages.LifecycleEnabled, downloaded.State)
+			require.False(t, downloaded.Unconfirmed)
+			require.NoError(t, packages.ValidateInstalled(root, sampleEntry))
+		})
+	}
 }
 
-func buildSampleArchive(t *testing.T) []byte {
+func buildSampleArchive(t *testing.T, controller string) []byte {
 	t.Helper()
 	executable, err := os.Executable()
 	require.NoError(t, err)
 	backend, err := os.ReadFile(executable)
 	require.NoError(t, err)
-	manifest := `{"protocol":1,"id":"sample","name":"Test","version":"1.0.0","executable":"backend","capabilities":["native.actor.read"],"lifecycle_controller":"controller"}`
+	manifest := fmt.Sprintf(`{"protocol":1,"id":"sample","name":"Test","version":"1.0.0","executable":"backend","capabilities":["native.actor.read"],"lifecycle_controller":%q}`, controller)
 	files := map[string][]byte{
 		"extension.json": []byte(manifest),
 		"backend":        backend,

@@ -121,7 +121,13 @@ func observeBaseResult(root, id string, snapshot observeSnapshot, intent package
 		return packages.LifecycleResult{Operation: sdk.LifecycleObserve, PackageID: id, State: state, Progress: "lifecycle operation in progress"}
 	}
 	if snapshot.draining {
-		return packages.LifecycleResult{Operation: sdk.LifecycleObserve, PackageID: id, State: packages.LifecycleDeactivating, Progress: "disable in progress; new admission closed"}
+		// busy above is the live operation. Draining outlives a failed stop
+		// to keep admission closed; it must not hide that completed failure.
+		observed := packages.UnconfirmedResult(sdk.LifecycleObserve, id, packages.LifecycleErrUnconfirmed, "disable outcome is unconfirmed; admission closed; explicit retry is required")
+		if failure != nil {
+			observed.Error = failure
+		}
+		return observed
 	}
 	if snapshot.backendAlive {
 		observed := packages.LifecycleResult{Operation: sdk.LifecycleObserve, PackageID: id, ObservedVersion: snapshot.backendVersion, State: packages.LifecycleEnabled, Progress: "running"}
@@ -138,9 +144,6 @@ func observeBaseResult(root, id string, snapshot observeSnapshot, intent package
 		}
 		return observed
 	}
-	if _, err := os.Lstat(filepath.Join(root, id)); errors.Is(err, os.ErrNotExist) {
-		return packages.FailedResult(sdk.LifecycleObserve, id, packages.LifecycleErrNotInstalled, "package is not installed")
-	}
 	if intentErr != nil {
 		return packages.UnconfirmedResult(sdk.LifecycleObserve, id, packages.LifecycleErrUnconfirmed, "requested state unavailable; effect unknown")
 	}
@@ -156,6 +159,14 @@ func observeBaseResult(root, id string, snapshot observeSnapshot, intent package
 			}
 			return observed
 		}
+	}
+	// Accepted acquisition saves an interruption marker before package files
+	// exist. Preserve its failed operation above before reporting mere absence.
+	if _, err := os.Lstat(filepath.Join(root, id)); errors.Is(err, os.ErrNotExist) {
+		if failure != nil {
+			return packages.FailedResult(sdk.LifecycleObserve, id, failure.Code, failure.Message)
+		}
+		return packages.FailedResult(sdk.LifecycleObserve, id, packages.LifecycleErrNotInstalled, "package is not installed")
 	}
 	if intent.DesiredEnabled {
 		return packages.UnconfirmedResult(sdk.LifecycleObserve, id, packages.LifecycleErrUnconfirmed, "requested enabled but not running; effect unknown")

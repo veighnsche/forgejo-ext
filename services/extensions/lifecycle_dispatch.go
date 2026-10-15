@@ -724,7 +724,12 @@ func (m *Manager) finishAdopted(adopted *adoptedMutation, op *activeOperation) {
 // executeMutation runs the bounded effect work for one adopted mutation
 // on the given context. Completion and interruption settle through the
 // durable intent; the caller owns reservation release.
-func (m *Manager) executeMutation(ctx context.Context, adopted *adoptedMutation) packages.LifecycleResult {
+func (m *Manager) executeMutation(ctx context.Context, adopted *adoptedMutation) (result packages.LifecycleResult) {
+	defer func() {
+		if result.Error != nil {
+			m.recordFailure(adopted.id, result.Error.Code, result.Error.Message)
+		}
+	}()
 	if adopted.found && adopted.entry.LifecycleController != "" {
 		if adopted.operation == sdk.LifecycleActivate {
 			return m.controlledEnable(ctx, adopted.entry, adopted.intent, adopted.pinnedVersion, adopted.opDeadline, true)
@@ -732,6 +737,11 @@ func (m *Manager) executeMutation(ctx context.Context, adopted *adoptedMutation)
 		return m.controlledDisable(ctx, adopted.entry, adopted.intent, adopted.opDeadline)
 	}
 	if adopted.operation == sdk.LifecycleActivate {
+		if adopted.found {
+			if _, failure := m.ensurePackageBytes(ctx, adopted.entry, adopted.intent, adopted.opDeadline, true); failure != nil {
+				return *failure
+			}
+		}
 		return m.backendEnable(ctx, adopted.id, adopted.pinnedVersion, adopted.intent, adopted.opDeadline)
 	}
 	return m.backendDisable(ctx, adopted.id, adopted.intent, adopted.opDeadline)
@@ -774,7 +784,7 @@ func (m *Manager) abortPending(id string, desired bool, generation string) {
 	_, _ = packages.StorePendingSameGeneration(m.root, id, desired, nil, generation)
 }
 
-// ensureControlledBytes reuses validated installed bytes, otherwise
+// ensurePackageBytes reuses validated installed bytes, otherwise
 // downloads and publishes the catalog-selected artifact when
 // allowAcquire is set. Reconcile and boot paths pass false: installed
 // bytes must already match, and they fail without any acquisition.
@@ -783,7 +793,7 @@ func (m *Manager) abortPending(id string, desired bool, generation string) {
 // generation are retained. Old bytes at a different revision are
 // replaced only after the controller observes stopped effects with the
 // ordinary backend absent.
-func (m *Manager) ensureControlledBytes(ctx context.Context, entry sdk.CatalogPackage, intent packages.Intent, opDeadline int64, allowAcquire bool) (sdk.Manifest, *packages.LifecycleResult) {
+func (m *Manager) ensurePackageBytes(ctx context.Context, entry sdk.CatalogPackage, intent packages.Intent, opDeadline int64, allowAcquire bool) (sdk.Manifest, *packages.LifecycleResult) {
 	packageDir := filepath.Join(m.root, entry.ID)
 	if err := packages.ValidateInstalled(m.root, entry); err == nil {
 		manifest, err := sdk.LoadManifest(packageDir)
@@ -806,17 +816,19 @@ func (m *Manager) ensureControlledBytes(ctx context.Context, entry sdk.CatalogPa
 		return sdk.Manifest{}, &result
 	}
 	if _, err := os.Lstat(packageDir); err == nil {
-		observation, err := m.observeControlledOnce(ctx, entry.LifecycleController, entry, intent, opDeadline-time.Now().Unix())
-		if err != nil {
-			result := packages.UnconfirmedResult(sdk.LifecycleActivate, entry.ID, packages.LifecycleErrUnconfirmed, "residual effects are unknown")
-			m.recordFailure(entry.ID, packages.LifecycleErrUnconfirmed, "residual effects are unknown")
+		running, unknown := m.backendRunning(entry.ID)
+		if running || unknown {
+			result := packages.UnconfirmedResult(sdk.LifecycleActivate, entry.ID, packages.LifecycleErrUnconfirmed, "running backend blocks replacement")
+			m.recordFailure(entry.ID, result.Error.Code, result.Error.Message)
 			return sdk.Manifest{}, &result
 		}
-		running, unknown := m.backendRunning(entry.ID)
-		if observation.State != sdk.LifecycleStateStopped || running || unknown {
-			result := packages.UnconfirmedResult(sdk.LifecycleActivate, entry.ID, packages.LifecycleErrUnconfirmed, "residual effects block replacement")
-			m.recordFailure(entry.ID, packages.LifecycleErrUnconfirmed, "residual effects block replacement")
-			return sdk.Manifest{}, &result
+		if entry.LifecycleController != "" {
+			observation, err := m.observeControlledOnce(ctx, entry.LifecycleController, entry, intent, opDeadline-time.Now().Unix())
+			if err != nil || observation.State != sdk.LifecycleStateStopped {
+				result := packages.UnconfirmedResult(sdk.LifecycleActivate, entry.ID, packages.LifecycleErrUnconfirmed, "residual effects block replacement")
+				m.recordFailure(entry.ID, result.Error.Code, result.Error.Message)
+				return sdk.Manifest{}, &result
+			}
 		}
 	}
 	if m.store == nil {
@@ -900,7 +912,7 @@ func (m *Manager) runActivateSequence(ctx context.Context, entry sdk.CatalogPack
 		result.blocked = true
 		return result
 	}
-	manifest, failure := m.ensureControlledBytes(ctx, entry, intent, opDeadline, allowAcquire)
+	manifest, failure := m.ensurePackageBytes(ctx, entry, intent, opDeadline, allowAcquire)
 	if failure != nil {
 		return activateSequenceResult{failure: *failure}
 	}

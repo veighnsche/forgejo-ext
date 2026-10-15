@@ -118,7 +118,7 @@ func TestDeactivateAfterBackendLoss(t *testing.T) {
 func TestRequiredPackageIsolation(t *testing.T) {
 	root := shortTestRoot(t)
 	installCatalogPackage(t, root, testCatalogEntry("soda", "1.0", true, ""), nil)
-	installTestPackage(t, root, "optional")
+	installCatalogPackage(t, root, testCatalogEntry("optional", "1.0", false, ""), nil)
 	setDesiredState(t, root, "optional", true)
 	m := NewManager(root, "soda")
 	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
