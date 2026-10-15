@@ -18,7 +18,7 @@ runs:
       run: |
         set -euo pipefail
         if [[ $GITHUB_REF == refs/tags/* ]]; then
-          [[ $GITHUB_REF_NAME == "ci/fountain-$GITHUB_SHA" ]]
+          [[ $GITHUB_REF_NAME == "ci/fountain-$GITHUB_SHA" || $GITHUB_REF_NAME == "ci/fountain-full-$GITHUB_SHA" ]]
         fi
         echo "TMPDIR=$(mktemp -d "$HOME/fc.XXXXXXXX")" >> "$GITHUB_ENV"
     - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6

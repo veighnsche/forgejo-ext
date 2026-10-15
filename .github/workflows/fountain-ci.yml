@@ -1,14 +1,15 @@
-name: Fountain source CI
+name: Fountain push CI
 
 on:
   push:
     branches: [codex/fountain-extensions]
-    tags: ['ci/fountain-*']
+    tags: ['ci/fountain-*', '!ci/fountain-full-*']
   pull_request:
     branches: [codex/fountain-extensions]
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: fountain-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
@@ -24,22 +25,46 @@ env:
   GOWORK: 'off'
 
 jobs:
-  source:
-    name: Source and backend analysis
+  admission:
+    name: Exact commit admission
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 1
+    outputs:
+      reused: ${{ steps.check.outputs.reused }}
+      started_at: ${{ steps.check.outputs.started_at }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash tools/fountain-ci-reuse.sh
+
+  source:
+    needs: [admission]
+    if: ${{ needs.admission.outputs.reused != 'true' }}
+    name: Source integrity and SDK analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
           fetch-depth: 0
       - uses: ./.github/actions/fountain-setup
-      - run: make fountain-check-source
+      - run: bash tools/fountain-check.sh push-source
 
   unit:
-    name: Go and native session tests
+    needs: [admission]
+    if: ${{ needs.admission.outputs.reused != 'true' }}
+    name: Fountain tests (${{ matrix.profile }})
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [push-unit, push-race]
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -48,12 +73,16 @@ jobs:
       - uses: ./.github/actions/fountain-setup
         with:
           dependencies: 'false'
-      - run: make fountain-check-unit
+      - run: bash tools/fountain-check.sh "$PROFILE"
+        env:
+          PROFILE: ${{ matrix.profile }}
 
   database:
-    name: Database and HTTP integration
+    needs: [admission]
+    if: ${{ needs.admission.outputs.reused != 'true' }}
+    name: Native database contracts
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 4
     services:
       postgres:
         image: postgres:17@sha256:3cec7eb015ba8adb28139fa5c83b8489cdf0e666e53dfdf20f598ae0cc8739e3
@@ -77,8 +106,7 @@ jobs:
       - uses: ./.github/actions/fountain-setup
         with:
           dependencies: 'false'
-          lfs: 'true'
-      - run: make fountain-check-database
+      - run: bash tools/fountain-check.sh push-database
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
@@ -87,30 +115,25 @@ jobs:
           retention-days: 3
 
   browser:
-    name: Frontend and native browser
+    needs: [admission]
+    if: ${{ needs.admission.outputs.reused != 'true' }}
+    name: Frontend and browser contracts
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
           fetch-depth: 0
       - uses: ./.github/actions/fountain-setup
-        with:
-          browser: 'true'
-          lfs: 'true'
-      - run: make fountain-check-browser
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: failure()
-        with:
-          name: fountain-browser-failure
-          path: tests/e2e/test-artifacts/
-          retention-days: 3
+      - run: bash tools/fountain-check.sh push-browser
 
   packaging:
+    needs: [admission]
+    if: ${{ needs.admission.outputs.reused != 'true' }}
     name: Packaging source checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -128,13 +151,13 @@ jobs:
           printf '%s\n' 'c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507  .artifacts/fountain-ci/tools/hadolint' | sha256sum --check
           chmod 0755 .artifacts/fountain-ci/tools/hadolint
           echo "$PWD/.artifacts/fountain-ci/tools" >> "$GITHUB_PATH"
-      - run: make fountain-check-packaging
+      - run: bash tools/fountain-check.sh push-packaging
 
   ci:
     name: Fountain CI
     runs-on: ubuntu-24.04
     timeout-minutes: 2
-    needs: [source, unit, database, browser, packaging]
+    needs: [admission, source, unit, database, browser, packaging]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -142,6 +165,9 @@ jobs:
           persist-credentials: false
       - name: Require every source lane to succeed
         env:
+          REUSE_RESULT: ${{ needs.admission.result }}
+          REUSED_CHECKS: ${{ needs.admission.outputs.reused }}
+          GATE_STARTED_AT: ${{ needs.admission.outputs.started_at }}
           SOURCE_RESULT: ${{ needs.source.result }}
           UNIT_RESULT: ${{ needs.unit.result }}
           DATABASE_RESULT: ${{ needs.database.result }}

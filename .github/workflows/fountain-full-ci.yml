@@ -1,0 +1,151 @@
+name: Fountain deep regression CI
+
+on:
+  push:
+    branches: [codex/fountain-extensions]
+    tags: ['ci/fountain-full-*']
+  pull_request:
+    branches: [codex/fountain-extensions]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fountain-full-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  FOUNTAIN_CHECK_ISOLATED: '1'
+  CGO_ENABLED: '1'
+  GOWORK: 'off'
+
+jobs:
+  source:
+    name: Source and backend analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/fountain-setup
+      - run: make fountain-check-source
+
+  unit:
+    name: Go and native session tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/fountain-setup
+        with:
+          dependencies: 'false'
+      - run: make fountain-check-unit
+
+  database:
+    name: Database and HTTP integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    services:
+      postgres:
+        image: postgres:17@sha256:3cec7eb015ba8adb28139fa5c83b8489cdf0e666e53dfdf20f598ae0cc8739e3
+        env:
+          POSTGRES_PASSWORD: fountain-ci-fixture
+          POSTGRES_DB: fountain_ci
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      FORGEJO_TEST_PG_DSN: postgres://postgres:fountain-ci-fixture@127.0.0.1:5432/fountain_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/fountain-setup
+        with:
+          dependencies: 'false'
+          lfs: 'true'
+      - run: make fountain-check-database
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: fountain-database-results
+          path: .artifacts/fountain-ci/
+          retention-days: 3
+
+  browser:
+    name: Frontend and native browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/fountain-setup
+        with:
+          browser: 'true'
+          lfs: 'true'
+      - run: make fountain-check-browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: fountain-browser-failure
+          path: tests/e2e/test-artifacts/
+          retention-days: 3
+
+  packaging:
+    name: Packaging source checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/fountain-setup
+        with:
+          dependencies: 'false'
+      - name: Install verified Dockerfile linter
+        run: |
+          mkdir -p .artifacts/fountain-ci/tools
+          curl --fail --silent --show-error --location \
+            https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-linux-x86_64 \
+            --output .artifacts/fountain-ci/tools/hadolint
+          printf '%s\n' 'c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507  .artifacts/fountain-ci/tools/hadolint' | sha256sum --check
+          chmod 0755 .artifacts/fountain-ci/tools/hadolint
+          echo "$PWD/.artifacts/fountain-ci/tools" >> "$GITHUB_PATH"
+      - run: make fountain-check-packaging
+
+  ci:
+    name: Fountain full CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    needs: [source, unit, database, browser, packaging]
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Require every source lane to succeed
+        env:
+          FOUNTAIN_CI_PROFILE: full
+          SOURCE_RESULT: ${{ needs.source.result }}
+          UNIT_RESULT: ${{ needs.unit.result }}
+          DATABASE_RESULT: ${{ needs.database.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+          PACKAGING_RESULT: ${{ needs.packaging.result }}
+        run: bash tools/fountain-ci-gate.sh

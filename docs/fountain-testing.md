@@ -9,25 +9,23 @@ installation.
 
 ## Qualify an exact candidate
 
-Review the complete commits that will advance the maintained branch. Qualification
-does not authorize publishing unrelated local work. Commit the intended changes,
-then push one candidate tag:
+Review and commit the complete intended changes, then run:
 
 ```sh
-candidate=$(git rev-parse HEAD)
-git tag "ci/fountain-$candidate" "$candidate"
-git push origin "refs/tags/ci/fountain-$candidate"
+bash tools/fountain-push.sh
 ```
 
-Wait for the candidate's `Fountain source CI` workflow and its `Fountain CI`
-check to succeed. Verify the full SHA, workflow and GitHub Actions app identity.
-Use the Actions UI or `gh run list --commit "$candidate"` and
-`gh run watch RUN_ID --exit-status`. Then advance the branch by an ordinary
-fast-forward push of that same commit:
+This command creates the immutable `ci/fountain-FULL_COMMIT_SHA` tag, checks the
+exact workflow/SHA and GitHub Actions app, and ordinarily fast-forwards
+`codex/fountain-extensions` only after success. The entire command has a hard
+300-second timeout, including network waits. It reserves time for publication,
+reports failure promptly, and never bypasses protection. If a timeout interrupts
+publication, inspect the origin branch before retrying. A shorter budget is
+available through `FOUNTAIN_PUSH_TIMEOUT_SECONDS`; values above 300 are rejected.
 
-```sh
-git push origin "$candidate:refs/heads/codex/fountain-extensions"
-```
+For manual operation, push the exact candidate tag and inspect `Fountain push CI`
+before pushing that same SHA to the maintained branch. Do not wait indefinitely
+for a pending result or replace a failed result with a success.
 
 Branch protection requires the `Fountain CI` check from GitHub Actions, strict
 status checks and administrator enforcement. It disallows force pushes and
@@ -37,35 +35,56 @@ Scratch refs remain available for development and qualification.
 A rebased, amended or regenerated commit needs its own qualification. Never move
 a qualification tag to different bytes. A PR run may test a synthetic merge
 commit; its badge does not qualify a different directly pushed commit. After a
-successful push, confirm the maintained-branch CI run too. Version one runs all
-checks again and does not reuse a previous result.
+successful push, confirm the maintained-branch admission run too. It reuses only
+the same full SHA's successful qualification-tag run of this workflow. PRs,
+qualification tags and explicit reruns always execute the push checks. An absent,
+failed, pending or mismatched receipt executes checks instead of admitting reuse.
 
 The upstream default branch remains `v17.0/forgejo`. Push-triggered workflows
 support the candidate procedure without changing it. Manual dispatch is not the
 bootstrap path. A local hook is optional feedback and is not the enforcement
 boundary.
 
-## Required checks
+## Five-minute push budget
 
-| Make target | Scope |
+`Fountain CI` is the required push check. Its complete workflow has a 300-second
+admission budget, including checkout, setup and all five lanes. The aggregate
+rejects expired and future timestamps even when the lanes passed. Each lane also
+has a four-minute job limit. A timeout fails closed; it never becomes a success.
+GitHub runner queue delays are outside local control and do not qualify a commit.
+
+| Push profile (`tools/fountain-check.sh`) | Required scope |
 | --- | --- |
-| `fountain-check-source` | Upstream generated/dependency/format/security checks, `lint-backend-analysis` and Swagger lint; explicit SDK and patched-session module integrity, tidy, format and vet checks. |
-| `fountain-check-unit` | Full upstream root unit selection, SDK tests, and race checks for native operations, extension manager, deferred PR/automerge/Actions/repository workers, queue flushing, sessions and the patched file-session package. |
-| `fountain-check-database` | SQLite integration and migrations, followed by sequential PostgreSQL native-operation, authority, creation recovery and migration tests. Every selected PG case must actually pass; skipped or empty selections fail. |
-| `fountain-check-browser` | Frontend lint and nonempty, unfocused unit tests, strict SDK/example TypeScript, production frontend/backend builds, and the real example-extension Chromium journey. |
-| `fountain-check-packaging` | Release-script Bash syntax, checksum-pinned Hadolint at warning severity, and pinned Actionlint for the source workflow. |
+| `push-source` | Repository Go/template formatting; independent SDK and patched-session module integrity, formatting and vet. |
+| `push-unit` / `push-race` | Parallel jobs: Fountain SDK, extension lifecycle, settings, sessions, queues, native entry points, pull/automerge and native-operation tests; race checks for the reservation model, native service, pull service, queue and patched session. Both jobs must pass. |
+| `push-database` | SQLite native reservation contracts and real PostgreSQL authority, creation recovery and migration tests. Skipped, empty, malformed or failed PG results fail. |
+| `push-browser` | Full frontend lint and nonempty, unfocused unit suite; strict SDK/example TypeScript and production frontend build. |
+| `push-packaging` | Release-script Bash syntax, checksum-pinned Hadolint at warning severity, and pinned Actionlint for both CI workflows. |
 
-The aggregate runs with `always()` and succeeds only when every lane reports
-`success`. Missing, skipped, cancelled, failed and neutral lane results cannot
-qualify the commit. Dependency and compiler caches save downloads/work; they do
-not replace test execution. Required Go runs use `-count=1`.
+Fresh qualification requires every lane to report `success`. Reuse requires a
+successful exact-commit admission lookup and every lane to report `skipped`.
+Mixed, missing, failed, cancelled and neutral results fail. Compiler/download
+caches do not replace test execution; required Go runs use `-count=1`.
 
-The Go unit target intentionally follows upstream's package selection, which
-excludes integration, migration and E2E packages. Separate lanes cover those
-boundaries. Optional upstream Redis/Elasticsearch/MinIO/provider and platform
-matrices remain outside this Linux amd64 profile; their skips are not evidence
-for those deployments. The downstream Soda browser joins remain opt-in. The
-required Fountain browser test uses its own checked-in example and native server.
+## Deep regression CI
+
+`.github/workflows/fountain-full-ci.yml` preserves the complete source profile
+under a separate `Fountain full CI` check. It runs after maintained-branch pushes,
+on PRs targeting that branch, and on `ci/fountain-full-FULL_COMMIT_SHA` tags.
+**It does not block routine pushes.** A fast push pass is not a full regression or
+release qualification receipt. Inspect deep CI before qualifying a release.
+
+The existing `fountain-check-source`, `unit`, `database`, `browser` and `packaging`
+Make targets retain full upstream generated/dependency/security/Go/Swagger checks,
+the complete root Go unit selection, full extension-manager race tests, all
+SQLite integrations and migrations, mandatory PostgreSQL tests, and the real
+example-extension Chromium journey. The deep aggregate requires every lane to
+succeed. Long suites remain visible separately instead of extending push admission.
+
+The upstream Go unit selection excludes integration, migration and E2E packages;
+deep CI has dedicated lanes for those boundaries. Optional upstream Redis,
+Elasticsearch, MinIO, provider and platform matrices remain outside this Linux
+amd64 profile. Downstream Soda browser joins remain opt-in.
 
 The integration baseline uses asynchronous fixture queues for deferred push,
 PR, automerge and Actions work. Sequential fixture helpers wait for queued completion;
@@ -129,8 +148,8 @@ credentials and a loopback-only port. Packages run sequentially against it to
 avoid competing schema resets. Required JSON test results remain in
 `.artifacts/fountain-ci/`.
 
-The hosted database job has a 150-minute limit, including builds, migrations and
-PostgreSQL checks. The complete SQLite integration binary has a 120-minute deadline.
+The separate deep-regression database job has a 150-minute limit, including builds,
+migrations and PostgreSQL checks. The complete SQLite integration binary has a 120-minute deadline.
 
 ## Lint and release boundaries
 

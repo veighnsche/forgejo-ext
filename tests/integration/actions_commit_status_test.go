@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
@@ -14,6 +15,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	"forgejo.org/services/actions"
@@ -43,6 +45,7 @@ func TestActionsAutomerge(t *testing.T) {
 		assert.True(t, scheduled, "PR should be scheduled for automerge")
 
 		actions.CreateCommitStatus(ctx, job)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		pr = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 2})
 

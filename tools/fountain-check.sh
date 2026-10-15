@@ -7,7 +7,7 @@ if [[ $# != 1 || ${FOUNTAIN_CHECK_ISOLATED:-} != 1 ]]; then
   echo 'Use a disposable committed checkout; these checks run source generators.' >&2
   exit 2
 fi
-case $1 in source|unit|database|browser|packaging|release) ;; *) exit 2 ;; esac
+case $1 in source|unit|database|browser|packaging|release|push-source|push-unit|push-race|push-database|push-browser|push-packaging) ;; *) exit 2 ;; esac
 
 clean_source() {
   bash tools/fountain-check-clean.sh
@@ -20,7 +20,7 @@ export GOTOOLCHAIN=go1.26.9 GOWORK=off
 [[ "npm@$(npm --version)" == $(node -p "require('./package.json').packageManager") ]]
 [[ ${TMPDIR:-} == /home/* && -d $TMPDIR ]]
 export CI=true TZ=UTC
-case $1 in source|release) export GOFLAGS='' ;; *) export GOFLAGS=-mod=readonly ;; esac
+case $1 in source|release|push-source) export GOFLAGS='' ;; *) export GOFLAGS=-mod=readonly ;; esac
 mkdir -p .artifacts/fountain-ci
 if [[ -d node_modules ]]; then touch node_modules; fi
 
@@ -43,6 +43,45 @@ module_checks() {
 }
 
 case $1 in
+  push-source)
+    make fmt-check
+    (cd sdk && go mod verify && go vet ./...)
+    (cd third_party/go-chi-session && go mod verify && go vet .)
+    mapfile -d '' sdk_files < <(git ls-files -z 'sdk/*.go' 'sdk/**/*.go' 'third_party/go-chi-session/file.go' 'third_party/go-chi-session/file*_test.go')
+    go run mvdan.cc/gofumpt@v0.9.2 -w "${sdk_files[@]}"
+    ;;
+  push-unit)
+    go test -count=1 -tags 'sqlite sqlite_unlock_notify' \
+      ./build/fountain-ci ./modules/extensions ./modules/setting ./services/extensions \
+      ./modules/session ./modules/queue ./routers/common ./cmd ./contrib/extensions/example \
+      ./services/nativeoperation ./services/pull ./services/automerge
+    (cd sdk && go test -count=1 ./...)
+    ;;
+  push-race)
+    go test -race -count=1 -tags 'sqlite sqlite_unlock_notify' \
+      ./models/nativeoperation ./services/nativeoperation ./services/pull ./modules/queue code.forgejo.org/go-chi/session
+    ;;
+  push-database)
+    : "${FORGEJO_TEST_PG_DSN:?Set a DSN for a disposable PostgreSQL database}"
+    make generate-ini-sqlite
+    go test -count=1 -tags 'sqlite sqlite_unlock_notify' ./models/nativeoperation
+    for package in models/nativeoperation services/nativeoperation models/forgejo_migrations; do
+      result=".artifacts/fountain-ci/pg-${package//\//-}.jsonl"
+      GITEA_ROOT="$PWD" GITEA_CONF=tests/sqlite.ini go test -json -count=1 \
+        -tags 'sqlite sqlite_unlock_notify' -run 'OnPostgres$' "./$package" | tee "$result"
+      node tools/fountain-test-results.mjs "$result"
+    done
+    ;;
+  push-browser)
+    make lint-frontend test-frontend
+    npx --no-install tsc -p sdk/browser/tsconfig.json
+    make frontend
+    ;;
+  push-packaging)
+    for script in tools/fountain-*.sh; do bash -n "$script"; done
+    hadolint --failure-threshold warning Dockerfile
+    go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/fountain-ci.yml .github/workflows/fountain-full-ci.yml
+    ;;
   source)
     make --what-if=routers/api/v1/api.go checks lint-backend-analysis lint-swagger
     module_checks
