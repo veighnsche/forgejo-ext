@@ -148,3 +148,21 @@ does not provision its PostgreSQL or browser fixtures. `fountain-release.sh`
 already creates the isolated archive baseline and invokes that target before its
 single image build. Local release-source success alone is not full hosted
 qualification.
+
+## Integration fixture completion
+
+Ordinary synthetic HTTP mutation helpers drain the asynchronous queue graph before
+expected successful mutations and after successful requests. Native and private protocols, authentication, accepted
+background jobs and real HTTP/Git clients retain explicit synchronization. Direct
+service/Git fixture writers also wait before inspecting deferred effects. Busy
+mutations are never retried after effects; the parallel issue-create fixture only
+retries the specific refusal that occurs before creation and checks the exact
+final count.
+
+Optional extension fixtures persist activation intent and wait for readiness;
+startup deliberately does not block the host on optional backends. Git's newer
+`preparing` notification is recognized without using its unresolved symbolic
+references as scope evidence. The locked `prepared` callback remains mandatory
+for admission. Ordinary main-repository receive owners can complete validated
+push options; conditional owners still refuse them. Interrupted receive options
+remain fenced because Git ref evidence cannot reconcile repository settings.

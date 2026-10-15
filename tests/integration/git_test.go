@@ -33,6 +33,7 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/lfs"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	app_context "forgejo.org/services/context"
@@ -344,6 +345,7 @@ func doCommitAndPush(t *testing.T, size int64, repoPath, prefix string) string {
 	name := generateCommitWithNewData(t, size, repoPath, "user2@example.com", "User Two", prefix)
 	_, _, err := git.NewCommand(git.DefaultContext, "push", "origin", "master").RunStdString(&git.RunOpts{Dir: repoPath}) // Push
 	require.NoError(t, err)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	return name
 }
 
@@ -837,6 +839,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 		t.Run("Push", func(t *testing.T) {
 			err := git.NewCommand(git.DefaultContext, "push", "origin", "HEAD:refs/for/master", "-o").AddDynamicArguments("topic=" + headBranch).Run(&git.RunOpts{Dir: dstPath})
 			require.NoError(t, err)
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			unittest.AssertCount(t, &issues_model.PullRequest{}, pullNum+1)
 			pr1 = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{
@@ -858,6 +861,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 
 			_, _, err = git.NewCommand(git.DefaultContext, "push", "origin").AddDynamicArguments("HEAD:refs/for/master/test/" + headBranch).RunStdString(&git.RunOpts{Dir: dstPath})
 			require.NoError(t, err)
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			unittest.AssertCount(t, &issues_model.PullRequest{}, pullNum+2)
 			pr2 = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{
@@ -919,6 +923,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 		t.Run("Push2", func(t *testing.T) {
 			err := git.NewCommand(git.DefaultContext, "push", "origin", "HEAD:refs/for/master", "-o").AddDynamicArguments("topic=" + headBranch).Run(&git.RunOpts{Dir: dstPath})
 			require.NoError(t, err)
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			unittest.AssertCount(t, &issues_model.PullRequest{}, pullNum+2)
 			prMsg := doAPIGetPullRequest(*ctx, ctx.Username, ctx.Reponame, pr1.Index)(t)
@@ -936,6 +941,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 
 			_, _, err = git.NewCommand(git.DefaultContext, "push", "origin").AddDynamicArguments("HEAD:refs/for/master/test/" + headBranch).RunStdString(&git.RunOpts{Dir: dstPath})
 			require.NoError(t, err)
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			unittest.AssertCount(t, &issues_model.PullRequest{}, pullNum+2)
 			prMsg = doAPIGetPullRequest(*ctx, ctx.Username, ctx.Reponame, pr2.Index)(t)
@@ -951,6 +957,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 
 				_, _, gitErr := git.NewCommand(git.DefaultContext, "push", "origin").AddDynamicArguments("HEAD:refs/for/master/" + headBranch + "-implicit").RunStdString(&git.RunOpts{Dir: dstPath})
 				require.NoError(t, gitErr)
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 				unittest.AssertCount(t, &issues_model.PullRequest{}, pullNum+3)
 				pr3 := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{
@@ -972,6 +979,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 
 				_, _, gitErr := git.NewCommand(git.DefaultContext, "push", "origin", "-o", "title=my-shiny-title").AddDynamicArguments("HEAD:refs/for/master/" + headBranch + "-implicit-2").RunStdString(&git.RunOpts{Dir: dstPath})
 				require.NoError(t, gitErr)
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 				unittest.AssertCount(t, &issues_model.PullRequest{}, pullNum+4)
 				pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{
@@ -994,6 +1002,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 
 				_, _, gitErr := git.NewCommand(git.DefaultContext, "push", "origin", "-o", "description=custom").AddDynamicArguments("HEAD:refs/for/master/" + headBranch + "-implicit-3").RunStdString(&git.RunOpts{Dir: dstPath})
 				require.NoError(t, gitErr)
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 				unittest.AssertCount(t, &issues_model.PullRequest{}, pullNum+5)
 				pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{
@@ -1021,6 +1030,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 
 			_, _, gitErr := git.NewCommand(git.DefaultContext, "push", "origin").AddDynamicArguments("HEAD:refs/for/master/" + headBranch + "-force-push").RunStdString(&git.RunOpts{Dir: dstPath})
 			require.NoError(t, gitErr)
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			unittest.AssertCount(t, &issues_model.PullRequest{}, pullNum+6)
 			pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{
@@ -1052,6 +1062,7 @@ func doCreateAgitFlowPull(dstPath string, ctx *APITestContext, headBranch string
 
 				_, _, gitErr := git.NewCommand(git.DefaultContext, "push", "origin", "-o", "force-push").AddDynamicArguments("HEAD:refs/for/master/" + headBranch + "-force-push").RunStdString(&git.RunOpts{Dir: dstPath})
 				require.NoError(t, gitErr)
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 				currentHeadCommitID, err := upstreamGitRepo.GetRefCommitID(pr.GetGitRefName())
 				require.NoError(t, err)
@@ -1108,6 +1119,7 @@ func TestDataAsync_Issue29101(t *testing.T) {
 			NewBranch: repo.DefaultBranch,
 		})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		sha := resp.Commit.SHA
 
@@ -1181,6 +1193,7 @@ func doTestForkPushMessages(apictx APITestContext, dstPath string) func(*testing
 		generateCommitWithNewData(t, littleSize, dstPath, "user2@example.com", "User Two", "testmsg-file")
 		_, stderr, err := git.NewCommand(git.DefaultContext, "push", "-u", "origin", "test_msg").RunStdString(&git.RunOpts{Dir: dstPath}) // Push
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		messages := extractRemoteMessages(stderr)
 		// Remote server should suggest the creation of a pull request to the default branch "master"
@@ -1197,6 +1210,7 @@ func doTestForkPushMessages(apictx APITestContext, dstPath string) func(*testing
 		generateCommitWithNewData(t, littleSize, dstPath, "user2@example.com", "User Two", "testmsg-file")
 		_, stderr, err = git.NewCommand(git.DefaultContext, "push").RunStdString(&git.RunOpts{Dir: dstPath})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		messages = extractRemoteMessages(stderr)
 		// However, a pull request to the base repo doesn't exist
 		// Because we are a fork, only PRs to the base repo are displayed
@@ -1228,6 +1242,7 @@ func doTestPushMessages(ctx APITestContext, u *url.URL, objectFormat git.ObjectF
 		generateCommitWithNewData(t, littleSize, dstPath, "user2@example.com", "User Two", "testmsg-file")
 		_, stderr, err := git.NewCommand(git.DefaultContext, "push", "-u", "origin", "master").RunStdString(&git.RunOpts{Dir: dstPath}) // Push
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		messages := extractRemoteMessages(stderr)
 		// Remote server shouldn't suggest the creation of a pull request: we pushed to the default branch
 		require.NotContains(t, messages, "Create a new pull request for 'user2:testmsg':")
@@ -1242,6 +1257,7 @@ func doTestPushMessages(ctx APITestContext, u *url.URL, objectFormat git.ObjectF
 		generateCommitWithNewData(t, littleSize, dstPath, "user2@example.com", "User Two", "testmsg-file")
 		_, stderr, err = git.NewCommand(git.DefaultContext, "push", "-u", "origin", "test_msg").RunStdString(&git.RunOpts{Dir: dstPath})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		messages = extractRemoteMessages(stderr)
 		// We pushed to a new branch and there is no PR yet: a link to create one should be given
 		require.Contains(t, messages, ctx.Reponame+"/compare/master...test_msg")
@@ -1254,6 +1270,7 @@ func doTestPushMessages(ctx APITestContext, u *url.URL, objectFormat git.ObjectF
 		generateCommitWithNewData(t, littleSize, dstPath, "user2@example.com", "User Two", "testmsg-file")
 		_, stderr, err = git.NewCommand(git.DefaultContext, "push", "origin", "test_msg").RunStdString(&git.RunOpts{Dir: dstPath})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		messages = extractRemoteMessages(stderr)
 		// A pull request to the base branch already exist
 		require.NotContains(t, messages, "Create a new pull request")

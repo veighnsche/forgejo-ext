@@ -13,14 +13,25 @@ import (
 	git_model "forgejo.org/models/git"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
+	"forgejo.org/modules/json"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestProtectedBranch_AdminEnforcement(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		session := loginUser(t, "user1")
+		assertMergeAllowed := func(t *testing.T, doc *HTMLDoc, expected bool) {
+			t.Helper()
+			data := doc.doc.Find(`script[data-native-page-data="pullRequestMergeForm"]`)
+			require.Equal(t, 1, data.Length())
+			var form map[string]any
+			require.NoError(t, json.Unmarshal([]byte(data.Text()), &form))
+			assert.Equal(t, expected, form["canMergeNow"])
+		}
+
 		testRepoFork(t, session, "user2", "repo1", "user1", "repo1")
 		testEditFileToNewBranch(t, session, "user1", "repo1", "master", "add-readme", "README.md", "WIP")
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: 1, Name: "repo1"})
@@ -39,7 +50,7 @@ func TestProtectedBranch_AdminEnforcement(t *testing.T) {
 
 			text := strings.TrimSpace(doc.doc.Find(".merge-section").Text())
 			assert.Contains(t, text, "This pull request can be merged automatically.")
-			assert.Contains(t, text, "'canMergeNow':  true")
+			assertMergeAllowed(t, doc, true)
 		})
 
 		t.Run("Without admin enforcement", func(t *testing.T) {
@@ -57,7 +68,7 @@ func TestProtectedBranch_AdminEnforcement(t *testing.T) {
 
 			text := strings.TrimSpace(doc.doc.Find(".merge-section").Text())
 			assert.Contains(t, text, "This pull request doesn't have enough approvals yet. 0 of 1 approvals granted.")
-			assert.Contains(t, text, "'canMergeNow':  true")
+			assertMergeAllowed(t, doc, true)
 		})
 
 		t.Run("With admin enforcement", func(t *testing.T) {
@@ -78,7 +89,7 @@ func TestProtectedBranch_AdminEnforcement(t *testing.T) {
 
 			text := strings.TrimSpace(doc.doc.Find(".merge-section").Text())
 			assert.Contains(t, text, "This pull request doesn't have enough approvals yet. 0 of 1 approvals granted.")
-			assert.Contains(t, text, "'canMergeNow':  false")
+			assertMergeAllowed(t, doc, false)
 		})
 	})
 }

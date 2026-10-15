@@ -5,12 +5,14 @@ package integration
 
 import (
 	"strings"
+	"time"
 
 	"forgejo.org/models"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
+	"forgejo.org/modules/queue"
 	api "forgejo.org/modules/structs"
 	files_service "forgejo.org/services/repository/files"
 )
@@ -28,7 +30,17 @@ func createFileInBranch(user *user_model.User, repo *repo_model.Repository, tree
 		Author:    nil,
 		Committer: nil,
 	}
-	return files_service.ChangeRepoFiles(git.DefaultContext, repo, user, opts)
+	if err := queue.GetManager().FlushAll(git.DefaultContext, time.Minute); err != nil {
+		return nil, err
+	}
+	response, err := files_service.ChangeRepoFiles(git.DefaultContext, repo, user, opts)
+	if err != nil {
+		return nil, err
+	}
+	if err := queue.GetManager().FlushAll(git.DefaultContext, time.Minute); err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 func deleteFileInBranch(user *user_model.User, repo *repo_model.Repository, treePath, branchName string) error {
@@ -49,8 +61,14 @@ func deleteFileInBranch(user *user_model.User, repo *repo_model.Repository, tree
 		Committer:    nil,
 		LastCommitID: commitID,
 	}
+	if err := queue.GetManager().FlushAll(git.DefaultContext, time.Minute); err != nil {
+		return err
+	}
 	_, err = files_service.ChangeRepoFiles(git.DefaultContext, repo, user, opts)
-	return err
+	if err != nil {
+		return err
+	}
+	return queue.GetManager().FlushAll(git.DefaultContext, time.Minute)
 }
 
 func createOrReplaceFileInBranch(user *user_model.User, repo *repo_model.Repository, treePath, branchName, content string) error {

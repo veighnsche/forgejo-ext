@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -226,19 +228,37 @@ func TestAPICreateIssueParallel(t *testing.T) {
 	token := getTokenForLoggedInUser(t, session, auth_model.AccessTokenScopeWriteIssue)
 	urlStr := fmt.Sprintf("/api/v1/repos/%s/%s/issues?state=all", owner.Name, repoBefore.Name)
 
+	before := unittest.GetCount(t, &issues_model.Issue{RepoID: repoBefore.ID})
 	var wg sync.WaitGroup
+	clients := make(chan struct{}, 8)
 	for i := range 100 {
 		wg.Add(1)
 		go func(parentT *testing.T, i int) {
+			defer wg.Done()
+			clients <- struct{}{}
+			defer func() { <-clients }()
 			parentT.Run(fmt.Sprintf("ParallelCreateIssue_%d", i), func(t *testing.T) {
 				newTitle := title + strconv.Itoa(i)
 				newBody := body + strconv.Itoa(i)
-				req := NewRequestWithJSON(t, "POST", urlStr, &api.CreateIssueOption{
-					Body:     newBody,
-					Title:    newTitle,
-					Assignee: owner.Name,
-				}).AddTokenAuth(token)
-				resp := MakeRequest(t, req, http.StatusCreated)
+				// Native contention refuses this create before its effects.
+				// Concurrent clients retry that refusal, never a successful create.
+				deadline := time.Now().Add(30 * time.Second)
+				var resp *httptest.ResponseRecorder
+				for {
+					req := NewRequestWithJSON(t, "POST", urlStr, &api.CreateIssueOption{
+						Body: newBody, Title: newTitle, Assignee: owner.Name,
+					}).AddTokenAuth(token)
+					resp = MakeRequest(t, req, NoExpectedStatus)
+					if resp.Code != http.StatusServiceUnavailable || !strings.Contains(resp.Body.String(), "native mutation reservation is busy") || time.Now().After(deadline) {
+						break
+					}
+					select {
+					case <-time.After(time.Duration(50+i%50) * time.Millisecond):
+					case <-t.Context().Done():
+						t.Fatal(t.Context().Err())
+					}
+				}
+				require.Equal(t, http.StatusCreated, resp.Code, resp.Body.String())
 				var apiIssue api.Issue
 				DecodeJSON(t, resp, &apiIssue)
 				assert.Equal(t, newBody, apiIssue.Body)
@@ -250,12 +270,11 @@ func TestAPICreateIssueParallel(t *testing.T) {
 					Content:    newBody,
 					Title:      newTitle,
 				})
-
-				wg.Done()
 			})
 		}(t, i)
 	}
 	wg.Wait()
+	unittest.AssertCount(t, &issues_model.Issue{RepoID: repoBefore.ID}, before+100)
 }
 
 func TestAPIEditIssue(t *testing.T) {

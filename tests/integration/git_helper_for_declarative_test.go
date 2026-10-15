@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
 	"forgejo.org/tests"
@@ -180,6 +181,7 @@ func doGitPushTestRepository(dstPath string, args ...string) func(*testing.T) {
 		t.Helper()
 		_, _, err := git.NewCommand(git.DefaultContext, "push", "-u").AddArguments(git.ToTrustedCmdArgs(args)...).RunStdString(&git.RunOpts{Dir: dstPath})
 		require.NoError(t, err)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	}
 }
 

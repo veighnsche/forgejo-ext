@@ -22,6 +22,7 @@ import (
 	"forgejo.org/models/db"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
+	packages "forgejo.org/modules/extensions"
 	"forgejo.org/modules/setting"
 	web_extensions "forgejo.org/routers/web/extensions"
 	app_context "forgejo.org/services/context"
@@ -269,9 +270,11 @@ func TestExtensionNativePermissions(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
+	enableIntegrationExtension(t, root, manifest.ID)
 	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
 	require.NoError(t, manager.Start(context.Background()))
+	require.Eventually(t, func() bool { return len(manager.List()) == 1 }, 10*time.Second, 10*time.Millisecond)
 	previous := extensions_service.GetManager()
 	extensions_service.SetDefault(manager)
 	defer func() { extensions_service.SetDefault(previous); require.NoError(t, manager.Close()) }()
@@ -455,8 +458,10 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "status.js"), []byte("export function mount() {}"), 0o600))
+	enableIntegrationExtension(t, root, manifest.ID)
 	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.Start(context.Background()))
+	require.Eventually(t, func() bool { return len(manager.List()) == 1 }, 10*time.Second, 10*time.Millisecond)
 	previous := extensions_service.GetManager()
 	extensions_service.SetDefault(manager)
 	defer func() {
@@ -615,8 +620,10 @@ func TestExtensionSharedOwnerComposition(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
+	enableIntegrationExtension(t, root, manifest.ID)
 	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.Start(context.Background()))
+	require.Eventually(t, func() bool { return len(manager.List()) == 1 }, 10*time.Second, 10*time.Millisecond)
 	previous := extensions_service.GetManager()
 	extensions_service.SetDefault(manager)
 	defer func() {
@@ -683,8 +690,10 @@ func TestExtensionPageDataEmbed(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
+	enableIntegrationExtension(t, root, manifest.ID)
 	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.Start(context.Background()))
+	require.Eventually(t, func() bool { return len(manager.List()) == 1 }, 10*time.Second, 10*time.Millisecond)
 	previous := extensions_service.GetManager()
 	extensions_service.SetDefault(manager)
 	defer func() { extensions_service.SetDefault(previous); require.NoError(t, manager.Close()) }()
@@ -714,4 +723,13 @@ func TestExtensionPageDataEmbed(t *testing.T) {
 	require.Equal(t, directGeneration, plain.Header().Get(extension.SessionGenerationHeader))
 	require.Contains(t, exploreHTML, `data-extension-session-generation="`+directGeneration+`" hidden inert>`)
 	require.Contains(t, plainHTML, `data-extension-session-generation="`+directGeneration+`" hidden inert>`)
+}
+
+func enableIntegrationExtension(t *testing.T, root, id string) {
+	t.Helper()
+	store, err := packages.OpenPackageStore(root)
+	require.NoError(t, err)
+	_, err = store.SetDesired(id, true)
+	require.NoError(t, err)
+	require.NoError(t, store.Close())
 }

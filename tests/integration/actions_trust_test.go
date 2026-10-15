@@ -20,6 +20,7 @@ import (
 	user_model "forgejo.org/models/user"
 	actions_module "forgejo.org/modules/actions"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/translation"
 	actions_service "forgejo.org/services/actions"
@@ -139,6 +140,7 @@ jobs:
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, addWorkflowToBaseResp)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	return baseRepo
 }
 
@@ -176,6 +178,7 @@ func actionsTrustTestRepoModify(t *testing.T, doer *user_model.User, baseRepo, h
 
 func actionsTrustTestModifyRepo(t *testing.T, doer *user_model.User, repo *repo_model.Repository, filename, oldBranch, newBranch, content string) *structs.FilesResponse {
 	t.Helper()
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 	// add a new file to the forked repo
 	addFile, err := files_service.ChangeRepoFiles(git.DefaultContext, repo, doer, &files_service.ChangeRepoFilesOptions{
@@ -204,6 +207,7 @@ func actionsTrustTestModifyRepo(t *testing.T, doer *user_model.User, repo *repo_
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, addFile)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	return addFile
 }
 

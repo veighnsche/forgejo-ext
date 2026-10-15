@@ -35,6 +35,7 @@ import (
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/keying"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/testlogger"
 	"forgejo.org/modules/util"
@@ -667,11 +668,29 @@ func MakeRequest(t testing.TB, rw *RequestWrapper, expectedStatus int) *httptest
 	if req.RemoteAddr == "" {
 		req.RemoteAddr = "test-mock:12345"
 	}
+	// Standard fixtures serialize their successful ordinary mutations against
+	// previously deferred work. Negative admission tests and native/private
+	// protocols keep controlling their own queues and reservations.
+	ordinaryMutation := req.Method != http.MethodGet && req.Method != http.MethodHead &&
+		!strings.Contains(req.URL.Path, "/-/native/") &&
+		!strings.HasPrefix(req.URL.Path, "/api/internal/") &&
+		!strings.HasPrefix(req.URL.Path, "/user/")
+	if ordinaryMutation && expectedStatus >= 200 && expectedStatus < 400 && expectedStatus != http.StatusAccepted {
+		require.NoError(t, queue.GetManager().FlushAll(context.WithoutCancel(req.Context()), time.Minute))
+	}
 	testWebRoutes.ServeHTTP(recorder, req)
 	if expectedStatus != NoExpectedStatus {
 		if !assert.Equal(t, expectedStatus, recorder.Code, "Request: %s %s", req.Method, req.URL.String()) {
 			logUnexpectedResponse(t, recorder)
 		}
+	}
+	// SQLite uses real asynchronous native queues. Ordinary HTTP fixtures
+	// retain their sequential completion contract after successful writes.
+	// Native/internal protocols, authentication and accepted background jobs
+	// keep their own explicit synchronization. Real HTTP/Git clients bypass
+	// this fixture helper and continue to exercise asynchronous completion.
+	if ordinaryMutation && recorder.Code >= 200 && recorder.Code < 400 && recorder.Code != http.StatusAccepted {
+		require.NoError(t, queue.GetManager().FlushAll(context.WithoutCancel(req.Context()), time.Minute))
 	}
 	return recorder
 }

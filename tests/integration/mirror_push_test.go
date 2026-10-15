@@ -25,6 +25,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
@@ -114,6 +115,7 @@ func testMirrorPush(t *testing.T, u *url.URL) {
 	require.NoError(t, err)
 
 	require.NoError(t, mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID))
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	_, _, err = git.NewCommand(t.Context(), "config", "--get-all").AddDynamicArguments("remote." + mirrors[0].RemoteName + ".fetch").RunStdString(&git.RunOpts{Dir: srcRepo.RepoPath()})
 	require.True(t, git.IsErrorExitCode(err, 1), "sync must remove legacy fetch refspecs")
 
@@ -708,6 +710,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 
 			// Trigger sync operation
 			require.NoError(t, mirror_service.SyncPushMirror(db.DefaultContext, mirrors[0].ID))
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			// Verify only filtered branches were pushed to mirror
 			mirrorGitRepo, err := gitrepo.OpenRepository(git.DefaultContext, mirrorRepo)
@@ -760,6 +763,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 
 			// Trigger sync operation with updated filter
 			require.NoError(t, mirror_service.SyncPushMirror(db.DefaultContext, mirror.ID))
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		})
 
 		t.Run("Test empty branch filter pushes all branches", func(t *testing.T) {
@@ -798,6 +802,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 
 			// Trigger sync operation
 			require.NoError(t, mirror_service.SyncPushMirror(db.DefaultContext, emptyFilterMirror.ID))
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			// Verify all branches were pushed to mirror
 			mirrorGitRepo2, err := gitrepo.OpenRepository(git.DefaultContext, mirrorRepo2)
@@ -857,6 +862,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 
 			// Trigger sync operation
 			require.NoError(t, mirror_service.SyncPushMirror(db.DefaultContext, globMirror.ID))
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			// Verify only matching branches were pushed to mirror
 			mirrorGitRepo3, err := gitrepo.OpenRepository(git.DefaultContext, mirrorRepo3)
@@ -1129,6 +1135,7 @@ func TestMirrorPushAddressCheck(t *testing.T) {
 
 		// The push should succeed while localhost is permitted.
 		require.NoError(t, mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID), "expected push mirror sync to succeed while the remote URL is permitted")
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		// Reset the allowed domains to the default, which does not permit localhost.
 		setting.Migrations.AllowedDomains = prev

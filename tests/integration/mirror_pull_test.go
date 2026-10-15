@@ -26,6 +26,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/migration"
 	"forgejo.org/modules/process"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/test"
@@ -593,6 +594,7 @@ func changePullMirrorSource(t *testing.T, sourceRepo *repo_model.Repository, sou
 		})
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	return resp.Commit.SHA
 }
 

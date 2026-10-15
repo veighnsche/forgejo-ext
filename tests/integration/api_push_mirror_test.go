@@ -93,7 +93,7 @@ func testAPIPushMirror(t *testing.T, u *url.URL) {
 		},
 		{
 			name:        "fail to add and delete",
-			message:     deletePushMirrorsError.Error(),
+			message:     "DeletePushMirrors: " + deletePushMirrorsError.Error(),
 			status:      http.StatusInternalServerError,
 			mirrorCount: 1,
 			setup: func() {
@@ -103,7 +103,7 @@ func testAPIPushMirror(t *testing.T, u *url.URL) {
 		},
 		{
 			name:        "fail to add",
-			message:     addPushMirrorRemoteError.Error(),
+			message:     "AddPushMirrorRemote: " + addPushMirrorRemoteError.Error(),
 			status:      http.StatusInternalServerError,
 			mirrorCount: 0,
 			setup: func() {

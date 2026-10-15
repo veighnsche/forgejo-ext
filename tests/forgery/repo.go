@@ -94,6 +94,12 @@ func CreateRepository(t testing.TB, owner *user_model.User, opts *CreateReposito
 			ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), 30*time.Second)
 			defer cancel()
 			require.NoError(t, queue.GetManager().FlushAll(ctx, 30*time.Second))
+			// A test may explicitly delete the repository or its owner first.
+			_, err := repo_model.GetRepositoryByID(ctx, repo.ID)
+			if repo_model.IsErrRepoNotExist(err) {
+				return
+			}
+			require.NoError(t, err)
 			require.NoError(t, repo_service.DeleteRepository(ctx, owner, repo, false))
 		})
 	}
