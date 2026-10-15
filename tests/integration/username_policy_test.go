@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	sdk "forgejo.org/extension-sdk"
@@ -105,18 +104,16 @@ func TestUsernamePolicyCLIEntrypoint(t *testing.T) {
 	root, err := os.MkdirTemp(os.TempDir(), "p-")
 	require.NoError(t, err)
 	defer os.RemoveAll(root)
-	packageDir := filepath.Join(root, "policy")
-	require.NoError(t, os.MkdirAll(packageDir, 0o700))
 	executable, err := os.Executable()
 	require.NoError(t, err)
 
 	manifest := `{"protocol":1,"id":"policy","name":"Policy","version":"1","executable":"run","capabilities":["native.contribution.authorize"],"policies":["forgejo.username"]}`
-	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), []byte(manifest), 0o600))
 	config, err := setting.NewConfigProviderFromFile(setting.CustomConf)
 	require.NoError(t, err)
 	config.Section("extensions").Key("ENABLED").SetValue("true")
 	config.Section("extensions").Key("PATH").SetValue(root)
 	config.Section("extensions").Key("REQUIRED_IDS").SetValue("policy")
+	config.Section("extensions").Key("CATALOG_PATH").SetValue(filepath.Join(root, ".username-policy-catalog.json"))
 	config.Section("extensions").Key("SERVICE_CALLBACK_PATH").SetValue("")
 	configPath := filepath.Join(root, "cli.ini")
 	require.NoError(t, config.SaveTo(configPath))
@@ -124,8 +121,7 @@ func TestUsernamePolicyCLIEntrypoint(t *testing.T) {
 	for _, mode := range []string{"deny", "timeout", "allow"} {
 		t.Run(mode, func(t *testing.T) {
 			// The host deliberately does not inherit arbitrary environment into packages.
-			script := "#!/bin/sh\nexport FORGEJO_EXTENSION_TEST_USERNAME_POLICY=" + mode + "\nexec '" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'\n"
-			require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
+			prepareUsernamePolicyPackage(t, root, manifest, executable, mode, true)
 			name := "policy-cli-" + mode
 			_, err := runMainApp("admin", "user", "create", "--username", name, "--email", name+"@example.com", "--password", "ExamplePassword!1")
 			if mode == "allow" {

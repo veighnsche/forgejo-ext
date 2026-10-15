@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -41,21 +40,18 @@ func TestUsernamePolicyInstaller(t *testing.T) {
 					t.Logf("installer errors: %s", data)
 				}
 			})
-			packageDir := filepath.Join(root, "e", "policy")
-			require.NoError(t, os.MkdirAll(packageDir, 0o700))
+			packageRoot := filepath.Join(root, "e")
 			executable, err := os.Executable()
 			require.NoError(t, err)
+			const manifest = `{"protocol":1,"id":"policy","name":"Policy","version":"1","executable":"run","capabilities":["native.contribution.authorize"],"policies":["forgejo.username"]}`
+			var catalogPath string
 			writePolicy := func(outcome string) {
-				script := "#!/bin/sh\nexport FORGEJO_EXTENSION_TEST_USERNAME_POLICY=" + outcome + "\nexec '" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'\n"
-				require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(script), 0o700))
+				catalogPath = prepareUsernamePolicyPackage(t, packageRoot, manifest, executable, outcome, mode != "missing")
 			}
-			if mode != "missing" {
-				require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), []byte(`{"protocol":1,"id":"policy","name":"Policy","version":"1","executable":"run","policies":["forgejo.username"]}`), 0o600))
-				writePolicy(mode)
-			}
+			writePolicy(mode)
 			configPath := filepath.Join(root, "app.ini")
 			databasePath := filepath.Join(root, "data", "forgejo.db")
-			configText := fmt.Sprintf("RUN_MODE = prod\n[server]\nHTTP_ADDR = 127.0.0.1\nSTATIC_ROOT_PATH = %s\nAPP_DATA_PATH = %s\nDISABLE_SSH = true\n[database]\nDB_TYPE = sqlite3\nPATH = %s\n[security]\nINSTALL_LOCK = false\n[extensions]\nENABLED = true\nPATH = %s\nREQUIRED_IDS = policy\n[log]\nMODE = console\nLEVEL = Error\n", setting.StaticRootPath, filepath.Join(root, "data"), databasePath, filepath.Dir(packageDir))
+			configText := fmt.Sprintf("RUN_MODE = prod\n[server]\nHTTP_ADDR = 127.0.0.1\nSTATIC_ROOT_PATH = %s\nAPP_DATA_PATH = %s\nDISABLE_SSH = true\n[database]\nDB_TYPE = sqlite3\nPATH = %s\n[security]\nINSTALL_LOCK = false\n[extensions]\nENABLED = true\nPATH = %s\nCATALOG_PATH = %s\nREQUIRED_IDS = policy\n[log]\nMODE = console\nLEVEL = Error\n", setting.StaticRootPath, filepath.Join(root, "data"), databasePath, packageRoot, catalogPath)
 			require.NoError(t, os.WriteFile(configPath, []byte(configText), 0o600))
 
 			client := &http.Client{Timeout: 30 * time.Second}
