@@ -76,14 +76,31 @@ func (m *Manager) ManagedQueues() map[int64]ManagedWorkerPoolQueue {
 // FlushAll tries to make all managed queues process all items synchronously, until timeout or the queue is empty.
 // It is for testing purpose only. It's not designed to be used in a cluster.
 func (m *Manager) FlushAll(ctx context.Context, timeout time.Duration) error {
-	var finalErr error
-	qs := m.ManagedQueues()
-	for _, q := range qs {
-		if err := q.FlushWithContext(ctx, timeout); err != nil {
-			finalErr = err // TODO: in Go 1.20: errors.Join
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	for {
+		qs := m.ManagedQueues()
+		for _, q := range qs {
+			if err := q.FlushWithContext(ctx, 0); err != nil {
+				return err
+			}
+		}
+		// A handler can enqueue work in a queue already flushed in this
+		// pass. Wait for the whole graph, not just each queue once.
+		pending := false
+		for _, q := range qs {
+			pending = pending || q.GetQueueItemNumber() != 0 || q.GetWorkerActiveNumber() != 0
+		}
+		if !pending {
+			return nil
+		}
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 	}
-	return finalErr
 }
 
 // CreateSimpleQueue creates a simple queue from global setting config provider by name

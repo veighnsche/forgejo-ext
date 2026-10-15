@@ -330,6 +330,13 @@ func runHookReferenceTransaction(ctx context.Context, c *cli.Command) error {
 	setup(ctx, c.Bool("debug"), true)
 
 	phase := c.Args().First()
+	if phase == "preparing" {
+		// Newer Git also calls before locking refs, with unresolved symbolic
+		// targets. Admission still runs at the mandatory locked "prepared"
+		// checkpoint; do not refine scope from this preliminary notification.
+		_, err := io.Copy(io.Discard, os.Stdin)
+		return err
+	}
 	if phase != "prepared" && phase != "committed" && phase != "aborted" {
 		return fail(ctx, "", "unknown reference-transaction phase %q", phase)
 	}

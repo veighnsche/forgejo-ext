@@ -6,17 +6,20 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/private"
+	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 
@@ -291,6 +294,51 @@ func TestRunHookPrePostReceive(t *testing.T) {
 				require.Len(t, hookOpts.RefFullNames, 1)
 				assert.Equal(t, git.RefName(tt.refFullName), hookOpts.RefFullNames[0])
 			})
+		})
+	}
+}
+
+func TestReferenceTransactionPreparingKeepsPreparedAdmission(t *testing.T) {
+	defer test.MockVariableValue(&setting.InternalToken, "fixture")()
+	defer test.MockVariableValue(&setting.InstallLock, true)()
+	t.Setenv(repo_module.EnvIsInternal, "false")
+	t.Setenv(repo_module.EnvRepoUsername, "user2")
+	t.Setenv(repo_module.EnvRepoName, "repo1")
+	t.Setenv("SSH_ORIGINAL_COMMAND", "git-receive-pack")
+	var admissions atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/hook/reference-transaction/") {
+			admissions.Add(1)
+			var options private.TransactionOptions
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&options))
+			assert.Equal(t, "prepared", options.Phase)
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = io.WriteString(w, `{"UserMsg":"native operation in progress"}`)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	defer test.MockVariableValue(&setting.LocalURL, server.URL+"/")()
+	for _, phase := range []string{"preparing", "prepared"} {
+		t.Run(phase, func(t *testing.T) {
+			input, err := os.CreateTemp(t.TempDir(), "stdin")
+			require.NoError(t, err)
+			defer input.Close()
+			_, err = io.WriteString(input, strings.Repeat("0", 40)+" "+strings.Repeat("1", 40)+" refs/heads/main\n")
+			require.NoError(t, err)
+			_, err = input.Seek(0, 0)
+			require.NoError(t, err)
+			defer test.MockVariableValue(&os.Stdin, input)()
+			app := &cli.Command{Commands: []*cli.Command{subcmdHookReferenceTransaction()}, ExitErrHandler: func(context.Context, *cli.Command, error) {}}
+			err = app.Run(t.Context(), []string{"forgejo", "reference-transaction", phase})
+			if phase == "preparing" {
+				require.NoError(t, err)
+				assert.EqualValues(t, 0, admissions.Load())
+			} else {
+				require.Error(t, err)
+				assert.EqualValues(t, 1, admissions.Load())
+			}
 		})
 	}
 }

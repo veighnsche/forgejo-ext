@@ -84,6 +84,9 @@ type Scope struct {
 	// Refs lists every expected ref effect of a multi-ref batch
 	// (push-completion). Single-ref families use Ref/OldOID/NewOID.
 	Refs []ScopedRef `json:"refs,omitempty"`
+	// ReceiveHasPushOptions fences interrupted receive policy changes: refs
+	// alone cannot reconcile their repository setting effects.
+	ReceiveHasPushOptions bool `json:"receive_has_push_options,omitempty"`
 	// PusherID identifies the pusher whose refs one deferred batch covers.
 	PusherID int64 `json:"pusher_id,omitempty"`
 	// AuthorityOp names the operation of one ordinary authority writer

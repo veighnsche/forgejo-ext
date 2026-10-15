@@ -4,8 +4,10 @@
 package queue
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
@@ -118,4 +120,52 @@ MAX_WORKERS = 123
 	require.NoError(t, GetManager().GetManagedQueue(qid2).FlushWithContext(t.Context(), 0))
 	require.NoError(t, GetManager().FlushAll(t.Context(), 0))
 	stop()
+}
+
+// Model two deferred handlers that keep handing work back to each other.
+// FlushAll must drain the graph irrespective of the manager's map order.
+type cascadingFlushQueue struct {
+	ManagedWorkerPoolQueue
+	work []func()
+}
+
+func (q *cascadingFlushQueue) GetQueueItemNumber() int    { return len(q.work) }
+func (q *cascadingFlushQueue) GetWorkerActiveNumber() int { return 0 }
+func (q *cascadingFlushQueue) FlushWithContext(ctx context.Context, _ time.Duration) error {
+	for len(q.work) > 0 {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		item := q.work[0]
+		q.work = q.work[1:]
+		item()
+	}
+	return nil
+}
+
+func TestManagerFlushCascadingWork(t *testing.T) {
+	a, b := &cascadingFlushQueue{}, &cascadingFlushQueue{}
+	m := &Manager{Queues: map[int64]ManagedWorkerPoolQueue{1: a, 2: b}}
+	processed := 0
+	var schedule func(*cascadingFlushQueue, *cascadingFlushQueue)
+	schedule = func(from, to *cascadingFlushQueue) {
+		from.work = append(from.work, func() {
+			processed++
+			if processed < 20 {
+				schedule(to, from)
+			}
+		})
+	}
+	schedule(a, b)
+	require.NoError(t, m.FlushAll(t.Context(), time.Second))
+	assert.Equal(t, 20, processed)
+}
+
+func TestManagerFlushCascadingWorkDeadline(t *testing.T) {
+	a := &cascadingFlushQueue{}
+	var repeat func()
+	repeat = func() { a.work = append(a.work, repeat) }
+	repeat()
+	m := &Manager{Queues: map[int64]ManagedWorkerPoolQueue{1: a}}
+	require.ErrorIs(t, m.FlushAll(t.Context(), time.Millisecond), context.DeadlineExceeded)
 }

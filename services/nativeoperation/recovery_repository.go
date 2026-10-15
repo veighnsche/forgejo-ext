@@ -64,6 +64,9 @@ func dirExists(path string) bool {
 // push target ("<id>/main" or "<id>/wiki"); an unmarked owner against a
 // repository with a wiki fences because the target is ambiguous.
 func (s *Service) recoverReceive(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
+	if scope.ReceiveHasPushOptions {
+		return fenced(assessment, ReasonRecoveryUncertainEffect, "receive push options may have changed repository settings; ref evidence cannot reconcile them")
+	}
 	if scope.RepositoryID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "receive scope names no repository")
 	}

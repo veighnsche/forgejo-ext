@@ -273,8 +273,17 @@ func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.U
 		return err
 	}
 
+	// Metadata and notifications complete under their own collaboration
+	// claim. The ref writer's recovery rules remain specific to Git;
+	// interrupted multi-statement completion stays fenced for intervention.
+	return withCollabOwnershipWait(ctx, CollabPullResource(pr.ID, "refresh"), collabScope{RepositoryID: pr.BaseRepoID}, func(ctx context.Context) error {
+		return finishMerge(ctx, pr, doer, wasAutoMerged)
+	})
+}
+
+func finishMerge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, wasAutoMerged bool) error {
 	// reload pull request because it has been updated by post receive hook
-	pr, err = issues_model.GetPullRequestByID(ctx, pr.ID)
+	pr, err := issues_model.GetPullRequestByID(ctx, pr.ID)
 	if err != nil {
 		return err
 	}

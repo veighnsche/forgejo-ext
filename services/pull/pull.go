@@ -596,8 +596,9 @@ func RetargetChildrenOnMerge(ctx context.Context, doer *user_model.User, pr *iss
 	// One collaboration writer owns the child retarget sweep before
 	// its effects, advancing the native revision so old accepted-input
 	// observations go stale. Merge completion normally carries the
-	// enclosing execution; the claim only binds standalone callers.
-	return withCollabOwnership(ctx, CollabBatchResource("pr-sweep"), pr.BaseRepoID, func(ctx context.Context) error {
+	// enclosing execution; standalone completion briefly waits for other
+	// deferred merge work to release its independent ownership.
+	return withCollabOwnershipWait(ctx, CollabBatchResource("pr-sweep"), collabScope{RepositoryID: pr.BaseRepoID}, func(ctx context.Context) error {
 		return doRetargetChildrenOnMerge(ctx, doer, pr)
 	})
 }

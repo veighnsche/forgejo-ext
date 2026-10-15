@@ -66,6 +66,31 @@ func TestClassifyOrdinaryOwnerMultiRefScope(t *testing.T) {
 	completedDenied, err := svc.ClassifyCompletion(ctx, 1, []string{"refs/heads/other"}, "receive-proof", false)
 	require.NoError(t, err)
 	require.False(t, completedDenied.Allowed)
+
+	for _, denied := range []struct {
+		repo  int64
+		refs  []string
+		proof string
+	}{
+		{1, []string{"refs/heads/one"}, "forged"},
+		{2, []string{"refs/heads/one"}, "receive-proof"},
+		{1, []string{"refs/heads/other"}, "receive-proof"},
+	} {
+		decision, err := svc.ClassifyCompletion(ctx, denied.repo, denied.refs, denied.proof, true)
+		require.NoError(t, err)
+		require.False(t, decision.Allowed)
+	}
+	withOptions, err := svc.ClassifyCompletion(ctx, 1, []string{"refs/heads/one"}, "receive-proof", true)
+	require.NoError(t, err)
+	require.True(t, withOptions.Allowed)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
+	require.NoError(t, err)
+	scope, err := decodeScope(reservation.Scope)
+	require.NoError(t, err)
+	require.True(t, scope.ReceiveHasPushOptions)
+	assessment, err := svc.recoverReceive(ctx, &RecoveryAssessment{}, reservation, scope)
+	require.NoError(t, err)
+	require.Equal(t, RecoveryFenced, assessment.Verdict)
 }
 
 // TestCollabPullCreateRefinesPRRef pins the pull-creation gate: the
@@ -194,6 +219,34 @@ func TestPRSweepBindsDerivedHeadRefs(t *testing.T) {
 			decision, err := NewService().ClassifyTransaction(t.Context(), TransactionRequest{OwnerName: owner.Name, RepoName: repoName, Phase: PhasePrepared, Proof: proof, Lines: []RefLine{{Ref: test.ref, Old: testBase, New: newOID}}})
 			require.NoError(t, err)
 			require.Equal(t, test.allowed, decision.Allowed, decision.Reason)
+		})
+	}
+}
+
+func TestPushOptionsRequireOrdinaryMainReceive(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	svc := admissionService(t, nil, time.Now().Unix())
+	for _, tc := range []struct {
+		family, scopeFamily, resource string
+		allowed                       bool
+	}{
+		{FamilyReceiveHTTP, FamilyReceiveHTTP, "1/main", true},
+		{FamilyReceiveSSH, FamilyReceiveSSH, "1/main", true},
+		{FamilyReceiveHTTP, FamilyReceiveHTTP, "1/wiki", false},
+		{FamilyReceiveSSH, FamilyReceiveSSH, "1/wiki", false},
+		{FamilyReceiveHTTP, FamilyReceiveSSH, "1/main", false},
+		{FamilyRefWrite, FamilyRefWrite, "1/main", false},
+	} {
+		t.Run(tc.family+"/"+tc.scopeFamily+"/"+tc.resource, func(t *testing.T) {
+			encoded, err := encodeScope(Scope{Kind: nativeoperation_model.OwnerOrdinary, Family: tc.scopeFamily, RepositoryID: 1, Ref: "refs/heads/master"})
+			require.NoError(t, err)
+			owner := "ord:" + tc.family + "/" + tc.resource + "/nonce"
+			_, err = nativeoperation_model.ClaimOrdinary(t.Context(), owner, encoded, execcontext.Verifier("options-proof"))
+			require.NoError(t, err)
+			defer func() { require.NoError(t, nativeoperation_model.ReleaseOwner(t.Context(), owner)) }()
+			decision, err := svc.ClassifyCompletion(t.Context(), 1, []string{"refs/heads/master"}, "options-proof", true)
+			require.NoError(t, err)
+			require.Equal(t, tc.allowed, decision.Allowed)
 		})
 	}
 }

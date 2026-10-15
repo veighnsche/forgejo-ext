@@ -500,7 +500,7 @@ func publishForcePush(ctx context.Context, hookGit PublishPreReceiveGit, oldOID,
 // ClassifyCompletion binds synchronous post-receive bookkeeping to the held
 // owner. An idle reservation keeps existing behavior. A held reservation
 // requires the owner's execution proof and effects within its scope, and
-// refuses push-option policy changes under operation ownership. A held
+// permits validated push options only for the bound ordinary main receive. A held
 // conditional owner additionally requires a submitted operation of a kind
 // that permits push-originated completion.
 func (s *Service) ClassifyCompletion(ctx context.Context, repositoryID int64, refNames []string, proof string, hasPushOptions bool) (TransactionDecision, error) {
@@ -513,9 +513,6 @@ func (s *Service) ClassifyCompletion(ctx context.Context, repositoryID int64, re
 	}
 	if !execcontext.VerifyProof(reservation.Verifier, proof) {
 		return TransactionDecision{Reason: "native operation in progress"}, nil
-	}
-	if hasPushOptions {
-		return TransactionDecision{Reason: "push options are not permitted under operation ownership"}, nil
 	}
 	scope, err := decodeScope(reservation.Scope)
 	if err != nil {
@@ -537,6 +534,25 @@ func (s *Service) ClassifyCompletion(ctx context.Context, repositoryID int64, re
 	for _, ref := range refNames {
 		if !scopePermitsRef(scope, ref) {
 			return TransactionDecision{Reason: "operation scope mismatch"}, nil
+		}
+	}
+	if hasPushOptions {
+		family, resource, ok := splitOrdinaryResource(reservation.Owner)
+		if reservation.OwnerKind != nativeoperation_model.OwnerOrdinary || !ok ||
+			(family != FamilyReceiveHTTP && family != FamilyReceiveSSH) || scope.Family != family ||
+			resource != strconv.FormatInt(repositoryID, 10)+"/main" {
+			return TransactionDecision{Reason: "push options are not permitted under operation ownership"}, nil
+		}
+		// The native pre-receive permission checks already validated these
+		// options. Persist uncertainty before their setting effects: recovery
+		// must never release this owner from Git ref evidence alone.
+		scope.ReceiveHasPushOptions = true
+		encoded, err := encodeScope(scope)
+		if err != nil {
+			return TransactionDecision{}, err
+		}
+		if err := nativeoperation_model.UpdateScopeWhere(ctx, reservation.Owner, encoded); err != nil {
+			return TransactionDecision{}, err
 		}
 	}
 	return TransactionDecision{Allowed: true}, nil
