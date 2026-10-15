@@ -38,11 +38,23 @@ func TestExtensionStatusAndRemove(t *testing.T) {
 	}
 	var output bytes.Buffer
 	app := &cli.Command{Commands: []*cli.Command{cmdExtensions()}, Writer: &output}
+	// An absent intent reads disabled; CLI activation persists an intent.
+	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "status", "sample"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "sample\tdisabled\tmanifest-valid\n" {
+		t.Fatalf("unexpected status: %q", got)
+	}
+	output.Reset()
+	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "enable", "sample"}); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
 	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "status", "sample"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := output.String(); got != "sample\tenabled\tmanifest-valid\n" {
-		t.Fatalf("unexpected status: %q", got)
+		t.Fatalf("unexpected enabled package status: %q", got)
 	}
 	output.Reset()
 	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "list"}); err != nil {
@@ -51,7 +63,7 @@ func TestExtensionStatusAndRemove(t *testing.T) {
 	if got := output.String(); got != "sample\t1\tenabled\n" {
 		t.Fatalf("unexpected enabled package listing: %q", got)
 	}
-	if err := os.WriteFile(filepath.Join(packageDir, ".disabled"), nil, 0o600); err != nil {
+	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "disable", "sample"}); err != nil {
 		t.Fatal(err)
 	}
 	output.Reset()
@@ -68,9 +80,6 @@ func TestExtensionStatusAndRemove(t *testing.T) {
 	if got := output.String(); got != "sample\t1\tdisabled\n" {
 		t.Fatalf("unexpected disabled package listing: %q", got)
 	}
-	if err := os.Remove(filepath.Join(packageDir, ".disabled")); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(filepath.Join(packageDir, "extension.json"), []byte(`private-token`), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +87,7 @@ func TestExtensionStatusAndRemove(t *testing.T) {
 	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "status", "sample"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := output.String(); got != "sample\tenabled\tmanifest-invalid\n" || strings.Contains(got, "private-token") {
+	if got := output.String(); got != "sample\tdisabled\tmanifest-invalid\n" || strings.Contains(got, "private-token") {
 		t.Fatalf("unsafe status: %q", got)
 	}
 	output.Reset()
@@ -97,6 +106,33 @@ func TestExtensionStatusAndRemove(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dataDir, "secret")); err != nil {
 		t.Fatalf("private data removed: %v", err)
+	}
+}
+
+func TestPrepareRequiresOfflineAndRefusesMissingCache(t *testing.T) {
+	root := t.TempDir()
+	previous := setting.Extensions
+	setting.Extensions.Path = root
+	setting.Extensions.RequiredIDs = []string{"soda"}
+	t.Cleanup(func() { setting.Extensions = previous })
+	catalog := `{"version":1,"packages":[{"id":"soda","version":"1.0.0","url":"https://releases.example.invalid/soda.tar.gz","size":1024,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","required":true,"fountain_protocol":1,"browser_contract":1,"capabilities":[]}]}`
+	catalogPath := filepath.Join(root, "catalog.json")
+	if err := os.WriteFile(catalogPath, []byte(catalog), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := `{"catalog_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","entries":[{"package_id":"soda","installation_id":null,"generation":"0","desired_enabled":true,"pending_operation":null,"installed_version":null,"package_sha256":null,"required":true}]}`
+	snapshotPath := filepath.Join(root, "snapshot.json")
+	if err := os.WriteFile(snapshotPath, []byte(snapshot), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app := &cli.Command{Commands: []*cli.Command{cmdExtensions()}}
+	// --offline is mandatory: there is no network fallback.
+	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "prepare", "--catalog", catalogPath, "--snapshot", snapshotPath}); err == nil {
+		t.Fatal("online prepare succeeded")
+	}
+	// A missing cached target is refused without networking.
+	if err := app.Run(context.Background(), []string{"forgejo", "extensions", "prepare", "--offline", "--catalog", catalogPath, "--snapshot", snapshotPath}); err == nil {
+		t.Fatal("prepare without cached packages succeeded")
 	}
 }
 
@@ -122,7 +158,8 @@ func TestRequiredExtensionsCannotBeDisabledOrRemoved(t *testing.T) {
 	if _, err := os.Stat(packageDir); err != nil {
 		t.Fatalf("required package was removed: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(packageDir, ".disabled")); !os.IsNotExist(err) {
+	// The refused disable persists no requested state behind it.
+	if _, err := os.Stat(filepath.Join(root, ".intents", "soda.json")); !os.IsNotExist(err) {
 		t.Fatalf("required package was disabled: %v", err)
 	}
 }

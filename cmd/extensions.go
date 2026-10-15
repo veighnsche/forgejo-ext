@@ -32,7 +32,12 @@ func cmdExtensions() *cli.Command {
 					if c.Args().Len() != 1 {
 						return errors.New("provide one prebuilt package directory")
 					}
-					m, err := extensions.Install(setting.Extensions.Path, c.Args().First(), c.Bool("replace"))
+					store, err := extensions.OpenPackageStore(setting.Extensions.Path)
+					if err != nil {
+						return err
+					}
+					defer store.Close()
+					m, err := store.InstallPrebuilt(c.Args().First(), c.Bool("replace"))
 					if err != nil {
 						return err
 					}
@@ -50,18 +55,76 @@ func cmdExtensions() *cli.Command {
 				if slices.Contains(setting.Extensions.RequiredIDs, id) {
 					return errors.New("required extension cannot be removed")
 				}
-				if err := extensions.Remove(setting.Extensions.Path, id); err != nil {
+				store, err := extensions.OpenPackageStore(setting.Extensions.Path)
+				if err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(c.Root().Writer, "%s: package removed; private data retained.\n", id)
+				defer store.Close()
+				if err := store.Remove(id); err != nil {
+					return err
+				}
+				_, err = fmt.Fprintf(c.Root().Writer, "%s: package removed; private data retained.\n", id)
 				return err
 			}},
 			extensionActivationCommand("enable", true),
 			extensionActivationCommand("disable", false),
+			extensionPrepareCommand(),
 			extensionInstallationCommand(),
 			extensionBindCommand(),
 			extensionBindingsCommand(),
 			extensionUnbindCommand(),
+		},
+	}
+}
+
+// extensionPrepareCommand stages a release's selected packages from the
+// verified cache while the host is stopped. --offline is mandatory:
+// there is no network fallback. It never writes requested-state intents
+// and never activates a backend.
+func extensionPrepareCommand() *cli.Command {
+	return &cli.Command{
+		Name: "prepare", Usage: "Stage a release's required and enabled packages from the verified cache (stopped host, offline)",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{Name: "offline", Usage: "Confirm no network access; preparation is cache-only"},
+			&cli.StringFlag{Name: "catalog", Usage: "Absolute path to the target release catalog file"},
+			&cli.StringFlag{Name: "snapshot", Usage: "Absolute path to the frozen source snapshot file"},
+		},
+		Action: func(_ context.Context, c *cli.Command) error {
+			if !c.Bool("offline") {
+				return errors.New("prepare requires --offline: there is no network fallback")
+			}
+			catalogPath := c.String("catalog")
+			snapshotPath := c.String("snapshot")
+			if catalogPath == "" || snapshotPath == "" {
+				return errors.New("prepare requires --catalog and --snapshot")
+			}
+			catalog, _, err := extensions.LoadCatalogFile(catalogPath)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(snapshotPath)
+			if err != nil {
+				return errors.New("extension snapshot is unavailable")
+			}
+			snapshot, err := extensions.DecodeSnapshot(data)
+			if err != nil {
+				return err
+			}
+			store, err := extensions.OpenPackageStore(setting.Extensions.Path)
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			prepared, err := store.PrepareRelease(catalog, snapshot, setting.Extensions.RequiredIDs)
+			if err != nil {
+				return err
+			}
+			for _, entry := range prepared {
+				if _, err := fmt.Fprintf(c.Root().Writer, "%s\t%s\t%s\n", entry.ID, safeExtensionVersion(entry.Version), entry.SHA256); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
 }
@@ -79,11 +142,9 @@ func extensionStatus(_ context.Context, c *cli.Command) error {
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("installed package is not a regular directory")
 	}
-	state := "enabled"
-	if _, err := os.Lstat(filepath.Join(directory, ".disabled")); err == nil {
-		state = "disabled"
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return errors.New("cannot read package activation state")
+	state, err := extensionDesiredState(setting.Extensions.Path, id)
+	if err != nil {
+		return err
 	}
 	validation := "manifest-valid"
 	if m, err := sdk.LoadManifest(directory); err != nil || m.ID != id {
@@ -91,6 +152,20 @@ func extensionStatus(_ context.Context, c *cli.Command) error {
 	}
 	_, err = fmt.Fprintf(c.Root().Writer, "%s\t%s\t%s\n", id, state, validation)
 	return err
+}
+
+// extensionDesiredState reads next-start activation from the
+// authoritative intent. An absent intent is disabled; a malformed intent
+// is reported invalid, never silently enabled.
+func extensionDesiredState(root, id string) (string, error) {
+	intent, err := extensions.LoadIntent(root, id)
+	if err != nil {
+		return "", errors.New("cannot read package requested state")
+	}
+	if intent.DesiredEnabled {
+		return "enabled", nil
+	}
+	return "disabled", nil
 }
 
 func extensionActivationCommand(name string, enabled bool) *cli.Command {
@@ -101,10 +176,15 @@ func extensionActivationCommand(name string, enabled bool) *cli.Command {
 		if !enabled && slices.Contains(setting.Extensions.RequiredIDs, c.Args().First()) {
 			return errors.New("required extension cannot be disabled")
 		}
-		if err := extensions.SetEnabled(setting.Extensions.Path, c.Args().First(), enabled); err != nil {
+		store, err := extensions.OpenPackageStore(setting.Extensions.Path)
+		if err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(c.Root().Writer, "%s: %s takes effect at the next start.\n", c.Args().First(), name)
+		defer store.Close()
+		if _, err := store.SetDesired(c.Args().First(), enabled); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(c.Root().Writer, "%s: %s takes effect at the next start.\n", c.Args().First(), name)
 		return err
 	}}
 }
@@ -129,10 +209,10 @@ func listExtensions(_ context.Context, c *cli.Command) error {
 			return errors.New("invalid package directory name")
 		}
 		state := "enabled"
-		if _, err := os.Lstat(filepath.Join(setting.Extensions.Path, id, ".disabled")); err == nil {
+		if intent, err := extensions.LoadIntent(setting.Extensions.Path, id); err != nil {
+			state = "invalid"
+		} else if !intent.DesiredEnabled {
 			state = "disabled"
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return errors.New("cannot read package activation state")
 		}
 		version := "-"
 		if m, err := sdk.LoadManifest(filepath.Join(setting.Extensions.Path, id)); err != nil || m.ID != id {

@@ -4,13 +4,14 @@
 package extensions
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	sdk "forgejo.org/extension-sdk"
 
@@ -36,148 +37,100 @@ func AcquirePackageLock(root string) (*flock.Flock, error) {
 	return lock, nil
 }
 
-// Install copies a prebuilt package, never executing its contents. Existing
-// packages require replace. Persistent extension data lives outside packages.
-func Install(root, source string, replace bool) (sdk.Manifest, error) {
-	root, err := filepath.Abs(root)
-	if err != nil {
-		return sdk.Manifest{}, err
-	}
-	source, err = filepath.Abs(source)
-	if err != nil {
-		return sdk.Manifest{}, err
-	}
-	if relative, err := filepath.Rel(source, root); err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return sdk.Manifest{}, errors.New("package source must not contain the installation directory")
-	}
-	lock, err := AcquirePackageLock(root)
-	if err != nil {
-		return sdk.Manifest{}, err
-	}
-	defer lock.Close()
-	stage, err := os.MkdirTemp(root, ".install-")
-	if err != nil {
-		return sdk.Manifest{}, err
-	}
-	defer os.RemoveAll(stage)
-	if err := copyPackage(source, stage); err != nil {
-		return sdk.Manifest{}, err
-	}
-	manifest, err := sdk.LoadManifest(stage)
-	if err != nil {
-		return sdk.Manifest{}, err
-	}
-	if err := checkPackageFiles(stage, manifest); err != nil {
-		return sdk.Manifest{}, err
-	}
-	target := filepath.Join(root, manifest.ID)
-	if info, err := os.Lstat(target); err == nil {
-		if !replace {
-			return sdk.Manifest{}, fmt.Errorf("extension %q is already installed; use --replace to update it", manifest.ID)
-		}
-		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return sdk.Manifest{}, errors.New("installed package is not a regular directory")
-		}
-		if _, err := os.Lstat(filepath.Join(target, ".disabled")); err == nil {
-			if err := os.WriteFile(filepath.Join(stage, ".disabled"), nil, 0o600); err != nil {
-				return sdk.Manifest{}, err
-			}
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return sdk.Manifest{}, err
-		}
-		backup := stage + ".previous"
-		if err := os.Rename(target, backup); err != nil {
-			return sdk.Manifest{}, err
-		}
-		if err := os.Rename(stage, target); err != nil {
-			return sdk.Manifest{}, errors.Join(err, os.Rename(backup, target))
-		}
-		if err := os.RemoveAll(backup); err != nil {
-			return manifest, fmt.Errorf("package updated but old package cleanup failed: %w", err)
-		}
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return sdk.Manifest{}, err
-	} else if err := os.Rename(stage, target); err != nil {
-		return sdk.Manifest{}, err
-	}
-	// Fresh installation assigns a new UUID; replacement preserves the
-	// recorded one. Identity failures leave the package installed but the
-	// installation incomplete, like package cleanup failures above.
-	if _, err := EnsureInstallation(root, manifest.ID); err != nil {
-		return manifest, errors.New("package installed but installation identity is unavailable")
-	}
-	return manifest, nil
+// receiptFileName is the reserved generated receipt. Neither archives nor
+// prebuilt source directories may supply it; the store generates it in
+// the private staged directory after byte verification.
+const receiptFileName = ".fountain-package.json"
+
+// Receipt identifies one installed artifact: schema, package identity
+// and the verified archive digest. It travels atomically with the
+// package directory. It does not authorize the package independently of
+// the trusted catalog. Installation UUID stays outside package bytes in
+// .installations, and the receipt stays outside assets/ where the asset
+// handler never serves it.
+type Receipt struct {
+	Schema         int    `json:"schema"`
+	PackageID      string `json:"package_id"`
+	PackageVersion string `json:"package_version"`
+	ArchiveSHA256  string `json:"archive_sha256"`
 }
 
-// SetEnabled changes next-start activation. It never deletes extension data.
-func SetEnabled(root, id string, enabled bool) error {
-	if !sdk.ValidID(id) {
-		return errors.New("invalid extension id")
-	}
-	lock, err := AcquirePackageLock(root)
+// WriteReceipt generates the receipt in a private staged directory after
+// the archive bytes are verified and the manifest is matched.
+func WriteReceipt(stage string, entry sdk.CatalogPackage) error {
+	data, err := json.Marshal(Receipt{Schema: 1, PackageID: entry.ID, PackageVersion: entry.Version, ArchiveSHA256: entry.SHA256})
 	if err != nil {
 		return err
 	}
-	defer lock.Close()
-	directory := filepath.Join(root, id)
+	return os.WriteFile(filepath.Join(stage, receiptFileName), data, 0o600)
+}
+
+// LoadReceipt reads and strictly validates a generated receipt.
+func LoadReceipt(packageDir string) (Receipt, error) {
+	file, err := os.Open(filepath.Join(packageDir, receiptFileName))
+	if err != nil {
+		return Receipt{}, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, maximumIntentBytes+1))
+	if err != nil {
+		return Receipt{}, errors.New("extension package receipt is invalid")
+	}
+	var receipt Receipt
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&receipt); err != nil {
+		return Receipt{}, errors.New("extension package receipt is invalid")
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return Receipt{}, errors.New("extension package receipt is invalid")
+	}
+	if receipt.Schema != 1 || !sdk.ValidID(receipt.PackageID) {
+		return Receipt{}, errors.New("extension package receipt is invalid")
+	}
+	return receipt, nil
+}
+
+// ValidateReceipt checks an installed receipt against its catalog pin.
+func ValidateReceipt(packageDir string, entry sdk.CatalogPackage) error {
+	receipt, err := LoadReceipt(packageDir)
+	if err != nil {
+		return err
+	}
+	if receipt.PackageID != entry.ID || receipt.PackageVersion != entry.Version || receipt.ArchiveSHA256 != entry.SHA256 {
+		return errors.New("installed package receipt does not match catalog")
+	}
+	return nil
+}
+
+// ValidateInstalled checks that an installed directory exactly satisfies
+// one catalog entry: generated receipt, manifest identity, capability
+// and controller match, and package files. It is the reuse gate for
+// required bootstrap, offline reboot and maintenance preparation.
+func ValidateInstalled(root string, entry sdk.CatalogPackage) error {
+	directory := filepath.Join(root, entry.ID)
 	info, err := os.Lstat(directory)
 	if err != nil {
 		return err
 	}
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("installed package is not a regular directory")
+	}
+	if err := ValidateReceipt(directory, entry); err != nil {
+		return err
 	}
 	manifest, err := sdk.LoadManifest(directory)
 	if err != nil {
 		return err
 	}
-	if manifest.ID != id {
-		return errors.New("installed directory does not match manifest id")
-	}
-	marker := filepath.Join(directory, ".disabled")
-	if enabled {
-		err = os.Remove(marker)
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
+	if err := MatchEntryManifest(entry, manifest); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(marker, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
-	if errors.Is(err, fs.ErrExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return f.Close()
+	return checkPackageFiles(directory, manifest)
 }
 
-// Remove deletes an installed package while Forgejo is stopped. Private data
-// under .data is deliberately outside the package directory and is retained.
-func Remove(root, id string) error {
-	if !sdk.ValidID(id) {
-		return errors.New("invalid extension id")
-	}
-	lock, err := AcquirePackageLock(root)
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
-	directory := filepath.Join(root, id)
-	info, err := os.Lstat(directory)
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return errors.New("installed package is not a regular directory")
-	}
-	if err := os.RemoveAll(directory); err != nil {
-		return err
-	}
-	// Removal retires the installation UUID so a later installation cannot
-	// adopt this installation's operations. Private .data is still retained.
-	return RemoveInstallation(root, id)
-}
+// reservedStagedNames are installer-managed files no source may supply.
+var reservedStagedNames = map[string]bool{receiptFileName: true, ".disabled": true}
 
 func copyPackage(source, target string) error {
 	root, err := os.OpenRoot(source)
@@ -191,8 +144,8 @@ func copyPackage(source, target string) error {
 		if walkErr != nil || name == "." {
 			return walkErr
 		}
-		if name == ".disabled" {
-			return errors.New("activation markers are managed by the installer")
+		if reservedStagedNames[name] {
+			return errors.New("reserved package state is managed by the installer")
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("package symlinks are not supported: %s", name)
@@ -250,6 +203,16 @@ func checkPackageFiles(root string, manifest sdk.Manifest) error {
 		if !info.Mode().IsRegular() || i == 0 && info.Mode()&0o111 == 0 {
 			return fmt.Errorf("package file is missing or not executable: %s", name)
 		}
+	}
+	return nil
+}
+
+// EvictCache removes one exact corrupt cache entry without touching other
+// entries, so it can be reacquired. It is idempotent.
+func EvictCache(root, sha string) error {
+	path := cachePath(root, sha)
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	return nil
 }
