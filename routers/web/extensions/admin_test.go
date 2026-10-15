@@ -495,7 +495,7 @@ func TestAdminStatusExactShape(t *testing.T) {
 	require.Equal(t, "1.0", row["installed_version"])
 	require.Nil(t, row["available_version"])
 	require.Equal(t, "failed", row["state"])
-	require.Equal(t, "unknown", row["backend"])
+	require.Equal(t, "stopped", row["backend"])
 	require.Equal(t, "unknown", row["effects"])
 	failure, ok := row["error"].(map[string]any)
 	require.True(t, ok, "failed row needs an error object")

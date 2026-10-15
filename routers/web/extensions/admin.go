@@ -63,11 +63,10 @@ func AdminExtensions(ctx *context.Context) {
 		ctx.Error(http.StatusForbidden)
 		return
 	}
-	entries, available, catalogSHA := adminInventory(ctx)
+	entries, catalogSHA := adminInventory(ctx)
 	ctx.Data["Title"] = "Extensions"
 	ctx.Data["PageIsAdminExtensions"] = true
 	ctx.Data["ExtensionEntries"] = entries
-	ctx.Data["ExtensionAvailable"] = available
 	ctx.Data["ExtensionsEnabled"] = setting.Extensions.Enabled
 	ctx.Data["CatalogSHA256"] = catalogSHA
 	ctx.HTML(http.StatusOK, "admin/extensions")
@@ -250,11 +249,10 @@ func isSessionAdmin(ctx *context.Context) bool {
 }
 
 func adminFailed(ctx *context.Context, result packages.LifecycleResult) {
-	entries, available, catalogSHA := adminInventory(ctx)
+	entries, catalogSHA := adminInventory(ctx)
 	ctx.Data["Title"] = "Extensions"
 	ctx.Data["PageIsAdminExtensions"] = true
 	ctx.Data["ExtensionEntries"] = entries
-	ctx.Data["ExtensionAvailable"] = available
 	ctx.Data["ExtensionsEnabled"] = setting.Extensions.Enabled
 	ctx.Data["CatalogSHA256"] = catalogSHA
 	message := "Extension operation failed"
@@ -265,14 +263,14 @@ func adminFailed(ctx *context.Context, result packages.LifecycleResult) {
 	ctx.HTML(http.StatusConflict, "admin/extensions")
 }
 
-func adminInventory(ctx *context.Context) ([]adminEntry, []adminEntry, string) {
+func adminInventory(ctx *context.Context) ([]adminEntry, string) {
 	manager := extensions_service.GetManager()
 	catalogSHA := ""
 	if manager != nil {
 		catalogSHA = manager.CatalogSHA()
 	}
-	installed := map[string]bool{}
 	entries := []adminEntry{}
+	installed := map[string]int{}
 	root := setting.Extensions.Path
 	if names, err := os.ReadDir(root); err == nil {
 		for _, name := range names {
@@ -280,36 +278,42 @@ func adminInventory(ctx *context.Context) ([]adminEntry, []adminEntry, string) {
 				continue
 			}
 			id := name.Name()
-			installed[id] = true
 			entry := adminEntry{ID: id, Installed: true, Required: slices.Contains(setting.Extensions.RequiredIDs, id)}
 			if manifest, err := extension.LoadManifest(filepath.Join(root, id)); err == nil && manifest.ID == id {
-				entry.Name = manifest.Name
-				entry.Version = manifest.Version
+				entry.Name, entry.Version = manifest.Name, manifest.Version
 				entry.SettingsPage = adminSettingsPage(manifest)
 			}
-			entry.State, entry.Unconfirmed, entry.Progress = adminLiveState(ctx, manager, root, id)
-			entry.Backend, entry.Effects = adminBackendEffects(ctx.Req.Context(), manager, entry.State, entry.Unconfirmed, id)
-			if intent, err := packages.LoadIntent(root, id); err == nil {
-				entry.DesiredEnabled = intent.DesiredEnabled
-				entry.Generation = intent.Generation
-			} else {
-				entry.Generation = "0"
-			}
+			installed[id] = len(entries)
 			entries = append(entries, entry)
 		}
-		slices.SortFunc(entries, func(a, b adminEntry) int { return strings.Compare(a.ID, b.ID) })
 	}
-	available := []adminEntry{}
 	if manager != nil && setting.Extensions.Enabled {
 		for _, declared := range manager.Catalog(ctx.Req.Context()) {
-			if installed[declared.ID] {
-				continue
+			if index, ok := installed[declared.ID]; ok {
+				entries[index].AvailableVersion = declared.Version
+				entries[index].Required = entries[index].Required || declared.Required
+			} else {
+				entries = append(entries, adminEntry{ID: declared.ID, AvailableVersion: declared.Version, Required: declared.Required})
 			}
-			available = append(available, adminEntry{ID: declared.ID, Version: declared.Version, Required: declared.Required})
 		}
-		slices.SortFunc(available, func(a, b adminEntry) int { return strings.Compare(a.ID, b.ID) })
 	}
-	return entries, available, catalogSHA
+	for i := range entries {
+		entry := &entries[i]
+		intent, err := packages.LoadIntent(root, entry.ID)
+		entry.Generation = "0"
+		if err == nil {
+			entry.Generation, entry.DesiredEnabled = intent.Generation, entry.Required || intent.DesiredEnabled
+		}
+		entry.State, entry.Unconfirmed, entry.Progress = adminLiveState(ctx, manager, root, entry.ID)
+		// A never-activated catalog entry is available without a package process or
+		// host observation. Accepted acquisition still reports its actual busy state.
+		if !entry.Installed && err == nil && intent.Generation == "0" && entry.State == packages.LifecycleFailed {
+			entry.State, entry.Unconfirmed, entry.Progress = "available", false, "Not installed"
+		}
+		entry.Backend, entry.Effects = adminBackendEffects(ctx.Req.Context(), manager, entry.State, entry.ID)
+	}
+	slices.SortFunc(entries, func(a, b adminEntry) int { return strings.Compare(a.ID, b.ID) })
+	return entries, catalogSHA
 }
 
 // adminSettingsPage returns the first declared admin-scoped page with
@@ -327,6 +331,9 @@ func adminSettingsPage(manifest extension.Manifest) string {
 func adminLiveState(_ *context.Context, manager *extensions_service.Manager, root, id string) (state string, unconfirmed bool, progress string) {
 	if manager != nil && setting.Extensions.Enabled {
 		observed := manager.Observe(id)
+		if observed.Unconfirmed {
+			observed.State = packages.LifecycleFailed
+		}
 		if observed.Error != nil {
 			return observed.State, observed.Unconfirmed, observed.Error.Message
 		}
@@ -349,26 +356,26 @@ func adminLiveState(_ *context.Context, manager *extensions_service.Manager, roo
 }
 
 // adminBackendEffects derives the frozen backend and effects vocabulary
-// from the observed lifecycle state. Packages without a lifecycle
+// from the live backend snapshot and observed lifecycle state. Packages without a lifecycle
 // controller have no external effects.
-func adminBackendEffects(stdCtx stdcontext.Context, manager *extensions_service.Manager, state string, unconfirmed bool, id string) (backend, effects string) {
-	switch state {
-	case packages.LifecycleEnabled, packages.LifecycleActivating, packages.LifecycleDeactivating:
-		backend = "running"
-	case packages.LifecycleFailed:
-		if unconfirmed {
-			backend = "unknown"
-		} else {
-			backend = "stopped"
-		}
-	default:
+func adminBackendEffects(stdCtx stdcontext.Context, manager *extensions_service.Manager, state, id string) (backend, effects string) {
+	backend = "unknown"
+	if manager != nil {
 		backend = "stopped"
+		for _, running := range manager.Snapshot() {
+			if running.ID == id {
+				backend = "running"
+				break
+			}
+		}
 	}
-	effects = backend
+	effects = "unknown"
 	if controlled, controller := adminControlled(stdCtx, manager, id); !controlled || controller == "" {
 		effects = "not_required"
-	} else if unconfirmed {
-		effects = "unknown"
+	} else if state == packages.LifecycleEnabled {
+		effects = "running"
+	} else if state == packages.LifecycleDisabled || state == "available" {
+		effects = "stopped"
 	}
 	return backend, effects
 }
@@ -393,7 +400,7 @@ func adminControlled(stdCtx stdcontext.Context, manager *extensions_service.Mana
 }
 
 // adminStatusRow is the exact section-7 page-refresh row for one
-// installed package. Unavailable versions and errors are null, never
+// installed or cataloged package. Unavailable versions and errors are null, never
 // empty invented state. Desired state and generation come from the
 // authoritative intent; backend, effects, state and progress reuse the
 // current observation vocabulary.
@@ -451,15 +458,11 @@ func AdminExtensionsStatus(ctx *context.Context) {
 		ctx.Error(http.StatusServiceUnavailable, "Extension manager is unavailable")
 		return
 	}
-	entries, _, _ := adminInventory(ctx)
-	declared := map[string]string{}
-	for _, available := range manager.Catalog(ctx.Req.Context()) {
-		declared[available.ID] = available.Version
-	}
+	entries, _ := adminInventory(ctx)
 	rows := make([]adminStatusRow, 0, len(entries))
 	for _, entry := range entries {
 		row := adminStatusRow{
-			ID: entry.ID, Required: entry.Required, Installed: true,
+			ID: entry.ID, Required: entry.Required, Installed: entry.Installed,
 			DesiredEnabled: false, Generation: "0", Backend: entry.Backend,
 			Effects: entry.Effects, State: entry.State,
 		}
@@ -467,16 +470,16 @@ func AdminExtensionsStatus(ctx *context.Context) {
 			name := entry.Name
 			row.Name = &name
 		}
-		if version, ok := declared[entry.ID]; ok {
-			available := version
+		if entry.AvailableVersion != "" {
+			available := entry.AvailableVersion
 			row.AvailableVersion = &available
 		}
-		if entry.Version != "" {
+		if entry.Installed && entry.Version != "" {
 			installed := entry.Version
 			row.InstalledVersion = &installed
 		}
 		if intent, err := packages.LoadIntent(setting.Extensions.Path, entry.ID); err == nil {
-			row.DesiredEnabled = intent.DesiredEnabled
+			row.DesiredEnabled = entry.Required || intent.DesiredEnabled
 			row.Generation = intent.Generation
 		} else {
 			row.State = packages.LifecycleFailed

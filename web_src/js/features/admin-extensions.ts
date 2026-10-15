@@ -1,99 +1,90 @@
-// Admin Extensions progress observation (RCX-2 F04, frozen
-// fountain-design section 7). Refreshes the status table every two
-// seconds while this page is visible and any operation is active; stops
-// on hidden, unload, or terminal state. This is UI progress observation
-// only, not a lifecycle retry or server scheduling system: manual page
-// refresh remains sufficient without JavaScript.
+// Admin Extensions observes pending work only. Structural changes reload the
+// server-rendered page so Settings, actions and CAS pins share one owner.
 import {GET} from '../modules/fetch.js';
 
 type ExtensionStatusRow = {
   id: string;
   state: string;
+  generation: string;
+  installed: boolean;
   progress?: string | null;
   error?: {code: string; message: string} | null;
 };
 
-let statusTimer: number | null = null;
-let statusListener: (() => void) | null = null;
-
-function rowActive(row: HTMLTableRowElement): boolean {
-  const state = row.dataset.extState ?? '';
-  if (state === 'activating' || state === 'deactivating') return true;
-  return row.dataset.extUnconfirmed === 'true';
-}
-
-function tableActive(table: HTMLTableElement): boolean {
-  const rows = table.querySelectorAll('tr[id^="ext-row-"]');
-  for (let i = 0; i < rows.length; i++) {
-    if (rowActive(rows[i] as HTMLTableRowElement)) return true;
-  }
-  return false;
-}
-
-function applyRow(table: HTMLTableElement, status: ExtensionStatusRow): void {
-  const row = table.querySelector(`#ext-row-${CSS.escape(status.id)}`);
-  if (!(row instanceof HTMLTableRowElement)) return;
-  row.dataset.extState = status.state;
-  const stateCell = row.querySelector('.ext-state');
-  if (stateCell) stateCell.textContent = status.state;
-  const progressCell = row.querySelector('.ext-progress');
-  if (progressCell) {
-    progressCell.textContent = status.error?.message ?? status.progress ?? '';
-  }
-}
-
-async function refreshStatus(table: HTMLTableElement): Promise<void> {
-  if (document.hidden) return;
-  const url = table.dataset.statusUrl;
-  if (!url) return;
-  let response: Response;
-  try {
-    response = await GET(url, {headers: {Accept: 'application/json'}});
-  } catch {
-    return;
-  }
-  if (!response.ok) {
-    if (response.status === 403 || response.status === 404) stopAdminExtensions();
-    return;
-  }
-  let rows: ExtensionStatusRow[];
-  try {
-    rows = (await response.json()) as ExtensionStatusRow[];
-  } catch {
-    return;
-  }
-  if (!Array.isArray(rows)) return;
-  for (let i = 0; i < rows.length; i++) {
-    const status = rows[i];
-    if (typeof status?.id === 'string') applyRow(table, status);
-  }
-  if (!table.isConnected || !tableActive(table)) stopAdminExtensions();
-}
+let retire: (() => void) | null = null;
 
 export function initAdminExtensions(): void {
   const table = document.getElementById('ext-status-table');
-  if (!(table instanceof HTMLTableElement) || statusTimer !== null) return;
-  if (!tableActive(table)) return;
-  statusListener = () => {
-    refreshStatus(table).catch(() => undefined);
-  };
-  statusTimer = window.setInterval(statusListener, 2000);
-  document.addEventListener('visibilitychange', statusListener);
-  window.addEventListener('beforeunload', stopAdminExtensions);
+  if (!(table instanceof HTMLTableElement) || retire) return;
+  if (!table.querySelector('[data-ext-state="activating"], [data-ext-state="deactivating"]')) return;
+  let timer: number | null = null;
+  let request: AbortController | null = null;
+  let retired = false;
+
+  function pause(): void {
+    if (timer !== null) window.clearInterval(timer);
+    timer = null;
+    request?.abort();
+    request = null;
+  }
+
+  function stop(): void {
+    retired = true;
+    pause();
+    document.removeEventListener('visibilitychange', visibility);
+    window.removeEventListener('beforeunload', stop);
+    retire = null;
+  }
+
+  async function refresh(): Promise<void> {
+    if (retired || document.hidden || request) return;
+    const url = table.dataset.statusUrl;
+    if (!url || !table.isConnected) { stop(); return }
+    const controller = new AbortController();
+    request = controller;
+    try {
+      const response = await GET(url, {headers: {Accept: 'application/json'}, signal: controller.signal});
+      if (controller.signal.aborted || retired) return;
+      if (!response.ok) {
+        if ([401, 403, 404].includes(response.status)) stop();
+        return;
+      }
+      const rows: ExtensionStatusRow[] = await response.json();
+      if (controller.signal.aborted || retired || document.hidden || !table.isConnected) return;
+      if (!Array.isArray(rows) || !rows.every((row) => typeof row?.id === 'string' && typeof row.state === 'string' && typeof row.generation === 'string' && typeof row.installed === 'boolean')) return;
+      const current = table.querySelectorAll<HTMLTableRowElement>('tr[id^="ext-row-"]');
+      const changed = rows.length !== current.length || rows.some((status) => {
+        const row = table.querySelector<HTMLTableRowElement>(`#ext-row-${CSS.escape(status.id)}`);
+        return !row || row.dataset.extState !== status.state || row.dataset.extGeneration !== status.generation || row.dataset.extInstalled !== String(status.installed);
+      });
+      if (changed) {
+        stop();
+        window.location.reload();
+        return;
+      }
+      for (const status of rows) {
+        const progress = table.querySelector(`#ext-row-${CSS.escape(status.id)} .ext-progress`);
+        if (progress) progress.textContent = status.error?.message ?? status.progress ?? '';
+      }
+    } catch {
+      // A manual refresh remains sufficient if observation is interrupted.
+    } finally {
+      if (request === controller) request = null;
+    }
+  }
+
+  function visibility(): void {
+    if (document.hidden) { pause(); return }
+    if (timer === null) timer = window.setInterval(() => { refresh().catch(() => undefined) }, 2000);
+    refresh().catch(() => undefined);
+  }
+
+  retire = stop;
+  document.addEventListener('visibilitychange', visibility);
+  window.addEventListener('beforeunload', stop);
+  if (!document.hidden) timer = window.setInterval(() => { refresh().catch(() => undefined) }, 2000);
 }
 
 export function retireAdminExtensions(): void {
-  stopAdminExtensions();
-}
-
-function stopAdminExtensions(): void {
-  if (statusTimer !== null) {
-    window.clearInterval(statusTimer);
-    statusTimer = null;
-  }
-  if (statusListener !== null) {
-    document.removeEventListener('visibilitychange', statusListener);
-    statusListener = null;
-  }
-  window.removeEventListener('beforeunload', stopAdminExtensions);
+  retire?.();
 }
