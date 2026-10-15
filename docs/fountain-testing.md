@@ -126,6 +126,9 @@ credentials and a loopback-only port. Packages run sequentially against it to
 avoid competing schema resets. Required JSON test results remain in
 `.artifacts/fountain-ci/`.
 
+The hosted database job has a 120-minute limit, including builds, migrations and
+PostgreSQL checks. The complete SQLite integration binary has a 100-minute deadline.
+
 ## Lint and release boundaries
 
 Fountain retains the upstream model/service import naming conventions and lint

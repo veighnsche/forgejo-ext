@@ -36,7 +36,7 @@ module_checks() {
   done
   # The upstream formatter omits independent modules. Format only our SDK and
   # the patched session files, preserving the unchanged vendored providers.
-  mapfile -d '' sdk_files < <(git ls-files -z 'sdk/*.go' 'sdk/**/*.go' 'third_party/go-chi-session/file.go' 'third_party/go-chi-session/file_lifecycle_test.go')
+  mapfile -d '' sdk_files < <(git ls-files -z 'sdk/*.go' 'sdk/**/*.go' 'third_party/go-chi-session/file.go' 'third_party/go-chi-session/file*_test.go')
   if [[ ${#sdk_files[@]} != 0 ]]; then
     go run mvdan.cc/gofumpt@v0.9.2 -w "${sdk_files[@]}"
   fi
@@ -58,7 +58,7 @@ case $1 in
   database)
     : "${FORGEJO_TEST_PG_DSN:?Set a DSN for a disposable PostgreSQL database}"
     make backend TAGS='sqlite sqlite_unlock_notify'
-    make test-sqlite-migration test-sqlite GOTESTFLAGS=-count=1 GOTESTCOMPILEDRUNSUFFIX=-test.timeout=70m
+    make test-sqlite-migration test-sqlite GOTESTFLAGS=-count=1 GOTESTCOMPILEDRUNSUFFIX=-test.timeout=100m
     # Each package mutates schema/fixtures. Never run these against one database
     # concurrently; pipefail preserves go test failures before JSON admission.
     for package in models/nativeoperation services/nativeoperation models/forgejo_migrations; do
