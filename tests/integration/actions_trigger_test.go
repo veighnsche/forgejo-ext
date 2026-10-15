@@ -650,6 +650,8 @@ func TestActionsPullRequestTargetEventLocalReusable(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotEmpty(t, forkedRepo)
 
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+
 			// add workflow file to the base repo
 			addWorkflowToBaseResp, err := files_service.ChangeRepoFiles(git.DefaultContext, baseRepo, user2, &files_service.ChangeRepoFilesOptions{
 				Files: []*files_service.ChangeRepoFile{
@@ -698,6 +700,8 @@ jobs:
 			})
 			require.NoError(t, err)
 			assert.NotEmpty(t, addWorkflowToBaseResp)
+
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			// add a new file to the forked repo, as a subtle replacement for `local-reusable.yml`
 			addFileToForkedResp, err := files_service.ChangeRepoFiles(git.DefaultContext, forkedRepo, org3, &files_service.ChangeRepoFilesOptions{
@@ -790,6 +794,8 @@ jobs:
 			require.NoError(t, err)
 			assert.NotEmpty(t, forkedRepo)
 
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+
 			// add workflow file to the base repo
 			addWorkflowToBaseResp, err := files_service.ChangeRepoFiles(git.DefaultContext, baseRepo, user2, &files_service.ChangeRepoFilesOptions{
 				Files: []*files_service.ChangeRepoFile{
@@ -846,6 +852,8 @@ jobs:
 			})
 			require.NoError(t, err)
 			assert.NotEmpty(t, addWorkflowToBaseResp)
+
+			require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 			// add a new file to the forked repo, as a subtle replacement for `local-reusable.yml`
 			addFileToForkedResp, err := files_service.ChangeRepoFiles(git.DefaultContext, forkedRepo, org3, &files_service.ChangeRepoFilesOptions{

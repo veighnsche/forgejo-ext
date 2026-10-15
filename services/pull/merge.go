@@ -16,9 +16,11 @@ import (
 	"unicode"
 
 	"forgejo.org/models"
+	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
 	access_model "forgejo.org/models/perm/access"
+	pull_model "forgejo.org/models/pull"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
@@ -258,7 +260,7 @@ func Merge(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.U
 	// One ref write owns the reservation before the native merge push,
 	// advancing the revision so stale observations go stale. Nested
 	// calls reuse the enclosing ownership instead of claiming again.
-	err = withRefWriteOwnership(ctx,
+	err = withMergeRefWriteOwnership(ctx,
 		refWriteResource(pr.BaseRepoID, refWriteMerge, baseRef),
 		refWriteScope{
 			RepositoryID: pr.BaseRepoID,
@@ -300,6 +302,11 @@ func finishMerge(ctx context.Context, pr *issues_model.PullRequest, doer *user_m
 	}
 
 	if wasAutoMerged {
+		// Preserve the schedule through admission and the Git effect. Consume it
+		// only after a successful merge, under this metadata writer's ownership.
+		if err := pull_model.DeleteScheduledAutoMerge(ctx, pr.ID); err != nil && !db.IsErrNotExist(err) {
+			return err
+		}
 		notify_service.AutoMergePullRequest(ctx, doer, pr)
 	} else {
 		notify_service.MergePullRequest(ctx, doer, pr)

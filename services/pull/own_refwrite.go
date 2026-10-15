@@ -39,6 +39,22 @@ type refWriteScope struct {
 // the service family of the same writers.
 const familyRefWrite = "ref-write"
 
+// ErrMergeNotStarted marks reservation contention before the merge callback.
+// Deferred automerges may retry this refusal, never an error after entry.
+var ErrMergeNotStarted = errors.New("merge refused before effects")
+
+func withMergeRefWriteOwnership(ctx context.Context, resource string, scope refWriteScope, fn func(context.Context) error) error {
+	entered := false
+	err := withRefWriteOwnership(ctx, resource, scope, func(owned context.Context) error {
+		entered = true
+		return fn(owned)
+	})
+	if !entered && errors.Is(err, nativeoperation_model.ErrBusy) {
+		return fmt.Errorf("%w: %w", ErrMergeNotStarted, err)
+	}
+	return err
+}
+
 // Ref-write kinds carried in the resource string.
 const (
 	refWritePRRef    = "pr-ref"

@@ -50,7 +50,7 @@ boundary.
 | Make target | Scope |
 | --- | --- |
 | `fountain-check-source` | Upstream generated/dependency/format/security checks, `lint-backend-analysis` and Swagger lint; explicit SDK and patched-session module integrity, tidy, format and vet checks. |
-| `fountain-check-unit` | Full upstream root unit selection, SDK tests, and race checks for native operations, extension manager, deferred PR/Actions/repository workers, queue flushing, sessions and the patched file-session package. |
+| `fountain-check-unit` | Full upstream root unit selection, SDK tests, and race checks for native operations, extension manager, deferred PR/automerge/Actions/repository workers, queue flushing, sessions and the patched file-session package. |
 | `fountain-check-database` | SQLite integration and migrations, followed by sequential PostgreSQL native-operation, authority, creation recovery and migration tests. Every selected PG case must actually pass; skipped or empty selections fail. |
 | `fountain-check-browser` | Frontend lint and nonempty, unfocused unit tests, strict SDK/example TypeScript, production frontend/backend builds, and the real example-extension Chromium journey. |
 | `fountain-check-packaging` | Release-script Bash syntax, checksum-pinned Hadolint at warning severity, and pinned Actionlint for the source workflow. |
@@ -68,11 +68,14 @@ for those deployments. The downstream Soda browser joins remain opt-in. The
 required Fountain browser test uses its own checked-in example and native server.
 
 The integration baseline uses asynchronous fixture queues for deferred push,
-PR and Actions work. Sequential fixture helpers wait for queued completion;
+PR, automerge and Actions work. Sequential fixture helpers wait for queued completion;
 dedicated contention tests retain held reservations. Runtime PR sweeps retain
 work across contention and admit only the private head refs belonging to their
 bound source repository and branch, including fork PRs. Nested ref recording
 preserves that binding, and bounded waits do not replay callbacks after they start.
+Automerge retains its schedule and queue item when the merge reservation refuses
+before effects. It consumes the schedule only after a successful merge; callback
+errors after entry never authorize replay.
 
 The example journey exercises panel preservation across native page navigation,
 native branch controls, presentation context, admin disable/enable, denied actors,

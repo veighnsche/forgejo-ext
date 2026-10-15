@@ -892,6 +892,8 @@ func testPullAutoMergeAfterCommitStatusSucceed(t *testing.T, ctx APITestContext,
 	})
 	require.NoError(t, err)
 
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+
 	// approve PR if necessary
 	if approval {
 		// reload PR again
@@ -1083,6 +1085,8 @@ func TestPullAutoMergeAfterCommitStatusSucceedAndApprovalForAgitFlow(t *testing.
 		pr = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: pr.ID})
 		assert.False(t, pr.HasMerged)
 		assert.Empty(t, pr.MergedCommitID)
+
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		// approve the PR from non-author
 		approveSession := loginUser(t, "user1")

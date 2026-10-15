@@ -16,17 +16,21 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	pull_model "forgejo.org/models/pull"
 	unit_model "forgejo.org/models/unit"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/gitrepo"
+	"forgejo.org/modules/queue"
 	"forgejo.org/services/automerge"
 	app_context "forgejo.org/services/context"
 	"forgejo.org/services/forms"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
 	files_service "forgejo.org/services/repository/files"
+	shared_automerge "forgejo.org/services/shared/automerge"
 	"forgejo.org/tests"
 	"forgejo.org/tests/forgery"
 
@@ -122,6 +126,7 @@ func TestPullAutoMergeFromFork(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.NotNil(t, forkRepo)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		_, err = files_service.ChangeRepoFiles(git.DefaultContext, forkRepo, forkUser, &files_service.ChangeRepoFilesOptions{
 			Files: []*files_service.ChangeRepoFile{
@@ -149,6 +154,8 @@ func TestPullAutoMergeFromFork(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+
 		// Create a pull request to merge fork into base...
 		pullIssue := &issues_model.Issue{
 			RepoID:   baseRepo.ID,
@@ -168,6 +175,8 @@ func TestPullAutoMergeFromFork(t *testing.T) {
 		}
 		err = pull_service.NewPullRequest(git.DefaultContext, baseRepo, pullIssue, nil, nil, pullRequest, nil)
 		require.NoError(t, err)
+
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		// Attempt incorrect access: via the API, try to merge when you're not a writer into the base repo:
 		badSession := loginUser(t, forkRepo.OwnerName)
@@ -204,6 +213,7 @@ func TestPullAutoMergeFromFork(t *testing.T) {
 		// write permission on the repo:
 		pullRequest = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: pullRequest.ID})
 		automerge.StartPRCheckAndAutoMerge(t.Context(), pullRequest)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		pullRequest = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: pullRequest.ID})
 		assert.Empty(t, pullRequest.MergedCommitID)
 
@@ -212,10 +222,34 @@ func TestPullAutoMergeFromFork(t *testing.T) {
 		_, err = db.GetEngine(t.Context()).ID(am.ID).Update(am)
 		require.NoError(t, err)
 
-		// Trigger automerge background handler, then check PR is merged:
+		// A background merge must retain both its schedule and its queue item
+		// when a different writer owns the reservation, without touching Git.
 		pullRequest = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: pullRequest.ID})
+		baseGitRepo, err := gitrepo.OpenRepository(t.Context(), baseRepo)
+		require.NoError(t, err)
+		defer baseGitRepo.Close()
+		baseTip, err := baseGitRepo.GetBranchCommitID(pullRequest.BaseBranch)
+		require.NoError(t, err)
+		const holder = "ord:test/automerge-blocker"
+		_, err = nativeoperation_model.ClaimOrdinary(t.Context(), holder, `{}`, "v")
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = nativeoperation_model.ReleaseOwner(t.Context(), holder) })
 		automerge.StartPRCheckAndAutoMerge(t.Context(), pullRequest)
+		require.Error(t, shared_automerge.PRAutoMergeQueue.FlushWithContext(t.Context(), time.Second))
+		unittest.AssertExistsAndLoadBean(t, &pull_model.AutoMerge{PullID: pullRequest.ID})
 		pullRequest = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: pullRequest.ID})
+		assert.False(t, pullRequest.HasMerged)
+		assert.Empty(t, pullRequest.MergedCommitID)
+		heldTip, err := baseGitRepo.GetBranchCommitID(pullRequest.BaseBranch)
+		require.NoError(t, err)
+		assert.Equal(t, baseTip, heldTip)
+		require.NoError(t, nativeoperation_model.ReleaseOwner(t.Context(), holder))
+
+		// The retained item completes after release, with no second trigger.
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+		pullRequest = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: pullRequest.ID})
+		assert.True(t, pullRequest.HasMerged)
 		assert.NotEmpty(t, pullRequest.MergedCommitID)
+		unittest.AssertNotExistsBean(t, &pull_model.AutoMerge{PullID: pullRequest.ID})
 	})
 }

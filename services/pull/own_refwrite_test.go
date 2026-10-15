@@ -6,6 +6,7 @@ package pull
 import (
 	"context"
 	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
+	"errors"
 	"reflect"
 	"testing"
 
@@ -14,6 +15,33 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestMergeRetryRequiresRefusalBeforeEffects(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+	ctx := t.Context()
+	scope := refWriteScope{RepositoryID: 1, Ref: "refs/heads/main"}
+	_, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:test/holder", `{}`, "v")
+	require.NoError(t, err)
+	calls := 0
+	err = withMergeRefWriteOwnership(ctx, "1/merge/refs/heads/main", scope, func(context.Context) error {
+		calls++
+		return nil
+	})
+	require.ErrorIs(t, err, ErrMergeNotStarted)
+	require.ErrorIs(t, err, nativeoperation_model.ErrBusy)
+	require.Zero(t, calls)
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, "ord:test/holder"))
+
+	// A callback may return the same busy error after starting effects. It
+	// must retain that error without authorizing a second merge attempt.
+	err = withMergeRefWriteOwnership(ctx, "1/merge/refs/heads/main", scope, func(context.Context) error {
+		calls++
+		return nativeoperation_model.ErrBusy
+	})
+	require.ErrorIs(t, err, nativeoperation_model.ErrBusy)
+	require.False(t, errors.Is(err, ErrMergeNotStarted))
+	require.Equal(t, 1, calls)
+}
 
 // TestRefWriteScopeWireContract pins the pull-local ownership mirror to
 // the native-operation scope wire shape: the same JSON field names the
