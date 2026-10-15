@@ -23,12 +23,9 @@ var ErrPullRequestIsUpdateToDate = errors.New("update failed: already up-to-date
 
 // Update updates pull request with base branch.
 func Update(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, message string, rebase bool) error {
-	// One collaboration writer owns the branch update before its
-	// effects, advancing the native revision so old accepted-input
-	// observations go stale.
-	return withCollabOwnership(ctx, CollabPullResource(pr.ID, "update"), pr.BaseRepoID, func(ctx context.Context) error {
-		return doUpdate(ctx, pr, doer, message, rebase)
-	})
+	// The ref writer below owns the head repository and branch, including
+	// fork heads, and advances the native revision before Git effects.
+	return doUpdate(ctx, pr, doer, message, rebase)
 }
 
 func doUpdate(ctx context.Context, pr *issues_model.PullRequest, doer *user_model.User, message string, rebase bool) error {

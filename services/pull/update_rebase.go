@@ -13,6 +13,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
+	"forgejo.org/modules/nativeoperation"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 )
@@ -70,15 +71,11 @@ func updateHeadByRebaseOnToBase(ctx context.Context, pr *issues_model.PullReques
 	//       that prevents us from doint the whole merge in one db transaction
 	mergeCtx.outbuf.Reset()
 	mergeCtx.errbuf.Reset()
+	pushEnv := repo_module.FullPushingEnvironment(headUser, doer, pr.HeadRepo, pr.HeadRepo.Name, pr.ID)
+	pushEnv = nativeoperation.AppendExecEnv(pushEnv, nativeoperation.FromContext(ctx))
 
 	if err := pushCmd.Run(&git.RunOpts{
-		Env: repo_module.FullPushingEnvironment(
-			headUser,
-			doer,
-			pr.HeadRepo,
-			pr.HeadRepo.Name,
-			pr.ID,
-		),
+		Env:    pushEnv,
 		Dir:    mergeCtx.tmpBasePath,
 		Stdout: mergeCtx.outbuf,
 		Stderr: mergeCtx.errbuf,
