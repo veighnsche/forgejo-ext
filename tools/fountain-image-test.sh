@@ -12,11 +12,23 @@ engine=${CONTAINER_ENGINE:-docker}
 grep -F "$version+gitea-1.22.0" "$out/version.txt"
 grep -F 'bindata' "$out/version.txt"
 mkdir "$out/data"
+# Required packages use the same pinned catalog and verified archive cache as
+# production bootstrap. The fixture URL is deliberately unreachable: the native
+# image check must prepare from these exact cached bytes and restart offline.
+tar --format=ustar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+  -C "$out/example" -cf - extension.json backend assets | gzip -1n > "$out/example.tar.gz"
+package_sha=$(sha256sum "$out/example.tar.gz" | cut -d ' ' -f 1)
+package_size=$(stat -c %s "$out/example.tar.gz")
+jq --arg sha "$package_sha" --argjson size "$package_size" \
+  '{version:1,packages:[{id:.id,version:.version,url:"https://fixture.invalid/example.tar.gz",size:$size,sha256:$sha,required:true,fountain_protocol:.protocol,browser_contract:1,capabilities:.capabilities}]}' \
+  "$out/example/extension.json" > "$out/catalog.json"
 # All fixture state is disposable. Use the image's s6 setup and generated app.ini.
 container=$("$engine" run -d --mount "type=bind,src=$out/data,dst=/data" \
   --mount "type=bind,src=$out/example,dst=/example,ro=true" \
+  --mount "type=bind,src=$out/catalog.json,dst=/fixture-catalog.json,ro=true" \
   -e FORGEJO__security__INSTALL_LOCK=true -e FORGEJO__server__DISABLE_SSH=true \
   -e FORGEJO__extensions__ENABLED=true -e FORGEJO__extensions__REQUIRED_IDS=example \
+  -e FORGEJO__extensions__CATALOG_PATH=/fixture-catalog.json \
   "$image")
 cleanup() { "$engine" logs "$container" > "$out/container.log" 2>&1; "$engine" rm -fv "$container" >/dev/null; }
 trap cleanup EXIT
@@ -27,14 +39,23 @@ for ((i=0; i<60; i++)); do
 done
 "$engine" stop "$container" >/dev/null
 "$engine" run --rm --mount "type=bind,src=$out/data,dst=/data" \
+  --mount "type=bind,src=$out/example.tar.gz,dst=/fixture-package.tar.gz,ro=true" \
+  "$image" sh -ec 'cache=/data/gitea/extensions/.cache/packages; mkdir -p "$cache"; cp /fixture-package.tar.gz "$cache/$1.tar.gz"; chown -R git:git /data/gitea/extensions' sh "$package_sha"
+"$engine" run --rm --mount "type=bind,src=$out/data,dst=/data" \
   --mount "type=bind,src=$out/example,dst=/example,ro=true" \
   "$image" su-exec git forgejo extensions install /example
+"$engine" run --rm --mount "type=bind,src=$out/data,dst=/data" \
+  "$image" su-exec git forgejo extensions enable example
 "$engine" run --rm --mount "type=bind,src=$out/data,dst=/data" \
   "$image" su-exec git forgejo extensions status example | tee "$out/extension-status.txt"
 grep -F $'example\tenabled\tmanifest-valid' "$out/extension-status.txt"
 "$engine" start "$container" >/dev/null
 ready() {
   for ((i=0; i<90; i++)); do
+    if [[ $("$engine" inspect --format '{{.State.Running}}' "$container") != true ]]; then
+      echo 'Container exited before readiness' >&2
+      return 1
+    fi
     if "$engine" exec "$container" curl -fsS http://localhost:3000/api/healthz > "$out/health.json"; then return; fi
     sleep 1
   done
