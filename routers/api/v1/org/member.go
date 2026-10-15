@@ -17,7 +17,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // listMembers list an organization's members
@@ -251,10 +251,10 @@ func PublicizeMember(ctx *context.APIContext) {
 	// advancing the native revision so old permission observations go
 	// stale.
 	orgID := ctx.Org().Organization.ID
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, userToPublicize.ID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, userToPublicize.ID), 0, func(ctx std_ctx.Context) error {
 		return organization.ChangeOrgUserStatus(ctx, orgID, userToPublicize.ID, true)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -302,10 +302,10 @@ func ConcealMember(ctx *context.APIContext) {
 	// advancing the native revision so old permission observations go
 	// stale.
 	orgID := ctx.Org().Organization.ID
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, userToConceal.ID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, userToConceal.ID), 0, func(ctx std_ctx.Context) error {
 		return organization.ChangeOrgUserStatus(ctx, orgID, userToConceal.ID, false)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -347,10 +347,10 @@ func DeleteMember(ctx *context.APIContext) {
 	// advancing the native revision so old permission observations go
 	// stale.
 	orgID := ctx.Org().Organization.ID
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, member.ID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", orgID, member.ID), 0, func(ctx std_ctx.Context) error {
 		return models.RemoveOrgUser(ctx, orgID, member.ID)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

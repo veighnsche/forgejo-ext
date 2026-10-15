@@ -153,7 +153,7 @@ type sessionUpgradeWriter struct {
 }
 
 func (w *sessionUpgradeWriter) Unwrap() http.ResponseWriter {
-	return w.DeferredResponseWriter.ResponseWriter
+	return w.ResponseWriter
 }
 
 func (w *sessionUpgradeWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {

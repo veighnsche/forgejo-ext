@@ -18,7 +18,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/auth/source/oauth2"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -51,7 +51,7 @@ func DeleteAccountLink(ctx *context.Context) {
 		// effects, advancing the native revision so old permission
 		// observations go stale.
 		doer := ctx.Doer
-		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/account-link", doer.ID), 0, func(ctx std_ctx.Context) error {
+		if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/account-link", doer.ID), 0, func(ctx std_ctx.Context) error {
 			_, err := user_model.RemoveAccountLink(ctx, doer, id)
 			return err
 		}); err != nil {

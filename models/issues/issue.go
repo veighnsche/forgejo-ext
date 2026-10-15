@@ -13,7 +13,7 @@ import (
 	"slices"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	project_model "forgejo.org/models/project"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
@@ -724,7 +724,7 @@ func (issue *Issue) IsPinned() bool {
 func (issue *Issue) Pin(ctx context.Context, user *user_model.User) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	// If the Issue is already pinned, we don't need to pin it twice
@@ -770,7 +770,7 @@ func (issue *Issue) Pin(ctx context.Context, user *user_model.User) error {
 func (issue *Issue) Unpin(ctx context.Context, user *user_model.User) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	// If the Issue is not pinned, we don't need to unpin it
@@ -820,7 +820,7 @@ func (issue *Issue) PinOrUnpin(ctx context.Context, user *user_model.User) error
 func (issue *Issue) MovePin(ctx context.Context, newPosition int) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	// If the Issue is not pinned, we can't move them
@@ -916,7 +916,7 @@ func IsErrIssueMaxPinReached(err error) bool {
 func InsertIssues(ctx context.Context, issues ...*Issue) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)

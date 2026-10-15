@@ -99,6 +99,7 @@ func testUsernamePolicies() map[string]sdk.PolicyHandler {
 	}}
 }
 
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestUsernamePolicyCLIEntrypoint(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	root, err := os.MkdirTemp(os.TempDir(), "p-")

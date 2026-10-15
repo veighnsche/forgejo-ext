@@ -12,7 +12,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/keying"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -105,7 +105,7 @@ func NewTwoFactor(ctx context.Context, t *TwoFactor, secret string) error {
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
@@ -126,7 +126,7 @@ func UpdateTwoFactor(ctx context.Context, t *TwoFactor) error {
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(t.ID).AllCols().Update(t)
@@ -157,7 +157,7 @@ func DeleteTwoFactorByID(ctx context.Context, id, userID int64) error {
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	cnt, err := db.GetEngine(ctx).ID(id).Delete(&TwoFactor{

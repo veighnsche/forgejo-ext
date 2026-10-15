@@ -420,17 +420,6 @@ func NewDependencyPage(issueID int64, items []DependencySnapshot, total int, com
 	}, nil
 }
 
-func validFullBranchRef(ref string) bool {
-	if !strings.HasPrefix(ref, "refs/heads/") || len(ref) > 512 {
-		return false
-	}
-	name := strings.TrimSpace(ref)
-	if name != ref || strings.ContainsAny(ref, " ~^:?*\\") || strings.Contains(ref, "..") {
-		return false
-	}
-	return len(strings.TrimPrefix(ref, "refs/heads/")) > 0
-}
-
 func validFullOID(oid string) bool {
 	if len(oid) != 40 && len(oid) != 64 {
 		return false
@@ -515,7 +504,7 @@ func NewPullSnapshot(pr *PullRequest, headTip string, visible bool, hiddenReason
 	if !pr.HasMerged {
 		merged = 0
 	}
-	flow := ""
+	var flow string
 	switch pr.Flow {
 	case PullRequestFlowGithub:
 		flow = "github"

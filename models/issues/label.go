@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/label"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/timeutil"
@@ -208,7 +208,7 @@ func (l *Label) ExclusiveScope() string {
 func NewLabel(ctx context.Context, l *Label) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	color, err := label.NormalizeColor(l.Color)
@@ -224,7 +224,7 @@ func NewLabel(ctx context.Context, l *Label) error {
 func NewLabels(ctx context.Context, labels ...*Label) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -251,7 +251,7 @@ func NewLabels(ctx context.Context, labels ...*Label) error {
 func UpdateLabel(ctx context.Context, l *Label) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	color, err := label.NormalizeColor(l.Color)
@@ -274,7 +274,7 @@ func UpdateLabel(ctx context.Context, l *Label) error {
 func DeleteLabelInOrg(ctx context.Context, orgID, labelID int64) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	l, err := GetLabelByID(ctx, labelID)
@@ -297,7 +297,7 @@ func DeleteLabelInOrg(ctx context.Context, orgID, labelID int64) error {
 func DeleteLabelInRepo(ctx context.Context, repoID, labelID int64) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	l, err := GetLabelByID(ctx, labelID)

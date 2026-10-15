@@ -31,7 +31,7 @@ import (
 	"forgejo.org/routers/web/org"
 	shared_user "forgejo.org/routers/web/shared/user"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -389,7 +389,7 @@ func Action(ctx *context.Context) {
 		// stale.
 		doerID := ctx.Doer.ID
 		targetID := ctx.ContextUser.ID
-		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/unblock/%d", doerID, targetID), 0, func(ctx std_ctx.Context) error {
+		err = nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/unblock/%d", doerID, targetID), 0, func(ctx std_ctx.Context) error {
 			return user_model.UnblockUser(ctx, doerID, targetID)
 		})
 	}

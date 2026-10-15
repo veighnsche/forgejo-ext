@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -131,7 +131,7 @@ func SetArchiveRepoState(ctx context.Context, repo *Repository, isArchived bool)
 	// writer, so they refuse while another owner holds the
 	// reservation; the enclosing settings update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	repo.IsArchived = isArchived

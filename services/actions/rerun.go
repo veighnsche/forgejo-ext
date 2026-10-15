@@ -15,7 +15,7 @@ import (
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -75,7 +75,7 @@ func RerunAllJobs(ctx context.Context, run *actions_model.ActionRun) ([]*actions
 	// One run-level logical update owns the complete rerun before job
 	// state moves: the reset run/jobs and their resulting commit
 	// statuses share this ownership.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpRerun), operation_service.Scope{
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.RunResource(nativeoperation_service.ActionsRunOpRerun), nativeoperation_service.Scope{
 		RunID: run.ID,
 	}, func(ctx context.Context) error {
 		return db.WithTx(ctx, func(ctx context.Context) error {
@@ -147,7 +147,7 @@ func RerunJob(ctx context.Context, job *actions_model.ActionRunJob) ([]*actions_
 	// One run-level logical update owns the complete rerun before job
 	// state moves: the reset run/jobs and their resulting commit
 	// statuses share this ownership.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpRerun), operation_service.Scope{
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.RunResource(nativeoperation_service.ActionsRunOpRerun), nativeoperation_service.Scope{
 		RunID: job.RunID,
 		JobID: job.ID,
 	}, func(ctx context.Context) error {

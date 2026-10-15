@@ -16,7 +16,7 @@ import (
 	"forgejo.org/modules/log"
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -87,18 +87,18 @@ func GitGcRepos(ctx context.Context, timeout time.Duration, args git.TrustedCmdA
 func GitGcRepo(ctx context.Context, repo *repo_model.Repository, timeout time.Duration, args git.TrustedCmdArgs) error {
 	// One maintenance update owns the reservation across the object-store
 	// rewrite and the size record so no ref writer interleaves.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMaintenance,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMaintenance,
 		fmt.Sprintf("%d/gc", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMaintenance,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMaintenance,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {
 			if err := gitGcRepoOwned(ctx, repo, timeout, args); err != nil {
 				return err
 			}
-			return operation_service.TestCrashBarrier(operation_service.CrashPointMaintenanceAfterEffects)
+			return nativeoperation_service.TestCrashBarrier(nativeoperation_service.CrashPointMaintenanceAfterEffects)
 		})
 }
 
@@ -214,11 +214,11 @@ func ReinitMissingRepositories(ctx context.Context) error {
 		// Each reinit holds maintenance ownership across its fresh
 		// object-store creation so no writer targets the half-made
 		// directory; notices stay outside the claim.
-		if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyMaintenance,
+		if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyMaintenance,
 			fmt.Sprintf("%d/reinit", repo.ID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyMaintenance,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyMaintenance,
 				RepositoryID: repo.ID,
 			},
 			func(ctx context.Context) error {

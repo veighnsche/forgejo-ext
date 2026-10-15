@@ -8,8 +8,8 @@ import (
 	"time"
 
 	sdk "forgejo.org/extension-sdk"
-	authmodel "forgejo.org/models/extensionauth"
-	model "forgejo.org/models/nativeoperation"
+	extensionauth_model "forgejo.org/models/extensionauth"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/require"
@@ -17,14 +17,14 @@ import (
 
 const operationTestInstallation = "11111111-2222-4333-8444-555555555555"
 
-func testDecision() authmodel.SubmissionDecision {
-	return authmodel.SubmissionDecision{TokenID: 9, ActorID: 2, CredentialFingerprint: "fingerprint"}
+func testDecision() extensionauth_model.SubmissionDecision {
+	return extensionauth_model.SubmissionDecision{TokenID: 9, ActorID: 2, CredentialFingerprint: "fingerprint"}
 }
 
 func testIntent(t *testing.T, id string, revision int64) *ValidIntent {
 	t.Helper()
 	now := time.Now().Unix()
-	intent, err := ValidateIntent(id, 2, 1, model.KindMerge, "rev-1", revision, now+300, mergePayload(t, nil), now)
+	intent, err := ValidateIntent(id, 2, 1, nativeoperation_model.KindMerge, "rev-1", revision, now+300, mergePayload(t, nil), now)
 	require.NoError(t, err)
 	return intent
 }
@@ -45,8 +45,8 @@ func TestCancelBeforeSubmitBlocksDelayedSubmission(t *testing.T) {
 
 	cancelled, err := svc.Cancel(ctx, operationTestInstallation, "op-early-cancel")
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, cancelled.Outcome)
-	require.Equal(t, model.ReasonCancelledBeforeSubmit, cancelled.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, cancelled.Outcome)
+	require.Equal(t, nativeoperation_model.ReasonCancelledBeforeSubmit, cancelled.ReasonCode)
 	require.Empty(t, cancelled.ActorID)
 	require.Empty(t, cancelled.RepositoryID)
 	require.Empty(t, cancelled.Kind)
@@ -58,9 +58,9 @@ func TestCancelBeforeSubmitBlocksDelayedSubmission(t *testing.T) {
 
 	lookup, err := svc.Get(ctx, operationTestInstallation, "op-early-cancel")
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, lookup.Status)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, lookup.Status)
 	require.NotNil(t, lookup.Record)
-	require.Equal(t, model.CancellationCancelled, lookup.Record.CancellationStatus)
+	require.Equal(t, nativeoperation_model.CancellationCancelled, lookup.Record.CancellationStatus)
 }
 
 func TestSubmitRejectsChangedIntentAndReplaysIdentical(t *testing.T) {
@@ -71,7 +71,7 @@ func TestSubmitRejectsChangedIntentAndReplaysIdentical(t *testing.T) {
 	observation, err := svc.ReadNativeRevision(ctx)
 	require.NoError(t, err)
 	intent := testIntent(t, "op-replay", observation.Revision)
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         operationTestInstallation,
 		OperationID:            intent.OperationID,
 		Kind:                   intent.Kind,
@@ -85,12 +85,12 @@ func TestSubmitRejectsChangedIntentAndReplaysIdentical(t *testing.T) {
 		IntentDigest:           intent.Digest,
 		Intent:                 intent.Canonical,
 	}
-	_, err = model.ClaimConditional(ctx, op, conditionalOwner(operationTestInstallation, intent.OperationID), `{}`, "verifier")
+	_, err = nativeoperation_model.ClaimConditional(ctx, op, conditionalOwner(operationTestInstallation, intent.OperationID), `{}`, "verifier")
 	require.NoError(t, err)
 
 	replay, err := svc.Submit(ctx, testDecision(), operationTestInstallation, intent)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectPending, replay.Outcome)
+	require.Equal(t, nativeoperation_model.EffectPending, replay.Outcome)
 	require.Equal(t, intent.Digest, replay.IntentDigest)
 
 	changed := testIntent(t, "op-replay", observation.Revision)
@@ -107,14 +107,14 @@ func TestSubmitRefusesStaleRevisionAndBusy(t *testing.T) {
 	observation, err := svc.ReadNativeRevision(ctx)
 	require.NoError(t, err)
 	// An intervening participating writer advances the revision first.
-	advanced, err := model.ClaimOrdinary(ctx, "ord:test/advance", `{}`, "v")
+	advanced, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:test/advance", `{}`, "v")
 	require.NoError(t, err)
-	require.NoError(t, model.ReleaseOwner(ctx, "ord:test/advance"))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, "ord:test/advance"))
 
 	stale, err := svc.Submit(ctx, testDecision(), operationTestInstallation, testIntent(t, "op-stale-submit", observation.Revision))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, stale.Outcome)
-	require.Equal(t, model.ReasonStaleNativeRevision, stale.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, stale.Outcome)
+	require.Equal(t, nativeoperation_model.ReasonStaleNativeRevision, stale.ReasonCode)
 	require.Equal(t, "2", stale.ActorID)
 
 	idle, err := svc.ReadNativeRevision(ctx)
@@ -122,11 +122,11 @@ func TestSubmitRefusesStaleRevisionAndBusy(t *testing.T) {
 	require.True(t, idle.Idle)
 	require.Equal(t, advanced.Revision, idle.Revision)
 
-	_, err = model.ClaimOrdinary(ctx, "ord:test/holder", `{}`, "v")
+	_, err = nativeoperation_model.ClaimOrdinary(ctx, "ord:test/holder", `{}`, "v")
 	require.NoError(t, err)
 	_, err = svc.Submit(ctx, testDecision(), operationTestInstallation, testIntent(t, "op-busy-submit", idle.Revision+1))
 	require.ErrorIs(t, err, ErrBusy)
-	missing, err := model.LookupOperation(ctx, operationTestInstallation, "op-busy-submit")
+	missing, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-busy-submit")
 	require.NoError(t, err)
 	require.Nil(t, missing)
 }
@@ -150,7 +150,7 @@ func TestCancelPendingStaysPendingAndTerminalMaps(t *testing.T) {
 	observation, err := svc.ReadNativeRevision(ctx)
 	require.NoError(t, err)
 	intent := testIntent(t, "op-cancel-pending", observation.Revision)
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         operationTestInstallation,
 		OperationID:            intent.OperationID,
 		Kind:                   intent.Kind,
@@ -163,38 +163,38 @@ func TestCancelPendingStaysPendingAndTerminalMaps(t *testing.T) {
 		AuthRevision:           intent.AuthRevision,
 	}
 	owner := conditionalOwner(operationTestInstallation, intent.OperationID)
-	_, err = model.ClaimConditional(ctx, op, owner, `{}`, "verifier")
+	_, err = nativeoperation_model.ClaimConditional(ctx, op, owner, `{}`, "verifier")
 	require.NoError(t, err)
 
 	pending, err := svc.Cancel(ctx, operationTestInstallation, intent.OperationID)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectPending, pending.Outcome)
-	require.Equal(t, model.CancellationPending, pending.CancellationStatus)
+	require.Equal(t, nativeoperation_model.EffectPending, pending.Outcome)
+	require.Equal(t, nativeoperation_model.CancellationPending, pending.CancellationStatus)
 
-	committed, err := model.SetTerminal(ctx, operationTestInstallation, intent.OperationID, model.TerminalOutcome{
-		EffectState: model.EffectCommitted,
+	committed, err := nativeoperation_model.SetTerminal(ctx, operationTestInstallation, intent.OperationID, nativeoperation_model.TerminalOutcome{
+		EffectState: nativeoperation_model.EffectCommitted,
 		Receipt:     `{}`,
 	}, owner)
 	require.NoError(t, err)
 	require.True(t, committed.Revoked)
 	late, err := svc.Cancel(ctx, operationTestInstallation, intent.OperationID)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, late.Outcome)
-	require.Equal(t, model.CancellationTooLate, late.CancellationStatus)
+	require.Equal(t, nativeoperation_model.EffectCommitted, late.Outcome)
+	require.Equal(t, nativeoperation_model.CancellationTooLate, late.CancellationStatus)
 
 	// A terminal refusal without prior cancellation reports cancelled once
 	// the owning installation cancels it.
-	refusedOp := &model.Operation{
+	refusedOp := &nativeoperation_model.Operation{
 		InstallationID: operationTestInstallation, OperationID: "op-refused",
-		Kind: model.KindMerge, ActorID: 2, RepositoryID: 1, Submitted: true,
-		EffectState: model.EffectNotCommitted, Reason: model.ReasonStaleHead,
+		Kind: nativeoperation_model.KindMerge, ActorID: 2, RepositoryID: 1, Submitted: true,
+		EffectState: nativeoperation_model.EffectNotCommitted, Reason: nativeoperation_model.ReasonStaleHead,
 	}
-	_, err = model.InsertRefusedOperation(ctx, refusedOp)
+	_, err = nativeoperation_model.InsertRefusedOperation(ctx, refusedOp)
 	require.NoError(t, err)
 	lookup, err := svc.Get(ctx, operationTestInstallation, "op-refused")
 	require.NoError(t, err)
-	require.Equal(t, model.CancellationNone, lookup.Record.CancellationStatus)
+	require.Equal(t, nativeoperation_model.CancellationNone, lookup.Record.CancellationStatus)
 	cancelled, err := svc.Cancel(ctx, operationTestInstallation, "op-refused")
 	require.NoError(t, err)
-	require.Equal(t, model.CancellationCancelled, cancelled.CancellationStatus)
+	require.Equal(t, nativeoperation_model.CancellationCancelled, cancelled.CancellationStatus)
 }

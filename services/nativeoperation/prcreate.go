@@ -6,16 +6,16 @@ package nativeoperation
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"os"
 	"strings"
 
 	sdk "forgejo.org/extension-sdk"
-	authmodel "forgejo.org/models/extensionauth"
+	extensionauth_model "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
@@ -111,7 +111,7 @@ var errPRCreateDuplicate = errors.New("pull request already exists for head and 
 // derived ref and follow-up records under bounded completion ownership. There
 // is no unguarded fallback: every refusal path records not_committed or
 // retains the fence.
-func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
+func (s *Service) submitPRCreate(ctx context.Context, decision extensionauth_model.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
 	if err := ctx.Err(); err != nil {
 		return sdk.OperationRecord{}, err
 	}
@@ -132,7 +132,7 @@ func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.Submiss
 	// binds the verified head/base refs and OIDs; the exact derived-ref
 	// tuple persists under this owner before derived Git writes.
 	scope := Scope{
-		Kind:         model.OwnerConditional,
+		Kind:         nativeoperation_model.OwnerConditional,
 		RepositoryID: intent.RepositoryID,
 		Ref:          intent.PRCreate.BaseRef,
 		OldOID:       intent.PRCreate.ExpectedBaseOID,
@@ -144,7 +144,7 @@ func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.Submiss
 		retire()
 		return sdk.OperationRecord{}, err
 	}
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         installationID,
 		OperationID:            intent.OperationID,
 		Kind:                   intent.Kind,
@@ -158,21 +158,21 @@ func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.Submiss
 		IntentDigest:           intent.Digest,
 		Intent:                 intent.Canonical,
 	}
-	claimed, err := model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
+	claimed, err := nativeoperation_model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
 	if err != nil {
 		retire()
-		if errors.Is(err, model.ErrBusy) {
+		if errors.Is(err, nativeoperation_model.ErrBusy) {
 			return sdk.OperationRecord{}, ErrBusy
 		}
-		if errors.Is(err, model.ErrInhibited) {
+		if errors.Is(err, nativeoperation_model.ErrInhibited) {
 			return sdk.OperationRecord{}, err
 		}
-		if errors.Is(err, model.ErrStaleRevision) {
+		if errors.Is(err, nativeoperation_model.ErrStaleRevision) {
 			return s.recordStaleRevision(ctx, op)
 		}
 		// A concurrent identical submit may have won the insert; reread
 		// and reconcile rather than launching a second execution.
-		existing, lookupErr := model.LookupOperation(ctx, installationID, intent.OperationID)
+		existing, lookupErr := nativeoperation_model.LookupOperation(ctx, installationID, intent.OperationID)
 		if lookupErr != nil {
 			return sdk.OperationRecord{}, lookupErr
 		}
@@ -200,7 +200,7 @@ func (s *Service) submitPRCreate(ctx context.Context, decision authmodel.Submiss
 // effect. All native work runs on the owned context so nested participating
 // writers attribute to this execution; terminal records and the owner release
 // run detached so a caller disconnect cannot stick the reservation.
-func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, intent *ValidIntent, scope Scope, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
+func (s *Service) executePRCreate(ctx context.Context, op *nativeoperation_model.Operation, intent *ValidIntent, scope Scope, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
 	owner := execution.Owner
 	pr := intent.PRCreate
 	// Terminal records and the owner release must complete even when the
@@ -209,10 +209,10 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 	releaseCtx := context.WithoutCancel(ctx)
 	owned := execcontext.NewContext(ctx, execution)
 	refuse := func(reason string) (sdk.OperationRecord, terminalResult, error) {
-		recorded, err := model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectNotCommitted,
+		recorded, err := nativeoperation_model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectNotCommitted,
 			Reason:       reason,
-			Cancellation: model.CancellationNone,
+			Cancellation: nativeoperation_model.CancellationNone,
 		}, owner)
 		if err != nil {
 			return sdk.OperationRecord{}, terminalResult{}, err
@@ -221,33 +221,33 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 	}
 	if err := s.revalidateSubmission(owned, op); err != nil {
 		if errors.Is(err, ErrAuthorityLost) {
-			return refuse(model.ReasonAuthorityLost)
+			return refuse(nativeoperation_model.ReasonAuthorityLost)
 		}
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 	repository, err := repo_model.GetRepositoryByID(owned, op.RepositoryID)
 	if err != nil {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 	if s.clock() >= op.NotAfter {
-		return refuse(model.ReasonExpiredBeforeAdmission)
+		return refuse(nativeoperation_model.ReasonExpiredBeforeAdmission)
 	}
 	head, err := s.readRef(owned, repository.RepoPath(), pr.HeadRef)
 	if err != nil || !strings.EqualFold(head, pr.ExpectedHeadOID) {
-		return refuse(model.ReasonStaleHead)
+		return refuse(nativeoperation_model.ReasonStaleHead)
 	}
 	base, err := s.readRef(owned, repository.RepoPath(), pr.BaseRef)
 	if err != nil || !strings.EqualFold(base, pr.ExpectedBaseOID) {
-		return refuse(model.ReasonStaleBaseOrResult)
+		return refuse(nativeoperation_model.ReasonStaleBaseOrResult)
 	}
 	doer, err := user_model.GetUserByID(owned, op.ActorID)
 	if err != nil {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	// The ordinary service refuses authors the repository owner blocks;
 	// the conditional path preserves that account check.
 	if user_model.IsBlocked(owned, repository.OwnerID, doer.ID) {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	// Mirror the API layer's creation permissions, refreshed under the
 	// held owner: pulls-unit and code-unit read on the base repository.
@@ -255,10 +255,10 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 	// subsumes head code-unit read for this same-repository request.
 	permission, err := access_model.GetUserRepoPermission(owned, repository, doer)
 	if err != nil {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	if !permission.CanReadIssuesOrPulls(true) || !permission.CanRead(unit.TypeCode) {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	headBranch := strings.TrimPrefix(pr.HeadRef, git.BranchPrefix)
 	baseBranch := strings.TrimPrefix(pr.BaseRef, git.BranchPrefix)
@@ -269,7 +269,7 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 	if existing != nil {
 		// An existing PR is a conflict even when its author, branch or
 		// text matches; only this operation's receipt proves creation.
-		return refuse(model.ReasonDuplicatePullRequest)
+		return refuse(nativeoperation_model.ReasonDuplicatePullRequest)
 	}
 
 	issue := &issues_model.Issue{
@@ -293,7 +293,7 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 	// the ordinary service path: merge base, head commit, mergeability
 	// status and divergence. It performs Git reads only.
 	if err := pull_service.PreparePullRequestComparison(owned, pull); err != nil {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 
 	// Test-only barrier for the transaction/cancel race proof: with the
@@ -307,7 +307,7 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 	// committed receipt in one SQL transaction, ordered against
 	// cancellation and expiry on the same operation row. No SQL
 	// transaction spans Git or wraps the entire service.
-	committed, err := model.CommitPRCreatePrimary(owned, op.InstallationID, op.OperationID, owner, s.clock(), func(tx context.Context) (string, error) {
+	committed, err := nativeoperation_model.CommitPRCreatePrimary(owned, op.InstallationID, op.OperationID, owner, s.clock(), func(tx context.Context) (string, error) {
 		// The duplicate check re-runs inside the commit as
 		// defense-in-depth: ordinary writers are fenced while this
 		// owner holds the reservation, so a match refuses rather than
@@ -339,24 +339,24 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, model.ErrOperationExpired):
-			return refuse(model.ReasonExpiredBeforeAdmission)
+		case errors.Is(err, nativeoperation_model.ErrOperationExpired):
+			return refuse(nativeoperation_model.ReasonExpiredBeforeAdmission)
 		case errors.Is(err, errPRCreateDuplicate):
-			return refuse(model.ReasonDuplicatePullRequest)
-		case errors.Is(err, model.ErrAdmissionLost):
+			return refuse(nativeoperation_model.ReasonDuplicatePullRequest)
+		case errors.Is(err, nativeoperation_model.ErrAdmissionLost):
 			// A lost primary commit rereads the ordering truth: a
 			// concurrent cancellation wins prevention, anything else
 			// fails closed with the owner held.
-			current, lookupErr := model.LookupOperation(releaseCtx, op.InstallationID, op.OperationID)
+			current, lookupErr := nativeoperation_model.LookupOperation(releaseCtx, op.InstallationID, op.OperationID)
 			if lookupErr != nil {
 				return sdk.OperationRecord{}, terminalResult{}, lookupErr
 			}
 			if current != nil && current.Revoked {
-				return refuse(model.ReasonCancelledBeforeAdmission)
+				return refuse(nativeoperation_model.ReasonCancelledBeforeAdmission)
 			}
 			return sdk.OperationRecord{}, terminalResult{}, err
 		default:
-			return refuse(model.ReasonNativeRefused)
+			return refuse(nativeoperation_model.ReasonNativeRefused)
 		}
 	}
 	op = committed
@@ -378,8 +378,8 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 	scope.CompletionPhase = PRCreateCompletionPhase
 	if encoded, err := encodeScope(scope); err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
-	} else if err := model.UpdateScopeWhere(releaseCtx, owner, encoded); err != nil {
-		return s.finalizePRCreate(releaseCtx, op, execution, model.CompletionNeedsIntervention)
+	} else if err := nativeoperation_model.UpdateScopeWhere(releaseCtx, owner, encoded); err != nil {
+		return s.finalizePRCreate(releaseCtx, op, execution, nativeoperation_model.CompletionNeedsIntervention)
 	}
 
 	// Bounded completion under the held owner: the exact internal PR ref,
@@ -398,22 +398,22 @@ func (s *Service) executePRCreate(ctx context.Context, op *model.Operation, inte
 			// committed primary stands; only completion is unknown.
 			return sdk.OperationRecord{}, terminalResult{}, err
 		}
-		return s.finalizePRCreate(releaseCtx, op, execution, model.CompletionNeedsIntervention)
+		return s.finalizePRCreate(releaseCtx, op, execution, nativeoperation_model.CompletionNeedsIntervention)
 	}
 	issue_service.ReviewRequestNotify(owned, issue, issue.Poster, notifiers)
 	mentions, err := issues_model.FindAndUpdateIssueMentions(owned, issue, issue.Poster, issue.Content)
 	if err != nil {
-		return s.finalizePRCreate(releaseCtx, op, execution, model.CompletionNeedsIntervention)
+		return s.finalizePRCreate(releaseCtx, op, execution, nativeoperation_model.CompletionNeedsIntervention)
 	}
 	notify_service.NewPullRequest(owned, pull, mentions)
-	return s.finalizePRCreate(releaseCtx, op, execution, model.CompletionComplete)
+	return s.finalizePRCreate(releaseCtx, op, execution, nativeoperation_model.CompletionComplete)
 }
 
 // finalizePRCreate records the completion state of one committed creation
 // and releases its exact owner. A finalize failure keeps the owner held for
 // offline recovery; it never downgrades the committed primary.
-func (s *Service) finalizePRCreate(ctx context.Context, op *model.Operation, execution *execcontext.Execution, completion string) (sdk.OperationRecord, terminalResult, error) {
-	recorded, err := model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, execution.Owner, execution.Generation, completion)
+func (s *Service) finalizePRCreate(ctx context.Context, op *nativeoperation_model.Operation, execution *execcontext.Execution, completion string) (sdk.OperationRecord, terminalResult, error) {
+	recorded, err := nativeoperation_model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, execution.Owner, execution.Generation, completion)
 	if err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}

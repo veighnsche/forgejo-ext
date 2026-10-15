@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
@@ -102,7 +102,7 @@ func InsertEmailAddress(ctx context.Context, email *EmailAddress) (*EmailAddress
 	// Nested participating writer: login-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	if err := db.Insert(ctx, email); err != nil {
@@ -115,7 +115,7 @@ func UpdateEmailAddress(ctx context.Context, email *EmailAddress) error {
 	// Nested participating writer: login-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(email.ID).AllCols().Update(email)
@@ -158,7 +158,7 @@ func DeletePrimaryEmailAddressOfUser(ctx context.Context, uid int64) error {
 	// Nested participating writer: login-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	user, err := GetUserByID(ctx, uid)
@@ -272,7 +272,7 @@ func ActivateEmail(ctx context.Context, email *EmailAddress) error {
 	// Nested participating writer: login-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -387,7 +387,7 @@ func ActivateUserEmail(ctx context.Context, userID int64, email string, activate
 	// Nested participating writer: login-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)

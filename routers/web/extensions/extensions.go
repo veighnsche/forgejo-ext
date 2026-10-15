@@ -4,7 +4,7 @@
 package extensions
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net/http"
 	"net/url"
 	"os"
@@ -19,7 +19,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 
 	"golang.org/x/net/websocket"
 )
@@ -111,7 +111,7 @@ type Link struct {
 func Navigation(ctx *context.Context) {
 	pages := map[string][]Link{}
 	ctx.Data["ExtensionPages"] = pages
-	manager := runtime.GetManager()
+	manager := extensions_service.GetManager()
 	if manager == nil || !nativeSession(ctx) {
 		return
 	}
@@ -194,8 +194,8 @@ func allowed(ctx *context.Context, p extension.Page) bool {
 	return false
 }
 
-func findPage(ctx *context.Context, scope string) (runtime.Descriptor, http.RoundTripper, extension.Page, bool) {
-	manager := runtime.GetManager()
+func findPage(ctx *context.Context, scope string) (extensions_service.Descriptor, http.RoundTripper, extension.Page, bool) {
+	manager := extensions_service.GetManager()
 	if manager != nil {
 		if d, transport, ok := manager.Lookup(ctx.Params("extension")); ok {
 			for _, p := range d.Manifest.Pages {
@@ -206,7 +206,7 @@ func findPage(ctx *context.Context, scope string) (runtime.Descriptor, http.Roun
 		}
 	}
 	ctx.NotFound("Page", nil)
-	return runtime.Descriptor{}, nil, extension.Page{}, false
+	return extensions_service.Descriptor{}, nil, extension.Page{}, false
 }
 
 // Public pages resolve host-owned routes without exposing package identities.
@@ -328,8 +328,8 @@ func repositorySubroute(ctx *context.Context) {
 	renderPage(ctx, d, transport, p)
 }
 
-func findRoute(ctx *context.Context, scope, route string) (runtime.Descriptor, http.RoundTripper, extension.Page, bool) {
-	if manager := runtime.GetManager(); manager != nil {
+func findRoute(ctx *context.Context, scope, route string) (extensions_service.Descriptor, http.RoundTripper, extension.Page, bool) {
+	if manager := extensions_service.GetManager(); manager != nil {
 		for _, listed := range manager.List() {
 			d, transport, ok := manager.Lookup(listed.Manifest.ID)
 			if !ok {
@@ -342,7 +342,7 @@ func findRoute(ctx *context.Context, scope, route string) (runtime.Descriptor, h
 			}
 		}
 	}
-	return runtime.Descriptor{}, nil, extension.Page{}, false
+	return extensions_service.Descriptor{}, nil, extension.Page{}, false
 }
 
 func repositoryWorkspace(ctx *context.Context) {
@@ -364,7 +364,7 @@ func repositoryWorkspace(ctx *context.Context) {
 	renderPage(ctx, d, transport, p)
 }
 
-func pageAPIBase(ctx *context.Context, d runtime.Descriptor, p extension.Page) string {
+func pageAPIBase(ctx *context.Context, d extensions_service.Descriptor, p extension.Page) string {
 	prefix := setting.AppSubURL
 	switch p.Scope {
 	case "user":
@@ -377,7 +377,7 @@ func pageAPIBase(ctx *context.Context, d runtime.Descriptor, p extension.Page) s
 	return prefix + "/-/native/pages/" + d.Manifest.ID + "/" + p.ID + "/api/"
 }
 
-func renderPage(ctx *context.Context, d runtime.Descriptor, transport http.RoundTripper, p extension.Page) {
+func renderPage(ctx *context.Context, d extensions_service.Descriptor, transport http.RoundTripper, p extension.Page) {
 	generation, err := sessionGeneration(ctx)
 	if err != nil {
 		ctx.Error(http.StatusServiceUnavailable, "Session authority unavailable")
@@ -452,7 +452,7 @@ func workspaceDocument(ctx *context.Context) bool {
 // from renderPage. There is no parallel shell: ordinary native documents
 // keep their templates and gain only data plus the layout region.
 func composePanelsHome(ctx *context.Context) {
-	manager := runtime.GetManager()
+	manager := extensions_service.GetManager()
 	if manager == nil {
 		return
 	}
@@ -542,7 +542,7 @@ func validWorkspacePath(path string) bool {
 }
 
 func Assets(ctx *context.Context) {
-	manager := runtime.GetManager()
+	manager := extensions_service.GetManager()
 	if manager == nil {
 		ctx.NotFound("Page", nil)
 		return

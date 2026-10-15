@@ -5,12 +5,12 @@ package nativeoperation
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"testing"
 	"time"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
@@ -46,7 +46,7 @@ func publishIntentPayload(t *testing.T, mutate func(*map[string]any)) []byte {
 func publishIntent(t *testing.T, id string, revision int64, payload []byte) *ValidIntent {
 	t.Helper()
 	now := time.Now().Unix()
-	intent, err := ValidateIntent(id, 2, 1, model.KindRefPublish, "rev-1", revision, now+300, payload, now)
+	intent, err := ValidateIntent(id, 2, 1, nativeoperation_model.KindRefPublish, "rev-1", revision, now+300, payload, now)
 	require.NoError(t, err)
 	return intent
 }
@@ -54,7 +54,7 @@ func publishIntent(t *testing.T, id string, revision int64, payload []byte) *Val
 func TestValidatePublishIntent(t *testing.T) {
 	now := time.Now().Unix()
 	validate := func(payload []byte) (*ValidIntent, error) {
-		return ValidateIntent("op-pub", 2, 1, model.KindRefPublish, "rev-1", 1, now+300, payload, now)
+		return ValidateIntent("op-pub", 2, 1, nativeoperation_model.KindRefPublish, "rev-1", 1, now+300, payload, now)
 	}
 
 	creation, err := validate(publishIntentPayload(t, nil))
@@ -101,14 +101,14 @@ func TestValidatePublishIntent(t *testing.T) {
 
 // waitingPublishOp inserts a waiting publish operation and returns it with
 // the current idle revision bound.
-func waitingPublishOp(t *testing.T, svc *Service, id string) *model.Operation {
+func waitingPublishOp(t *testing.T, svc *Service, id string) *nativeoperation_model.Operation {
 	t.Helper()
 	ctx := t.Context()
 	observation, err := svc.ReadNativeRevision(ctx)
 	require.NoError(t, err)
 	require.True(t, observation.Idle)
 	intent := publishIntent(t, id, observation.Revision, publishIntentPayload(t, nil))
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         operationTestInstallation,
 		OperationID:            intent.OperationID,
 		Kind:                   intent.Kind,
@@ -122,7 +122,7 @@ func waitingPublishOp(t *testing.T, svc *Service, id string) *model.Operation {
 		IntentDigest:           intent.Digest,
 		Intent:                 intent.Canonical,
 	}
-	recorded, err := model.InsertWaitingOperation(ctx, op)
+	recorded, err := nativeoperation_model.InsertWaitingOperation(ctx, op)
 	require.NoError(t, err)
 	return recorded
 }
@@ -132,7 +132,7 @@ func claimPublishOp(t *testing.T, id string, mutate func(*Scope)) (owner, secret
 	ctx := t.Context()
 	secret = "publish-proof-secret-" + id
 	scope := Scope{
-		Kind:         model.OwnerConditional,
+		Kind:         nativeoperation_model.OwnerConditional,
 		RepositoryID: 1,
 		Ref:          "refs/heads/candidate",
 		OldOID:       publishTestZero,
@@ -146,7 +146,7 @@ func claimPublishOp(t *testing.T, id string, mutate func(*Scope)) (owner, secret
 	encoded, err := encodeScope(scope)
 	require.NoError(t, err)
 	owner = conditionalOwner(operationTestInstallation, id)
-	_, _, err = model.ClaimPublishReceive(ctx, operationTestInstallation, id, owner, encoded, execcontext.Verifier(secret), time.Now().Unix())
+	_, _, err = nativeoperation_model.ClaimPublishReceive(ctx, operationTestInstallation, id, owner, encoded, execcontext.Verifier(secret), time.Now().Unix())
 	require.NoError(t, err)
 	return owner, secret
 }
@@ -163,8 +163,8 @@ func TestSubmitPublishRegistersWaiting(t *testing.T) {
 	intent := publishIntent(t, "op-pub-submit", before.Revision, publishIntentPayload(t, nil))
 	record, err := svc.Submit(ctx, testDecision(), operationTestInstallation, intent)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectPending, record.Outcome)
-	require.Equal(t, model.KindRefPublish, record.Kind)
+	require.Equal(t, nativeoperation_model.EffectPending, record.Outcome)
+	require.Equal(t, nativeoperation_model.KindRefPublish, record.Kind)
 
 	// Registration occupies no reservation.
 	after, err := svc.ReadNativeRevision(ctx)
@@ -175,7 +175,7 @@ func TestSubmitPublishRegistersWaiting(t *testing.T) {
 	// Identical replay returns the registration without a second execution.
 	replay, err := svc.Submit(ctx, testDecision(), operationTestInstallation, intent)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectPending, replay.Outcome)
+	require.Equal(t, nativeoperation_model.EffectPending, replay.Outcome)
 
 	changed := publishIntent(t, "op-pub-submit", before.Revision, publishIntentPayload(t, nil))
 	changed.Digest = "different-digest"
@@ -192,7 +192,7 @@ func TestSubmitPublishBlockedByEarlyCancel(t *testing.T) {
 	require.NoError(t, err)
 	cancelled, err := svc.Cancel(ctx, operationTestInstallation, "op-pub-cancelled")
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, cancelled.Outcome)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, cancelled.Outcome)
 
 	_, err = svc.Submit(ctx, testDecision(), operationTestInstallation,
 		publishIntent(t, "op-pub-cancelled", observation.Revision, publishIntentPayload(t, nil)))
@@ -200,12 +200,12 @@ func TestSubmitPublishBlockedByEarlyCancel(t *testing.T) {
 }
 
 func TestPublishRefusalReason(t *testing.T) {
-	require.Equal(t, model.ReasonStaleHead, publishRefusalReason(ExactPublishRefusedBranchExists))
-	require.Equal(t, model.ReasonStaleHead, publishRefusalReason(ExactPublishRefusedNotFastForward))
-	require.Equal(t, model.ReasonStaleBaseOrResult, publishRefusalReason(ExactPublishRefusedStaleCompare))
-	require.Equal(t, model.ReasonPRMismatch, publishRefusalReason(ExactPublishRefusedClosedPR))
-	require.Equal(t, model.ReasonNativeRefused, publishRefusalReason(ExactPublishRefusedMalformedOID))
-	require.Equal(t, model.ReasonNativeRefused, publishRefusalReason("future reason"))
+	require.Equal(t, nativeoperation_model.ReasonStaleHead, publishRefusalReason(ExactPublishRefusedBranchExists))
+	require.Equal(t, nativeoperation_model.ReasonStaleHead, publishRefusalReason(ExactPublishRefusedNotFastForward))
+	require.Equal(t, nativeoperation_model.ReasonStaleBaseOrResult, publishRefusalReason(ExactPublishRefusedStaleCompare))
+	require.Equal(t, nativeoperation_model.ReasonPRMismatch, publishRefusalReason(ExactPublishRefusedClosedPR))
+	require.Equal(t, nativeoperation_model.ReasonNativeRefused, publishRefusalReason(ExactPublishRefusedMalformedOID))
+	require.Equal(t, nativeoperation_model.ReasonNativeRefused, publishRefusalReason("future reason"))
 }
 
 func TestClassifyPreReceivePublish(t *testing.T) {
@@ -223,7 +223,7 @@ func TestClassifyPreReceivePublish(t *testing.T) {
 		unittest.PrepareTestEnv(t)
 		ctx := t.Context()
 		svc := NewService()
-		_, err := model.ClaimOrdinary(ctx, "ord:receive-http/1/main/nonce", `{"family":"receive-http"}`, "v")
+		_, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:receive-http/1/main/nonce", `{"family":"receive-http"}`, "v")
 		require.NoError(t, err)
 		decision, err := svc.ClassifyPreReceive(ctx, 1, tuple, false, PublishPreReceiveGit{})
 		require.NoError(t, err)
@@ -235,15 +235,15 @@ func TestClassifyPreReceivePublish(t *testing.T) {
 		ctx := t.Context()
 		svc := NewService()
 		now := time.Now().Unix()
-		intent, err := ValidateIntent("op-merge-owner", 2, 1, model.KindMerge, "rev-1", 1, now+300, mergePayload(t, nil), now)
+		intent, err := ValidateIntent("op-merge-owner", 2, 1, nativeoperation_model.KindMerge, "rev-1", 1, now+300, mergePayload(t, nil), now)
 		require.NoError(t, err)
-		op := &model.Operation{
+		op := &nativeoperation_model.Operation{
 			InstallationID: operationTestInstallation, OperationID: intent.OperationID,
 			Kind: intent.Kind, ActorID: 2, RepositoryID: 1, Submitted: true,
-			EffectState: model.EffectPending, ExpectedNativeRevision: 1, NotAfter: now + 300,
+			EffectState: nativeoperation_model.EffectPending, ExpectedNativeRevision: 1, NotAfter: now + 300,
 			IntentDigest: intent.Digest, Intent: intent.Canonical,
 		}
-		_, err = model.ClaimConditional(ctx, op, conditionalOwner(operationTestInstallation, intent.OperationID), `{}`, "v")
+		_, err = nativeoperation_model.ClaimConditional(ctx, op, conditionalOwner(operationTestInstallation, intent.OperationID), `{}`, "v")
 		require.NoError(t, err)
 		decision, err := svc.ClassifyPreReceive(ctx, 1, tuple, false, PublishPreReceiveGit{})
 		require.NoError(t, err)
@@ -270,10 +270,10 @@ func TestClassifyPreReceivePublish(t *testing.T) {
 		decision, err := svc.ClassifyPreReceive(ctx, 1, append(tuple, RefLine{Old: publishTestZero, New: publishTestNew, Ref: "refs/heads/other"}), false, PublishPreReceiveGit{})
 		require.NoError(t, err)
 		require.False(t, decision.Allowed)
-		require.Equal(t, model.ReasonUnexpectedRefEffects, decision.Reason)
-		op, err := model.LookupOperation(ctx, operationTestInstallation, "op-pre-extra")
+		require.Equal(t, nativeoperation_model.ReasonUnexpectedRefEffects, decision.Reason)
+		op, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-pre-extra")
 		require.NoError(t, err)
-		require.Equal(t, model.ReasonUnexpectedRefEffects, op.Reason)
+		require.Equal(t, nativeoperation_model.ReasonUnexpectedRefEffects, op.Reason)
 		require.False(t, op.Admitted)
 	})
 
@@ -286,7 +286,7 @@ func TestClassifyPreReceivePublish(t *testing.T) {
 		decision, err := svc.ClassifyPreReceive(ctx, 1, []RefLine{{Old: publishTestZero, New: publishTestOld, Ref: "refs/heads/candidate"}}, false, PublishPreReceiveGit{})
 		require.NoError(t, err)
 		require.False(t, decision.Allowed)
-		require.Equal(t, model.ReasonStaleBaseOrResult, decision.Reason)
+		require.Equal(t, nativeoperation_model.ReasonStaleBaseOrResult, decision.Reason)
 	})
 
 	t.Run("PushOptionsRefuse", func(t *testing.T) {
@@ -298,7 +298,7 @@ func TestClassifyPreReceivePublish(t *testing.T) {
 		decision, err := svc.ClassifyPreReceive(ctx, 1, tuple, true, PublishPreReceiveGit{})
 		require.NoError(t, err)
 		require.False(t, decision.Allowed)
-		require.Equal(t, model.ReasonPublishOptionsRejected, decision.Reason)
+		require.Equal(t, nativeoperation_model.ReasonPublishOptionsRejected, decision.Reason)
 	})
 
 	t.Run("WrongRepositoryRefuses", func(t *testing.T) {
@@ -331,17 +331,17 @@ func TestClassifyCompletionKindCheck(t *testing.T) {
 		svc := NewService()
 		observation, err := svc.ReadNativeRevision(ctx)
 		require.NoError(t, err)
-		future := &model.Operation{
+		future := &nativeoperation_model.Operation{
 			InstallationID: operationTestInstallation, OperationID: "op-complete-future",
 			Kind: "future.kind", ActorID: 2, RepositoryID: 1,
 			ExpectedNativeRevision: observation.Revision, NotAfter: time.Now().Unix() + 300,
 			IntentDigest: "digest", Intent: `{"operation_id":"op-complete-future"}`,
 		}
-		_, err = model.InsertWaitingOperation(ctx, future)
+		_, err = nativeoperation_model.InsertWaitingOperation(ctx, future)
 		require.NoError(t, err)
 		owner := conditionalOwner(operationTestInstallation, "op-complete-future")
 		secret := "future-proof"
-		_, _, err = model.ClaimPublishReceive(ctx, operationTestInstallation, "op-complete-future", owner,
+		_, _, err = nativeoperation_model.ClaimPublishReceive(ctx, operationTestInstallation, "op-complete-future", owner,
 			`{"kind":"conditional","repository_id":1,"ref":"refs/heads/candidate"}`, execcontext.Verifier(secret), time.Now().Unix())
 		require.NoError(t, err)
 		decision, err := svc.ClassifyCompletion(ctx, 1, []string{"refs/heads/candidate"}, secret, false)
@@ -354,17 +354,17 @@ func TestClassifyCompletionKindCheck(t *testing.T) {
 		ctx := t.Context()
 		svc := NewService()
 		now := time.Now().Unix()
-		intent, err := ValidateIntent("op-complete-merge", 2, 1, model.KindMerge, "rev-1", 1, now+300, mergePayload(t, nil), now)
+		intent, err := ValidateIntent("op-complete-merge", 2, 1, nativeoperation_model.KindMerge, "rev-1", 1, now+300, mergePayload(t, nil), now)
 		require.NoError(t, err)
-		op := &model.Operation{
+		op := &nativeoperation_model.Operation{
 			InstallationID: operationTestInstallation, OperationID: intent.OperationID,
 			Kind: intent.Kind, ActorID: 2, RepositoryID: 1, Submitted: true,
-			EffectState: model.EffectPending, ExpectedNativeRevision: 1, NotAfter: now + 300,
+			EffectState: nativeoperation_model.EffectPending, ExpectedNativeRevision: 1, NotAfter: now + 300,
 			IntentDigest: intent.Digest, Intent: intent.Canonical,
 		}
 		owner := conditionalOwner(operationTestInstallation, intent.OperationID)
 		secret := "merge-proof"
-		_, err = model.ClaimConditional(ctx, op, owner, `{"kind":"conditional","repository_id":1,"ref":"refs/heads/master"}`, execcontext.Verifier(secret))
+		_, err = nativeoperation_model.ClaimConditional(ctx, op, owner, `{"kind":"conditional","repository_id":1,"ref":"refs/heads/master"}`, execcontext.Verifier(secret))
 		require.NoError(t, err)
 		decision, err := svc.ClassifyCompletion(ctx, 1, []string{"refs/heads/master"}, secret, false)
 		require.NoError(t, err)
@@ -407,7 +407,7 @@ func reconcilePrepared(t *testing.T, svc *Service, id string) *PreparedPublishRe
 	intent, err := ParsePublishPayload(publishIntentPayload(t, nil))
 	require.NoError(t, err)
 	repository := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
-	op, err := model.LookupOperation(t.Context(), operationTestInstallation, id)
+	op, err := nativeoperation_model.LookupOperation(t.Context(), operationTestInstallation, id)
 	require.NoError(t, err)
 	return &PreparedPublishReceive{
 		Operation:  op,
@@ -431,14 +431,14 @@ func TestReconcilePublish(t *testing.T) {
 		ctx := t.Context()
 		svc := reconcileService(t, committedTips())
 		prepared := reconcilePrepared(t, svc, "op-rec-commit")
-		_, admitted, err := model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-rec-commit", prepared.Execution.Owner, true, "")
+		_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-rec-commit", prepared.Execution.Owner, true, "")
 		require.NoError(t, err)
 		require.True(t, admitted)
 		record, terminal, err := svc.ReconcilePublish(ctx, prepared, nil)
 		require.NoError(t, err)
 		require.False(t, terminal.Retained())
-		require.Equal(t, model.EffectCommitted, record.Outcome)
-		require.Equal(t, model.CompletionComplete, record.CompletionState)
+		require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+		require.Equal(t, nativeoperation_model.CompletionComplete, record.CompletionState)
 		require.Contains(t, string(record.Receipt), publishTestNew)
 		require.Contains(t, string(record.Receipt), "refs/heads/candidate")
 		idle, err := svc.ReadNativeRevision(ctx)
@@ -451,14 +451,14 @@ func TestReconcilePublish(t *testing.T) {
 		ctx := t.Context()
 		svc := reconcileService(t, committedTips())
 		prepared := reconcilePrepared(t, svc, "op-rec-failed-rx")
-		_, admitted, err := model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-rec-failed-rx", prepared.Execution.Owner, true, "")
+		_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-rec-failed-rx", prepared.Execution.Owner, true, "")
 		require.NoError(t, err)
 		require.True(t, admitted)
 		record, terminal, err := svc.ReconcilePublish(ctx, prepared, errors.New("receive-pack failed"))
 		require.NoError(t, err)
 		require.False(t, terminal.Retained())
-		require.Equal(t, model.EffectCommitted, record.Outcome)
-		require.Equal(t, model.CompletionNeedsIntervention, record.CompletionState)
+		require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+		require.Equal(t, nativeoperation_model.CompletionNeedsIntervention, record.CompletionState)
 	})
 
 	t.Run("NativelyRefusedCreation", func(t *testing.T) {
@@ -472,8 +472,8 @@ func TestReconcilePublish(t *testing.T) {
 		record, terminal, err := svc.ReconcilePublish(ctx, prepared, errors.New("receive-pack failed"))
 		require.NoError(t, err)
 		require.False(t, terminal.Retained())
-		require.Equal(t, model.EffectNotCommitted, record.Outcome)
-		require.Equal(t, model.ReasonNativeRefused, record.ReasonCode)
+		require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+		require.Equal(t, nativeoperation_model.ReasonNativeRefused, record.ReasonCode)
 		idle, err := svc.ReadNativeRevision(ctx)
 		require.NoError(t, err)
 		require.True(t, idle.Idle)
@@ -487,14 +487,14 @@ func TestReconcilePublish(t *testing.T) {
 			absent: map[string]bool{"refs/heads/candidate": true},
 		})
 		prepared := reconcilePrepared(t, svc, "op-rec-reason")
-		_, admitted, err := model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-rec-reason", prepared.Execution.Owner, false, model.ReasonUnexpectedRefEffects)
+		_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-rec-reason", prepared.Execution.Owner, false, nativeoperation_model.ReasonUnexpectedRefEffects)
 		require.NoError(t, err)
 		require.False(t, admitted)
 		record, terminal, err := svc.ReconcilePublish(ctx, prepared, errors.New("receive-pack failed"))
 		require.NoError(t, err)
 		require.False(t, terminal.Retained())
-		require.Equal(t, model.EffectNotCommitted, record.Outcome)
-		require.Equal(t, model.ReasonUnexpectedRefEffects, record.ReasonCode)
+		require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+		require.Equal(t, nativeoperation_model.ReasonUnexpectedRefEffects, record.ReasonCode)
 	})
 
 	t.Run("AdmittedTipMismatchStaysIndeterminate", func(t *testing.T) {
@@ -505,13 +505,13 @@ func TestReconcilePublish(t *testing.T) {
 			"refs/heads/master":    publishTestComparison,
 		}})
 		prepared := reconcilePrepared(t, svc, "op-rec-mismatch")
-		_, admitted, err := model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-rec-mismatch", prepared.Execution.Owner, true, "")
+		_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-rec-mismatch", prepared.Execution.Owner, true, "")
 		require.NoError(t, err)
 		require.True(t, admitted)
 		record, terminal, err := svc.ReconcilePublish(ctx, prepared, nil)
 		require.NoError(t, err)
 		require.True(t, terminal.Retained())
-		require.Equal(t, model.EffectIndeterminate, record.Outcome)
+		require.Equal(t, nativeoperation_model.EffectIndeterminate, record.Outcome)
 		busy, err := svc.ReadNativeRevision(ctx)
 		require.NoError(t, err)
 		require.False(t, busy.Idle)
@@ -525,7 +525,7 @@ func TestReconcilePublish(t *testing.T) {
 		record, terminal, err := svc.ReconcilePublish(ctx, prepared, nil)
 		require.NoError(t, err)
 		require.True(t, terminal.Retained())
-		require.Equal(t, model.EffectIndeterminate, record.Outcome)
+		require.Equal(t, nativeoperation_model.EffectIndeterminate, record.Outcome)
 	})
 }
 
@@ -542,18 +542,18 @@ func TestRecoverConditionalPublish(t *testing.T) {
 		svc := admissionService(t, committedTips, time.Now().Unix())
 		waitingPublishOp(t, svc, "op-recov-commit")
 		owner, _ := claimPublishOp(t, "op-recov-commit", nil)
-		claimed, err := model.ReadReservation(ctx)
+		claimed, err := nativeoperation_model.ReadReservation(ctx)
 		require.NoError(t, err)
-		_, admitted, err := model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-recov-commit", owner, true, "")
+		_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-recov-commit", owner, true, "")
 		require.NoError(t, err)
 		require.True(t, admitted)
 		inhibitDomain(t)
 		assessment, err := svc.Recover(ctx, owner, claimed.Generation)
 		require.NoError(t, err)
 		require.Equal(t, RecoveryReleased, assessment.Verdict)
-		require.Equal(t, model.EffectCommitted, assessment.Effect)
+		require.Equal(t, nativeoperation_model.EffectCommitted, assessment.Effect)
 		require.Equal(t, "conditional-publish", assessment.Family)
-		op, err := model.LookupOperation(ctx, operationTestInstallation, "op-recov-commit")
+		op, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-recov-commit")
 		require.NoError(t, err)
 		require.Contains(t, op.Receipt, publishTestNew)
 	})
@@ -573,16 +573,16 @@ func TestRecoverConditionalPublish(t *testing.T) {
 			scope.OldOID = publishTestOld
 			scope.NewOID = publishTestNew
 		})
-		claimed, err := model.ReadReservation(ctx)
+		claimed, err := nativeoperation_model.ReadReservation(ctx)
 		require.NoError(t, err)
 		inhibitDomain(t)
 		assessment, err := svc.Recover(ctx, owner, claimed.Generation)
 		require.NoError(t, err)
 		require.Equal(t, RecoveryReleased, assessment.Verdict)
-		require.Equal(t, model.EffectNotCommitted, assessment.Effect)
-		op, err := model.LookupOperation(ctx, operationTestInstallation, "op-recov-noeffect")
+		require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
+		op, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-recov-noeffect")
 		require.NoError(t, err)
-		require.Equal(t, model.ReasonRecoveredNoEffect, op.Reason)
+		require.Equal(t, nativeoperation_model.ReasonRecoveredNoEffect, op.Reason)
 	})
 
 	t.Run("CorrectionBindsPRReceipt", func(t *testing.T) {
@@ -603,17 +603,17 @@ func TestRecoverConditionalPublish(t *testing.T) {
 			scope.PRNumber = 3
 			scope.CorrectionAuthorID = 1
 		})
-		claimed, err := model.ReadReservation(ctx)
+		claimed, err := nativeoperation_model.ReadReservation(ctx)
 		require.NoError(t, err)
-		_, admitted, err := model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-recov-correction", owner, true, "")
+		_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-recov-correction", owner, true, "")
 		require.NoError(t, err)
 		require.True(t, admitted)
 		inhibitDomain(t)
 		assessment, err := svc.Recover(ctx, owner, claimed.Generation)
 		require.NoError(t, err)
 		require.Equal(t, RecoveryReleased, assessment.Verdict)
-		require.Equal(t, model.EffectCommitted, assessment.Effect)
-		op, err := model.LookupOperation(ctx, operationTestInstallation, "op-recov-correction")
+		require.Equal(t, nativeoperation_model.EffectCommitted, assessment.Effect)
+		op, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-recov-correction")
 		require.NoError(t, err)
 		require.Contains(t, op.Receipt, `"pr_id":2`)
 		require.Contains(t, op.Receipt, `"issue_id":3`)
@@ -629,9 +629,9 @@ func TestRecoverConditionalPublish(t *testing.T) {
 		}, time.Now().Unix())
 		waitingPublishOp(t, svc, "op-recov-fence")
 		owner, _ := claimPublishOp(t, "op-recov-fence", nil)
-		claimed, err := model.ReadReservation(ctx)
+		claimed, err := nativeoperation_model.ReadReservation(ctx)
 		require.NoError(t, err)
-		_, admitted, err := model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-recov-fence", owner, true, "")
+		_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, operationTestInstallation, "op-recov-fence", owner, true, "")
 		require.NoError(t, err)
 		require.True(t, admitted)
 		inhibitDomain(t)

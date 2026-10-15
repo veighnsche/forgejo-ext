@@ -110,5 +110,7 @@ type NativeClient interface {
 	PublicSSHKeys(context.Context) ([]PublicKey, error)
 }
 
-type ContributionAuthorizer func(context.Context, ContributionRequest) (ContributionDecision, error)
-type PolicyHandler func(context.Context, PolicyRequest) (PolicyDecision, error)
+type (
+	ContributionAuthorizer func(context.Context, ContributionRequest) (ContributionDecision, error)
+	PolicyHandler          func(context.Context, PolicyRequest) (PolicyDecision, error)
+)

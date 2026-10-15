@@ -12,7 +12,7 @@ import (
 
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
@@ -312,7 +312,7 @@ func IsOfficialReviewerTeam(ctx context.Context, issue *Issue, team *organizatio
 func CreateReview(ctx context.Context, opts CreateReviewOptions) (*Review, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -497,7 +497,7 @@ func SubmitExactReview(ctx context.Context, doer *user_model.User, issue *Issue,
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary or conditional owner carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, nil, err
 	}
 	if reviewType != ReviewTypeApprove && reviewType != ReviewTypeReject {
@@ -598,7 +598,7 @@ func SubmitExactReview(ctx context.Context, doer *user_model.User, issue *Issue,
 func SubmitReview(ctx context.Context, doer *user_model.User, issue *Issue, reviewType ReviewType, content, commitID string, stale bool, attachmentUUIDs []string) (*Review, *Comment, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, nil, err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -774,7 +774,7 @@ func GetTeamReviewerByIssueIDAndTeamID(ctx context.Context, issueID, teamID int6
 func MarkReviewsAsStale(ctx context.Context, issueID int64) (err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err = db.GetEngine(ctx).Exec("UPDATE `review` SET stale=? WHERE issue_id=?", true, issueID)
@@ -786,7 +786,7 @@ func MarkReviewsAsStale(ctx context.Context, issueID int64) (err error) {
 func MarkReviewsAsNotStale(ctx context.Context, issueID int64, commitID string) (err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err = db.GetEngine(ctx).Exec("UPDATE `review` SET stale=? WHERE issue_id=? AND commit_id=?", false, issueID, commitID)
@@ -798,7 +798,7 @@ func MarkReviewsAsNotStale(ctx context.Context, issueID int64, commitID string) 
 func DismissReview(ctx context.Context, review *Review, isDismiss bool) (err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if review.Dismissed == isDismiss || (review.Type != ReviewTypeApprove && review.Type != ReviewTypeReject) {
@@ -820,7 +820,7 @@ func DismissReview(ctx context.Context, review *Review, isDismiss bool) (err err
 func InsertReviews(ctx context.Context, reviews []*Review) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -871,7 +871,7 @@ func InsertReviews(ctx context.Context, reviews []*Review) error {
 func AddReviewRequest(ctx context.Context, issue *Issue, reviewer, doer *user_model.User) (*Comment, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -951,7 +951,7 @@ func AddReviewRequest(ctx context.Context, issue *Issue, reviewer, doer *user_mo
 func RemoveReviewRequest(ctx context.Context, issue *Issue, reviewer, doer *user_model.User) (*Comment, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -1017,7 +1017,7 @@ func restoreLatestOfficialReview(ctx context.Context, issueID, reviewerID int64)
 func AddTeamReviewRequest(ctx context.Context, issue *Issue, reviewer *organization.Team, doer *user_model.User) (*Comment, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -1071,7 +1071,7 @@ func AddTeamReviewRequest(ctx context.Context, issue *Issue, reviewer *organizat
 func RemoveTeamReviewRequest(ctx context.Context, issue *Issue, reviewer *organization.Team, doer *user_model.User) (*Comment, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -1135,7 +1135,7 @@ func RemoveTeamReviewRequest(ctx context.Context, issue *Issue, reviewer *organi
 func MarkConversation(ctx context.Context, comment *Comment, doer *user_model.User, isResolve bool) (err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if comment.Type != CommentTypeCode {
@@ -1199,7 +1199,7 @@ func CanMarkConversation(ctx context.Context, issue *Issue, doer *user_model.Use
 func DeleteReview(ctx context.Context, r *Review) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -1314,7 +1314,7 @@ func (r *Review) GetExternalID() int64 { return r.OriginalAuthorID }
 func UpdateReviewsMigrationsByType(ctx context.Context, tp structs.GitServiceType, originalAuthorID string, posterID int64) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Table("review").

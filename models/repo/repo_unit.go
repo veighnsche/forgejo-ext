@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/json"
@@ -337,7 +337,7 @@ func UpdateRepoUnit(ctx context.Context, unit *RepoUnit) error {
 	// Nested participating writer: unit configuration gates which native
 	// surfaces are enabled, so it refuses while another owner holds the
 	// reservation; the enclosing settings update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(unit.ID).Update(unit)

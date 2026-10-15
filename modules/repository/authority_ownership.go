@@ -7,12 +7,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"fmt"
 	"os"
 	"path/filepath"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/setting"
 )
@@ -66,7 +66,7 @@ func withAuthorityOwnership(ctx context.Context, repoID, userID int64, fn func(c
 	}
 	owner := "ord:authority/" + resource + "/" + hex.EncodeToString(nonce)
 	encoded, err := json.Marshal(authorityScope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: repoID,
 		Family:       "authority",
 		AuthorityOp:  "repo/collaborator",
@@ -77,14 +77,14 @@ func withAuthorityOwnership(ctx context.Context, repoID, userID int64, fn func(c
 		release()
 		return err
 	}
-	claimed, err := model.ClaimOrdinary(ctx, owner, string(encoded), execcontext.Verifier(secret))
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, owner, string(encoded), execcontext.Verifier(secret))
 	if err != nil {
 		release()
 		return err
 	}
 	owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: path})
 	fnErr := fn(owned)
-	if err := model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
+	if err := nativeoperation_model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
 		release()
 		if fnErr != nil {
 			return fmt.Errorf("%w (and failed to release %s: %v)", fnErr, owner, err)

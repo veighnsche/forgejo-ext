@@ -6,7 +6,7 @@ package extensions
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,16 +14,16 @@ import (
 	"time"
 
 	extension "forgejo.org/extension-sdk"
-	authmodel "forgejo.org/models/extensionauth"
-	runtime "forgejo.org/services/extensions"
-	operation_service "forgejo.org/services/nativeoperation"
+	extensionauth_model "forgejo.org/models/extensionauth"
+	extensions_service "forgejo.org/services/extensions"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/stretchr/testify/require"
 )
 
-func backgroundTestManager(t *testing.T) *runtime.Manager {
+func backgroundTestManager(t *testing.T) *extensions_service.Manager {
 	t.Helper()
-	return runtime.NewManager(t.TempDir())
+	return extensions_service.NewManager(t.TempDir())
 }
 
 func backgroundPeerAddr(t *testing.T) string {
@@ -31,7 +31,7 @@ func backgroundPeerAddr(t *testing.T) string {
 	return extension.FormatUnixPeer(extension.UnixPeer{UID: uint32(os.Geteuid()), GID: 1, PID: 1234})
 }
 
-func issueRuntimeAdmission(t *testing.T, manager *runtime.Manager, installation, instance string, capabilities []string) string {
+func issueRuntimeAdmission(t *testing.T, manager *extensions_service.Manager, installation, instance string, capabilities []string) string {
 	t.Helper()
 	token, err := manager.IssueRuntimeAdmission(installation, instance, capabilities)
 	require.NoError(t, err)
@@ -53,12 +53,12 @@ func backgroundRequest(t *testing.T, handler http.Handler, path, token, remoteAd
 	return recorder
 }
 
-func acceptVerifier(context.Context, authmodel.SubmissionRequest) (authmodel.SubmissionDecision, error) {
-	return authmodel.SubmissionDecision{TokenID: 9, ActorID: 2, CredentialFingerprint: "fingerprint"}, nil
+func acceptVerifier(context.Context, extensionauth_model.SubmissionRequest) (extensionauth_model.SubmissionDecision, error) {
+	return extensionauth_model.SubmissionDecision{TokenID: 9, ActorID: 2, CredentialFingerprint: "fingerprint"}, nil
 }
 
-func acceptSnapshotVerifier(context.Context, authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error) {
-	return authmodel.SnapshotReadDecision{SubmissionDecision: authmodel.SubmissionDecision{TokenID: 9, ActorID: 2, CredentialFingerprint: "fingerprint"}, RepositoryID: 1}, nil
+func acceptSnapshotVerifier(context.Context, extensionauth_model.SnapshotReadRequest) (extensionauth_model.SnapshotReadDecision, error) {
+	return extensionauth_model.SnapshotReadDecision{SubmissionDecision: extensionauth_model.SubmissionDecision{TokenID: 9, ActorID: 2, CredentialFingerprint: "fingerprint"}, RepositoryID: 1}, nil
 }
 
 func testVerifiers() backgroundVerifiers {
@@ -66,32 +66,32 @@ func testVerifiers() backgroundVerifiers {
 }
 
 type stubOperations struct {
-	handshake operation_service.OperationsHandshake
-	revision  operation_service.NativeRevisionObservation
-	snapshot  func(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
-	creations func(context.Context, authmodel.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error)
-	submit    func(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
+	handshake nativeoperation_service.OperationsHandshake
+	revision  nativeoperation_service.NativeRevisionObservation
+	snapshot  func(context.Context, extensionauth_model.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
+	creations func(context.Context, extensionauth_model.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error)
+	submit    func(context.Context, extensionauth_model.SubmissionDecision, string, *nativeoperation_service.ValidIntent) (extension.OperationRecord, error)
 	get       func(context.Context, string, string) (extension.OperationLookup, error)
 	cancel    func(context.Context, string, string) (extension.OperationRecord, error)
 }
 
-func (s stubOperations) SupportedOperations(context.Context) (operation_service.OperationsHandshake, error) {
+func (s stubOperations) SupportedOperations(context.Context) (nativeoperation_service.OperationsHandshake, error) {
 	return s.handshake, nil
 }
 
-func (s stubOperations) ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error) {
+func (s stubOperations) ReadNativeRevision(context.Context) (nativeoperation_service.NativeRevisionObservation, error) {
 	return s.revision, nil
 }
 
-func (s stubOperations) ReadSnapshot(ctx context.Context, decision authmodel.SnapshotReadDecision, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
+func (s stubOperations) ReadSnapshot(ctx context.Context, decision extensionauth_model.SnapshotReadDecision, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
 	return s.snapshot(ctx, decision, req)
 }
 
-func (s stubOperations) ReadCreations(ctx context.Context, decision authmodel.SnapshotReadDecision, req extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
+func (s stubOperations) ReadCreations(ctx context.Context, decision extensionauth_model.SnapshotReadDecision, req extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
 	return s.creations(ctx, decision, req)
 }
 
-func (s stubOperations) Submit(ctx context.Context, decision authmodel.SubmissionDecision, installation string, intent *operation_service.ValidIntent) (extension.OperationRecord, error) {
+func (s stubOperations) Submit(ctx context.Context, decision extensionauth_model.SubmissionDecision, installation string, intent *nativeoperation_service.ValidIntent) (extension.OperationRecord, error) {
 	return s.submit(ctx, decision, installation, intent)
 }
 
@@ -121,12 +121,12 @@ func mergeSubmitPayload() map[string]any {
 
 func testOperations() stubOperations {
 	return stubOperations{
-		handshake: operation_service.OperationsHandshake{Generation: "ops-test", Kinds: []string{"issue.lifecycle.apply"}},
-		revision:  operation_service.NativeRevisionObservation{Revision: 7, Idle: true},
-		snapshot: func(_ context.Context, _ authmodel.SnapshotReadDecision, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
+		handshake: nativeoperation_service.OperationsHandshake{Generation: "ops-test", Kinds: []string{"issue.lifecycle.apply"}},
+		revision:  nativeoperation_service.NativeRevisionObservation{Revision: 7, Idle: true},
+		snapshot: func(_ context.Context, _ extensionauth_model.SnapshotReadDecision, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
 			return extension.NativeSnapshot{RepositoryID: req.RepositoryID}, nil
 		},
-		submit: func(_ context.Context, _ authmodel.SubmissionDecision, installation string, intent *operation_service.ValidIntent) (extension.OperationRecord, error) {
+		submit: func(_ context.Context, _ extensionauth_model.SubmissionDecision, installation string, intent *nativeoperation_service.ValidIntent) (extension.OperationRecord, error) {
 			return extension.OperationRecord{
 				InstallationID: installation, OperationID: intent.OperationID,
 				Outcome: extension.EffectCommitted, EffectState: extension.EffectCommitted,
@@ -189,15 +189,15 @@ func TestBackgroundSubmitMapsServiceOutcomes(t *testing.T) {
 		status int
 		extra  string
 	}{
-		{"unimplemented kind reports its missing stage", operation_service.ErrKindUnavailable, http.StatusOK, extension.BackgroundOutcomeOperationsUnavailable},
-		{"busy reports unavailable", operation_service.ErrBusy, http.StatusServiceUnavailable, ""},
-		{"changed intent conflicts", operation_service.ErrIntentConflict, http.StatusConflict, ""},
-		{"cancelled ID conflicts", operation_service.ErrCancelledBeforeSubmit, http.StatusConflict, ""},
+		{"unimplemented kind reports its missing stage", nativeoperation_service.ErrKindUnavailable, http.StatusOK, extension.BackgroundOutcomeOperationsUnavailable},
+		{"busy reports unavailable", nativeoperation_service.ErrBusy, http.StatusServiceUnavailable, ""},
+		{"changed intent conflicts", nativeoperation_service.ErrIntentConflict, http.StatusConflict, ""},
+		{"cancelled ID conflicts", nativeoperation_service.ErrCancelledBeforeSubmit, http.StatusConflict, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			operations := testOperations()
-			operations.submit = func(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error) {
+			operations.submit = func(context.Context, extensionauth_model.SubmissionDecision, string, *nativeoperation_service.ValidIntent) (extension.OperationRecord, error) {
 				return extension.OperationRecord{}, tc.err
 			}
 			handler := backgroundMux(manager, browser, instance, false, testVerifiers(), operations)
@@ -283,8 +283,8 @@ func TestBackgroundLookupCancelAndRevision(t *testing.T) {
 func TestBackgroundVerifierRefusalsMapToStatus(t *testing.T) {
 	manager := backgroundTestManager(t)
 	token := issueRuntimeAdmission(t, manager, "11111111-2222-4333-8444-555555555555", "instance-a", []string{extension.CapabilityBackgroundOperations})
-	verify := func(context.Context, authmodel.SubmissionRequest) (authmodel.SubmissionDecision, error) {
-		return authmodel.SubmissionDecision{}, &authmodel.RefusalError{Code: authmodel.RefusalBindingMissing, Status: http.StatusForbidden}
+	verify := func(context.Context, extensionauth_model.SubmissionRequest) (extensionauth_model.SubmissionDecision, error) {
+		return extensionauth_model.SubmissionDecision{}, &extensionauth_model.RefusalError{Code: extensionauth_model.RefusalBindingMissing, Status: http.StatusForbidden}
 	}
 	handler := backgroundMux(manager, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), "instance-a", false, backgroundVerifiers{submit: verify, snapshot: acceptSnapshotVerifier}, testOperations())
 	recorder := backgroundRequest(t, handler, extension.BackgroundSubmitPath, token, backgroundPeerAddr(t), map[string]any{
@@ -292,7 +292,7 @@ func TestBackgroundVerifierRefusalsMapToStatus(t *testing.T) {
 		"kind": "pull_request.merge", "token": "secret",
 	})
 	require.Equal(t, http.StatusForbidden, recorder.Code)
-	require.Contains(t, recorder.Body.String(), authmodel.RefusalBindingMissing)
+	require.Contains(t, recorder.Body.String(), extensionauth_model.RefusalBindingMissing)
 }
 
 func TestBackgroundBootstrapRequiresServiceMapping(t *testing.T) {
@@ -357,14 +357,14 @@ func TestBackgroundSnapshotMapsReadOutcomes(t *testing.T) {
 	// Verifier refusals keep their bounded code and status.
 	refusing := backgroundVerifiers{
 		submit: acceptVerifier,
-		snapshot: func(context.Context, authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error) {
-			return authmodel.SnapshotReadDecision{}, &authmodel.RefusalError{Code: authmodel.RefusalPermissionLost, Status: http.StatusForbidden}
+		snapshot: func(context.Context, extensionauth_model.SnapshotReadRequest) (extensionauth_model.SnapshotReadDecision, error) {
+			return extensionauth_model.SnapshotReadDecision{}, &extensionauth_model.RefusalError{Code: extensionauth_model.RefusalPermissionLost, Status: http.StatusForbidden}
 		},
 	}
 	handler := backgroundMux(manager, browser, "instance-a", false, refusing, testOperations())
 	recorder := backgroundRequest(t, handler, extension.BackgroundSnapshotPath, token, peer, snapshotReadPayload())
 	require.Equal(t, http.StatusForbidden, recorder.Code)
-	require.Contains(t, recorder.Body.String(), authmodel.RefusalPermissionLost)
+	require.Contains(t, recorder.Body.String(), extensionauth_model.RefusalPermissionLost)
 
 	// Missing records share one bounded not-found outcome; service
 	// failures are unavailable without leaking record state.
@@ -374,14 +374,14 @@ func TestBackgroundSnapshotMapsReadOutcomes(t *testing.T) {
 		status int
 		extra  string
 	}{
-		{"missing record is not found", operation_service.ErrSnapshotNotFound, http.StatusNotFound, "snapshot_not_found"},
-		{"invalid read is rejected", operation_service.ErrSnapshotInvalid, http.StatusBadRequest, ""},
-		{"unavailable read stays unavailable", operation_service.ErrSnapshotUnavailable, http.StatusServiceUnavailable, ""},
+		{"missing record is not found", nativeoperation_service.ErrSnapshotNotFound, http.StatusNotFound, "snapshot_not_found"},
+		{"invalid read is rejected", nativeoperation_service.ErrSnapshotInvalid, http.StatusBadRequest, ""},
+		{"unavailable read stays unavailable", nativeoperation_service.ErrSnapshotUnavailable, http.StatusServiceUnavailable, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			operations := testOperations()
-			operations.snapshot = func(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error) {
+			operations.snapshot = func(context.Context, extensionauth_model.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error) {
 				return extension.NativeSnapshot{}, tc.err
 			}
 			handler := backgroundMux(manager, browser, "instance-a", false, testVerifiers(), operations)
@@ -398,19 +398,19 @@ func TestBackgroundSnapshotPreservesVerifiedCredentialRestrictions(t *testing.T)
 	manager := backgroundTestManager(t)
 	const installation = "11111111-2222-4333-8444-555555555555"
 	token := issueRuntimeAdmission(t, manager, installation, "instance-a", []string{extension.CapabilityBackgroundOperations})
-	var verified authmodel.SnapshotReadDecision
+	var verified extensionauth_model.SnapshotReadDecision
 	verifiers := testVerifiers()
-	verifiers.snapshot = func(_ context.Context, req authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error) {
+	verifiers.snapshot = func(_ context.Context, req extensionauth_model.SnapshotReadRequest) (extensionauth_model.SnapshotReadDecision, error) {
 		require.Equal(t, []string{extension.SnapshotFamilyIssue}, req.Families)
-		verified = authmodel.SnapshotReadDecision{
-			SubmissionDecision: authmodel.SubmissionDecision{ActorID: req.ActorID, TokenID: 9},
+		verified = extensionauth_model.SnapshotReadDecision{
+			SubmissionDecision: extensionauth_model.SubmissionDecision{ActorID: req.ActorID, TokenID: 9},
 			RepositoryID:       req.RepositoryID, Scope: "public-only,read:issue", PublicOnly: true,
 			RepositoryIDs: []int64{1},
 		}
 		return verified, nil
 	}
 	operations := testOperations()
-	operations.snapshot = func(_ context.Context, decision authmodel.SnapshotReadDecision, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
+	operations.snapshot = func(_ context.Context, decision extensionauth_model.SnapshotReadDecision, req extension.SnapshotRequest) (extension.NativeSnapshot, error) {
 		require.Equal(t, verified, decision)
 		return extension.NativeSnapshot{RepositoryID: req.RepositoryID}, nil
 	}
@@ -423,15 +423,15 @@ func TestBackgroundCreationsUsesIssueCredentialAndPreservesDecision(t *testing.T
 	manager := backgroundTestManager(t)
 	const installation = "11111111-2222-4333-8444-555555555555"
 	token := issueRuntimeAdmission(t, manager, installation, "instance-a", []string{extension.CapabilityBackgroundOperations})
-	decision := authmodel.SnapshotReadDecision{SubmissionDecision: authmodel.SubmissionDecision{ActorID: 2, TokenID: 9}, RepositoryID: 1, Scope: "public-only,read:issue", PublicOnly: true, RepositoryIDs: []int64{1}}
+	decision := extensionauth_model.SnapshotReadDecision{SubmissionDecision: extensionauth_model.SubmissionDecision{ActorID: 2, TokenID: 9}, RepositoryID: 1, Scope: "public-only,read:issue", PublicOnly: true, RepositoryIDs: []int64{1}}
 	verifiers := testVerifiers()
-	verifiers.snapshot = func(_ context.Context, req authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error) {
+	verifiers.snapshot = func(_ context.Context, req extensionauth_model.SnapshotReadRequest) (extensionauth_model.SnapshotReadDecision, error) {
 		require.Equal(t, installation, req.InstallationID)
 		require.Equal(t, []string{extension.SnapshotFamilyIssue}, req.Families)
 		return decision, nil
 	}
 	operations := testOperations()
-	operations.creations = func(ctx context.Context, got authmodel.SnapshotReadDecision, req extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
+	operations.creations = func(ctx context.Context, got extensionauth_model.SnapshotReadDecision, req extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
 		require.Equal(t, decision, got)
 		_, bounded := ctx.Deadline()
 		require.True(t, bounded)
@@ -457,12 +457,12 @@ func TestBackgroundCreationsMapsNativeRefusalAndUnavailability(t *testing.T) {
 		err    error
 		status int
 	}{
-		{operation_service.ErrSnapshotNotFound, http.StatusNotFound},
-		{operation_service.ErrSnapshotInvalid, http.StatusBadRequest},
-		{operation_service.ErrSnapshotUnavailable, http.StatusServiceUnavailable},
+		{nativeoperation_service.ErrSnapshotNotFound, http.StatusNotFound},
+		{nativeoperation_service.ErrSnapshotInvalid, http.StatusBadRequest},
+		{nativeoperation_service.ErrSnapshotUnavailable, http.StatusServiceUnavailable},
 	} {
 		operations := testOperations()
-		operations.creations = func(context.Context, authmodel.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
+		operations.creations = func(context.Context, extensionauth_model.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error) {
 			return extension.CreationRecoveryPage{}, tc.err
 		}
 		handler := backgroundMux(manager, http.NotFoundHandler(), "instance-a", false, testVerifiers(), operations)
@@ -470,11 +470,11 @@ func TestBackgroundCreationsMapsNativeRefusalAndUnavailability(t *testing.T) {
 		require.Equal(t, tc.status, recorder.Code)
 	}
 	verifiers := testVerifiers()
-	verifiers.snapshot = func(context.Context, authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error) {
-		return authmodel.SnapshotReadDecision{}, &authmodel.RefusalError{Code: authmodel.RefusalRepositoryExcluded, Status: http.StatusForbidden}
+	verifiers.snapshot = func(context.Context, extensionauth_model.SnapshotReadRequest) (extensionauth_model.SnapshotReadDecision, error) {
+		return extensionauth_model.SnapshotReadDecision{}, &extensionauth_model.RefusalError{Code: extensionauth_model.RefusalRepositoryExcluded, Status: http.StatusForbidden}
 	}
 	handler := backgroundMux(manager, http.NotFoundHandler(), "instance-a", false, verifiers, testOperations())
 	recorder := backgroundRequest(t, handler, extension.BackgroundCreationsPath, token, backgroundPeerAddr(t), payload)
 	require.Equal(t, http.StatusForbidden, recorder.Code)
-	require.Contains(t, recorder.Body.String(), authmodel.RefusalRepositoryExcluded)
+	require.Contains(t, recorder.Body.String(), extensionauth_model.RefusalRepositoryExcluded)
 }

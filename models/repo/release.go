@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/optional"
@@ -229,7 +229,7 @@ func UpdateRelease(ctx context.Context, rel *Release) error {
 	// Nested participating writer: release changes refuse while another
 	// owner holds the reservation; the enclosing release update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	rel.Title, _ = util.SplitStringAtByteN(rel.Title, 255)
@@ -242,7 +242,7 @@ func AddReleaseAttachments(ctx context.Context, release *Release, attachmentUUID
 	// Nested participating writer: release changes refuse while another
 	// owner holds the reservation; the enclosing release update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	attachments, err := FindRepoAttachmentsByUUID(ctx, release.RepoID, attachmentUUIDs, FindAttachmentOptions{})
@@ -492,7 +492,7 @@ func UpdateReleasesMigrationsByType(ctx context.Context, gitServiceType structs.
 	// Nested participating writer: release changes refuse while another
 	// owner holds the reservation; the enclosing migration carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Table("release").
@@ -578,7 +578,7 @@ func SaveOrUpdateTag(ctx context.Context, repo *Repository, newRel *Release) err
 	// Nested participating writer: release changes refuse while another
 	// owner holds the reservation; the enclosing tag sync or release
 	// update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	rel, err := GetRelease(ctx, repo.ID, newRel.TagName)

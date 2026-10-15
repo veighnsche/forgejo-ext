@@ -23,7 +23,7 @@ import (
 	"forgejo.org/modules/queue"
 	webhook_module "forgejo.org/modules/webhook"
 	issue_service "forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	webhook_service "forgejo.org/services/webhook"
 
 	"github.com/stretchr/testify/require"
@@ -79,7 +79,7 @@ func TestNativeIssueCreationRecoversAfterFailedHTTPDelivery(t *testing.T) {
 		InstallationID: installation, TokenSecret: token.Token, ActorID: actor.ID, RepositoryID: repo.ID, Families: []string{sdk.SnapshotFamilyIssue},
 	})
 	require.NoError(t, err)
-	page, err := operation_service.NewService().ReadCreations(ctx, decision, sdk.CreationRecoveryRequest{RepositoryID: fmt.Sprint(repo.ID), ActorID: fmt.Sprint(actor.ID), Limit: 10})
+	page, err := nativeoperation_service.NewService().ReadCreations(ctx, decision, sdk.CreationRecoveryRequest{RepositoryID: fmt.Sprint(repo.ID), ActorID: fmt.Sprint(actor.ID), Limit: 10})
 	require.NoError(t, err)
 	require.True(t, page.ProvenanceComplete)
 	require.True(t, page.Complete)

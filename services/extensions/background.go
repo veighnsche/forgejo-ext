@@ -225,7 +225,7 @@ func ParseServiceBridgePeers(raw string) (map[uint32]string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return mapping, nil
 	}
-	for _, entry := range strings.Split(raw, ",") {
+	for entry := range strings.SplitSeq(raw, ",") {
 		uidText, packageID, ok := strings.Cut(strings.TrimSpace(entry), ":")
 		if !ok || !sdk.ValidID(packageID) {
 			return nil, fmt.Errorf("invalid service bridge peer %q", entry)

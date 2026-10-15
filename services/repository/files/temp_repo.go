@@ -24,7 +24,7 @@ import (
 	"forgejo.org/modules/setting"
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/gitdiff"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // TemporaryUploadRepository is a type to wrap our upload repositories as a shallow clone
@@ -309,11 +309,11 @@ func (t *TemporaryUploadRepository) PushOwned(ctx context.Context, doer *user_mo
 	// is the fenced effect.
 	oldTip, _ := git.GetFullCommitID(ctx, t.repo.RepoPath(), git.BranchPrefix+branch)
 
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(t.repo.ID, operation_service.RefWriteFile, git.BranchPrefix+branch),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(t.repo.ID, nativeoperation_service.RefWriteFile, git.BranchPrefix+branch),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: t.repo.ID,
 			Ref:          git.BranchPrefix + branch,
 			OldOID:       oldTip,

@@ -10,7 +10,7 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 func killRun(ctx context.Context, run *actions_model.ActionRun, newStatus actions_model.Status) error {
@@ -19,7 +19,7 @@ func killRun(ctx context.Context, run *actions_model.ActionRun, newStatus action
 	// resulting commit statuses share this ownership. Callers inside an
 	// enclosing owner (notification, dispatch, trust transitions under
 	// another writer) reuse that execution instead of claiming again.
-	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpCancel), operation_service.Scope{
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.RunResource(nativeoperation_service.ActionsRunOpCancel), nativeoperation_service.Scope{
 		RunID: run.ID,
 	}, func(ctx context.Context) error {
 		if err := db.WithTx(ctx, func(ctx context.Context) error {
@@ -49,7 +49,7 @@ func killRun(ctx context.Context, run *actions_model.ActionRun, newStatus action
 		// Test-only crash barrier for offline-recovery proof: with the
 		// run effects committed and the owner still held, the driver
 		// SIGKILLs the server here to simulate a crash.
-		return operation_service.TestCrashBarrier(operation_service.CrashPointActionsRunAfterEffects)
+		return nativeoperation_service.TestCrashBarrier(nativeoperation_service.CrashPointActionsRunAfterEffects)
 	})
 }
 
@@ -61,7 +61,7 @@ func ApproveRun(ctx context.Context, run *actions_model.ActionRun, doerID int64)
 	// One run-level logical update owns the complete change before job
 	// state moves: the unblocked jobs, the approval clearing and the
 	// resulting commit statuses share this ownership.
-	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpApprove), operation_service.Scope{
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.RunResource(nativeoperation_service.ActionsRunOpApprove), nativeoperation_service.Scope{
 		RunID: run.ID,
 	}, func(ctx context.Context) error {
 		return db.WithTx(ctx, func(ctx context.Context) error {

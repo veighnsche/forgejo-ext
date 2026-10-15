@@ -6,15 +6,15 @@ package nativeoperation
 import (
 	"context"
 	"crypto/subtle"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"os"
 	"strings"
 
 	sdk "forgejo.org/extension-sdk"
 	auth_model "forgejo.org/models/auth"
-	authmodel "forgejo.org/models/extensionauth"
-	model "forgejo.org/models/nativeoperation"
+	extensionauth_model "forgejo.org/models/extensionauth"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/gitrepo"
@@ -26,14 +26,14 @@ import (
 // reservation; the publisher's bound receive claims execution later. The
 // same ID and identical intent return the existing record, never a second
 // registration. Different content under the same ID is intent_conflict.
-func (s *Service) submitPublish(ctx context.Context, decision authmodel.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
+func (s *Service) submitPublish(ctx context.Context, decision extensionauth_model.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
 	if err := ctx.Err(); err != nil {
 		return sdk.OperationRecord{}, err
 	}
 	if intent.Publish == nil {
 		return sdk.OperationRecord{}, ErrInvalidIntent
 	}
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         installationID,
 		OperationID:            intent.OperationID,
 		Kind:                   intent.Kind,
@@ -47,9 +47,9 @@ func (s *Service) submitPublish(ctx context.Context, decision authmodel.Submissi
 		IntentDigest:           intent.Digest,
 		Intent:                 intent.Canonical,
 	}
-	recorded, err := model.InsertWaitingOperation(ctx, op)
+	recorded, err := nativeoperation_model.InsertWaitingOperation(ctx, op)
 	if err != nil {
-		if errors.Is(err, model.ErrDuplicateOperation) {
+		if errors.Is(err, nativeoperation_model.ErrDuplicateOperation) {
 			return s.reconcileExisting(recorded, intent)
 		}
 		return sdk.OperationRecord{}, err
@@ -74,7 +74,7 @@ type PublishReceiveRequest struct {
 // receiver launch. The reservation is held by the conditional owner and the
 // capability file backs the execution proof for hook binding.
 type PreparedPublishReceive struct {
-	Operation  *model.Operation
+	Operation  *nativeoperation_model.Operation
 	Intent     *PublishIntent
 	Target     *PublishTarget
 	Scope      Scope
@@ -123,9 +123,11 @@ const (
 // Terminal refusals record not_committed; authentication and route mismatches
 // leave the operation untouched; contention and infrastructure failures
 // return retryable outcomes or errors with nothing recorded.
+//
+//nolint:nilnil // Prepared requests and reported outcomes are mutually exclusive.
 func (s *Service) PreparePublishReceive(ctx context.Context, req PublishReceiveRequest) (*PreparedPublishReceive, *PublishReceiveOutcome, error) {
 	now := s.clock()
-	op, err := model.LookupOperation(ctx, req.InstallationID, req.OperationID)
+	op, err := nativeoperation_model.LookupOperation(ctx, req.InstallationID, req.OperationID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -139,14 +141,14 @@ func (s *Service) PreparePublishReceive(ctx context.Context, req PublishReceiveR
 	if op.IsTerminal() {
 		record := ToRecord(op)
 		code := PublishReceiveReplayNotCommitted
-		if op.EffectState == model.EffectCommitted {
+		if op.EffectState == nativeoperation_model.EffectCommitted {
 			code = PublishReceiveReplayCommitted
 		}
 		// A replay returns its earlier outcome without launching another
 		// receiver and without touching refs.
 		return nil, &PublishReceiveOutcome{Status: 409, Code: code, Record: &record}, nil
 	}
-	if op.Kind != model.KindRefPublish {
+	if op.Kind != nativeoperation_model.KindRefPublish {
 		return nil, &PublishReceiveOutcome{Status: 400, Code: PublishReceiveKindMismatch}, nil
 	}
 	if op.RepositoryID != req.RepositoryID {
@@ -162,7 +164,7 @@ func (s *Service) PreparePublishReceive(ctx context.Context, req PublishReceiveR
 		return nil, nil, err
 	}
 	if op.Revoked {
-		return s.refusePublishReceive(ctx, op, model.ReasonCancelledBeforeAdmission)
+		return s.refusePublishReceive(ctx, op, nativeoperation_model.ReasonCancelledBeforeAdmission)
 	}
 	if op.Admitted {
 		// Admitted but neither terminal nor holding its owner is
@@ -171,12 +173,12 @@ func (s *Service) PreparePublishReceive(ctx context.Context, req PublishReceiveR
 	}
 	if err := s.revalidateSubmission(ctx, op); err != nil {
 		if errors.Is(err, ErrAuthorityLost) {
-			return s.refusePublishReceive(ctx, op, model.ReasonAuthorityLost)
+			return s.refusePublishReceive(ctx, op, nativeoperation_model.ReasonAuthorityLost)
 		}
 		return nil, nil, err
 	}
 	if now >= op.NotAfter {
-		return s.refusePublishReceive(ctx, op, model.ReasonExpiredBeforeAdmission)
+		return s.refusePublishReceive(ctx, op, nativeoperation_model.ReasonExpiredBeforeAdmission)
 	}
 	intent, err := publishIntentFromCanonical(op.Intent)
 	if err != nil {
@@ -185,7 +187,7 @@ func (s *Service) PreparePublishReceive(ctx context.Context, req PublishReceiveR
 	repository, err := repo_model.GetRepositoryByID(ctx, op.RepositoryID)
 	if err != nil {
 		if repo_model.IsErrRepoNotExist(err) {
-			return s.refusePublishReceive(ctx, op, model.ReasonNativeRefused)
+			return s.refusePublishReceive(ctx, op, nativeoperation_model.ReasonNativeRefused)
 		}
 		return nil, nil, err
 	}
@@ -212,7 +214,7 @@ func (s *Service) PreparePublishReceive(ctx context.Context, req PublishReceiveR
 	}
 	retire := func() { _ = os.Remove(capabilityPath) }
 	scope := Scope{
-		Kind:         model.OwnerConditional,
+		Kind:         nativeoperation_model.OwnerConditional,
 		RepositoryID: op.RepositoryID,
 		Ref:          intent.Ref,
 		OldOID:       target.OldOID,
@@ -230,19 +232,19 @@ func (s *Service) PreparePublishReceive(ctx context.Context, req PublishReceiveR
 		return nil, nil, err
 	}
 	owner := conditionalOwner(req.InstallationID, req.OperationID)
-	claimedOp, claimed, err := model.ClaimPublishReceive(ctx, req.InstallationID, req.OperationID, owner, encoded, execcontext.Verifier(secret), now)
+	claimedOp, claimed, err := nativeoperation_model.ClaimPublishReceive(ctx, req.InstallationID, req.OperationID, owner, encoded, execcontext.Verifier(secret), now)
 	if err != nil {
 		retire()
 		switch {
-		case errors.Is(err, model.ErrBusy):
+		case errors.Is(err, nativeoperation_model.ErrBusy):
 			return nil, &PublishReceiveOutcome{Status: 503, Code: PublishReceiveBusy}, nil
-		case errors.Is(err, model.ErrInhibited):
+		case errors.Is(err, nativeoperation_model.ErrInhibited):
 			return nil, &PublishReceiveOutcome{Status: 503, Code: PublishReceiveInhibited}, nil
-		case errors.Is(err, model.ErrStaleRevision):
-			return s.refusePublishReceive(ctx, op, model.ReasonStaleNativeRevision)
-		case errors.Is(err, model.ErrOperationExpired):
-			return s.refusePublishReceive(ctx, op, model.ReasonExpiredBeforeAdmission)
-		case errors.Is(err, model.ErrAdmissionLost):
+		case errors.Is(err, nativeoperation_model.ErrStaleRevision):
+			return s.refusePublishReceive(ctx, op, nativeoperation_model.ReasonStaleNativeRevision)
+		case errors.Is(err, nativeoperation_model.ErrOperationExpired):
+			return s.refusePublishReceive(ctx, op, nativeoperation_model.ReasonExpiredBeforeAdmission)
+		case errors.Is(err, nativeoperation_model.ErrAdmissionLost):
 			return s.mapLostPublishClaim(ctx, req)
 		default:
 			return nil, nil, err
@@ -263,7 +265,7 @@ func (s *Service) PreparePublishReceive(ctx context.Context, req PublishReceiveR
 // bound token generation: the secret must verify against the current
 // authoritative hash/salt of the recorded token row. Any other credential
 // is ErrAuthorityLost; only database failures are errors.
-func (s *Service) verifyReceiveCredential(ctx context.Context, op *model.Operation, secret string) error {
+func (s *Service) verifyReceiveCredential(ctx context.Context, op *nativeoperation_model.Operation, secret string) error {
 	if secret == "" {
 		return ErrAuthorityLost
 	}
@@ -284,7 +286,7 @@ func (s *Service) verifyReceiveCredential(ctx context.Context, op *model.Operati
 	if token.ID != op.TokenID || token.UID != op.ActorID {
 		return ErrAuthorityLost
 	}
-	if authmodel.CredentialFingerprint(token.TokenHash, token.TokenSalt) != op.CredentialFingerprint {
+	if extensionauth_model.CredentialFingerprint(token.TokenHash, token.TokenSalt) != op.CredentialFingerprint {
 		return ErrAuthorityLost
 	}
 	return nil
@@ -292,11 +294,13 @@ func (s *Service) verifyReceiveCredential(ctx context.Context, op *model.Operati
 
 // refusePublishReceive terminally records a pre-launch publish refusal. No
 // owner is held on these paths, so nothing is released.
-func (s *Service) refusePublishReceive(ctx context.Context, op *model.Operation, reason string) (*PreparedPublishReceive, *PublishReceiveOutcome, error) {
-	recorded, err := model.SetTerminal(context.WithoutCancel(ctx), op.InstallationID, op.OperationID, model.TerminalOutcome{
-		EffectState:  model.EffectNotCommitted,
+//
+//nolint:nilnil // Prepared requests and reported outcomes are mutually exclusive.
+func (s *Service) refusePublishReceive(ctx context.Context, op *nativeoperation_model.Operation, reason string) (*PreparedPublishReceive, *PublishReceiveOutcome, error) {
+	recorded, err := nativeoperation_model.SetTerminal(context.WithoutCancel(ctx), op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+		EffectState:  nativeoperation_model.EffectNotCommitted,
 		Reason:       reason,
-		Cancellation: model.CancellationNone,
+		Cancellation: nativeoperation_model.CancellationNone,
 	}, "")
 	if err != nil {
 		return nil, nil, err
@@ -309,8 +313,10 @@ func (s *Service) refusePublishReceive(ctx context.Context, op *model.Operation,
 // concurrent cancellation records cancelled_before_admission, a completed
 // operation replays its outcome, and anything else fails closed without
 // recording.
+//
+//nolint:nilnil // Prepared requests and reported outcomes are mutually exclusive.
 func (s *Service) mapLostPublishClaim(ctx context.Context, req PublishReceiveRequest) (*PreparedPublishReceive, *PublishReceiveOutcome, error) {
-	op, err := model.LookupOperation(ctx, req.InstallationID, req.OperationID)
+	op, err := nativeoperation_model.LookupOperation(ctx, req.InstallationID, req.OperationID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -320,13 +326,13 @@ func (s *Service) mapLostPublishClaim(ctx context.Context, req PublishReceiveReq
 	if op.IsTerminal() {
 		record := ToRecord(op)
 		code := PublishReceiveReplayNotCommitted
-		if op.EffectState == model.EffectCommitted {
+		if op.EffectState == nativeoperation_model.EffectCommitted {
 			code = PublishReceiveReplayCommitted
 		}
 		return nil, &PublishReceiveOutcome{Status: 409, Code: code, Record: &record}, nil
 	}
 	if op.Revoked {
-		return s.refusePublishReceive(ctx, op, model.ReasonCancelledBeforeAdmission)
+		return s.refusePublishReceive(ctx, op, nativeoperation_model.ReasonCancelledBeforeAdmission)
 	}
 	return nil, nil, errors.New("publish operation lost its receive claim without an owner")
 }
@@ -360,17 +366,17 @@ func publishRefusalReason(reason string) string {
 		ExactPublishRefusedStaleOld,
 		ExactPublishRefusedMissingCommit,
 		ExactPublishRefusedNotFastForward:
-		return model.ReasonStaleHead
+		return nativeoperation_model.ReasonStaleHead
 	case ExactPublishRefusedMissingCompare,
 		ExactPublishRefusedStaleCompare:
-		return model.ReasonStaleBaseOrResult
+		return nativeoperation_model.ReasonStaleBaseOrResult
 	case ExactPublishRefusedMissingPR,
 		ExactPublishRefusedClosedPR,
 		ExactPublishRefusedPRMismatch,
 		ExactPublishRefusedStalePRHead:
-		return model.ReasonPRMismatch
+		return nativeoperation_model.ReasonPRMismatch
 	default:
-		return model.ReasonNativeRefused
+		return nativeoperation_model.ReasonNativeRefused
 	}
 }
 
@@ -381,20 +387,22 @@ func publishRefusalReason(reason string) string {
 // and an unknown effect retains the fence. ReceiveErr carries the
 // receive-pack result; a committed effect with a failed receiver reports
 // needs_intervention completion rather than guessing that bookkeeping ran.
+//
+//nolint:revive // Callers consume the operation completion callback without constructing it.
 func (s *Service) ReconcilePublish(ctx context.Context, prepared *PreparedPublishReceive, receiveErr error) (sdk.OperationRecord, terminalResult, error) {
 	owner := prepared.Execution.Owner
 	releaseCtx := context.WithoutCancel(ctx)
 	retain := func() (sdk.OperationRecord, terminalResult, error) {
-		recorded, err := model.SetTerminal(releaseCtx, prepared.Operation.InstallationID, prepared.Operation.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectIndeterminate,
-			Cancellation: model.CancellationNone,
+		recorded, err := nativeoperation_model.SetTerminal(releaseCtx, prepared.Operation.InstallationID, prepared.Operation.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectIndeterminate,
+			Cancellation: nativeoperation_model.CancellationNone,
 		}, "")
 		if err != nil {
 			return sdk.OperationRecord{}, terminalResult{}, err
 		}
 		return ToRecord(recorded), terminalResult{retain: true}, nil
 	}
-	fresh, err := model.LookupOperation(releaseCtx, prepared.Operation.InstallationID, prepared.Operation.OperationID)
+	fresh, err := nativeoperation_model.LookupOperation(releaseCtx, prepared.Operation.InstallationID, prepared.Operation.OperationID)
 	if err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
@@ -426,13 +434,13 @@ func (s *Service) ReconcilePublish(ctx context.Context, prepared *PreparedPublis
 			return retain()
 		}
 		raw, _ := json.Marshal(receipt)
-		completion := model.CompletionComplete
+		completion := nativeoperation_model.CompletionComplete
 		if receiveErr != nil {
-			completion = model.CompletionNeedsIntervention
+			completion = nativeoperation_model.CompletionNeedsIntervention
 		}
-		recorded, err := model.SetTerminal(releaseCtx, prepared.Operation.InstallationID, prepared.Operation.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectCommitted,
-			Cancellation: model.CancellationNone,
+		recorded, err := nativeoperation_model.SetTerminal(releaseCtx, prepared.Operation.InstallationID, prepared.Operation.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectCommitted,
+			Cancellation: nativeoperation_model.CancellationNone,
 			Completion:   completion,
 			Receipt:      string(raw),
 		}, owner)
@@ -443,12 +451,12 @@ func (s *Service) ReconcilePublish(ctx context.Context, prepared *PreparedPublis
 	case noEffect:
 		reason := fresh.Reason
 		if reason == "" {
-			reason = model.ReasonNativeRefused
+			reason = nativeoperation_model.ReasonNativeRefused
 		}
-		recorded, err := model.SetTerminal(releaseCtx, prepared.Operation.InstallationID, prepared.Operation.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectNotCommitted,
+		recorded, err := nativeoperation_model.SetTerminal(releaseCtx, prepared.Operation.InstallationID, prepared.Operation.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectNotCommitted,
 			Reason:       reason,
-			Cancellation: model.CancellationNone,
+			Cancellation: nativeoperation_model.CancellationNone,
 		}, owner)
 		if err != nil {
 			return sdk.OperationRecord{}, terminalResult{}, err

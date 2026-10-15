@@ -64,8 +64,10 @@ type stalledStreamSession struct {
 	release <-chan struct{}
 }
 
+//nolint:nilnil // The fixture deliberately supplies no session or backend.
 func (s stalledStreamSession) Read(string) (session.RawStore, error) { <-s.release; return nil, nil }
 
+//nolint:nilnil // The fixture deliberately supplies no session or backend.
 func TestStreamRejectsUnscopedPathBeforeDial(t *testing.T) {
 	previous := setting.AppURL
 	setting.AppURL = "https://forge.example/base/"

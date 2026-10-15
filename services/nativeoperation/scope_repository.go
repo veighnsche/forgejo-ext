@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
 )
 
@@ -29,28 +29,28 @@ func RecordScopeRefResult(ctx context.Context, newOID string) error {
 // the scope is untouched.
 func UpdateScopeRefResult(ctx context.Context, owner, newOID string) error {
 	if owner == "" || newOID == "" {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return err
 	}
 	if reservation.Owner != owner {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
 	scope, err := decodeScope(reservation.Scope)
 	if err != nil {
 		return err
 	}
 	if scope.NewOID != "" && scope.NewOID != newOID {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
 	scope.NewOID = newOID
 	encoded, err := encodeScope(scope)
 	if err != nil {
 		return err
 	}
-	return model.UpdateScopeWhere(ctx, owner, encoded)
+	return nativeoperation_model.UpdateScopeWhere(ctx, owner, encoded)
 }
 
 // UpdateScopeRefs records realized end states for refs in the held owner's
@@ -60,14 +60,14 @@ func UpdateScopeRefResult(ctx context.Context, owner, newOID string) error {
 // and the scope is untouched.
 func UpdateScopeRefs(ctx context.Context, owner string, refs []ScopedRef) error {
 	if owner == "" || len(refs) == 0 {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return err
 	}
 	if reservation.Owner != owner {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
 	scope, err := decodeScope(reservation.Scope)
 	if err != nil {
@@ -89,7 +89,7 @@ func UpdateScopeRefs(ctx context.Context, owner string, refs []ScopedRef) error 
 	if err != nil {
 		return err
 	}
-	return model.UpdateScopeWhere(ctx, owner, encoded)
+	return nativeoperation_model.UpdateScopeWhere(ctx, owner, encoded)
 }
 
 // AppendScopeRefs unions observed ref effects into the scope of the
@@ -100,14 +100,14 @@ func UpdateScopeRefs(ctx context.Context, owner string, refs []ScopedRef) error 
 // changing the scope.
 func AppendScopeRefs(ctx context.Context, owner string, refs []ScopedRef) error {
 	if owner == "" || len(refs) == 0 {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return err
 	}
 	if reservation.Owner != owner {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
 	scope, err := decodeScope(reservation.Scope)
 	if err != nil {
@@ -125,12 +125,12 @@ func AppendScopeRefs(ctx context.Context, owner string, refs []ScopedRef) error 
 			continue
 		}
 		if prev.OldOID != next.OldOID || prev.NewOID != next.NewOID {
-			return model.ErrWrongOwner
+			return nativeoperation_model.ErrWrongOwner
 		}
 	}
 	encoded, err := encodeScope(scope)
 	if err != nil {
 		return err
 	}
-	return model.UpdateScopeWhere(ctx, owner, encoded)
+	return nativeoperation_model.UpdateScopeWhere(ctx, owner, encoded)
 }

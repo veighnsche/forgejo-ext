@@ -6,7 +6,7 @@ package nativeoperation
 import (
 	"testing"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/require"
@@ -35,7 +35,7 @@ func recoverCollab(t *testing.T, resource string, scope Scope) RecoveryAssessmen
 }
 
 func collabScope(repoID int64) Scope {
-	return Scope{Kind: model.OwnerOrdinary, RepositoryID: repoID, Family: FamilyCollaboration}
+	return Scope{Kind: nativeoperation_model.OwnerOrdinary, RepositoryID: repoID, Family: FamilyCollaboration}
 }
 
 func TestRecoverCollabIssueUpdateConsistent(t *testing.T) {
@@ -119,7 +119,7 @@ func TestRecoverCollabAttachmentDeleteAbsent(t *testing.T) {
 func TestRecoverCollabAttachmentDeletePresent(t *testing.T) {
 	assessment := recoverCollab(t, AttachmentResource(1, CollabAttachmentDelete), collabScope(1))
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func TestRecoverCollabAttachmentCreateFences(t *testing.T) {

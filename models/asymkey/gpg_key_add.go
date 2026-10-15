@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/log"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
@@ -71,7 +71,7 @@ func AddGPGKey(ctx context.Context, ownerID int64, content, token, signature str
 	// Nested participating writer: key changes refuse while another owner
 	// holds the reservation; the enclosing authority update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	ekeys, err := checkArmoredGPGKeyString(content)

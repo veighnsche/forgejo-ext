@@ -154,6 +154,8 @@ func HasAnyBinding(ctx context.Context, installationID string, tokenID, actorID,
 }
 
 // FindBinding returns the binding matching a verified submission, if any.
+//
+//nolint:nilnil // The optional lookup reports absence without an error.
 func FindBinding(ctx context.Context, installationID string, tokenID, actorID, repositoryID int64, kind string) (*ActorBinding, error) {
 	binding := new(ActorBinding)
 	has, err := db.GetEngine(ctx).Where("installation_id=? AND token_id=? AND actor_id=? AND repository_id=? AND kind=?",

@@ -24,7 +24,7 @@ import (
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 	"forgejo.org/services/attachment"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -73,7 +73,7 @@ func createTag(ctx context.Context, gitRepo *git.Repository, rel *repo_model.Rel
 				return false, err
 			}
 
-			tagEnv := operation_service.OwnedGitEnv(ctx)
+			tagEnv := nativeoperation_service.OwnedGitEnv(ctx)
 			if len(msg) > 0 {
 				if err = gitRepo.CreateAnnotatedTagWithEnv(rel.TagName, msg, commit.ID.String(), tagEnv); err != nil {
 					if strings.Contains(err.Error(), "is not a valid tag name") {
@@ -162,11 +162,11 @@ func CreateRelease(ctx context.Context, gitRepo *git.Repository, rel *repo_model
 
 	// One direct tag write owns the reservation before its Git and database
 	// effects, advancing the revision so stale observations go stale.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(rel.RepoID, operation_service.RefWriteTag, rel.TagName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(rel.RepoID, nativeoperation_service.RefWriteTag, rel.TagName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: rel.RepoID,
 			Ref:          string(git.RefNameFromTag(rel.TagName)),
 			NewOID:       newOID,
@@ -230,11 +230,7 @@ func createReleaseOwned(ctx context.Context, gitRepo *git.Repository, rel *repo_
 		}
 	}
 
-	if err := repo_model.AddReleaseAttachments(ctx, rel, addAttachmentUUIDs.Values()); err != nil {
-		return err
-	}
-
-	return nil
+	return repo_model.AddReleaseAttachments(ctx, rel, addAttachmentUUIDs.Values())
 }
 
 // CreateNewTag creates a new repository tag
@@ -268,11 +264,11 @@ func CreateNewTag(ctx context.Context, doer *user_model.User, repo *repo_model.R
 
 	// One direct tag write owns the reservation before its Git and database
 	// effects, advancing the revision so stale observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteTag, tagName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteTag, tagName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: repo.ID,
 			Ref:          string(git.RefNameFromTag(tagName)),
 			NewOID:       commit,
@@ -317,11 +313,11 @@ func UpdateRelease(ctx context.Context, doer *user_model.User, gitRepo *git.Repo
 	// effects, advancing the revision so stale observations go stale.
 	var isCreated bool
 	var delAttachmentUUIDs container.Set[string]
-	err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(rel.RepoID, operation_service.RefWriteTag, rel.TagName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(rel.RepoID, nativeoperation_service.RefWriteTag, rel.TagName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: rel.RepoID,
 			Ref:          string(git.RefNameFromTag(rel.TagName)),
 			OldOID:       oldOID,
@@ -478,11 +474,11 @@ func DeleteReleaseByID(ctx context.Context, repo *repo_model.Repository, rel *re
 	if delTag {
 		newOID = ""
 	}
-	err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteTag, rel.TagName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteTag, rel.TagName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: repo.ID,
 			Ref:          string(git.RefNameFromTag(rel.TagName)),
 			OldOID:       rel.Sha1,
@@ -524,7 +520,7 @@ func deleteReleaseOwned(ctx context.Context, repo *repo_model.Repository, rel *r
 
 		if stdout, _, err := git.NewCommand(ctx, "tag", "-d").AddDashesAndList(rel.TagName).
 			SetDescription(fmt.Sprintf("DeleteReleaseByID (git tag -d): %d", rel.ID)).
-			RunStdString(&git.RunOpts{Dir: repo.RepoPath(), Env: operation_service.OwnedGitEnv(ctx)}); err != nil && !strings.Contains(err.Error(), "not found") {
+			RunStdString(&git.RunOpts{Dir: repo.RepoPath(), Env: nativeoperation_service.OwnedGitEnv(ctx)}); err != nil && !strings.Contains(err.Error(), "not found") {
 			log.Error("DeleteReleaseByID (git tag -d): %d in %v Failed:\nStdout: %s\nError: %v", rel.ID, repo, stdout, err)
 			return fmt.Errorf("git tag -d: %w", err)
 		}

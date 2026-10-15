@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/require"
@@ -35,7 +35,7 @@ func TestCollabOwnershipCanceledContext(t *testing.T) {
 		return nil
 	}))
 
-	idle, err := model.ReadReservation(context.WithoutCancel(ctx))
+	idle, err := nativeoperation_model.ReadReservation(context.WithoutCancel(ctx))
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
 }

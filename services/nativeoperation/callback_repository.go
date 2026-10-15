@@ -7,7 +7,7 @@ import (
 	"context"
 	"strings"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
 )
 
@@ -24,7 +24,7 @@ import (
 // file at that path holds the same secret, so bound grandchildren of the
 // callback keep proving the same execution.
 func BoundCallbackContext(ctx context.Context, proof, capabilityPath string) (context.Context, error) {
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func BoundCallbackContext(ctx context.Context, proof, capabilityPath string) (co
 		return ctx, nil
 	}
 	if !execcontext.VerifyProof(reservation.Verifier, proof) {
-		return nil, model.ErrBusy
+		return nil, nativeoperation_model.ErrBusy
 	}
 	path := ""
 	if capabilityPath != "" {
@@ -57,7 +57,7 @@ func RefineReceiveScope(ctx context.Context, proof string, refs []ScopedRef) {
 	if proof == "" || len(refs) == 0 {
 		return
 	}
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil || reservation.Owner == "" {
 		return
 	}
@@ -84,7 +84,7 @@ func RefineCollabPullScope(ctx context.Context, proof string, refs []ScopedRef) 
 	if proof == "" || len(refs) == 0 {
 		return
 	}
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil || reservation.Owner == "" {
 		return
 	}

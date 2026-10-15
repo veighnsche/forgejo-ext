@@ -4,21 +4,21 @@
 package nativeoperation
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"testing"
 	"time"
 
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
-	authmodel "forgejo.org/models/extensionauth"
+	extensionauth_model "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/require"
 )
 
-func lifecycleReviewDecision(t *testing.T) authmodel.SubmissionDecision {
+func lifecycleReviewDecision(t *testing.T) extensionauth_model.SubmissionDecision {
 	t.Helper()
 	ctx := t.Context()
 	token := unittest.AssertExistsAndLoadBean(t, &auth_model.AccessToken{ID: 3})
@@ -26,17 +26,17 @@ func lifecycleReviewDecision(t *testing.T) authmodel.SubmissionDecision {
 	token.ResourceAllRepos = true
 	_, err := db.GetEngine(ctx).ID(token.ID).Cols("scope", "resource_all_repos").Update(token)
 	require.NoError(t, err)
-	_, err = authmodel.EnrollBinding(ctx, operationTestInstallation, token.ID, 2, 1, model.KindLifecycleReview)
+	_, err = extensionauth_model.EnrollBinding(ctx, operationTestInstallation, token.ID, 2, 1, nativeoperation_model.KindLifecycleReview)
 	require.NoError(t, err)
-	return authmodel.SubmissionDecision{TokenID: token.ID, ActorID: 2, CredentialFingerprint: authmodel.CredentialFingerprint(token.TokenHash, token.TokenSalt)}
+	return extensionauth_model.SubmissionDecision{TokenID: token.ID, ActorID: 2, CredentialFingerprint: extensionauth_model.CredentialFingerprint(token.TokenHash, token.TokenSalt)}
 }
 
 func lifecycleReviewIntent(t *testing.T, id string, payload []byte) *ValidIntent {
 	t.Helper()
-	r, err := model.ReadReservation(t.Context())
+	r, err := nativeoperation_model.ReadReservation(t.Context())
 	require.NoError(t, err)
 	now := time.Now().Unix()
-	intent, err := ValidateIntent(id, 2, 1, model.KindLifecycleReview, "rev-1", r.Revision, now+300, payload, now)
+	intent, err := ValidateIntent(id, 2, 1, nativeoperation_model.KindLifecycleReview, "rev-1", r.Revision, now+300, payload, now)
 	require.NoError(t, err)
 	return intent
 }
@@ -51,7 +51,7 @@ func TestLifecycleReviewSubmitRoundTrip(t *testing.T) {
 	intent := lifecycleReviewIntent(t, "op-life-review-1", []byte(`{"issue_id":2,"reviewer_ids":[2]}`))
 	record, err := svc.Submit(ctx, decision, operationTestInstallation, intent)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, record.EffectState, record.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectCommitted, record.EffectState, record.ReasonCode)
 	var receipt LifecycleReviewReceipt
 	require.NoError(t, json.Unmarshal(record.Receipt, &receipt))
 	require.Equal(t, []int64{2}, receipt.Requested)
@@ -64,7 +64,7 @@ func TestLifecycleReviewSubmitRoundTrip(t *testing.T) {
 	again := lifecycleReviewIntent(t, "op-life-review-2", []byte(`{"issue_id":2,"reviewer_ids":[2]}`))
 	second, err := svc.Submit(ctx, decision, operationTestInstallation, again)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, second.EffectState)
+	require.Equal(t, nativeoperation_model.EffectCommitted, second.EffectState)
 	var receipt2 LifecycleReviewReceipt
 	require.NoError(t, json.Unmarshal(second.Receipt, &receipt2))
 	require.Empty(t, receipt2.Requested)
@@ -75,12 +75,12 @@ func TestLifecycleReviewSubmitRoundTrip(t *testing.T) {
 	unknown := lifecycleReviewIntent(t, "op-life-review-3", []byte(`{"issue_id":2,"reviewer_ids":[9999]}`))
 	denied, err := svc.Submit(ctx, decision, operationTestInstallation, unknown)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, denied.EffectState)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, denied.EffectState)
 
 	notPR := lifecycleReviewIntent(t, "op-life-review-4", []byte(`{"issue_id":1,"reviewer_ids":[2]}`))
 	refused, err := svc.Submit(ctx, decision, operationTestInstallation, notPR)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, refused.EffectState)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, refused.EffectState)
 
 	_, err = issues_model.GetReviewByIssueIDAndUserID(ctx, 2, 2)
 	require.NoError(t, err)
@@ -114,11 +114,11 @@ func TestParseLifecycleReviewPayloadRejects(t *testing.T) {
 
 func TestValidateIntentAcceptsLifecycleReview(t *testing.T) {
 	now := time.Now().Unix()
-	intent, err := ValidateIntent("op-lifecycle-r1", 2, 1, model.KindLifecycleReview, "rev-1", 1, now+300, []byte(`{"issue_id":88,"reviewer_ids":[15]}`), now)
+	intent, err := ValidateIntent("op-lifecycle-r1", 2, 1, nativeoperation_model.KindLifecycleReview, "rev-1", 1, now+300, []byte(`{"issue_id":88,"reviewer_ids":[15]}`), now)
 	require.NoError(t, err)
 	require.NotNil(t, intent.LifecycleReview)
 	require.NotEmpty(t, intent.Digest)
 
-	_, err = ValidateIntent("op-lifecycle-r2", 2, 1, model.KindLifecycleReview, "rev-1", 1, now+300, []byte(`{"issue_id":88,"reviewer_ids":[1,2,3,4]}`), now)
+	_, err = ValidateIntent("op-lifecycle-r2", 2, 1, nativeoperation_model.KindLifecycleReview, "rev-1", 1, now+300, []byte(`{"issue_id":88,"reviewer_ids":[1,2,3,4]}`), now)
 	require.ErrorIs(t, err, ErrInvalidIntent)
 }

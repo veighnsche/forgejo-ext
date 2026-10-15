@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 	giturl "forgejo.org/modules/git/url"
 	"forgejo.org/modules/keying"
@@ -102,7 +102,7 @@ func (m *PushMirror) SetPrivatekey(ctx context.Context, privateKey []byte) error
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	m.PrivateKey = keying.PushMirror.Encrypt(privateKey, keying.ColumnAndID("private_key", m.ID))
@@ -121,7 +121,7 @@ func UpdatePushMirror(ctx context.Context, m *PushMirror) error {
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(m.ID).AllCols().Update(m)
@@ -133,7 +133,7 @@ func UpdatePushMirrorInterval(ctx context.Context, m *PushMirror) error {
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(m.ID).Cols("interval").Update(m)
@@ -144,7 +144,7 @@ func UpdatePushMirrorBranchFilter(ctx context.Context, m *PushMirror) error {
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(m.ID).Cols("branch_filter").Update(m)
@@ -157,7 +157,7 @@ func deletePushMirrors(ctx context.Context, opts PushMirrorOptions) error {
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if opts.RepoID > 0 {

@@ -11,7 +11,7 @@ import (
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/log"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // IssuePinOrUnpin pin or unpin a Issue
@@ -33,11 +33,11 @@ func IssuePinOrUnpin(ctx *context.Context) {
 	// advancing the native revision so old accepted-input observations
 	// go stale.
 	doer := ctx.Doer
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issue.PinOrUnpin(ctx, doer)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Status(http.StatusServiceUnavailable)
 			return
 		}
@@ -70,11 +70,11 @@ func IssueUnpin(ctx *context.Context) {
 	// advancing the native revision so old accepted-input observations
 	// go stale.
 	doer := ctx.Doer
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issue.Unpin(ctx, doer)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Status(http.StatusServiceUnavailable)
 			return
 		}
@@ -121,11 +121,11 @@ func IssuePinMove(ctx *context.Context) {
 	// One collaboration writer owns the pin change before its effects,
 	// advancing the native revision so old accepted-input observations
 	// go stale.
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issue.MovePin(ctx, form.Position)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Status(http.StatusServiceUnavailable)
 			return
 		}

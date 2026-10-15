@@ -14,7 +14,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -55,7 +55,7 @@ func PickTask(ctx context.Context, runner *actions_model.ActionRunner, requestKe
 	// One task assignment owns the complete change before task state
 	// moves: the inserted task, the claimed job and the resulting commit
 	// status share this ownership.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsTask, "task/pick", operation_service.Scope{
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsTask, "task/pick", nativeoperation_service.Scope{
 		JobID:    candidate.ID,
 		RunnerID: runner.ID,
 	}, func(ctx context.Context) error {
@@ -134,7 +134,7 @@ func RecoverTasks(ctx context.Context, tasks []*actions_model.ActionTask) ([]*ru
 		// token material is a participating write. A busy gate fails
 		// this batch and the runner retries the same request key,
 		// which re-mints idempotently.
-		err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsTask, "task/recover", operation_service.Scope{
+		err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsTask, "task/recover", nativeoperation_service.Scope{
 			TaskID: t.ID,
 		}, func(ctx context.Context) error {
 			return db.WithTx(ctx, func(ctx context.Context) error {
@@ -249,7 +249,7 @@ func StopTask(ctx context.Context, taskID int64, status actions_model.Status) er
 
 	// One Actions logical update owns the complete change before task
 	// state moves: task, job and step rows share this ownership.
-	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsTask, fmt.Sprintf("task/%d", taskID), operation_service.Scope{
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsTask, fmt.Sprintf("task/%d", taskID), nativeoperation_service.Scope{
 		TaskID: taskID,
 	}, func(ctx context.Context) error {
 		e := db.GetEngine(ctx)

@@ -4,7 +4,7 @@
 package integration
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net/http"
 	"testing"
 
@@ -105,7 +105,7 @@ func TestNativePageDataRendering(t *testing.T) {
 	t.Run("multiple release selectors", func(t *testing.T) {
 		doc, blocks := page(t, "/user2/repo1/releases")
 		require.GreaterOrEqual(t, len(blocks["branchDropdownDataList"]), 2)
-		require.Equal(t, doc.Find(".js-branch-tag-selector").Length(), len(blocks["branchDropdownDataList"]))
+		require.Len(t, blocks["branchDropdownDataList"], doc.Find(".js-branch-tag-selector").Length())
 		tags := make(map[string]bool)
 		for i := range blocks["branchDropdownDataList"] {
 			data := decodeNativePageJSON[struct {
@@ -174,7 +174,7 @@ func TestNativePageDataRendering(t *testing.T) {
 		assert.False(t, data.IsIncomplete)
 		assert.NotEmpty(t, data.BinaryFileMessage)
 		assert.Contains(t, data.LinkLoadMore, "file-only=true")
-		assert.Equal(t, doc.Find(".diff-file-box.file-content").Length(), len(data.Files))
+		assert.Len(t, data.Files, doc.Find(".diff-file-box.file-content").Length())
 		filenames := make([]string, 0, len(data.Files))
 		for _, file := range data.Files {
 			filenames = append(filenames, file.Name)

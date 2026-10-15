@@ -6,7 +6,7 @@ package extensions
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"net/http"
@@ -43,19 +43,6 @@ type AuthError struct {
 }
 
 func (e *AuthError) Error() string { return e.Code + ": " + e.Message }
-
-// controlledTarget returns the catalog entry when id names a package
-// controlled by a required lifecycle controller.
-func (m *Manager) controlledTarget(id string) (sdk.CatalogPackage, bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, entry := range m.catalog {
-		if entry.ID == id {
-			return entry, entry.LifecycleController != ""
-		}
-	}
-	return sdk.CatalogPackage{}, false
-}
 
 // catalogSnapshot returns the loaded catalog entries and their exact SHA.
 func (m *Manager) catalogSnapshot() ([]sdk.CatalogPackage, string) {
@@ -113,7 +100,7 @@ func (m *Manager) releaseMutation() {
 
 // issueCallAdmission mints one opaque single-use token for a full tuple
 // and tracks it for command-end revocation.
-func (m *Manager) issueCallAdmission(call sdk.LifecycleCall, desired bool, cleanupException bool) (string, error) {
+func (m *Manager) issueCallAdmission(call sdk.LifecycleCall, desired, cleanupException bool) (string, error) {
 	m.mu.Lock()
 	instance := ""
 	for _, state := range m.controllers {
@@ -194,10 +181,7 @@ func (m *Manager) dispatchLifecycleCall(ctx context.Context, controllerID string
 	if err != nil {
 		return sdk.LifecycleObservation{}, err
 	}
-	wait := time.Until(time.Unix(call.DeadlineUnix, 0))
-	if wait < time.Second {
-		wait = time.Second
-	}
+	wait := max(time.Until(time.Unix(call.DeadlineUnix, 0)), time.Second)
 	callCtx, cancel := context.WithTimeout(ctx, wait)
 	defer cancel()
 	request, err := http.NewRequestWithContext(callCtx, http.MethodPost, "http://extension"+sdk.LifecyclePath, bytes.NewReader(body))
@@ -501,7 +485,7 @@ func (m *Manager) stopControlledBackend(ctx context.Context, id string) error {
 }
 
 // backendRunning reports the ordinary backend presence without effects.
-func (m *Manager) backendRunning(id string) (running bool, unknown bool) {
+func (m *Manager) backendRunning(id string) (running, unknown bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	item := m.running[id]
@@ -784,6 +768,8 @@ func containsSubstring(s, sub string) bool {
 // abortPending clears the interruption marker after a definite
 // pre-effect refusal, retaining the desired flag and generation. A crash
 // or unknown external outcome keeps the marker set.
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
 func (m *Manager) abortPending(id string, desired bool, generation string) {
 	_, _ = packages.StorePendingSameGeneration(m.root, id, desired, nil, generation)
 }
@@ -1060,6 +1046,8 @@ func (m *Manager) controlledDisable(ctx context.Context, entry sdk.CatalogPackag
 
 // backendEnable runs the existing backend start path for packages
 // without an external lifecycle controller.
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
 func (m *Manager) backendEnable(ctx context.Context, id, pinnedVersion string, intent packages.Intent, opDeadline int64) packages.LifecycleResult {
 	_ = opDeadline
 	manifest, err := m.startControlledBackend(id, pinnedVersion)

@@ -9,7 +9,7 @@ import (
 
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -291,7 +291,7 @@ func TestCleanupCommitStatus(t *testing.T) {
 
 func TestNewCommitStatusFencesWhileHeld(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
-	_, err := nativeoperation.ClaimOrdinary(db.DefaultContext, "ord:branch-delete/1/branch2", `{"kind":"ordinary"}`, "v")
+	_, err := nativeoperation_model.ClaimOrdinary(db.DefaultContext, "ord:branch-delete/1/branch2", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
-	require.ErrorIs(t, git_model.NewCommitStatus(db.DefaultContext, git_model.NewCommitStatusOptions{}), nativeoperation.ErrBusy)
+	require.ErrorIs(t, git_model.NewCommitStatus(db.DefaultContext, git_model.NewCommitStatusOptions{}), nativeoperation_model.ErrBusy)
 }

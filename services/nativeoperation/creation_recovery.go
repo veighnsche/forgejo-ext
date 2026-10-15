@@ -5,7 +5,7 @@ package nativeoperation
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"strconv"
 
 	sdk "forgejo.org/extension-sdk"
@@ -130,6 +130,8 @@ func (s *Service) ReadCreations(ctx context.Context, decision extensionauth.Snap
 // nativeCreation binds the original native event to the current immutable
 // issue identity and creation-body provenance. Current title/body
 // may differ: the original digests are preserved for the consumer to compare.
+//
+//nolint:nilnil // An absent verified creation is a valid observation.
 func nativeCreation(ctx context.Context, repositoryID int64, task *webhook_model.HookTask, payload *api.IssuePayload) (*sdk.NativeCreationObservation, bool, error) {
 	if parsed, err := uuid.Parse(task.UUID); err != nil || parsed.String() != task.UUID {
 		return nil, false, nil

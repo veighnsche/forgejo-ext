@@ -10,7 +10,7 @@ import (
 	"reflect"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/timeutil"
@@ -207,7 +207,7 @@ func CreateSource(ctx context.Context, source *Source) error {
 	// Nested participating writer: auth-source changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	has, err := db.GetEngine(ctx).Where("name=?", source.Name).Exist(new(Source))
@@ -291,7 +291,7 @@ func UpdateSource(ctx context.Context, source *Source) error {
 	// Nested participating writer: auth-source changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	var originalSource *Source

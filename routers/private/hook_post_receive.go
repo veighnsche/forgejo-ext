@@ -29,7 +29,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/web"
 	app_context "forgejo.org/services/context"
-	nativeoperation "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 )
 
@@ -60,7 +60,7 @@ func HookPostReceive(ctx *app_context.PrivateContext) {
 	// Nested participating writers below reuse the bound execution
 	// instead of claiming again. While idle this returns the context
 	// unchanged.
-	reqCtx, err := nativeoperation.BoundCallbackContext(ctx, opts.ExecProof, opts.ExecPath)
+	reqCtx, err := nativeoperation_service.BoundCallbackContext(ctx, opts.ExecProof, opts.ExecPath)
 	if err != nil {
 		ctx.JSON(http.StatusForbidden, private.HookPostReceiveResult{
 			Err: "native operation in progress",
@@ -399,7 +399,7 @@ func handlePullRequestMerging(ctx *app_context.PrivateContext, opts *private.Hoo
 	// like the other nested writers in this hook; the raw hook context
 	// carries no execution, so the fenced writers below would refuse a
 	// held reservation without this binding.
-	reqCtx, err := nativeoperation.BoundCallbackContext(ctx, opts.ExecProof, opts.ExecPath)
+	reqCtx, err := nativeoperation_service.BoundCallbackContext(ctx, opts.ExecProof, opts.ExecPath)
 	if err != nil {
 		log.Error("Failed to bind merge completion: %v", err)
 		ctx.JSON(http.StatusInternalServerError, private.HookPostReceiveResult{Err: "Failed to bind merge completion"})

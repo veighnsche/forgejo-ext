@@ -6,7 +6,7 @@ package models
 import (
 	"testing"
 
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/unittest"
 
@@ -15,9 +15,9 @@ import (
 
 func claimTestOwner(t *testing.T) string {
 	t.Helper()
-	claimed, err := nativeoperation.ClaimOrdinary(t.Context(), "ord:authority/test/abc123", `{"kind":"ordinary","family":"authority"}`, "v")
+	claimed, err := nativeoperation_model.ClaimOrdinary(t.Context(), "ord:authority/test/abc123", `{"kind":"ordinary","family":"authority"}`, "v")
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = nativeoperation.ReleaseOwner(t.Context(), claimed.Owner) })
+	t.Cleanup(func() { _ = nativeoperation_model.ReleaseOwner(t.Context(), claimed.Owner) })
 	return claimed.Owner
 }
 
@@ -28,10 +28,10 @@ func TestAddTeamMemberFencesWhileHeld(t *testing.T) {
 	team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 1})
 	owner := claimTestOwner(t)
 
-	require.ErrorIs(t, AddTeamMember(ctx, team, 4), nativeoperation.ErrBusy)
+	require.ErrorIs(t, AddTeamMember(ctx, team, 4), nativeoperation_model.ErrBusy)
 	unittest.AssertNotExistsBean(t, &organization.TeamUser{UID: 4, TeamID: 1})
 
-	require.NoError(t, nativeoperation.ReleaseOwner(ctx, owner))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, owner))
 	require.NoError(t, AddTeamMember(ctx, team, 4))
 	unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: 4, TeamID: 1})
 }
@@ -42,7 +42,7 @@ func TestRemoveTeamMemberFencesWhileHeld(t *testing.T) {
 	claimTestOwner(t)
 
 	team := unittest.AssertExistsAndLoadBean(t, &organization.Team{ID: 2})
-	require.ErrorIs(t, RemoveTeamMember(ctx, team, 2), nativeoperation.ErrBusy)
+	require.ErrorIs(t, RemoveTeamMember(ctx, team, 2), nativeoperation_model.ErrBusy)
 	unittest.AssertExistsAndLoadBean(t, &organization.TeamUser{UID: 2, TeamID: 2})
 }
 
@@ -51,7 +51,7 @@ func TestRemoveOrgUserFencesWhileHeld(t *testing.T) {
 	ctx := t.Context()
 	claimTestOwner(t)
 
-	require.ErrorIs(t, RemoveOrgUser(ctx, 3, 4), nativeoperation.ErrBusy)
+	require.ErrorIs(t, RemoveOrgUser(ctx, 3, 4), nativeoperation_model.ErrBusy)
 	unittest.AssertExistsAndLoadBean(t, &organization.OrgUser{OrgID: 3, UID: 4})
 }
 
@@ -60,5 +60,5 @@ func TestDeleteDeployKeyFencesWhileHeld(t *testing.T) {
 	ctx := t.Context()
 	claimTestOwner(t)
 
-	require.ErrorIs(t, DeleteDeployKey(ctx, 1, 1), nativeoperation.ErrBusy)
+	require.ErrorIs(t, DeleteDeployKey(ctx, 1, 1), nativeoperation_model.ErrBusy)
 }

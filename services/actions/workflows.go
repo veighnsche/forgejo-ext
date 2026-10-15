@@ -22,7 +22,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/webhook"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
 	act_model "code.forgejo.org/forgejo/runner/v12/act/model"
@@ -84,7 +84,7 @@ func (entry *Workflow) Dispatch(ctx context.Context, inputGetter InputValueGette
 	// One dispatch owns its run/jobs before their effects: the
 	// concurrency cancellation, the inserted run and its jobs share
 	// this ownership.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.DispatchResource(entry.WorkflowID), operation_service.Scope{
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.DispatchResource(entry.WorkflowID), nativeoperation_service.Scope{
 		RepositoryID: repo.ID,
 	}, func(ctx context.Context) error {
 		var dispatchErr error

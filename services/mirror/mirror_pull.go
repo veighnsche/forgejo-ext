@@ -28,7 +28,7 @@ import (
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -39,11 +39,11 @@ const gitShortEmptySha = "0000000"
 func UpdateAddress(ctx context.Context, m *repo_model.Mirror, addr string) error {
 	// One mirror update owns the reservation before its Git and database
 	// effects, advancing the revision so stale observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync,
 		fmt.Sprintf("%d/pull-address", m.RepoID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMirrorSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMirrorSync,
 			RepositoryID: m.RepoID,
 		},
 		func(ctx context.Context) error {
@@ -215,7 +215,7 @@ func pruneBrokenReferences(ctx context.Context,
 		Run(&git.RunOpts{
 			Timeout: timeout,
 			Dir:     repoPath,
-			Env:     operation_service.OwnedGitEnv(ctx),
+			Env:     nativeoperation_service.OwnedGitEnv(ctx),
 			Stdout:  stdoutBuilder,
 			Stderr:  stderrBuilder,
 		})
@@ -380,7 +380,7 @@ func runSync(ctx context.Context, m *repo_model.Mirror) ([]*mirrorSyncResult, bo
 					Run(&git.RunOpts{
 						Timeout: timeout,
 						Dir:     repoPath,
-						Env:     operation_service.OwnedGitEnv(ctx),
+						Env:     nativeoperation_service.OwnedGitEnv(ctx),
 						Stdout:  &stdoutBuilder,
 						Stderr:  &stderrBuilder,
 					}); err != nil {
@@ -451,7 +451,7 @@ func runSync(ctx context.Context, m *repo_model.Mirror) ([]*mirrorSyncResult, bo
 			Run(&git.RunOpts{
 				Timeout: timeout,
 				Dir:     wikiPath,
-				Env:     operation_service.OwnedGitEnv(ctx),
+				Env:     nativeoperation_service.OwnedGitEnv(ctx),
 				Stdout:  &stdoutBuilder,
 				Stderr:  &stderrBuilder,
 			}); err != nil {
@@ -479,7 +479,7 @@ func runSync(ctx context.Context, m *repo_model.Mirror) ([]*mirrorSyncResult, bo
 						Run(&git.RunOpts{
 							Timeout: timeout,
 							Dir:     wikiPath,
-							Env:     operation_service.OwnedGitEnv(ctx),
+							Env:     nativeoperation_service.OwnedGitEnv(ctx),
 							Stdout:  &stdoutBuilder,
 							Stderr:  &stderrBuilder,
 						}); err != nil {
@@ -549,11 +549,11 @@ func SyncPullMirror(ctx context.Context, repoID int64) (err error) {
 	// One mirror sync owns the reservation before its Git and database
 	// effects, advancing the revision so stale observations go stale. A
 	// busy sync stays queued instead of being dropped.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync,
 		fmt.Sprintf("%d/pull", repoID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMirrorSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMirrorSync,
 			RepositoryID: repoID,
 		},
 		func(ctx context.Context) error {
@@ -590,7 +590,7 @@ func recordMirrorPreState(ctx context.Context, m *repo_model.Mirror) error {
 	if len(refs) == 0 {
 		return nil
 	}
-	return operation_service.AppendScopeRefs(ctx, exec.Owner, refs)
+	return nativeoperation_service.AppendScopeRefs(ctx, exec.Owner, refs)
 }
 
 // recordMirrorPostState records the realized end state of every ref the
@@ -608,13 +608,13 @@ func recordMirrorPostState(ctx context.Context, m *repo_model.Mirror, results []
 	}
 	defer gitRepo.Close()
 
-	var refs []operation_service.ScopedRef
+	var refs []nativeoperation_service.ScopedRef
 	for _, result := range results {
 		tip, err := gitRepo.GetRefCommitID(result.refName.String())
 		if err != nil {
 			tip = ""
 		}
-		refs = append(refs, operation_service.ScopedRef{Ref: result.refName.String(), NewOID: tip})
+		refs = append(refs, nativeoperation_service.ScopedRef{Ref: result.refName.String(), NewOID: tip})
 	}
 	if m.Repo.HasWiki() {
 		if _, err := os.Stat(m.Repo.WikiPath()); err == nil {
@@ -623,30 +623,30 @@ func recordMirrorPostState(ctx context.Context, m *repo_model.Mirror, results []
 				return err
 			}
 			for _, tip := range wikiTips {
-				refs = append(refs, operation_service.ScopedRef{Ref: tip.Ref, NewOID: tip.NewOID})
+				refs = append(refs, nativeoperation_service.ScopedRef{Ref: tip.Ref, NewOID: tip.NewOID})
 			}
 		}
 	}
 	if len(refs) == 0 {
 		return nil
 	}
-	return operation_service.UpdateScopeRefs(ctx, exec.Owner, refs)
+	return nativeoperation_service.UpdateScopeRefs(ctx, exec.Owner, refs)
 }
 
 // listRefTips returns identity tuples for every ref in one repository.
-func listRefTips(ctx context.Context, repoPath, prefix string) ([]operation_service.ScopedRef, error) {
+func listRefTips(ctx context.Context, repoPath, prefix string) ([]nativeoperation_service.ScopedRef, error) {
 	stdout, _, err := git.NewCommand(ctx, "for-each-ref", "--format=%(objectname) %(refname)").
 		RunStdString(&git.RunOpts{Dir: repoPath})
 	if err != nil {
 		return nil, err
 	}
-	var refs []operation_service.ScopedRef
+	var refs []nativeoperation_service.ScopedRef
 	for line := range strings.Lines(strings.TrimSpace(stdout)) {
 		sha, ref, ok := strings.Cut(strings.TrimSpace(line), " ")
 		if !ok || sha == "" || ref == "" {
 			continue
 		}
-		refs = append(refs, operation_service.ScopedRef{Ref: prefix + ref, OldOID: sha, NewOID: sha})
+		refs = append(refs, nativeoperation_service.ScopedRef{Ref: prefix + ref, OldOID: sha, NewOID: sha})
 	}
 	return refs, nil
 }

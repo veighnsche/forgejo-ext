@@ -9,7 +9,7 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/require"
@@ -129,7 +129,7 @@ func recoverActionsRunCase(t *testing.T, owner string, scope Scope) RecoveryAsse
 
 func TestRecoverActionsRunConsistent(t *testing.T) {
 	assessment := recoverActionsRunCase(t, "ord:actions-run/run/cancel/0123456789abcdef", Scope{
-		Kind:   model.OwnerOrdinary,
+		Kind:   nativeoperation_model.OwnerOrdinary,
 		Family: FamilyActionsRun,
 		RunID:  791,
 	})
@@ -139,7 +139,7 @@ func TestRecoverActionsRunConsistent(t *testing.T) {
 
 func TestRecoverActionsRunMissing(t *testing.T) {
 	assessment := recoverActionsRunCase(t, "ord:actions-run/run/emitter/0123456789abcdef", Scope{
-		Kind:   model.OwnerOrdinary,
+		Kind:   nativeoperation_model.OwnerOrdinary,
 		Family: FamilyActionsRun,
 		RunID:  999999,
 	})
@@ -149,7 +149,7 @@ func TestRecoverActionsRunMissing(t *testing.T) {
 
 func TestRecoverActionsJobConsistent(t *testing.T) {
 	assessment := recoverActionsRunCase(t, "ord:actions-run/run/sweep/0123456789abcdef", Scope{
-		Kind:   model.OwnerOrdinary,
+		Kind:   nativeoperation_model.OwnerOrdinary,
 		Family: FamilyActionsRun,
 		RunID:  791,
 		JobID:  192,
@@ -160,7 +160,7 @@ func TestRecoverActionsJobConsistent(t *testing.T) {
 
 func TestRecoverActionsJobMismatch(t *testing.T) {
 	assessment := recoverActionsRunCase(t, "ord:actions-run/run/sweep/0123456789abcdef", Scope{
-		Kind:   model.OwnerOrdinary,
+		Kind:   nativeoperation_model.OwnerOrdinary,
 		Family: FamilyActionsRun,
 		RunID:  792,
 		JobID:  192,
@@ -171,27 +171,27 @@ func TestRecoverActionsJobMismatch(t *testing.T) {
 
 func TestRecoverActionsStatusCommitted(t *testing.T) {
 	assessment := recoverActionsRunCase(t, "ord:actions-run/"+StatusResource("1234123412341234123412341234123412341234", "failure", 2, "ci/awesomeness")+"/0123456789abcdef", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyActionsRun,
 		RepositoryID: 1,
 	})
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectCommitted, assessment.Effect)
 }
 
 func TestRecoverActionsStatusAbsent(t *testing.T) {
 	assessment := recoverActionsRunCase(t, "ord:actions-run/"+StatusResource("1234123412341234123412341234123412341234", "pending", 2, "nope/nothing")+"/0123456789abcdef", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyActionsRun,
 		RepositoryID: 1,
 	})
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func TestRecoverActionsDispatchZero(t *testing.T) {
 	assessment := recoverActionsRunCase(t, "ord:actions-run/"+DispatchResource("nope.yaml")+"/0123456789abcdef", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyActionsRun,
 		RepositoryID: 4,
 	})
@@ -213,7 +213,7 @@ func TestRecoverActionsSchedule(t *testing.T) {
 
 	useIsolatedAppData(t)
 	svc := admissionService(t, nil, 0)
-	scope := Scope{Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 4}
+	scope := Scope{Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 4}
 	claimed := claimOrdinaryOwner(t, ctx, "ord:actions-run/"+ScheduleResource(848484)+"/0123456789abcdef", scope)
 	inhibitDomain(t)
 	assessment, err := svc.recoverActionsRun(ctx, &RecoveryAssessment{
@@ -228,6 +228,7 @@ func TestRecoverActionsSchedule(t *testing.T) {
 	require.Equal(t, EffectActionsConsistent, assessment.Effect)
 }
 
+//nolint:revive // Test helpers take testing.T before their context.
 func insertPickJob(t *testing.T, ctx context.Context, runID int64, status actions_model.Status, taskID int64) *actions_model.ActionRunJob {
 	t.Helper()
 	job := &actions_model.ActionRunJob{
@@ -244,6 +245,7 @@ func insertPickJob(t *testing.T, ctx context.Context, runID int64, status action
 	return job
 }
 
+//nolint:revive // Test helpers take testing.T before their context.
 func insertPickTask(t *testing.T, ctx context.Context, jobID, runnerID int64, token string) *actions_model.ActionTask {
 	t.Helper()
 	task := &actions_model.ActionTask{
@@ -268,7 +270,7 @@ func TestRecoverActionsTaskPickUnassigned(t *testing.T) {
 
 	useIsolatedAppData(t)
 	svc := admissionService(t, nil, 0)
-	scope := Scope{Kind: model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: 1}
+	scope := Scope{Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: 1}
 	claimed := claimOrdinaryOwner(t, ctx, "ord:actions-task/task/pick/0123456789abcdef", scope)
 	inhibitDomain(t)
 	assessment, err := svc.recoverActionsTaskPick(ctx, &RecoveryAssessment{
@@ -280,7 +282,7 @@ func TestRecoverActionsTaskPickUnassigned(t *testing.T) {
 	}, claimed, scope)
 	require.NoError(t, err)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func recoverPickAssigned(t *testing.T, runnerID int64) RecoveryAssessment {
@@ -307,7 +309,7 @@ func recoverPickAssigned(t *testing.T, runnerID int64) RecoveryAssessment {
 
 	useIsolatedAppData(t)
 	svc := admissionService(t, nil, 0)
-	scope := Scope{Kind: model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: runnerID}
+	scope := Scope{Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: runnerID}
 	claimed := claimOrdinaryOwner(t, ctx, "ord:actions-task/task/pick/0123456789abcdef", scope)
 	inhibitDomain(t)
 	assessment, err := svc.recoverActionsTaskPick(ctx, &RecoveryAssessment{
@@ -332,7 +334,7 @@ func TestRecoverActionsTaskPickForeignRunner(t *testing.T) {
 	// claim: no other pick could run while it held the reservation.
 	assessment := recoverPickAssigned(t, 2)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func TestRecoverActionsTaskPickDangling(t *testing.T) {
@@ -342,7 +344,7 @@ func TestRecoverActionsTaskPickDangling(t *testing.T) {
 
 	useIsolatedAppData(t)
 	svc := admissionService(t, nil, 0)
-	scope := Scope{Kind: model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: 1}
+	scope := Scope{Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: 1}
 	claimed := claimOrdinaryOwner(t, ctx, "ord:actions-task/task/pick/0123456789abcdef", scope)
 	inhibitDomain(t)
 	assessment, err := svc.recoverActionsTaskPick(ctx, &RecoveryAssessment{
@@ -362,7 +364,7 @@ func TestRecoverOrdinaryRoutesActionsRun(t *testing.T) {
 	ctx := t.Context()
 	useIsolatedAppData(t)
 	svc := admissionService(t, nil, 0)
-	scope := Scope{Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RunID: 791}
+	scope := Scope{Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RunID: 791}
 	claimed := claimOrdinaryOwner(t, ctx, "ord:actions-run/run/cancel/0123456789abcdef", scope)
 	inhibitDomain(t)
 	assessment, err := svc.recoverOrdinary(ctx, &RecoveryAssessment{
@@ -384,7 +386,7 @@ func TestRecoverOrdinaryRoutesActionsTaskPick(t *testing.T) {
 
 	useIsolatedAppData(t)
 	svc := admissionService(t, nil, 0)
-	scope := Scope{Kind: model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: 1}
+	scope := Scope{Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsTask, JobID: job.ID, RunnerID: 1}
 	claimed := claimOrdinaryOwner(t, ctx, "ord:actions-task/task/pick/0123456789abcdef", scope)
 	inhibitDomain(t)
 	assessment, err := svc.recoverOrdinary(ctx, &RecoveryAssessment{
@@ -396,7 +398,7 @@ func TestRecoverOrdinaryRoutesActionsTaskPick(t *testing.T) {
 	}, claimed, scope)
 	require.NoError(t, err)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func recoverTrustCase(t *testing.T, owner string, scope Scope, setup func(ctx context.Context)) RecoveryAssessment {
@@ -423,7 +425,7 @@ func recoverTrustCase(t *testing.T, owner string, scope Scope, setup func(ctx co
 
 func TestRecoverActionsTrustRevokeCommitted(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustRevoke, 4)+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, nil)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
 	require.Equal(t, EffectActionsConsistent, assessment.Effect)
@@ -431,17 +433,17 @@ func TestRecoverActionsTrustRevokeCommitted(t *testing.T) {
 
 func TestRecoverActionsTrustRevokeNotCommitted(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustRevoke, 4)+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, func(ctx context.Context) {
 		unittest.AssertSuccessfulInsert(t, &actions_model.ActionUser{UserID: 4, RepoID: 1})
 	})
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func TestRecoverActionsTrustRevokePartialFences(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustRevoke, 4)+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, func(ctx context.Context) {
 		require.NoError(t, actions_model.InsertRun(ctx, &actions_model.ActionRun{
 			Title:               "revoke-partial",
@@ -458,7 +460,7 @@ func TestRecoverActionsTrustRevokePartialFences(t *testing.T) {
 
 func TestRecoverActionsTrustApproveCommitted(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustApprove, 4)+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, func(ctx context.Context) {
 		unittest.AssertSuccessfulInsert(t, &actions_model.ActionUser{UserID: 4, RepoID: 1, TrustedWithPullRequests: true})
 	})
@@ -468,15 +470,15 @@ func TestRecoverActionsTrustApproveCommitted(t *testing.T) {
 
 func TestRecoverActionsTrustApproveNotCommitted(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustApprove, 4)+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, nil)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func TestRecoverActionsTrustApprovePartialFences(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustResource(ActionsRunOpTrustApprove, 4)+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, func(ctx context.Context) {
 		unittest.AssertSuccessfulInsert(t, &actions_model.ActionUser{UserID: 4, RepoID: 1, TrustedWithPullRequests: true})
 		require.NoError(t, actions_model.InsertRun(ctx, &actions_model.ActionRun{
@@ -495,7 +497,7 @@ func TestRecoverActionsTrustApprovePartialFences(t *testing.T) {
 
 func TestRecoverActionsTrustSweep(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+TrustSweepResource()+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun,
 	}, nil)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
 	require.Equal(t, EffectActionsConsistent, assessment.Effect)
@@ -503,7 +505,7 @@ func TestRecoverActionsTrustSweep(t *testing.T) {
 
 func TestRecoverActionsScheduleCleanCommitted(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+ScheduleCleanResource(true)+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, nil)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
 	require.Equal(t, EffectActionsConsistent, assessment.Effect)
@@ -511,17 +513,17 @@ func TestRecoverActionsScheduleCleanCommitted(t *testing.T) {
 
 func TestRecoverActionsScheduleCleanNotCommitted(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+ScheduleCleanResource(false)+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, func(ctx context.Context) {
 		unittest.AssertSuccessfulInsert(t, &actions_model.ActionSchedule{RepoID: 1, OwnerID: 2})
 	})
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func TestRecoverActionsScheduleDetect(t *testing.T) {
 	assessment := recoverTrustCase(t, "ord:actions-run/"+ScheduleDetectResource()+"/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyActionsRun, RepositoryID: 1,
 	}, nil)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
 	require.Equal(t, EffectActionsConsistent, assessment.Effect)

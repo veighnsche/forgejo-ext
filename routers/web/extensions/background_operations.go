@@ -6,7 +6,7 @@ package extensions
 import (
 	"net/http"
 
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 )
 
 // serveBackgroundOperations answers the read-only operations handshake
@@ -14,7 +14,7 @@ import (
 // identity and the background capability were already verified by the
 // shared dispatcher; installation here is host-derived from that
 // admission, never caller-supplied.
-func serveBackgroundOperations(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, operations backgroundOperations) {
+func serveBackgroundOperations(w http.ResponseWriter, r *http.Request, admission extensions_service.BackgroundAdmission, operations backgroundOperations) {
 	var request struct{}
 	if !decodeBackgroundRequest(w, r, &request) {
 		return

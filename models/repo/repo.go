@@ -18,7 +18,7 @@ import (
 
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/cache"
@@ -931,7 +931,7 @@ func FixNullArchivedRepository(ctx context.Context) (int64, error) {
 	// Nested participating writer: the archive flag gates every native
 	// writer, so the repair refuses while another owner holds the
 	// reservation; the enclosing maintenance repair carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	return db.GetEngine(ctx).Where(builder.IsNull{"is_archived"}).Cols("is_archived").NoAutoTime().Update(&Repository{
@@ -944,7 +944,7 @@ func UpdateRepositoryOwnerName(ctx context.Context, oldUserName, newUserName str
 	// Nested participating writer: repository renames refuse while another
 	// owner holds the reservation; the enclosing rename carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if _, err := db.GetEngine(ctx).Exec("UPDATE `repository` SET owner_name=? WHERE owner_name=?", newUserName, oldUserName); err != nil {

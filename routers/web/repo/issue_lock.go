@@ -10,7 +10,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // LockIssue locks an issue. This would limit commenting abilities to
@@ -36,7 +36,7 @@ func LockIssue(ctx *context.Context) {
 	// advancing the native revision so old accepted-input observations
 	// go stale.
 	doer := ctx.Doer
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "lock"), issue.RepoID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "lock"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issues_model.LockIssue(ctx, &issues_model.IssueLockOptions{
 			Doer:   doer,
 			Issue:  issue,
@@ -66,7 +66,7 @@ func UnlockIssue(ctx *context.Context) {
 	// advancing the native revision so old accepted-input observations
 	// go stale.
 	doer := ctx.Doer
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "lock"), issue.RepoID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "lock"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issues_model.UnlockIssue(ctx, &issues_model.IssueLockOptions{
 			Doer:  doer,
 			Issue: issue,

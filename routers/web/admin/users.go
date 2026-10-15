@@ -31,7 +31,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
 	"forgejo.org/services/mailer"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -198,7 +198,7 @@ func NewUserPost(ctx *context.Context) {
 	// One authority writer owns the account creation before its effects,
 	// advancing the native revision so old permission observations go
 	// stale.
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", u.Name), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", u.Name), 0, func(ctx std_ctx.Context) error {
 		return user_model.AdminCreateUser(ctx, u, overwriteDefault)
 	}); err != nil {
 		switch {
@@ -479,7 +479,7 @@ func EditUserPost(ctx *context.Context) {
 		// One authority writer owns the credential reset before its
 		// effects, advancing the native revision so old permission
 		// observations go stale.
-		if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/credentials/reset", u.ID), 0, func(ctx std_ctx.Context) error {
+		if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/credentials/reset", u.ID), 0, func(ctx std_ctx.Context) error {
 			tf, err := auth.GetTwoFactorByUID(ctx, u.ID)
 			if err != nil && !auth.IsErrTwoFactorNotEnrolled(err) {
 				return err

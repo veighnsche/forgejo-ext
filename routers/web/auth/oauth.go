@@ -39,7 +39,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/externalaccount"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	remote_service "forgejo.org/services/remote"
 	user_service "forgejo.org/services/user"
 
@@ -1070,7 +1070,7 @@ func SignInOAuthCallback(ctx *context.Context) {
 			// advancing the native revision so old permission
 			// observations go stale.
 			doer := ctx.Doer
-			if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/account-link", doer.ID), 0, func(ctx go_context.Context) error {
+			if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/account-link", doer.ID), 0, func(ctx go_context.Context) error {
 				return externalaccount.LinkAccountToUser(ctx, doer, gothUser)
 			}); err != nil {
 				ctx.ServerError("UserLinkAccount", err)

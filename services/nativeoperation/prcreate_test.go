@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 
 	"github.com/stretchr/testify/assert"
@@ -73,7 +73,7 @@ func TestValidateIntentCarriesPRCreatePayload(t *testing.T) {
 	head := strings.Repeat("a", 40)
 	base := strings.Repeat("b", 40)
 	now := time.Now().Unix()
-	intent, err := ValidateIntent("op-prcreate", 2, 7, model.KindPRCreate, "rev-1", 7, now+300,
+	intent, err := ValidateIntent("op-prcreate", 2, 7, nativeoperation_model.KindPRCreate, "rev-1", 7, now+300,
 		[]byte(prCreatePayload(7, "refs/heads/feature", "refs/heads/main", head, base, "title", false)), now)
 	require.NoError(t, err)
 	require.NotNil(t, intent.PRCreate)
@@ -85,7 +85,7 @@ func TestValidateIntentCarriesPRCreatePayload(t *testing.T) {
 
 func TestValidateIntentRejectsPRCreatePayload(t *testing.T) {
 	now := time.Now().Unix()
-	_, err := ValidateIntent("op-prcreate", 2, 7, model.KindPRCreate, "rev-1", 7, now+300,
+	_, err := ValidateIntent("op-prcreate", 2, 7, nativeoperation_model.KindPRCreate, "rev-1", 7, now+300,
 		[]byte(prCreatePayload(9, "refs/heads/feature", "refs/heads/main", strings.Repeat("a", 40), strings.Repeat("b", 40), "title", false)), now)
 	assert.ErrorIs(t, err, ErrInvalidIntent)
 }
@@ -94,14 +94,14 @@ func TestCheckPRCreateCompletionAdmitsExactTuple(t *testing.T) {
 	svc := NewService()
 	head := strings.Repeat("a", 40)
 	zero := git.Sha1ObjectFormat.EmptyObjectID().String()
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		Submitted:   true,
-		Kind:        model.KindPRCreate,
-		EffectState: model.EffectCommitted,
+		Kind:        nativeoperation_model.KindPRCreate,
+		EffectState: nativeoperation_model.EffectCommitted,
 		Receipt:     `{"pr_id":7}`,
 	}
 	scope := Scope{
-		Kind:             model.OwnerConditional,
+		Kind:             nativeoperation_model.OwnerConditional,
 		RepositoryID:     7,
 		CompletionRef:    "refs/pull/3/head",
 		CompletionNewOID: head,
@@ -110,32 +110,32 @@ func TestCheckPRCreateCompletionAdmitsExactTuple(t *testing.T) {
 	decision := svc.checkPRCreateCompletion(scope, op, []RefLine{{Old: zero, New: head, Ref: "refs/pull/3/head"}})
 	assert.True(t, decision.Allowed)
 
-	cases := map[string]func(Scope, *model.Operation, []RefLine) (Scope, *model.Operation, []RefLine){
-		"pending primary": func(scope Scope, op *model.Operation, lines []RefLine) (Scope, *model.Operation, []RefLine) {
-			op.EffectState = model.EffectPending
+	cases := map[string]func(Scope, *nativeoperation_model.Operation, []RefLine) (Scope, *nativeoperation_model.Operation, []RefLine){
+		"pending primary": func(scope Scope, op *nativeoperation_model.Operation, lines []RefLine) (Scope, *nativeoperation_model.Operation, []RefLine) {
+			op.EffectState = nativeoperation_model.EffectPending
 			return scope, op, lines
 		},
-		"missing receipt": func(scope Scope, op *model.Operation, lines []RefLine) (Scope, *model.Operation, []RefLine) {
+		"missing receipt": func(scope Scope, op *nativeoperation_model.Operation, lines []RefLine) (Scope, *nativeoperation_model.Operation, []RefLine) {
 			op.Receipt = ""
 			return scope, op, lines
 		},
-		"missing phase": func(scope Scope, op *model.Operation, lines []RefLine) (Scope, *model.Operation, []RefLine) {
+		"missing phase": func(scope Scope, op *nativeoperation_model.Operation, lines []RefLine) (Scope, *nativeoperation_model.Operation, []RefLine) {
 			scope.CompletionPhase = ""
 			return scope, op, lines
 		},
-		"wrong ref": func(scope Scope, op *model.Operation, lines []RefLine) (Scope, *model.Operation, []RefLine) {
+		"wrong ref": func(scope Scope, op *nativeoperation_model.Operation, lines []RefLine) (Scope, *nativeoperation_model.Operation, []RefLine) {
 			lines[0].Ref = "refs/heads/feature"
 			return scope, op, lines
 		},
-		"wrong new oid": func(scope Scope, op *model.Operation, lines []RefLine) (Scope, *model.Operation, []RefLine) {
+		"wrong new oid": func(scope Scope, op *nativeoperation_model.Operation, lines []RefLine) (Scope, *nativeoperation_model.Operation, []RefLine) {
 			lines[0].New = strings.Repeat("c", 40)
 			return scope, op, lines
 		},
-		"unexpected old oid": func(scope Scope, op *model.Operation, lines []RefLine) (Scope, *model.Operation, []RefLine) {
+		"unexpected old oid": func(scope Scope, op *nativeoperation_model.Operation, lines []RefLine) (Scope, *nativeoperation_model.Operation, []RefLine) {
 			lines[0].Old = strings.Repeat("d", 40)
 			return scope, op, lines
 		},
-		"second line": func(scope Scope, op *model.Operation, lines []RefLine) (Scope, *model.Operation, []RefLine) {
+		"second line": func(scope Scope, op *nativeoperation_model.Operation, lines []RefLine) (Scope, *nativeoperation_model.Operation, []RefLine) {
 			return scope, op, append(lines, lines[0])
 		},
 	}

@@ -8,7 +8,7 @@ import (
 	"errors"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/timeutil"
 )
 
@@ -52,7 +52,7 @@ func UnblockUser(ctx context.Context, userID, blockID int64) error {
 	// Nested participating writer: block changes refuse while another
 	// owner holds the reservation; the enclosing authority update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Delete(&BlockedUser{UserID: userID, BlockID: blockID})

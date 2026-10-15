@@ -14,7 +14,7 @@ import (
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/log"
 	repo_module "forgejo.org/modules/repository"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -154,11 +154,11 @@ func runRepoSyncReleases(ctx context.Context, c *cli.Command) error {
 			// Each repository syncs its releases under one ref-sync
 			// ownership so no ref writer interleaves the tag
 			// comparison and release writes.
-			if err = operation_service.Default().WithOrdinaryOwnership(ctx,
-				operation_service.FamilyRefSync,
+			if err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+				nativeoperation_service.FamilyRefSync,
 				fmt.Sprintf("%d/admin-release-sync", repo.ID),
-				operation_service.Scope{
-					Family:       operation_service.FamilyRefSync,
+				nativeoperation_service.Scope{
+					Family:       nativeoperation_service.FamilyRefSync,
 					RepositoryID: repo.ID,
 				},
 				func(ctx context.Context) error {

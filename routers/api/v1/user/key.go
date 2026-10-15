@@ -21,7 +21,7 @@ import (
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // appendPrivateInformation appends the owner and key type information to api.PublicKey
@@ -225,7 +225,7 @@ func CreateUserPublicKey(ctx *context.APIContext, form api.CreateKeyOption, uid 
 	// advancing the native revision so old permission observations go
 	// stale.
 	var key *asymkey_model.PublicKey
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/key", uid), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/key", uid), 0, func(ctx std_ctx.Context) error {
 		created, err := asymkey_model.AddPublicKey(ctx, uid, form.Title, content, 0)
 		if err != nil {
 			return err
@@ -233,7 +233,7 @@ func CreateUserPublicKey(ctx *context.APIContext, form api.CreateKeyOption, uid 
 		key = created
 		return nil
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -325,10 +325,10 @@ func DeletePublicKey(ctx *context.APIContext) {
 	// advancing the native revision so old permission observations go
 	// stale.
 	doer := ctx.Doer()
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("key/%d", id), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("key/%d", id), 0, func(ctx std_ctx.Context) error {
 		return asymkey_service.DeletePublicKey(ctx, doer, id)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

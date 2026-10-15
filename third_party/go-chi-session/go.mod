@@ -5,10 +5,10 @@ go 1.25.0
 toolchain go1.25.14
 
 require (
-	github.com/gofrs/flock v0.12.1
 	github.com/bradfitz/gomemcache v0.0.0-20260422231931-4d751bb6e37c
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-sql-driver/mysql v1.10.0
+	github.com/gofrs/flock v0.12.1
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.12.1

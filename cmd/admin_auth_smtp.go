@@ -12,7 +12,7 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/modules/util"
 	"forgejo.org/services/auth/source/smtp"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -167,7 +167,7 @@ func runAddSMTP(ctx context.Context, c *cli.Command) error {
 	// One authority writer owns the auth-source change before its
 	// effects, advancing the native revision so old permission
 	// observations go stale.
-	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%s", c.String("name")), 0, func(ctx context.Context) error {
+	return nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%s", c.String("name")), 0, func(ctx context.Context) error {
 		return auth_model.CreateSource(ctx, &auth_model.Source{
 			Type:     auth_model.SMTP,
 			Name:     c.String("name"),
@@ -213,7 +213,7 @@ func runUpdateSMTP(ctx context.Context, c *cli.Command) error {
 	// One authority writer owns the auth-source change before its
 	// effects, advancing the native revision so old permission
 	// observations go stale.
-	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx context.Context) error {
+	return nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx context.Context) error {
 		return auth_model.UpdateSource(ctx, source)
 	})
 }

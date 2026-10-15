@@ -15,7 +15,7 @@ import (
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // StopZombieTasks stops the task which have running status, but haven't been updated for a long time
@@ -47,7 +47,7 @@ func stopTasks(ctx context.Context, opts actions_model.FindTaskOptions) error {
 		// skips the task entirely instead of stopping it without its
 		// status. The log transfer stays outside: it is telemetry file
 		// movement with its own retry, never under the reservation.
-		if err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsTask, fmt.Sprintf("task/%d", task.ID), operation_service.Scope{
+		if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsTask, fmt.Sprintf("task/%d", task.ID), nativeoperation_service.Scope{
 			TaskID: task.ID,
 		}, func(ctx context.Context) error {
 			return db.WithTx(ctx, func(ctx context.Context) error {
@@ -100,7 +100,7 @@ func CancelAbandonedJobs(ctx context.Context) error {
 		// One sweep item owns its job change and resulting commit
 		// status together; a busy gate skips only that job and the
 		// next sweep retries it.
-		if err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpSweep), operation_service.Scope{
+		if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.RunResource(nativeoperation_service.ActionsRunOpSweep), nativeoperation_service.Scope{
 			RunID: job.RunID,
 			JobID: job.ID,
 		}, func(ctx context.Context) error {

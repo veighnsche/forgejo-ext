@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"forgejo.org/models/moderation"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/timeutil"
 )
@@ -109,7 +109,7 @@ func newCommentData(comment *Comment) CommentData {
 func IfNeededCreateShadowCopyForIssue(ctx context.Context, issue *Issue) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	shadowCopyNeeded, err := moderation.IsShadowCopyNeeded(ctx, moderation.ReportedContentTypeIssue, issue.ID)
@@ -135,7 +135,7 @@ func IfNeededCreateShadowCopyForIssue(ctx context.Context, issue *Issue) error {
 func IfNeededCreateShadowCopyForComment(ctx context.Context, comment *Comment, forUpdates bool) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	shadowCopyNeeded, err := moderation.IsShadowCopyNeeded(ctx, moderation.ReportedContentTypeComment, comment.ID)

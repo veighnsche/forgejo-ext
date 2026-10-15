@@ -8,7 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"fmt"
 	"io"
@@ -776,11 +776,9 @@ func (m *Manager) EvaluateRequiredPolicy(ctx context.Context, policyID string, r
 // or replacement deletes the record; lifecycle admissions die with the
 // instance through the shared background registry.
 func (m *Manager) noteControllerStarted(descriptor Descriptor) {
-	for _, capability := range descriptor.Manifest.Capabilities {
-		if capability == sdk.CapabilityExtensionLifecycle {
-			m.controllers[descriptor.Manifest.ID] = controllerState{instanceID: descriptor.InstanceID, ready: true}
-			return
-		}
+	if slices.Contains(descriptor.Manifest.Capabilities, sdk.CapabilityExtensionLifecycle) {
+		m.controllers[descriptor.Manifest.ID] = controllerState{instanceID: descriptor.InstanceID, ready: true}
+		return
 	}
 }
 

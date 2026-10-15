@@ -4,16 +4,16 @@ package nativeoperation
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"testing"
 	"time"
 
 	sdk "forgejo.org/extension-sdk"
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
-	authmodel "forgejo.org/models/extensionauth"
+	extensionauth_model "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
@@ -31,17 +31,17 @@ func graphPayload() sdk.IssueGraphPayload {
 
 func graphIntent(t *testing.T, id string, p sdk.IssueGraphPayload) *ValidIntent {
 	t.Helper()
-	r, err := model.ReadReservation(t.Context())
+	r, err := nativeoperation_model.ReadReservation(t.Context())
 	require.NoError(t, err)
 	raw, err := json.Marshal(p)
 	require.NoError(t, err)
 	now := time.Now().Unix()
-	intent, err := ValidateIntent(id, 2, 1, model.KindIssueGraph, "accepted-revision", r.Revision, now+300, raw, now)
+	intent, err := ValidateIntent(id, 2, 1, nativeoperation_model.KindIssueGraph, "accepted-revision", r.Revision, now+300, raw, now)
 	require.NoError(t, err)
 	return intent
 }
 
-func graphDecision(t *testing.T) authmodel.SubmissionDecision {
+func graphDecision(t *testing.T) extensionauth_model.SubmissionDecision {
 	t.Helper()
 	ctx := t.Context()
 	_, configErr := db.GetEngine(ctx).Exec(`UPDATE repo_unit SET config=? WHERE repo_id=1 AND type=2`, `{"EnableDependencies":true}`)
@@ -51,9 +51,9 @@ func graphDecision(t *testing.T) authmodel.SubmissionDecision {
 	token.ResourceAllRepos = true
 	_, err := db.GetEngine(ctx).ID(token.ID).Cols("scope", "resource_all_repos").Update(token)
 	require.NoError(t, err)
-	_, err = authmodel.EnrollBinding(ctx, operationTestInstallation, token.ID, 2, 1, model.KindIssueGraph)
+	_, err = extensionauth_model.EnrollBinding(ctx, operationTestInstallation, token.ID, 2, 1, nativeoperation_model.KindIssueGraph)
 	require.NoError(t, err)
-	return authmodel.SubmissionDecision{TokenID: token.ID, ActorID: 2, CredentialFingerprint: authmodel.CredentialFingerprint(token.TokenHash, token.TokenSalt)}
+	return extensionauth_model.SubmissionDecision{TokenID: token.ID, ActorID: 2, CredentialFingerprint: extensionauth_model.CredentialFingerprint(token.TokenHash, token.TokenSalt)}
 }
 
 func TestParseIssueGraph(t *testing.T) {
@@ -76,7 +76,7 @@ func TestIssueGraphSubmitReplayEditAndDependencies(t *testing.T) {
 	intent := graphIntent(t, "graph-create", graphPayload())
 	record, err := svc.Submit(ctx, decision, operationTestInstallation, intent)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, record.EffectState, record.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectCommitted, record.EffectState, record.ReasonCode)
 	var receipt sdk.IssueGraphReceipt
 	require.NoError(t, json.Unmarshal(record.Receipt, &receipt))
 	require.Len(t, receipt.Issues, 2)
@@ -93,7 +93,7 @@ func TestIssueGraphSubmitReplayEditAndDependencies(t *testing.T) {
 	p := sdk.IssueGraphPayload{Edits: []sdk.IssueGraphEdit{{IssueID: issue.ID, ExpectedTitle: issue.Title, ExpectedBody: issue.Content, ExpectedContentVersion: issue.ContentVersion, Title: "Revised objective", Body: "Revised outcome"}}, Dependencies: []sdk.IssueGraphDependency{{Issue: sdk.IssueGraphRef{IssueID: second.IssueID}, Prerequisite: sdk.IssueGraphRef{IssueID: first.IssueID}, Remove: true}}}
 	edited, err := svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "graph-edit", p))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, edited.EffectState)
+	require.Equal(t, nativeoperation_model.EffectCommitted, edited.EffectState)
 	issue, err = issues_model.GetIssueByID(ctx, first.IssueID)
 	require.NoError(t, err)
 	require.Equal(t, "Revised objective", issue.Title)
@@ -120,7 +120,7 @@ func TestIssueGraphCycleRollsBackWholePrimary(t *testing.T) {
 	require.NoError(t, err)
 	record, err := svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "graph-cycle", p))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, record.EffectState)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, record.EffectState)
 	after, err := db.GetEngine(ctx).Where("repo_id=?", 1).Count(new(issues_model.Issue))
 	require.NoError(t, err)
 	require.Equal(t, before, after)
@@ -134,12 +134,12 @@ func TestIssueGraphPrimaryCancellationAndRecovery(t *testing.T) {
 			ctx := t.Context()
 			p := graphPayload()
 			intent := graphIntent(t, "graph-primary", p)
-			op := &model.Operation{InstallationID: operationTestInstallation, OperationID: intent.OperationID, Kind: intent.Kind, ActorID: 2, RepositoryID: 1, NotAfter: intent.NotAfter, ExpectedNativeRevision: intent.ExpectedNativeRevision, IntentDigest: intent.Digest, Intent: intent.Canonical}
+			op := &nativeoperation_model.Operation{InstallationID: operationTestInstallation, OperationID: intent.OperationID, Kind: intent.Kind, ActorID: 2, RepositoryID: 1, NotAfter: intent.NotAfter, ExpectedNativeRevision: intent.ExpectedNativeRevision, IntentDigest: intent.Digest, Intent: intent.Canonical}
 			owner := conditionalOwner(operationTestInstallation, intent.OperationID)
-			scope := Scope{Kind: model.OwnerConditional, RepositoryID: 1}
+			scope := Scope{Kind: nativeoperation_model.OwnerConditional, RepositoryID: 1}
 			encoded, err := encodeScope(scope)
 			require.NoError(t, err)
-			held, err := model.ClaimConditional(ctx, op, owner, encoded, "verifier")
+			held, err := nativeoperation_model.ClaimConditional(ctx, op, owner, encoded, "verifier")
 			require.NoError(t, err)
 			owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: held.Generation})
 			repo, err := repo_model.GetRepositoryByID(ctx, 1)
@@ -147,11 +147,11 @@ func TestIssueGraphPrimaryCancellationAndRecovery(t *testing.T) {
 			actor, err := user_model.GetUserByID(ctx, 2)
 			require.NoError(t, err)
 			if cancel {
-				_, err = model.RevokeOperation(ctx, operationTestInstallation, intent.OperationID)
+				_, err = nativeoperation_model.RevokeOperation(ctx, operationTestInstallation, intent.OperationID)
 				require.NoError(t, err)
 			}
 			called := false
-			committed, err := model.CommitIssueGraphPrimary(owned, operationTestInstallation, intent.OperationID, owner, time.Now().Unix(), func(tx context.Context) (string, error) {
+			committed, err := nativeoperation_model.CommitIssueGraphPrimary(owned, operationTestInstallation, intent.OperationID, owner, time.Now().Unix(), func(tx context.Context) (string, error) {
 				called = true
 				receipt, _, err := applyIssueGraph(tx, repo, actor, &p)
 				if err != nil {
@@ -161,22 +161,22 @@ func TestIssueGraphPrimaryCancellationAndRecovery(t *testing.T) {
 				return string(data), err
 			})
 			if cancel {
-				require.ErrorIs(t, err, model.ErrAdmissionLost)
+				require.ErrorIs(t, err, nativeoperation_model.ErrAdmissionLost)
 				require.False(t, called)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, model.EffectCommitted, committed.EffectState)
+				require.Equal(t, nativeoperation_model.EffectCommitted, committed.EffectState)
 			}
 			inhibitDomain(t)
 			assessment, err := NewService().Recover(ctx, owner, held.Generation)
 			require.NoError(t, err)
 			require.Equal(t, RecoveryReleased, assessment.Verdict)
-			recorded, err := model.LookupOperation(ctx, operationTestInstallation, intent.OperationID)
+			recorded, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, intent.OperationID)
 			require.NoError(t, err)
 			if cancel {
-				require.Equal(t, model.EffectNotCommitted, recorded.EffectState)
+				require.Equal(t, nativeoperation_model.EffectNotCommitted, recorded.EffectState)
 			} else {
-				require.Equal(t, model.CompletionNeedsIntervention, recorded.Completion)
+				require.Equal(t, nativeoperation_model.CompletionNeedsIntervention, recorded.Completion)
 			}
 		})
 	}
@@ -191,12 +191,12 @@ func TestIssueGraphStaleInputsAndAuthorityRefuse(t *testing.T) {
 	stale := graphIntent(t, "graph-stale-revision", graphPayload())
 	// An intervening ordinary native writer advances the same reservation.
 	owner := "ord:collaboration/issue/new/1/fixture"
-	held, err := model.ClaimOrdinary(ctx, owner, `{"kind":"ordinary","family":"collaboration","repository_id":1}`, "verifier")
+	held, err := nativeoperation_model.ClaimOrdinary(ctx, owner, `{"kind":"ordinary","family":"collaboration","repository_id":1}`, "verifier")
 	require.NoError(t, err)
-	require.NoError(t, model.ReleaseExactOwner(ctx, owner, held.Generation))
+	require.NoError(t, nativeoperation_model.ReleaseExactOwner(ctx, owner, held.Generation))
 	record, err := svc.Submit(ctx, decision, operationTestInstallation, stale)
 	require.NoError(t, err)
-	require.Equal(t, model.ReasonStaleNativeRevision, record.ReasonCode)
+	require.Equal(t, nativeoperation_model.ReasonStaleNativeRevision, record.ReasonCode)
 	p := graphPayload()
 	issue, err := issues_model.GetIssueByID(ctx, 1)
 	require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestIssueGraphStaleInputsAndAuthorityRefuse(t *testing.T) {
 	require.NoError(t, err)
 	record, err = svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "graph-stale-text", p))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, record.EffectState)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, record.EffectState)
 	after, err := db.GetEngine(ctx).Where("repo_id=?", 1).Count(new(issues_model.Issue))
 	require.NoError(t, err)
 	require.Equal(t, before, after)
@@ -213,5 +213,5 @@ func TestIssueGraphStaleInputsAndAuthorityRefuse(t *testing.T) {
 	bad.CredentialFingerprint = "revoked-generation"
 	record, err = svc.Submit(ctx, bad, operationTestInstallation, graphIntent(t, "graph-authority-loss", graphPayload()))
 	require.NoError(t, err)
-	require.Equal(t, model.ReasonAuthorityLost, record.ReasonCode)
+	require.Equal(t, nativeoperation_model.ReasonAuthorityLost, record.ReasonCode)
 }

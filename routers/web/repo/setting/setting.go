@@ -40,7 +40,7 @@ import (
 	"forgejo.org/services/forms"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
 	mirror_service "forgejo.org/services/mirror"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 	wiki_service "forgejo.org/services/wiki"
 )
@@ -463,11 +463,11 @@ func SettingsPost(ctx *context.Context) {
 		var addrCause error
 		mirrorAddrInvalid := errors.New("mirror address invalid")
 		doer := ctx.Doer
-		err = operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyMirrorSync,
+		err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyMirrorSync,
 			fmt.Sprintf("%d/pull-address", repo.ID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyMirrorSync,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyMirrorSync,
 				RepositoryID: repo.ID,
 			},
 			func(ctx go_context.Context) error {
@@ -541,11 +541,11 @@ func SettingsPost(ctx *context.Context) {
 
 		pullMirror.LFS = form.LFS
 		pullMirror.LFSEndpoint = form.LFSEndpoint
-		if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyMirrorSync,
+		if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyMirrorSync,
 			fmt.Sprintf("%d/pull-lfs", repo.ID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyMirrorSync,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyMirrorSync,
 				RepositoryID: repo.ID,
 			},
 			func(ctx go_context.Context) error {
@@ -631,11 +631,11 @@ func SettingsPost(ctx *context.Context) {
 		// One mirror update owns the reservation across the row and git
 		// config effects so the stored filter and the push refspecs cannot
 		// disagree; the nested service call reuses this ownership.
-		if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyMirrorSync,
+		if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyMirrorSync,
 			fmt.Sprintf("%d/push-filter/%d", m.RepoID, m.ID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyMirrorSync,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyMirrorSync,
 				RepositoryID: m.RepoID,
 			},
 			func(ctx go_context.Context) error {
@@ -690,11 +690,11 @@ func SettingsPost(ctx *context.Context) {
 
 		// One mirror update owns the reservation across its Git and database
 		// effects; the nested service call reuses this ownership.
-		if err = operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyMirrorSync,
+		if err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyMirrorSync,
 			fmt.Sprintf("%d/push-remote/%d", m.RepoID, m.ID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyMirrorSync,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyMirrorSync,
 				RepositoryID: m.RepoID,
 			},
 			func(ctx go_context.Context) error {
@@ -780,11 +780,11 @@ func SettingsPost(ctx *context.Context) {
 
 		// One mirror update owns the reservation across its Git and database
 		// effects; the nested service call reuses this ownership.
-		if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyMirrorSync,
+		if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyMirrorSync,
 			fmt.Sprintf("%d/push-remote/new", repo.ID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyMirrorSync,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyMirrorSync,
 				RepositoryID: repo.ID,
 			},
 			func(ctx go_context.Context) error {
@@ -1185,11 +1185,11 @@ func SettingsPost(ctx *context.Context) {
 // setArchiveRepoStateOwned flips the archive state under one settings
 // ownership; archive flips gate every native writer.
 func setArchiveRepoStateOwned(ctx go_context.Context, repo *repo_model.Repository, isArchived bool) error {
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoSettings,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoSettings,
 		fmt.Sprintf("%d/archive", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoSettings,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoSettings,
 			RepositoryID: repo.ID,
 		},
 		func(ctx go_context.Context) error {

@@ -32,7 +32,7 @@ import (
 	"forgejo.org/modules/util"
 	webhook_module "forgejo.org/modules/webhook"
 	actions_service "forgejo.org/services/actions"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 	files_service "forgejo.org/services/repository/files"
@@ -251,11 +251,11 @@ func SyncBranchesToDB(ctx context.Context, repoID, pusherID int64, branchNames [
 	// Tips are read under each branch lock, so no expected commits are
 	// recorded from stale hook data. Recovery fences an interrupted
 	// standalone sync rather than guessing which branch writes landed.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefSync,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefSync,
 		fmt.Sprintf("%d/sync-%d", repoID, len(branchNames)),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefSync,
 			RepositoryID: repoID,
 		},
 		func(ctx context.Context) error {
@@ -379,7 +379,7 @@ func CreateNewBranchFromCommit(ctx context.Context, doer *user_model.User, repo 
 	// reservation: it claims before its Git effect, advancing the shared
 	// revision, and refuses while another owner is held. Its Git child
 	// carries the execution capability for hook binding.
-	return operation_service.Default().WithOrdinaryOwnership(ctx, "branch", fmt.Sprintf("%d/%s", repo.ID, branchName), operation_service.Scope{
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, "branch", fmt.Sprintf("%d/%s", repo.ID, branchName), nativeoperation_service.Scope{
 		RepositoryID: repo.ID,
 		Ref:          git.BranchPrefix + branchName,
 	}, func(ctx context.Context) error {
@@ -432,13 +432,13 @@ func RenameBranch(ctx context.Context, repo *repo_model.Repository, doer *user_m
 	// unbound and the held reservation alone serializes it. Nested
 	// calls reuse the enclosing ownership instead of claiming again.
 	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteRename, from+"->"+to),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteRename, from+"->"+to),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: repo.ID,
-			Refs: []operation_service.ScopedRef{
+			Refs: []nativeoperation_service.ScopedRef{
 				{Ref: git.BranchPrefix + from, OldOID: tip, NewOID: objectFormat.EmptyObjectID().String()},
 				{Ref: git.BranchPrefix + to, NewOID: tip},
 			},
@@ -543,7 +543,7 @@ func DeleteBranch(ctx context.Context, doer *user_model.User, repo *repo_model.R
 	// identity and the execution capability so the reference-transaction
 	// checkpoint binds the delete to this owner.
 	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
-	err = operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyBranchDelete, fmt.Sprintf("%d/%s", repo.ID, branchName), operation_service.Scope{
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyBranchDelete, fmt.Sprintf("%d/%s", repo.ID, branchName), nativeoperation_service.Scope{
 		RepositoryID: repo.ID,
 		Ref:          git.BranchPrefix + branchName,
 		OldOID:       commit.ID.String(),
@@ -568,7 +568,7 @@ func DeleteBranch(ctx context.Context, doer *user_model.User, repo *repo_model.R
 		// Test-only crash barrier for offline-recovery proof: with effects
 		// committed and the owner still held, the driver SIGKILLs the
 		// server here to simulate a crash before release.
-		return operation_service.TestCrashBarrier(operation_service.CrashPointBranchDeleteAfterEffects)
+		return nativeoperation_service.TestCrashBarrier(nativeoperation_service.CrashPointBranchDeleteAfterEffects)
 	})
 	if err != nil {
 		return err
@@ -640,11 +640,11 @@ func handlerBranchSync(items ...*BranchSyncOptions) []*BranchSyncOptions {
 
 		// One deferred ref sync claims fresh ownership before its
 		// effects; it never inherits another owner's privilege.
-		err := operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyRefSync,
+		err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyRefSync,
 			fmt.Sprintf("%d/sync", opts.RepoID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyRefSync,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyRefSync,
 				RepositoryID: opts.RepoID,
 			},
 			func(ctx context.Context) error {
@@ -653,7 +653,7 @@ func handlerBranchSync(items ...*BranchSyncOptions) []*BranchSyncOptions {
 			})
 		finished()
 		if err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				// Retain busy work: the queue requeues this sync
 				// for a later fresh-ownership attempt instead of
 				// dropping it.
@@ -709,11 +709,11 @@ func SetRepoDefaultBranch(ctx context.Context, repo *repo_model.Repository, gitR
 	// update and all database effects, advancing the revision so stale
 	// observations go stale. Nested calls reuse the enclosing ownership
 	// instead of claiming again.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteDefaultBranch, newBranchName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteDefaultBranch, newBranchName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: repo.ID,
 			Ref:          git.BranchPrefix + newBranchName,
 		},

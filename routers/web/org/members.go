@@ -16,7 +16,7 @@ import (
 	"forgejo.org/modules/setting"
 	shared_user "forgejo.org/routers/web/shared/user"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -95,7 +95,7 @@ func MembersAction(ctx *context.Context) {
 		// One authority writer owns the membership change before its
 		// effects, advancing the native revision so old permission
 		// observations go stale.
-		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
+		err = nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
 			return organization.ChangeOrgUserStatus(ctx, org.ID, uid, false)
 		})
 	case "public":
@@ -103,7 +103,7 @@ func MembersAction(ctx *context.Context) {
 			ctx.Error(http.StatusNotFound)
 			return
 		}
-		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
+		err = nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
 			return organization.ChangeOrgUserStatus(ctx, org.ID, uid, true)
 		})
 	case "remove":
@@ -111,7 +111,7 @@ func MembersAction(ctx *context.Context) {
 			ctx.Error(http.StatusNotFound)
 			return
 		}
-		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
+		err = nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, uid), 0, func(ctx std_ctx.Context) error {
 			return models.RemoveOrgUser(ctx, org.ID, uid)
 		})
 		if organization.IsErrLastOrgOwner(err) {
@@ -121,7 +121,7 @@ func MembersAction(ctx *context.Context) {
 		}
 	case "leave":
 		doerID := ctx.Doer.ID
-		err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, doerID), 0, func(ctx std_ctx.Context) error {
+		err = nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/member/%d", org.ID, doerID), 0, func(ctx std_ctx.Context) error {
 			return models.RemoveOrgUser(ctx, org.ID, doerID)
 		})
 		if err == nil {

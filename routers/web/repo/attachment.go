@@ -20,7 +20,7 @@ import (
 	"forgejo.org/services/attachment"
 	"forgejo.org/services/context"
 	"forgejo.org/services/context/upload"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 )
 
@@ -58,7 +58,7 @@ func uploadAttachment(ctx *context.Context, repoID int64, allowedTypes string) {
 			ctx.Error(http.StatusBadRequest, err.Error())
 			return
 		}
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, fmt.Sprintf("NewAttachment: %v", err))
 			return
 		}
@@ -86,11 +86,11 @@ func DeleteAttachment(ctx *context.Context) {
 	}
 	// One attachment delete owns the row and file removal before its
 	// effects.
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentResource(attach.ID, operation_service.CollabAttachmentDelete), attach.RepoID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.AttachmentResource(attach.ID, nativeoperation_service.CollabAttachmentDelete), attach.RepoID, func(ctx stdCtx.Context) error {
 		return repo_model.DeleteAttachment(ctx, attach, true)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, fmt.Sprintf("DeleteAttachment: %v", err))
 			return
 		}

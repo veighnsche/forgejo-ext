@@ -4,11 +4,11 @@
 package nativeoperation
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"testing"
 	"time"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/require"
@@ -40,7 +40,7 @@ func mergePayload(t *testing.T, mutate func(*map[string]any)) []byte {
 
 func TestValidateMergeIntent(t *testing.T) {
 	now := time.Now().Unix()
-	intent, err := ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now+300, mergePayload(t, nil), now)
+	intent, err := ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+300, mergePayload(t, nil), now)
 	require.NoError(t, err)
 	require.Equal(t, "op-1", intent.OperationID)
 	require.NotEmpty(t, intent.Digest)
@@ -57,25 +57,25 @@ func TestValidateMergeIntent(t *testing.T) {
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now+300, mergePayload(t, mutate), now)
+			_, err := ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+300, mergePayload(t, mutate), now)
 			require.ErrorIs(t, err, ErrInvalidIntent)
 		})
 	}
 
-	_, err = ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now+300, []byte(`{"pull_request_number":3,"extra":1}`), now)
+	_, err = ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+300, []byte(`{"pull_request_number":3,"extra":1}`), now)
 	require.ErrorIs(t, err, ErrInvalidIntent)
 
 	t.Run("common field bounds", func(t *testing.T) {
 		payload := mergePayload(t, nil)
-		_, err := ValidateIntent("", 2, 1, model.KindMerge, "rev-1", 7, now+300, payload, now)
+		_, err := ValidateIntent("", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+300, payload, now)
 		require.ErrorIs(t, err, ErrInvalidIntent)
-		_, err = ValidateIntent("op-1", 2, 1, model.KindMerge, "", 7, now+300, payload, now)
+		_, err = ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "", 7, now+300, payload, now)
 		require.ErrorIs(t, err, ErrInvalidIntent)
-		_, err = ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 0, now+300, payload, now)
+		_, err = ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 0, now+300, payload, now)
 		require.ErrorIs(t, err, ErrInvalidIntent)
-		_, err = ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now-1, payload, now)
+		_, err = ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now-1, payload, now)
 		require.ErrorIs(t, err, ErrInvalidIntent)
-		_, err = ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now+3700, payload, now)
+		_, err = ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+3700, payload, now)
 		require.ErrorIs(t, err, ErrInvalidIntent)
 		_, err = ValidateIntent("op-1", 2, 1, "pull_request.delete", "rev-1", 7, now+300, payload, now)
 		require.ErrorIs(t, err, ErrInvalidIntent)
@@ -84,22 +84,22 @@ func TestValidateMergeIntent(t *testing.T) {
 
 func TestIntentDigestBindsEverySemanticField(t *testing.T) {
 	now := time.Now().Unix()
-	base, err := ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now+300, mergePayload(t, nil), now)
+	base, err := ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+300, mergePayload(t, nil), now)
 	require.NoError(t, err)
 
-	again, err := ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now+300, mergePayload(t, nil), now)
+	again, err := ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+300, mergePayload(t, nil), now)
 	require.NoError(t, err)
 	require.Equal(t, base.Digest, again.Digest)
 
-	changed, err := ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-2", 7, now+300, mergePayload(t, nil), now)
+	changed, err := ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-2", 7, now+300, mergePayload(t, nil), now)
 	require.NoError(t, err)
 	require.NotEqual(t, base.Digest, changed.Digest)
 
-	later, err := ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now+301, mergePayload(t, nil), now)
+	later, err := ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+301, mergePayload(t, nil), now)
 	require.NoError(t, err)
 	require.NotEqual(t, base.Digest, later.Digest)
 
-	head, err := ValidateIntent("op-1", 2, 1, model.KindMerge, "rev-1", 7, now+300, mergePayload(t, func(p *map[string]any) {
+	head, err := ValidateIntent("op-1", 2, 1, nativeoperation_model.KindMerge, "rev-1", 7, now+300, mergePayload(t, func(p *map[string]any) {
 		(*p)["expected_head_oid"] = "3333333333333333333333333333333333333333"
 	}), now)
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestStatusHeldAndInhibited(t *testing.T) {
 	useIsolatedAppData(t)
 	svc := admissionService(t, nil, 0)
 	claimed := claimOrdinaryOwner(t, ctx, "ord:maintenance/1/gc/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
 	})
 	inhibitDomain(t)
 	status, err := svc.Status(ctx)
@@ -144,7 +144,7 @@ func TestStatusHeldAndInhibited(t *testing.T) {
 	require.Equal(t, claimed.Generation, status.Generation)
 	require.True(t, status.Inhibited)
 	// Status is read-only: the reservation survives the read.
-	again, err := model.ReadReservation(ctx)
+	again, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, claimed.Owner, again.Owner)
 }

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
@@ -293,7 +293,7 @@ func FixInconsistentOwnerTeams(ctx context.Context) (int64, error) {
 	// Nested participating writer: team access modes gate repository
 	// authorization, so the repair refuses while another owner holds the
 	// reservation; the enclosing maintenance repair carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	teamIDs := []int64{}

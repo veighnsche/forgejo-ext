@@ -34,7 +34,7 @@ import (
 	"forgejo.org/modules/storage"
 	actions_service "forgejo.org/services/actions"
 	federation_service "forgejo.org/services/federation"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -58,11 +58,11 @@ func DeleteRepositoryDirectly(ctx context.Context, repoID int64, opts DeleteRepo
 	// One lifecycle update owns the reservation before its database and
 	// filesystem effects, advancing the revision so stale observations go
 	// stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleDelete, repo.OwnerName, repo.Name),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoLifecycle,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(repo.ID, nativeoperation_service.LifecycleDelete, repo.OwnerName, repo.Name),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoLifecycle,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {

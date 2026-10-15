@@ -10,7 +10,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -43,7 +43,7 @@ func holdTestLock(dir string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	fmt.Println("READY")
+	_, _ = fmt.Fprintln(os.Stdout, "READY")
 	_, _ = io.ReadAll(os.Stdin)
 	return 0
 }
@@ -133,7 +133,7 @@ func bumpObserveCount(stateDir string) {
 	if data, err := os.ReadFile(path); err == nil {
 		_, _ = fmt.Sscanf(string(data), "%d", &count)
 	}
-	_ = os.WriteFile(path, []byte(fmt.Sprintf("%d", count+1)), 0o600)
+	_ = os.WriteFile(path, fmt.Appendf(nil, "%d", count+1), 0o600)
 }
 
 func readObserveCount(stateDir string) int {
@@ -229,7 +229,7 @@ func bumpActivateCount(stateDir string) {
 	if data, err := os.ReadFile(path); err == nil {
 		_, _ = fmt.Sscanf(string(data), "%d", &count)
 	}
-	_ = os.WriteFile(path, []byte(fmt.Sprintf("%d", count+1)), 0o600)
+	_ = os.WriteFile(path, fmt.Appendf(nil, "%d", count+1), 0o600)
 }
 
 func readActivateCount(stateDir string) int {
@@ -306,8 +306,10 @@ func installLifecyclePackage(t *testing.T, root, id, manifest string, knobs test
 	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "fixture.json"), knobData, 0o600))
 }
 
-const controllerManifest = `{"protocol":1,"id":"controller","name":"Test","version":"1.0.0","executable":"extension","capabilities":["native.extension.lifecycle"]}`
-const sampleManifest = `{"protocol":1,"id":"sample","name":"Test","version":"1.0.0","executable":"extension","capabilities":["native.actor.read"],"lifecycle_controller":"controller"}`
+const (
+	controllerManifest = `{"protocol":1,"id":"controller","name":"Test","version":"1.0.0","executable":"extension","capabilities":["native.extension.lifecycle"]}`
+	sampleManifest     = `{"protocol":1,"id":"sample","name":"Test","version":"1.0.0","executable":"extension","capabilities":["native.actor.read"],"lifecycle_controller":"controller"}`
+)
 
 type controllerHarness struct {
 	root            string

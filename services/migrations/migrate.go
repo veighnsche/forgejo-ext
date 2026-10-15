@@ -18,7 +18,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
 	"forgejo.org/services/migrations/allowlist"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // MigrateOptions is equal to base.MigrateOptions
@@ -54,11 +54,11 @@ func MigrateRepository(ctx context.Context, doer *user_model.User, ownerName str
 	// Nested calls reuse the enclosing ownership instead of claiming
 	// again; the failure notice stays outside the claim.
 	var uploader *GiteaLocalUploader
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(0, operation_service.LifecycleMigrate, ownerName, opts.RepoName),
-		operation_service.Scope{
-			Family: operation_service.FamilyRepoLifecycle,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(0, nativeoperation_service.LifecycleMigrate, ownerName, opts.RepoName),
+		nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyRepoLifecycle,
 		},
 		func(ctx context.Context) error {
 			uploader = NewGiteaLocalUploader(ctx, doer, ownerName, opts.RepoName)

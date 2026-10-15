@@ -4,27 +4,27 @@ package nativeoperation
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 
 	sdk "forgejo.org/extension-sdk"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 )
 
 // SQL primary and ledger commit together. Recovery never adopts similar
 // issues, replays a graph mutation or delivers notifications twice.
-func (s *Service) recoverConditionalIssueGraph(ctx context.Context, a *RecoveryAssessment, r *model.Reservation, scope Scope, op *model.Operation) (RecoveryAssessment, error) {
+func (s *Service) recoverConditionalIssueGraph(ctx context.Context, a *RecoveryAssessment, r *nativeoperation_model.Reservation, scope Scope, op *nativeoperation_model.Operation) (RecoveryAssessment, error) {
 	if scope.RepositoryID != op.RepositoryID {
 		return fenced(a, ReasonRecoveryUncertainEffect, "graph scope and operation repository differ")
 	}
-	if !op.Admitted && op.EffectState == model.EffectPending {
-		if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{EffectState: model.EffectNotCommitted, Reason: model.ReasonRecoveredNoEffect, Cancellation: model.CancellationNone}, ""); err != nil {
+	if !op.Admitted && op.EffectState == nativeoperation_model.EffectPending {
+		if _, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{EffectState: nativeoperation_model.EffectNotCommitted, Reason: nativeoperation_model.ReasonRecoveredNoEffect, Cancellation: nativeoperation_model.CancellationNone}, ""); err != nil {
 			return RecoveryAssessment{}, err
 		}
-		return s.releaseRecovered(ctx, a, r, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, a, r, nativeoperation_model.EffectNotCommitted)
 	}
-	if !op.Admitted || op.EffectState != model.EffectCommitted {
+	if !op.Admitted || op.EffectState != nativeoperation_model.EffectCommitted {
 		return fenced(a, ReasonRecoveryUncertainEffect, "graph effect is not attributable")
 	}
 	var receipt sdk.IssueGraphReceipt
@@ -49,14 +49,14 @@ func (s *Service) recoverConditionalIssueGraph(ctx context.Context, a *RecoveryA
 			return fenced(a, ReasonRecoveryUncertainEffect, "recorded dependency differs from native evidence")
 		}
 	}
-	if op.Completion == model.CompletionComplete || op.Completion == model.CompletionNeedsIntervention {
-		return s.releaseRecovered(ctx, a, r, model.EffectCommitted)
+	if op.Completion == nativeoperation_model.CompletionComplete || op.Completion == nativeoperation_model.CompletionNeedsIntervention {
+		return s.releaseRecovered(ctx, a, r, nativeoperation_model.EffectCommitted)
 	}
-	if _, err := model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, r.Owner, r.Generation, model.CompletionNeedsIntervention); err != nil {
+	if _, err := nativeoperation_model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, r.Owner, r.Generation, nativeoperation_model.CompletionNeedsIntervention); err != nil {
 		return RecoveryAssessment{}, err
 	}
 	a.Verdict = RecoveryReleased
-	a.Effect = model.EffectCommitted
+	a.Effect = nativeoperation_model.EffectCommitted
 	a.Checks = append(a.Checks, "atomic graph receipt matches native records; notification completion requires intervention")
 	s.retireStaleCapabilities()
 	return *a, nil

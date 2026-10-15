@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	issues_model "forgejo.org/models/issues"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	issue_service "forgejo.org/services/issue"
@@ -22,13 +22,13 @@ func TestIssueClaimsRefuseWhileHeld(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 
-	claimed, err := nativeoperation.ClaimOrdinary(ctx, "ord:branch-delete/1/x", `{"kind":"ordinary"}`, "v")
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:branch-delete/1/x", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
-	defer func() { _ = nativeoperation.ReleaseOwner(ctx, claimed.Owner) }()
+	defer func() { _ = nativeoperation_model.ReleaseOwner(ctx, claimed.Owner) }()
 
 	issue := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 	doer := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
-	require.ErrorIs(t, issue_service.ChangeTitle(ctx, issue, doer, "claimed title"), nativeoperation.ErrBusy)
+	require.ErrorIs(t, issue_service.ChangeTitle(ctx, issue, doer, "claimed title"), nativeoperation_model.ErrBusy)
 
 	fresh := unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 1})
 	require.NotEqual(t, "claimed title", fresh.Title)

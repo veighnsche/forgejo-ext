@@ -16,7 +16,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // GarbageCollectLFSMetaObjectsOptions provides options for GarbageCollectLFSMetaObjects function
@@ -56,8 +56,8 @@ func GarbageCollectLFSMetaObjectsForRepo(ctx context.Context, repo *repo_model.R
 	// One maintenance update owns the object-store scan and collection
 	// so no ref writer interleaves it. The collected set is unknowable,
 	// so offline recovery fences it; rerun the collection afterwards.
-	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyMaintenance, fmt.Sprintf("%d/lfs-gc", repo.ID), operation_service.Scope{
-		Family:       operation_service.FamilyMaintenance,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyMaintenance, fmt.Sprintf("%d/lfs-gc", repo.ID), nativeoperation_service.Scope{
+		Family:       nativeoperation_service.FamilyMaintenance,
 		RepositoryID: repo.ID,
 	}, func(ctx context.Context) error {
 		return garbageCollectLFSMetaObjectsForRepoOwned(ctx, repo, opts)

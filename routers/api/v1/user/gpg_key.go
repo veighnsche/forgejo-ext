@@ -19,7 +19,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 func listGPGKeys(ctx *context.APIContext, uid int64, listOptions db.ListOptions) {
@@ -157,7 +157,7 @@ func CreateUserGPGKey(ctx *context.APIContext, form api.CreateGPGKeyOption, uid 
 	// advancing the native revision so old permission observations go
 	// stale.
 	var keys []*asymkey_model.GPGKey
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/gpg-key", uid), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/gpg-key", uid), 0, func(ctx std_ctx.Context) error {
 		var err error
 		keys, err = asymkey_model.AddGPGKey(ctx, uid, form.ArmoredKey, token, form.Signature)
 		if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
@@ -165,7 +165,7 @@ func CreateUserGPGKey(ctx *context.APIContext, form api.CreateGPGKeyOption, uid 
 		}
 		return err
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -243,14 +243,14 @@ func VerifyUserGPGKey(ctx *context.APIContext) {
 	// advancing the native revision so old permission observations go
 	// stale.
 	doerID := ctx.Doer().ID
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/gpg-key/verify", doerID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/gpg-key/verify", doerID), 0, func(ctx std_ctx.Context) error {
 		_, err := asymkey_model.VerifyGPGKey(ctx, doerID, form.KeyID, token, form.Signature)
 		if err != nil && asymkey_model.IsErrGPGInvalidTokenSignature(err) {
 			_, err = asymkey_model.VerifyGPGKey(ctx, doerID, form.KeyID, lastToken, form.Signature)
 		}
 		return err
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -342,10 +342,10 @@ func DeleteGPGKey(ctx *context.APIContext) {
 	// stale.
 	doer := ctx.Doer()
 	keyID := ctx.ParamsInt64(":id")
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("gpg-key/%d", keyID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("gpg-key/%d", keyID), 0, func(ctx std_ctx.Context) error {
 		return asymkey_model.DeleteGPGKey(ctx, doer, keyID)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

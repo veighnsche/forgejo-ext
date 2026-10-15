@@ -44,7 +44,7 @@ func loadExtensionsFrom(cfg ConfigProvider) {
 	Extensions.Path = filepath.Clean(Extensions.Path)
 	Extensions.RequiredIDs = nil
 	if raw := strings.TrimSpace(sec.Key("REQUIRED_IDS").String()); raw != "" {
-		for _, id := range strings.Split(raw, ",") {
+		for id := range strings.SplitSeq(raw, ",") {
 			Extensions.RequiredIDs = append(Extensions.RequiredIDs, strings.TrimSpace(id))
 		}
 	}

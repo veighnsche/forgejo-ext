@@ -10,7 +10,7 @@ import (
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
@@ -47,16 +47,16 @@ func TestAddDeletedBranch(t *testing.T) {
 
 func TestAddDeletedBranchFencesWhileHeld(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
-	_, err := nativeoperation.ClaimOrdinary(db.DefaultContext, "ord:actions-task/task/47", `{"kind":"ordinary"}`, "v")
+	_, err := nativeoperation_model.ClaimOrdinary(db.DefaultContext, "ord:actions-task/task/47", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
-	require.ErrorIs(t, git_model.AddDeletedBranch(db.DefaultContext, 1, "branch2", 1), nativeoperation.ErrBusy)
+	require.ErrorIs(t, git_model.AddDeletedBranch(db.DefaultContext, 1, "branch2", 1), nativeoperation_model.ErrBusy)
 	live := unittest.AssertExistsAndLoadBean(t, &git_model.Branch{RepoID: 1, Name: "branch2"})
 	assert.False(t, live.IsDeleted)
 }
 
 func TestRemoveOldDeletedBranchesRefusesWhileHeld(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
-	_, err := nativeoperation.ClaimOrdinary(db.DefaultContext, "ord:actions-task/task/47", `{"kind":"ordinary"}`, "v")
+	_, err := nativeoperation_model.ClaimOrdinary(db.DefaultContext, "ord:actions-task/task/47", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
 	stale := unittest.AssertExistsAndLoadBean(t, &git_model.Branch{ID: 1})
 	require.True(t, stale.IsDeleted)

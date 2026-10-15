@@ -9,7 +9,7 @@ import (
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/optional"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ func TestUpdateUserTelemetryDoesNotClaim(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ctx := t.Context()
 
-	before, err := operation_service.Default().ReadNativeRevision(ctx)
+	before, err := nativeoperation_service.Default().ReadNativeRevision(ctx)
 	require.NoError(t, err)
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 28})
@@ -28,7 +28,7 @@ func TestUpdateUserTelemetryDoesNotClaim(t *testing.T) {
 		SetLastLogin:  true,
 	}))
 
-	after, err := operation_service.Default().ReadNativeRevision(ctx)
+	after, err := nativeoperation_service.Default().ReadNativeRevision(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before.Revision, after.Revision)
 	require.True(t, after.Idle)
@@ -38,7 +38,7 @@ func TestUpdateUserAuthorityClaimsAndReleases(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 	ctx := t.Context()
 
-	before, err := operation_service.Default().ReadNativeRevision(ctx)
+	before, err := nativeoperation_service.Default().ReadNativeRevision(ctx)
 	require.NoError(t, err)
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 28})
@@ -47,7 +47,7 @@ func TestUpdateUserAuthorityClaimsAndReleases(t *testing.T) {
 		IsActive: optional.Some(true),
 	}))
 
-	after, err := operation_service.Default().ReadNativeRevision(ctx)
+	after, err := nativeoperation_service.Default().ReadNativeRevision(ctx)
 	require.NoError(t, err)
 	require.Greater(t, after.Revision, before.Revision)
 	require.True(t, after.Idle)

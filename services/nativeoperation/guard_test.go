@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	execcontext "forgejo.org/modules/nativeoperation"
 
@@ -53,7 +53,7 @@ func TestOrdinaryOwnershipRefusesWhenBusy(t *testing.T) {
 	ctx := t.Context()
 	svc := admissionService(t, nil, 0)
 
-	_, err := model.ClaimOrdinary(ctx, "ord:test/holder", `{}`, "v")
+	_, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:test/holder", `{}`, "v")
 	require.NoError(t, err)
 	ran := false
 	err = svc.WithOrdinaryOwnership(ctx, "branch", "1/topic", Scope{RepositoryID: 1, Ref: "refs/heads/topic"}, func(context.Context) error {
@@ -65,7 +65,7 @@ func TestOrdinaryOwnershipRefusesWhenBusy(t *testing.T) {
 	require.False(t, ran)
 
 	// A failing writer still releases its owner.
-	require.NoError(t, model.ReleaseOwner(ctx, "ord:test/holder"))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, "ord:test/holder"))
 	boom := errors.New("writer failed")
 	err = svc.WithOrdinaryOwnership(ctx, "branch", "1/topic", Scope{RepositoryID: 1, Ref: "refs/heads/topic"}, func(context.Context) error {
 		return boom
@@ -135,7 +135,7 @@ func TestOrdinaryOwnershipRefusesWhileInhibited(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.True(t, IsBusy(err))
-	require.ErrorIs(t, err, model.ErrInhibited)
+	require.ErrorIs(t, err, nativeoperation_model.ErrInhibited)
 	require.False(t, ran)
 
 	idle, err := svc.ReadNativeRevision(ctx)

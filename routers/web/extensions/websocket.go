@@ -5,7 +5,7 @@ package extensions
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,7 +14,7 @@ import (
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/setting"
-	webcontext "forgejo.org/services/context"
+	app_context "forgejo.org/services/context"
 
 	"github.com/coder/websocket"
 )
@@ -62,7 +62,7 @@ func validStreamOrigin(r *http.Request) bool {
 	return true
 }
 
-func proxyWebSocket(ctx *webcontext.Context, transport http.RoundTripper, authority extension.Authority, admission string) {
+func proxyWebSocket(ctx *app_context.Context, transport http.RoundTripper, authority extension.Authority, admission string) {
 	if !validStreamOrigin(ctx.Req) {
 		ctx.Error(http.StatusForbidden, "Same-origin extension stream required")
 		return
@@ -112,12 +112,12 @@ func proxyWebSocket(ctx *webcontext.Context, transport http.RoundTripper, author
 		ctx.Error(http.StatusBadGateway, "Extension stream unavailable")
 		return
 	}
-	defer backend.CloseNow()
+	defer func() { _ = backend.CloseNow() }()
 	browser, err := websocket.Accept(ctx.Resp, ctx.Req, &websocket.AcceptOptions{InsecureSkipVerify: true, CompressionMode: websocket.CompressionDisabled})
 	if err != nil {
 		return
 	}
-	defer browser.CloseNow()
+	defer func() { _ = browser.CloseNow() }()
 	browser.SetReadLimit(streamMessageBytes)
 	backend.SetReadLimit(streamMessageBytes)
 	stop := context.AfterFunc(streamCtx, func() { _ = browser.CloseNow(); _ = backend.CloseNow() })

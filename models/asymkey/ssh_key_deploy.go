@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	"forgejo.org/modules/timeutil"
 
@@ -111,7 +111,7 @@ func AddDeployKey(ctx context.Context, repoID int64, name, content string, readO
 	// Nested participating writer: key changes refuse while another owner
 	// holds the reservation; the enclosing authority update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	fingerprint, err := CalcFingerprint(content)
@@ -209,7 +209,7 @@ func UpdateDeployKeyCols(ctx context.Context, key *DeployKey, cols ...string) er
 		// Nested participating writer: key changes refuse while another
 		// owner holds the reservation; the enclosing authority update
 		// carries the execution.
-		if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 			return err
 		}
 	}

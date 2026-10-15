@@ -10,7 +10,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -335,7 +335,7 @@ func TestAcquireRejectsEntryCountAndDataCaps(t *testing.T) {
 
 	many := tarGzip(t, func(writer *tar.Writer) {
 		payload := []byte("x")
-		for i := 0; i < 10001; i++ {
+		for i := range 10001 {
 			name := "f" + strconv.Itoa(i)
 			require.NoError(t, writer.WriteHeader(&tar.Header{Name: name, Typeflag: tar.TypeReg, Size: int64(len(payload)), Mode: 0o644}))
 			_, err := writer.Write(payload)

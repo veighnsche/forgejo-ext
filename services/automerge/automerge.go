@@ -21,7 +21,7 @@ import (
 	"forgejo.org/modules/process"
 	"forgejo.org/modules/queue"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
@@ -59,7 +59,7 @@ func ScheduleAutoMerge(ctx context.Context, doer *user_model.User, pull *issues_
 	// One collaboration writer owns the automerge schedule before its
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.PullResource(pull.ID, "automerge"), pull.BaseRepoID, func(ctx context.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.PullResource(pull.ID, "automerge"), pull.BaseRepoID, func(ctx context.Context) error {
 		scheduled, err = doScheduleAutoMerge(ctx, doer, pull, style, message, deleteBranch)
 		return err
 	})
@@ -84,7 +84,7 @@ func RemoveScheduledAutoMerge(ctx context.Context, doer *user_model.User, pull *
 	// One collaboration writer owns the automerge unschedule before its
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
-	return operation_service.WithCollaborationOwnership(ctx, operation_service.PullResource(pull.ID, "automerge"), pull.BaseRepoID, func(ctx context.Context) error {
+	return nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.PullResource(pull.ID, "automerge"), pull.BaseRepoID, func(ctx context.Context) error {
 		return doRemoveScheduledAutoMerge(ctx, doer, pull, repoPerms)
 	})
 }

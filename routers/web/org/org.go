@@ -19,7 +19,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -68,7 +68,7 @@ func CreatePost(ctx *context.Context) {
 	// effects, advancing the native revision so old permission
 	// observations go stale.
 	doer := ctx.Doer
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%s", org.Name), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%s", org.Name), 0, func(ctx std_ctx.Context) error {
 		return organization.CreateOrganization(ctx, org, doer)
 	}); err != nil {
 		ctx.Data["Err_OrgName"] = true

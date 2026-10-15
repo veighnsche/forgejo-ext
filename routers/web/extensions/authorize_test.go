@@ -5,7 +5,7 @@ package extensions
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"net/http"
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	extension "forgejo.org/extension-sdk"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 
 	"github.com/stretchr/testify/require"
 )
@@ -40,12 +40,12 @@ func TestContributionAuthorizationIsOptionalAndNarrowing(t *testing.T) {
 		}, input)
 		return authorizationResponse(http.StatusOK, "application/json", `{"allowed":true}`), nil
 	})
-	descriptor := runtime.Descriptor{Manifest: extension.Manifest{Capabilities: []string{extension.CapabilityContributionAuthorize}}}
+	descriptor := extensions_service.Descriptor{Manifest: extension.Manifest{Capabilities: []string{extension.CapabilityContributionAuthorize}}}
 	require.True(t, authorizesContribution(context.Background(), descriptor, transport, contribution, "7", 42))
 	require.True(t, called)
 
 	called = false
-	require.True(t, authorizesContribution(context.Background(), runtime.Descriptor{}, nil, contribution, "7", 42))
+	require.True(t, authorizesContribution(context.Background(), extensions_service.Descriptor{}, nil, contribution, "7", 42))
 	require.False(t, called, "an extension without the capability uses only core permission checks")
 
 	transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -55,7 +55,7 @@ func TestContributionAuthorizationIsOptionalAndNarrowing(t *testing.T) {
 }
 
 func TestContributionAuthorizationFailsClosed(t *testing.T) {
-	descriptor := runtime.Descriptor{Manifest: extension.Manifest{Capabilities: []string{extension.CapabilityContributionAuthorize}}}
+	descriptor := extensions_service.Descriptor{Manifest: extension.Manifest{Capabilities: []string{extension.CapabilityContributionAuthorize}}}
 	contribution := pageContribution(extension.Page{ID: "spaces", Scope: "global"}, http.MethodGet)
 	for name, roundTrip := range map[string]roundTripFunc{
 		"unavailable": func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") },

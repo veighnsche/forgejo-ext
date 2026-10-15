@@ -19,7 +19,7 @@ import (
 	"forgejo.org/services/context/upload"
 	"forgejo.org/services/convert"
 	issue_service "forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // GetIssueCommentAttachment gets a single attachment of the comment
@@ -218,7 +218,7 @@ func CreateIssueCommentAttachment(ctx *context.APIContext) {
 	if err != nil {
 		if upload.IsErrFileTypeForbidden(err) {
 			ctx.Error(http.StatusUnprocessableEntity, "", err)
-		} else if operation_service.IsBusy(err) {
+		} else if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "UploadAttachment", err)
 		} else {
 			ctx.Error(http.StatusInternalServerError, "UploadAttachment", err)
@@ -295,10 +295,10 @@ func EditIssueCommentAttachment(ctx *context.APIContext) {
 	}
 
 	// One attachment update owns the row edit before its effects.
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentResource(attach.ID, operation_service.CollabAttachmentUpdate), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.AttachmentResource(attach.ID, nativeoperation_service.CollabAttachmentUpdate), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
 		return repo_model.UpdateAttachment(ctx, attach)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "UpdateAttachment", err)
 			return
 		}
@@ -352,10 +352,10 @@ func DeleteIssueCommentAttachment(ctx *context.APIContext) {
 
 	// One attachment delete owns the row and file removal before its
 	// effects.
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentResource(attach.ID, operation_service.CollabAttachmentDelete), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.AttachmentResource(attach.ID, nativeoperation_service.CollabAttachmentDelete), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
 		return repo_model.DeleteAttachment(ctx, attach, true)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "DeleteAttachment", err)
 			return
 		}

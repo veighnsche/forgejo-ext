@@ -22,7 +22,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // MigrateRepositoryGitData starts migrating git related data after created migrating repository
@@ -36,11 +36,11 @@ func MigrateRepositoryGitData(ctx context.Context, u *user_model.User,
 	// directory, so the whole migration stays under one owner. Nested
 	// calls reuse the enclosing ownership instead of claiming again.
 	var out *repo_model.Repository
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleMigrate, u.Name, opts.RepoName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoLifecycle,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(repo.ID, nativeoperation_service.LifecycleMigrate, u.Name, opts.RepoName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoLifecycle,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {

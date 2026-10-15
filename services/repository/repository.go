@@ -22,7 +22,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 )
@@ -109,11 +109,11 @@ func Init(ctx context.Context) error {
 func UpdateRepository(ctx context.Context, repo *repo_model.Repository, visibilityChanged bool) (err error) {
 	// One settings update owns the reservation before its database effects,
 	// advancing the revision so stale observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoSettings,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoSettings,
 		fmt.Sprintf("%d/edit", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoSettings,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoSettings,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {
@@ -139,11 +139,11 @@ func updateRepositoryOwned(ctx context.Context, repo *repo_model.Repository, vis
 func ConvertMirrorToNormalRepo(ctx context.Context, repo *repo_model.Repository) (err error) {
 	// One lifecycle update owns the reservation before its Git and database
 	// effects, advancing the revision so stale observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleConvertMirror, repo.OwnerName, repo.Name),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoLifecycle,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(repo.ID, nativeoperation_service.LifecycleConvertMirror, repo.OwnerName, repo.Name),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoLifecycle,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {

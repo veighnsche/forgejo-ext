@@ -9,7 +9,7 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 
@@ -58,7 +58,7 @@ func TestRecoverAuthorityUserConsistent(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/update/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "user/update",
 		AuthorityID: 2,
@@ -79,7 +79,7 @@ func TestRecoverAuthorityUserMissing(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/9999/update/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "user/update",
 		AuthorityID: 9999,
@@ -91,7 +91,7 @@ func TestRecoverAuthorityUserMissing(t *testing.T) {
 	require.Equal(t, RecoveryFenced, assessment.Verdict)
 	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
 
-	held, err := model.ReadReservation(ctx)
+	held, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, claimed.Owner, held.Owner)
 }
@@ -103,7 +103,7 @@ func TestRecoverAuthorityTeamMember(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/team/1/member/2/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyAuthority,
 		AuthorityOp:  "team/member",
 		AuthorityID:  1,
@@ -124,7 +124,7 @@ func TestRecoverAuthorityOrgTypeMismatch(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/org/2/email/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "org/email",
 		AuthorityID: 2,
@@ -144,7 +144,7 @@ func TestRecoverAuthorityCrossFamilyDeleteStaysFenced(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/delete/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "user/delete",
 		AuthorityID: 2,
@@ -156,7 +156,7 @@ func TestRecoverAuthorityCrossFamilyDeleteStaysFenced(t *testing.T) {
 	require.Equal(t, RecoveryFenced, assessment.Verdict)
 	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
 
-	held, err := model.ReadReservation(ctx)
+	held, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, claimed.Owner, held.Owner)
 }
@@ -168,7 +168,7 @@ func TestRecoverAuthorityMissingOpStaysFenced(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/directory-sync/nonce", Scope{
-		Kind:   model.OwnerOrdinary,
+		Kind:   nativeoperation_model.OwnerOrdinary,
 		Family: FamilyAuthority,
 	})
 	inhibitDomain(t)
@@ -186,7 +186,7 @@ func TestRecoverAuthorityUnknownOpStaysFenced(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/future/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "user/future",
 		AuthorityID: 2,
@@ -206,7 +206,7 @@ func TestRecoverAuthorityAbsentTokenReleases(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/token/9999/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "token",
 		AuthorityID: 9999,
@@ -226,7 +226,7 @@ func TestRecoverAuthorityCollaborator(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/repo/1/collaborator/2/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: 1,
 		Family:       FamilyAuthority,
 		AuthorityOp:  "repo/collaborator",
@@ -248,7 +248,7 @@ func TestRecoverAuthorityAbsentDeployKeyReleases(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/repo/1/deploy-key/9999/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: 1,
 		Family:       FamilyAuthority,
 		AuthorityOp:  "repo/deploy-key",
@@ -269,7 +269,7 @@ func TestAuthorityClaimRecordsAttributableScope(t *testing.T) {
 	useIsolatedAppData(t)
 
 	err := WithAuthorityOwnership(ctx, "team/1/member/2", 0, func(ctx context.Context) error {
-		reservation, err := model.ReadReservation(ctx)
+		reservation, err := nativeoperation_model.ReadReservation(ctx)
 		require.NoError(t, err)
 		require.NotEmpty(t, reservation.Owner)
 		scope, err := decodeScope(reservation.Scope)
@@ -283,7 +283,7 @@ func TestAuthorityClaimRecordsAttributableScope(t *testing.T) {
 	require.NoError(t, err)
 
 	err = WithAuthorityOwnership(ctx, "directory-sync", 0, func(ctx context.Context) error {
-		reservation, err := model.ReadReservation(ctx)
+		reservation, err := nativeoperation_model.ReadReservation(ctx)
 		require.NoError(t, err)
 		scope, err := decodeScope(reservation.Scope)
 		require.NoError(t, err)
@@ -293,6 +293,7 @@ func TestAuthorityClaimRecordsAttributableScope(t *testing.T) {
 	require.NoError(t, err)
 }
 
+//nolint:revive // Test helpers take testing.T before their context.
 func insertDeletedUser(t *testing.T, ctx context.Context, name string) int64 {
 	t.Helper()
 	user := &user_model.User{Name: name, LowerName: name, Email: name + "@example.com"}
@@ -310,7 +311,7 @@ func TestRecoverAuthorityUserDeleteReleased(t *testing.T) {
 
 	userID := insertDeletedUser(t, ctx, "ft09-gone")
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/9001/delete/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "user/delete",
 		AuthorityID: userID,
@@ -330,7 +331,7 @@ func TestRecoverAuthorityUserDeletePresentFences(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/delete/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "user/delete",
 		AuthorityID: 2,
@@ -352,7 +353,7 @@ func TestRecoverAuthorityUserDeleteDanglingFences(t *testing.T) {
 	userID := insertDeletedUser(t, ctx, "ft09-dangling")
 	unittest.AssertSuccessfulInsert(t, &user_model.EmailAddress{UID: userID, Email: "ft09-dangling@example.com"})
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/9002/delete/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "user/delete",
 		AuthorityID: userID,
@@ -374,7 +375,7 @@ func TestRecoverAuthorityOrgDeleteReleased(t *testing.T) {
 
 	userID := insertDeletedUser(t, ctx, "ft09-org-gone")
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/org/9003/delete/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "org/delete",
 		AuthorityID: userID,
@@ -394,7 +395,7 @@ func TestRecoverAuthorityOrgDeletePresentFences(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/org/3/delete/nonce", Scope{
-		Kind:        model.OwnerOrdinary,
+		Kind:        nativeoperation_model.OwnerOrdinary,
 		Family:      FamilyAuthority,
 		AuthorityOp: "org/delete",
 		AuthorityID: 3,
@@ -415,7 +416,7 @@ func TestRecoverAuthorityUserBlockCommitted(t *testing.T) {
 
 	unittest.AssertSuccessfulInsert(t, &user_model.BlockedUser{UserID: 2, BlockID: 4242})
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/block/4242/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyAuthority,
 		AuthorityOp:  "user/block",
 		AuthorityID:  2,
@@ -436,7 +437,7 @@ func TestRecoverAuthorityUserBlockAbsent(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/block/4243/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyAuthority,
 		AuthorityOp:  "user/block",
 		AuthorityID:  2,
@@ -461,7 +462,7 @@ func TestRecoverAuthorityUserBlockSurvivorFences(t *testing.T) {
 	unittest.AssertSuccessfulInsert(t, &user_model.BlockedUser{UserID: 2, BlockID: blocked.ID})
 	unittest.AssertSuccessfulInsert(t, &actions_model.ActionUser{UserID: blocked.ID, RepoID: 1})
 	claimed := claimOrdinaryOwner(t, ctx, "ord:authority/user/2/block/4244/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyAuthority,
 		AuthorityOp:  "user/block",
 		AuthorityID:  2,

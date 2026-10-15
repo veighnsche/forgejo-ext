@@ -19,7 +19,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	commitstatus_service "forgejo.org/services/repository/commitstatus"
 )
 
@@ -94,7 +94,7 @@ func NewCommitStatus(ctx *context.APIContext) {
 	}
 	// One external status insert owns its effect before the insert: the
 	// status row and its summary share this ownership.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.StatusResource(commit.ID.String(), string(form.State), doer.ID, strings.TrimSpace(form.Context)), operation_service.Scope{
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.StatusResource(commit.ID.String(), string(form.State), doer.ID, strings.TrimSpace(form.Context)), nativeoperation_service.Scope{
 		RepositoryID: repo.ID,
 	}, func(ctx stdCtx.Context) error {
 		return commitstatus_service.CreateCommitStatus(ctx, repo, doer, sha, status)
@@ -102,7 +102,7 @@ func NewCommitStatus(ctx *context.APIContext) {
 	if err != nil {
 		// TODO: replace with git.IsErrNotExist(err) once #12583 is resolved
 		var errNotExist git.ErrNotExist
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 		} else if errors.As(err, &errNotExist) {
 			ctx.NotFound("sha", sha)

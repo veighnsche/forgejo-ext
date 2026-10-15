@@ -13,8 +13,8 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
-	organization "forgejo.org/models/organization"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
+	org_model "forgejo.org/models/organization"
 	packages_model "forgejo.org/models/packages"
 	access_model "forgejo.org/models/perm/access"
 	pull_model "forgejo.org/models/pull"
@@ -38,7 +38,7 @@ const EffectAuthorityConsistent = "consistent"
 // User and organization deletes reconcile their full cross-family absence
 // below; other multi-entity batches have no single-entity reconciliation
 // and stay fenced.
-func (s *Service) recoverAuthority(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthority(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.AuthorityOp == "" {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "authority scope names no attributable operation")
 	}
@@ -94,7 +94,7 @@ func (s *Service) recoverAuthority(ctx context.Context, assessment *RecoveryAsse
 
 // recoverAuthorityUser releases a user-scoped authority writer when the user
 // row is intact. Credential and profile changes never delete their user.
-func (s *Service) recoverAuthorityUser(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, userID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityUser(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, userID int64) (RecoveryAssessment, error) {
 	if userID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no user", scope.AuthorityOp))
 	}
@@ -110,7 +110,7 @@ func (s *Service) recoverAuthorityUser(ctx context.Context, assessment *Recovery
 
 // recoverAuthorityOrg releases an organization-scoped writer when the
 // organization row is intact and still an organization.
-func (s *Service) recoverAuthorityOrg(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, orgID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityOrg(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, orgID int64) (RecoveryAssessment, error) {
 	if orgID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no organization", scope.AuthorityOp))
 	}
@@ -130,12 +130,12 @@ func (s *Service) recoverAuthorityOrg(ctx context.Context, assessment *RecoveryA
 
 // recoverAuthorityTeam releases a team-scoped writer when the team row is
 // intact. Member, repository and invite changes never delete their team.
-func (s *Service) recoverAuthorityTeam(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, teamID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityTeam(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, teamID int64) (RecoveryAssessment, error) {
 	if teamID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no team", scope.AuthorityOp))
 	}
-	if _, err := organization.GetTeamByID(ctx, teamID); err != nil {
-		if organization.IsErrTeamNotExist(err) {
+	if _, err := org_model.GetTeamByID(ctx, teamID); err != nil {
+		if org_model.IsErrTeamNotExist(err) {
 			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("team %d for the held authority scope no longer exists", teamID))
 		}
 		return RecoveryAssessment{}, err
@@ -146,12 +146,14 @@ func (s *Service) recoverAuthorityTeam(ctx context.Context, assessment *Recovery
 
 // recoverAuthorityTeamMember releases a team-membership writer when both the
 // team and the user rows are intact.
-func (s *Service) recoverAuthorityTeamMember(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, teamID, userID int64) (RecoveryAssessment, error) {
+//
+//nolint:dupl // User and team protection fields have separate database columns.
+func (s *Service) recoverAuthorityTeamMember(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, teamID, userID int64) (RecoveryAssessment, error) {
 	if teamID <= 0 || userID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no team member pair", scope.AuthorityOp))
 	}
-	if _, err := organization.GetTeamByID(ctx, teamID); err != nil {
-		if organization.IsErrTeamNotExist(err) {
+	if _, err := org_model.GetTeamByID(ctx, teamID); err != nil {
+		if org_model.IsErrTeamNotExist(err) {
 			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("team %d for the held authority scope no longer exists", teamID))
 		}
 		return RecoveryAssessment{}, err
@@ -168,7 +170,7 @@ func (s *Service) recoverAuthorityTeamMember(ctx context.Context, assessment *Re
 
 // recoverAuthorityOrgMember releases an organization-membership writer when
 // both the organization and the user rows are intact.
-func (s *Service) recoverAuthorityOrgMember(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, orgID, userID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityOrgMember(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, orgID, userID int64) (RecoveryAssessment, error) {
 	if orgID <= 0 || userID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no organization member pair", scope.AuthorityOp))
 	}
@@ -194,12 +196,14 @@ func (s *Service) recoverAuthorityOrgMember(ctx context.Context, assessment *Rec
 
 // recoverAuthorityTeamRepo releases a team-repository writer when both the
 // team and the repository rows are intact.
-func (s *Service) recoverAuthorityTeamRepo(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, teamID, repoID int64) (RecoveryAssessment, error) {
+//
+//nolint:dupl // User and team protection fields have separate database columns.
+func (s *Service) recoverAuthorityTeamRepo(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, teamID, repoID int64) (RecoveryAssessment, error) {
 	if teamID <= 0 || repoID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no team repository pair", scope.AuthorityOp))
 	}
-	if _, err := organization.GetTeamByID(ctx, teamID); err != nil {
-		if organization.IsErrTeamNotExist(err) {
+	if _, err := org_model.GetTeamByID(ctx, teamID); err != nil {
+		if org_model.IsErrTeamNotExist(err) {
 			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("team %d for the held authority scope no longer exists", teamID))
 		}
 		return RecoveryAssessment{}, err
@@ -218,7 +222,7 @@ func (s *Service) recoverAuthorityTeamRepo(ctx context.Context, assessment *Reco
 // present or absent (both are valid single-transaction end states); a live
 // token needs its owner, a withdrawn token must leave no dangling resource
 // rows behind.
-func (s *Service) recoverAuthorityToken(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, tokenID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityToken(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, tokenID int64) (RecoveryAssessment, error) {
 	if tokenID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no token", scope.AuthorityOp))
 	}
@@ -250,7 +254,7 @@ func (s *Service) recoverAuthorityToken(ctx context.Context, assessment *Recover
 
 // recoverAuthorityKey releases a public-key writer. The key row itself may be
 // present or absent; a live key needs its owner.
-func (s *Service) recoverAuthorityKey(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, keyID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityKey(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, keyID int64) (RecoveryAssessment, error) {
 	if keyID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no key", scope.AuthorityOp))
 	}
@@ -274,7 +278,7 @@ func (s *Service) recoverAuthorityKey(ctx context.Context, assessment *RecoveryA
 
 // recoverAuthorityGPGKey releases a GPG-key writer. The key row itself may be
 // present or absent; a live key needs its owner.
-func (s *Service) recoverAuthorityGPGKey(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, keyID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityGPGKey(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, keyID int64) (RecoveryAssessment, error) {
 	if keyID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no key", scope.AuthorityOp))
 	}
@@ -300,7 +304,7 @@ func (s *Service) recoverAuthorityGPGKey(ctx context.Context, assessment *Recove
 // recoverAuthorityOAuth2App releases an OAuth2-application writer. A live
 // application needs its owner (unless instance-wide); a deleted application
 // must leave no dangling grants behind.
-func (s *Service) recoverAuthorityOAuth2App(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, appID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityOAuth2App(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, appID int64) (RecoveryAssessment, error) {
 	if appID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no application", scope.AuthorityOp))
 	}
@@ -334,7 +338,7 @@ func (s *Service) recoverAuthorityOAuth2App(ctx context.Context, assessment *Rec
 // recoverAuthorityOAuth2Grant releases an OAuth2-grant writer. The grant row
 // itself may be present or absent; a live grant needs its application and
 // its user.
-func (s *Service) recoverAuthorityOAuth2Grant(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, grantID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityOAuth2Grant(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, grantID int64) (RecoveryAssessment, error) {
 	if grantID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no grant", scope.AuthorityOp))
 	}
@@ -366,7 +370,7 @@ func (s *Service) recoverAuthorityOAuth2Grant(ctx context.Context, assessment *R
 // recoverAuthoritySource releases an auth-source writer. A live source needs
 // nothing else; a deleted source must leave no dangling external logins
 // behind.
-func (s *Service) recoverAuthoritySource(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, sourceID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthoritySource(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, sourceID int64) (RecoveryAssessment, error) {
 	if sourceID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no auth source", scope.AuthorityOp))
 	}
@@ -390,7 +394,9 @@ func (s *Service) recoverAuthoritySource(ctx context.Context, assessment *Recove
 
 // recoverAuthorityCollaborator releases a collaborator writer when both the
 // repository and the user rows are intact.
-func (s *Service) recoverAuthorityCollaborator(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, repoID, userID int64) (RecoveryAssessment, error) {
+//
+//nolint:dupl // User and team protection fields have separate database columns.
+func (s *Service) recoverAuthorityCollaborator(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, repoID, userID int64) (RecoveryAssessment, error) {
 	if repoID <= 0 || userID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no repository collaborator pair", scope.AuthorityOp))
 	}
@@ -414,7 +420,7 @@ func (s *Service) recoverAuthorityCollaborator(ctx context.Context, assessment *
 // row is intact. The deploy association itself may be present or absent
 // (both are valid end states); an orphaned public-key row left by the
 // non-transactional deploy delete authorizes nothing without its association.
-func (s *Service) recoverAuthorityDeployKey(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, repoID, keyID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityDeployKey(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, repoID, keyID int64) (RecoveryAssessment, error) {
 	if repoID <= 0 || keyID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("authority operation %q names no repository deploy-key pair", scope.AuthorityOp))
 	}
@@ -479,7 +485,7 @@ func countWhere(bean func() any, cond string, args ...any) func(ctx context.Cont
 // counters and post-commit filesystem effects (key files, avatars) follow
 // from the committed transaction. Stale key-file lines reference deleted
 // key IDs, which SSH authentication fails closed on.
-func (s *Service) recoverAuthorityUserDelete(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, userID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityUserDelete(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, userID int64) (RecoveryAssessment, error) {
 	if userID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "authority delete names no user")
 	}
@@ -502,7 +508,7 @@ func (s *Service) recoverAuthorityUserDelete(ctx context.Context, assessment *Re
 		{"email", countWhere(func() any { return new(user_model.EmailAddress) }, "uid=?", nil)},
 		{"openid", countWhere(func() any { return new(user_model.UserOpenID) }, "uid=?", nil)},
 		{"reaction", countWhere(func() any { return new(issues_model.Reaction) }, "user_id=?", nil)},
-		{"team_user", countWhere(func() any { return new(organization.TeamUser) }, "uid=?", nil)},
+		{"team_user", countWhere(func() any { return new(org_model.TeamUser) }, "uid=?", nil)},
 		{"stopwatch", countWhere(func() any { return new(issues_model.Stopwatch) }, "user_id=?", nil)},
 		{"setting", countWhere(func() any { return new(user_model.Setting) }, "user_id=?", nil)},
 		{"badge", countWhere(func() any { return new(user_model.UserBadge) }, "user_id=?", nil)},
@@ -558,7 +564,7 @@ func (s *Service) recoverAuthorityUserDelete(ctx context.Context, assessment *Re
 // committed. Every nested row set must then be absent; any survivor
 // fences as a partial delete. A present organization row fences: the
 // purge may have partially applied outside the final transaction.
-func (s *Service) recoverAuthorityOrgDelete(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, orgID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityOrgDelete(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, orgID int64) (RecoveryAssessment, error) {
 	if orgID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "authority delete names no organization")
 	}
@@ -570,11 +576,11 @@ func (s *Service) recoverAuthorityOrgDelete(ctx context.Context, assessment *Rec
 		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("organization %d still exists after a held deletion; complete the delete manually", orgID))
 	}
 	checks := []danglingCheck{
-		{"team", countWhere(func() any { return new(organization.Team) }, "org_id=?", nil)},
-		{"org_user", countWhere(func() any { return new(organization.OrgUser) }, "org_id=?", nil)},
-		{"team_user", countWhere(func() any { return new(organization.TeamUser) }, "org_id=?", nil)},
-		{"team_unit", countWhere(func() any { return new(organization.TeamUnit) }, "org_id=?", nil)},
-		{"team_invite", countWhere(func() any { return new(organization.TeamInvite) }, "org_id=?", nil)},
+		{"team", countWhere(func() any { return new(org_model.Team) }, "org_id=?", nil)},
+		{"org_user", countWhere(func() any { return new(org_model.OrgUser) }, "org_id=?", nil)},
+		{"team_user", countWhere(func() any { return new(org_model.TeamUser) }, "org_id=?", nil)},
+		{"team_unit", countWhere(func() any { return new(org_model.TeamUnit) }, "org_id=?", nil)},
+		{"team_invite", countWhere(func() any { return new(org_model.TeamInvite) }, "org_id=?", nil)},
 		{"secret", countWhere(func() any { return new(secret_model.Secret) }, "owner_id=?", nil)},
 		{"action_runner", countWhere(func() any { return new(actions_model.ActionRunner) }, "owner_id=?", nil)},
 		{"runner_token", countWhere(func() any { return new(actions_model.ActionRunnerToken) }, "owner_id=?", nil)},
@@ -619,7 +625,7 @@ func (s *Service) recoverAuthorityOrgDelete(ctx context.Context, assessment *Rec
 // trust row may remain for the blocked user in any repository owned by
 // the blocker, and none of their runs there may be unfinished. An absent
 // block row proves the transaction never committed, so nothing applied.
-func (s *Service) recoverAuthorityUserBlock(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, userID, blockID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverAuthorityUserBlock(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, userID, blockID int64) (RecoveryAssessment, error) {
 	if userID <= 0 || blockID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "authority block names no user pair")
 	}

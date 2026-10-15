@@ -22,7 +22,7 @@ import (
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // appendPrivateInformation appends the owner and key type information to api.PublicKey
@@ -244,12 +244,12 @@ func CreateDeployKey(ctx *context.APIContext) {
 	// observations go stale.
 	repoID := ctx.Repo().Repository.ID
 	var key *asymkey_model.DeployKey
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key", repoID), repoID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key", repoID), repoID, func(ctx stdCtx.Context) error {
 		var err error
 		key, err = asymkey_model.AddDeployKey(ctx, repoID, form.Title, content, form.ReadOnly)
 		return err
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -297,10 +297,10 @@ func DeleteDeploykey(ctx *context.APIContext) {
 	// observations go stale.
 	repoID := ctx.Repo().Repository.ID
 	keyID := ctx.ParamsInt64(":id")
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key/%d", repoID, keyID), repoID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key/%d", repoID, keyID), repoID, func(ctx stdCtx.Context) error {
 		return asymkey_service.DeleteDeployKey(ctx, keyID, repoID)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

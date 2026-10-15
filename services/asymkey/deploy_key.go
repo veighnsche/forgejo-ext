@@ -9,7 +9,7 @@ import (
 	"forgejo.org/models"
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 )
 
 // DeleteDeployKey deletes deploy key from its repository authorized_keys file if needed.
@@ -17,7 +17,7 @@ func DeleteDeployKey(ctx context.Context, id, repoID int64) error {
 	// Nested participating writer: deploy-key deletion refuses while
 	// another owner holds the reservation; the enclosing authority
 	// update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if err := db.WithTx(ctx, func(ctx context.Context) error {

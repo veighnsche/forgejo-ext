@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	git_model "forgejo.org/models/git"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/setting"
@@ -26,14 +26,15 @@ func useIsolatedAppData(t *testing.T) {
 
 func inhibitDomain(t *testing.T) {
 	t.Helper()
-	require.NoError(t, os.WriteFile(model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
+	require.NoError(t, os.WriteFile(nativeoperation_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
 }
 
-func claimOrdinaryOwner(t *testing.T, ctx context.Context, owner string, scope Scope) *model.Reservation {
+//nolint:revive // Test helpers take testing.T before their context.
+func claimOrdinaryOwner(t *testing.T, ctx context.Context, owner string, scope Scope) *nativeoperation_model.Reservation {
 	t.Helper()
 	encoded, err := encodeScope(scope)
 	require.NoError(t, err)
-	claimed, err := model.ClaimOrdinary(ctx, owner, encoded, "verifier")
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, owner, encoded, "verifier")
 	require.NoError(t, err)
 	return claimed
 }
@@ -65,7 +66,7 @@ func TestRecoverWrongOwnerAndGeneration(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:branch-delete/1/branch2/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: 1,
 		Family:       FamilyBranchDelete,
 	})
@@ -74,14 +75,14 @@ func TestRecoverWrongOwnerAndGeneration(t *testing.T) {
 	wrongOwner, err := svc.Recover(ctx, "ord:branch-delete/1/other/nonce", claimed.Generation)
 	require.NoError(t, err)
 	require.Equal(t, RecoveryFenced, wrongOwner.Verdict)
-	require.Equal(t, model.ReasonWrongOwner, wrongOwner.Reason)
+	require.Equal(t, nativeoperation_model.ReasonWrongOwner, wrongOwner.Reason)
 
 	wrongGeneration, err := svc.Recover(ctx, claimed.Owner, claimed.Generation+1)
 	require.NoError(t, err)
 	require.Equal(t, RecoveryFenced, wrongGeneration.Verdict)
 	require.Equal(t, ReasonRecoveryWrongGeneration, wrongGeneration.Reason)
 
-	held, err := model.ReadReservation(ctx)
+	held, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, claimed.Owner, held.Owner)
 }
@@ -93,7 +94,7 @@ func TestRecoverUnknownFamily(t *testing.T) {
 	svc := admissionService(t, nil, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:future/1/x/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: 1,
 		Family:       "future-family",
 	})
@@ -104,7 +105,7 @@ func TestRecoverUnknownFamily(t *testing.T) {
 	require.Equal(t, RecoveryFenced, assessment.Verdict)
 	require.Equal(t, ReasonRecoveryUnknownFamily, assessment.Reason)
 
-	held, err := model.ReadReservation(ctx)
+	held, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, claimed.Owner, held.Owner)
 }
@@ -120,7 +121,7 @@ func TestRecoverBranchDeleteKnownDeleted(t *testing.T) {
 
 	require.NoError(t, git_model.AddDeletedBranch(ctx, 1, "branch2", 2))
 	claimed := claimOrdinaryOwner(t, ctx, "ord:branch-delete/1/branch2/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: 1,
 		Ref:          "refs/heads/branch2",
 		OldOID:       "985f0301dba5e7b34be866819cd15ad3d8f508ee",
@@ -137,7 +138,7 @@ func TestRecoverBranchDeleteKnownDeleted(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, entries)
 
-	idle, err := model.ReadReservation(ctx)
+	idle, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
 }
@@ -149,7 +150,7 @@ func TestRecoverBranchDeleteNoEffect(t *testing.T) {
 	svc := admissionService(t, map[string]string{"refs/heads/branch2": "985f0301dba5e7b34be866819cd15ad3d8f508ee"}, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:branch-delete/1/branch2/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: 1,
 		Ref:          "refs/heads/branch2",
 		OldOID:       "985f0301dba5e7b34be866819cd15ad3d8f508ee",
@@ -161,7 +162,7 @@ func TestRecoverBranchDeleteNoEffect(t *testing.T) {
 	assessment, err := svc.Recover(ctx, claimed.Owner, claimed.Generation)
 	require.NoError(t, err)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func TestRecoverBranchDeleteMixedStateFences(t *testing.T) {
@@ -174,7 +175,7 @@ func TestRecoverBranchDeleteMixedStateFences(t *testing.T) {
 
 	require.NoError(t, git_model.AddDeletedBranch(ctx, 1, "branch2", 2))
 	claimed := claimOrdinaryOwner(t, ctx, "ord:branch-delete/1/branch2/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: 1,
 		Ref:          "refs/heads/branch2",
 		OldOID:       "985f0301dba5e7b34be866819cd15ad3d8f508ee",
@@ -188,7 +189,7 @@ func TestRecoverBranchDeleteMixedStateFences(t *testing.T) {
 	require.Equal(t, RecoveryFenced, assessment.Verdict)
 	require.Equal(t, ReasonRecoveryUnaccounted, assessment.Reason)
 
-	held, err := model.ReadReservation(ctx)
+	held, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, claimed.Owner, held.Owner)
 }
@@ -202,7 +203,7 @@ func TestRecoverBranchDeleteMovedTipFences(t *testing.T) {
 	svc := admissionService(t, map[string]string{"refs/heads/branch2": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 0)
 
 	claimed := claimOrdinaryOwner(t, ctx, "ord:branch-delete/1/branch2/nonce", Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		RepositoryID: 1,
 		Ref:          "refs/heads/branch2",
 		OldOID:       "985f0301dba5e7b34be866819cd15ad3d8f508ee",

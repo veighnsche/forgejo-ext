@@ -12,7 +12,7 @@ import (
 
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/log"
@@ -96,7 +96,7 @@ func AddPublicKey(ctx context.Context, ownerID int64, name, content string, auth
 	// Nested participating writer: key changes refuse while another owner
 	// holds the reservation; the enclosing authority update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	log.Trace(content)
@@ -298,7 +298,7 @@ func deleteKeysMarkedForDeletion(ctx context.Context, keys []string) (bool, erro
 	// Nested participating writer: key changes refuse while another owner
 	// holds the reservation; the enclosing authority update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return false, err
 	}
 	// Start session

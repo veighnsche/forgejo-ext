@@ -282,8 +282,10 @@ func TestDecodeLifecycleObservationRequiresPresence(t *testing.T) {
 }
 
 func TestValidateLifecycleRegistration(t *testing.T) {
-	manifest := Manifest{Protocol: Protocol, ID: "controller", Name: "C", Version: "1.0.0",
-		Executable: "backend", Capabilities: []string{CapabilityExtensionLifecycle}}
+	manifest := Manifest{
+		Protocol: Protocol, ID: "controller", Name: "C", Version: "1.0.0",
+		Executable: "backend", Capabilities: []string{CapabilityExtensionLifecycle},
+	}
 	registered := Registration{AuthorizesContribution: false, Lifecycle: true}
 	if err := ValidateLifecycleRegistration(manifest, registered); err != nil {
 		t.Fatalf("matching registration rejected: %v", err)

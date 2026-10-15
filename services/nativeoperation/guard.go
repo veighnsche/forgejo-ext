@@ -7,12 +7,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"fmt"
 	"os"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
 )
 
@@ -167,27 +167,27 @@ func (s *Service) WithOrdinaryOwnership(ctx context.Context, family, resource st
 	release := func() {
 		_ = os.Remove(path)
 	}
-	scope.Kind = model.OwnerOrdinary
+	scope.Kind = nativeoperation_model.OwnerOrdinary
 	scope.Family = family
 	encoded, err := encodeScope(scope)
 	if err != nil {
 		release()
 		return err
 	}
-	claimed, err := model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier(secret))
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier(secret))
 	if err != nil {
 		release()
-		if errors.Is(err, model.ErrBusy) {
+		if errors.Is(err, nativeoperation_model.ErrBusy) {
 			return fmt.Errorf("%w: ordinary writer %s is fenced", ErrBusy, family)
 		}
-		if errors.Is(err, model.ErrInhibited) {
-			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", model.ErrInhibited, family)
+		if errors.Is(err, nativeoperation_model.ErrInhibited) {
+			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", nativeoperation_model.ErrInhibited, family)
 		}
 		return err
 	}
 	owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: path})
 	fnErr := fn(owned)
-	if err := model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
+	if err := nativeoperation_model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
 		release()
 		if fnErr != nil {
 			return fmt.Errorf("%w (and failed to release %s: %v)", fnErr, owner, err)

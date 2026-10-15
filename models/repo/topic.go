@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/timeutil"
 
@@ -359,7 +359,7 @@ func DeleteOrphanedTopics(ctx context.Context) (int64, error) {
 	// Nested participating writer: topic rows refuse while another owner
 	// holds the reservation; the enclosing maintenance repair carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	return db.GetEngine(ctx).Where("repo_count = 0").Delete(new(Topic))

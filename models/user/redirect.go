@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -88,7 +88,7 @@ func NewUserRedirect(ctx context.Context, ID int64, oldUserName, newUserName str
 	// Nested participating writer: identity changes refuse while another
 	// owner holds the reservation; the enclosing authority update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	oldUserName = strings.ToLower(oldUserName)
@@ -114,7 +114,7 @@ func LimitUserRedirects(ctx context.Context, userID, n int64) error {
 	// Nested participating writer: identity changes refuse while another
 	// owner holds the reservation; the enclosing authority update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	// NOTE: It's not possible to combine these two queries into one due to a limitation of MySQL.
@@ -133,7 +133,7 @@ func DeleteUserRedirect(ctx context.Context, userName string) error {
 	// Nested participating writer: identity changes refuse while another
 	// owner holds the reservation; the enclosing authority update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	userName = strings.ToLower(userName)

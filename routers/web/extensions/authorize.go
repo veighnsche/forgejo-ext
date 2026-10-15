@@ -6,17 +6,18 @@ package extensions
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	extension "forgejo.org/extension-sdk"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 	contributionAuthorizationTTL  = 2 * time.Second
 )
 
-func authorizesContribution(ctx context.Context, descriptor runtime.Descriptor, transport http.RoundTripper, contribution extension.Contribution, repositoryID string, actorID int64) bool {
+func authorizesContribution(ctx context.Context, descriptor extensions_service.Descriptor, transport http.RoundTripper, contribution extension.Contribution, repositoryID string, actorID int64) bool {
 	if !hasCapability(descriptor, extension.CapabilityContributionAuthorize) {
 		return true
 	}
@@ -69,13 +70,8 @@ func authorizesContribution(ctx context.Context, descriptor runtime.Descriptor, 
 	return decision.Allowed
 }
 
-func hasCapability(descriptor runtime.Descriptor, capability string) bool {
-	for _, declared := range descriptor.Manifest.Capabilities {
-		if declared == capability {
-			return true
-		}
-	}
-	return false
+func hasCapability(descriptor extensions_service.Descriptor, capability string) bool {
+	return slices.Contains(descriptor.Manifest.Capabilities, capability)
 }
 
 func pageContribution(page extension.Page, action string) extension.Contribution {

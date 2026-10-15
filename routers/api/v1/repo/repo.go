@@ -37,7 +37,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	"forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 	wiki_service "forgejo.org/services/wiki"
 )
@@ -820,11 +820,11 @@ func updateBasicProperties(ctx *context.APIContext, opts api.EditRepoOption) err
 	// wiki branch effects; the nested service calls reuse this
 	// ownership. Storage failures keep their API errors.
 	ctxGitRepo := ctx.Repo().GitRepo
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoSettings,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoSettings,
 		fmt.Sprintf("%d/branches", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoSettings,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoSettings,
 			RepositoryID: repo.ID,
 		},
 		func(ctx go_context.Context) error {
@@ -1151,7 +1151,7 @@ func updateRepoArchivedState(ctx *context.APIContext, opts api.EditRepoOption) e
 				// Busy refuses the archive: silently skipping the
 				// schedule cleanup would leave runs firing for an
 				// archived repository.
-				if operation_service.IsBusy(err) {
+				if nativeoperation_service.IsBusy(err) {
 					ctx.Error(http.StatusServiceUnavailable, "CleanRepoScheduleTasks", err)
 					return err
 				}
@@ -1169,7 +1169,7 @@ func updateRepoArchivedState(ctx *context.APIContext, opts api.EditRepoOption) e
 					// Busy refuses the un-archive: silently skipping
 					// the schedule rebuild would leave an active
 					// repository without its scheduled runs.
-					if operation_service.IsBusy(err) {
+					if nativeoperation_service.IsBusy(err) {
 						ctx.Error(http.StatusServiceUnavailable, "DetectAndHandleSchedules", err)
 						return err
 					}
@@ -1185,11 +1185,11 @@ func updateRepoArchivedState(ctx *context.APIContext, opts api.EditRepoOption) e
 // setArchiveRepoStateOwned flips the archive state under one settings
 // ownership; archive flips gate every native writer.
 func setArchiveRepoStateOwned(ctx go_context.Context, repo *repo_model.Repository, isArchived bool) error {
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoSettings,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoSettings,
 		fmt.Sprintf("%d/archive", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoSettings,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoSettings,
 			RepositoryID: repo.ID,
 		},
 		func(ctx go_context.Context) error {
@@ -1246,11 +1246,11 @@ func updateMirror(ctx *context.APIContext, opts api.EditRepoOption) error {
 
 	// Finally update the mirror in the DB under one mirror-sync
 	// ownership, matching the web mirror-address update.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync,
 		fmt.Sprintf("%d/pull-settings", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMirrorSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMirrorSync,
 			RepositoryID: repo.ID,
 		},
 		func(ctx go_context.Context) error {

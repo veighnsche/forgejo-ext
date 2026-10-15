@@ -6,7 +6,7 @@ package extensions
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +24,7 @@ import (
 	"forgejo.org/services/auth"
 	"forgejo.org/services/context"
 	"forgejo.org/services/contexttest"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
@@ -92,18 +92,18 @@ func sampleCatalogDoc(sha string) string {
 
 // startAdminManager starts one manager with the given catalog document
 // (empty for the zero-extension layout) and registers it as default.
-func startAdminManager(t *testing.T, root, catalogDoc string) *runtime.Manager {
+func startAdminManager(t *testing.T, root, catalogDoc string) *extensions_service.Manager {
 	t.Helper()
-	m := runtime.NewManager(root)
+	m := extensions_service.NewManager(root)
 	if catalogDoc != "" {
 		path, _ := writeAdminCatalog(t, catalogDoc)
 		require.NoError(t, m.SetCatalogPath(path))
 	}
 	require.NoError(t, m.Start(t.Context()))
 	t.Cleanup(func() { _ = m.Close() })
-	previous := runtime.GetManager()
-	runtime.SetDefault(m)
-	t.Cleanup(func() { runtime.SetDefault(previous) })
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(m)
+	t.Cleanup(func() { extensions_service.SetDefault(previous) })
 	return m
 }
 
@@ -239,12 +239,12 @@ func TestAdminDisableIdlePackageRedirects(t *testing.T) {
 
 func TestAdminExtensionsStatusGuardsAndRows(t *testing.T) {
 	root := adminTestRoot(t)
-	m := runtime.NewManager(root)
+	m := extensions_service.NewManager(root)
 	require.NoError(t, m.Start(t.Context()))
 	t.Cleanup(func() { _ = m.Close() })
-	previous := runtime.GetManager()
-	runtime.SetDefault(m)
-	t.Cleanup(func() { runtime.SetDefault(previous) })
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(m)
+	t.Cleanup(func() { extensions_service.SetDefault(previous) })
 
 	// Installed after boot with requested state: the thin status shell
 	// reports durable desired state without causing effects.
@@ -549,7 +549,7 @@ func TestAdminSettingsResolutions(t *testing.T) {
 	withExtensionPage(stopped, "sample", "main")
 	AdminExtensionSettings(stopped)
 	require.Equal(t, http.StatusNotFound, recorder.Code)
-	observed := runtime.GetManager().Observe("sample")
+	observed := extensions_service.GetManager().Observe("sample")
 	require.NotEqual(t, "enabled", observed.State)
 
 	writeAdminPackageWithPages(t, root, "other", `{"id":"home","title":"Home","scope":"global","entry":"main.js"}`)

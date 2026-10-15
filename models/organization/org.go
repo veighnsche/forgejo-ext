@@ -11,7 +11,7 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
 	secret_model "forgejo.org/models/secret"
@@ -283,7 +283,7 @@ func CreateOrganization(ctx context.Context, org *Organization, owner *user_mode
 	// Nested participating writer: organization changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if !owner.CanCreateOrganization() {
@@ -403,7 +403,7 @@ func DeleteOrganization(ctx context.Context, org *Organization) error {
 	// Nested participating writer: organization changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if org.Type != user_model.UserTypeOrganization {
@@ -519,7 +519,7 @@ func ChangeOrgUserStatus(ctx context.Context, orgID, uid int64, public bool) err
 	// Nested participating writer: organization changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ou := new(OrgUser)
@@ -543,7 +543,7 @@ func AddOrgUser(ctx context.Context, orgID, uid int64) error {
 	// Nested participating writer: organization changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	eligible, err := IsAnEligibleTeamMemberByID(ctx, uid)
@@ -604,7 +604,7 @@ func RemoveOrgRepo(ctx context.Context, orgID, repoID int64) error {
 	// Nested participating writer: organization changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	teamRepos := make([]*TeamRepo, 0, 10)

@@ -13,7 +13,7 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	auth_service "forgejo.org/services/auth"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -79,12 +79,12 @@ func newAuthService() *authService {
 	return &authService{
 		initDB: initDB,
 		createAuthSource: func(ctx context.Context, source *auth_model.Source) error {
-			return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%s", source.Name), 0, func(ctx context.Context) error {
+			return nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%s", source.Name), 0, func(ctx context.Context) error {
 				return auth_model.CreateSource(ctx, source)
 			})
 		},
 		updateAuthSource: func(ctx context.Context, source *auth_model.Source) error {
-			return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx context.Context) error {
+			return nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx context.Context) error {
 				return auth_model.UpdateSource(ctx, source)
 			})
 		},
@@ -146,7 +146,7 @@ func runDeleteAuth(ctx context.Context, c *cli.Command) error {
 	// One authority writer owns the auth-source deletion before its
 	// effects, advancing the native revision so old permission
 	// observations go stale.
-	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx context.Context) error {
+	return nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx context.Context) error {
 		return auth_service.DeleteSource(ctx, source)
 	})
 }

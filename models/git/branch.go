@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/container"
@@ -248,7 +248,7 @@ func AddDeletedBranch(ctx context.Context, repoID int64, branchName string, dele
 	// reservation this refuses before any effect; the enclosing DeleteBranch
 	// service carries the execution. An idle reservation allows
 	// unintegrated callers until their owning task claims.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	branch, err := GetBranch(ctx, repoID, branchName)
@@ -284,7 +284,7 @@ func RemoveDeletedBranchByID(ctx context.Context, repoID, branchID int64) error 
 func RemoveOldDeletedBranches(ctx context.Context, olderThan time.Duration) {
 	// Nested participating writer: branch rows refuse while another owner
 	// holds the reservation; the enclosing cleanup carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		log.Error("DeletedBranchesCleanup: %v", err)
 		return
 	}

@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
@@ -189,7 +189,7 @@ func (app *OAuth2Application) GenerateClientSecret(ctx context.Context) (string,
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return "", err
 	}
 	// Add a prefix to the base32, this is in order to make it easier
@@ -273,7 +273,7 @@ func CreateOAuth2Application(ctx context.Context, opts CreateOAuth2ApplicationOp
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	clientID := uuid.New().String()
@@ -304,7 +304,7 @@ func UpdateOAuth2Application(ctx context.Context, opts UpdateOAuth2ApplicationOp
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -378,7 +378,7 @@ func DeleteOAuth2Application(ctx context.Context, id, userid int64) error {
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -611,7 +611,7 @@ func RevokeOAuth2Grant(ctx context.Context, grantID, userID int64) error {
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Where(builder.Eq{"id": grantID, "user_id": userID}).Delete(&OAuth2Grant{})
@@ -679,7 +679,7 @@ func DeleteOAuth2RelictsByUserID(ctx context.Context, userID int64) error {
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	deleteCond := builder.Select("id").From("oauth2_grant").Where(builder.Eq{"oauth2_grant.user_id": userID})
@@ -716,7 +716,7 @@ func DeleteOrphanedOAuth2Applications(ctx context.Context) (int64, error) {
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	subQuery := builder.Select("`oauth2_application`.id").

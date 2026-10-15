@@ -16,7 +16,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -213,7 +213,7 @@ func runCreateUser(ctx context.Context, c *cli.Command) error {
 	// their effects, advancing the native revision so old permission
 	// observations go stale.
 	var token string
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", username), 0, func(ctx context.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", username), 0, func(ctx context.Context) error {
 		// create the user
 		if err := user_model.CreateUser(ctx, u, overwriteDefault); err != nil {
 			return fmt.Errorf("CreateUser: %w", err)

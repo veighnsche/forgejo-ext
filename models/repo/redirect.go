@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/util"
 )
 
@@ -68,7 +68,7 @@ func NewRedirect(ctx context.Context, ownerID, repoID int64, oldRepoName, newRep
 	// Nested participating writer: repository renames refuse while another
 	// owner holds the reservation; the enclosing lifecycle update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	oldRepoName = strings.ToLower(oldRepoName)
@@ -91,7 +91,7 @@ func DeleteRedirect(ctx context.Context, ownerID int64, repoName string) error {
 	// Nested participating writer: repository renames refuse while another
 	// owner holds the reservation; the enclosing lifecycle update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	repoName = strings.ToLower(repoName)

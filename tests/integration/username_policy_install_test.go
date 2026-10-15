@@ -24,6 +24,8 @@ import (
 
 // Exercise the real installer in a separate process: it reloads global settings,
 // migrates the database, starts the required package and creates the first user.
+//
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestUsernamePolicyInstaller(t *testing.T) {
 	if !setting.Database.Type.IsSQLite3() {
 		t.Skip("isolated installer fixture uses SQLite")

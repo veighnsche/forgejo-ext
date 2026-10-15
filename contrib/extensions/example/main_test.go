@@ -5,7 +5,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // The independently built example imports only the public SDK.
 	"net"
 	"net/http"
 	"net/http/httptest"

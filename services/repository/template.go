@@ -11,7 +11,7 @@ import (
 	issues_model "forgejo.org/models/issues"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -76,11 +76,11 @@ func GenerateRepository(ctx context.Context, doer, owner *user_model.User, templ
 	// identity carries the owner/name pair. Nested calls reuse the
 	// enclosing ownership instead of claiming again.
 	var generateRepo *repo_model.Repository
-	if err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(0, operation_service.LifecycleGenerate, owner.Name, opts.Name),
-		operation_service.Scope{
-			Family: operation_service.FamilyRepoLifecycle,
+	if err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(0, nativeoperation_service.LifecycleGenerate, owner.Name, opts.Name),
+		nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyRepoLifecycle,
 		},
 		func(ctx context.Context) error {
 			return generateRepositoryOwned(ctx, doer, owner, templateRepo, opts, &generateRepo)

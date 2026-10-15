@@ -6,15 +6,15 @@ package nativeoperation
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"os"
 
 	sdk "forgejo.org/extension-sdk"
-	authmodel "forgejo.org/models/extensionauth"
+	extensionauth_model "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	perm_model "forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
@@ -78,7 +78,7 @@ type LifecycleReviewReceipt struct {
 // the exact PR/reviewers and native authority under the held owner, and
 // commits the review-request rows with the operation receipt in one SQL
 // transaction. Every refusal path records not_committed.
-func (s *Service) submitLifecycleReview(ctx context.Context, decision authmodel.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
+func (s *Service) submitLifecycleReview(ctx context.Context, decision extensionauth_model.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
 	if err := ctx.Err(); err != nil {
 		return sdk.OperationRecord{}, err
 	}
@@ -96,7 +96,7 @@ func (s *Service) submitLifecycleReview(ctx context.Context, decision authmodel.
 	retire := func() { _ = os.Remove(capabilityPath) }
 	owner := conditionalOwner(installationID, intent.OperationID)
 	scope := Scope{
-		Kind:                 model.OwnerConditional,
+		Kind:                 nativeoperation_model.OwnerConditional,
 		RepositoryID:         intent.RepositoryID,
 		IssueID:              intent.LifecycleReview.IssueID,
 		LifecycleReviewerIDs: intent.LifecycleReview.ReviewerIDs,
@@ -106,7 +106,7 @@ func (s *Service) submitLifecycleReview(ctx context.Context, decision authmodel.
 		retire()
 		return sdk.OperationRecord{}, err
 	}
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         installationID,
 		OperationID:            intent.OperationID,
 		Kind:                   intent.Kind,
@@ -120,19 +120,19 @@ func (s *Service) submitLifecycleReview(ctx context.Context, decision authmodel.
 		IntentDigest:           intent.Digest,
 		Intent:                 intent.Canonical,
 	}
-	claimed, err := model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
+	claimed, err := nativeoperation_model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
 	if err != nil {
 		retire()
-		if errors.Is(err, model.ErrBusy) {
+		if errors.Is(err, nativeoperation_model.ErrBusy) {
 			return sdk.OperationRecord{}, ErrBusy
 		}
-		if errors.Is(err, model.ErrInhibited) {
+		if errors.Is(err, nativeoperation_model.ErrInhibited) {
 			return sdk.OperationRecord{}, err
 		}
-		if errors.Is(err, model.ErrStaleRevision) {
+		if errors.Is(err, nativeoperation_model.ErrStaleRevision) {
 			return s.recordStaleRevision(ctx, op)
 		}
-		existing, lookupErr := model.LookupOperation(ctx, installationID, intent.OperationID)
+		existing, lookupErr := nativeoperation_model.LookupOperation(ctx, installationID, intent.OperationID)
 		if lookupErr != nil {
 			return sdk.OperationRecord{}, lookupErr
 		}
@@ -156,16 +156,16 @@ func (s *Service) submitLifecycleReview(ctx context.Context, decision authmodel.
 // native work runs on the owned context; terminal records and the owner
 // release run detached so a caller disconnect cannot stick the
 // reservation.
-func (s *Service) executeLifecycleReview(ctx context.Context, op *model.Operation, intent *ValidIntent, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
+func (s *Service) executeLifecycleReview(ctx context.Context, op *nativeoperation_model.Operation, intent *ValidIntent, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
 	owner := execution.Owner
 	submit := intent.LifecycleReview
 	releaseCtx := context.WithoutCancel(ctx)
 	owned := execcontext.NewContext(ctx, execution)
 	refuse := func(reason string) (sdk.OperationRecord, terminalResult, error) {
-		recorded, err := model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectNotCommitted,
+		recorded, err := nativeoperation_model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectNotCommitted,
 			Reason:       reason,
-			Cancellation: model.CancellationNone,
+			Cancellation: nativeoperation_model.CancellationNone,
 		}, owner)
 		if err != nil {
 			return sdk.OperationRecord{}, terminalResult{}, err
@@ -174,45 +174,45 @@ func (s *Service) executeLifecycleReview(ctx context.Context, op *model.Operatio
 	}
 	if err := s.revalidateSubmission(owned, op); err != nil {
 		if errors.Is(err, ErrAuthorityLost) {
-			return refuse(model.ReasonAuthorityLost)
+			return refuse(nativeoperation_model.ReasonAuthorityLost)
 		}
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 	repository, err := repo_model.GetRepositoryByID(owned, op.RepositoryID)
 	if err != nil {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 	if s.clock() >= op.NotAfter {
-		return refuse(model.ReasonExpiredBeforeAdmission)
+		return refuse(nativeoperation_model.ReasonExpiredBeforeAdmission)
 	}
 	doer, err := user_model.GetUserByID(owned, op.ActorID)
 	if err != nil {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	issue, err := issues_model.GetIssueByID(owned, submit.IssueID)
 	if err != nil || !issue.IsPull || issue.RepoID != op.RepositoryID {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 	if err := issue.LoadRepo(owned); err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 	writable, err := access_model.HasAccessUnit(owned, doer, repository, unit.TypePullRequests, perm_model.AccessModeWrite)
 	if err != nil || !writable {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	reviewers := make([]*user_model.User, 0, len(submit.ReviewerIDs))
 	for _, id := range submit.ReviewerIDs {
 		reviewer, err := user_model.GetUserByID(owned, id)
 		if err != nil || reviewer.IsBot() {
-			return refuse(model.ReasonNativeRefused)
+			return refuse(nativeoperation_model.ReasonNativeRefused)
 		}
 		readable, err := access_model.HasAccess(owned, reviewer.ID, repository)
 		if err != nil || !readable {
-			return refuse(model.ReasonNativeRefused)
+			return refuse(nativeoperation_model.ReasonNativeRefused)
 		}
 		reviewers = append(reviewers, reviewer)
 	}
-	committed, err := model.CommitLifecycleReviewPrimary(owned, op.InstallationID, op.OperationID, owner, s.clock(), func(tx context.Context) (string, error) {
+	committed, err := nativeoperation_model.CommitLifecycleReviewPrimary(owned, op.InstallationID, op.OperationID, owner, s.clock(), func(tx context.Context) (string, error) {
 		receipt := LifecycleReviewReceipt{IssueID: submit.IssueID}
 		for i, reviewer := range reviewers {
 			comment, err := issues_model.AddReviewRequest(tx, issue, reviewer, doer)
@@ -230,26 +230,26 @@ func (s *Service) executeLifecycleReview(ctx context.Context, op *model.Operatio
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, model.ErrOperationExpired):
-			return refuse(model.ReasonExpiredBeforeAdmission)
-		case errors.Is(err, model.ErrAdmissionLost):
-			current, lookupErr := model.LookupOperation(releaseCtx, op.InstallationID, op.OperationID)
+		case errors.Is(err, nativeoperation_model.ErrOperationExpired):
+			return refuse(nativeoperation_model.ReasonExpiredBeforeAdmission)
+		case errors.Is(err, nativeoperation_model.ErrAdmissionLost):
+			current, lookupErr := nativeoperation_model.LookupOperation(releaseCtx, op.InstallationID, op.OperationID)
 			if lookupErr != nil {
 				return sdk.OperationRecord{}, terminalResult{}, lookupErr
 			}
 			if current != nil && current.Revoked {
-				return refuse(model.ReasonCancelledBeforeAdmission)
+				return refuse(nativeoperation_model.ReasonCancelledBeforeAdmission)
 			}
 			return sdk.OperationRecord{}, terminalResult{}, err
 		default:
 			if issues_model.IsErrReviewRequestOnClosedPR(err) {
-				return refuse(model.ReasonNativeRefused)
+				return refuse(nativeoperation_model.ReasonNativeRefused)
 			}
-			return refuse(model.ReasonNativeRefused)
+			return refuse(nativeoperation_model.ReasonNativeRefused)
 		}
 	}
 	op = committed
-	recorded, err := model.SetCompletionAndRelease(releaseCtx, op.InstallationID, op.OperationID, owner, execution.Generation, model.CompletionComplete)
+	recorded, err := nativeoperation_model.SetCompletionAndRelease(releaseCtx, op.InstallationID, op.OperationID, owner, execution.Generation, nativeoperation_model.CompletionComplete)
 	if err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}

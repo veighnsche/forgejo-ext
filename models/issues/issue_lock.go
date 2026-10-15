@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 )
 
@@ -23,7 +23,7 @@ type IssueLockOptions struct {
 func LockIssue(ctx context.Context, opts *IssueLockOptions) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	return updateIssueLock(ctx, opts, true)
@@ -33,7 +33,7 @@ func LockIssue(ctx context.Context, opts *IssueLockOptions) error {
 func UnlockIssue(ctx context.Context, opts *IssueLockOptions) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	return updateIssueLock(ctx, opts, false)

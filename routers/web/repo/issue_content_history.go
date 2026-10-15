@@ -17,7 +17,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/templates"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -238,7 +238,7 @@ func SoftDeleteContentHistory(ctx *context.Context) {
 	// One collaboration writer owns the history delete before its
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.HistoryResource(historyID), ctx.Repo.Repository.ID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.HistoryResource(historyID), ctx.Repo.Repository.ID, func(ctx stdCtx.Context) error {
 		return issues_model.SoftDeleteIssueContentHistory(ctx, historyID)
 	})
 	log.Debug("soft delete issue content history. issue=%d, comment=%d, history=%d", issue.ID, commentID, historyID)

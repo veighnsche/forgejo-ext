@@ -14,7 +14,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/queue"
 	repo_module "forgejo.org/modules/repository"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -31,19 +31,19 @@ func handlerTagSync(items ...*TagSyncOptions) []*TagSyncOptions {
 	for _, opts := range items {
 		// Each tag sync owns the reservation before its database effects;
 		// busy items stay queued instead of being dropped.
-		err := operation_service.Default().WithOrdinaryOwnership(
+		err := nativeoperation_service.Default().WithOrdinaryOwnership(
 			graceful.GetManager().ShutdownContext(),
-			operation_service.FamilyRefSync,
+			nativeoperation_service.FamilyRefSync,
 			fmt.Sprintf("%d/tags", opts.RepoID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyRefSync,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyRefSync,
 				RepositoryID: opts.RepoID,
 			},
 			func(ctx context.Context) error {
 				return repo_module.SyncRepoTags(ctx, opts.RepoID)
 			})
 		if err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				unhandled = append(unhandled, opts)
 				continue
 			}

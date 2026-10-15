@@ -5,7 +5,7 @@ package integration
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,14 +20,15 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
 	web_extensions "forgejo.org/routers/web/extensions"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 	"forgejo.org/tests"
 
 	"github.com/coder/websocket"
 	"github.com/stretchr/testify/require"
 )
 
-func installStreamExtension(t *testing.T) *runtime.Manager {
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
+func installStreamExtension(t *testing.T) *extensions_service.Manager {
 	t.Helper()
 	artifactRoot, err := filepath.Abs(filepath.Join("..", "..", ".artifacts"))
 	require.NoError(t, err)
@@ -58,13 +59,13 @@ func installStreamExtension(t *testing.T) *runtime.Manager {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
-	manager := runtime.NewManager(root)
+	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
 	require.NoError(t, manager.SetInstanceStopped(web_extensions.RevokeAdmissionsForInstance))
 	require.NoError(t, manager.Start(context.Background()))
-	previous := runtime.GetManager()
-	runtime.SetDefault(manager)
-	t.Cleanup(func() { runtime.SetDefault(previous); require.NoError(t, manager.Close()) })
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(manager)
+	t.Cleanup(func() { extensions_service.SetDefault(previous); require.NoError(t, manager.Close()) })
 	return manager
 }
 

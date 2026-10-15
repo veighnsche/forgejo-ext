@@ -7,14 +7,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/setting"
 )
@@ -88,27 +88,27 @@ func withRefWriteOwnership(ctx context.Context, resource string, scope refWriteS
 		_ = os.Remove(path)
 	}
 
-	scope.Kind = model.OwnerOrdinary
+	scope.Kind = nativeoperation_model.OwnerOrdinary
 	scope.Family = familyRefWrite
 	encoded, err := json.Marshal(scope)
 	if err != nil {
 		release()
 		return err
 	}
-	claimed, err := model.ClaimOrdinary(ctx, owner, string(encoded), execcontext.Verifier(secret))
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, owner, string(encoded), execcontext.Verifier(secret))
 	if err != nil {
 		release()
-		if errors.Is(err, model.ErrBusy) {
-			return fmt.Errorf("%w: ordinary writer %s is fenced", model.ErrBusy, familyRefWrite)
+		if errors.Is(err, nativeoperation_model.ErrBusy) {
+			return fmt.Errorf("%w: ordinary writer %s is fenced", nativeoperation_model.ErrBusy, familyRefWrite)
 		}
-		if errors.Is(err, model.ErrInhibited) {
-			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", model.ErrInhibited, familyRefWrite)
+		if errors.Is(err, nativeoperation_model.ErrInhibited) {
+			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", nativeoperation_model.ErrInhibited, familyRefWrite)
 		}
 		return err
 	}
 	owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: path})
 	fnErr := fn(owned)
-	if err := model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
+	if err := nativeoperation_model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
 		release()
 		if fnErr != nil {
 			return fmt.Errorf("%w (and failed to release %s: %v)", fnErr, owner, err)
@@ -133,12 +133,12 @@ func recordRefWriteResult(ctx context.Context, newOID string) error {
 	if strings.HasPrefix(exec.Owner, "cond:") {
 		return nil
 	}
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return err
 	}
 	if reservation.Owner != exec.Owner {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
 	var scope refWriteScope
 	if err := json.Unmarshal([]byte(reservation.Scope), &scope); err != nil {
@@ -149,5 +149,5 @@ func recordRefWriteResult(ctx context.Context, newOID string) error {
 	if err != nil {
 		return err
 	}
-	return model.UpdateScopeWhere(ctx, exec.Owner, string(encoded))
+	return nativeoperation_model.UpdateScopeWhere(ctx, exec.Owner, string(encoded))
 }

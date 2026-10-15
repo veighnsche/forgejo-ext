@@ -8,8 +8,8 @@ import (
 	"errors"
 
 	sdk "forgejo.org/extension-sdk"
-	authmodel "forgejo.org/models/extensionauth"
-	model "forgejo.org/models/nativeoperation"
+	extensionauth_model "forgejo.org/models/extensionauth"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 )
 
 // Submit authenticates the installation/principal (already verified by the
@@ -17,49 +17,49 @@ import (
 // its operation ID before native execution. The same ID and identical intent
 // return or reconcile the existing record, never start a second execution.
 // Different content under the same ID is intent_conflict.
-func (s *Service) Submit(ctx context.Context, decision authmodel.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
+func (s *Service) Submit(ctx context.Context, decision extensionauth_model.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
 	if intent == nil || intent.Kind == "" {
 		return sdk.OperationRecord{}, ErrInvalidIntent
 	}
 	switch intent.Kind {
-	case model.KindIssueGraph, model.KindMerge, model.KindRefPublish, model.KindPRCreate, model.KindReviewSubmit, model.KindLifecycleIssue, model.KindLifecycleReview, model.KindLifecycleNote:
+	case nativeoperation_model.KindIssueGraph, nativeoperation_model.KindMerge, nativeoperation_model.KindRefPublish, nativeoperation_model.KindPRCreate, nativeoperation_model.KindReviewSubmit, nativeoperation_model.KindLifecycleIssue, nativeoperation_model.KindLifecycleReview, nativeoperation_model.KindLifecycleNote:
 	default:
 		// Admitted, but the kind's stage is not implemented yet. Report
 		// the missing stage rather than inventing a receipt.
 		return sdk.OperationRecord{}, ErrKindUnavailable
 	}
-	existing, err := model.LookupOperation(ctx, installationID, intent.OperationID)
+	existing, err := nativeoperation_model.LookupOperation(ctx, installationID, intent.OperationID)
 	if err != nil {
 		return sdk.OperationRecord{}, err
 	}
 	if existing != nil {
 		return s.reconcileExisting(existing, intent)
 	}
-	if intent.Kind == model.KindIssueGraph {
+	if intent.Kind == nativeoperation_model.KindIssueGraph {
 		return s.submitIssueGraph(ctx, decision, installationID, intent)
 	}
-	if intent.Kind == model.KindRefPublish {
+	if intent.Kind == nativeoperation_model.KindRefPublish {
 		return s.submitPublish(ctx, decision, installationID, intent)
 	}
-	if intent.Kind == model.KindPRCreate {
+	if intent.Kind == nativeoperation_model.KindPRCreate {
 		return s.submitPRCreate(ctx, decision, installationID, intent)
 	}
-	if intent.Kind == model.KindReviewSubmit {
+	if intent.Kind == nativeoperation_model.KindReviewSubmit {
 		return s.submitReviewSubmit(ctx, decision, installationID, intent)
 	}
-	if intent.Kind == model.KindLifecycleIssue {
+	if intent.Kind == nativeoperation_model.KindLifecycleIssue {
 		return s.submitLifecycleIssue(ctx, decision, installationID, intent)
 	}
-	if intent.Kind == model.KindLifecycleReview {
+	if intent.Kind == nativeoperation_model.KindLifecycleReview {
 		return s.submitLifecycleReview(ctx, decision, installationID, intent)
 	}
-	if intent.Kind == model.KindLifecycleNote {
+	if intent.Kind == nativeoperation_model.KindLifecycleNote {
 		return s.submitLifecycleNote(ctx, decision, installationID, intent)
 	}
 	return s.submitMerge(ctx, decision, installationID, intent)
 }
 
-func (s *Service) reconcileExisting(existing *model.Operation, intent *ValidIntent) (sdk.OperationRecord, error) {
+func (s *Service) reconcileExisting(existing *nativeoperation_model.Operation, intent *ValidIntent) (sdk.OperationRecord, error) {
 	if !existing.Submitted {
 		return ToRecord(existing), ErrCancelledBeforeSubmit
 	}
@@ -78,7 +78,7 @@ func (s *Service) Get(ctx context.Context, installationID, operationID string) (
 	if !validOperationID(operationID) {
 		return sdk.OperationLookup{}, ErrInvalidIntent
 	}
-	op, err := model.LookupOperation(ctx, installationID, operationID)
+	op, err := nativeoperation_model.LookupOperation(ctx, installationID, operationID)
 	if err != nil {
 		return sdk.OperationLookup{}, err
 	}
@@ -94,16 +94,16 @@ func (s *Service) Cancel(ctx context.Context, installationID, operationID string
 	if !validOperationID(operationID) {
 		return sdk.OperationRecord{}, ErrInvalidIntent
 	}
-	op, err := model.LookupOperation(ctx, installationID, operationID)
+	op, err := nativeoperation_model.LookupOperation(ctx, installationID, operationID)
 	if err != nil {
 		return sdk.OperationRecord{}, err
 	}
 	if op == nil {
-		tombstone, err := model.InsertTombstone(ctx, installationID, operationID)
-		if err != nil && !errors.Is(err, model.ErrDuplicateOperation) {
+		tombstone, err := nativeoperation_model.InsertTombstone(ctx, installationID, operationID)
+		if err != nil && !errors.Is(err, nativeoperation_model.ErrDuplicateOperation) {
 			return sdk.OperationRecord{}, err
 		}
-		if errors.Is(err, model.ErrDuplicateOperation) {
+		if errors.Is(err, nativeoperation_model.ErrDuplicateOperation) {
 			op = tombstone
 		} else {
 			return ToRecord(tombstone), nil
@@ -112,7 +112,7 @@ func (s *Service) Cancel(ctx context.Context, installationID, operationID string
 	if !op.Submitted {
 		return ToRecord(op), nil
 	}
-	revoked, err := model.RevokeOperation(ctx, installationID, operationID)
+	revoked, err := nativeoperation_model.RevokeOperation(ctx, installationID, operationID)
 	if err != nil {
 		return sdk.OperationRecord{}, err
 	}

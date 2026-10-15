@@ -7,13 +7,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/setting"
 )
@@ -106,7 +106,7 @@ func withCollabOwnership(ctx context.Context, resource string, repositoryID int6
 	}
 
 	encoded, err := json.Marshal(collabScope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       familyCollaboration,
 		RepositoryID: repositoryID,
 	})
@@ -114,20 +114,20 @@ func withCollabOwnership(ctx context.Context, resource string, repositoryID int6
 		release()
 		return err
 	}
-	claimed, err := model.ClaimOrdinary(ctx, owner, string(encoded), execcontext.Verifier(secret))
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, owner, string(encoded), execcontext.Verifier(secret))
 	if err != nil {
 		release()
-		if errors.Is(err, model.ErrBusy) {
-			return fmt.Errorf("%w: ordinary writer %s is fenced", model.ErrBusy, familyCollaboration)
+		if errors.Is(err, nativeoperation_model.ErrBusy) {
+			return fmt.Errorf("%w: ordinary writer %s is fenced", nativeoperation_model.ErrBusy, familyCollaboration)
 		}
-		if errors.Is(err, model.ErrInhibited) {
-			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", model.ErrInhibited, familyCollaboration)
+		if errors.Is(err, nativeoperation_model.ErrInhibited) {
+			return fmt.Errorf("%w: ordinary writer %s refuses while offline recovery holds the domain", nativeoperation_model.ErrInhibited, familyCollaboration)
 		}
 		return err
 	}
 	owned := execcontext.NewContext(ctx, &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: path})
 	fnErr := fn(owned)
-	if err := model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
+	if err := nativeoperation_model.ReleaseOwner(context.WithoutCancel(ctx), owner); err != nil {
 		release()
 		if fnErr != nil {
 			return fmt.Errorf("%w (and failed to release %s: %v)", fnErr, owner, err)

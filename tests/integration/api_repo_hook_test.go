@@ -17,6 +17,7 @@ import (
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAPICreateHook(t *testing.T) {
@@ -50,7 +51,7 @@ func TestAPICreateHook(t *testing.T) {
 	patchResp := MakeRequest(t, patch, http.StatusOK)
 	assert.NotContains(t, patchResp.Body.String(), "rotated-hook-secret")
 	stored, err := webhook_model.GetWebhookByID(t.Context(), apiHook.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "rotated-hook-secret", stored.Secret)
 
 	patchWithoutSecret := NewRequestWithJSON(t, "PATCH", fmt.Sprintf("/api/v1/repos/%s/%s/hooks/%d", owner.Name, repo.Name, apiHook.ID), api.EditHookOption{
@@ -59,6 +60,6 @@ func TestAPICreateHook(t *testing.T) {
 	}).AddTokenAuth(token)
 	MakeRequest(t, patchWithoutSecret, http.StatusOK)
 	stored, err = webhook_model.GetWebhookByID(t.Context(), apiHook.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "rotated-hook-secret", stored.Secret)
 }

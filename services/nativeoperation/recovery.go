@@ -5,7 +5,7 @@ package nativeoperation
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"fmt"
 	"os"
@@ -15,7 +15,7 @@ import (
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
@@ -68,10 +68,10 @@ var ErrNotInhibited = errors.New("native mutation domain is not inhibited for of
 // and uncertain attribution stay fenced. There is no force unlock, no
 // timeout release and no replay of the native effect.
 func (s *Service) Recover(ctx context.Context, owner string, generation int64) (RecoveryAssessment, error) {
-	if !model.OfflineInhibited() {
+	if !nativeoperation_model.OfflineInhibited() {
 		return RecoveryAssessment{}, ErrNotInhibited
 	}
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return RecoveryAssessment{}, err
 	}
@@ -85,7 +85,7 @@ func (s *Service) Recover(ctx context.Context, owner string, generation int64) (
 		Verdict:    RecoveryFenced,
 	}
 	if owner != reservation.Owner {
-		assessment.Reason = model.ReasonWrongOwner
+		assessment.Reason = nativeoperation_model.ReasonWrongOwner
 		assessment.Checks = []string{"named owner does not hold the reservation"}
 		return assessment, nil
 	}
@@ -102,10 +102,10 @@ func (s *Service) Recover(ctx context.Context, owner string, generation int64) (
 	}
 	assessment.Family = scope.Family
 	kind, installationID, operationID := splitOwner(reservation.Owner)
-	switch {
-	case kind == model.OwnerConditional:
+	switch kind {
+	case nativeoperation_model.OwnerConditional:
 		return s.recoverConditional(ctx, &assessment, reservation, scope, installationID, operationID)
-	case kind == model.OwnerOrdinary:
+	case nativeoperation_model.OwnerOrdinary:
 		return s.recoverOrdinary(ctx, &assessment, reservation, scope)
 	default:
 		assessment.Reason = ReasonRecoveryUnknownFamily
@@ -126,8 +126,8 @@ func fenced(assessment *RecoveryAssessment, reason, check string) (RecoveryAsses
 // establishes committed; a proven pre-admission refusal with no remaining
 // writer establishes not_committed. Anything else stays indeterminate and
 // fenced.
-func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, installationID, operationID string) (RecoveryAssessment, error) {
-	op, err := model.LookupOperation(ctx, installationID, operationID)
+func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, installationID, operationID string) (RecoveryAssessment, error) {
+	op, err := nativeoperation_model.LookupOperation(ctx, installationID, operationID)
 	if err != nil {
 		return RecoveryAssessment{}, err
 	}
@@ -135,19 +135,19 @@ func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAs
 		return fenced(assessment, ReasonRecoveryMissingEvidence, "operation record is missing for the held owner")
 	}
 	switch op.Kind {
-	case model.KindIssueGraph:
+	case nativeoperation_model.KindIssueGraph:
 		assessment.Family = "conditional-issue-graph"
 		return s.recoverConditionalIssueGraph(ctx, assessment, reservation, scope, op)
-	case model.KindMerge:
+	case nativeoperation_model.KindMerge:
 		assessment.Family = "conditional-merge"
 		return s.recoverConditionalMerge(ctx, assessment, reservation, scope, op)
-	case model.KindRefPublish:
+	case nativeoperation_model.KindRefPublish:
 		assessment.Family = "conditional-publish"
 		return s.recoverConditionalPublish(ctx, assessment, reservation, scope, op)
-	case model.KindPRCreate:
+	case nativeoperation_model.KindPRCreate:
 		assessment.Family = "conditional-prcreate"
 		return s.recoverConditionalPRCreate(ctx, assessment, reservation, scope, op)
-	case model.KindReviewSubmit:
+	case nativeoperation_model.KindReviewSubmit:
 		assessment.Family = "conditional-review"
 		return s.recoverConditionalReviewSubmit(ctx, assessment, reservation, scope, op)
 	default:
@@ -156,7 +156,7 @@ func (s *Service) recoverConditional(ctx context.Context, assessment *RecoveryAs
 }
 
 // recoverConditionalMerge reconciles one held conditional merge.
-func (s *Service) recoverConditionalMerge(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, op *model.Operation) (RecoveryAssessment, error) {
+func (s *Service) recoverConditionalMerge(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, op *nativeoperation_model.Operation) (RecoveryAssessment, error) {
 	repository, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID)
 	if err != nil {
 		if repo_model.IsErrRepoNotExist(err) {
@@ -181,15 +181,15 @@ func (s *Service) recoverConditionalMerge(ctx context.Context, assessment *Recov
 	notCommitted := !op.Admitted && !absent && strings.EqualFold(tip, scope.OldOID) && !pr.HasMerged
 	switch {
 	case effectCommitted:
-		if op.IsTerminal() && op.EffectState != model.EffectCommitted {
+		if op.IsTerminal() && op.EffectState != nativeoperation_model.EffectCommitted {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed merge effect; preserved")
 		}
-		completion := model.CompletionComplete
+		completion := nativeoperation_model.CompletionComplete
 		if !mergedAtTip {
 			// The admitted ref effect is known but its PR
 			// bookkeeping never recorded it: committed but
 			// incomplete, like the live path's reconciliation.
-			completion = model.CompletionNeedsIntervention
+			completion = nativeoperation_model.CompletionNeedsIntervention
 		}
 		if !op.IsTerminal() {
 			receipt, _ := json.Marshal(MergeReceipt{
@@ -203,34 +203,34 @@ func (s *Service) recoverConditionalMerge(ctx context.Context, assessment *Recov
 				BaseRef:      scope.Ref,
 				Method:       "fast-forward-only",
 			})
-			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-				EffectState:  model.EffectCommitted,
-				Cancellation: model.CancellationNone,
+			if _, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+				EffectState:  nativeoperation_model.EffectCommitted,
+				Cancellation: nativeoperation_model.CancellationNone,
 				Completion:   completion,
 				Receipt:      string(receipt),
 			}, ""); err != nil {
 				return RecoveryAssessment{}, err
 			}
 		}
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectCommitted)
 	case notCommitted:
-		if op.IsTerminal() && op.EffectState != model.EffectNotCommitted {
+		if op.IsTerminal() && op.EffectState != nativeoperation_model.EffectNotCommitted {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed refusal; preserved")
 		}
 		if !op.IsTerminal() {
 			reason := op.Reason
 			if reason == "" {
-				reason = model.ReasonRecoveredNoEffect
+				reason = nativeoperation_model.ReasonRecoveredNoEffect
 			}
-			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-				EffectState:  model.EffectNotCommitted,
+			if _, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+				EffectState:  nativeoperation_model.EffectNotCommitted,
 				Reason:       reason,
-				Cancellation: model.CancellationNone,
+				Cancellation: nativeoperation_model.CancellationNone,
 			}, ""); err != nil {
 				return RecoveryAssessment{}, err
 			}
 		}
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUncertainEffect, "effect cannot be attributed from admission, tip and pull state")
 	}
@@ -242,7 +242,7 @@ func (s *Service) recoverConditionalMerge(ctx context.Context, assessment *Recov
 // unadmitted execution with the branch still at its old tip (or still
 // absent for a creation) establishes not_committed. Anything else stays
 // indeterminate and fenced.
-func (s *Service) recoverConditionalPublish(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, op *model.Operation) (RecoveryAssessment, error) {
+func (s *Service) recoverConditionalPublish(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, op *nativeoperation_model.Operation) (RecoveryAssessment, error) {
 	repository, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID)
 	if err != nil {
 		if repo_model.IsErrRepoNotExist(err) {
@@ -286,7 +286,7 @@ func (s *Service) recoverConditionalPublish(ctx context.Context, assessment *Rec
 		((isZeroOID(scope.OldOID) && absent) || (!isZeroOID(scope.OldOID) && !absent && strings.EqualFold(tip, scope.OldOID)))
 	switch {
 	case committed:
-		if op.IsTerminal() && op.EffectState != model.EffectCommitted {
+		if op.IsTerminal() && op.EffectState != nativeoperation_model.EffectCommitted {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed publish effect; preserved")
 		}
 		if !op.IsTerminal() {
@@ -301,34 +301,34 @@ func (s *Service) recoverConditionalPublish(ctx context.Context, assessment *Rec
 				PRID:          prID,
 				IssueID:       issueID,
 			})
-			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-				EffectState:  model.EffectCommitted,
-				Cancellation: model.CancellationNone,
-				Completion:   model.CompletionComplete,
+			if _, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+				EffectState:  nativeoperation_model.EffectCommitted,
+				Cancellation: nativeoperation_model.CancellationNone,
+				Completion:   nativeoperation_model.CompletionComplete,
 				Receipt:      string(receipt),
 			}, ""); err != nil {
 				return RecoveryAssessment{}, err
 			}
 		}
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectCommitted)
 	case noEffect:
-		if op.IsTerminal() && op.EffectState != model.EffectNotCommitted {
+		if op.IsTerminal() && op.EffectState != nativeoperation_model.EffectNotCommitted {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed refusal; preserved")
 		}
 		if !op.IsTerminal() {
 			reason := op.Reason
 			if reason == "" {
-				reason = model.ReasonRecoveredNoEffect
+				reason = nativeoperation_model.ReasonRecoveredNoEffect
 			}
-			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-				EffectState:  model.EffectNotCommitted,
+			if _, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+				EffectState:  nativeoperation_model.EffectNotCommitted,
 				Reason:       reason,
-				Cancellation: model.CancellationNone,
+				Cancellation: nativeoperation_model.CancellationNone,
 			}, ""); err != nil {
 				return RecoveryAssessment{}, err
 			}
 		}
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUncertainEffect, "effect cannot be attributed from admission and branch tips")
 	}
@@ -343,7 +343,7 @@ func (s *Service) recoverConditionalPublish(ctx context.Context, assessment *Rec
 // which observed every completion step, records complete. An unadmitted
 // pending operation committed nothing: the atomic primary either recorded
 // its receipt or rolled back, so there is no partial PR row to adopt.
-func (s *Service) recoverConditionalPRCreate(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, op *model.Operation) (RecoveryAssessment, error) {
+func (s *Service) recoverConditionalPRCreate(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, op *nativeoperation_model.Operation) (RecoveryAssessment, error) {
 	if _, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID); err != nil {
 		if repo_model.IsErrRepoNotExist(err) {
 			return fenced(assessment, ReasonRecoveryMissingEvidence, "repository for the held scope no longer exists")
@@ -353,8 +353,8 @@ func (s *Service) recoverConditionalPRCreate(ctx context.Context, assessment *Re
 	assessment.Checks = append(assessment.Checks,
 		fmt.Sprintf("operation admitted=%t revoked=%t effect=%s completion=%s", op.Admitted, op.Revoked, op.EffectState, op.Completion),
 	)
-	committed := op.Admitted && op.EffectState == model.EffectCommitted
-	noEffect := !op.Admitted && op.EffectState == model.EffectPending
+	committed := op.Admitted && op.EffectState == nativeoperation_model.EffectCommitted
+	noEffect := !op.Admitted && op.EffectState == nativeoperation_model.EffectPending
 	switch {
 	case committed:
 		var receipt PRCreateReceipt
@@ -380,37 +380,37 @@ func (s *Service) recoverConditionalPRCreate(ctx context.Context, assessment *Re
 		if !match {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "recorded pull request does not match its native rows; similar PRs are never adopted")
 		}
-		if op.Completion == model.CompletionComplete || op.Completion == model.CompletionNeedsIntervention {
+		if op.Completion == nativeoperation_model.CompletionComplete || op.Completion == nativeoperation_model.CompletionNeedsIntervention {
 			// Fully finalized before the crash; the known effect
 			// releases without rewriting the record.
-			return s.releaseRecovered(ctx, assessment, reservation, model.EffectCommitted)
+			return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectCommitted)
 		}
-		if _, err := model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, reservation.Owner, reservation.Generation, model.CompletionNeedsIntervention); err != nil {
+		if _, err := nativeoperation_model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, reservation.Owner, reservation.Generation, nativeoperation_model.CompletionNeedsIntervention); err != nil {
 			return RecoveryAssessment{}, err
 		}
 		assessment.Verdict = RecoveryReleased
-		assessment.Effect = model.EffectCommitted
+		assessment.Effect = nativeoperation_model.EffectCommitted
 		assessment.Checks = append(assessment.Checks, fmt.Sprintf("finalized completion as needs_intervention and released owner at generation %d", reservation.Generation))
 		s.retireStaleCapabilities()
 		return *assessment, nil
 	case noEffect:
-		if op.IsTerminal() && op.EffectState != model.EffectNotCommitted {
+		if op.IsTerminal() && op.EffectState != nativeoperation_model.EffectNotCommitted {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed refusal; preserved")
 		}
 		if !op.IsTerminal() {
 			reason := op.Reason
 			if reason == "" {
-				reason = model.ReasonRecoveredNoEffect
+				reason = nativeoperation_model.ReasonRecoveredNoEffect
 			}
-			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-				EffectState:  model.EffectNotCommitted,
+			if _, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+				EffectState:  nativeoperation_model.EffectNotCommitted,
 				Reason:       reason,
-				Cancellation: model.CancellationNone,
+				Cancellation: nativeoperation_model.CancellationNone,
 			}, ""); err != nil {
 				return RecoveryAssessment{}, err
 			}
 		}
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUncertainEffect, "effect cannot be attributed from admission and the recorded receipt")
 	}
@@ -428,7 +428,7 @@ func (s *Service) recoverConditionalPRCreate(ctx context.Context, assessment *Re
 // unadmitted pending operation committed nothing: the atomic primary either
 // recorded its receipt or rolled back, so there is no partial review row to
 // adopt.
-func (s *Service) recoverConditionalReviewSubmit(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, op *model.Operation) (RecoveryAssessment, error) {
+func (s *Service) recoverConditionalReviewSubmit(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, op *nativeoperation_model.Operation) (RecoveryAssessment, error) {
 	if _, err := repo_model.GetRepositoryByID(ctx, scope.RepositoryID); err != nil {
 		if repo_model.IsErrRepoNotExist(err) {
 			return fenced(assessment, ReasonRecoveryMissingEvidence, "repository for the held scope no longer exists")
@@ -438,8 +438,8 @@ func (s *Service) recoverConditionalReviewSubmit(ctx context.Context, assessment
 	assessment.Checks = append(assessment.Checks,
 		fmt.Sprintf("operation admitted=%t revoked=%t effect=%s completion=%s", op.Admitted, op.Revoked, op.EffectState, op.Completion),
 	)
-	committed := op.Admitted && op.EffectState == model.EffectCommitted
-	noEffect := !op.Admitted && op.EffectState == model.EffectPending
+	committed := op.Admitted && op.EffectState == nativeoperation_model.EffectCommitted
+	noEffect := !op.Admitted && op.EffectState == nativeoperation_model.EffectPending
 	switch {
 	case committed:
 		var receipt ReviewSubmitReceipt
@@ -454,7 +454,7 @@ func (s *Service) recoverConditionalReviewSubmit(ctx context.Context, assessment
 		if err != nil {
 			return fenced(assessment, ReasonRecoveryMissingEvidence, "recorded pull request cannot be read")
 		}
-		match := review.ReviewerID == op.ActorID && review.ReviewerID == receipt.ReviewerID &&
+		match := review.ReviewerID == op.ActorID && receipt.ReviewerID == op.ActorID &&
 			review.IssueID == receipt.IssueID && review.IssueID == pr.IssueID &&
 			pr.ID == receipt.PRID && receipt.PRNumber == scope.PRNumber &&
 			(review.Type == issues_model.ReviewTypeApprove || review.Type == issues_model.ReviewTypeReject) &&
@@ -465,37 +465,37 @@ func (s *Service) recoverConditionalReviewSubmit(ctx context.Context, assessment
 		if !match {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "recorded review does not match its native rows; similar reviews are never adopted")
 		}
-		if op.Completion == model.CompletionComplete || op.Completion == model.CompletionNeedsIntervention {
+		if op.Completion == nativeoperation_model.CompletionComplete || op.Completion == nativeoperation_model.CompletionNeedsIntervention {
 			// Fully finalized before the crash; the known effect
 			// releases without rewriting the record.
-			return s.releaseRecovered(ctx, assessment, reservation, model.EffectCommitted)
+			return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectCommitted)
 		}
-		if _, err := model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, reservation.Owner, reservation.Generation, model.CompletionNeedsIntervention); err != nil {
+		if _, err := nativeoperation_model.SetCompletionAndRelease(ctx, op.InstallationID, op.OperationID, reservation.Owner, reservation.Generation, nativeoperation_model.CompletionNeedsIntervention); err != nil {
 			return RecoveryAssessment{}, err
 		}
 		assessment.Verdict = RecoveryReleased
-		assessment.Effect = model.EffectCommitted
+		assessment.Effect = nativeoperation_model.EffectCommitted
 		assessment.Checks = append(assessment.Checks, fmt.Sprintf("finalized completion as needs_intervention and released owner at generation %d", reservation.Generation))
 		s.retireStaleCapabilities()
 		return *assessment, nil
 	case noEffect:
-		if op.IsTerminal() && op.EffectState != model.EffectNotCommitted {
+		if op.IsTerminal() && op.EffectState != nativeoperation_model.EffectNotCommitted {
 			return fenced(assessment, ReasonRecoveryUncertainEffect, "terminal record contradicts the observed refusal; preserved")
 		}
 		if !op.IsTerminal() {
 			reason := op.Reason
 			if reason == "" {
-				reason = model.ReasonRecoveredNoEffect
+				reason = nativeoperation_model.ReasonRecoveredNoEffect
 			}
-			if _, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-				EffectState:  model.EffectNotCommitted,
+			if _, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+				EffectState:  nativeoperation_model.EffectNotCommitted,
 				Reason:       reason,
-				Cancellation: model.CancellationNone,
+				Cancellation: nativeoperation_model.CancellationNone,
 			}, ""); err != nil {
 				return RecoveryAssessment{}, err
 			}
 		}
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUncertainEffect, "effect cannot be attributed from admission and the recorded receipt")
 	}
@@ -503,7 +503,7 @@ func (s *Service) recoverConditionalReviewSubmit(ctx context.Context, assessment
 
 // recoverOrdinary reconciles one held ordinary writer with its family's own
 // evidence. A merge-tip comparison never releases another family.
-func (s *Service) recoverOrdinary(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverOrdinary(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	switch scope.Family {
 	case FamilyBranchCreate:
 		return s.recoverBranchCreate(ctx, assessment, reservation, scope)
@@ -542,6 +542,8 @@ func (s *Service) recoverOrdinary(ctx context.Context, assessment *RecoveryAsses
 
 // recoveryTip reads one ref tip for reconciliation. A missing ref reports
 // absent; an unreadable repository fences with missing evidence.
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
 func (s *Service) recoveryTip(ctx context.Context, assessment *RecoveryAssessment, repoPath, ref string) (tip string, absent, fence bool, err error) {
 	tip, err = s.readRef(ctx, repoPath, ref)
 	if err != nil {
@@ -559,8 +561,8 @@ func (s *Service) recoveryTip(ctx context.Context, assessment *RecoveryAssessmen
 // releaseRecovered clears the exact held owner after its known effect is
 // established and recorded. Terminal operation records and the native
 // revision are preserved; stale capability files are retired best-effort.
-func (s *Service) releaseRecovered(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, effect string) (RecoveryAssessment, error) {
-	if err := model.ReleaseExactOwner(ctx, reservation.Owner, reservation.Generation); err != nil {
+func (s *Service) releaseRecovered(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, effect string) (RecoveryAssessment, error) {
+	if err := nativeoperation_model.ReleaseExactOwner(ctx, reservation.Owner, reservation.Generation); err != nil {
 		return RecoveryAssessment{}, err
 	}
 	assessment.Verdict = RecoveryReleased
@@ -592,7 +594,7 @@ func (s *Service) retireStaleCapabilities() {
 // recoverBranchCreate reconciles FT03's ordinary branch-create writer: the
 // branch ref exists exactly when this owner created it, since no other
 // writer could run while it held the reservation.
-func (s *Service) recoverBranchCreate(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverBranchCreate(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.RepositoryID <= 0 || scope.Ref == "" {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "branch-create scope names no repository ref")
 	}
@@ -619,7 +621,7 @@ func (s *Service) recoverBranchCreate(ctx context.Context, assessment *RecoveryA
 	case !absent:
 		return s.releaseRecovered(ctx, assessment, reservation, "created")
 	case dbMissing || dbBranch.IsDeleted:
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUnaccounted, "branch ref is absent but the database still shows it live")
 	}
@@ -628,7 +630,7 @@ func (s *Service) recoverBranchCreate(ctx context.Context, assessment *RecoveryA
 // recoverBranchDelete reconciles the branch-delete writer from its ref and
 // database effects together. Either side alone is not attribution: a gone
 // ref with a live database row, or a live ref with a deleted row, fences.
-func (s *Service) recoverBranchDelete(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverBranchDelete(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.RepositoryID <= 0 || scope.Ref == "" {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "branch-delete scope names no repository ref")
 	}
@@ -656,7 +658,7 @@ func (s *Service) recoverBranchDelete(ctx context.Context, assessment *RecoveryA
 	case absent && (dbDeleted || dbMissing):
 		return s.releaseRecovered(ctx, assessment, reservation, "deleted")
 	case !absent && !dbDeleted && (dbMissing || strings.EqualFold(tip, scope.OldOID)):
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUnaccounted, "branch ref and database deletion marks disagree, or the live tip moved")
 	}
@@ -665,7 +667,7 @@ func (s *Service) recoverBranchDelete(ctx context.Context, assessment *RecoveryA
 // recoverActionsTask reconciles one Actions task/job update with its
 // resulting commit status. Task, job and status rows must agree; a partial
 // update fences for intervention.
-func (s *Service) recoverActionsTask(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsTask(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.TaskID <= 0 {
 		return s.recoverActionsTaskPick(ctx, assessment, reservation, scope)
 	}
@@ -705,7 +707,7 @@ func (s *Service) recoverActionsTask(ctx context.Context, assessment *RecoveryAs
 	if job.Status.IsDone() {
 		return fenced(assessment, ReasonRecoveryUnaccounted, "job is done while its task is not")
 	}
-	return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+	return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 }
 
 // recoverPushCompletion reconciles one deferred push/completion batch by
@@ -719,7 +721,7 @@ func (s *Service) recoverActionsTask(ctx context.Context, assessment *RecoveryAs
 // indexer, mirror and automerge effects are durable queue rows the
 // workers retain, and nested schedule rows rebuild idempotently on the
 // next push.
-func (s *Service) recoverPushCompletion(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverPushCompletion(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.RepositoryID <= 0 || len(scope.Refs) == 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "push-completion scope names no repository refs")
 	}

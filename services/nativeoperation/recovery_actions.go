@@ -11,7 +11,7 @@ import (
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	webhook_module "forgejo.org/modules/webhook"
 )
@@ -27,7 +27,7 @@ const EffectActionsConsistent = "consistent"
 // recoverActionsRun reconciles one held ordinary Actions run/job/status
 // writer from its scope identities and strictly parsed resource label.
 // Anything unattributable stays fenced.
-func (s *Service) recoverActionsRun(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsRun(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	resource, err := ordinaryResource(reservation.Owner, FamilyActionsRun)
 	if err != nil {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "actions-run owner names no parseable resource")
@@ -57,7 +57,7 @@ func (s *Service) recoverActionsRun(ctx context.Context, assessment *RecoveryAss
 // recoverActionsRunScope reconciles one run/job-level claim (rerun,
 // cancel, approval, emitter batch or sweep item) by verifying the
 // structural consistency of its run and job rows.
-func (s *Service) recoverActionsRunScope(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsRunScope(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.RunID <= 0 && scope.JobID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "actions-run scope names no run or job")
 	}
@@ -87,7 +87,7 @@ func (s *Service) recoverActionsRunScope(ctx context.Context, assessment *Recove
 // recoverActionsDispatch reconciles one workflow-dispatch claim by
 // verifying every run under its dispatch key. Dispatches are
 // human-initiated and rare, so the key stays narrow.
-func (s *Service) recoverActionsDispatch(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, workflow string) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsDispatch(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, workflow string) (RecoveryAssessment, error) {
 	if scope.RepositoryID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "dispatch scope names no repository")
 	}
@@ -121,7 +121,7 @@ func (s *Service) recoverActionsDispatch(ctx context.Context, assessment *Recove
 
 // recoverActionsSchedule reconciles one schedule-creation claim by
 // verifying every run its schedule produced.
-func (s *Service) recoverActionsSchedule(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, scheduleID int64) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsSchedule(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, scheduleID int64) (RecoveryAssessment, error) {
 	if scope.RepositoryID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "schedule scope names no repository")
 	}
@@ -155,7 +155,7 @@ func (s *Service) recoverActionsSchedule(ctx context.Context, assessment *Recove
 // context either matches this owner's insert or predates it; nothing
 // else could insert while it held the reservation. Derived statuses from
 // Actions updates reconcile under their own task/run owners instead.
-func (s *Service) recoverActionsStatus(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, claim actionsClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsStatus(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, claim actionsClaim) (RecoveryAssessment, error) {
 	if scope.RepositoryID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "status scope names no repository")
 	}
@@ -175,12 +175,12 @@ func (s *Service) recoverActionsStatus(ctx context.Context, assessment *Recovery
 		}
 		assessment.Checks = append(assessment.Checks, fmt.Sprintf("latest status for context %q: state=%s creator=%d", claim.context, status.State, status.CreatorID))
 		if string(status.State) == claim.state && status.CreatorID == claim.creatorID {
-			return s.releaseRecovered(ctx, assessment, reservation, model.EffectCommitted)
+			return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectCommitted)
 		}
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	}
 	assessment.Checks = append(assessment.Checks, fmt.Sprintf("no status for commit %.12s context %q", claim.sha, claim.context))
-	return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+	return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 }
 
 // recoverActionsTaskPick reconciles one task-assignment (pick) claim,
@@ -190,7 +190,7 @@ func (s *Service) recoverActionsStatus(ctx context.Context, assessment *Recovery
 // other pick could run while it held the reservation. Only an
 // assignment to the held runner with agreeing task/job rows and its
 // resulting commit status establishes this owner's effect.
-func (s *Service) recoverActionsTaskPick(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsTaskPick(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	if scope.JobID <= 0 || scope.RunnerID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "task-pick scope names no job or runner")
 	}
@@ -203,7 +203,7 @@ func (s *Service) recoverActionsTaskPick(ctx context.Context, assessment *Recove
 			return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("job %d has invalid status %d", job.ID, int(job.Status)))
 		}
 		assessment.Checks = append(assessment.Checks, fmt.Sprintf("job %d unassigned with status %s", job.ID, job.Status))
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	}
 	task, err := actions_model.GetTaskByID(ctx, job.TaskID)
 	if err != nil {
@@ -233,13 +233,15 @@ func (s *Service) recoverActionsTaskPick(ctx context.Context, assessment *Recove
 		}
 	}
 	if !own {
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	}
 	return s.releaseRecovered(ctx, assessment, reservation, "assigned")
 }
 
 // actionsRunConsistent verifies the run row and every job row of one run:
 // known statuses, matching run/repo identity and intact task references.
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
 func (s *Service) actionsRunConsistent(ctx context.Context, runID, repoID int64) (bool, string, error) {
 	run, err := actions_model.GetRunByID(ctx, runID)
 	if err != nil {
@@ -269,6 +271,8 @@ func (s *Service) actionsRunConsistent(ctx context.Context, runID, repoID int64)
 }
 
 // actionsJobConsistent verifies one job row and its task reference.
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
 func (s *Service) actionsJobConsistent(ctx context.Context, jobID, runID int64) (bool, string, error) {
 	job, err := actions_model.GetRunJobByID(ctx, jobID)
 	if err != nil {
@@ -312,7 +316,7 @@ func validActionsStatus(status actions_model.Status) bool {
 // proves the committed end state, an absent row proves nothing applied.
 // The inactivity sweep is one atomic delete over an unknowable set, so
 // any observed state is a valid end state and releases.
-func (s *Service) recoverActionsTrust(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, claim actionsClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsTrust(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, claim actionsClaim) (RecoveryAssessment, error) {
 	if claim.op == ActionsRunOpTrustSweep {
 		assessment.Checks = append(assessment.Checks, "trust sweep is one atomic delete; any observed state is valid")
 		return s.releaseRecovered(ctx, assessment, reservation, EffectActionsConsistent)
@@ -335,7 +339,7 @@ func (s *Service) recoverActionsTrust(ctx context.Context, assessment *RecoveryA
 	case ActionsRunOpTrustRevoke:
 		assessment.Checks = append(assessment.Checks, fmt.Sprintf("trust revoke row_present=%t", present))
 		if present {
-			return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+			return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 		}
 		runs, err := actions_model.GetRunsNotDoneByRepoIDAndPullRequestPosterID(ctx, scope.RepositoryID, claim.posterID)
 		if err != nil {
@@ -350,7 +354,7 @@ func (s *Service) recoverActionsTrust(ctx context.Context, assessment *RecoveryA
 		trusted := present && trust.TrustedWithPullRequests
 		assessment.Checks = append(assessment.Checks, fmt.Sprintf("trust approve row_present=%t trusted=%t", present, trusted))
 		if !trusted {
-			return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+			return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 		}
 		var waiting []*actions_model.ActionRun
 		if err := db.GetEngine(ctx).Where("repo_id=? AND pull_request_poster_id=? AND need_approval=?", scope.RepositoryID, claim.posterID, true).Find(&waiting); err != nil {
@@ -374,7 +378,7 @@ func (s *Service) recoverActionsTrust(ctx context.Context, assessment *RecoveryA
 // workflows in several statements over an unknowable set; the rebuild is
 // idempotent and the next push to the default branch completes it, so
 // any observed schedule set releases with a rebuild note.
-func (s *Service) recoverActionsScheduleBatch(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, claim actionsClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverActionsScheduleBatch(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, claim actionsClaim) (RecoveryAssessment, error) {
 	if scope.RepositoryID <= 0 {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, "schedule batch scope names no repository")
 	}
@@ -404,7 +408,7 @@ func (s *Service) recoverActionsScheduleBatch(ctx context.Context, assessment *R
 		}
 		assessment.Checks = append(assessment.Checks, fmt.Sprintf("schedule clean remaining=%d specs=%d", n, specs))
 		if n > 0 || specs > 0 {
-			return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+			return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 		}
 		if !claim.cancel {
 			return s.releaseRecovered(ctx, assessment, reservation, EffectActionsConsistent)

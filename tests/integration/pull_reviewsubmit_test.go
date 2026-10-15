@@ -4,7 +4,7 @@
 package integration
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"fmt"
 	"net/http"
 	"net/url"
@@ -17,13 +17,13 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	nativeop_model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,7 +54,7 @@ func TestPullReviewSubmit(t *testing.T) {
 		user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 		user2 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: 1, Name: "repo1"})
-		svc := operation_service.Default()
+		svc := nativeoperation_service.Default()
 		ctx := t.Context()
 		installation := "7c12e001-0000-4000-8000-000000000001"
 
@@ -102,11 +102,11 @@ func TestPullReviewSubmit(t *testing.T) {
 			return 0
 		}
 
-		validate := func(t *testing.T, opID string, actorID int64, kind, payload string) operation_service.ValidIntent {
+		validate := func(t *testing.T, opID string, actorID int64, kind, payload string) nativeoperation_service.ValidIntent {
 			t.Helper()
 			revision := waitIdle(t)
 			now := time.Now().Unix()
-			intent, err := operation_service.ValidateIntent(opID, actorID, repo.ID, kind,
+			intent, err := nativeoperation_service.ValidateIntent(opID, actorID, repo.ID, kind,
 				"auth-rev-1", revision, now+600, []byte(payload), now)
 			require.NoError(t, err)
 			return *intent
@@ -174,9 +174,9 @@ func TestPullReviewSubmit(t *testing.T) {
 			t.Helper()
 			return unittest.GetCount(t, &issues_model.Review{IssueID: issueID})
 		}
-		decodeReceipt := func(t *testing.T, raw json.RawMessage) operation_service.ReviewSubmitReceipt {
+		decodeReceipt := func(t *testing.T, raw json.RawMessage) nativeoperation_service.ReviewSubmitReceipt {
 			t.Helper()
-			var receipt operation_service.ReviewSubmitReceipt
+			var receipt nativeoperation_service.ReviewSubmitReceipt
 			require.NoError(t, json.Unmarshal(raw, &receipt))
 			return receipt
 		}
@@ -189,16 +189,16 @@ func TestPullReviewSubmit(t *testing.T) {
 
 		var successOpID string
 		var successReviewID int64
-		var successIntent operation_service.ValidIntent
+		var successIntent nativeoperation_service.ValidIntent
 
 		t.Run("success_approve", func(t *testing.T) {
 			successOpID = "ft13-approve"
-			intent := validate(t, successOpID, user2.ID, nativeop_model.KindReviewSubmit, payloadA("APPROVED", "ship it @user1"))
+			intent := validate(t, successOpID, user2.ID, nativeoperation_model.KindReviewSubmit, payloadA("APPROVED", "ship it @user1"))
 			successIntent = intent
 			record, err := svc.Submit(ctx, reviewerDecision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.CompletionComplete, record.CompletionState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.CompletionComplete, record.CompletionState)
 			receipt := decodeReceipt(t, record.Receipt)
 			require.Equal(t, user2.ID, receipt.ReviewerID)
 			require.Equal(t, issueA, receipt.IssueID)
@@ -237,18 +237,18 @@ func TestPullReviewSubmit(t *testing.T) {
 			// same receipt, never a replacement submit.
 			lookup, err := svc.Get(ctx, installation, successOpID)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, lookup.Status)
+			require.Equal(t, nativeoperation_model.EffectCommitted, lookup.Status)
 			require.NotNil(t, lookup.Record)
 			require.Equal(t, record.IntentDigest, lookup.Record.IntentDigest)
 			require.JSONEq(t, string(record.Receipt), string(lookup.Record.Receipt))
 		})
 
 		t.Run("request_changes", func(t *testing.T) {
-			intent := validate(t, "ft13-reject", user2.ID, nativeop_model.KindReviewSubmit, payloadB("REQUEST_CHANGES", "please add tests"))
+			intent := validate(t, "ft13-reject", user2.ID, nativeoperation_model.KindReviewSubmit, payloadB("REQUEST_CHANGES", "please add tests"))
 			record, err := svc.Submit(ctx, reviewerDecision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.CompletionComplete, record.CompletionState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.CompletionComplete, record.CompletionState)
 			receipt := decodeReceipt(t, record.Receipt)
 			require.Equal(t, "REQUEST_CHANGES", receipt.Event)
 			review, err := issues_model.GetReviewByID(ctx, receipt.ReviewID)
@@ -264,7 +264,7 @@ func TestPullReviewSubmit(t *testing.T) {
 			// a different authorization and correctly conflicts.
 			record, err := svc.Submit(ctx, reviewerDecision, installation, &successIntent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
 			require.Equal(t, before, reviewCount(t, issueA), "replay must not create a second review")
 
 			lookup, err := svc.Get(ctx, installation, successOpID)
@@ -273,36 +273,36 @@ func TestPullReviewSubmit(t *testing.T) {
 		})
 
 		t.Run("intent_conflict", func(t *testing.T) {
-			intent := validate(t, successOpID, user2.ID, nativeop_model.KindReviewSubmit, payloadA("APPROVED", "changed body"))
+			intent := validate(t, successOpID, user2.ID, nativeoperation_model.KindReviewSubmit, payloadA("APPROVED", "changed body"))
 			_, err = svc.Submit(ctx, reviewerDecision, installation, &intent)
-			require.ErrorIs(t, err, operation_service.ErrIntentConflict)
+			require.ErrorIs(t, err, nativeoperation_service.ErrIntentConflict)
 		})
 
 		t.Run("stale_head", func(t *testing.T) {
-			intent := validate(t, "ft13-stale-head", user2.ID, nativeop_model.KindReviewSubmit,
+			intent := validate(t, "ft13-stale-head", user2.ID, nativeoperation_model.KindReviewSubmit,
 				reviewPayload(numberA, user1.ID, "refs/heads/branch2", "refs/heads/master", homeOID, masterOID, "APPROVED", "stale"))
 			record, err := svc.Submit(ctx, reviewerDecision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonStaleHead, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonStaleHead, record.ReasonCode)
 		})
 
 		t.Run("stale_base", func(t *testing.T) {
-			intent := validate(t, "ft13-stale-base", user2.ID, nativeop_model.KindReviewSubmit,
+			intent := validate(t, "ft13-stale-base", user2.ID, nativeoperation_model.KindReviewSubmit,
 				reviewPayload(numberA, user1.ID, "refs/heads/branch2", "refs/heads/master", branch2OID, homeOID, "APPROVED", "stale"))
 			record, err := svc.Submit(ctx, reviewerDecision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonStaleBaseOrResult, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonStaleBaseOrResult, record.ReasonCode)
 		})
 
 		t.Run("self_review", func(t *testing.T) {
 			before := reviewCount(t, issueA)
-			intent := validate(t, "ft13-self", user1.ID, nativeop_model.KindReviewSubmit, payloadA("APPROVED", "self approval"))
+			intent := validate(t, "ft13-self", user1.ID, nativeoperation_model.KindReviewSubmit, payloadA("APPROVED", "self approval"))
 			record, err := svc.Submit(ctx, authorDecision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonAuthorityLost, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonAuthorityLost, record.ReasonCode)
 			require.Equal(t, before, reviewCount(t, issueA), "self review must not commit")
 		})
 
@@ -317,11 +317,11 @@ func TestPullReviewSubmit(t *testing.T) {
 				ActorID:               user1.ID,
 				CredentialFingerprint: extensionauth.CredentialFingerprint(authorTokenRow.TokenHash, authorTokenRow.TokenSalt),
 			}
-			intent := validate(t, "ft13-kind-mismatch", user1.ID, nativeop_model.KindReviewSubmit, payloadA("APPROVED", "wrong kind"))
+			intent := validate(t, "ft13-kind-mismatch", user1.ID, nativeoperation_model.KindReviewSubmit, payloadA("APPROVED", "wrong kind"))
 			record, err := svc.Submit(ctx, forged, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonAuthorityLost, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonAuthorityLost, record.ReasonCode)
 			require.Equal(t, before, reviewCount(t, issueA))
 		})
 
@@ -337,11 +337,11 @@ func TestPullReviewSubmit(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, issues_model.ReviewTypePending, pending.Type)
 
-			intent := validate(t, "ft13-pending", user2.ID, nativeop_model.KindReviewSubmit, payloadC("APPROVED", "no adoption"))
+			intent := validate(t, "ft13-pending", user2.ID, nativeoperation_model.KindReviewSubmit, payloadC("APPROVED", "no adoption"))
 			record, err := svc.Submit(ctx, reviewerDecision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonPendingReviewExists, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonPendingReviewExists, record.ReasonCode)
 			require.Equal(t, before+1, reviewCount(t, issueC), "only the ordinary draft exists")
 
 			// The draft stays untouched: still pending, never
@@ -356,21 +356,21 @@ func TestPullReviewSubmit(t *testing.T) {
 			before := reviewCount(t, issueA)
 			cancelled, err := svc.Cancel(ctx, installation, "ft13-never-submitted")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, cancelled.Outcome)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, cancelled.Outcome)
 
-			intent := validate(t, "ft13-never-submitted", user2.ID, nativeop_model.KindReviewSubmit, payloadA("APPROVED", "never"))
+			intent := validate(t, "ft13-never-submitted", user2.ID, nativeoperation_model.KindReviewSubmit, payloadA("APPROVED", "never"))
 			_, err = svc.Submit(ctx, reviewerDecision, installation, &intent)
-			require.ErrorIs(t, err, operation_service.ErrCancelledBeforeSubmit)
+			require.ErrorIs(t, err, nativeoperation_service.ErrCancelledBeforeSubmit)
 			require.Equal(t, before, reviewCount(t, issueA))
 		})
 
 		t.Run("cancel_race", func(t *testing.T) {
 			dir := t.TempDir()
-			t.Setenv("NATIVEOP_TEST_CRASH_POINT", operation_service.CrashPointReviewSubmitBeforePrimary)
+			t.Setenv("NATIVEOP_TEST_CRASH_POINT", nativeoperation_service.CrashPointReviewSubmitBeforePrimary)
 			t.Setenv("NATIVEOP_TEST_CRASH_BARRIER_DIR", dir)
 			before := reviewCount(t, issueB)
 
-			intent := validate(t, "ft13-cancel-race", user2.ID, nativeop_model.KindReviewSubmit, payloadB("APPROVED", "raced"))
+			intent := validate(t, "ft13-cancel-race", user2.ID, nativeoperation_model.KindReviewSubmit, payloadB("APPROVED", "raced"))
 			type result struct {
 				out    string
 				reason string
@@ -382,7 +382,7 @@ func TestPullReviewSubmit(t *testing.T) {
 				record, err := svc.Submit(ctx, reviewerDecision, installation, &intent)
 				done <- result{out: record.Outcome, reason: record.ReasonCode, cancel: record.CancellationStatus, err: err}
 			}()
-			entered := filepath.Join(dir, operation_service.CrashPointReviewSubmitBeforePrimary+".entered")
+			entered := filepath.Join(dir, nativeoperation_service.CrashPointReviewSubmitBeforePrimary+".entered")
 			deadline := time.Now().Add(30 * time.Second)
 			for {
 				if _, err := os.Stat(entered); err == nil {
@@ -397,7 +397,7 @@ func TestPullReviewSubmit(t *testing.T) {
 			// revoke now so the atomic commit must observe it.
 			_, err = svc.Cancel(ctx, installation, "ft13-cancel-race")
 			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(filepath.Join(dir, operation_service.CrashPointReviewSubmitBeforePrimary+".release"), []byte("go\n"), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, nativeoperation_service.CrashPointReviewSubmitBeforePrimary+".release"), []byte("go\n"), 0o600))
 
 			var res result
 			select {
@@ -406,50 +406,50 @@ func TestPullReviewSubmit(t *testing.T) {
 				t.Fatal("cancelled submit did not return")
 			}
 			require.NoError(t, res.err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, res.out)
-			require.Equal(t, nativeop_model.ReasonCancelledBeforeAdmission, res.reason)
-			require.Equal(t, nativeop_model.CancellationCancelled, res.cancel)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, res.out)
+			require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, res.reason)
+			require.Equal(t, nativeoperation_model.CancellationCancelled, res.cancel)
 			require.Equal(t, before, reviewCount(t, issueB), "winning cancellation must prevent the primary effect")
 		})
 
 		t.Run("crash_after_primary_recovery", func(t *testing.T) {
 			dir := t.TempDir()
-			t.Setenv("NATIVEOP_TEST_CRASH_POINT", operation_service.CrashPointReviewSubmitAfterPrimary)
+			t.Setenv("NATIVEOP_TEST_CRASH_POINT", nativeoperation_service.CrashPointReviewSubmitAfterPrimary)
 			t.Setenv("NATIVEOP_TEST_CRASH_BARRIER_DIR", dir)
 			t.Setenv("NATIVEOP_TEST_CRASH_TIMEOUT_SECONDS", "5")
 
-			intent := validate(t, "ft13-crash", user2.ID, nativeop_model.KindReviewSubmit, payloadB("APPROVED", "crashed"))
+			intent := validate(t, "ft13-crash", user2.ID, nativeoperation_model.KindReviewSubmit, payloadB("APPROVED", "crashed"))
 			_, err = svc.Submit(ctx, reviewerDecision, installation, &intent)
 			require.Error(t, err, "barrier timeout must fail the submit closed")
-			require.FileExists(t, filepath.Join(dir, operation_service.CrashPointReviewSubmitAfterPrimary+".entered"))
+			require.FileExists(t, filepath.Join(dir, nativeoperation_service.CrashPointReviewSubmitAfterPrimary+".entered"))
 
 			// The crash-equivalent state: primary committed with its
 			// receipt, completion unset, owner still held.
 			observation, err := svc.ReadNativeRevision(ctx)
 			require.NoError(t, err)
 			require.False(t, observation.Idle)
-			op, err := nativeop_model.LookupOperation(ctx, installation, "ft13-crash")
+			op, err := nativeoperation_model.LookupOperation(ctx, installation, "ft13-crash")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, op.EffectState)
 			require.NotEmpty(t, op.Receipt)
-			require.Equal(t, nativeop_model.CompletionPending, op.Completion)
+			require.Equal(t, nativeoperation_model.CompletionPending, op.Completion)
 
 			// Offline recovery under inhibition attributes the
 			// recorded review and finalizes completion as uncertain.
-			require.NoError(t, os.WriteFile(nativeop_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
-			t.Cleanup(func() { _ = os.Remove(nativeop_model.OfflineMarkerPath()) })
-			reservation, err := nativeop_model.ReadReservation(ctx)
+			require.NoError(t, os.WriteFile(nativeoperation_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
+			t.Cleanup(func() { _ = os.Remove(nativeoperation_model.OfflineMarkerPath()) })
+			reservation, err := nativeoperation_model.ReadReservation(ctx)
 			require.NoError(t, err)
 			assessment, err := svc.Recover(ctx, reservation.Owner, reservation.Generation)
 			require.NoError(t, err)
-			require.Equal(t, operation_service.RecoveryReleased, assessment.Verdict)
-			require.Equal(t, nativeop_model.EffectCommitted, assessment.Effect)
+			require.Equal(t, nativeoperation_service.RecoveryReleased, assessment.Verdict)
+			require.Equal(t, nativeoperation_model.EffectCommitted, assessment.Effect)
 			require.Equal(t, "conditional-review", assessment.Family)
 
-			recovered, err := nativeop_model.LookupOperation(ctx, installation, "ft13-crash")
+			recovered, err := nativeoperation_model.LookupOperation(ctx, installation, "ft13-crash")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, recovered.EffectState)
-			require.Equal(t, nativeop_model.CompletionNeedsIntervention, recovered.Completion)
+			require.Equal(t, nativeoperation_model.EffectCommitted, recovered.EffectState)
+			require.Equal(t, nativeoperation_model.CompletionNeedsIntervention, recovered.Completion)
 			receipt := decodeReceipt(t, json.RawMessage(recovered.Receipt))
 			review, err := issues_model.GetReviewByID(ctx, receipt.ReviewID)
 			require.NoError(t, err)
@@ -468,19 +468,19 @@ func TestPullReviewSubmit(t *testing.T) {
 				fmt.Sprintf("/api/v1/repos/%s/%s/pulls/%d", repo.OwnerName, repo.Name, numberC),
 				&api.EditPullRequestOption{State: &closed}).AddTokenAuth(authorToken), http.StatusCreated)
 
-			intent := validate(t, "ft13-closed", user2.ID, nativeop_model.KindReviewSubmit, payloadC("APPROVED", "too late"))
+			intent := validate(t, "ft13-closed", user2.ID, nativeoperation_model.KindReviewSubmit, payloadC("APPROVED", "too late"))
 			record, err := svc.Submit(ctx, reviewerDecision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonPRMismatch, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonPRMismatch, record.ReasonCode)
 			require.Equal(t, before, reviewCount(t, issueC), "closed PR must refuse without new rows")
 		})
 
 		t.Run("withdrawal_after_commit", func(t *testing.T) {
 			record, err := svc.Cancel(ctx, installation, successOpID)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.CancellationTooLate, record.CancellationStatus)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.CancellationTooLate, record.CancellationStatus)
 
 			review, err := issues_model.GetReviewByID(ctx, successReviewID)
 			require.NoError(t, err)

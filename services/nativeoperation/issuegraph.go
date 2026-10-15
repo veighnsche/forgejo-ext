@@ -5,16 +5,16 @@ package nativeoperation
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"os"
 
 	sdk "forgejo.org/extension-sdk"
 	"forgejo.org/models/db"
-	authmodel "forgejo.org/models/extensionauth"
+	extensionauth_model "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
@@ -39,7 +39,7 @@ func parseIssueGraphPayload(data []byte) (*sdk.IssueGraphPayload, error) {
 	return &p, nil
 }
 
-func (s *Service) submitIssueGraph(ctx context.Context, decision authmodel.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
+func (s *Service) submitIssueGraph(ctx context.Context, decision extensionauth_model.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
 	if err := ctx.Err(); err != nil {
 		return sdk.OperationRecord{}, err
 	}
@@ -56,13 +56,13 @@ func (s *Service) submitIssueGraph(ctx context.Context, decision authmodel.Submi
 	}
 	retire := func() { _ = os.Remove(capabilityPath) }
 	owner := conditionalOwner(installationID, intent.OperationID)
-	scope := Scope{Kind: model.OwnerConditional, RepositoryID: intent.RepositoryID}
+	scope := Scope{Kind: nativeoperation_model.OwnerConditional, RepositoryID: intent.RepositoryID}
 	encoded, err := encodeScope(scope)
 	if err != nil {
 		retire()
 		return sdk.OperationRecord{}, err
 	}
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         installationID,
 		OperationID:            intent.OperationID,
 		Kind:                   intent.Kind,
@@ -76,21 +76,21 @@ func (s *Service) submitIssueGraph(ctx context.Context, decision authmodel.Submi
 		IntentDigest:           intent.Digest,
 		Intent:                 intent.Canonical,
 	}
-	claimed, err := model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
+	claimed, err := nativeoperation_model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
 	if err != nil {
 		retire()
-		if errors.Is(err, model.ErrBusy) {
+		if errors.Is(err, nativeoperation_model.ErrBusy) {
 			return sdk.OperationRecord{}, ErrBusy
 		}
-		if errors.Is(err, model.ErrInhibited) {
+		if errors.Is(err, nativeoperation_model.ErrInhibited) {
 			return sdk.OperationRecord{}, err
 		}
-		if errors.Is(err, model.ErrStaleRevision) {
+		if errors.Is(err, nativeoperation_model.ErrStaleRevision) {
 			return s.recordStaleRevision(ctx, op)
 		}
 		// A concurrent identical submit may have won the insert; reread
 		// and reconcile rather than launching a second execution.
-		existing, lookupErr := model.LookupOperation(ctx, installationID, intent.OperationID)
+		existing, lookupErr := nativeoperation_model.LookupOperation(ctx, installationID, intent.OperationID)
 		if lookupErr != nil {
 			return sdk.OperationRecord{}, lookupErr
 		}
@@ -115,11 +115,11 @@ func (s *Service) submitIssueGraph(ctx context.Context, decision authmodel.Submi
 
 // executeIssueGraph keeps native SQL changes and their receipt atomic. Mention
 // delivery follows the primary commit; failure cannot erase committed issues.
-func (s *Service) executeIssueGraph(ctx context.Context, op *model.Operation, intent *ValidIntent, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
+func (s *Service) executeIssueGraph(ctx context.Context, op *nativeoperation_model.Operation, intent *ValidIntent, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
 	releaseCtx := context.WithoutCancel(ctx)
 	owned := execcontext.NewContext(ctx, execution)
 	refuse := func(reason string) (sdk.OperationRecord, terminalResult, error) {
-		recorded, err := model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, model.TerminalOutcome{EffectState: model.EffectNotCommitted, Reason: reason, Cancellation: model.CancellationNone}, execution.Owner)
+		recorded, err := nativeoperation_model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{EffectState: nativeoperation_model.EffectNotCommitted, Reason: reason, Cancellation: nativeoperation_model.CancellationNone}, execution.Owner)
 		if err != nil {
 			return sdk.OperationRecord{}, terminalResult{}, err
 		}
@@ -127,30 +127,30 @@ func (s *Service) executeIssueGraph(ctx context.Context, op *model.Operation, in
 	}
 	if err := s.revalidateSubmission(owned, op); err != nil {
 		if errors.Is(err, ErrAuthorityLost) {
-			return refuse(model.ReasonAuthorityLost)
+			return refuse(nativeoperation_model.ReasonAuthorityLost)
 		}
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 	repo, err := repo_model.GetRepositoryByID(owned, op.RepositoryID)
 	if err != nil {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 	actor, err := user_model.GetUserByID(owned, op.ActorID)
 	if err != nil {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	permission, err := access_model.GetUserRepoPermission(owned, repo, actor)
 	if err != nil || !permission.CanWrite(unit.TypeIssues) || repo.IsArchived || repo.IsMirror || user_model.IsBlocked(owned, repo.OwnerID, actor.ID) {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	if len(intent.IssueGraph.Dependencies) > 0 && !repo.IsDependenciesEnabled(owned) {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 	if err := TestCrashBarrier(CrashPointIssueGraphBeforePrimary); err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 	var changed []*issues_model.Issue
-	committed, err := model.CommitIssueGraphPrimary(owned, op.InstallationID, op.OperationID, execution.Owner, s.clock(), func(tx context.Context) (string, error) {
+	committed, err := nativeoperation_model.CommitIssueGraphPrimary(owned, op.InstallationID, op.OperationID, execution.Owner, s.clock(), func(tx context.Context) (string, error) {
 		receipt, issues, err := applyIssueGraph(tx, repo, actor, intent.IssueGraph)
 		if err != nil {
 			return "", err
@@ -161,29 +161,29 @@ func (s *Service) executeIssueGraph(ctx context.Context, op *model.Operation, in
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, model.ErrOperationExpired):
-			return refuse(model.ReasonExpiredBeforeAdmission)
-		case errors.Is(err, model.ErrAdmissionLost):
-			current, readErr := model.LookupOperation(releaseCtx, op.InstallationID, op.OperationID)
+		case errors.Is(err, nativeoperation_model.ErrOperationExpired):
+			return refuse(nativeoperation_model.ReasonExpiredBeforeAdmission)
+		case errors.Is(err, nativeoperation_model.ErrAdmissionLost):
+			current, readErr := nativeoperation_model.LookupOperation(releaseCtx, op.InstallationID, op.OperationID)
 			if readErr != nil {
 				return sdk.OperationRecord{}, terminalResult{}, readErr
 			}
 			if current != nil && current.Revoked {
-				return refuse(model.ReasonCancelledBeforeAdmission)
+				return refuse(nativeoperation_model.ReasonCancelledBeforeAdmission)
 			}
 			return sdk.OperationRecord{}, terminalResult{}, err
 		default:
-			return refuse(model.ReasonNativeRefused)
+			return refuse(nativeoperation_model.ReasonNativeRefused)
 		}
 	}
 	if err := TestCrashBarrier(CrashPointIssueGraphAfterPrimary); err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
-	completion := model.CompletionComplete
+	completion := nativeoperation_model.CompletionComplete
 	for i, issue := range changed {
 		mentions, err := issues_model.FindAndUpdateIssueMentions(owned, issue, actor, issue.Content)
 		if err != nil {
-			completion = model.CompletionNeedsIntervention
+			completion = nativeoperation_model.CompletionNeedsIntervention
 			break
 		}
 		// Native notification services receive the real submitting actor; no
@@ -200,7 +200,7 @@ func (s *Service) executeIssueGraph(ctx context.Context, op *model.Operation, in
 			}
 		}
 	}
-	recorded, err := model.SetCompletionAndRelease(releaseCtx, committed.InstallationID, committed.OperationID, execution.Owner, execution.Generation, completion)
+	recorded, err := nativeoperation_model.SetCompletionAndRelease(releaseCtx, committed.InstallationID, committed.OperationID, execution.Owner, execution.Generation, completion)
 	if err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}

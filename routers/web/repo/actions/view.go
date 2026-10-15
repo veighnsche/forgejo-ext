@@ -38,7 +38,7 @@ import (
 	"forgejo.org/routers/common"
 	actions_service "forgejo.org/services/actions"
 	app_context "forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 func RedirectToLatestAttempt(ctx *app_context.Context) {
@@ -531,7 +531,7 @@ func Rerun(ctx *app_context.Context) {
 			ctx.JSONError(ctx.Locale.Tr("actions.workflow.job_rerun_impossible"))
 			return
 		}
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -612,7 +612,7 @@ func Cancel(ctx *app_context.Context) {
 		return
 	}
 	if err := actions_service.CancelRun(ctx, run); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -898,17 +898,17 @@ func disableOrEnableWorkflowFile(ctx *app_context.Context, isEnable bool) {
 	}
 
 	// One settings update owns the workflow toggle before its effects.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoSettings,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoSettings,
 		fmt.Sprintf("%d/actions-workflow", ctx.Repo.Repository.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoSettings,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoSettings,
 			RepositoryID: ctx.Repo.Repository.ID,
 		},
 		func(ctx stdCtx.Context) error {
 			return repo_model.UpdateRepoUnit(ctx, cfgUnit)
 		}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "A native operation is in progress; retry shortly.")
 			return
 		}

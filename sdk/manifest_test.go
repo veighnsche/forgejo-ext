@@ -84,9 +84,11 @@ func TestLoadManifestBoundsAndSingleObject(t *testing.T) {
 
 func TestSharedOwnerDeclaration(t *testing.T) {
 	base := func() Manifest {
-		return Manifest{Protocol: Protocol, ID: "sample", Name: "Sample", Version: "1", Executable: "backend",
+		return Manifest{
+			Protocol: Protocol, ID: "sample", Name: "Sample", Version: "1", Executable: "backend",
 			Pages:  []Page{{ID: "spaces", Route: "workspace", Title: "Workspace", Scope: "global", Entry: "main.js", Owner: "workspace"}},
-			Panels: []Panel{{ID: "workspace", Title: "Workspace", Entry: "main.js", Owner: "workspace"}}}
+			Panels: []Panel{{ID: "workspace", Title: "Workspace", Entry: "main.js", Owner: "workspace"}},
+		}
 	}
 	if err := base().Validate(); err != nil {
 		t.Fatal("valid linked owner rejected:", err)
@@ -123,9 +125,13 @@ func TestSharedOwnerDeclaration(t *testing.T) {
 }
 
 func TestDeclaredSubroutes(t *testing.T) {
-	m := Manifest{Protocol: Protocol, ID: "sample", Name: "Sample", Version: "1", Executable: "backend",
-		Pages: []Page{{ID: "spaces", Route: "workspace", Title: "Workspace", Scope: "global", Entry: "main.js",
-			Subroutes: []Subroute{{Pattern: "new", Title: "New Project"}, {Pattern: "requests/{request}", Title: "Build request"}}}}}
+	m := Manifest{
+		Protocol: Protocol, ID: "sample", Name: "Sample", Version: "1", Executable: "backend",
+		Pages: []Page{{
+			ID: "spaces", Route: "workspace", Title: "Workspace", Scope: "global", Entry: "main.js",
+			Subroutes: []Subroute{{Pattern: "new", Title: "New Project"}, {Pattern: "requests/{request}", Title: "Build request"}},
+		}},
+	}
 	if err := m.Validate(); err != nil {
 		t.Fatal("valid declared subroutes rejected:", err)
 	}

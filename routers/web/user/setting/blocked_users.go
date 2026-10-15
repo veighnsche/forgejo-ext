@@ -13,7 +13,7 @@ import (
 	"forgejo.org/modules/base"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -44,7 +44,7 @@ func UnblockUser(ctx *context.Context) {
 	// stale.
 	doerID := ctx.Doer.ID
 	blockedID := ctx.FormInt64("user_id")
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/unblock/%d", doerID, blockedID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/unblock/%d", doerID, blockedID), 0, func(ctx std_ctx.Context) error {
 		return user_model.UnblockUser(ctx, doerID, blockedID)
 	}); err != nil {
 		ctx.ServerError("UnblockUser", err)

@@ -85,12 +85,12 @@ func updateOwned(ctx context.Context, pr *issues_model.PullRequest, doer *user_m
 		}
 		// The push succeeded; a tip-read failure only degrades the
 		// recorded scope, never the update itself.
-		if tip, err := git.GetFullCommitID(ctx, pr.HeadRepo.RepoPath(), git.BranchPrefix+pr.HeadBranch); err != nil {
+		tip, err := git.GetFullCommitID(ctx, pr.HeadRepo.RepoPath(), git.BranchPrefix+pr.HeadBranch)
+		if err != nil {
 			log.Error("Unable to read updated head tip for PR[%d]: %v", pr.ID, err)
 			return nil
-		} else {
-			return recordRefWriteResult(ctx, tip)
 		}
+		return recordRefWriteResult(ctx, tip)
 	}
 
 	if err := pr.LoadBaseRepo(ctx); err != nil {

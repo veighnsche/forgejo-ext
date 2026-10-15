@@ -30,7 +30,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	issue_service "forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // SearchIssues searches for issues across the repositories that the user has access to
@@ -903,10 +903,10 @@ func EditIssue(ctx *context.APIContext) {
 		// effects, advancing the native revision so old accepted-input
 		// observations go stale.
 		doer := ctx.Doer()
-		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "deadline"), issue.RepoID, func(ctx stdCtx.Context) error {
+		if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "deadline"), issue.RepoID, func(ctx stdCtx.Context) error {
 			return issues_model.UpdateIssueDeadline(ctx, issue, deadlineUnix, doer)
 		}); err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 				return
 			}
@@ -1094,10 +1094,10 @@ func UpdateIssueDeadline(ctx *context.APIContext) {
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
 	doer := ctx.Doer()
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "deadline"), issue.RepoID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "deadline"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issues_model.UpdateIssueDeadline(ctx, issue, deadlineUnix, doer)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

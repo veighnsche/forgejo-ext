@@ -10,7 +10,7 @@ import (
 	"forgejo.org/modules/private"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
-	nativeoperation "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // HookReferenceTransaction enforces the native-operation reservation at
@@ -26,11 +26,11 @@ func HookReferenceTransaction(ctx *context.PrivateContext) {
 		ctx.JSON(http.StatusBadRequest, private.Response{Err: "mismatched transaction inputs"})
 		return
 	}
-	lines := make([]nativeoperation.RefLine, 0, len(opts.OldCommitIDs))
-	scoped := make([]nativeoperation.ScopedRef, 0, len(opts.OldCommitIDs))
+	lines := make([]nativeoperation_service.RefLine, 0, len(opts.OldCommitIDs))
+	scoped := make([]nativeoperation_service.ScopedRef, 0, len(opts.OldCommitIDs))
 	for i := range opts.OldCommitIDs {
-		lines = append(lines, nativeoperation.RefLine{Old: opts.OldCommitIDs[i], New: opts.NewCommitIDs[i], Ref: string(opts.RefFullNames[i])})
-		scoped = append(scoped, nativeoperation.ScopedRef{Ref: string(opts.RefFullNames[i]), OldOID: opts.OldCommitIDs[i], NewOID: opts.NewCommitIDs[i]})
+		lines = append(lines, nativeoperation_service.RefLine{Old: opts.OldCommitIDs[i], New: opts.NewCommitIDs[i], Ref: string(opts.RefFullNames[i])})
+		scoped = append(scoped, nativeoperation_service.ScopedRef{Ref: string(opts.RefFullNames[i]), OldOID: opts.OldCommitIDs[i], NewOID: opts.NewCommitIDs[i]})
 	}
 	// Record the proposed tuples before classifying: a receive owner
 	// declares its own effects, which the gate then admits as listed
@@ -38,9 +38,9 @@ func HookReferenceTransaction(ctx *context.PrivateContext) {
 	// no-ops, so other families keep their strict checking. A
 	// pull-creation owner likewise declares its derived PR ref, whose
 	// name is unknowable at claim time.
-	nativeoperation.RefineReceiveScope(ctx, opts.ExecProof, scoped)
-	nativeoperation.RefineCollabPullScope(ctx, opts.ExecProof, scoped)
-	decision, err := nativeoperation.Default().ClassifyTransaction(ctx, nativeoperation.TransactionRequest{
+	nativeoperation_service.RefineReceiveScope(ctx, opts.ExecProof, scoped)
+	nativeoperation_service.RefineCollabPullScope(ctx, opts.ExecProof, scoped)
+	decision, err := nativeoperation_service.Default().ClassifyTransaction(ctx, nativeoperation_service.TransactionRequest{
 		OwnerName: ownerName,
 		RepoName:  repoName,
 		Phase:     opts.Phase,
@@ -66,7 +66,7 @@ func checkCompletionBinding(ctx *context.PrivateContext, opts *private.HookOptio
 	if len(opts.RefFullNames) == 0 {
 		return true
 	}
-	idle, err := nativeoperation.Default().GateState(ctx)
+	idle, err := nativeoperation_service.Default().GateState(ctx)
 	if err != nil {
 		log.Error("Completion binding check failed for %s/%s: %v", ownerName, repoName, err)
 		ctx.JSON(http.StatusInternalServerError, private.HookPostReceiveResult{
@@ -82,10 +82,10 @@ func checkCompletionBinding(ctx *context.PrivateContext, opts *private.HookOptio
 		return false
 	}
 	refNames := make([]string, 0, len(opts.RefFullNames))
-	scoped := make([]nativeoperation.ScopedRef, 0, len(opts.RefFullNames))
+	scoped := make([]nativeoperation_service.ScopedRef, 0, len(opts.RefFullNames))
 	for i, ref := range opts.RefFullNames {
 		refNames = append(refNames, string(ref))
-		tuple := nativeoperation.ScopedRef{Ref: string(ref)}
+		tuple := nativeoperation_service.ScopedRef{Ref: string(ref)}
 		if i < len(opts.OldCommitIDs) {
 			tuple.OldOID = opts.OldCommitIDs[i]
 		}
@@ -98,8 +98,8 @@ func checkCompletionBinding(ctx *context.PrivateContext, opts *private.HookOptio
 	// declares its own effects, which the gate then admits as listed
 	// scope members. Idle pushes skip above; unproven or non-receive
 	// refinements are silent no-ops.
-	nativeoperation.RefineReceiveScope(ctx, opts.ExecProof, scoped)
-	decision, err := nativeoperation.Default().ClassifyCompletion(ctx, repo.ID, refNames, opts.ExecProof, !opts.GetGitPushOptions().Empty())
+	nativeoperation_service.RefineReceiveScope(ctx, opts.ExecProof, scoped)
+	decision, err := nativeoperation_service.Default().ClassifyCompletion(ctx, repo.ID, refNames, opts.ExecProof, !opts.GetGitPushOptions().Empty())
 	if err != nil {
 		log.Error("Completion binding check failed for %s/%s: %v", ownerName, repoName, err)
 		ctx.JSON(http.StatusInternalServerError, private.HookPostReceiveResult{

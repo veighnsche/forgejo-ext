@@ -11,7 +11,7 @@ import (
 	access_model "forgejo.org/models/perm/access"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // AddDependency adds new dependencies
@@ -79,11 +79,11 @@ func AddDependency(ctx *context.Context) {
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
 	doer := ctx.Doer
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.DependencyResource(issue.ID, dep.ID), issue.RepoID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.DependencyResource(issue.ID, dep.ID), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issues_model.CreateIssueDependency(ctx, doer, issue, dep)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Flash.Error("A native operation is in progress; retry shortly.")
 			ctx.Redirect(issue.Link())
 			return
@@ -152,10 +152,10 @@ func RemoveDependency(ctx *context.Context) {
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
 	doer := ctx.Doer
-	if err = operation_service.WithCollaborationOwnership(ctx, operation_service.DependencyResource(issue.ID, dep.ID), issue.RepoID, func(ctx stdCtx.Context) error {
+	if err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.DependencyResource(issue.ID, dep.ID), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issues_model.RemoveIssueDependency(ctx, doer, issue, dep, depType)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Flash.Error("A native operation is in progress; retry shortly.")
 			return
 		}

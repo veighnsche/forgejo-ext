@@ -4,7 +4,7 @@
 package integration
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"fmt"
 	"net/http"
 	"net/url"
@@ -18,13 +18,13 @@ import (
 	"forgejo.org/models/db"
 	"forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	nativeop_model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 
 	"github.com/stretchr/testify/require"
@@ -63,7 +63,7 @@ func TestPullMergeSubmit(t *testing.T) {
 
 		user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: 1, Name: "repo1"})
-		svc := operation_service.Default()
+		svc := nativeoperation_service.Default()
 		ctx := t.Context()
 		installation := "7c12e001-0000-4000-8000-000000000014"
 
@@ -121,11 +121,11 @@ func TestPullMergeSubmit(t *testing.T) {
 			return 0
 		}
 
-		validate := func(t *testing.T, opID, kind, payload string) operation_service.ValidIntent {
+		validate := func(t *testing.T, opID, kind, payload string) nativeoperation_service.ValidIntent {
 			t.Helper()
 			revision := waitIdle(t)
 			now := time.Now().Unix()
-			intent, err := operation_service.ValidateIntent(opID, user1.ID, repo.ID, kind,
+			intent, err := nativeoperation_service.ValidateIntent(opID, user1.ID, repo.ID, kind,
 				"auth-rev-1", revision, now+600, []byte(payload), now)
 			require.NoError(t, err)
 			return *intent
@@ -193,9 +193,9 @@ func TestPullMergeSubmit(t *testing.T) {
 			return number, prID
 		}
 
-		decodeReceipt := func(t *testing.T, raw json.RawMessage) operation_service.MergeReceipt {
+		decodeReceipt := func(t *testing.T, raw json.RawMessage) nativeoperation_service.MergeReceipt {
 			t.Helper()
-			var receipt operation_service.MergeReceipt
+			var receipt nativeoperation_service.MergeReceipt
 			require.NoError(t, json.Unmarshal(raw, &receipt))
 			return receipt
 		}
@@ -203,7 +203,7 @@ func TestPullMergeSubmit(t *testing.T) {
 		var successOpID string
 		var successNumber, successPRID int64
 		var successHeadOID string
-		var successIntent operation_service.ValidIntent
+		var successIntent nativeoperation_service.ValidIntent
 
 		t.Run("success_exact", func(t *testing.T) {
 			successOpID = "ft14-success"
@@ -214,13 +214,13 @@ func TestPullMergeSubmit(t *testing.T) {
 			require.NotEqual(t, headOID, baseOID)
 			successHeadOID = headOID
 
-			intent := validate(t, successOpID, nativeop_model.KindMerge,
+			intent := validate(t, successOpID, nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-ok", "refs/heads/master", headOID, baseOID))
 			successIntent = intent
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.CompletionComplete, record.CompletionState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.CompletionComplete, record.CompletionState)
 			receipt := decodeReceipt(t, record.Receipt)
 			require.Equal(t, baseOID, receipt.OldOID)
 			require.Equal(t, headOID, receipt.NewOID)
@@ -241,7 +241,7 @@ func TestPullMergeSubmit(t *testing.T) {
 			// same receipt, never a replacement submit.
 			lookup, err := svc.Get(ctx, installation, successOpID)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, lookup.Status)
+			require.Equal(t, nativeoperation_model.EffectCommitted, lookup.Status)
 			require.NotNil(t, lookup.Record)
 			require.Equal(t, record.IntentDigest, lookup.Record.IntentDigest)
 			require.JSONEq(t, string(record.Receipt), string(lookup.Record.Receipt))
@@ -254,7 +254,7 @@ func TestPullMergeSubmit(t *testing.T) {
 			// a different authorization and correctly conflicts.
 			record, err := svc.Submit(ctx, decision, installation, &successIntent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
 			require.Equal(t, revBefore, waitIdle(t), "replay must not claim")
 
 			lookup, err := svc.Get(ctx, installation, successOpID)
@@ -265,10 +265,10 @@ func TestPullMergeSubmit(t *testing.T) {
 		t.Run("intent_conflict", func(t *testing.T) {
 			// A valid payload with a different base cannot match
 			// the recorded digest.
-			intent := validate(t, successOpID, nativeop_model.KindMerge,
+			intent := validate(t, successOpID, nativeoperation_model.KindMerge,
 				mergePayload(successNumber, "refs/heads/ft14-ok", "refs/heads/master", successHeadOID, strings.Repeat("a", 40)))
 			_, err := svc.Submit(ctx, decision, installation, &intent)
-			require.ErrorIs(t, err, operation_service.ErrIntentConflict)
+			require.ErrorIs(t, err, nativeoperation_service.ErrIntentConflict)
 		})
 
 		t.Run("stale_head", func(t *testing.T) {
@@ -280,12 +280,12 @@ func TestPullMergeSubmit(t *testing.T) {
 			editBranch(t, "ft14-stale-head", "Hello, World stale-head moved\n")
 			require.NotEqual(t, headOID, tip(t, "refs/heads/ft14-stale-head"))
 
-			intent := validate(t, "ft14-stale-head", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-stale-head", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-stale-head", "refs/heads/master", headOID, baseOID))
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonStaleHead, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonStaleHead, record.ReasonCode)
 			require.Equal(t, baseOID, tip(t, "refs/heads/master"), "refused merge must not move the base")
 			require.False(t, loadPR(t, prID).HasMerged)
 		})
@@ -299,12 +299,12 @@ func TestPullMergeSubmit(t *testing.T) {
 			editBranch(t, "master", "Hello, World stale-base moved\n")
 			require.NotEqual(t, baseOID, master(t))
 
-			intent := validate(t, "ft14-stale-base", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-stale-base", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-stale-base", "refs/heads/master", headOID, baseOID))
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonStaleBaseOrResult, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonStaleBaseOrResult, record.ReasonCode)
 			require.Equal(t, headOID, tip(t, "refs/heads/ft14-stale-base"), "refused merge must not move the head")
 			require.False(t, loadPR(t, prID).HasMerged)
 		})
@@ -321,12 +321,12 @@ func TestPullMergeSubmit(t *testing.T) {
 
 			headOID := tip(t, "refs/heads/ft14-diverging")
 			baseOID := master(t)
-			intent := validate(t, "ft14-diverging", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-diverging", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-diverging", "refs/heads/master", headOID, baseOID))
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonNotFastForward, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonNotFastForward, record.ReasonCode)
 			require.Equal(t, baseOID, tip(t, "refs/heads/master"), "diverged merge must not move the base")
 			require.False(t, loadPR(t, prID).HasMerged)
 		})
@@ -346,12 +346,12 @@ func TestPullMergeSubmit(t *testing.T) {
 					ApplyToAdmins:     true,
 				}).AddTokenAuth(token), http.StatusCreated)
 
-			intent := validate(t, "ft14-protected", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-protected", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-protected", "refs/heads/master", headOID, baseOID))
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonNativeRefused, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonNativeRefused, record.ReasonCode)
 			require.Equal(t, baseOID, tip(t, "refs/heads/master"), "protected merge must not move the base")
 			require.False(t, loadPR(t, prID).HasMerged)
 
@@ -362,12 +362,12 @@ func TestPullMergeSubmit(t *testing.T) {
 			session.MakeRequest(t, NewRequestf(t, http.MethodDelete,
 				"/api/v1/repos/user1/repo1/branch_protections/%s", "master").AddTokenAuth(token), http.StatusNoContent)
 
-			restart := validate(t, "ft14-protected-restart", nativeop_model.KindMerge,
+			restart := validate(t, "ft14-protected-restart", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-protected", "refs/heads/master", headOID, baseOID))
 			restarted, err := svc.Submit(ctx, decision, installation, &restart)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, restarted.Outcome)
-			require.Equal(t, nativeop_model.CompletionComplete, restarted.CompletionState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, restarted.Outcome)
+			require.Equal(t, nativeoperation_model.CompletionComplete, restarted.CompletionState)
 			require.Equal(t, headOID, tip(t, "refs/heads/master"))
 			require.True(t, loadPR(t, prID).HasMerged)
 		})
@@ -387,12 +387,12 @@ func TestPullMergeSubmit(t *testing.T) {
 				"/api/v1/repos/user1/repo1",
 				&api.EditRepoOption{AllowFastForwardOnly: &allow}).AddTokenAuth(token), http.StatusOK)
 
-			intent := validate(t, "ft14-method", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-method", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-method", "refs/heads/master", headOID, baseOID))
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonNativeRefused, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonNativeRefused, record.ReasonCode)
 			require.Equal(t, baseOID, tip(t, "refs/heads/master"), "disallowed method must not move the base")
 			require.False(t, loadPR(t, prID).HasMerged)
 
@@ -404,12 +404,12 @@ func TestPullMergeSubmit(t *testing.T) {
 		})
 
 		t.Run("already_merged", func(t *testing.T) {
-			intent := validate(t, "ft14-already-merged", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-already-merged", nativeoperation_model.KindMerge,
 				mergePayload(successNumber, "refs/heads/ft14-ok", "refs/heads/master", successHeadOID, master(t)))
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonPRMismatch, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonPRMismatch, record.ReasonCode)
 		})
 
 		t.Run("binding_kind_mismatch", func(t *testing.T) {
@@ -417,24 +417,24 @@ func TestPullMergeSubmit(t *testing.T) {
 			// review-bound credential carries no merge binding, so
 			// the merge refuses even though the credential is
 			// otherwise valid.
-			intent := validate(t, "ft14-kind-mismatch", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-kind-mismatch", nativeoperation_model.KindMerge,
 				mergePayload(successNumber, "refs/heads/ft14-ok", "refs/heads/master", successHeadOID, master(t)))
 			record, err := svc.Submit(ctx, otherDecision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonAuthorityLost, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonAuthorityLost, record.ReasonCode)
 		})
 
 		t.Run("cancel_before_submit", func(t *testing.T) {
 			before := master(t)
 			cancelled, err := svc.Cancel(ctx, installation, "ft14-never-submitted")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, cancelled.Outcome)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, cancelled.Outcome)
 
-			intent := validate(t, "ft14-never-submitted", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-never-submitted", nativeoperation_model.KindMerge,
 				mergePayload(successNumber, "refs/heads/ft14-ok", "refs/heads/master", successHeadOID, before))
 			_, err = svc.Submit(ctx, decision, installation, &intent)
-			require.ErrorIs(t, err, operation_service.ErrCancelledBeforeSubmit)
+			require.ErrorIs(t, err, nativeoperation_service.ErrCancelledBeforeSubmit)
 			require.Equal(t, before, master(t))
 		})
 
@@ -442,7 +442,7 @@ func TestPullMergeSubmit(t *testing.T) {
 			number, prID := prepareCandidate(t, "ft14-race", "ft14 merge cancel race")
 			headOID := tip(t, "refs/heads/ft14-race")
 			baseOID := master(t)
-			intent := validate(t, "ft14-race", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-race", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-race", "refs/heads/master", headOID, baseOID))
 
 			// The disclosed admission barrier pauses the atomic
@@ -481,9 +481,9 @@ func TestPullMergeSubmit(t *testing.T) {
 				t.Fatal("cancelled submit did not return")
 			}
 			require.NoError(t, res.err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, res.out)
-			require.Equal(t, nativeop_model.ReasonCancelledBeforeAdmission, res.reason)
-			require.Equal(t, nativeop_model.CancellationCancelled, res.cancel)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, res.out)
+			require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, res.reason)
+			require.Equal(t, nativeoperation_model.CancellationCancelled, res.cancel)
 			require.Equal(t, baseOID, tip(t, "refs/heads/master"), "winning cancellation must prevent the merge")
 			require.False(t, loadPR(t, prID).HasMerged)
 		})
@@ -492,26 +492,26 @@ func TestPullMergeSubmit(t *testing.T) {
 			number, prID := prepareCandidate(t, "ft14-crash-before", "ft14 merge crash before")
 			headOID := tip(t, "refs/heads/ft14-crash-before")
 			baseOID := master(t)
-			intent := validate(t, "ft14-crash-before", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-crash-before", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-crash-before", "refs/heads/master", headOID, baseOID))
 
 			dir := t.TempDir()
-			t.Setenv("NATIVEOP_TEST_CRASH_POINT", operation_service.CrashPointMergeBeforeNative)
+			t.Setenv("NATIVEOP_TEST_CRASH_POINT", nativeoperation_service.CrashPointMergeBeforeNative)
 			t.Setenv("NATIVEOP_TEST_CRASH_BARRIER_DIR", dir)
 			t.Setenv("NATIVEOP_TEST_CRASH_TIMEOUT_SECONDS", "5")
 
 			_, err := svc.Submit(ctx, decision, installation, &intent)
 			require.Error(t, err, "barrier timeout must fail the submit closed")
-			require.FileExists(t, filepath.Join(dir, operation_service.CrashPointMergeBeforeNative+".entered"))
+			require.FileExists(t, filepath.Join(dir, nativeoperation_service.CrashPointMergeBeforeNative+".entered"))
 
 			// The crash-equivalent state: claim held, no admission,
 			// no ref effect, owner still held.
 			observation, err := svc.ReadNativeRevision(ctx)
 			require.NoError(t, err)
 			require.False(t, observation.Idle)
-			op, err := nativeop_model.LookupOperation(ctx, installation, "ft14-crash-before")
+			op, err := nativeoperation_model.LookupOperation(ctx, installation, "ft14-crash-before")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectPending, op.EffectState)
+			require.Equal(t, nativeoperation_model.EffectPending, op.EffectState)
 			require.False(t, op.Admitted)
 			require.Empty(t, op.Receipt)
 			require.Equal(t, baseOID, tip(t, "refs/heads/master"))
@@ -519,20 +519,20 @@ func TestPullMergeSubmit(t *testing.T) {
 
 			// Offline recovery under inhibition releases the
 			// effect-free claim as not_committed.
-			require.NoError(t, os.WriteFile(nativeop_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
-			t.Cleanup(func() { _ = os.Remove(nativeop_model.OfflineMarkerPath()) })
-			reservation, err := nativeop_model.ReadReservation(ctx)
+			require.NoError(t, os.WriteFile(nativeoperation_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
+			t.Cleanup(func() { _ = os.Remove(nativeoperation_model.OfflineMarkerPath()) })
+			reservation, err := nativeoperation_model.ReadReservation(ctx)
 			require.NoError(t, err)
 			assessment, err := svc.Recover(ctx, reservation.Owner, reservation.Generation)
 			require.NoError(t, err)
-			require.Equal(t, operation_service.RecoveryReleased, assessment.Verdict)
-			require.Equal(t, nativeop_model.EffectNotCommitted, assessment.Effect)
+			require.Equal(t, nativeoperation_service.RecoveryReleased, assessment.Verdict)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 			require.Equal(t, "conditional-merge", assessment.Family)
 
-			recovered, err := nativeop_model.LookupOperation(ctx, installation, "ft14-crash-before")
+			recovered, err := nativeoperation_model.LookupOperation(ctx, installation, "ft14-crash-before")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, recovered.EffectState)
-			require.Equal(t, nativeop_model.ReasonRecoveredNoEffect, recovered.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, recovered.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonRecoveredNoEffect, recovered.Reason)
 
 			observation, err = svc.ReadNativeRevision(ctx)
 			require.NoError(t, err)
@@ -543,17 +543,17 @@ func TestPullMergeSubmit(t *testing.T) {
 			number, prID := prepareCandidate(t, "ft14-crash-after", "ft14 merge crash after")
 			headOID := tip(t, "refs/heads/ft14-crash-after")
 			baseOID := master(t)
-			intent := validate(t, "ft14-crash-after", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-crash-after", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-crash-after", "refs/heads/master", headOID, baseOID))
 
 			dir := t.TempDir()
-			t.Setenv("NATIVEOP_TEST_CRASH_POINT", operation_service.CrashPointMergeAfterNative)
+			t.Setenv("NATIVEOP_TEST_CRASH_POINT", nativeoperation_service.CrashPointMergeAfterNative)
 			t.Setenv("NATIVEOP_TEST_CRASH_BARRIER_DIR", dir)
 			t.Setenv("NATIVEOP_TEST_CRASH_TIMEOUT_SECONDS", "5")
 
 			_, err := svc.Submit(ctx, decision, installation, &intent)
 			require.Error(t, err, "barrier timeout must fail the submit closed")
-			require.FileExists(t, filepath.Join(dir, operation_service.CrashPointMergeAfterNative+".entered"))
+			require.FileExists(t, filepath.Join(dir, nativeoperation_service.CrashPointMergeAfterNative+".entered"))
 
 			// The crash-equivalent state: the native merge ran to
 			// completion (ref moved, PR merged) but reconciliation
@@ -567,20 +567,20 @@ func TestPullMergeSubmit(t *testing.T) {
 			// Offline recovery under inhibition attributes the
 			// admitted ref effect plus the merged PR and finalizes
 			// the receipt as complete.
-			require.NoError(t, os.WriteFile(nativeop_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
-			t.Cleanup(func() { _ = os.Remove(nativeop_model.OfflineMarkerPath()) })
-			reservation, err := nativeop_model.ReadReservation(ctx)
+			require.NoError(t, os.WriteFile(nativeoperation_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
+			t.Cleanup(func() { _ = os.Remove(nativeoperation_model.OfflineMarkerPath()) })
+			reservation, err := nativeoperation_model.ReadReservation(ctx)
 			require.NoError(t, err)
 			assessment, err := svc.Recover(ctx, reservation.Owner, reservation.Generation)
 			require.NoError(t, err)
-			require.Equal(t, operation_service.RecoveryReleased, assessment.Verdict)
-			require.Equal(t, nativeop_model.EffectCommitted, assessment.Effect)
+			require.Equal(t, nativeoperation_service.RecoveryReleased, assessment.Verdict)
+			require.Equal(t, nativeoperation_model.EffectCommitted, assessment.Effect)
 			require.Equal(t, "conditional-merge", assessment.Family)
 
-			recovered, err := nativeop_model.LookupOperation(ctx, installation, "ft14-crash-after")
+			recovered, err := nativeoperation_model.LookupOperation(ctx, installation, "ft14-crash-after")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, recovered.EffectState)
-			require.Equal(t, nativeop_model.CompletionComplete, recovered.Completion)
+			require.Equal(t, nativeoperation_model.EffectCommitted, recovered.EffectState)
+			require.Equal(t, nativeoperation_model.CompletionComplete, recovered.Completion)
 			receipt := decodeReceipt(t, json.RawMessage(recovered.Receipt))
 			require.Equal(t, baseOID, receipt.OldOID)
 			require.Equal(t, headOID, receipt.NewOID)
@@ -597,11 +597,11 @@ func TestPullMergeSubmit(t *testing.T) {
 			number, prID := prepareCandidate(t, "ft14-crash-partial", "ft14 merge crash partial")
 			headOID := tip(t, "refs/heads/ft14-crash-partial")
 			baseOID := master(t)
-			intent := validate(t, "ft14-crash-partial", nativeop_model.KindMerge,
+			intent := validate(t, "ft14-crash-partial", nativeoperation_model.KindMerge,
 				mergePayload(number, "refs/heads/ft14-crash-partial", "refs/heads/master", headOID, baseOID))
 
 			dir := t.TempDir()
-			t.Setenv("NATIVEOP_TEST_CRASH_POINT", operation_service.CrashPointMergeAfterNative)
+			t.Setenv("NATIVEOP_TEST_CRASH_POINT", nativeoperation_service.CrashPointMergeAfterNative)
 			t.Setenv("NATIVEOP_TEST_CRASH_BARRIER_DIR", dir)
 			t.Setenv("NATIVEOP_TEST_CRASH_TIMEOUT_SECONDS", "5")
 
@@ -622,20 +622,20 @@ func TestPullMergeSubmit(t *testing.T) {
 			_, err = db.GetEngine(ctx).ID(pr.ID).Cols("has_merged", "merged_commit_id").Update(pr)
 			require.NoError(t, err)
 
-			require.NoError(t, os.WriteFile(nativeop_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
-			t.Cleanup(func() { _ = os.Remove(nativeop_model.OfflineMarkerPath()) })
-			reservation, err := nativeop_model.ReadReservation(ctx)
+			require.NoError(t, os.WriteFile(nativeoperation_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
+			t.Cleanup(func() { _ = os.Remove(nativeoperation_model.OfflineMarkerPath()) })
+			reservation, err := nativeoperation_model.ReadReservation(ctx)
 			require.NoError(t, err)
 			assessment, err := svc.Recover(ctx, reservation.Owner, reservation.Generation)
 			require.NoError(t, err)
-			require.Equal(t, operation_service.RecoveryReleased, assessment.Verdict)
-			require.Equal(t, nativeop_model.EffectCommitted, assessment.Effect)
+			require.Equal(t, nativeoperation_service.RecoveryReleased, assessment.Verdict)
+			require.Equal(t, nativeoperation_model.EffectCommitted, assessment.Effect)
 			require.Equal(t, "conditional-merge", assessment.Family)
 
-			recovered, err := nativeop_model.LookupOperation(ctx, installation, "ft14-crash-partial")
+			recovered, err := nativeoperation_model.LookupOperation(ctx, installation, "ft14-crash-partial")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, recovered.EffectState)
-			require.Equal(t, nativeop_model.CompletionNeedsIntervention, recovered.Completion)
+			require.Equal(t, nativeoperation_model.EffectCommitted, recovered.EffectState)
+			require.Equal(t, nativeoperation_model.CompletionNeedsIntervention, recovered.Completion)
 			receipt := decodeReceipt(t, json.RawMessage(recovered.Receipt))
 			require.Equal(t, baseOID, receipt.OldOID)
 			require.Equal(t, headOID, receipt.NewOID)
@@ -649,8 +649,8 @@ func TestPullMergeSubmit(t *testing.T) {
 		t.Run("withdrawal_after_commit", func(t *testing.T) {
 			record, err := svc.Cancel(ctx, installation, successOpID)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.CancellationTooLate, record.CancellationStatus)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.CancellationTooLate, record.CancellationStatus)
 
 			merged := loadPR(t, successPRID)
 			require.True(t, merged.HasMerged)

@@ -6,7 +6,7 @@
 package main
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // The independently built example imports only the public SDK.
 	"errors"
 	"fmt"
 	"io"
@@ -72,7 +72,7 @@ func streamHandler() http.HandlerFunc {
 		if err != nil {
 			return
 		}
-		defer conn.CloseNow()
+		defer func() { _ = conn.CloseNow() }()
 		hello, err := json.Marshal(map[string]string{"hello": actor.Username})
 		if err != nil {
 			return

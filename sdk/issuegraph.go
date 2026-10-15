@@ -52,8 +52,10 @@ type IssueGraphDependency struct {
 	Remove       bool          `json:"remove,omitempty"`
 }
 
-const MaxIssueGraphChanges = 64
-const MaxIssueGraphBodyBytes = 64 << 10
+const (
+	MaxIssueGraphChanges   = 64
+	MaxIssueGraphBodyBytes = 64 << 10
+)
 
 // MaxIssueGraphPayloadBytes leaves room for the authorization envelope within
 // the existing 64 KiB private callback request limit.

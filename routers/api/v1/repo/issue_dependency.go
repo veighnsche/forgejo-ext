@@ -17,7 +17,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // GetIssueDependencies list an issue's dependencies
@@ -585,10 +585,10 @@ func createIssueDependency(ctx *context.APIContext, target, dependency *issues_m
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
 	doer := ctx.Doer()
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.DependencyResource(target.ID, dependency.ID), target.RepoID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.DependencyResource(target.ID, dependency.ID), target.RepoID, func(ctx stdCtx.Context) error {
 		return issues_model.CreateIssueDependency(ctx, doer, target, dependency)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -620,10 +620,10 @@ func removeIssueDependency(ctx *context.APIContext, target, dependency *issues_m
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
 	doer := ctx.Doer()
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.DependencyResource(target.ID, dependency.ID), target.RepoID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.DependencyResource(target.ID, dependency.ID), target.RepoID, func(ctx stdCtx.Context) error {
 		return issues_model.RemoveIssueDependency(ctx, doer, target, dependency, issues_model.DependencyTypeBlockedBy)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

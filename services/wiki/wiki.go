@@ -22,7 +22,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/sync"
 	asymkey_service "forgejo.org/services/asymkey"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 )
 
@@ -63,11 +63,11 @@ func NormalizeWikiBranch(ctx context.Context, repo *repo_model.Repository, to st
 	if !repo.HasWiki() {
 		// No wiki refs exist; the branch-name record is a plain
 		// settings write under its own ownership.
-		return operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyRepoSettings,
+		return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyRepoSettings,
 			fmt.Sprintf("%d/wiki-branch", repo.ID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyRepoSettings,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyRepoSettings,
 				RepositoryID: repo.ID,
 			},
 			func(ctx context.Context) error {
@@ -107,13 +107,13 @@ func NormalizeWikiBranch(ctx context.Context, repo *repo_model.Repository, to st
 	// reservation alone serializes it. Nested calls reuse the
 	// enclosing ownership instead of claiming again.
 	objectFormat := git.ObjectFormatFromName(repo.ObjectFormatName)
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteRename, "wiki/"+from+"->"+to),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteRename, "wiki/"+from+"->"+to),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: repo.ID,
-			Refs: []operation_service.ScopedRef{
+			Refs: []nativeoperation_service.ScopedRef{
 				{Ref: git.BranchPrefix + from, OldOID: tip, NewOID: objectFormat.EmptyObjectID().String()},
 				{Ref: git.BranchPrefix + to, NewOID: tip},
 			},
@@ -194,11 +194,11 @@ func updateWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 	// push, advancing the revision so stale observations go stale.
 	// Nested calls reuse the enclosing ownership instead of claiming
 	// again.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteFile, "wiki/"+wikiRef),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteFile, "wiki/"+wikiRef),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: repo.ID,
 			Ref:          wikiRef,
 			OldOID:       oldTip,
@@ -342,7 +342,7 @@ func updateWikiPageOwned(ctx context.Context, doer *user_model.User, repo *repo_
 		return fmt.Errorf("failed to push: %w", err)
 	}
 
-	return operation_service.RecordScopeRefResult(ctx, commitHash.String())
+	return nativeoperation_service.RecordScopeRefResult(ctx, commitHash.String())
 }
 
 // pushWikiBranch pushes one wiki commit to the wiki branch, carrying the
@@ -390,11 +390,11 @@ func DeleteWikiPage(ctx context.Context, doer *user_model.User, repo *repo_model
 	// push, advancing the revision so stale observations go stale.
 	// Nested calls reuse the enclosing ownership instead of claiming
 	// again.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteFile, "wiki/"+wikiRef),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteFile, "wiki/"+wikiRef),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: repo.ID,
 			Ref:          wikiRef,
 			OldOID:       oldTip,
@@ -495,7 +495,7 @@ func deleteWikiPageOwned(ctx context.Context, doer *user_model.User, repo *repo_
 		return fmt.Errorf("Push: %w", err)
 	}
 
-	return operation_service.RecordScopeRefResult(ctx, commitHash.String())
+	return nativeoperation_service.RecordScopeRefResult(ctx, commitHash.String())
 }
 
 // DeleteWiki removes the actual and local copy of repository wiki.

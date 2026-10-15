@@ -26,7 +26,7 @@ import (
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 var stripExitStatus = regexp.MustCompile(`exit status \d+ - `)
@@ -37,11 +37,11 @@ var AddPushMirrorRemote = addPushMirrorRemote
 func addPushMirrorRemote(ctx context.Context, m *repo_model.PushMirror, addr string) error {
 	// One mirror update owns the reservation before its Git and database
 	// effects, advancing the revision so stale observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync,
 		fmt.Sprintf("%d/push-remote/%d", m.RepoID, m.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMirrorSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMirrorSync,
 			RepositoryID: m.RepoID,
 		},
 		func(ctx context.Context) error {
@@ -116,11 +116,11 @@ func addRemotePushRefSpecs(ctx context.Context, path string, m *repo_model.PushM
 func UpdatePushMirrorBranchFilter(ctx context.Context, m *repo_model.PushMirror) error {
 	// One mirror update owns the reservation before its Git and database
 	// effects, advancing the revision so stale observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync,
 		fmt.Sprintf("%d/push-filter/%d", m.RepoID, m.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMirrorSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMirrorSync,
 			RepositoryID: m.RepoID,
 		},
 		func(ctx context.Context) error {
@@ -150,11 +150,11 @@ func updatePushMirrorBranchFilterOwned(ctx context.Context, m *repo_model.PushMi
 func RemovePushMirrorRemote(ctx context.Context, m *repo_model.PushMirror) error {
 	// One mirror update owns the reservation before its Git and database
 	// effects, advancing the revision so stale observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync,
 		fmt.Sprintf("%d/push-remote/%d", m.RepoID, m.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMirrorSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMirrorSync,
 			RepositoryID: m.RepoID,
 		},
 		func(ctx context.Context) error {
@@ -168,7 +168,7 @@ func removePushMirrorRemoteOwned(ctx context.Context, m *repo_model.PushMirror) 
 
 	// Carry the mirror owner's execution capability: removing a remote
 	// deletes its tracking refs through the reference transaction.
-	remoteEnv := operation_service.OwnedGitEnv(ctx)
+	remoteEnv := nativeoperation_service.OwnedGitEnv(ctx)
 	if _, _, err := cmd.RunStdString(&git.RunOpts{Dir: m.Repo.RepoPath(), Env: remoteEnv}); err != nil && !git.IsErrorExitCode(err, 2) {
 		return err
 	}
@@ -218,15 +218,15 @@ func SyncPushMirror(ctx context.Context, mirrorID int64) (err error) {
 	// server enters through that repository's own receive claim, which a
 	// held sync would self-deadlock. The target receive owns its side.
 	m.LastError = ""
-	scope := operation_service.Scope{
-		Family:       operation_service.FamilyMirrorSync,
+	scope := nativeoperation_service.Scope{
+		Family:       nativeoperation_service.FamilyMirrorSync,
 		RepositoryID: m.RepoID,
 	}
 	resource := fmt.Sprintf("%d/push/%d", m.RepoID, m.ID)
 
 	log.Trace("SyncPushMirror [mirror: %d][repo: %-v]: Running Sync", m.ID, m.Repo)
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync, resource, scope,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync, resource, scope,
 		func(ctx context.Context) error {
 			return cleanupPushMirrorRefspecs(ctx, m)
 		}); err != nil {
@@ -241,8 +241,8 @@ func SyncPushMirror(ctx context.Context, mirrorID int64) (err error) {
 
 	m.LastUpdateUnix = timeutil.TimeStampNow()
 
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync, resource, scope,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync, resource, scope,
 		func(ctx context.Context) error {
 			return repo_model.UpdatePushMirror(ctx, m)
 		}); err != nil {

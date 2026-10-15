@@ -7,7 +7,7 @@ import (
 	"errors"
 
 	"forgejo.org/models"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 	pull_service "forgejo.org/services/pull"
 )
@@ -21,25 +21,25 @@ import (
 func mapExactMergeRefusal(err error) string {
 	var refused pull_service.ErrExactMergeRefused
 	if !errors.As(err, &refused) {
-		return model.ReasonNativeRefused
+		return nativeoperation_model.ReasonNativeRefused
 	}
 	switch refused.Reason {
 	case pull_service.ExactMergeRefusedStaleHead,
 		pull_service.ExactMergeRefusedMissingHead:
-		return model.ReasonStaleHead
+		return nativeoperation_model.ReasonStaleHead
 	case pull_service.ExactMergeRefusedStaleBase,
 		pull_service.ExactMergeRefusedMissingBase,
 		pull_service.ExactMergeRefusedNoOp:
-		return model.ReasonStaleBaseOrResult
+		return nativeoperation_model.ReasonStaleBaseOrResult
 	case pull_service.ExactMergeRefusedCrossRepo,
 		pull_service.ExactMergeRefusedPRMismatch,
 		pull_service.ExactMergeRefusedClosedOrMerged:
-		return model.ReasonPRMismatch
+		return nativeoperation_model.ReasonPRMismatch
 	default:
 		// Malformed refs/OIDs are unreachable from a validated
 		// intent, a disallowed method is current native policy, and
 		// any future reason fails closed: all are native refusals.
-		return model.ReasonNativeRefused
+		return nativeoperation_model.ReasonNativeRefused
 	}
 }
 
@@ -54,10 +54,10 @@ func mapExactMergeRefusal(err error) string {
 func mapMergeEngineError(err error) string {
 	switch {
 	case models.IsErrMergeDivergingFastForwardOnly(err), git.IsErrPushOutOfDate(err):
-		return model.ReasonNotFastForward
+		return nativeoperation_model.ReasonNotFastForward
 	case models.IsErrSHADoesNotMatch(err):
-		return model.ReasonStaleHead
+		return nativeoperation_model.ReasonStaleHead
 	default:
-		return model.ReasonNativeRefused
+		return nativeoperation_model.ReasonNativeRefused
 	}
 }

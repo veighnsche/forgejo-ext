@@ -4,22 +4,22 @@
 package nativeoperation
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"strings"
 	"testing"
 	"time"
 
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
-	authmodel "forgejo.org/models/extensionauth"
+	extensionauth_model "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/require"
 )
 
-func lifecycleNoteDecision(t *testing.T) authmodel.SubmissionDecision {
+func lifecycleNoteDecision(t *testing.T) extensionauth_model.SubmissionDecision {
 	t.Helper()
 	ctx := t.Context()
 	token := unittest.AssertExistsAndLoadBean(t, &auth_model.AccessToken{ID: 3})
@@ -27,17 +27,17 @@ func lifecycleNoteDecision(t *testing.T) authmodel.SubmissionDecision {
 	token.ResourceAllRepos = true
 	_, err := db.GetEngine(ctx).ID(token.ID).Cols("scope", "resource_all_repos").Update(token)
 	require.NoError(t, err)
-	_, err = authmodel.EnrollBinding(ctx, operationTestInstallation, token.ID, 2, 1, model.KindLifecycleNote)
+	_, err = extensionauth_model.EnrollBinding(ctx, operationTestInstallation, token.ID, 2, 1, nativeoperation_model.KindLifecycleNote)
 	require.NoError(t, err)
-	return authmodel.SubmissionDecision{TokenID: token.ID, ActorID: 2, CredentialFingerprint: authmodel.CredentialFingerprint(token.TokenHash, token.TokenSalt)}
+	return extensionauth_model.SubmissionDecision{TokenID: token.ID, ActorID: 2, CredentialFingerprint: extensionauth_model.CredentialFingerprint(token.TokenHash, token.TokenSalt)}
 }
 
 func lifecycleNoteIntent(t *testing.T, id string, payload []byte) *ValidIntent {
 	t.Helper()
-	r, err := model.ReadReservation(t.Context())
+	r, err := nativeoperation_model.ReadReservation(t.Context())
 	require.NoError(t, err)
 	now := time.Now().Unix()
-	intent, err := ValidateIntent(id, 2, 1, model.KindLifecycleNote, "rev-1", r.Revision, now+300, payload, now)
+	intent, err := ValidateIntent(id, 2, 1, nativeoperation_model.KindLifecycleNote, "rev-1", r.Revision, now+300, payload, now)
 	require.NoError(t, err)
 	return intent
 }
@@ -52,7 +52,7 @@ func TestLifecycleNoteSubmitRoundTrip(t *testing.T) {
 	intent := lifecycleNoteIntent(t, "op-life-note-1", []byte(`{"issue_id":5,"content":"Factory completed the accepted work.","merge_ref":"pr/2@abc"}`))
 	record, err := svc.Submit(ctx, decision, operationTestInstallation, intent)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, record.EffectState, record.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectCommitted, record.EffectState, record.ReasonCode)
 	var receipt LifecycleNoteReceipt
 	require.NoError(t, json.Unmarshal(record.Receipt, &receipt))
 	require.Equal(t, int64(5), receipt.IssueID)
@@ -71,12 +71,12 @@ func TestLifecycleNoteSubmitRoundTrip(t *testing.T) {
 	lookup, err := svc.Get(ctx, operationTestInstallation, "op-life-note-1")
 	require.NoError(t, err)
 	require.NotNil(t, lookup.Record)
-	require.Equal(t, model.EffectCommitted, lookup.Status)
+	require.Equal(t, nativeoperation_model.EffectCommitted, lookup.Status)
 
 	open := lifecycleNoteIntent(t, "op-life-note-2", []byte(`{"issue_id":1,"content":"Too early.","merge_ref":"pr/2@abc"}`))
 	refused, err := svc.Submit(ctx, decision, operationTestInstallation, open)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, refused.EffectState)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, refused.EffectState)
 }
 
 func TestParseLifecycleNotePayloadAcceptsExactInput(t *testing.T) {
@@ -106,11 +106,11 @@ func TestParseLifecycleNotePayloadRejects(t *testing.T) {
 
 func TestValidateIntentAcceptsLifecycleNote(t *testing.T) {
 	now := time.Now().Unix()
-	intent, err := ValidateIntent("op-lifecycle-n1", 2, 1, model.KindLifecycleNote, "rev-1", 1, now+300, []byte(`{"issue_id":12,"content":"done","merge_ref":"m"}`), now)
+	intent, err := ValidateIntent("op-lifecycle-n1", 2, 1, nativeoperation_model.KindLifecycleNote, "rev-1", 1, now+300, []byte(`{"issue_id":12,"content":"done","merge_ref":"m"}`), now)
 	require.NoError(t, err)
 	require.NotNil(t, intent.LifecycleNote)
 	require.NotEmpty(t, intent.Digest)
 
-	_, err = ValidateIntent("op-lifecycle-n2", 2, 1, model.KindLifecycleNote, "rev-1", 1, now+300, []byte(`{"issue_id":12,"content":"done"}`), now)
+	_, err = ValidateIntent("op-lifecycle-n2", 2, 1, nativeoperation_model.KindLifecycleNote, "rev-1", 1, now+300, []byte(`{"issue_id":12,"content":"done"}`), now)
 	require.ErrorIs(t, err, ErrInvalidIntent)
 }

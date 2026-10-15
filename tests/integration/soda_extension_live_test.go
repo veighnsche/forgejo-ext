@@ -7,7 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net"
 	"net/http"
 	"net/url"
@@ -21,7 +21,7 @@ import (
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/modules/setting"
 	web_extensions "forgejo.org/routers/web/extensions"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/require"
@@ -30,6 +30,8 @@ import (
 // This development check is opt-in because it runs the current Soda binaries
 // from the neighboring checkout. It exercises their real private HTTP listener
 // and Forgejo's admitted extension process without installing either service.
+//
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestSodaExtensionLiveBridge(t *testing.T) {
 	backend, dashboard, artifactRoot := os.Getenv("SODA_C03_BACKEND"), os.Getenv("SODA_C03_DASHBOARD"), os.Getenv("SODA_C03_ARTIFACT_DIR")
 	if backend == "" || dashboard == "" || artifactRoot == "" {
@@ -63,7 +65,7 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 	for _, name := range []string{"spaces.js", "workspace.js"} {
 		require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", name), []byte("export function mount() {}\n"), 0o600))
 	}
-	manager := runtime.NewManager(filepath.Join(root, "p"))
+	manager := extensions_service.NewManager(filepath.Join(root, "p"))
 	seedSodaExtensionOperatorID(t, filepath.Join(root, "p"))
 	serviceCallback := filepath.Join(root, "h")
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
@@ -72,9 +74,9 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 		logContents, _ := os.ReadFile(backendLog)
 		t.Fatalf("Soda extension process did not start: %v: %s", err, string(logContents))
 	}
-	previous := runtime.GetManager()
-	runtime.SetDefault(manager)
-	t.Cleanup(func() { runtime.SetDefault(previous); require.NoError(t, manager.Close()) })
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(manager)
+	t.Cleanup(func() { extensions_service.SetDefault(previous); require.NoError(t, manager.Close()) })
 	startSodaExtensionService(t, root, socket, dashboard, serviceCallback)
 
 	owner := loginUser(t, "user2")

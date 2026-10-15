@@ -6,7 +6,7 @@ package extensions
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"net/http"
@@ -14,7 +14,7 @@ import (
 
 	extension "forgejo.org/extension-sdk"
 	packages "forgejo.org/modules/extensions"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 )
 
 // Manager-control HTTP endpoints (RCX-2 F04, frozen fountain-design
@@ -36,16 +36,16 @@ const (
 
 // ManagerControlMux serves the four manager-control endpoints in front
 // of the service callback handler. Unknown paths delegate untouched.
-func ManagerControlMux(manager *runtime.Manager, next http.Handler) http.Handler {
+func ManagerControlMux(manager *extensions_service.Manager, next http.Handler) http.Handler {
 	if next == nil {
 		next = http.NotFoundHandler()
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case runtime.ManagerControlStatePath,
-			runtime.ManagerControlSnapshotPath,
-			runtime.ManagerControlReconcilePath,
-			runtime.ManagerControlCachePath:
+		case extensions_service.ManagerControlStatePath,
+			extensions_service.ManagerControlSnapshotPath,
+			extensions_service.ManagerControlReconcilePath,
+			extensions_service.ManagerControlCachePath:
 			serveManagerControl(w, r, manager)
 		default:
 			next.ServeHTTP(w, r)
@@ -53,7 +53,7 @@ func ManagerControlMux(manager *runtime.Manager, next http.Handler) http.Handler
 	})
 }
 
-func serveManagerControl(w http.ResponseWriter, r *http.Request, manager *runtime.Manager) {
+func serveManagerControl(w http.ResponseWriter, r *http.Request, manager *extensions_service.Manager) {
 	if manager == nil {
 		http.Error(w, "extension manager is unavailable", http.StatusServiceUnavailable)
 		return
@@ -74,11 +74,11 @@ func serveManagerControl(w http.ResponseWriter, r *http.Request, manager *runtim
 	limit := managerControlBodyLimit
 	timeout := 5 * time.Second
 	switch r.URL.Path {
-	case runtime.ManagerControlSnapshotPath:
+	case extensions_service.ManagerControlSnapshotPath:
 		timeout = 10 * time.Second
-	case runtime.ManagerControlReconcilePath:
+	case extensions_service.ManagerControlReconcilePath:
 		timeout = 300 * time.Second
-	case runtime.ManagerControlCachePath:
+	case extensions_service.ManagerControlCachePath:
 		limit = managerCacheBodyLimit
 		timeout = 600 * time.Second
 	}
@@ -90,11 +90,11 @@ func serveManagerControl(w http.ResponseWriter, r *http.Request, manager *runtim
 	ctx, cancel := context.WithTimeout(r.Context(), timeout)
 	defer cancel()
 	switch r.URL.Path {
-	case runtime.ManagerControlStatePath:
+	case extensions_service.ManagerControlStatePath:
 		serveControlState(ctx, w, body, manager, controllerID)
-	case runtime.ManagerControlSnapshotPath:
+	case extensions_service.ManagerControlSnapshotPath:
 		serveControlSnapshot(ctx, w, body, manager, controllerID)
-	case runtime.ManagerControlReconcilePath:
+	case extensions_service.ManagerControlReconcilePath:
 		serveControlReconcile(ctx, w, body, manager, controllerID)
 	default:
 		serveControlCache(ctx, w, body, manager, controllerID)
@@ -112,7 +112,7 @@ func writeControlJSON(w http.ResponseWriter, value any) {
 	_, _ = w.Write(data)
 }
 
-func writeControlReject(w http.ResponseWriter, reject *runtime.ControlError) {
+func writeControlReject(w http.ResponseWriter, reject *extensions_service.ControlError) {
 	if reject == nil {
 		http.Error(w, "manager control is unavailable", http.StatusServiceUnavailable)
 		return
@@ -134,7 +134,7 @@ func decodeStrictObject(body []byte, value any) error {
 	return nil
 }
 
-func serveControlState(ctx context.Context, w http.ResponseWriter, body []byte, manager *runtime.Manager, controllerID string) {
+func serveControlState(ctx context.Context, w http.ResponseWriter, body []byte, manager *extensions_service.Manager, controllerID string) {
 	var request struct {
 		PackageID string `json:"package_id"`
 	}
@@ -150,7 +150,7 @@ func serveControlState(ctx context.Context, w http.ResponseWriter, body []byte, 
 	writeControlJSON(w, response)
 }
 
-func serveControlSnapshot(ctx context.Context, w http.ResponseWriter, body []byte, manager *runtime.Manager, controllerID string) {
+func serveControlSnapshot(ctx context.Context, w http.ResponseWriter, body []byte, manager *extensions_service.Manager, controllerID string) {
 	var request struct{}
 	if err := decodeStrictObject(body, &request); err != nil {
 		http.Error(w, "invalid manager snapshot request", http.StatusBadRequest)
@@ -164,7 +164,7 @@ func serveControlSnapshot(ctx context.Context, w http.ResponseWriter, body []byt
 	writeControlJSON(w, response)
 }
 
-func serveControlReconcile(ctx context.Context, w http.ResponseWriter, body []byte, manager *runtime.Manager, controllerID string) {
+func serveControlReconcile(ctx context.Context, w http.ResponseWriter, body []byte, manager *extensions_service.Manager, controllerID string) {
 	var request struct{}
 	if err := decodeStrictObject(body, &request); err != nil {
 		http.Error(w, "invalid manager reconcile request", http.StatusBadRequest)
@@ -178,7 +178,7 @@ func serveControlReconcile(ctx context.Context, w http.ResponseWriter, body []by
 	writeControlJSON(w, response)
 }
 
-func serveControlCache(ctx context.Context, w http.ResponseWriter, body []byte, manager *runtime.Manager, controllerID string) {
+func serveControlCache(ctx context.Context, w http.ResponseWriter, body []byte, manager *extensions_service.Manager, controllerID string) {
 	var request struct {
 		Catalog        json.RawMessage `json:"catalog"`
 		PackageIDs     []string        `json:"package_ids"`

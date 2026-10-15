@@ -6,7 +6,7 @@ package extensions
 import (
 	"context"
 	"crypto/hmac"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"io"
 	"net/http"
 	"net/url"
@@ -17,14 +17,14 @@ import (
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/setting"
-	webcontext "forgejo.org/services/context"
-	runtime "forgejo.org/services/extensions"
+	app_context "forgejo.org/services/context"
+	extensions_service "forgejo.org/services/extensions"
 )
 
 const maxResponseBytes = 8 << 20
 
-func api(scope string, panel bool) func(*webcontext.Context) {
-	return func(ctx *webcontext.Context) {
+func api(scope string, panel bool) func(*app_context.Context) {
+	return func(ctx *app_context.Context) {
 		if !validAPIOrigin(ctx.Req) {
 			ctx.Error(http.StatusForbidden, "Same-origin request required")
 			return
@@ -36,12 +36,12 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 			ctx.Error(http.StatusBadRequest, "Invalid extension path")
 			return
 		}
-		manager := runtime.GetManager()
+		manager := extensions_service.GetManager()
 		if manager == nil {
 			ctx.NotFound("Page", nil)
 			return
 		}
-		var d runtime.Descriptor
+		var d extensions_service.Descriptor
 		var transport http.RoundTripper
 		var page extension.Page
 		if panel {
@@ -125,7 +125,7 @@ func api(scope string, panel bool) func(*webcontext.Context) {
 
 // Ordinary responses are bounded and buffered so an extension cannot create an
 // unbounded authenticated stream. Streaming requires independent session revocation.
-func proxy(ctx *webcontext.Context, transport http.RoundTripper, authority extension.Authority) {
+func proxy(ctx *app_context.Context, transport http.RoundTripper, authority extension.Authority) {
 	requestContext, cancel := context.WithTimeout(ctx.Req.Context(), 30*time.Second)
 	defer cancel()
 	proxyWithAdmission(ctx, transport, authority, "", requestContext)
@@ -160,7 +160,8 @@ func scopedExtensionPath(star string) (string, bool) {
 	return "/" + star, true
 }
 
-func proxyWithAdmission(ctx *webcontext.Context, transport http.RoundTripper, authority extension.Authority, admission string, requestContext context.Context) {
+//nolint:revive // The native web context is the handler's first context.
+func proxyWithAdmission(ctx *app_context.Context, transport http.RoundTripper, authority extension.Authority, admission string, requestContext context.Context) {
 	if ctx.Req.Header.Get("Upgrade") != "" || strings.Contains(strings.ToLower(ctx.Req.Header.Get("Accept")), "text/event-stream") {
 		ctx.Error(http.StatusNotImplemented, "Streaming is not enabled")
 		return
@@ -221,7 +222,7 @@ func proxyWithAdmission(ctx *webcontext.Context, transport http.RoundTripper, au
 	_, _ = ctx.Resp.Write(data)
 }
 
-func repositoryPermission(ctx *webcontext.Context) string {
+func repositoryPermission(ctx *app_context.Context) string {
 	if ctx.Repo.IsAdmin() {
 		return "admin"
 	}

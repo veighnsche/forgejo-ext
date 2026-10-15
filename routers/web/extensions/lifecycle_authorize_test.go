@@ -10,14 +10,14 @@ import (
 	"testing"
 
 	extension "forgejo.org/extension-sdk"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 )
 
 // The authorize callback rides the existing per-instance and service
 // multiplexers: unknown tokens, malformed bodies, query strings, and
 // foreign instances fail closed before any manager state is touched.
 func TestLifecycleAuthorizeMapping(t *testing.T) {
-	manager := runtime.NewManager(t.TempDir())
+	manager := extensions_service.NewManager(t.TempDir())
 	mux := BackgroundMux(manager, http.NotFoundHandler(), "instance-x", false)
 	call := `{"controller_id":"controller","controller_instance_id":"instance-x","package_id":"sample","package_version":"1.0.0","package_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","installation_id":"550e8400-e29b-41d4-a716-446655440000","generation":"1","operation":"observe","deadline_unix":1792100010}`
 

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 	giturl "forgejo.org/modules/git/url"
 	"forgejo.org/modules/keying"
@@ -88,7 +88,7 @@ func (m *Mirror) InsertWithAddress(ctx context.Context, addr string) error {
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
@@ -106,7 +106,7 @@ func (m *Mirror) UpdateRemoteAddress(ctx context.Context, addr string) error {
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if m.ID == 0 {
@@ -193,7 +193,7 @@ func UpdateMirror(ctx context.Context, m *Mirror) error {
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(m.ID).AllCols().Update(m)
@@ -212,7 +212,7 @@ func DeleteMirrorByRepoID(ctx context.Context, repoID int64) error {
 	// Nested participating writer: mirror changes refuse while another
 	// owner holds the reservation; the enclosing mirror update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Delete(&Mirror{RepoID: repoID})

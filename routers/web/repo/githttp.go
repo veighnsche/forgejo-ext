@@ -33,7 +33,7 @@ import (
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	redirect_service "forgejo.org/services/redirect"
 	repo_service "forgejo.org/services/repository"
 
@@ -500,15 +500,15 @@ func ServiceReceivePack(ctx *context.Context) {
 		target = "wiki"
 	}
 	webCtx := ctx
-	if err := operation_service.Default().WithOrdinaryOwnershipWait(ctx,
-		operation_service.FamilyReceiveHTTP,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnershipWait(ctx,
+		nativeoperation_service.FamilyReceiveHTTP,
 		fmt.Sprintf("%d/%s", h.repo.ID, target),
-		operation_service.Scope{
-			Family:       operation_service.FamilyReceiveHTTP,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyReceiveHTTP,
 			RepositoryID: h.repo.ID,
 			PusherID:     ctx.Doer.ID,
 		},
-		operation_service.ReceiveClaimTimeout,
+		nativeoperation_service.ReceiveClaimTimeout,
 		func(ctx gocontext.Context) error {
 			h.environ = execcontext.AppendExecEnv(h.environ, execcontext.FromContext(ctx))
 			_ = serviceRPC(webCtx, h, "receive-pack")

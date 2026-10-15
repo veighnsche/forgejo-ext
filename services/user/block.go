@@ -11,7 +11,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	actions_service "forgejo.org/services/actions"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"xorm.io/builder"
 )
@@ -27,7 +27,7 @@ func BlockUser(ctx context.Context, userID, blockID int64) error {
 	// One authority writer owns the block change before its effects,
 	// advancing the native revision so old permission observations go
 	// stale.
-	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/block/%d", userID, blockID), 0, func(ctx context.Context) error {
+	return nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/block/%d", userID, blockID), 0, func(ctx context.Context) error {
 		return doBlockUser(ctx, userID, blockID)
 	})
 }

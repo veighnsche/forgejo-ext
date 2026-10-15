@@ -6,7 +6,7 @@ package extensions
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"net/http"
@@ -14,20 +14,20 @@ import (
 	"time"
 
 	extension "forgejo.org/extension-sdk"
-	authmodel "forgejo.org/models/extensionauth"
-	runtime "forgejo.org/services/extensions"
-	operation_service "forgejo.org/services/nativeoperation"
+	extensionauth_model "forgejo.org/models/extensionauth"
+	extensions_service "forgejo.org/services/extensions"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // backgroundVerifier authenticates a background submission. Production uses
 // authmodel.VerifySubmission; tests inject a fake. The secret is verified
 // and discarded inside the verifier, never logged or recorded here.
-type backgroundVerifier func(context.Context, authmodel.SubmissionRequest) (authmodel.SubmissionDecision, error)
+type backgroundVerifier func(context.Context, extensionauth_model.SubmissionRequest) (extensionauth_model.SubmissionDecision, error)
 
 // snapshotVerifier authenticates a background snapshot read. Production uses
 // authmodel.VerifySnapshotRead; tests inject a fake. Reads require only
 // read scope and read access, and grant no mutation kind.
-type snapshotVerifier func(context.Context, authmodel.SnapshotReadRequest) (authmodel.SnapshotReadDecision, error)
+type snapshotVerifier func(context.Context, extensionauth_model.SnapshotReadRequest) (extensionauth_model.SnapshotReadDecision, error)
 
 // backgroundVerifiers groups the submission and snapshot-read verifiers so
 // dispatch tests inject both together.
@@ -41,11 +41,11 @@ type backgroundVerifiers struct {
 // native-operation service; tests inject a fake. Snapshot reads claim no
 // reservation and perform no mutation.
 type backgroundOperations interface {
-	SupportedOperations(context.Context) (operation_service.OperationsHandshake, error)
-	ReadNativeRevision(context.Context) (operation_service.NativeRevisionObservation, error)
-	ReadSnapshot(context.Context, authmodel.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
-	ReadCreations(context.Context, authmodel.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error)
-	Submit(context.Context, authmodel.SubmissionDecision, string, *operation_service.ValidIntent) (extension.OperationRecord, error)
+	SupportedOperations(context.Context) (nativeoperation_service.OperationsHandshake, error)
+	ReadNativeRevision(context.Context) (nativeoperation_service.NativeRevisionObservation, error)
+	ReadSnapshot(context.Context, extensionauth_model.SnapshotReadDecision, extension.SnapshotRequest) (extension.NativeSnapshot, error)
+	ReadCreations(context.Context, extensionauth_model.SnapshotReadDecision, extension.CreationRecoveryRequest) (extension.CreationRecoveryPage, error)
+	Submit(context.Context, extensionauth_model.SubmissionDecision, string, *nativeoperation_service.ValidIntent) (extension.OperationRecord, error)
 	Get(context.Context, string, string) (extension.OperationLookup, error)
 	Cancel(context.Context, string, string) (extension.OperationRecord, error)
 }
@@ -55,14 +55,14 @@ type backgroundOperations interface {
 // additionally serves bootstrap; per-instance sockets serve their own
 // instance's runtime admissions. Browser admissions are never accepted here
 // and background admissions are never accepted by the browser handler.
-func BackgroundMux(manager *runtime.Manager, browser http.Handler, instanceID string, service bool) http.Handler {
+func BackgroundMux(manager *extensions_service.Manager, browser http.Handler, instanceID string, service bool) http.Handler {
 	return backgroundMux(manager, browser, instanceID, service, backgroundVerifiers{
-		submit:   authmodel.VerifySubmission,
-		snapshot: authmodel.VerifySnapshotRead,
-	}, operation_service.Default())
+		submit:   extensionauth_model.VerifySubmission,
+		snapshot: extensionauth_model.VerifySnapshotRead,
+	}, nativeoperation_service.Default())
 }
 
-func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID string, service bool, verifiers backgroundVerifiers, operations backgroundOperations) http.Handler {
+func backgroundMux(manager *extensions_service.Manager, browser http.Handler, instanceID string, service bool, verifiers backgroundVerifiers, operations backgroundOperations) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case extension.BackgroundBootstrapPath:
@@ -90,7 +90,7 @@ func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID st
 // performs no requested lifecycle effect. Per-instance requests must
 // belong to that controller instance; shared service-socket requests
 // also require the kernel peer UID mapped to that controller.
-func serveLifecycleAuthorize(w http.ResponseWriter, r *http.Request, manager *runtime.Manager, instanceID string, service bool) {
+func serveLifecycleAuthorize(w http.ResponseWriter, r *http.Request, manager *extensions_service.Manager, instanceID string, service bool) {
 	if r.Method != http.MethodPost || r.URL.RawQuery != "" {
 		http.NotFound(w, r)
 		return
@@ -129,7 +129,7 @@ func serveLifecycleAuthorize(w http.ResponseWriter, r *http.Request, manager *ru
 			http.Error(w, "lifecycle admission rejected", http.StatusForbidden)
 			return
 		}
-		if peer.UID != runtime.CurrentProcessUID() {
+		if peer.UID != extensions_service.CurrentProcessUID() {
 			http.Error(w, "lifecycle peer rejected", http.StatusForbidden)
 			return
 		}
@@ -149,7 +149,7 @@ func serveLifecycleAuthorize(w http.ResponseWriter, r *http.Request, manager *ru
 	_, _ = w.Write(buf.Bytes())
 }
 
-func serveBackgroundBootstrap(w http.ResponseWriter, r *http.Request, manager *runtime.Manager) {
+func serveBackgroundBootstrap(w http.ResponseWriter, r *http.Request, manager *extensions_service.Manager) {
 	if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "invalid background bootstrap request", http.StatusBadRequest)
 		return
@@ -176,7 +176,7 @@ func serveBackgroundBootstrap(w http.ResponseWriter, r *http.Request, manager *r
 	}{Admission: token, InstallationID: installation})
 }
 
-func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *runtime.Manager, instanceID string, service bool, verifiers backgroundVerifiers, operations backgroundOperations) {
+func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *extensions_service.Manager, instanceID string, service bool, verifiers backgroundVerifiers, operations backgroundOperations) {
 	if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "invalid background request", http.StatusBadRequest)
 		return
@@ -211,7 +211,7 @@ func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *r
 			http.Error(w, "background peer rejected", http.StatusForbidden)
 			return
 		}
-	} else if peer.UID != runtime.CurrentProcessUID() {
+	} else if peer.UID != extensions_service.CurrentProcessUID() {
 		http.Error(w, "background peer rejected", http.StatusForbidden)
 		return
 	}
@@ -237,7 +237,7 @@ func serveBackgroundOperation(w http.ResponseWriter, r *http.Request, manager *r
 	}
 }
 
-func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, verify backgroundVerifier, operations backgroundOperations) {
+func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission extensions_service.BackgroundAdmission, verify backgroundVerifier, operations backgroundOperations) {
 	var request struct {
 		extension.OperationIntent
 		Token string `json:"token"`
@@ -256,7 +256,7 @@ func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission run
 	repositoryID, _ := strconv.ParseInt(request.RepositoryID, 10, 64)
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	decision, err := verify(ctx, authmodel.SubmissionRequest{
+	decision, err := verify(ctx, extensionauth_model.SubmissionRequest{
 		InstallationID: admission.InstallationID,
 		TokenSecret:    request.Token,
 		ActorID:        actorID,
@@ -264,7 +264,7 @@ func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission run
 		Kind:           request.Kind,
 	})
 	if err != nil {
-		var refusal *authmodel.RefusalError
+		var refusal *extensionauth_model.RefusalError
 		if errors.As(err, &refusal) {
 			http.Error(w, refusal.Code, refusal.Status)
 			return
@@ -272,7 +272,7 @@ func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission run
 		http.Error(w, "background submission unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	intent, err := operation_service.ValidateIntent(request.OperationID, actorID, repositoryID, request.Kind,
+	intent, err := nativeoperation_service.ValidateIntent(request.OperationID, actorID, repositoryID, request.Kind,
 		request.AuthorizationRevision, request.ExpectedNativeRevision, request.NotAfter, request.Payload, time.Now().Unix())
 	if err != nil {
 		http.Error(w, "invalid background intent", http.StatusBadRequest)
@@ -283,19 +283,19 @@ func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission run
 	record, err := operations.Submit(r.Context(), decision, admission.InstallationID, intent)
 	if err != nil {
 		switch {
-		case errors.Is(err, operation_service.ErrKindUnavailable):
+		case errors.Is(err, nativeoperation_service.ErrKindUnavailable):
 			writeBackgroundJSON(w, extension.OperationRecord{
 				InstallationID: admission.InstallationID,
 				OperationID:    request.OperationID,
 				Outcome:        extension.BackgroundOutcomeOperationsUnavailable,
 			})
-		case operation_service.IsBusy(err):
+		case nativeoperation_service.IsBusy(err):
 			http.Error(w, "native operation in progress", http.StatusServiceUnavailable)
-		case errors.Is(err, operation_service.ErrIntentConflict):
+		case errors.Is(err, nativeoperation_service.ErrIntentConflict):
 			http.Error(w, "intent_conflict", http.StatusConflict)
-		case errors.Is(err, operation_service.ErrCancelledBeforeSubmit):
+		case errors.Is(err, nativeoperation_service.ErrCancelledBeforeSubmit):
 			http.Error(w, "cancelled_before_submit", http.StatusConflict)
-		case errors.Is(err, operation_service.ErrInvalidIntent):
+		case errors.Is(err, nativeoperation_service.ErrInvalidIntent):
 			http.Error(w, "invalid background intent", http.StatusBadRequest)
 		default:
 			http.Error(w, "background submission unavailable", http.StatusServiceUnavailable)
@@ -305,7 +305,7 @@ func serveBackgroundSubmit(w http.ResponseWriter, r *http.Request, admission run
 	writeBackgroundJSON(w, record)
 }
 
-func serveBackgroundGet(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, operations backgroundOperations) {
+func serveBackgroundGet(w http.ResponseWriter, r *http.Request, admission extensions_service.BackgroundAdmission, operations backgroundOperations) {
 	var request struct {
 		OperationID string `json:"operation_id"`
 	}
@@ -323,7 +323,7 @@ func serveBackgroundGet(w http.ResponseWriter, r *http.Request, admission runtim
 	writeBackgroundJSON(w, lookup)
 }
 
-func serveBackgroundCancel(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, operations backgroundOperations) {
+func serveBackgroundCancel(w http.ResponseWriter, r *http.Request, admission extensions_service.BackgroundAdmission, operations backgroundOperations) {
 	var request struct {
 		OperationID string `json:"operation_id"`
 	}
@@ -346,7 +346,7 @@ func serveBackgroundCancel(w http.ResponseWriter, r *http.Request, admission run
 // claims no reservation and performs no mutation. Missing and gated records
 // share one bounded not-found outcome so responses leak no existence
 // distinction.
-func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, verify snapshotVerifier, operations backgroundOperations) {
+func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission extensions_service.BackgroundAdmission, verify snapshotVerifier, operations backgroundOperations) {
 	var request struct {
 		extension.SnapshotRequest
 		Token string `json:"token"`
@@ -362,7 +362,7 @@ func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission r
 	repositoryID, _ := strconv.ParseInt(request.RepositoryID, 10, 64)
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	decision, err := verify(ctx, authmodel.SnapshotReadRequest{
+	decision, err := verify(ctx, extensionauth_model.SnapshotReadRequest{
 		InstallationID: admission.InstallationID,
 		TokenSecret:    request.Token,
 		ActorID:        actorID,
@@ -370,7 +370,7 @@ func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission r
 		Families:       request.Families,
 	})
 	if err != nil {
-		var refusal *authmodel.RefusalError
+		var refusal *extensionauth_model.RefusalError
 		if errors.As(err, &refusal) {
 			http.Error(w, refusal.Code, refusal.Status)
 			return
@@ -381,9 +381,9 @@ func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission r
 	snapshot, err := operations.ReadSnapshot(r.Context(), decision, request.SnapshotRequest)
 	if err != nil {
 		switch {
-		case errors.Is(err, operation_service.ErrSnapshotInvalid):
+		case errors.Is(err, nativeoperation_service.ErrSnapshotInvalid):
 			http.Error(w, "invalid background snapshot request", http.StatusBadRequest)
-		case errors.Is(err, operation_service.ErrSnapshotNotFound):
+		case errors.Is(err, nativeoperation_service.ErrSnapshotNotFound):
 			http.Error(w, "snapshot_not_found", http.StatusNotFound)
 		default:
 			http.Error(w, "background snapshot unavailable", http.StatusServiceUnavailable)
@@ -395,7 +395,7 @@ func serveBackgroundSnapshot(w http.ResponseWriter, r *http.Request, admission r
 
 // serveBackgroundCreations exposes retained issue-creation facts through the
 // same installation, native credential and peer authority as snapshot reads.
-func serveBackgroundCreations(w http.ResponseWriter, r *http.Request, admission runtime.BackgroundAdmission, verify snapshotVerifier, operations backgroundOperations) {
+func serveBackgroundCreations(w http.ResponseWriter, r *http.Request, admission extensions_service.BackgroundAdmission, verify snapshotVerifier, operations backgroundOperations) {
 	var request struct {
 		extension.CreationRecoveryRequest
 		Token string `json:"token"`
@@ -411,12 +411,12 @@ func serveBackgroundCreations(w http.ResponseWriter, r *http.Request, admission 
 	repositoryID, _ := strconv.ParseInt(request.RepositoryID, 10, 64)
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	decision, err := verify(ctx, authmodel.SnapshotReadRequest{
+	decision, err := verify(ctx, extensionauth_model.SnapshotReadRequest{
 		InstallationID: admission.InstallationID, TokenSecret: request.Token,
 		ActorID: actorID, RepositoryID: repositoryID, Families: []string{extension.SnapshotFamilyIssue},
 	})
 	if err != nil {
-		var refusal *authmodel.RefusalError
+		var refusal *extensionauth_model.RefusalError
 		if errors.As(err, &refusal) {
 			http.Error(w, refusal.Code, refusal.Status)
 			return
@@ -427,9 +427,9 @@ func serveBackgroundCreations(w http.ResponseWriter, r *http.Request, admission 
 	page, err := operations.ReadCreations(ctx, decision, request.CreationRecoveryRequest)
 	if err != nil {
 		switch {
-		case errors.Is(err, operation_service.ErrSnapshotInvalid):
+		case errors.Is(err, nativeoperation_service.ErrSnapshotInvalid):
 			http.Error(w, "invalid background creation recovery request", http.StatusBadRequest)
-		case errors.Is(err, operation_service.ErrSnapshotNotFound):
+		case errors.Is(err, nativeoperation_service.ErrSnapshotNotFound):
 			http.Error(w, "creation_recovery_not_found", http.StatusNotFound)
 		default:
 			http.Error(w, "background creation recovery unavailable", http.StatusServiceUnavailable)

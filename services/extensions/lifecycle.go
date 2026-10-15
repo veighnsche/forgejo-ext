@@ -169,6 +169,8 @@ func observeBaseResult(root, id string, snapshot observeSnapshot, intent package
 // never calls the controller or host itself. Anything less than a
 // current confirmation of the desired outcome fails closed as
 // unconfirmed.
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
 func mergeControlledEffect(base packages.LifecycleResult, id string, controlled, controllerReady bool, controllerInstance string, intent packages.Intent, intentErr error, backendAlive bool, effect controlledEffect, ok bool) packages.LifecycleResult {
 	if !controlled {
 		return base

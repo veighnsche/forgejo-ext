@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
 	repo_module "forgejo.org/modules/repository"
@@ -17,7 +17,7 @@ import (
 
 func TestPushHandlerRetainsBusyWork(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
-	_, err := nativeoperation.ClaimOrdinary(db.DefaultContext, "ord:branch-delete/1/branch2", `{"kind":"ordinary"}`, "v")
+	_, err := nativeoperation_model.ClaimOrdinary(db.DefaultContext, "ord:branch-delete/1/branch2", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
 
 	opts := []*repo_module.PushUpdateOptions{{
@@ -34,7 +34,7 @@ func TestPushHandlerRetainsBusyWork(t *testing.T) {
 	require.Equal(t, opts, unhandled[0])
 
 	// The retained batch is not consumed: the owner still holds it.
-	held, err := nativeoperation.ReadReservation(db.DefaultContext)
+	held, err := nativeoperation_model.ReadReservation(db.DefaultContext)
 	require.NoError(t, err)
 	require.Equal(t, "ord:branch-delete/1/branch2", held.Owner)
 }

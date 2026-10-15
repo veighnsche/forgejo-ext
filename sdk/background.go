@@ -195,8 +195,10 @@ type ServiceBridgeOptions struct {
 	InstallationID  string
 }
 
-var backgroundAdmissionMu sync.Mutex
-var backgroundAdmissionDelivery *BackgroundAdmissionDelivery
+var (
+	backgroundAdmissionMu       sync.Mutex
+	backgroundAdmissionDelivery *BackgroundAdmissionDelivery
+)
 
 // BackgroundAdmissionDelivery is pushed by the host over the control channel
 // after registration. The SDK holds it in memory only.

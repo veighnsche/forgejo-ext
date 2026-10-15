@@ -8,6 +8,8 @@
 package nativeoperation
 
 import (
+	"slices"
+
 	"forgejo.org/models/db"
 	"forgejo.org/modules/timeutil"
 )
@@ -128,12 +130,7 @@ func SupportedKinds() []string {
 
 // ValidKind reports whether kind is a supported background operation kind.
 func ValidKind(kind string) bool {
-	for _, supported := range supportedKinds {
-		if supported == kind {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(supportedKinds, kind)
 }
 
 // IsTerminal reports whether the effect state is final. Indeterminate keeps

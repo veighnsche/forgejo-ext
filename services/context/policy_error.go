@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/extensions"
 )
 
@@ -21,10 +21,10 @@ import (
 // reservation sentinel — which shares the models sentinel's message and
 // documents the same HTTP 503 intent — is matched by its text.
 func policyErrorStatus(err error) int {
-	if errors.Is(err, nativeoperation.ErrBusy) || errors.Is(err, nativeoperation.ErrInhibited) {
+	if errors.Is(err, nativeoperation_model.ErrBusy) || errors.Is(err, nativeoperation_model.ErrInhibited) {
 		return http.StatusServiceUnavailable
 	}
-	if err != nil && strings.Contains(err.Error(), nativeoperation.ErrBusy.Error()) {
+	if err != nil && strings.Contains(err.Error(), nativeoperation_model.ErrBusy.Error()) {
 		return http.StatusServiceUnavailable
 	}
 	if errors.Is(err, extensions.ErrRequiredPolicyUnavailable) {

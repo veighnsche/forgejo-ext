@@ -10,7 +10,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"net/http"
@@ -28,8 +28,8 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/optional"
 	"forgejo.org/modules/setting"
-	webcontext "forgejo.org/services/context"
-	runtime "forgejo.org/services/extensions"
+	app_context "forgejo.org/services/context"
+	extensions_service "forgejo.org/services/extensions"
 
 	"code.forgejo.org/go-chi/session"
 )
@@ -138,7 +138,7 @@ func RevokeAdmissionsForInstance(instanceID string) {
 	nativeAdmissions.revokeInstance(instanceID)
 }
 
-func sessionGeneration(ctx *webcontext.Context) (string, error) {
+func sessionGeneration(ctx *app_context.Context) (string, error) {
 	if !nativeSession(ctx) || ctx.Session.ID() == "" || setting.SecretKey == "" {
 		return "", errors.New("native session generation unavailable")
 	}
@@ -150,7 +150,7 @@ func sessionGeneration(ctx *webcontext.Context) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
-func createAdmission(requestCtx context.Context, ctx *webcontext.Context, descriptor runtime.Descriptor, generation string, authority extension.Authority) (string, extension.Authority, error) {
+func createAdmission(requestCtx context.Context, ctx *app_context.Context, descriptor extensions_service.Descriptor, generation string, authority extension.Authority) (string, extension.Authority, error) {
 	if requestCtx == nil || requestCtx.Err() != nil || descriptor.InstanceID == "" || authority.ExtensionID != descriptor.Manifest.ID || ctx.Doer == nil || authority.Actor.ID != strconv.FormatInt(ctx.Doer.ID, 10) {
 		return "", extension.Authority{}, errors.New("native extension admission unavailable")
 	}

@@ -15,7 +15,7 @@ import (
 	"forgejo.org/models/extensionauth"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/timeutil"
@@ -492,7 +492,7 @@ func TestSnapshotReadBracketRejectsInterferingWriter(t *testing.T) {
 	// A held ordinary writer makes the revision busy; reads still succeed
 	// because F-read claims nothing, but the bracket must be rejected.
 	owner := "ord:snapshot-proof/1/read"
-	_, err = model.ClaimOrdinary(ctx, owner, `{"test":"snapshot-proof"}`, "snapshot-proof")
+	_, err = nativeoperation_model.ClaimOrdinary(ctx, owner, `{"test":"snapshot-proof"}`, "snapshot-proof")
 	require.NoError(t, err)
 	held, err := svc.ReadNativeRevision(ctx)
 	require.NoError(t, err)
@@ -500,7 +500,7 @@ func TestSnapshotReadBracketRejectsInterferingWriter(t *testing.T) {
 	require.Equal(t, before.Revision+1, held.Revision)
 	_, err = svc.ReadSnapshot(ctx, snapshotAuthority(2, req), req)
 	require.NoError(t, err, "reads never contend with a held writer")
-	require.NoError(t, model.ReleaseOwner(ctx, owner))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, owner))
 
 	moved, err := svc.ReadNativeRevision(ctx)
 	require.NoError(t, err)

@@ -9,7 +9,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -22,7 +22,7 @@ import (
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/modules/setting"
 	web_extensions "forgejo.org/routers/web/extensions"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 	"forgejo.org/tests"
 
 	"github.com/coder/websocket"
@@ -38,6 +38,8 @@ import (
 // terminal_unavailable). That inert result is explicitly not live PTY,
 // preservation, or qualification evidence. This is development evidence, not
 // an installed or release qualification run.
+//
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestSodaExtensionLiveTerminal(t *testing.T) {
 	backend, dashboard, artifactRoot := os.Getenv("SODA_C03_BACKEND"), os.Getenv("SODA_C03_DASHBOARD"), os.Getenv("SODA_C03_ARTIFACT_DIR")
 	if backend == "" || dashboard == "" || artifactRoot == "" {
@@ -82,7 +84,7 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "workspace.js"), []byte("export function mount() {}\n"), 0o600))
-	manager := runtime.NewManager(filepath.Join(root, "p"))
+	manager := extensions_service.NewManager(filepath.Join(root, "p"))
 	seedSodaExtensionOperatorID(t, filepath.Join(root, "p"))
 	serviceCallback := filepath.Join(root, "h")
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
@@ -92,9 +94,9 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 		logContents, _ := os.ReadFile(backendLog)
 		t.Fatalf("Soda extension process did not start: %v: %s", err, string(logContents))
 	}
-	previousManager := runtime.GetManager()
-	runtime.SetDefault(manager)
-	t.Cleanup(func() { runtime.SetDefault(previousManager); require.NoError(t, manager.Close()) })
+	previousManager := extensions_service.GetManager()
+	extensions_service.SetDefault(manager)
+	t.Cleanup(func() { extensions_service.SetDefault(previousManager); require.NoError(t, manager.Close()) })
 	server := httptest.NewTLSServer(testWebRoutes)
 	defer server.Close()
 	previousURL := setting.AppURL

@@ -19,7 +19,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/context/upload"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 )
 
@@ -186,7 +186,7 @@ func UpdateResolveConversation(ctx *context.Context) {
 		// observations go stale.
 		doer := ctx.Doer
 		resolve := action == "Resolve"
-		err = operation_service.WithCollaborationOwnership(ctx, operation_service.CommentResource(comment.ID, "conversation"), ctx.Repo.Repository.ID, func(ctx stdCtx.Context) error {
+		err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.CommentResource(comment.ID, "conversation"), ctx.Repo.Repository.ID, func(ctx stdCtx.Context) error {
 			return issues_model.MarkConversation(ctx, comment, doer, resolve)
 		})
 		if err != nil {

@@ -19,7 +19,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/structs"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 )
 
@@ -77,11 +77,11 @@ func ForkRepositoryIfNotExists(ctx context.Context, doer, owner *user_model.User
 	// filesystem effects, advancing the revision so stale observations go
 	// stale.
 	var repo *repo_model.Repository
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(0, operation_service.LifecycleFork, owner.Name, opts.Name),
-		operation_service.Scope{
-			Family: operation_service.FamilyRepoLifecycle,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(0, nativeoperation_service.LifecycleFork, owner.Name, opts.Name),
+		nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyRepoLifecycle,
 		},
 		func(ctx context.Context) error {
 			var err error
@@ -216,11 +216,11 @@ func ForkRepositoryAndUpdates(ctx context.Context, doer, owner *user_model.User,
 	// filesystem effects; the nested fork and tag sync reuse this
 	// ownership.
 	var repo *repo_model.Repository
-	err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(0, operation_service.LifecycleFork, owner.Name, opts.Name),
-		operation_service.Scope{
-			Family: operation_service.FamilyRepoLifecycle,
+	err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(0, nativeoperation_service.LifecycleFork, owner.Name, opts.Name),
+		nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyRepoLifecycle,
 		},
 		func(ctx context.Context) error {
 			var err error
@@ -261,11 +261,11 @@ func ForkRepositoryAndUpdates(ctx context.Context, doer, owner *user_model.User,
 func ConvertForkToNormalRepository(ctx context.Context, repo *repo_model.Repository) error {
 	// One lifecycle update owns the reservation before its database effects,
 	// advancing the revision so stale observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(repo.ID, operation_service.LifecycleConvertFork, repo.OwnerName, repo.Name),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoLifecycle,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(repo.ID, nativeoperation_service.LifecycleConvertFork, repo.OwnerName, repo.Name),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoLifecycle,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {

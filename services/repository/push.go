@@ -25,7 +25,7 @@ import (
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 	issue_service "forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 )
@@ -38,7 +38,7 @@ func handler(items ...[]*repo_module.PushUpdateOptions) [][]*repo_module.PushUpd
 	var unhandled [][]*repo_module.PushUpdateOptions
 	for _, opts := range items {
 		if err := pushUpdates(opts); err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				// Retain busy work: the queue requeues this batch for
 				// a later fresh-ownership attempt instead of dropping it.
 				unhandled = append(unhandled, opts)
@@ -98,15 +98,15 @@ func pushUpdates(optsList []*repo_module.PushUpdateOptions) error {
 	// One deferred batch claims fresh ownership before its effects; it
 	// never inherits the parent push's privilege and the parent never
 	// waits for it. Synchronous notifiers below reuse this ownership.
-	scoped := make([]operation_service.ScopedRef, 0, len(optsList))
+	scoped := make([]nativeoperation_service.ScopedRef, 0, len(optsList))
 	for _, opts := range optsList {
-		scoped = append(scoped, operation_service.ScopedRef{
+		scoped = append(scoped, nativeoperation_service.ScopedRef{
 			Ref:    string(opts.RefFullName),
 			OldOID: opts.OldCommitID,
 			NewOID: opts.NewCommitID,
 		})
 	}
-	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyPushCompletion, fmt.Sprintf("%d/batch-%d", repo.ID, len(optsList)), operation_service.Scope{
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyPushCompletion, fmt.Sprintf("%d/batch-%d", repo.ID, len(optsList)), nativeoperation_service.Scope{
 		RepositoryID: repo.ID,
 		Refs:         scoped,
 		PusherID:     optsList[0].PusherID,
@@ -314,7 +314,7 @@ func pushUpdates(optsList []*repo_module.PushUpdateOptions) error {
 		// Test-only crash barrier for offline-recovery proof: with effects
 		// committed and the owner still held, the driver SIGKILLs the server
 		// here to simulate a crash before release.
-		return operation_service.TestCrashBarrier(operation_service.CrashPointPushCompletionAfterEffects)
+		return nativeoperation_service.TestCrashBarrier(nativeoperation_service.CrashPointPushCompletionAfterEffects)
 	})
 }
 

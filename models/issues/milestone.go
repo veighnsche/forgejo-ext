@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/optional"
 	api "forgejo.org/modules/structs"
@@ -117,7 +117,7 @@ func (m *Milestone) State() api.StateType {
 func NewMilestone(ctx context.Context, m *Milestone) (err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -172,7 +172,7 @@ func GetMilestoneByRepoIDANDName(ctx context.Context, repoID int64, name string)
 func UpdateMilestone(ctx context.Context, m *Milestone, oldIsClosed bool) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -213,7 +213,7 @@ func updateMilestone(ctx context.Context, m *Milestone) error {
 func ChangeMilestoneStatusByRepoIDAndID(ctx context.Context, repoID, milestoneID int64, isClosed bool) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -261,7 +261,7 @@ func changeMilestoneStatus(ctx context.Context, m *Milestone, isClosed bool) err
 func DeleteMilestoneByRepoID(ctx context.Context, repoID, id int64) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	m, err := GetMilestoneByRepoID(ctx, repoID, id)
@@ -351,7 +351,7 @@ func (m *Milestone) LoadTotalTrackedTime(ctx context.Context) error {
 func InsertMilestones(ctx context.Context, ms ...*Milestone) (err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if len(ms) == 0 {

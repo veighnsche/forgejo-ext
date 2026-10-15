@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
@@ -21,7 +21,7 @@ func AddPrincipalKey(ctx context.Context, ownerID int64, content string, authSou
 	// Nested participating writer: key changes refuse while another owner
 	// holds the reservation; the enclosing authority update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	dbCtx, committer, err := db.TxContext(ctx)

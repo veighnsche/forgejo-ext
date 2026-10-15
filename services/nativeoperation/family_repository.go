@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
 )
 
@@ -170,7 +170,7 @@ func (s *Service) WithOrdinaryOwnershipWait(ctx context.Context, family, resourc
 // isBusyOnly reports contention refusals that a bounded wait may ride
 // out. Inhibition never clears by waiting and returns at once.
 func isBusyOnly(err error) bool {
-	return errors.Is(err, ErrBusy) || errors.Is(err, model.ErrBusy)
+	return errors.Is(err, ErrBusy) || errors.Is(err, nativeoperation_model.ErrBusy)
 }
 
 // ClaimSSHReceive claims the reservation for one SSH receive-pack
@@ -203,19 +203,19 @@ func (s *Service) ClaimSSHReceive(ctx context.Context, repoID, pusherID int64, v
 		if err := ctx.Err(); err != nil {
 			return "", 0, err
 		}
-		var claimed *model.Reservation
-		claimed, err = model.ClaimOrdinary(ctx, owner, scope, verifier)
+		var claimed *nativeoperation_model.Reservation
+		claimed, err = nativeoperation_model.ClaimOrdinary(ctx, owner, scope, verifier)
 		if err == nil {
 			return owner, claimed.Generation, nil
 		}
-		if errors.Is(err, model.ErrInhibited) {
-			return "", 0, fmt.Errorf("%w: ssh receive refuses while offline recovery holds the domain", model.ErrInhibited)
+		if errors.Is(err, nativeoperation_model.ErrInhibited) {
+			return "", 0, fmt.Errorf("%w: ssh receive refuses while offline recovery holds the domain", nativeoperation_model.ErrInhibited)
 		}
-		if !errors.Is(err, model.ErrBusy) {
+		if !errors.Is(err, nativeoperation_model.ErrBusy) {
 			return "", 0, err
 		}
 		if time.Now().After(deadline) {
-			return "", 0, fmt.Errorf("%w: ssh receive for repository %d is fenced", model.ErrBusy, repoID)
+			return "", 0, fmt.Errorf("%w: ssh receive for repository %d is fenced", nativeoperation_model.ErrBusy, repoID)
 		}
 		select {
 		case <-ctx.Done():
@@ -236,9 +236,9 @@ func (s *Service) ClaimSSHReceive(ctx context.Context, repoID, pusherID int64, v
 // recovery, which retires stale files.
 func (s *Service) ReleaseSSHReceive(ctx context.Context, owner string, generation int64) error {
 	if !strings.HasPrefix(owner, "ord:"+FamilyReceiveSSH+"/") || generation <= 0 {
-		return model.ErrWrongOwner
+		return nativeoperation_model.ErrWrongOwner
 	}
 	// The release must land even if the receiver's context is gone;
 	// anything else strands the reservation on a routine disconnect.
-	return model.ReleaseExactOwner(context.WithoutCancel(ctx), owner, generation)
+	return nativeoperation_model.ReleaseExactOwner(context.WithoutCancel(ctx), owner, generation)
 }

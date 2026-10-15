@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func intentOperation(value string) *string { return &value }
+//go:fix inline
 
 func ensureTestInstallation(t *testing.T, root, id string) string {
 	t.Helper()
@@ -43,7 +43,7 @@ func TestIntentRoundTripCAS(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, first, loaded)
 
-	second, err := StoreIntent(root, "tailnet", installation, false, intentOperation(IntentDeactivate), "1")
+	second, err := StoreIntent(root, "tailnet", installation, false, new(IntentDeactivate), "1")
 	require.NoError(t, err)
 	require.Equal(t, "2", second.Generation)
 	require.False(t, second.DesiredEnabled)
@@ -87,11 +87,11 @@ func TestIntentRejectsMalformed(t *testing.T) {
 	}
 
 	// Pending operations must agree with the desired boolean.
-	_, err = StoreIntent(root, "tailnet", installation, false, intentOperation(IntentActivate), "0")
+	_, err = StoreIntent(root, "tailnet", installation, false, new(IntentActivate), "0")
 	require.ErrorContains(t, err, "requires desired enabled")
-	_, err = StoreIntent(root, "tailnet", installation, true, intentOperation(IntentDeactivate), "0")
+	_, err = StoreIntent(root, "tailnet", installation, true, new(IntentDeactivate), "0")
 	require.ErrorContains(t, err, "requires desired disabled")
-	_, err = StoreIntent(root, "tailnet", installation, true, intentOperation("restart"), "0")
+	_, err = StoreIntent(root, "tailnet", installation, true, new("restart"), "0")
 	require.ErrorContains(t, err, "operation is invalid")
 
 	// The installation UUID must parse and match the recorded identity.
@@ -127,7 +127,7 @@ func TestIntentPersistenceFailureHasNoEffect(t *testing.T) {
 	// A validation failure leaves the recorded intent untouched.
 	first, err := StoreIntent(root, "tailnet", installation, true, nil, "0")
 	require.NoError(t, err)
-	_, err = StoreIntent(root, "tailnet", installation, false, intentOperation(IntentActivate), "1")
+	_, err = StoreIntent(root, "tailnet", installation, false, new(IntentActivate), "1")
 	require.Error(t, err)
 	loaded, err := LoadIntent(root, "tailnet")
 	require.NoError(t, err)
@@ -161,14 +161,12 @@ func TestPackageStoreConcurrentSharing(t *testing.T) {
 	const racers = 8
 	var refused atomic.Int32
 	var group sync.WaitGroup
-	for i := 0; i < racers; i++ {
-		group.Add(1)
-		go func() {
-			defer group.Done()
+	for range racers {
+		group.Go(func() {
 			if _, err := OpenPackageStore(root); err != nil {
 				refused.Add(1)
 			}
-		}()
+		})
 	}
 	group.Wait()
 	require.Equal(t, int32(racers), refused.Load(), "concurrent contenders must all be refused")

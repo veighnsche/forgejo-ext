@@ -128,6 +128,8 @@ func ReadReservation(ctx context.Context) (*Reservation, error) {
 }
 
 // LookupOperation returns the recorded operation, or nil when not observed.
+//
+//nolint:nilnil // The optional lookup reports absence without an error.
 func LookupOperation(ctx context.Context, installationID, operationID string) (*Operation, error) {
 	op := new(Operation)
 	has, err := db.GetEngine(ctx).Where("installation_id=? AND operation_id=?", installationID, operationID).NoAutoCondition().Get(op)

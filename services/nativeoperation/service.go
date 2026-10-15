@@ -12,7 +12,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
 	"path/filepath"
@@ -21,7 +21,7 @@ import (
 	"time"
 
 	sdk "forgejo.org/extension-sdk"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/setting"
 )
@@ -51,7 +51,7 @@ var (
 // IsBusy reports whether err is a reservation-contention refusal. Offline
 // inhibition refuses the same way: retryable, with nothing recorded.
 func IsBusy(err error) bool {
-	return errors.Is(err, ErrBusy) || errors.Is(err, model.ErrBusy) || errors.Is(err, model.ErrInhibited)
+	return errors.Is(err, ErrBusy) || errors.Is(err, nativeoperation_model.ErrBusy) || errors.Is(err, nativeoperation_model.ErrInhibited)
 }
 
 // RefReader resolves live ref tips for admission and reconciliation.
@@ -99,6 +99,7 @@ func (s *Service) readRef(ctx context.Context, repoPath, ref string) (string, er
 	return refs.CommitID(ctx, repoPath, ref)
 }
 
+//nolint:unparam // Keep the common operation helper and callback signature.
 func (s *Service) execDir() (string, error) {
 	if s.capabilityDir != "" {
 		return s.capabilityDir, nil
@@ -184,7 +185,7 @@ func ValidateIntent(operationID string, actorID, repositoryID int64, kind, authR
 	if !validOperationID(operationID) || actorID <= 0 || repositoryID <= 0 {
 		return nil, ErrInvalidIntent
 	}
-	if !model.ValidKind(kind) {
+	if !nativeoperation_model.ValidKind(kind) {
 		return nil, ErrInvalidIntent
 	}
 	if authRevision == "" || len(authRevision) > 512 {
@@ -202,49 +203,49 @@ func ValidateIntent(operationID string, actorID, repositoryID int64, kind, authR
 		ExpectedNativeRevision: expectedRevision,
 		NotAfter:               notAfter,
 	}
-	if kind == model.KindMerge {
+	if kind == nativeoperation_model.KindMerge {
 		merge, err := parseMergeIntent(payload, repositoryID)
 		if err != nil {
 			return nil, err
 		}
 		intent.Merge = merge
-	} else if kind == model.KindRefPublish {
+	} else if kind == nativeoperation_model.KindRefPublish {
 		publish, err := ParsePublishPayload(payload)
 		if err != nil {
 			return nil, ErrInvalidIntent
 		}
 		intent.Publish = publish
-	} else if kind == model.KindIssueGraph {
+	} else if kind == nativeoperation_model.KindIssueGraph {
 		graph, err := parseIssueGraphPayload(payload)
 		if err != nil {
 			return nil, err
 		}
 		intent.IssueGraph = graph
-	} else if kind == model.KindPRCreate {
+	} else if kind == nativeoperation_model.KindPRCreate {
 		prcreate, err := parsePRCreatePayload(payload, repositoryID)
 		if err != nil {
 			return nil, err
 		}
 		intent.PRCreate = prcreate
-	} else if kind == model.KindReviewSubmit {
+	} else if kind == nativeoperation_model.KindReviewSubmit {
 		review, err := parseReviewSubmitPayload(payload, repositoryID)
 		if err != nil {
 			return nil, err
 		}
 		intent.ReviewSubmit = review
-	} else if kind == model.KindLifecycleIssue {
+	} else if kind == nativeoperation_model.KindLifecycleIssue {
 		lifecycle, err := parseLifecycleIssuePayload(payload, repositoryID)
 		if err != nil {
 			return nil, err
 		}
 		intent.LifecycleIssue = lifecycle
-	} else if kind == model.KindLifecycleReview {
+	} else if kind == nativeoperation_model.KindLifecycleReview {
 		lifecycle, err := parseLifecycleReviewPayload(payload, repositoryID)
 		if err != nil {
 			return nil, err
 		}
 		intent.LifecycleReview = lifecycle
-	} else if kind == model.KindLifecycleNote {
+	} else if kind == nativeoperation_model.KindLifecycleNote {
 		lifecycle, err := parseLifecycleNotePayload(payload, repositoryID)
 		if err != nil {
 			return nil, err
@@ -350,7 +351,7 @@ type NativeRevisionObservation struct {
 // ReadNativeRevision atomically observes the host's native mutation revision
 // and idle/busy state from one authoritative database snapshot.
 func (s *Service) ReadNativeRevision(ctx context.Context) (NativeRevisionObservation, error) {
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return NativeRevisionObservation{}, err
 	}
@@ -375,7 +376,7 @@ type ReservationStatus struct {
 // Status reads the bounded operator-visible reservation state. It is
 // read-only: it never claims, releases or mutates the reservation.
 func (s *Service) Status(ctx context.Context) (ReservationStatus, error) {
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return ReservationStatus{}, err
 	}
@@ -389,7 +390,7 @@ func (s *Service) Status(ctx context.Context) (ReservationStatus, error) {
 	if family, _, ok := splitOrdinaryResource(reservation.Owner); ok {
 		status.Family = family
 	}
-	status.Inhibited = model.OfflineInhibited()
+	status.Inhibited = nativeoperation_model.OfflineInhibited()
 	return status, nil
 }
 
@@ -397,7 +398,7 @@ func (s *Service) Status(ctx context.Context) (ReservationStatus, error) {
 // not_observed lookups report actor/repository/intent fields as unavailable
 // rather than inventing them, and the private credential fingerprint never
 // appears.
-func ToRecord(op *model.Operation) sdk.OperationRecord {
+func ToRecord(op *nativeoperation_model.Operation) sdk.OperationRecord {
 	record := sdk.OperationRecord{
 		InstallationID:     op.InstallationID,
 		OperationID:        op.OperationID,
@@ -420,7 +421,7 @@ func ToRecord(op *model.Operation) sdk.OperationRecord {
 }
 
 // ToLookup maps a stored operation, or its absence, to an SDK lookup.
-func ToLookup(installationID, operationID string, op *model.Operation) sdk.OperationLookup {
+func ToLookup(installationID, operationID string, op *nativeoperation_model.Operation) sdk.OperationLookup {
 	if op == nil {
 		return sdk.OperationLookup{InstallationID: installationID, OperationID: operationID, Status: sdk.BackgroundOutcomeNotObserved}
 	}
@@ -437,23 +438,23 @@ func ToLookup(installationID, operationID string, op *model.Operation) sdk.Opera
 // while an effect may still be in flight, cancelled only when no primary
 // effect occurred and none can occur, too_late when it already committed,
 // and none when no cancellation was ever requested.
-func displayCancellation(op *model.Operation) string {
+func displayCancellation(op *nativeoperation_model.Operation) string {
 	if op.Revoked {
 		switch op.EffectState {
-		case model.EffectCommitted:
-			return model.CancellationTooLate
-		case model.EffectNotCommitted:
-			return model.CancellationCancelled
-		case model.EffectIndeterminate:
-			return model.CancellationIndeterminate
+		case nativeoperation_model.EffectCommitted:
+			return nativeoperation_model.CancellationTooLate
+		case nativeoperation_model.EffectNotCommitted:
+			return nativeoperation_model.CancellationCancelled
+		case nativeoperation_model.EffectIndeterminate:
+			return nativeoperation_model.CancellationIndeterminate
 		default:
-			return model.CancellationPending
+			return nativeoperation_model.CancellationPending
 		}
 	}
 	if op.Cancellation != "" {
 		return op.Cancellation
 	}
-	return model.CancellationNone
+	return nativeoperation_model.CancellationNone
 }
 
 func int64String(id int64) string {

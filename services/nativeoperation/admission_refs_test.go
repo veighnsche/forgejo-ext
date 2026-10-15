@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	execcontext "forgejo.org/modules/nativeoperation"
 
@@ -24,7 +24,7 @@ func TestClassifyOrdinaryOwnerMultiRefScope(t *testing.T) {
 	ctx := t.Context()
 	svc := admissionService(t, nil, time.Now().Unix())
 	encoded, err := encodeScope(Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyReceiveHTTP,
 		RepositoryID: 1,
 		Refs: []ScopedRef{
@@ -34,9 +34,9 @@ func TestClassifyOrdinaryOwnerMultiRefScope(t *testing.T) {
 	})
 	require.NoError(t, err)
 	owner := "ord:receive-http/1/main/z"
-	_, err = model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("receive-proof"))
+	_, err = nativeoperation_model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("receive-proof"))
 	require.NoError(t, err)
-	defer func() { require.NoError(t, model.ReleaseOwner(ctx, owner)) }()
+	defer func() { require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, owner)) }()
 
 	allowed, err := svc.ClassifyTransaction(ctx, TransactionRequest{
 		OwnerName: "user2", RepoName: "repo1", Phase: PhasePrepared,
@@ -75,15 +75,15 @@ func TestCollabPullCreateRefinesPRRef(t *testing.T) {
 	ctx := t.Context()
 	svc := admissionService(t, nil, time.Now().Unix())
 	encoded, err := encodeScope(Scope{
-		Kind:         model.OwnerOrdinary,
+		Kind:         nativeoperation_model.OwnerOrdinary,
 		Family:       FamilyCollaboration,
 		RepositoryID: 1,
 	})
 	require.NoError(t, err)
 	owner := "ord:collaboration/pull/new/1/abcdef0123456789"
-	_, err = model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("pull-proof"))
+	_, err = nativeoperation_model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("pull-proof"))
 	require.NoError(t, err)
-	defer func() { require.NoError(t, model.ReleaseOwner(ctx, owner)) }()
+	defer func() { require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, owner)) }()
 
 	classify := func(ref string) TransactionDecision {
 		decision, err := svc.ClassifyTransaction(ctx, TransactionRequest{
@@ -117,12 +117,12 @@ func TestCollabPullRefinementNoOps(t *testing.T) {
 
 	claim := func(owner string) {
 		encoded, err := encodeScope(Scope{
-			Kind:         model.OwnerOrdinary,
+			Kind:         nativeoperation_model.OwnerOrdinary,
 			Family:       FamilyCollaboration,
 			RepositoryID: 1,
 		})
 		require.NoError(t, err)
-		_, err = model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("pull-proof"))
+		_, err = nativeoperation_model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("pull-proof"))
 		require.NoError(t, err)
 	}
 	classify := func() TransactionDecision {
@@ -138,10 +138,10 @@ func TestCollabPullRefinementNoOps(t *testing.T) {
 	claim("ord:collaboration/pull/new/1/abcdef0123456789")
 	RefineCollabPullScope(ctx, "forged-proof", []ScopedRef{{Ref: "refs/pull/1/head", NewOID: testHead}})
 	require.False(t, classify().Allowed)
-	require.NoError(t, model.ReleaseOwner(ctx, "ord:collaboration/pull/new/1/abcdef0123456789"))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, "ord:collaboration/pull/new/1/abcdef0123456789"))
 
 	claim("ord:collaboration/issue/1/title/abcdef0123456789")
 	RefineCollabPullScope(ctx, "pull-proof", []ScopedRef{{Ref: "refs/pull/1/head", NewOID: testHead}})
 	require.False(t, classify().Allowed)
-	require.NoError(t, model.ReleaseOwner(ctx, "ord:collaboration/issue/1/title/abcdef0123456789"))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, "ord:collaboration/issue/1/title/abcdef0123456789"))
 }

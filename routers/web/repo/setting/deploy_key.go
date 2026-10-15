@@ -16,7 +16,7 @@ import (
 	asymkey_service "forgejo.org/services/asymkey"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // DeployKeys render the deploy keys list of a repository page
@@ -78,7 +78,7 @@ func DeployKeysPost(ctx *context.Context) {
 	// observations go stale.
 	repoID := ctx.Repo.Repository.ID
 	var key *asymkey_model.DeployKey
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key", repoID), repoID, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key", repoID), repoID, func(ctx std_ctx.Context) error {
 		var err error
 		key, err = asymkey_model.AddDeployKey(ctx, repoID, form.Title, content, !form.IsWritable)
 		return err
@@ -115,7 +115,7 @@ func DeleteDeployKey(ctx *context.Context) {
 	// observations go stale.
 	repoID := ctx.Repo.Repository.ID
 	keyID := ctx.FormInt64("id")
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key/%d", repoID, keyID), repoID, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("repo/%d/deploy-key/%d", repoID, keyID), repoID, func(ctx std_ctx.Context) error {
 		return asymkey_service.DeleteDeployKey(ctx, keyID, repoID)
 	}); err != nil {
 		ctx.Flash.Error("DeleteDeployKey: " + err.Error())

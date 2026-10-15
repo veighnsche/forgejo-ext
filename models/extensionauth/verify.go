@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
+	"slices"
 
 	sdk "forgejo.org/extension-sdk"
 	auth_model "forgejo.org/models/auth"
@@ -207,12 +208,7 @@ func (d SnapshotReadDecision) AllowsRepository(id int64, private bool) bool {
 	if d.ResourceAllRepos {
 		return true
 	}
-	for _, allowed := range d.RepositoryIDs {
-		if allowed == id {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(d.RepositoryIDs, id)
 }
 
 // CanReadFamilies requires every native API scope selected by the read.

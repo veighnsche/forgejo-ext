@@ -14,7 +14,7 @@ import (
 	"forgejo.org/modules/avatar"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/storage"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // UploadAvatar saves custom avatar for repository.
@@ -33,11 +33,11 @@ func UploadAvatar(ctx context.Context, repo *repo_model.Repository, data []byte)
 	// One settings update owns the reservation before the avatar
 	// transaction and storage writes, advancing the revision so stale
 	// observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoSettings,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoSettings,
 		fmt.Sprintf("%d/avatar", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoSettings,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoSettings,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {
@@ -92,11 +92,11 @@ func DeleteAvatar(ctx context.Context, repo *repo_model.Repository) error {
 	// One settings update owns the reservation before the avatar
 	// transaction and storage delete, advancing the revision so stale
 	// observations go stale.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoSettings,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoSettings,
 		fmt.Sprintf("%d/avatar-delete", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoSettings,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoSettings,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {

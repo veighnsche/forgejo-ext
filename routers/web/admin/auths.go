@@ -25,7 +25,7 @@ import (
 	"forgejo.org/services/auth/source/smtp"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/xorm/xorm/convert"
 )
@@ -253,7 +253,7 @@ func NewAuthSourcePost(ctx *context.Context) {
 	// One authority writer owns the auth-source change before its
 	// effects, advancing the native revision so old permission
 	// observations go stale.
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%s", form.Name), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%s", form.Name), 0, func(ctx std_ctx.Context) error {
 		return auth.CreateSource(ctx, &auth.Source{
 			Type:          auth.Type(form.Type),
 			Name:          form.Name,
@@ -372,7 +372,7 @@ func EditAuthSourcePost(ctx *context.Context) {
 	// One authority writer owns the auth-source change before its
 	// effects, advancing the native revision so old permission
 	// observations go stale.
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx std_ctx.Context) error {
 		return auth.UpdateSource(ctx, source)
 	}); err != nil {
 		if auth.IsErrSourceAlreadyExist(err) {
@@ -404,7 +404,7 @@ func DeleteAuthSource(ctx *context.Context) {
 	// One authority writer owns the auth-source change before its
 	// effects, advancing the native revision so old permission
 	// observations go stale.
-	if err = operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx std_ctx.Context) error {
+	if err = nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("auth-source/%d", source.ID), 0, func(ctx std_ctx.Context) error {
 		return auth_service.DeleteSource(ctx, source)
 	}); err != nil {
 		if auth.IsErrSourceInUse(err) {

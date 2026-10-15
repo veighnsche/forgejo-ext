@@ -19,7 +19,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/timeutil"
 	webhook_module "forgejo.org/modules/webhook"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
 	act_model "code.forgejo.org/forgejo/runner/v12/act/model"
@@ -94,8 +94,8 @@ func startScheduleRow(ctx context.Context, now time.Time, row *actions_model.Act
 	if actionConfig.IsWorkflowDisabled(row.Schedule.WorkflowID) {
 		return nil
 	}
-	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.ScheduleResource(row.Schedule.ID), operation_service.Scope{
-		Family:       operation_service.FamilyActionsRun,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.ScheduleResource(row.Schedule.ID), nativeoperation_service.Scope{
+		Family:       nativeoperation_service.FamilyActionsRun,
 		RepositoryID: row.Schedule.RepoID,
 	}, func(ctx context.Context) error {
 		schedule, err := func(row *actions_model.ActionScheduleSpec) (cron.Schedule, error) {
@@ -142,7 +142,7 @@ func CreateScheduleTask(ctx context.Context, cron *actions_model.ActionSchedule)
 	// the concurrency cancellation, the inserted run and its jobs share
 	// this ownership. The spec's next-run update stays with the cron
 	// driver outside this claim.
-	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.ScheduleResource(cron.ID), operation_service.Scope{
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.ScheduleResource(cron.ID), nativeoperation_service.Scope{
 		RepositoryID: cron.RepoID,
 	}, func(ctx context.Context) error {
 		return createScheduleTask(ctx, cron)
@@ -300,8 +300,8 @@ func CleanRepoScheduleTasks(ctx context.Context, repo *repo_model.Repository, ca
 	// cancellations before their effects. Callers inside an enclosing
 	// owner (push completion rebuilds schedules under its own owner)
 	// reuse that execution instead of claiming again.
-	return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.ScheduleCleanResource(cancelPreviousJobs), operation_service.Scope{
-		Family:       operation_service.FamilyActionsRun,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.ScheduleCleanResource(cancelPreviousJobs), nativeoperation_service.Scope{
+		Family:       nativeoperation_service.FamilyActionsRun,
 		RepositoryID: repo.ID,
 	}, func(ctx context.Context) error {
 		// If actions disabled when there is schedule task, this will remove the outdated schedule tasks
@@ -321,6 +321,6 @@ func CleanRepoScheduleTasks(ctx context.Context, repo *repo_model.Repository, ca
 				return fmt.Errorf("CancelPreviousJobs: %v", err)
 			}
 		}
-		return operation_service.TestCrashBarrier(operation_service.CrashPointActionsRunAfterEffects)
+		return nativeoperation_service.TestCrashBarrier(nativeoperation_service.CrashPointActionsRunAfterEffects)
 	})
 }

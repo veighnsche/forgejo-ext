@@ -24,7 +24,7 @@ import (
 
 	"forgejo.org/models/auth"
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/auth/openid"
 	"forgejo.org/modules/auth/password/hash"
 	"forgejo.org/modules/base"
@@ -728,7 +728,7 @@ func createUser(ctx context.Context, u *User, createdByAdmin bool, overwriteDefa
 	// Nested participating writer: account creation refuses while another
 	// owner holds the reservation; the enclosing authority update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	overwriteDefaultPresent := len(overwriteDefault) != 0 && overwriteDefault[0] != nil
@@ -1054,7 +1054,7 @@ func UpdateUserCols(ctx context.Context, u *User, cols ...string) error {
 		// Nested participating writer: account authority changes refuse
 		// while another owner holds the reservation; the enclosing
 		// authority update carries the execution.
-		if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 			return err
 		}
 	}
@@ -1493,7 +1493,7 @@ func FixWrongUserType(ctx context.Context) (int64, error) {
 	// Nested participating writer: account types gate organization
 	// authorization, so the repair refuses while another owner holds the
 	// reservation; the enclosing maintenance repair carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	return db.GetEngine(ctx).Where(builder.Eq{"type": 0}.And(builder.Neq{"num_teams": 0})).Cols("type").NoAutoTime().Update(&User{Type: 1})

@@ -5,7 +5,7 @@ package integration
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"html"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +25,7 @@ import (
 	"forgejo.org/modules/setting"
 	web_extensions "forgejo.org/routers/web/extensions"
 	app_context "forgejo.org/services/context"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 	repo_service "forgejo.org/services/repository"
 	"forgejo.org/tests"
 
@@ -237,6 +237,7 @@ func init() {
 	os.Exit(0)
 }
 
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestExtensionNativePermissions(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	root, err := os.MkdirTemp("", "fe-")
@@ -268,12 +269,12 @@ func TestExtensionNativePermissions(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
-	manager := runtime.NewManager(root)
+	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
 	require.NoError(t, manager.Start(context.Background()))
-	previous := runtime.GetManager()
-	runtime.SetDefault(manager)
-	defer func() { runtime.SetDefault(previous); require.NoError(t, manager.Close()) }()
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(manager)
+	defer func() { extensions_service.SetDefault(previous); require.NoError(t, manager.Close()) }()
 	owner := loginUser(t, "user2")
 	reader := loginUser(t, "user4")
 	repoOwner, err := user_model.GetUserByName(db.DefaultContext, "user2")
@@ -431,6 +432,7 @@ func TestExtensionNativePermissions(t *testing.T) {
 	require.Empty(t, readerKeys)
 }
 
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestExtensionPreferredWorkspace(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	root, err := os.MkdirTemp("", "fe-")
@@ -453,12 +455,12 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "status.js"), []byte("export function mount() {}"), 0o600))
-	manager := runtime.NewManager(root)
+	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.Start(context.Background()))
-	previous := runtime.GetManager()
-	runtime.SetDefault(manager)
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(manager)
 	defer func() {
-		runtime.SetDefault(previous)
+		extensions_service.SetDefault(previous)
 		if manager != nil {
 			require.NoError(t, manager.Close())
 		}
@@ -577,10 +579,10 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 	require.NoError(t, manager.Close())
 	manager = nil
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, ".disabled"), nil, 0o600))
-	disabledManager := runtime.NewManager(root)
+	disabledManager := extensions_service.NewManager(root)
 	require.NoError(t, disabledManager.Start(context.Background()))
 	manager = disabledManager
-	runtime.SetDefault(disabledManager)
+	extensions_service.SetDefault(disabledManager)
 	disabledRequest := NewRequest(t, http.MethodGet, "/explore/repos")
 	disabledRequest.Header.Set("Sec-Fetch-Dest", "document")
 	require.NotContains(t, owner.MakeRequest(t, disabledRequest, http.StatusOK).Body.String(), `data-extension-panels`)
@@ -590,6 +592,8 @@ func TestExtensionPreferredWorkspace(t *testing.T) {
 // as one retained panel instance. The page slot emits no vacant competing
 // mount on global or repository workspace documents, while native chrome
 // (navbar, repository header, notices) stays in the document.
+//
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestExtensionSharedOwnerComposition(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	root, err := os.MkdirTemp("", "fe-")
@@ -611,12 +615,12 @@ func TestExtensionSharedOwnerComposition(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
-	manager := runtime.NewManager(root)
+	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.Start(context.Background()))
-	previous := runtime.GetManager()
-	runtime.SetDefault(manager)
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(manager)
 	defer func() {
-		runtime.SetDefault(previous)
+		extensions_service.SetDefault(previous)
 		require.NoError(t, manager.Close())
 	}()
 	owner := loginUser(t, "user2")
@@ -657,6 +661,8 @@ func extractBodyPageData(t *testing.T, body string) map[string]any {
 // NFX-A02 slice 1: every native document carries its pageData as
 // machine-readable JSON on <body> so workspace transitions can refresh the
 // live config from the entered document. Mirrors what getAttribute returns.
+//
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestExtensionPageDataEmbed(t *testing.T) {
 	defer tests.PrepareTestEnv(t)()
 	root, err := os.MkdirTemp("", "fe-")
@@ -677,11 +683,11 @@ func TestExtensionPageDataEmbed(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "main.js"), []byte("export function mount() {}"), 0o600))
-	manager := runtime.NewManager(root)
+	manager := extensions_service.NewManager(root)
 	require.NoError(t, manager.Start(context.Background()))
-	previous := runtime.GetManager()
-	runtime.SetDefault(manager)
-	defer func() { runtime.SetDefault(previous); require.NoError(t, manager.Close()) }()
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(manager)
+	defer func() { extensions_service.SetDefault(previous); require.NoError(t, manager.Close()) }()
 	owner := loginUser(t, "user1")
 	document := func(path string) *RequestWrapper {
 		request := NewRequest(t, http.MethodGet, path)

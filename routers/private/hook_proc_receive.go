@@ -12,7 +12,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/agit"
 	app_context "forgejo.org/services/context"
-	nativeoperation "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // HookProcReceive proc-receive hook - only handles agit Proc-Receive requests at present
@@ -23,7 +23,7 @@ func HookProcReceive(ctx *app_context.PrivateContext) {
 	// instead of claiming again. While idle this returns the context
 	// unchanged; under a foreign hold without a matching proof it
 	// refuses before any effect.
-	reqCtx, err := nativeoperation.BoundCallbackContext(ctx, opts.ExecProof, opts.ExecPath)
+	reqCtx, err := nativeoperation_service.BoundCallbackContext(ctx, opts.ExecProof, opts.ExecPath)
 	if err != nil {
 		ctx.JSON(http.StatusForbidden, private.Response{
 			UserMsg: "native operation in progress",

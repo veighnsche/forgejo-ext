@@ -175,6 +175,7 @@ type controlPlugin struct{ registration Registration }
 func (p controlPlugin) Server(*plugin.MuxBroker) (any, error) {
 	return &controlRPC{registration: p.registration}, nil
 }
+
 func (controlPlugin) Client(_ *plugin.MuxBroker, client *rpc.Client) (any, error) {
 	return &controlClient{client: client}, nil
 }

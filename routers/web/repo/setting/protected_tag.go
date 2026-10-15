@@ -18,7 +18,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -75,11 +75,11 @@ func NewProtectedTagPost(ctx *context.Context) {
 
 	// One protection update owns the reservation before its database
 	// effects.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionTag, operation_service.ProtectionCreate, pt.NamePattern),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionTag, nativeoperation_service.ProtectionCreate, pt.NamePattern),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {
@@ -142,11 +142,11 @@ func EditProtectedTagPost(ctx *context.Context) {
 
 	// One protection update owns the reservation before its database
 	// effects.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(pt.RepoID, operation_service.ProtectionTag, operation_service.ProtectionEdit, pt.NamePattern),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(pt.RepoID, nativeoperation_service.ProtectionTag, nativeoperation_service.ProtectionEdit, pt.NamePattern),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: pt.RepoID,
 		},
 		func(ctx gocontext.Context) error {
@@ -172,11 +172,11 @@ func DeleteProtectedTagPost(ctx *context.Context) {
 
 	// One protection update owns the reservation before its database
 	// effects.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(pt.RepoID, operation_service.ProtectionTag, operation_service.ProtectionDelete, pt.NamePattern),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(pt.RepoID, nativeoperation_service.ProtectionTag, nativeoperation_service.ProtectionDelete, pt.NamePattern),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: pt.RepoID,
 		},
 		func(ctx gocontext.Context) error {

@@ -15,7 +15,7 @@ import (
 	"forgejo.org/modules/util"
 	"forgejo.org/modules/validation"
 	"forgejo.org/services/context/upload"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/google/uuid"
 )
@@ -32,7 +32,7 @@ func NewAttachment(ctx context.Context, attach *repo_model.Attachment, file io.R
 	// One attachment upload owns the storage write and row insert
 	// before its effects. Callers inside an enclosing owner (release
 	// flows attach under their own owner) reuse that execution.
-	err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentCreateResource(attach.RepoID), attach.RepoID, func(ctx context.Context) error {
+	err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.AttachmentCreateResource(attach.RepoID), attach.RepoID, func(ctx context.Context) error {
 		return db.WithTx(ctx, func(ctx context.Context) error {
 			attach.UUID = uuid.New().String()
 			size, err := storage.Attachments.Save(attach.RelativePath(), file, size)
@@ -70,7 +70,7 @@ func NewExternalAttachment(ctx context.Context, attach *repo_model.Attachment) (
 	// One attachment upload owns the row insert before its effects.
 	// Callers inside an enclosing owner (release flows attach under
 	// their own owner) reuse that execution.
-	err := operation_service.WithCollaborationOwnership(ctx, operation_service.AttachmentCreateResource(attach.RepoID), attach.RepoID, func(ctx context.Context) error {
+	err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.AttachmentCreateResource(attach.RepoID), attach.RepoID, func(ctx context.Context) error {
 		attach.UUID = uuid.New().String()
 
 		eng := db.GetEngine(ctx)

@@ -16,7 +16,7 @@ import (
 	"forgejo.org/services/auth"
 	"forgejo.org/services/migrations"
 	mirror_service "forgejo.org/services/mirror"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	packages_cleanup_service "forgejo.org/services/packages/cleanup"
 	repo_service "forgejo.org/services/repository"
 	archiver_service "forgejo.org/services/repository/archiver"
@@ -102,7 +102,7 @@ func registerSyncExternalUsers() {
 		// its effects, advancing the native revision so old permission
 		// observations go stale. Nested user, key and team updates reuse
 		// this ownership.
-		return operation_service.WithAuthorityOwnership(ctx, "directory-sync", 0, func(ctx context.Context) error {
+		return nativeoperation_service.WithAuthorityOwnership(ctx, "directory-sync", 0, func(ctx context.Context) error {
 			return auth.SyncExternalUsers(ctx, realConfig.UpdateExisting)
 		})
 	})
@@ -120,8 +120,8 @@ func registerDeletedBranchesCleanup() {
 		realConfig := config.(*OlderThanConfig)
 		// One branch-table cleanup owns the purge before its effects.
 		// The purged set is unknowable, so offline recovery fences it.
-		return operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyRefSync, "0/deleted-branches", operation_service.Scope{
-			Family: operation_service.FamilyRefSync,
+		return nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyRefSync, "0/deleted-branches", nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyRefSync,
 		}, func(ctx context.Context) error {
 			git_model.RemoveOldDeletedBranches(ctx, realConfig.OlderThan)
 			return nil

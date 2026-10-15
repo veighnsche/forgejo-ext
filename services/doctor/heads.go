@@ -9,7 +9,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 func synchronizeRepoHeads(ctx context.Context, logger log.Logger, autofix bool) error {
@@ -48,11 +48,11 @@ func synchronizeRepoHeads(ctx context.Context, logger log.Logger, autofix bool) 
 
 		// otherwise, let's try fixing HEAD under one default-branch
 		// ref-write ownership so no writer interleaves the repair.
-		err := operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyRefWrite,
-			operation_service.RefWriteResource(repo.ID, operation_service.RefWriteDefaultBranch, git.BranchPrefix+repo.DefaultBranch),
-			operation_service.Scope{
-				Family:       operation_service.FamilyRefWrite,
+		err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyRefWrite,
+			nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteDefaultBranch, git.BranchPrefix+repo.DefaultBranch),
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyRefWrite,
 				RepositoryID: repo.ID,
 				Ref:          git.BranchPrefix + repo.DefaultBranch,
 			},

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/cache"
@@ -356,7 +356,7 @@ func UpdateRunApprovalByID(ctx context.Context, id int64, approval ApprovalType,
 	// Nested participating writer: approval changes refuse while another
 	// owner holds the reservation; the enclosing run update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Exec("UPDATE action_run SET need_approval=?, approved_by=? WHERE id=?", bool(approval), approvedBy, id)
@@ -399,7 +399,7 @@ func InsertRun(ctx context.Context, run *ActionRun, jobs []*jobparser.SingleWork
 	// Nested participating writer: run/job creation refuses while
 	// another owner holds the reservation; the enclosing run update or
 	// the notification's enclosing owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -441,7 +441,7 @@ func InsertRunJobs(ctx context.Context, run *ActionRun, jobs []*jobparser.Single
 	// Nested participating writer: job creation refuses while another
 	// owner holds the reservation; the enclosing run update carries the
 	// execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	runJobs := make([]*ActionRunJob, 0, len(jobs))
@@ -591,7 +591,7 @@ func UpdateRunWithoutNotification(ctx context.Context, run *ActionRun, cols ...s
 	// Nested participating writer: run state changes refuse while
 	// another owner holds the reservation; the enclosing run update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	sess := db.GetEngine(ctx).ID(run.ID)

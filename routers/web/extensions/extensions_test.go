@@ -4,7 +4,7 @@
 package extensions
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -165,6 +165,7 @@ func TestWorkspaceRejectsForeignAndRecursiveURLs(t *testing.T) {
 	assert.True(t, validWorkspacePath("/user2/repo1/issues"))
 }
 
+//nolint:nilnil // The fixture deliberately supplies no session or backend.
 func TestProxyRejectsStreamingAndRedirects(t *testing.T) {
 	authority := extension.Authority{ExtensionID: "demo", Contribution: extension.Contribution{Scope: "global"}}
 	for _, header := range []string{"Upgrade", "Accept"} {

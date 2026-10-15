@@ -9,8 +9,8 @@ import (
 	"fmt"
 
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
-	organization "forgejo.org/models/organization"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
+	org_model "forgejo.org/models/organization"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 )
@@ -32,7 +32,7 @@ const EffectCollaborationConsistent = "consistent"
 // deletes; multi-statement changes, creates and batches stay fenced with
 // stable reasons. A missing anchor means unaccounted interference and
 // fences: a collaboration change never deletes its own context.
-func (s *Service) recoverCollaboration(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope) (RecoveryAssessment, error) {
+func (s *Service) recoverCollaboration(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope) (RecoveryAssessment, error) {
 	resource, err := ordinaryResource(reservation.Owner, FamilyCollaboration)
 	if err != nil {
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("collaboration owner names no parseable resource: %v", err))
@@ -80,12 +80,14 @@ func (s *Service) recoverCollaboration(ctx context.Context, assessment *Recovery
 
 // collabIssueAnchor loads the anchor issue for one collaboration claim. A
 // missing issue means unaccounted interference and fences.
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
 func collabIssueAnchor(ctx context.Context, assessment *RecoveryAssessment, issueID int64) (*issues_model.Issue, bool, error) {
 	issue, err := issues_model.GetIssueByID(ctx, issueID)
 	if err != nil {
 		if issues_model.IsErrIssueNotExist(err) {
-			fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("issue %d for the held collaboration scope no longer exists", issueID))
-			return nil, true, nil
+			_, fenceErr := fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("issue %d for the held collaboration scope no longer exists", issueID))
+			return nil, true, fenceErr
 		}
 		return nil, false, err
 	}
@@ -97,7 +99,7 @@ func collabIssueAnchor(ctx context.Context, assessment *RecoveryAssessment, issu
 // field updates release on the intact issue; creates, deletes, the
 // multi-statement status change and pin moves (pin row and timeline
 // comment commit separately) stay fenced.
-func (s *Service) recoverCollabIssue(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabIssue(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
 	switch claim.op {
 	case "create", "delete", "status", "pin":
 		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("issue operation %q spans statements; no single-transaction reconciliation", claim.op))
@@ -112,7 +114,7 @@ func (s *Service) recoverCollabIssue(ctx context.Context, assessment *RecoveryAs
 // resolutions and attachment associations release on the intact comment
 // and issue; creations, multi-statement deletes and content updates
 // (history rows commit outside the comment transaction) stay fenced.
-func (s *Service) recoverCollabComment(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabComment(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
 	switch claim.op {
 	case "create", "delete", "update":
 		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("comment operation %q cannot establish its effect; no single-transaction reconciliation", claim.op))
@@ -134,7 +136,7 @@ func (s *Service) recoverCollabComment(ctx context.Context, assessment *Recovery
 // recoverCollabDependency reconciles one dependency edge writer. Edge
 // insertion and removal are single-transaction, so a present or absent
 // edge over two intact issues is always a valid end state.
-func (s *Service) recoverCollabDependency(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabDependency(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
 	if _, fencedNow, err := collabIssueAnchor(ctx, assessment, claim.id); err != nil || fencedNow {
 		return *assessment, err
 	}
@@ -149,7 +151,7 @@ func (s *Service) recoverCollabDependency(ctx context.Context, assessment *Recov
 // Git effects and stay fenced; single-comment automerge scheduling and
 // the single-statement maintainer-edits flag release on the intact pull
 // request.
-func (s *Service) recoverCollabPull(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabPull(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
 	switch claim.op {
 	case "create", "retarget", "close", "update", "refresh", "manual":
 		return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("pull operation %q spans statements; no single-transaction reconciliation", claim.op))
@@ -174,7 +176,7 @@ func (s *Service) recoverCollabPull(ctx context.Context, assessment *RecoveryAss
 // row (both are valid atomic end states); dismissals release on the
 // intact review; review requests release on the intact issue and the
 // named reviewer or team.
-func (s *Service) recoverCollabReview(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabReview(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
 	switch claim.op {
 	case "request-user", "request-team":
 		if _, fencedNow, err := collabIssueAnchor(ctx, assessment, claim.id); err != nil || fencedNow {
@@ -189,8 +191,8 @@ func (s *Service) recoverCollabReview(ctx context.Context, assessment *RecoveryA
 			}
 			assessment.Checks = append(assessment.Checks, fmt.Sprintf("user %d exists", claim.id2))
 		} else {
-			if _, err := organization.GetTeamByID(ctx, claim.id2); err != nil {
-				if organization.IsErrTeamNotExist(err) {
+			if _, err := org_model.GetTeamByID(ctx, claim.id2); err != nil {
+				if org_model.IsErrTeamNotExist(err) {
 					return fenced(assessment, ReasonRecoveryUnaccounted, fmt.Sprintf("team %d for the held collaboration scope no longer exists", claim.id2))
 				}
 				return RecoveryAssessment{}, err
@@ -234,7 +236,7 @@ func (s *Service) recoverCollabReview(ctx context.Context, assessment *RecoveryA
 // recoverCollabReaction reconciles one reaction writer. Reaction insertion
 // and removal are single statements, so any reaction state over the
 // intact anchors is a valid end state.
-func (s *Service) recoverCollabReaction(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabReaction(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
 	if _, fencedNow, err := collabIssueAnchor(ctx, assessment, claim.id); err != nil || fencedNow {
 		return *assessment, err
 	}
@@ -254,7 +256,9 @@ func (s *Service) recoverCollabReaction(ctx context.Context, assessment *Recover
 // label updates release on the intact label; creates name the repository
 // and release on it; the single-transaction delete releases with a
 // present or absent label row (both are valid atomic end states).
-func (s *Service) recoverCollabLabel(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, claim collabClaim) (RecoveryAssessment, error) {
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
+func (s *Service) recoverCollabLabel(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, claim collabClaim) (RecoveryAssessment, error) {
 	switch claim.op {
 	case "create", "delete":
 		// Creates name the repository for repo labels and zero for org
@@ -288,7 +292,7 @@ func (s *Service) recoverCollabLabel(ctx context.Context, assessment *RecoveryAs
 // creates name the repository and release on it; the single-transaction
 // delete releases with a present or absent milestone row (both are valid
 // atomic end states).
-func (s *Service) recoverCollabMilestone(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, scope Scope, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabMilestone(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, scope Scope, claim collabClaim) (RecoveryAssessment, error) {
 	switch claim.op {
 	case "create":
 		if scope.RepositoryID <= 0 {
@@ -326,7 +330,7 @@ func (s *Service) recoverCollabMilestone(ctx context.Context, assessment *Recove
 // delete is a single statement over an append-only history table, so any
 // deletion state over the intact row is a valid end state; a missing row
 // means unaccounted interference and fences.
-func (s *Service) recoverCollabHistory(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabHistory(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
 	if _, err := issues_model.GetIssueContentHistoryByID(ctx, claim.id); err != nil {
 		var notExist issues_model.ErrIssueContentHistoryNotExist
 		if errors.As(err, &notExist) {
@@ -345,7 +349,7 @@ func (s *Service) recoverCollabHistory(ctx context.Context, assessment *Recovery
 // storage file is a harmless orphan the row no longer references), and
 // a present row proves nothing applied. Updates fence: the applied
 // values are unknowable.
-func (s *Service) recoverCollabAttachment(ctx context.Context, assessment *RecoveryAssessment, reservation *model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
+func (s *Service) recoverCollabAttachment(ctx context.Context, assessment *RecoveryAssessment, reservation *nativeoperation_model.Reservation, claim collabClaim) (RecoveryAssessment, error) {
 	switch claim.op {
 	case CollabAttachmentCreate:
 		assessment.Checks = append(assessment.Checks, "attachment upload invents its row identity")
@@ -362,7 +366,7 @@ func (s *Service) recoverCollabAttachment(ctx context.Context, assessment *Recov
 			return s.releaseRecovered(ctx, assessment, reservation, "deleted")
 		}
 		assessment.Checks = append(assessment.Checks, fmt.Sprintf("attachment %d present", claim.id))
-		return s.releaseRecovered(ctx, assessment, reservation, model.EffectNotCommitted)
+		return s.releaseRecovered(ctx, assessment, reservation, nativeoperation_model.EffectNotCommitted)
 	default:
 		return fenced(assessment, ReasonRecoveryUnknownFamily, fmt.Sprintf("attachment operation %q has no offline reconciliation", claim.op))
 	}

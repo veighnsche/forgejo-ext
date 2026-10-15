@@ -53,7 +53,7 @@ import (
 	"forgejo.org/routers/web/feed"
 	"forgejo.org/services/context"
 	issue_service "forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 	files_service "forgejo.org/services/repository/files"
 
@@ -1010,11 +1010,11 @@ func renderHomeCode(ctx *context.Context) {
 		// One maintenance update owns the empty-flag repair before its
 		// effects. Busy retries the page load instead of failing it.
 		repairRepo := ctx.Repo.Repository
-		if err = operation_service.Default().WithOrdinaryOwnership(ctx,
-			operation_service.FamilyMaintenance,
+		if err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+			nativeoperation_service.FamilyMaintenance,
 			fmt.Sprintf("%d/is-empty", repairRepo.ID),
-			operation_service.Scope{
-				Family:       operation_service.FamilyMaintenance,
+			nativeoperation_service.Scope{
+				Family:       nativeoperation_service.FamilyMaintenance,
 				RepositoryID: repairRepo.ID,
 			},
 			func(ctx gocontext.Context) error {
@@ -1023,7 +1023,7 @@ func renderHomeCode(ctx *context.Context) {
 				}
 				return repo_module.UpdateRepoSize(ctx, repairRepo)
 			}); err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				ctx.Flash.Error("A native operation is in progress; retry shortly.")
 				ctx.Redirect(ctx.Link)
 				return

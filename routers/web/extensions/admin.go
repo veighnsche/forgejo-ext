@@ -17,7 +17,7 @@ import (
 	packages "forgejo.org/modules/extensions"
 	"forgejo.org/modules/setting"
 	"forgejo.org/services/context"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 )
 
 // Native Extensions settings (RCX-2 F04, frozen fountain-design section
@@ -114,7 +114,7 @@ func adminMutate(ctx *context.Context, enabled bool) {
 		ctx.Error(reject.code, reject.message)
 		return
 	}
-	manager := runtime.GetManager()
+	manager := extensions_service.GetManager()
 	if manager == nil || !setting.Extensions.Enabled {
 		ctx.Error(http.StatusServiceUnavailable, "Extension manager is unavailable")
 		return
@@ -207,6 +207,8 @@ func validAdminSHA(value string) bool {
 // status without effects, or renders an operational failure on the page
 // with 409. Operational failures after acceptance appear in status;
 // they never retroactively become activation success.
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
 func adminMapFailure(ctx *context.Context, operation, id string, result packages.LifecycleResult) {
 	code := http.StatusConflict
 	if result.Error != nil {
@@ -264,7 +266,7 @@ func adminFailed(ctx *context.Context, result packages.LifecycleResult) {
 }
 
 func adminInventory(ctx *context.Context) ([]adminEntry, []adminEntry, string) {
-	manager := runtime.GetManager()
+	manager := extensions_service.GetManager()
 	catalogSHA := ""
 	if manager != nil {
 		catalogSHA = manager.CatalogSHA()
@@ -322,7 +324,7 @@ func adminSettingsPage(manifest extension.Manifest) string {
 	return ""
 }
 
-func adminLiveState(_ *context.Context, manager *runtime.Manager, root, id string) (state string, unconfirmed bool, progress string) {
+func adminLiveState(_ *context.Context, manager *extensions_service.Manager, root, id string) (state string, unconfirmed bool, progress string) {
 	if manager != nil && setting.Extensions.Enabled {
 		observed := manager.Observe(id)
 		if observed.Error != nil {
@@ -349,7 +351,7 @@ func adminLiveState(_ *context.Context, manager *runtime.Manager, root, id strin
 // adminBackendEffects derives the frozen backend and effects vocabulary
 // from the observed lifecycle state. Packages without a lifecycle
 // controller have no external effects.
-func adminBackendEffects(stdCtx stdcontext.Context, manager *runtime.Manager, state string, unconfirmed bool, id string) (backend, effects string) {
+func adminBackendEffects(stdCtx stdcontext.Context, manager *extensions_service.Manager, state string, unconfirmed bool, id string) (backend, effects string) {
 	switch state {
 	case packages.LifecycleEnabled, packages.LifecycleActivating, packages.LifecycleDeactivating:
 		backend = "running"
@@ -373,7 +375,7 @@ func adminBackendEffects(stdCtx stdcontext.Context, manager *runtime.Manager, st
 
 // adminControlled reports whether a package's external effects are
 // managed by a required lifecycle controller.
-func adminControlled(stdCtx stdcontext.Context, manager *runtime.Manager, id string) (bool, string) {
+func adminControlled(stdCtx stdcontext.Context, manager *extensions_service.Manager, id string) (bool, string) {
 	if manager == nil {
 		return false, ""
 	}
@@ -444,7 +446,7 @@ func AdminExtensionsStatus(ctx *context.Context) {
 		ctx.Error(http.StatusForbidden)
 		return
 	}
-	manager := runtime.GetManager()
+	manager := extensions_service.GetManager()
 	if manager == nil || !setting.Extensions.Enabled {
 		ctx.Error(http.StatusServiceUnavailable, "Extension manager is unavailable")
 		return
@@ -524,7 +526,7 @@ func AdminExtensionSettings(ctx *context.Context) {
 		ctx.Error(http.StatusNotFound)
 		return
 	}
-	manager := runtime.GetManager()
+	manager := extensions_service.GetManager()
 	if manager == nil || !setting.Extensions.Enabled {
 		ctx.Error(http.StatusNotFound)
 		return

@@ -5,15 +5,15 @@ package nativeoperation
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"os"
 	"strings"
 
 	sdk "forgejo.org/extension-sdk"
-	authmodel "forgejo.org/models/extensionauth"
+	extensionauth_model "forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/gitrepo"
@@ -25,7 +25,7 @@ import (
 // fast-forward-only merge under the held owner, and reconciles the
 // attributable result. There is no unguarded fallback: every refusal path
 // records not_committed or retains the fence.
-func (s *Service) submitMerge(ctx context.Context, decision authmodel.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
+func (s *Service) submitMerge(ctx context.Context, decision extensionauth_model.SubmissionDecision, installationID string, intent *ValidIntent) (sdk.OperationRecord, error) {
 	if err := ctx.Err(); err != nil {
 		return sdk.OperationRecord{}, err
 	}
@@ -40,7 +40,7 @@ func (s *Service) submitMerge(ctx context.Context, decision authmodel.Submission
 	retire := func() { _ = os.Remove(capabilityPath) }
 	owner := conditionalOwner(installationID, intent.OperationID)
 	scope := Scope{
-		Kind:         model.OwnerConditional,
+		Kind:         nativeoperation_model.OwnerConditional,
 		RepositoryID: intent.RepositoryID,
 		Ref:          intent.Merge.BaseRef,
 		OldOID:       intent.Merge.ExpectedBaseOID,
@@ -54,7 +54,7 @@ func (s *Service) submitMerge(ctx context.Context, decision authmodel.Submission
 		retire()
 		return sdk.OperationRecord{}, err
 	}
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         installationID,
 		OperationID:            intent.OperationID,
 		Kind:                   intent.Kind,
@@ -68,21 +68,21 @@ func (s *Service) submitMerge(ctx context.Context, decision authmodel.Submission
 		IntentDigest:           intent.Digest,
 		Intent:                 intent.Canonical,
 	}
-	claimed, err := model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
+	claimed, err := nativeoperation_model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
 	if err != nil {
 		retire()
-		if errors.Is(err, model.ErrBusy) {
+		if errors.Is(err, nativeoperation_model.ErrBusy) {
 			return sdk.OperationRecord{}, ErrBusy
 		}
-		if errors.Is(err, model.ErrInhibited) {
+		if errors.Is(err, nativeoperation_model.ErrInhibited) {
 			return sdk.OperationRecord{}, err
 		}
-		if errors.Is(err, model.ErrStaleRevision) {
+		if errors.Is(err, nativeoperation_model.ErrStaleRevision) {
 			return s.recordStaleRevision(ctx, op)
 		}
 		// A concurrent identical submit may have won the insert; reread
 		// and reconcile rather than launching a second execution.
-		existing, lookupErr := model.LookupOperation(ctx, installationID, intent.OperationID)
+		existing, lookupErr := nativeoperation_model.LookupOperation(ctx, installationID, intent.OperationID)
 		if lookupErr != nil {
 			return sdk.OperationRecord{}, lookupErr
 		}
@@ -105,12 +105,12 @@ func (s *Service) submitMerge(ctx context.Context, decision authmodel.Submission
 	return record, nil
 }
 
-func (s *Service) recordStaleRevision(ctx context.Context, op *model.Operation) (sdk.OperationRecord, error) {
-	op.EffectState = model.EffectNotCommitted
-	op.Reason = model.ReasonStaleNativeRevision
-	op.Cancellation = model.CancellationNone
-	recorded, err := model.InsertRefusedOperation(ctx, op)
-	if err != nil && !errors.Is(err, model.ErrDuplicateOperation) {
+func (s *Service) recordStaleRevision(ctx context.Context, op *nativeoperation_model.Operation) (sdk.OperationRecord, error) {
+	op.EffectState = nativeoperation_model.EffectNotCommitted
+	op.Reason = nativeoperation_model.ReasonStaleNativeRevision
+	op.Cancellation = nativeoperation_model.CancellationNone
+	recorded, err := nativeoperation_model.InsertRefusedOperation(ctx, op)
+	if err != nil && !errors.Is(err, nativeoperation_model.ErrDuplicateOperation) {
 		return sdk.OperationRecord{}, err
 	}
 	return ToRecord(recorded), nil
@@ -140,7 +140,9 @@ type mergeResult struct {
 // All native work runs on the owned context so nested participating writers
 // attribute to this execution; terminal records and the owner release run
 // detached so a caller disconnect cannot stick the reservation.
-func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent *ValidIntent, scope Scope, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
+//
+//nolint:unparam // Keep the common operation helper and callback signature.
+func (s *Service) executeMerge(ctx context.Context, op *nativeoperation_model.Operation, intent *ValidIntent, scope Scope, execution *execcontext.Execution) (sdk.OperationRecord, terminalResult, error) {
 	owner := execution.Owner
 	merge := intent.Merge
 	// Terminal records and the owner release must complete even when the
@@ -149,10 +151,10 @@ func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent 
 	releaseCtx := context.WithoutCancel(ctx)
 	owned := execcontext.NewContext(ctx, execution)
 	refuse := func(reason string) (sdk.OperationRecord, terminalResult, error) {
-		recorded, err := model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectNotCommitted,
+		recorded, err := nativeoperation_model.SetTerminal(releaseCtx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectNotCommitted,
 			Reason:       reason,
-			Cancellation: model.CancellationNone,
+			Cancellation: nativeoperation_model.CancellationNone,
 		}, owner)
 		if err != nil {
 			return sdk.OperationRecord{}, terminalResult{}, err
@@ -161,36 +163,36 @@ func (s *Service) executeMerge(ctx context.Context, op *model.Operation, intent 
 	}
 	if err := s.revalidateSubmission(owned, op); err != nil {
 		if errors.Is(err, ErrAuthorityLost) {
-			return refuse(model.ReasonAuthorityLost)
+			return refuse(nativeoperation_model.ReasonAuthorityLost)
 		}
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 	repository, err := repo_model.GetRepositoryByID(owned, intent.RepositoryID)
 	if err != nil {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 	if s.clock() >= op.NotAfter {
-		return refuse(model.ReasonExpiredBeforeAdmission)
+		return refuse(nativeoperation_model.ReasonExpiredBeforeAdmission)
 	}
 	doer, err := user_model.GetUserByID(owned, op.ActorID)
 	if err != nil {
-		return refuse(model.ReasonAuthorityLost)
+		return refuse(nativeoperation_model.ReasonAuthorityLost)
 	}
 	pr, err := issues_model.GetPullRequestByIndex(owned, intent.RepositoryID, merge.PullRequestNumber)
 	if err != nil {
 		if issues_model.IsErrPullRequestNotExist(err) {
-			return refuse(model.ReasonPRMismatch)
+			return refuse(nativeoperation_model.ReasonPRMismatch)
 		}
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 	baseGitRepo, err := gitrepo.OpenRepository(owned, repository)
 	if err != nil {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 	defer baseGitRepo.Close()
 	message, _, err := pull_service.GetDefaultMergeMessage(owned, baseGitRepo, pr, repo_model.MergeStyleFastForwardOnly)
 	if err != nil {
-		return refuse(model.ReasonNativeRefused)
+		return refuse(nativeoperation_model.ReasonNativeRefused)
 	}
 	// Test-only barrier for the claim/cancel race proof: with the claim
 	// held and the native merge not started, the driver revokes the
@@ -253,9 +255,9 @@ type MergeReceipt struct {
 // admission plus the authoritative ref tip, bound to the realized SHA when
 // the engine reported one. A known effect releases the owner; an unknown
 // effect retains the fence.
-func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope Scope, repository *repo_model.Repository, execution *execcontext.Execution, result mergeResult) (sdk.OperationRecord, terminalResult, error) {
+func (s *Service) reconcileMerge(ctx context.Context, op *nativeoperation_model.Operation, scope Scope, repository *repo_model.Repository, execution *execcontext.Execution, result mergeResult) (sdk.OperationRecord, terminalResult, error) {
 	owner := execution.Owner
-	fresh, err := model.LookupOperation(ctx, op.InstallationID, op.OperationID)
+	fresh, err := nativeoperation_model.LookupOperation(ctx, op.InstallationID, op.OperationID)
 	if err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
@@ -264,9 +266,9 @@ func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope
 	}
 	tip, tipErr := s.readRef(ctx, repository.RepoPath(), scope.Ref)
 	if tipErr != nil {
-		recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectIndeterminate,
-			Cancellation: model.CancellationNone,
+		recorded, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectIndeterminate,
+			Cancellation: nativeoperation_model.CancellationNone,
 		}, "")
 		if err != nil {
 			return sdk.OperationRecord{}, terminalResult{}, err
@@ -288,13 +290,13 @@ func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope
 			BaseRef:      scope.Ref,
 			Method:       "fast-forward-only",
 		})
-		completion := model.CompletionNeedsIntervention
+		completion := nativeoperation_model.CompletionNeedsIntervention
 		if prMergedAt(ctx, repository.ID, scope.PRNumber, tip) {
-			completion = model.CompletionComplete
+			completion = nativeoperation_model.CompletionComplete
 		}
-		recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectCommitted,
-			Cancellation: model.CancellationNone,
+		recorded, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectCommitted,
+			Cancellation: nativeoperation_model.CancellationNone,
 			Completion:   completion,
 			Receipt:      string(receipt),
 		}, owner)
@@ -307,9 +309,9 @@ func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope
 		// An unattributable engine report, an admission the tip
 		// disagrees with, or a tip that moved without admission: the
 		// effect cannot be attributed, so it stays fenced.
-		recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-			EffectState:  model.EffectIndeterminate,
-			Cancellation: model.CancellationNone,
+		recorded, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+			EffectState:  nativeoperation_model.EffectIndeterminate,
+			Cancellation: nativeoperation_model.CancellationNone,
 		}, "")
 		if err != nil {
 			return sdk.OperationRecord{}, terminalResult{}, err
@@ -321,12 +323,12 @@ func (s *Service) reconcileMerge(ctx context.Context, op *model.Operation, scope
 		reason = result.hint
 	}
 	if reason == "" {
-		reason = model.ReasonNativeRefused
+		reason = nativeoperation_model.ReasonNativeRefused
 	}
-	recorded, err := model.SetTerminal(ctx, op.InstallationID, op.OperationID, model.TerminalOutcome{
-		EffectState:  model.EffectNotCommitted,
+	recorded, err := nativeoperation_model.SetTerminal(ctx, op.InstallationID, op.OperationID, nativeoperation_model.TerminalOutcome{
+		EffectState:  nativeoperation_model.EffectNotCommitted,
 		Reason:       reason,
-		Cancellation: model.CancellationNone,
+		Cancellation: nativeoperation_model.CancellationNone,
 	}, owner)
 	if err != nil {
 		return sdk.OperationRecord{}, terminalResult{}, err

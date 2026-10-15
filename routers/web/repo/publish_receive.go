@@ -11,7 +11,7 @@ import (
 	execcontext "forgejo.org/modules/nativeoperation"
 	"forgejo.org/services/context"
 	"forgejo.org/services/extensions"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // hasPublishBindingRequest reports whether the receive-pack request carries
@@ -76,7 +76,7 @@ func servePublishReceive(ctx *context.Context, h *serviceHandler) {
 		ctx.PlainText(http.StatusUnauthorized, "native credential is required")
 		return
 	}
-	prepared, outcome, err := operation_service.Default().PreparePublishReceive(ctx, operation_service.PublishReceiveRequest{
+	prepared, outcome, err := nativeoperation_service.Default().PreparePublishReceive(ctx, nativeoperation_service.PublishReceiveRequest{
 		InstallationID: admission.InstallationID,
 		OperationID:    binding.OperationID,
 		ActorID:        ctx.Doer.ID,
@@ -94,7 +94,7 @@ func servePublishReceive(ctx *context.Context, h *serviceHandler) {
 	}
 	h.environ = execcontext.AppendExecEnv(h.environ, prepared.Execution)
 	receiveErr := serviceRPC(ctx, h, "receive-pack")
-	record, terminal, err := operation_service.Default().ReconcilePublish(ctx, prepared, receiveErr)
+	record, terminal, err := nativeoperation_service.Default().ReconcilePublish(ctx, prepared, receiveErr)
 	if err != nil {
 		// The git response is already written; the owner stays held for
 		// offline recovery. Log identity only, never credentials.
@@ -111,7 +111,7 @@ func servePublishReceive(ctx *context.Context, h *serviceHandler) {
 // writePublishOutcome reports a publish refusal that launched no receiver.
 // Recorded and replayed outcomes name their effect and reason; unrecorded
 // refusals name only the failed check. Bodies carry bounded codes only.
-func writePublishOutcome(ctx *context.Context, operationID string, outcome *operation_service.PublishReceiveOutcome) {
+func writePublishOutcome(ctx *context.Context, operationID string, outcome *nativeoperation_service.PublishReceiveOutcome) {
 	body := outcome.Code
 	if outcome.Record != nil {
 		body += " effect=" + outcome.Record.EffectState

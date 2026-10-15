@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/container"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -211,7 +211,7 @@ func UpdateRunJobWithoutNotification(ctx context.Context, job *ActionRunJob, con
 	// Nested participating writer: job state changes refuse while another
 	// owner holds the reservation; the enclosing Actions update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	e := db.GetEngine(ctx)

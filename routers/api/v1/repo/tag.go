@@ -20,7 +20,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	release_service "forgejo.org/services/release"
 )
 
@@ -496,11 +496,11 @@ func CreateTagProtection(ctx *context.APIContext) {
 	}
 	// One protection update owns the reservation before its database
 	// effects. Busy maps to 503 at the API error boundary.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionTag, operation_service.ProtectionCreate, protectTag.NamePattern),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionTag, nativeoperation_service.ProtectionCreate, protectTag.NamePattern),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {
@@ -614,11 +614,11 @@ func EditTagProtection(ctx *context.APIContext) {
 
 	// One protection update owns the reservation before its database
 	// effects. Busy maps to 503 at the API error boundary.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionTag, operation_service.ProtectionEdit, pt.NamePattern),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionTag, nativeoperation_service.ProtectionEdit, pt.NamePattern),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {
@@ -688,11 +688,11 @@ func DeleteTagProtection(ctx *context.APIContext) {
 
 	// One protection update owns the reservation before its database
 	// effects. Busy maps to 503 at the API error boundary.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionTag, operation_service.ProtectionDelete, pt.NamePattern),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionTag, nativeoperation_service.ProtectionDelete, pt.NamePattern),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {

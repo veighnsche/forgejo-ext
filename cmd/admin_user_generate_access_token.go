@@ -10,7 +10,7 @@ import (
 
 	auth_model "forgejo.org/models/auth"
 	user_model "forgejo.org/models/user"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -94,7 +94,7 @@ func runGenerateAccessToken(ctx context.Context, c *cli.Command) error {
 	// Create the token. One authority writer owns the token change
 	// before its effects, advancing the native revision so old permission
 	// observations go stale.
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/token", user.ID), 0, func(ctx context.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%d/token", user.ID), 0, func(ctx context.Context) error {
 		return auth_model.NewAccessToken(ctx, t)
 	}); err != nil {
 		return err

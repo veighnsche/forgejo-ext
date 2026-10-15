@@ -63,6 +63,7 @@ func InvalidateCodeComments(ctx context.Context, prs issues_model.PullRequestLis
 	})
 }
 
+//nolint:unparam // Keep the common operation helper and callback signature.
 func doInvalidateCodeComments(ctx context.Context, prs issues_model.PullRequestList, doer *user_model.User, repo *repo_model.Repository, newCommitID string) error {
 	if len(prs) == 0 {
 		return nil

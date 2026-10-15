@@ -11,7 +11,7 @@ import (
 	api "forgejo.org/modules/structs"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // PinIssue pins a issue
@@ -66,11 +66,11 @@ func PinIssue(ctx *context.APIContext) {
 	// advancing the native revision so old accepted-input observations
 	// go stale.
 	doer := ctx.Doer()
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issue.Pin(ctx, doer)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -131,11 +131,11 @@ func UnpinIssue(ctx *context.APIContext) {
 	// advancing the native revision so old accepted-input observations
 	// go stale.
 	doer := ctx.Doer()
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issue.Unpin(ctx, doer)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -195,11 +195,11 @@ func MoveIssuePin(ctx *context.APIContext) {
 	// advancing the native revision so old accepted-input observations
 	// go stale.
 	position := int(ctx.ParamsInt64(":position"))
-	err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
+	err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "pin"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issue.MovePin(ctx, position)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

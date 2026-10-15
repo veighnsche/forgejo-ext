@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/util"
 )
@@ -19,7 +19,7 @@ func UpdateRepositoryOwnerNames(ctx context.Context, ownerID int64, ownerName st
 	// Nested participating writer: repository renames refuse while another
 	// owner holds the reservation; the enclosing rename carries the
 	// execution. Timestamp/size-only updates stay outside the reservation.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if ownerID == 0 {
@@ -51,7 +51,7 @@ func UpdateRepositoryCols(ctx context.Context, repo *Repository, cols ...string)
 	// Nested participating writer: repository changes refuse while another
 	// owner holds the reservation; the enclosing lifecycle, settings or
 	// completion update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(repo.ID).Cols(cols...).Update(repo)
@@ -142,7 +142,7 @@ func UpdateRepoSize(ctx context.Context, repoID, gitSize, lfsSize int64) error {
 	// Nested participating writer: size columns feed quota enforcement,
 	// so they refuse while another owner holds the reservation; the
 	// enclosing repository update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(repoID).Cols("size", "git_size", "lfs_size").NoAutoTime().Update(&Repository{

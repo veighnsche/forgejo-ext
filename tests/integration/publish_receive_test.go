@@ -4,7 +4,7 @@
 package integration
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"fmt"
 	"net/url"
 	"os"
@@ -17,14 +17,14 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	nativeop_model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	api "forgejo.org/modules/structs"
 	"forgejo.org/services/extensions"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	gouuid "github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -46,7 +46,7 @@ func TestPublishReceive(t *testing.T) {
 
 		user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: 1, Name: "repo1"})
-		svc := operation_service.Default()
+		svc := nativeoperation_service.Default()
 		ctx := t.Context()
 
 		tokenRow, err := auth_model.GetAccessTokenBySHA(ctx, token)
@@ -108,17 +108,17 @@ func TestPublishReceive(t *testing.T) {
 			t.Helper()
 			revision := waitIdle(t)
 			now := time.Now().Unix()
-			intent, err := operation_service.ValidateIntent(opID, user1.ID, repo.ID, nativeop_model.KindRefPublish,
+			intent, err := nativeoperation_service.ValidateIntent(opID, user1.ID, repo.ID, nativeoperation_model.KindRefPublish,
 				"auth-rev-1", revision, now+600, []byte(payload), now)
 			require.NoError(t, err)
 			record, err := svc.Submit(ctx, decision, installation, intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectPending, record.Outcome)
+			require.Equal(t, nativeoperation_model.EffectPending, record.Outcome)
 		}
 
-		get := func(t *testing.T, installation, opID string) nativeop_model.Operation {
+		get := func(t *testing.T, installation, opID string) nativeoperation_model.Operation {
 			t.Helper()
-			found, err := nativeop_model.LookupOperation(ctx, installation, opID)
+			found, err := nativeoperation_model.LookupOperation(ctx, installation, opID)
 			require.NoError(t, err)
 			require.NotNil(t, found)
 			return *found
@@ -216,9 +216,9 @@ func TestPublishReceive(t *testing.T) {
 			require.NoError(t, err, "bound push failed: %s", out)
 
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.CompletionComplete, op.Completion)
-			var receipt operation_service.PublishReceipt
+			require.Equal(t, nativeoperation_model.EffectCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.CompletionComplete, op.Completion)
+			var receipt nativeoperation_service.PublishReceipt
 			require.NoError(t, json.Unmarshal([]byte(op.Receipt), &receipt))
 			require.Equal(t, "refs/heads/pub-rx-new", receipt.Ref)
 			require.Equal(t, zeroOID, receipt.OldOID)
@@ -269,8 +269,8 @@ func TestPublishReceive(t *testing.T) {
 			require.NoError(t, err, "bound correction push failed: %s", out)
 
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectCommitted, op.EffectState)
-			var receipt operation_service.PublishReceipt
+			require.Equal(t, nativeoperation_model.EffectCommitted, op.EffectState)
+			var receipt nativeoperation_service.PublishReceipt
 			require.NoError(t, json.Unmarshal([]byte(op.Receipt), &receipt))
 			prRow, err := issues_model.GetPullRequestByIndex(ctx, repo.ID, pr.Index)
 			require.NoError(t, err)
@@ -297,8 +297,8 @@ func TestPublishReceive(t *testing.T) {
 			require.Error(t, err, "multi-ref bound push must fail: %s", out)
 
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectNotCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.ReasonUnexpectedRefEffects, op.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonUnexpectedRefEffects, op.Reason)
 			_, ok := serverTip(t, "refs/heads/pub-rx-extra")
 			require.False(t, ok)
 			_, ok = serverTip(t, "refs/heads/pub-rx-extra-other")
@@ -342,8 +342,8 @@ func TestPublishReceive(t *testing.T) {
 			out, err := pushBound(t, dir, opID, admission, "--force", "origin", "pub-rx-stale-next:refs/heads/pub-rx-stale")
 			require.Error(t, err, "stale bound push must fail: %s", out)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectNotCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.ReasonStaleHead, op.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonStaleHead, op.Reason)
 			tip, ok := serverTip(t, "refs/heads/pub-rx-stale")
 			require.True(t, ok)
 			require.Equal(t, strings.ToLower(winnerTip), strings.ToLower(tip))
@@ -374,8 +374,8 @@ func TestPublishReceive(t *testing.T) {
 			out, err := pushBound(t, dir, opID, admission, "--force", "origin", "pub-rx-ff-diverged:refs/heads/pub-rx-ff")
 			require.Error(t, err, "forced non-FF bound push must fail: %s", out)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectNotCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.ReasonNotFastForward, op.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonNotFastForward, op.Reason)
 			kept, ok := serverTip(t, "refs/heads/pub-rx-ff")
 			require.True(t, ok)
 			require.Equal(t, strings.ToLower(tip), strings.ToLower(kept))
@@ -402,8 +402,8 @@ func TestPublishReceive(t *testing.T) {
 			out, err := pushBound(t, dir, opID, admission, "origin", "pub-rx-prot:refs/heads/pub-rx-prot")
 			require.Error(t, err, "protected bound push must fail: %s", out)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectNotCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.ReasonNativeRefused, op.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonNativeRefused, op.Reason)
 			_, ok := serverTip(t, "refs/heads/pub-rx-prot")
 			require.False(t, ok)
 			waitIdle(t)
@@ -426,15 +426,15 @@ func TestPublishReceive(t *testing.T) {
 			require.NoError(t, err, "ordinary push failed: %s", out)
 			waitIdle(t)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectPending, op.EffectState)
+			require.Equal(t, nativeoperation_model.EffectPending, op.EffectState)
 
 			// The ordinary push advanced the shared revision, so the
 			// bound push now refuses stale rather than adopting it.
 			out, err = pushBound(t, dir, opID, admission, "origin", "pub-rx-pat:refs/heads/pub-rx-pat")
 			require.Error(t, err, "stale bound push must fail: %s", out)
 			op = get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectNotCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.ReasonStaleNativeRevision, op.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonStaleNativeRevision, op.Reason)
 			waitIdle(t)
 			requireIdle(t)
 		})
@@ -450,14 +450,14 @@ func TestPublishReceive(t *testing.T) {
 
 			cancelled, err := svc.Cancel(ctx, installation, opID)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectPending, cancelled.Outcome)
+			require.Equal(t, nativeoperation_model.EffectPending, cancelled.Outcome)
 
 			revBefore := waitIdle(t)
 			out, err := pushBound(t, dir, opID, admission, "origin", "pub-rx-cancel:refs/heads/pub-rx-cancel")
 			require.Error(t, err, "cancelled bound push must fail: %s", out)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectNotCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.ReasonCancelledBeforeAdmission, op.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, op.Reason)
 			_, ok := serverTip(t, "refs/heads/pub-rx-cancel")
 			require.False(t, ok)
 			require.Equal(t, revBefore, waitIdle(t))
@@ -508,8 +508,8 @@ func TestPublishReceive(t *testing.T) {
 			}
 			require.Error(t, result.err, "cancelled race push must fail: %s", result.out)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectNotCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.ReasonCancelledBeforeAdmission, op.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, op.Reason)
 			_, ok := serverTip(t, "refs/heads/pub-rx-race")
 			require.False(t, ok)
 			waitIdle(t)
@@ -529,7 +529,7 @@ func TestPublishReceive(t *testing.T) {
 			require.NoError(t, err, "bound push failed: %s", out)
 			revBefore := waitIdle(t)
 			first := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectCommitted, first.EffectState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, first.EffectState)
 
 			// A replay of the operation launches no second receiver: it
 			// refuses while the earlier receipt stays the answer. The
@@ -541,7 +541,7 @@ func TestPublishReceive(t *testing.T) {
 			out, err = pushBound(t, dir, opID, admission, "origin", "pub-rx-replay-again:refs/heads/pub-rx-replay")
 			require.Error(t, err, "replay push must fail: %s", out)
 			second := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectCommitted, second.EffectState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, second.EffectState)
 			require.Equal(t, first.Receipt, second.Receipt)
 			require.Equal(t, revBefore, waitIdle(t), "replay must not claim")
 			tip, ok := serverTip(t, "refs/heads/pub-rx-replay")
@@ -566,7 +566,7 @@ func TestPublishReceive(t *testing.T) {
 			out, err := pushBound(t, dir, opID, fresh, "origin", "pub-rx-restart:refs/heads/pub-rx-restart")
 			require.NoError(t, err, "restarted bound push failed: %s", out)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, op.EffectState)
 			waitIdle(t)
 			requireIdle(t)
 		})
@@ -588,7 +588,7 @@ func TestPublishReceive(t *testing.T) {
 			out, err := push(t, dir, env, "origin", "pub-rx-half:refs/heads/pub-rx-half")
 			require.Error(t, err, "half-bound push must fail: %s", out)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectPending, op.EffectState)
+			require.Equal(t, nativeoperation_model.EffectPending, op.EffectState)
 			_, ok := serverTip(t, "refs/heads/pub-rx-half")
 			require.False(t, ok)
 			waitIdle(t)
@@ -601,7 +601,7 @@ func TestPublishReceive(t *testing.T) {
 			opID := "op-pub-rx-recov-commit"
 			submit(t, installation, opID, payload("refs/heads/pub-rx-recov", "absent", master(t), "refs/heads/master", master(t), ""))
 
-			prepared, outcome, err := svc.PreparePublishReceive(ctx, operation_service.PublishReceiveRequest{
+			prepared, outcome, err := svc.PreparePublishReceive(ctx, nativeoperation_service.PublishReceiveRequest{
 				InstallationID: installation, OperationID: opID,
 				ActorID: user1.ID, TokenSecret: token, RepositoryID: repo.ID,
 			})
@@ -612,7 +612,7 @@ func TestPublishReceive(t *testing.T) {
 			// Crash between admission and reconciliation: the prepared
 			// decision committed through the atomic primitive, the ref
 			// moved without hooks, and reconcile never ran.
-			_, admitted, err := nativeop_model.RecordAdmissionAttempt(ctx, installation, opID, prepared.Execution.Owner, true, "")
+			_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, installation, opID, prepared.Execution.Owner, true, "")
 			require.NoError(t, err)
 			require.True(t, admitted)
 			hookless := append(os.Environ(),
@@ -624,16 +624,16 @@ func TestPublishReceive(t *testing.T) {
 				RunStdString(&git.RunOpts{Dir: repo.RepoPath(), Env: hookless})
 			require.NoError(t, err)
 
-			marker := nativeop_model.OfflineMarkerPath()
+			marker := nativeoperation_model.OfflineMarkerPath()
 			require.NoError(t, os.WriteFile(marker, []byte("recovery\n"), 0o600))
 			defer os.Remove(marker)
 			assessment, err := svc.Recover(ctx, prepared.Execution.Owner, prepared.Execution.Generation)
 			require.NoError(t, err)
-			require.Equal(t, operation_service.RecoveryReleased, assessment.Verdict)
-			require.Equal(t, nativeop_model.EffectCommitted, assessment.Effect)
+			require.Equal(t, nativeoperation_service.RecoveryReleased, assessment.Verdict)
+			require.Equal(t, nativeoperation_model.EffectCommitted, assessment.Effect)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectCommitted, op.EffectState)
-			var receipt operation_service.PublishReceipt
+			require.Equal(t, nativeoperation_model.EffectCommitted, op.EffectState)
+			var receipt nativeoperation_service.PublishReceipt
 			require.NoError(t, json.Unmarshal([]byte(op.Receipt), &receipt))
 			require.Equal(t, "refs/heads/pub-rx-recov", receipt.Ref)
 			prepared.RetireCapability()
@@ -647,7 +647,7 @@ func TestPublishReceive(t *testing.T) {
 			opID := "op-pub-rx-recov-refused"
 			submit(t, installation, opID, payload("refs/heads/pub-rx-recov-absent", "absent", master(t), "refs/heads/master", master(t), ""))
 
-			prepared, outcome, err := svc.PreparePublishReceive(ctx, operation_service.PublishReceiveRequest{
+			prepared, outcome, err := svc.PreparePublishReceive(ctx, nativeoperation_service.PublishReceiveRequest{
 				InstallationID: installation, OperationID: opID,
 				ActorID: user1.ID, TokenSecret: token, RepositoryID: repo.ID,
 			})
@@ -657,16 +657,16 @@ func TestPublishReceive(t *testing.T) {
 
 			// Crash before any ref effect: unadmitted with the branch
 			// still absent reconciles as not_committed.
-			marker := nativeop_model.OfflineMarkerPath()
+			marker := nativeoperation_model.OfflineMarkerPath()
 			require.NoError(t, os.WriteFile(marker, []byte("recovery\n"), 0o600))
 			defer os.Remove(marker)
 			assessment, err := svc.Recover(ctx, prepared.Execution.Owner, prepared.Execution.Generation)
 			require.NoError(t, err)
-			require.Equal(t, operation_service.RecoveryReleased, assessment.Verdict)
-			require.Equal(t, nativeop_model.EffectNotCommitted, assessment.Effect)
+			require.Equal(t, nativeoperation_service.RecoveryReleased, assessment.Verdict)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 			op := get(t, installation, opID)
-			require.Equal(t, nativeop_model.EffectNotCommitted, op.EffectState)
-			require.Equal(t, nativeop_model.ReasonRecoveredNoEffect, op.Reason)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.ReasonRecoveredNoEffect, op.Reason)
 			prepared.RetireCapability()
 			require.NoError(t, os.Remove(marker))
 			requireIdle(t)

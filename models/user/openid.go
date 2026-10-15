@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/util"
 )
 
@@ -75,7 +75,7 @@ func AddUserOpenID(ctx context.Context, openid *UserOpenID) error {
 	// Nested participating writer: external-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	used, err := IsOpenIDUsed(ctx, openid.URI)
@@ -93,7 +93,7 @@ func DeleteUserOpenID(ctx context.Context, openid *UserOpenID) (err error) {
 	// Nested participating writer: external-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	var deleted int64
@@ -122,7 +122,7 @@ func ToggleUserOpenIDVisibility(ctx context.Context, userID, userOpenID int64) (
 	// Nested participating writer: external-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err = db.GetEngine(ctx).Exec("update `user_open_id` set `show` = not `show` where `uid` = ? and `id` = ?", userID, userOpenID)

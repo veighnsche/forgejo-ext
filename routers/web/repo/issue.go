@@ -56,7 +56,7 @@ import (
 	"forgejo.org/services/convert"
 	"forgejo.org/services/forms"
 	issue_service "forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
 
@@ -1286,7 +1286,7 @@ func NewIssuePost(ctx *context.Context) {
 		// its effects, advancing the native revision so old accepted-input
 		// observations go stale.
 		doer := ctx.Doer
-		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "project"), issue.RepoID, func(ctx stdCtx.Context) error {
+		if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "project"), issue.RepoID, func(ctx stdCtx.Context) error {
 			return issues_model.IssueAssignOrRemoveProject(ctx, issue, doer, projectID, 0)
 		}); err != nil {
 			ctx.ServerError("IssueAssignOrRemoveProject", err)
@@ -2401,10 +2401,10 @@ func UpdateIssueDeadline(ctx *context.Context) {
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
 	doer := ctx.Doer
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "deadline"), issue.RepoID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "deadline"), issue.RepoID, func(ctx stdCtx.Context) error {
 		return issues_model.UpdateIssueDeadline(ctx, issue, deadlineUnix, doer)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "UpdateIssueDeadline", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -3453,7 +3453,7 @@ func ChangeIssueReaction(ctx *context.Context) {
 		// effects, advancing the native revision so old accepted-input
 		// observations go stale.
 		doerID := ctx.Doer.ID
-		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.ReactionResource(issue.ID, 0, doerID), issue.RepoID, func(ctx stdCtx.Context) error {
+		if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.ReactionResource(issue.ID, 0, doerID), issue.RepoID, func(ctx stdCtx.Context) error {
 			return issues_model.DeleteIssueReaction(ctx, doerID, issue.ID, form.Content)
 		}); err != nil {
 			ctx.ServerError("DeleteIssueReaction", err)
@@ -3560,7 +3560,7 @@ func ChangeCommentReaction(ctx *context.Context) {
 		// effects, advancing the native revision so old accepted-input
 		// observations go stale.
 		doerID := ctx.Doer.ID
-		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.ReactionResource(comment.Issue.ID, comment.ID, doerID), comment.Issue.RepoID, func(ctx stdCtx.Context) error {
+		if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.ReactionResource(comment.Issue.ID, comment.ID, doerID), comment.Issue.RepoID, func(ctx stdCtx.Context) error {
 			return issues_model.DeleteCommentReaction(ctx, doerID, comment.Issue.ID, comment.ID, form.Content)
 		}); err != nil {
 			ctx.ServerError("DeleteCommentReaction", err)
@@ -3726,7 +3726,7 @@ func updateAttachments(ctx *context.Context, item any, files []string) error {
 	if needsWrite {
 		switch content := item.(type) {
 		case *issues_model.Issue:
-			err = operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(content.ID, "attachment"), content.RepoID, func(ctx stdCtx.Context) error {
+			err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(content.ID, "attachment"), content.RepoID, func(ctx stdCtx.Context) error {
 				if err := prune(ctx); err != nil {
 					return err
 				}
@@ -3736,7 +3736,7 @@ func updateAttachments(ctx *context.Context, item any, files []string) error {
 				return nil
 			})
 		case *issues_model.Comment:
-			err = operation_service.WithCollaborationOwnership(ctx, operation_service.CommentResource(content.ID, "attachment"), 0, func(ctx stdCtx.Context) error {
+			err = nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.CommentResource(content.ID, "attachment"), 0, func(ctx stdCtx.Context) error {
 				if err := prune(ctx); err != nil {
 					return err
 				}

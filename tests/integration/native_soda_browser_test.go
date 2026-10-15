@@ -5,7 +5,7 @@ package integration
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -18,7 +18,7 @@ import (
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/modules/setting"
 	web_extensions "forgejo.org/routers/web/extensions"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 	"forgejo.org/tests"
 
 	"github.com/stretchr/testify/require"
@@ -27,6 +27,8 @@ import (
 // Opt-in development join: current native handlers, real manager/SDK admission,
 // emitted Soda assets and a synthetic domain peer. The browser driver owns its
 // isolated profile; this fixture neither installs services nor uses human data.
+//
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestNativeSodaBrowserJoin(t *testing.T) {
 	root, backend, assets := os.Getenv("NFX_I06_ROOT"), os.Getenv("NFX_I06_BACKEND"), os.Getenv("NFX_I06_ASSETS")
 	if root == "" || backend == "" || assets == "" {
@@ -77,13 +79,13 @@ func TestNativeSodaBrowserJoin(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(filepath.Join(packageDir, manifest.Executable), binary, 0o700))
 	}
-	manager := runtime.NewManager(packages)
+	manager := extensions_service.NewManager(packages)
 	require.NoError(t, manager.SetCallbackHandlerFactory(web_extensions.CallbackHandlerForInstance))
 	require.NoError(t, manager.SetInstanceStopped(web_extensions.RevokeAdmissionsForInstance))
 	require.NoError(t, manager.Start(context.Background()))
-	previous := runtime.GetManager()
-	runtime.SetDefault(manager)
-	t.Cleanup(func() { runtime.SetDefault(previous); require.NoError(t, manager.Close()) })
+	previous := extensions_service.GetManager()
+	extensions_service.SetDefault(manager)
+	t.Cleanup(func() { extensions_service.SetDefault(previous); require.NoError(t, manager.Close()) })
 	subURL := setting.AppSubURL
 	// The FCGI listener strips this path prefix before normal native routes;
 	// an HTTP reverse proxy supplies the equivalent prefix-stripping boundary.

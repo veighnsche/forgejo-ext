@@ -15,7 +15,7 @@ import (
 	nativeoperation "forgejo.org/modules/nativeoperation"
 	repo_module "forgejo.org/modules/repository"
 	api "forgejo.org/modules/structs"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // SyncFork syncs a branch of a fork with the base repo
@@ -44,11 +44,11 @@ func SyncFork(ctx context.Context, doer *user_model.User, repo *repo_model.Repos
 	// carries the execution capability and targets exactly the scoped
 	// ref. Nested calls reuse the enclosing ownership instead of
 	// claiming again.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRefWrite,
-		operation_service.RefWriteResource(repo.ID, operation_service.RefWriteSyncFork, forkRef),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRefWrite,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRefWrite,
+		nativeoperation_service.RefWriteResource(repo.ID, nativeoperation_service.RefWriteSyncFork, forkRef),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRefWrite,
 			RepositoryID: repo.ID,
 			Ref:          forkRef,
 			OldOID:       oldTip,

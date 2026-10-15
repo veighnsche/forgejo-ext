@@ -18,7 +18,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
 	actions_service "forgejo.org/services/actions"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
@@ -164,7 +164,7 @@ func (s *Service) FetchTask(
 
 		recoveredTasks, err := recoverTasks(ctx, runner, *requestKey)
 		if err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -190,7 +190,7 @@ func (s *Service) FetchTask(
 		// it means there may still be some tasks not be assigned.
 		// try to pick a task for the runner that send the request.
 		if t, ok, err := actions_service.PickTask(ctx, runner, requestKey, nil); err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
 			}
 			log.Error("pick task failed: %v", err)
@@ -234,7 +234,7 @@ func (*Service) FetchSingleTask(
 	if requestKey != nil {
 		recoveredTasks, err := recoverTasks(ctx, runner, *requestKey)
 		if err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -263,7 +263,7 @@ func (*Service) FetchSingleTask(
 		}
 
 		if t, ok, err := actions_service.PickTask(ctx, runner, requestKey, handle); err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
 			}
 			log.Error("pick task failed: %v", err)
@@ -293,7 +293,7 @@ func (*Service) UpdateTask(
 	// offline inhibition refuses with Unavailable and the runner retries.
 	var task *actions_model.ActionTask
 	var sentOutputs []string
-	err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsTask, fmt.Sprintf("task/%d", req.Msg.State.Id), operation_service.Scope{
+	err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsTask, fmt.Sprintf("task/%d", req.Msg.State.Id), nativeoperation_service.Scope{
 		TaskID:   req.Msg.State.Id,
 		RunnerID: runner.ID,
 	}, func(ctx context.Context) error {
@@ -367,10 +367,10 @@ func (*Service) UpdateTask(
 		// Test-only crash barrier for offline-recovery proof: with task,
 		// job and status effects committed and the owner still held, the
 		// driver SIGKILLs the server here to simulate a crash.
-		return operation_service.TestCrashBarrier(operation_service.CrashPointActionsTaskAfterEffects)
+		return nativeoperation_service.TestCrashBarrier(nativeoperation_service.CrashPointActionsTaskAfterEffects)
 	})
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("native operation in progress; retry shortly"))
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)

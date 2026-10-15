@@ -24,7 +24,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	org_service "forgejo.org/services/org"
 	repo_service "forgejo.org/services/repository"
 )
@@ -249,10 +249,10 @@ func CreateTeam(ctx *context.APIContext) {
 	// One authority writer owns the team change before its effects,
 	// advancing the native revision so old permission observations go
 	// stale.
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/team", team.OrgID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/team", team.OrgID), 0, func(ctx std_ctx.Context) error {
 		return models.NewTeam(ctx, team)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -350,10 +350,10 @@ func EditTeam(ctx *context.APIContext) {
 	// One authority writer owns the team change before its effects,
 	// advancing the native revision so old permission observations go
 	// stale.
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d", team.ID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d", team.ID), 0, func(ctx std_ctx.Context) error {
 		return models.UpdateTeam(ctx, team, isAuthChanged, isIncludeAllChanged)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -391,10 +391,10 @@ func DeleteTeam(ctx *context.APIContext) {
 	// advancing the native revision so old permission observations go
 	// stale.
 	team := ctx.Org().Team
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d", team.ID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d", team.ID), 0, func(ctx std_ctx.Context) error {
 		return models.DeleteTeam(ctx, team)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -533,10 +533,10 @@ func AddTeamMember(ctx *context.APIContext) {
 	// effects, advancing the native revision so old permission
 	// observations go stale.
 	team := ctx.Org().Team
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d/member/%d", team.ID, u.ID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d/member/%d", team.ID, u.ID), 0, func(ctx std_ctx.Context) error {
 		return models.AddTeamMember(ctx, team, u.ID)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -580,10 +580,10 @@ func RemoveTeamMember(ctx *context.APIContext) {
 	// effects, advancing the native revision so old permission
 	// observations go stale.
 	team := ctx.Org().Team
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d/member/%d", team.ID, u.ID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d/member/%d", team.ID, u.ID), 0, func(ctx std_ctx.Context) error {
 		return models.RemoveTeamMember(ctx, team, u.ID)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -761,7 +761,7 @@ func AddTeamRepository(ctx *context.APIContext) {
 		return
 	}
 	if err := org_service.TeamAddRepository(ctx, ctx.Org().Team, repo); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -820,10 +820,10 @@ func RemoveTeamRepository(ctx *context.APIContext) {
 	// effects, advancing the native revision so old permission
 	// observations go stale.
 	team := ctx.Org().Team
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d/repo/%d", team.ID, repo.ID), repo.ID, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("team/%d/repo/%d", team.ID, repo.ID), repo.ID, func(ctx std_ctx.Context) error {
 		return repo_service.RemoveRepositoryFromTeam(ctx, team, repo.ID)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

@@ -21,7 +21,7 @@ import (
 	"forgejo.org/routers/web/repo"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 	"forgejo.org/services/repository"
 
@@ -245,15 +245,15 @@ func SettingsProtectedBranchPost(ctx *context.Context) {
 	// effects. A RuleID names an edit; without one the rule was verified
 	// absent, so this is a create.
 	repo := ctx.Repo.Repository
-	protectOp := operation_service.ProtectionCreate
+	protectOp := nativeoperation_service.ProtectionCreate
 	if f.RuleID > 0 {
-		protectOp = operation_service.ProtectionEdit
+		protectOp = nativeoperation_service.ProtectionEdit
 	}
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, protectOp, protectBranch.RuleName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionBranch, protectOp, protectBranch.RuleName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {
@@ -316,11 +316,11 @@ func DeleteProtectedBranchRulePost(ctx *context.Context) {
 	// One protection update owns the reservation before its database
 	// effects.
 	repo := ctx.Repo.Repository
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, operation_service.ProtectionDelete, rule.RuleName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionBranch, nativeoperation_service.ProtectionDelete, rule.RuleName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {

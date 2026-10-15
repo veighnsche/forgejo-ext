@@ -23,7 +23,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	notify_service "forgejo.org/services/notify"
 
 	"github.com/gobwas/glob"
@@ -41,11 +41,11 @@ func AdoptRepository(ctx context.Context, doer, u *user_model.User, opts CreateR
 	// filesystem effects, advancing the revision so stale observations go
 	// stale.
 	var repo *repo_model.Repository
-	err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(0, operation_service.LifecycleAdopt, u.Name, opts.Name),
-		operation_service.Scope{
-			Family: operation_service.FamilyRepoLifecycle,
+	err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(0, nativeoperation_service.LifecycleAdopt, u.Name, opts.Name),
+		nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyRepoLifecycle,
 		},
 		func(ctx context.Context) error {
 			var err error
@@ -255,11 +255,11 @@ func DeleteUnadoptedRepository(ctx context.Context, doer, u *user_model.User, re
 
 	// One lifecycle update owns the reservation before removing the stray
 	// directory, excluding a concurrent adopt of the same path.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(0, operation_service.LifecycleDeleteUnadopted, u.Name, repoName),
-		operation_service.Scope{
-			Family: operation_service.FamilyRepoLifecycle,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(0, nativeoperation_service.LifecycleDeleteUnadopted, u.Name, repoName),
+		nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyRepoLifecycle,
 		},
 		func(ctx context.Context) error {
 			return util.RemoveAll(repoPath)

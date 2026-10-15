@@ -23,7 +23,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 	repo_service "forgejo.org/services/repository"
 )
@@ -158,7 +158,7 @@ func DeleteBranch(ctx *context.APIContext) {
 
 	if err := repo_service.DeleteBranch(ctx, ctx.Doer(), ctx.Repo().Repository, ctx.Repo().GitRepo, branchName); err != nil {
 		switch {
-		case operation_service.IsBusy(err):
+		case nativeoperation_service.IsBusy(err):
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 		case git.IsErrBranchNotExist(err):
 			ctx.NotFound(err)
@@ -255,7 +255,7 @@ func CreateBranch(ctx *context.APIContext) {
 
 	err = repo_service.CreateNewBranchFromCommit(ctx, ctx.Doer(), ctx.Repo().Repository, ctx.Repo().GitRepo, oldCommit.ID.String(), opt.BranchName)
 	if err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 		} else if git_model.IsErrBranchNotExist(err) {
 			ctx.Error(http.StatusNotFound, "", "The old branch does not exist")
@@ -699,11 +699,11 @@ func CreateBranchProtection(ctx *context.APIContext) {
 
 	// One protection update owns the reservation before its database
 	// effects. Busy maps to 503 at the API error boundary.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, operation_service.ProtectionCreate, ruleName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionBranch, nativeoperation_service.ProtectionCreate, ruleName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {
@@ -985,11 +985,11 @@ func EditBranchProtection(ctx *context.APIContext) {
 
 	// One protection update owns the reservation before its database
 	// effects. Busy maps to 503 at the API error boundary.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, operation_service.ProtectionEdit, bpName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionBranch, nativeoperation_service.ProtectionEdit, bpName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {
@@ -1105,11 +1105,11 @@ func DeleteBranchProtection(ctx *context.APIContext) {
 
 	// One protection update owns the reservation before its database
 	// effects. Busy maps to 503 at the API error boundary.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyProtection,
-		operation_service.ProtectionResource(repo.ID, operation_service.ProtectionBranch, operation_service.ProtectionDelete, bp.RuleName),
-		operation_service.Scope{
-			Family:       operation_service.FamilyProtection,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyProtection,
+		nativeoperation_service.ProtectionResource(repo.ID, nativeoperation_service.ProtectionBranch, nativeoperation_service.ProtectionDelete, bp.RuleName),
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyProtection,
 			RepositoryID: repo.ID,
 		},
 		func(ctx gocontext.Context) error {

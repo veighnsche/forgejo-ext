@@ -16,7 +16,7 @@ import (
 	"forgejo.org/routers/api/v1/utils"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // ListLabels list all the labels of an organization
@@ -114,10 +114,10 @@ func CreateLabel(ctx *context.APIContext) {
 	// observations go stale. Org labels name no repository; the label
 	// row reconciles them.
 	orgID := ctx.Org().Organization.ID
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(orgID, "create"), 0, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.LabelResource(orgID, "create"), 0, func(ctx stdCtx.Context) error {
 		return issues_model.NewLabel(ctx, label)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -240,10 +240,10 @@ func EditLabel(ctx *context.APIContext) {
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale. Org labels name no repository; the label
 	// row reconciles them.
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(l.ID, "update"), 0, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.LabelResource(l.ID, "update"), 0, func(ctx stdCtx.Context) error {
 		return issues_model.UpdateLabel(ctx, l)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -283,10 +283,10 @@ func DeleteLabel(ctx *context.APIContext) {
 	// row reconciles them.
 	orgID := ctx.Org().Organization.ID
 	labelID := ctx.ParamsInt64(":id")
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.LabelResource(labelID, "delete"), 0, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.LabelResource(labelID, "delete"), 0, func(ctx stdCtx.Context) error {
 		return issues_model.DeleteLabelInOrg(ctx, orgID, labelID)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

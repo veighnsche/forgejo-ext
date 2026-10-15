@@ -16,7 +16,7 @@ import (
 
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	org_model "forgejo.org/models/organization"
 	pull_model "forgejo.org/models/pull"
 	repo_model "forgejo.org/models/repo"
@@ -198,7 +198,7 @@ func init() {
 func DeletePullsByBaseRepoID(ctx context.Context, repoID int64) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	deleteCond := builder.Select("id").From("pull_request").Where(builder.Eq{"pull_request.base_repo_id": repoID})
@@ -522,7 +522,7 @@ func (pr *PullRequest) IsFromFork() bool {
 func (pr *PullRequest) SetMerged(ctx context.Context) (bool, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return false, err
 	}
 	if pr.HasMerged {
@@ -586,7 +586,7 @@ func (pr *PullRequest) SetMerged(ctx context.Context) (bool, error) {
 func NewPullRequest(ctx context.Context, repo *repo_model.Repository, issue *Issue, labelIDs []int64, uuids []string, pr *PullRequest) (err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -787,7 +787,7 @@ func GetAllUnmergedAgitPullRequestByPoster(ctx context.Context, uid int64) ([]*P
 func (pr *PullRequest) Update(ctx context.Context) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(pr.ID).AllCols().Update(pr)
@@ -798,7 +798,7 @@ func (pr *PullRequest) Update(ctx context.Context) error {
 func (pr *PullRequest) UpdateCols(ctx context.Context, cols ...string) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(pr.ID).Cols(cols...).Update(pr)
@@ -809,7 +809,7 @@ func (pr *PullRequest) UpdateCols(ctx context.Context, cols ...string) error {
 func (pr *PullRequest) UpdateColsIfNotMerged(ctx context.Context, cols ...string) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Where("id = ? AND has_merged = ?", pr.ID, false).Cols(cols...).Update(pr)
@@ -861,7 +861,7 @@ func (pr *PullRequest) GetWorkInProgressPrefix(ctx context.Context) string {
 func (pr *PullRequest) UpdateCommitDivergence(ctx context.Context, ahead, behind int) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if pr.ID == 0 {
@@ -910,7 +910,7 @@ func (pr *PullRequest) GetHeadBranchLink(ctx context.Context) string {
 func UpdateAllowEdits(ctx context.Context, pr *PullRequest) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if _, err := db.GetEngine(ctx).ID(pr.ID).Cols("allow_maintainer_edit").Update(pr); err != nil {
@@ -1149,7 +1149,7 @@ func TokenizeCodeOwnersLine(line string) []string {
 func InsertPullRequests(ctx context.Context, prs ...*PullRequest) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)

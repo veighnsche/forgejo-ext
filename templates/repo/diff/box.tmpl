@@ -53,13 +53,13 @@
 			</div>
 		{{end}}
 		<script id="diff-data-script" type="application/json" data-native-page-data="diffFileInfo">{
-  "files": [{{range $i, $file := .Diff.Files}}{{if $i}},{{end}}{"Name": {{$file.Name}}, "NameHash": {{$file.NameHash}}, "Type": {{$file.Type}}, "IsBin": {{$file.IsBin}}, "Addition": {{$file.Addition}}, "Deletion": {{$file.Deletion}}, "IsViewed": {{$file.IsViewed}}}{{end}}],
-  "isIncomplete": {{.Diff.IsIncomplete}},
-  "tooManyFilesMessage": {{ctx.Locale.Tr "repo.diff.too_many_files"}},
-  "binaryFileMessage": {{ctx.Locale.Tr "repo.diff.bin"}},
-  "showMoreMessage": {{ctx.Locale.Tr "repo.diff.show_more"}},
-  "statisticsMessage": {{ctx.Locale.Tr "repo.diff.stats_desc_file"}},
-  "linkLoadMore": "?skip-to={{.Diff.End}}&file-only=true"
+	"files": [{{range $i, $file := .Diff.Files}}{{if $i}},{{end}}{"Name": {{$file.Name}}, "NameHash": {{$file.NameHash}}, "Type": {{$file.Type}}, "IsBin": {{$file.IsBin}}, "Addition": {{$file.Addition}}, "Deletion": {{$file.Deletion}}, "IsViewed": {{$file.IsViewed}}}{{end}}],
+	"isIncomplete": {{.Diff.IsIncomplete}},
+	"tooManyFilesMessage": {{ctx.Locale.Tr "repo.diff.too_many_files"}},
+	"binaryFileMessage": {{ctx.Locale.Tr "repo.diff.bin"}},
+	"showMoreMessage": {{ctx.Locale.Tr "repo.diff.show_more"}},
+	"statisticsMessage": {{ctx.Locale.Tr "repo.diff.stats_desc_file"}},
+	"linkLoadMore": "?skip-to={{.Diff.End}}&file-only=true"
 }</script>
 	{{end}}
 	<div id="diff-container">

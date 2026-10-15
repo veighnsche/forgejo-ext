@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -72,7 +72,7 @@ func TestParseReviewSubmitPayloadRejects(t *testing.T) {
 	}
 	for name, payload := range cases {
 		_, err := parseReviewSubmitPayload([]byte(payload), 7)
-		assert.ErrorIs(t, err, ErrInvalidIntent, name)
+		require.ErrorIs(t, err, ErrInvalidIntent, name)
 	}
 
 	reject := reviewSubmitPayload(3, 1, 7, "refs/heads/feature", "refs/heads/main", head, base, head, "REQUEST_CHANGES", "please fix")
@@ -83,23 +83,23 @@ func TestParseReviewSubmitPayloadRejects(t *testing.T) {
 
 func TestMapExactReviewRefusal(t *testing.T) {
 	cases := map[string]string{
-		"head changed":                                 model.ReasonStaleHead,
-		"base changed":                                 model.ReasonStaleBaseOrResult,
-		"pending draft exists":                         model.ReasonPendingReviewExists,
-		"cannot review your own pull request":          model.ReasonAuthorityLost,
-		"reviewer is blocked":                          model.ReasonAuthorityLost,
-		"reviewer cannot read this pull request":       model.ReasonAuthorityLost,
-		"pull request is closed or merged":             model.ReasonPRMismatch,
-		"pr author mismatch":                           model.ReasonPRMismatch,
-		"head branch mismatch":                         model.ReasonPRMismatch,
-		"invalid object id":                            model.ReasonNativeRefused,
-		"commit must equal the expected head":          model.ReasonNativeRefused,
-		"only approve or reject reviews are supported": model.ReasonNativeRefused,
+		"head changed":                                 nativeoperation_model.ReasonStaleHead,
+		"base changed":                                 nativeoperation_model.ReasonStaleBaseOrResult,
+		"pending draft exists":                         nativeoperation_model.ReasonPendingReviewExists,
+		"cannot review your own pull request":          nativeoperation_model.ReasonAuthorityLost,
+		"reviewer is blocked":                          nativeoperation_model.ReasonAuthorityLost,
+		"reviewer cannot read this pull request":       nativeoperation_model.ReasonAuthorityLost,
+		"pull request is closed or merged":             nativeoperation_model.ReasonPRMismatch,
+		"pr author mismatch":                           nativeoperation_model.ReasonPRMismatch,
+		"head branch mismatch":                         nativeoperation_model.ReasonPRMismatch,
+		"invalid object id":                            nativeoperation_model.ReasonNativeRefused,
+		"commit must equal the expected head":          nativeoperation_model.ReasonNativeRefused,
+		"only approve or reject reviews are supported": nativeoperation_model.ReasonNativeRefused,
 	}
 	for reason, want := range cases {
 		assert.Equal(t, want, mapExactReviewRefusal(issues_model.ErrExactReviewRefused{Reason: reason}), reason)
 	}
-	assert.Equal(t, model.ReasonNativeRefused, mapExactReviewRefusal(issues_model.ContentEmptyErr{}))
-	assert.Equal(t, model.ReasonNativeRefused, mapExactReviewRefusal(errors.New("boom")))
-	assert.Equal(t, model.ReasonPRMismatch, mapExactReviewRefusal(issues_model.ErrExactReviewRefused{Reason: "future reason"}))
+	assert.Equal(t, nativeoperation_model.ReasonNativeRefused, mapExactReviewRefusal(issues_model.ContentEmptyErr{}))
+	assert.Equal(t, nativeoperation_model.ReasonNativeRefused, mapExactReviewRefusal(errors.New("boom")))
+	assert.Equal(t, nativeoperation_model.ReasonPRMismatch, mapExactReviewRefusal(issues_model.ErrExactReviewRefused{Reason: "future reason"}))
 }

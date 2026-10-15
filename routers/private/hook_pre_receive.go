@@ -25,7 +25,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/web"
 	app_context "forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 )
 
@@ -39,12 +39,12 @@ func checkPublishPreReceive(ctx *app_context.PrivateContext, opts *private.HookO
 		ctx.JSON(http.StatusBadRequest, private.Response{Err: "mismatched pre-receive inputs"})
 		return false
 	}
-	lines := make([]operation_service.RefLine, 0, len(opts.OldCommitIDs))
+	lines := make([]nativeoperation_service.RefLine, 0, len(opts.OldCommitIDs))
 	for i := range opts.OldCommitIDs {
-		lines = append(lines, operation_service.RefLine{Old: opts.OldCommitIDs[i], New: opts.NewCommitIDs[i], Ref: string(opts.RefFullNames[i])})
+		lines = append(lines, nativeoperation_service.RefLine{Old: opts.OldCommitIDs[i], New: opts.NewCommitIDs[i], Ref: string(opts.RefFullNames[i])})
 	}
-	decision, err := operation_service.Default().ClassifyPreReceive(ctx, ctx.Repo.Repository.ID, lines, !opts.GetGitPushOptions().Empty(),
-		operation_service.PublishPreReceiveGit{RepoPath: ctx.Repo.Repository.RepoPath(), Env: generateGitEnv(opts)})
+	decision, err := nativeoperation_service.Default().ClassifyPreReceive(ctx, ctx.Repo.Repository.ID, lines, !opts.GetGitPushOptions().Empty(),
+		nativeoperation_service.PublishPreReceiveGit{RepoPath: ctx.Repo.Repository.RepoPath(), Env: generateGitEnv(opts)})
 	if err != nil {
 		log.Error("Publish pre-receive check failed for %s: %v", ctx.Repo.Repository.FullName(), err)
 		ctx.JSON(http.StatusInternalServerError, private.Response{Err: "pre-receive check unavailable"})

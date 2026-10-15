@@ -4,7 +4,7 @@
 package issues
 
 import (
-	"sort"
+	"slices"
 )
 
 // Snapshot conversion for native assignee evidence (FT14, early start).
@@ -57,7 +57,7 @@ func NewAssigneePage(issueID int64, assigneeIDs []int64, total int, visible bool
 		return AssigneePage{}, ErrSnapshotInvalid
 	}
 	sorted := append([]int64(nil), assigneeIDs...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	slices.Sort(sorted)
 	return AssigneePage{
 		IssueID:     issueID,
 		AssigneeIDs: sorted,

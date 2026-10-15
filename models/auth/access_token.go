@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -104,7 +104,7 @@ func NewAccessToken(ctx context.Context, t *AccessToken) error {
 	// Nested participating writer: token creation refuses while another
 	// owner holds the reservation; the enclosing authority update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	generateAccessToken(t)
@@ -234,7 +234,7 @@ func DeleteAccessTokenByID(ctx context.Context, id, userID int64) error {
 	// Nested participating writer: token withdrawal refuses while another
 	// owner holds the reservation; the enclosing authority update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	return db.WithTx(ctx, func(ctx context.Context) error {
@@ -262,7 +262,7 @@ func RegenerateAccessTokenByID(ctx context.Context, id, userID int64) (*AccessTo
 	// Nested participating writer: token regeneration refuses while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	t := &AccessToken{}

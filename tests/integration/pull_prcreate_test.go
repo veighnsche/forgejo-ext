@@ -4,7 +4,7 @@
 package integration
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"fmt"
 	"net/http"
 	"net/url"
@@ -17,12 +17,12 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	nativeop_model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,7 +51,7 @@ func TestPullPRCreate(t *testing.T) {
 
 		user1 := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 1})
 		repo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{OwnerID: 1, Name: "repo1"})
-		svc := operation_service.Default()
+		svc := nativeoperation_service.Default()
 		ctx := t.Context()
 		installation := "7c12e001-0000-4000-8000-000000000000"
 
@@ -102,11 +102,11 @@ func TestPullPRCreate(t *testing.T) {
 			return 0
 		}
 
-		submit := func(t *testing.T, opID, payload string) (operation_service.ValidIntent, error) {
+		submit := func(t *testing.T, opID, payload string) (nativeoperation_service.ValidIntent, error) {
 			t.Helper()
 			revision := waitIdle(t)
 			now := time.Now().Unix()
-			intent, err := operation_service.ValidateIntent(opID, user1.ID, repo.ID, nativeop_model.KindPRCreate,
+			intent, err := nativeoperation_service.ValidateIntent(opID, user1.ID, repo.ID, nativeoperation_model.KindPRCreate,
 				"auth-rev-1", revision, now+600, []byte(payload), now)
 			require.NoError(t, err)
 			return *intent, nil
@@ -123,16 +123,16 @@ func TestPullPRCreate(t *testing.T) {
 			t.Helper()
 			return unittest.GetCount(t, &issues_model.Issue{RepoID: repo.ID, IsPull: true})
 		}
-		decodeReceipt := func(t *testing.T, raw json.RawMessage) operation_service.PRCreateReceipt {
+		decodeReceipt := func(t *testing.T, raw json.RawMessage) nativeoperation_service.PRCreateReceipt {
 			t.Helper()
-			var receipt operation_service.PRCreateReceipt
+			var receipt nativeoperation_service.PRCreateReceipt
 			require.NoError(t, json.Unmarshal(raw, &receipt))
 			return receipt
 		}
 
 		var successOpID string
 		var successNumber int64
-		var successIntent operation_service.ValidIntent
+		var successIntent nativeoperation_service.ValidIntent
 
 		t.Run("success_exact", func(t *testing.T) {
 			successOpID = "ft12-success"
@@ -141,8 +141,8 @@ func TestPullPRCreate(t *testing.T) {
 			successIntent = intent
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.CompletionComplete, record.CompletionState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.CompletionComplete, record.CompletionState)
 			receipt := decodeReceipt(t, record.Receipt)
 			require.Equal(t, user1.ID, receipt.AuthorID)
 			require.Equal(t, repo.ID, receipt.RepositoryID)
@@ -185,7 +185,7 @@ func TestPullPRCreate(t *testing.T) {
 			// same receipt, never a replacement create.
 			lookup, err := svc.Get(ctx, installation, successOpID)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, lookup.Status)
+			require.Equal(t, nativeoperation_model.EffectCommitted, lookup.Status)
 			require.NotNil(t, lookup.Record)
 			require.Equal(t, record.IntentDigest, lookup.Record.IntentDigest)
 			require.JSONEq(t, string(record.Receipt), string(lookup.Record.Receipt))
@@ -198,7 +198,7 @@ func TestPullPRCreate(t *testing.T) {
 			// a different authorization and correctly conflicts.
 			record, err := svc.Submit(ctx, decision, installation, &successIntent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
 			require.Equal(t, before, prCount(t), "replay must not create a second PR")
 
 			lookup, err := svc.Get(ctx, installation, successOpID)
@@ -210,7 +210,7 @@ func TestPullPRCreate(t *testing.T) {
 			intent, err := submit(t, successOpID, payload("refs/heads/branch2", "refs/heads/master", branch2OID, masterOID, "changed title"))
 			require.NoError(t, err)
 			_, err = svc.Submit(ctx, decision, installation, &intent)
-			require.ErrorIs(t, err, operation_service.ErrIntentConflict)
+			require.ErrorIs(t, err, nativeoperation_service.ErrIntentConflict)
 		})
 
 		t.Run("duplicate_pr", func(t *testing.T) {
@@ -219,8 +219,8 @@ func TestPullPRCreate(t *testing.T) {
 			require.NoError(t, err)
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonDuplicatePullRequest, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonDuplicatePullRequest, record.ReasonCode)
 			require.Equal(t, before, prCount(t), "duplicate refusal must not adopt the existing PR")
 		})
 
@@ -229,26 +229,26 @@ func TestPullPRCreate(t *testing.T) {
 			require.NoError(t, err)
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonStaleHead, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonStaleHead, record.ReasonCode)
 		})
 
 		t.Run("cancel_before_submit", func(t *testing.T) {
 			before := prCount(t)
 			cancelled, err := svc.Cancel(ctx, installation, "ft12-never-submitted")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, cancelled.Outcome)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, cancelled.Outcome)
 
 			intent, err := submit(t, "ft12-never-submitted", payload("refs/heads/home-md-img-check", "refs/heads/master", homeOID, masterOID, "never"))
 			require.NoError(t, err)
 			_, err = svc.Submit(ctx, decision, installation, &intent)
-			require.ErrorIs(t, err, operation_service.ErrCancelledBeforeSubmit)
+			require.ErrorIs(t, err, nativeoperation_service.ErrCancelledBeforeSubmit)
 			require.Equal(t, before, prCount(t))
 		})
 
 		t.Run("cancel_race", func(t *testing.T) {
 			dir := t.TempDir()
-			t.Setenv("NATIVEOP_TEST_CRASH_POINT", operation_service.CrashPointPRCreateBeforePrimary)
+			t.Setenv("NATIVEOP_TEST_CRASH_POINT", nativeoperation_service.CrashPointPRCreateBeforePrimary)
 			t.Setenv("NATIVEOP_TEST_CRASH_BARRIER_DIR", dir)
 			before := prCount(t)
 
@@ -265,7 +265,7 @@ func TestPullPRCreate(t *testing.T) {
 				record, err := svc.Submit(ctx, decision, installation, &intent)
 				done <- result{out: record.Outcome, reason: record.ReasonCode, cancel: record.CancellationStatus, err: err}
 			}()
-			entered := filepath.Join(dir, operation_service.CrashPointPRCreateBeforePrimary+".entered")
+			entered := filepath.Join(dir, nativeoperation_service.CrashPointPRCreateBeforePrimary+".entered")
 			deadline := time.Now().Add(30 * time.Second)
 			for {
 				if _, err := os.Stat(entered); err == nil {
@@ -280,7 +280,7 @@ func TestPullPRCreate(t *testing.T) {
 			// revoke now so the atomic commit must observe it.
 			_, err = svc.Cancel(ctx, installation, "ft12-cancel-race")
 			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(filepath.Join(dir, operation_service.CrashPointPRCreateBeforePrimary+".release"), []byte("go\n"), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, nativeoperation_service.CrashPointPRCreateBeforePrimary+".release"), []byte("go\n"), 0o600))
 
 			var res result
 			select {
@@ -289,9 +289,9 @@ func TestPullPRCreate(t *testing.T) {
 				t.Fatal("cancelled submit did not return")
 			}
 			require.NoError(t, res.err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, res.out)
-			require.Equal(t, nativeop_model.ReasonCancelledBeforeAdmission, res.reason)
-			require.Equal(t, nativeop_model.CancellationCancelled, res.cancel)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, res.out)
+			require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, res.reason)
+			require.Equal(t, nativeoperation_model.CancellationCancelled, res.cancel)
 			require.Equal(t, before, prCount(t), "winning cancellation must prevent the primary effect")
 			_, err = issues_model.GetUnmergedPullRequest(ctx, repo.ID, repo.ID, "home-md-img-check", "master", issues_model.PullRequestFlowGithub)
 			require.True(t, issues_model.IsErrPullRequestNotExist(err))
@@ -299,7 +299,7 @@ func TestPullPRCreate(t *testing.T) {
 
 		t.Run("crash_after_primary_recovery", func(t *testing.T) {
 			dir := t.TempDir()
-			t.Setenv("NATIVEOP_TEST_CRASH_POINT", operation_service.CrashPointPRCreateAfterPrimary)
+			t.Setenv("NATIVEOP_TEST_CRASH_POINT", nativeoperation_service.CrashPointPRCreateAfterPrimary)
 			t.Setenv("NATIVEOP_TEST_CRASH_BARRIER_DIR", dir)
 			t.Setenv("NATIVEOP_TEST_CRASH_TIMEOUT_SECONDS", "5")
 
@@ -307,35 +307,35 @@ func TestPullPRCreate(t *testing.T) {
 			require.NoError(t, err)
 			_, err = svc.Submit(ctx, decision, installation, &intent)
 			require.Error(t, err, "barrier timeout must fail the submit closed")
-			require.FileExists(t, filepath.Join(dir, operation_service.CrashPointPRCreateAfterPrimary+".entered"))
+			require.FileExists(t, filepath.Join(dir, nativeoperation_service.CrashPointPRCreateAfterPrimary+".entered"))
 
 			// The crash-equivalent state: primary committed with its
 			// receipt, completion unset, owner still held.
 			observation, err := svc.ReadNativeRevision(ctx)
 			require.NoError(t, err)
 			require.False(t, observation.Idle)
-			op, err := nativeop_model.LookupOperation(ctx, installation, "ft12-crash")
+			op, err := nativeoperation_model.LookupOperation(ctx, installation, "ft12-crash")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, op.EffectState)
+			require.Equal(t, nativeoperation_model.EffectCommitted, op.EffectState)
 			require.NotEmpty(t, op.Receipt)
-			require.Equal(t, nativeop_model.CompletionPending, op.Completion)
+			require.Equal(t, nativeoperation_model.CompletionPending, op.Completion)
 
 			// Offline recovery under inhibition attributes the
 			// recorded PR and finalizes completion as uncertain.
-			require.NoError(t, os.WriteFile(nativeop_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
-			t.Cleanup(func() { _ = os.Remove(nativeop_model.OfflineMarkerPath()) })
-			reservation, err := nativeop_model.ReadReservation(ctx)
+			require.NoError(t, os.WriteFile(nativeoperation_model.OfflineMarkerPath(), []byte("recovery\n"), 0o600))
+			t.Cleanup(func() { _ = os.Remove(nativeoperation_model.OfflineMarkerPath()) })
+			reservation, err := nativeoperation_model.ReadReservation(ctx)
 			require.NoError(t, err)
 			assessment, err := svc.Recover(ctx, reservation.Owner, reservation.Generation)
 			require.NoError(t, err)
-			require.Equal(t, operation_service.RecoveryReleased, assessment.Verdict)
-			require.Equal(t, nativeop_model.EffectCommitted, assessment.Effect)
+			require.Equal(t, nativeoperation_service.RecoveryReleased, assessment.Verdict)
+			require.Equal(t, nativeoperation_model.EffectCommitted, assessment.Effect)
 			require.Equal(t, "conditional-prcreate", assessment.Family)
 
-			recovered, err := nativeop_model.LookupOperation(ctx, installation, "ft12-crash")
+			recovered, err := nativeoperation_model.LookupOperation(ctx, installation, "ft12-crash")
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, recovered.EffectState)
-			require.Equal(t, nativeop_model.CompletionNeedsIntervention, recovered.Completion)
+			require.Equal(t, nativeoperation_model.EffectCommitted, recovered.EffectState)
+			require.Equal(t, nativeoperation_model.CompletionNeedsIntervention, recovered.Completion)
 			receipt := decodeReceipt(t, json.RawMessage(recovered.Receipt))
 			pr, err := issues_model.GetPullRequestByIndex(ctx, repo.ID, receipt.PRNumber)
 			require.NoError(t, err)
@@ -358,8 +358,8 @@ func TestPullPRCreate(t *testing.T) {
 			require.NoError(t, err)
 			record, err := svc.Submit(ctx, decision, installation, &intent)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectNotCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.ReasonStaleBaseOrResult, record.ReasonCode)
+			require.Equal(t, nativeoperation_model.EffectNotCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.ReasonStaleBaseOrResult, record.ReasonCode)
 			require.Equal(t, before, prCount(t))
 			require.Equal(t, ordinaryOID, tip(t, "refs/heads/ft12-ordinary"), "refused PR creation must not move the branch")
 		})
@@ -367,8 +367,8 @@ func TestPullPRCreate(t *testing.T) {
 		t.Run("withdrawal_after_commit", func(t *testing.T) {
 			record, err := svc.Cancel(ctx, installation, successOpID)
 			require.NoError(t, err)
-			require.Equal(t, nativeop_model.EffectCommitted, record.Outcome)
-			require.Equal(t, nativeop_model.CancellationTooLate, record.CancellationStatus)
+			require.Equal(t, nativeoperation_model.EffectCommitted, record.Outcome)
+			require.Equal(t, nativeoperation_model.CancellationTooLate, record.CancellationStatus)
 
 			pr, err := issues_model.GetPullRequestByIndex(ctx, repo.ID, successNumber)
 			require.NoError(t, err)

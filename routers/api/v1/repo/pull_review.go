@@ -21,7 +21,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	issue_service "forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	pull_service "forgejo.org/services/pull"
 )
 
@@ -414,10 +414,10 @@ func DeletePullReview(ctx *context.APIContext) {
 	// One collaboration writer owns the review delete before its
 	// effects, advancing the native revision so old accepted-input
 	// observations go stale.
-	if err := operation_service.WithCollaborationOwnership(ctx, operation_service.ReviewDeleteResource(review.IssueID, review.ID), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
+	if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.ReviewDeleteResource(review.IssueID, review.ID), ctx.Repo().Repository.ID, func(ctx stdCtx.Context) error {
 		return issues_model.DeleteReview(ctx, review)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

@@ -16,7 +16,7 @@ import (
 	activities_model "forgejo.org/models/activities"
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
@@ -245,7 +245,7 @@ func UpdateRepository(ctx context.Context, repo *repo_model.Repository, visibili
 	// Nested participating writer: the whole repository row refuses while
 	// another owner holds the reservation; the enclosing lifecycle or
 	// settings update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	repo.LowerName = strings.ToLower(repo.Name)

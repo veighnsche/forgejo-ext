@@ -14,7 +14,7 @@ import (
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // doMirrorSync causes this request to mirror itself
@@ -139,7 +139,7 @@ func queueHandler(items ...*SyncRequest) []*SyncRequest {
 	var unhandled []*SyncRequest
 	for _, req := range items {
 		if err := doMirrorSync(graceful.GetManager().ShutdownContext(), req); err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				// Retain busy work: the queue requeues this sync for a
 				// later fresh-ownership attempt instead of dropping it.
 				unhandled = append(unhandled, req)

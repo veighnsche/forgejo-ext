@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	execcontext "forgejo.org/modules/nativeoperation"
 	"forgejo.org/modules/setting"
@@ -18,11 +18,11 @@ import (
 
 const testInstallation = "11111111-2222-4333-8444-555555555555"
 
-func testOperation(id string, revision int64) *model.Operation {
-	return &model.Operation{
+func testOperation(id string, revision int64) *nativeoperation_model.Operation {
+	return &nativeoperation_model.Operation{
 		InstallationID:         testInstallation,
 		OperationID:            id,
-		Kind:                   model.KindMerge,
+		Kind:                   nativeoperation_model.KindMerge,
 		ActorID:                2,
 		RepositoryID:           1,
 		TokenID:                9,
@@ -39,31 +39,31 @@ func TestReservationClaimAdvancesRevision(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, start.Owner)
 
-	claimed, err := model.ClaimConditional(ctx, testOperation("op-claim", start.Revision), "cond:"+testInstallation+"/op-claim", `{"kind":"conditional"}`, "verifier")
+	claimed, err := nativeoperation_model.ClaimConditional(ctx, testOperation("op-claim", start.Revision), "cond:"+testInstallation+"/op-claim", `{"kind":"conditional"}`, "verifier")
 	require.NoError(t, err)
 	require.Equal(t, start.Revision+1, claimed.Revision)
 	require.Equal(t, "cond:"+testInstallation+"/op-claim", claimed.Owner)
 
-	busy, err := model.ReadReservation(ctx)
+	busy, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, claimed.Revision, busy.Revision)
 	require.NotEmpty(t, busy.Owner)
 
 	// A competing claim refuses before any effect and records nothing.
-	_, err = model.ClaimConditional(ctx, testOperation("op-other", busy.Revision), "cond:"+testInstallation+"/op-other", `{}`, "v")
-	require.ErrorIs(t, err, model.ErrBusy)
-	missing, err := model.LookupOperation(ctx, testInstallation, "op-other")
+	_, err = nativeoperation_model.ClaimConditional(ctx, testOperation("op-other", busy.Revision), "cond:"+testInstallation+"/op-other", `{}`, "v")
+	require.ErrorIs(t, err, nativeoperation_model.ErrBusy)
+	missing, err := nativeoperation_model.LookupOperation(ctx, testInstallation, "op-other")
 	require.NoError(t, err)
 	require.Nil(t, missing)
 
 	// Only the exact owner releases.
-	require.ErrorIs(t, model.ReleaseOwner(ctx, "cond:"+testInstallation+"/op-other"), model.ErrWrongOwner)
-	require.NoError(t, model.ReleaseOwner(ctx, "cond:"+testInstallation+"/op-claim"))
-	idle, err := model.ReadReservation(ctx)
+	require.ErrorIs(t, nativeoperation_model.ReleaseOwner(ctx, "cond:"+testInstallation+"/op-other"), nativeoperation_model.ErrWrongOwner)
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, "cond:"+testInstallation+"/op-claim"))
+	idle, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
 	require.Equal(t, claimed.Revision, idle.Revision)
@@ -73,12 +73,12 @@ func TestClaimRefusesStaleRevisionWithoutRecording(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
-	_, err = model.ClaimConditional(ctx, testOperation("op-stale", start.Revision-1), "cond:"+testInstallation+"/op-stale", `{}`, "v")
-	require.ErrorIs(t, err, model.ErrStaleRevision)
+	_, err = nativeoperation_model.ClaimConditional(ctx, testOperation("op-stale", start.Revision-1), "cond:"+testInstallation+"/op-stale", `{}`, "v")
+	require.ErrorIs(t, err, nativeoperation_model.ErrStaleRevision)
 
-	idle, err := model.ReadReservation(ctx)
+	idle, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
 	require.Equal(t, start.Revision, idle.Revision)
@@ -88,15 +88,15 @@ func TestTombstoneAndDuplicateInsert(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 
-	tombstone, err := model.InsertTombstone(ctx, testInstallation, "op-cancel-first")
+	tombstone, err := nativeoperation_model.InsertTombstone(ctx, testInstallation, "op-cancel-first")
 	require.NoError(t, err)
 	require.False(t, tombstone.Submitted)
 	require.True(t, tombstone.Revoked)
-	require.Equal(t, model.EffectNotCommitted, tombstone.EffectState)
-	require.Equal(t, model.ReasonCancelledBeforeSubmit, tombstone.Reason)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, tombstone.EffectState)
+	require.Equal(t, nativeoperation_model.ReasonCancelledBeforeSubmit, tombstone.Reason)
 
-	again, err := model.InsertTombstone(ctx, testInstallation, "op-cancel-first")
-	require.ErrorIs(t, err, model.ErrDuplicateOperation)
+	again, err := nativeoperation_model.InsertTombstone(ctx, testInstallation, "op-cancel-first")
+	require.ErrorIs(t, err, nativeoperation_model.ErrDuplicateOperation)
 	require.Equal(t, tombstone.ID, again.ID)
 }
 
@@ -104,77 +104,77 @@ func TestAdmissionOrdersAgainstCancellation(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	owner := "cond:" + testInstallation + "/op-admit"
-	_, err = model.ClaimConditional(ctx, testOperation("op-admit", start.Revision), owner, `{}`, "v")
+	_, err = nativeoperation_model.ClaimConditional(ctx, testOperation("op-admit", start.Revision), owner, `{}`, "v")
 	require.NoError(t, err)
 
 	// Cancellation winning first prevents admission but commits the
 	// ordering truth.
-	revoked, err := model.RevokeOperation(ctx, testInstallation, "op-admit")
+	revoked, err := nativeoperation_model.RevokeOperation(ctx, testInstallation, "op-admit")
 	require.NoError(t, err)
 	require.True(t, revoked.Revoked)
-	lost, admitted, err := model.RecordAdmissionAttempt(ctx, testInstallation, "op-admit", owner, true, "")
+	lost, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, testInstallation, "op-admit", owner, true, "")
 	require.NoError(t, err)
 	require.False(t, admitted)
-	require.Equal(t, model.ReasonCancelledBeforeAdmission, lost.Reason)
-	recorded, err := model.LookupOperation(ctx, testInstallation, "op-admit")
+	require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, lost.Reason)
+	recorded, err := nativeoperation_model.LookupOperation(ctx, testInstallation, "op-admit")
 	require.NoError(t, err)
 	require.False(t, recorded.Admitted)
-	require.Equal(t, model.ReasonCancelledBeforeAdmission, recorded.Reason)
+	require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, recorded.Reason)
 
 	// A second admission of the same operation is also lost.
 	owner2 := "cond:" + testInstallation + "/op-admit-2"
-	current, err := model.ReadReservation(ctx)
+	current, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
-	require.NoError(t, model.ReleaseOwner(ctx, owner))
-	_, err = model.ClaimConditional(ctx, testOperation("op-admit-2", current.Revision), owner2, `{}`, "v")
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, owner))
+	_, err = nativeoperation_model.ClaimConditional(ctx, testOperation("op-admit-2", current.Revision), owner2, `{}`, "v")
 	require.NoError(t, err)
-	admittedOp, admitted, err := model.RecordAdmissionAttempt(ctx, testInstallation, "op-admit-2", owner2, true, "")
+	admittedOp, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, testInstallation, "op-admit-2", owner2, true, "")
 	require.NoError(t, err)
 	require.True(t, admitted)
 	require.True(t, admittedOp.Admitted)
-	duplicate, admitted, err := model.RecordAdmissionAttempt(ctx, testInstallation, "op-admit-2", owner2, true, "")
+	duplicate, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, testInstallation, "op-admit-2", owner2, true, "")
 	require.NoError(t, err)
 	require.False(t, admitted)
-	require.Equal(t, model.ReasonDuplicateAdmission, duplicate.Reason)
+	require.Equal(t, nativeoperation_model.ReasonDuplicateAdmission, duplicate.Reason)
 
 	// Terminal recording releases the exact owner in the same transaction.
-	terminal, err := model.SetTerminal(ctx, testInstallation, "op-admit-2", model.TerminalOutcome{
-		EffectState:  model.EffectCommitted,
-		Cancellation: model.CancellationNone,
-		Completion:   model.CompletionComplete,
+	terminal, err := nativeoperation_model.SetTerminal(ctx, testInstallation, "op-admit-2", nativeoperation_model.TerminalOutcome{
+		EffectState:  nativeoperation_model.EffectCommitted,
+		Cancellation: nativeoperation_model.CancellationNone,
+		Completion:   nativeoperation_model.CompletionComplete,
 		Receipt:      `{}`,
 	}, owner2)
 	require.NoError(t, err)
 	require.True(t, terminal.IsTerminal())
-	idle, err := model.ReadReservation(ctx)
+	idle, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
 
 	// Terminal rows are stable: a second terminal write keeps the first.
-	stable, err := model.SetTerminal(ctx, testInstallation, "op-admit-2", model.TerminalOutcome{
-		EffectState: model.EffectNotCommitted,
+	stable, err := nativeoperation_model.SetTerminal(ctx, testInstallation, "op-admit-2", nativeoperation_model.TerminalOutcome{
+		EffectState: nativeoperation_model.EffectNotCommitted,
 	}, "")
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, stable.EffectState)
+	require.Equal(t, nativeoperation_model.EffectCommitted, stable.EffectState)
 }
 
 func TestOrdinaryClaimAndRelease(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
-	claimed, err := model.ClaimOrdinary(ctx, "ord:branch/1/main/x", `{"kind":"ordinary"}`, "v")
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:branch/1/main/x", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
 	require.Equal(t, start.Revision+1, claimed.Revision)
-	require.Equal(t, model.OwnerOrdinary, claimed.OwnerKind)
+	require.Equal(t, nativeoperation_model.OwnerOrdinary, claimed.OwnerKind)
 
-	_, err = model.ClaimOrdinary(ctx, "ord:branch/1/other/y", `{}`, "v")
-	require.ErrorIs(t, err, model.ErrBusy)
-	require.NoError(t, model.ReleaseOwner(ctx, "ord:branch/1/main/x"))
+	_, err = nativeoperation_model.ClaimOrdinary(ctx, "ord:branch/1/other/y", `{}`, "v")
+	require.ErrorIs(t, err, nativeoperation_model.ErrBusy)
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, "ord:branch/1/main/x"))
 }
 
 func useIsolatedAppData(t *testing.T) {
@@ -189,29 +189,29 @@ func TestClaimsRefuseWhileInhibited(t *testing.T) {
 	useIsolatedAppData(t)
 	ctx := t.Context()
 
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(setting.AppDataPath, "nativeop-offline"), []byte("recovery\n"), 0o600))
-	require.True(t, model.OfflineInhibited())
+	require.True(t, nativeoperation_model.OfflineInhibited())
 
-	_, err = model.ClaimConditional(ctx, testOperation("op-inhibited", start.Revision), "cond:"+testInstallation+"/op-inhibited", `{}`, "v")
-	require.ErrorIs(t, err, model.ErrInhibited)
-	_, err = model.ClaimOrdinary(ctx, "ord:branch/1/x", `{}`, "v")
-	require.ErrorIs(t, err, model.ErrInhibited)
+	_, err = nativeoperation_model.ClaimConditional(ctx, testOperation("op-inhibited", start.Revision), "cond:"+testInstallation+"/op-inhibited", `{}`, "v")
+	require.ErrorIs(t, err, nativeoperation_model.ErrInhibited)
+	_, err = nativeoperation_model.ClaimOrdinary(ctx, "ord:branch/1/x", `{}`, "v")
+	require.ErrorIs(t, err, nativeoperation_model.ErrInhibited)
 
 	// Inhibited claims record nothing and move no revision.
-	missing, err := model.LookupOperation(ctx, testInstallation, "op-inhibited")
+	missing, err := nativeoperation_model.LookupOperation(ctx, testInstallation, "op-inhibited")
 	require.NoError(t, err)
 	require.Nil(t, missing)
-	idle, err := model.ReadReservation(ctx)
+	idle, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
 	require.Equal(t, start.Revision, idle.Revision)
 
 	// Lifting inhibition reopens claims.
-	require.NoError(t, os.Remove(model.OfflineMarkerPath()))
-	require.False(t, model.OfflineInhibited())
-	_, err = model.ClaimOrdinary(ctx, "ord:branch/1/x", `{}`, "v")
+	require.NoError(t, os.Remove(nativeoperation_model.OfflineMarkerPath()))
+	require.False(t, nativeoperation_model.OfflineInhibited())
+	_, err = nativeoperation_model.ClaimOrdinary(ctx, "ord:branch/1/x", `{}`, "v")
 	require.NoError(t, err)
 }
 
@@ -219,41 +219,41 @@ func TestRequireHeldOwnership(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 
-	require.NoError(t, model.RequireHeldOwnership(ctx))
+	require.NoError(t, nativeoperation_model.RequireHeldOwnership(ctx))
 
-	claimed, err := model.ClaimOrdinary(ctx, "ord:branch/1/held", `{"kind":"ordinary"}`, "v")
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:branch/1/held", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
 
-	require.ErrorIs(t, model.RequireHeldOwnership(ctx), model.ErrBusy)
+	require.ErrorIs(t, nativeoperation_model.RequireHeldOwnership(ctx), nativeoperation_model.ErrBusy)
 	nested := execcontext.NewContext(ctx, &execcontext.Execution{Owner: claimed.Owner, Generation: claimed.Generation})
-	require.NoError(t, model.RequireHeldOwnership(nested))
+	require.NoError(t, nativeoperation_model.RequireHeldOwnership(nested))
 	stale := execcontext.NewContext(ctx, &execcontext.Execution{Owner: claimed.Owner, Generation: claimed.Generation + 1})
-	require.ErrorIs(t, model.RequireHeldOwnership(stale), model.ErrBusy)
+	require.ErrorIs(t, nativeoperation_model.RequireHeldOwnership(stale), nativeoperation_model.ErrBusy)
 	foreign := execcontext.NewContext(ctx, &execcontext.Execution{Owner: "ord:branch/1/other", Generation: claimed.Generation})
-	require.ErrorIs(t, model.RequireHeldOwnership(foreign), model.ErrBusy)
+	require.ErrorIs(t, nativeoperation_model.RequireHeldOwnership(foreign), nativeoperation_model.ErrBusy)
 
-	require.NoError(t, model.ReleaseOwner(ctx, claimed.Owner))
-	require.NoError(t, model.RequireHeldOwnership(ctx))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, claimed.Owner))
+	require.NoError(t, nativeoperation_model.RequireHeldOwnership(ctx))
 }
 
 func TestReleaseExactOwner(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 
-	claimed, err := model.ClaimOrdinary(ctx, "ord:branch/1/exact", `{"kind":"ordinary"}`, "v")
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:branch/1/exact", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
 
-	require.ErrorIs(t, model.ReleaseExactOwner(ctx, "", claimed.Generation), model.ErrWrongOwner)
-	require.ErrorIs(t, model.ReleaseExactOwner(ctx, claimed.Owner, 0), model.ErrWrongOwner)
-	require.ErrorIs(t, model.ReleaseExactOwner(ctx, "ord:branch/1/other", claimed.Generation), model.ErrWrongOwner)
-	require.ErrorIs(t, model.ReleaseExactOwner(ctx, claimed.Owner, claimed.Generation+1), model.ErrWrongOwner)
+	require.ErrorIs(t, nativeoperation_model.ReleaseExactOwner(ctx, "", claimed.Generation), nativeoperation_model.ErrWrongOwner)
+	require.ErrorIs(t, nativeoperation_model.ReleaseExactOwner(ctx, claimed.Owner, 0), nativeoperation_model.ErrWrongOwner)
+	require.ErrorIs(t, nativeoperation_model.ReleaseExactOwner(ctx, "ord:branch/1/other", claimed.Generation), nativeoperation_model.ErrWrongOwner)
+	require.ErrorIs(t, nativeoperation_model.ReleaseExactOwner(ctx, claimed.Owner, claimed.Generation+1), nativeoperation_model.ErrWrongOwner)
 
-	held, err := model.ReadReservation(ctx)
+	held, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, claimed.Owner, held.Owner)
 
-	require.NoError(t, model.ReleaseExactOwner(ctx, claimed.Owner, claimed.Generation))
-	idle, err := model.ReadReservation(ctx)
+	require.NoError(t, nativeoperation_model.ReleaseExactOwner(ctx, claimed.Owner, claimed.Generation))
+	idle, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
 	require.Equal(t, claimed.Revision, idle.Revision)

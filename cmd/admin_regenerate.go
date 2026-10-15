@@ -8,7 +8,7 @@ import (
 
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/modules/graceful"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 
 	"github.com/urfave/cli/v3"
@@ -40,7 +40,7 @@ func runRegenerateHooks(ctx context.Context, c *cli.Command) error {
 	// One authority writer owns the regeneration before its effects,
 	// advancing the native revision so old permission observations go
 	// stale.
-	return operation_service.WithAuthorityOwnership(ctx, "admin/regenerate-hooks", 0, func(ctx context.Context) error {
+	return nativeoperation_service.WithAuthorityOwnership(ctx, "admin/regenerate-hooks", 0, func(ctx context.Context) error {
 		return repo_service.SyncRepositoryHooks(graceful.GetManager().ShutdownContext())
 	})
 }
@@ -55,7 +55,5 @@ func runRegenerateKeys(ctx context.Context, c *cli.Command) error {
 	// One authority writer owns the regeneration before its effects,
 	// advancing the native revision so old permission observations go
 	// stale.
-	return operation_service.WithAuthorityOwnership(ctx, "admin/regenerate-keys", 0, func(ctx context.Context) error {
-		return asymkey_model.RewriteAllPublicKeys(ctx)
-	})
+	return nativeoperation_service.WithAuthorityOwnership(ctx, "admin/regenerate-keys", 0, asymkey_model.RewriteAllPublicKeys)
 }

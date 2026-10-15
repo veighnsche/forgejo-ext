@@ -15,13 +15,13 @@ package nativeoperation
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"testing"
 
 	sdk "forgejo.org/extension-sdk"
 	"forgejo.org/models/db"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 
 	"github.com/stretchr/testify/require"
@@ -124,8 +124,8 @@ func TestIssueGraphClosedEditRefusedAtomically(t *testing.T) {
 	}
 	refused, err := svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "graph-closed-1", closed))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, refused.EffectState)
-	require.Equal(t, model.ReasonNativeRefused, refused.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, refused.EffectState)
+	require.Equal(t, nativeoperation_model.ReasonNativeRefused, refused.ReasonCode)
 
 	mixed := sdk.IssueGraphPayload{
 		Edits: []sdk.IssueGraphEdit{
@@ -135,8 +135,8 @@ func TestIssueGraphClosedEditRefusedAtomically(t *testing.T) {
 	}
 	mixedRefused, err := svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "graph-closed-2", mixed))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, mixedRefused.EffectState)
-	require.Equal(t, model.ReasonNativeRefused, mixedRefused.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, mixedRefused.EffectState)
+	require.Equal(t, nativeoperation_model.ReasonNativeRefused, mixedRefused.ReasonCode)
 
 	var after int64
 	_, err = db.GetEngine(ctx).SQL(`SELECT COUNT(*) FROM issue WHERE repo_id=1`).Get(&after)
@@ -181,7 +181,7 @@ func TestIssueGraphSodaDeltaJoinReceipts(t *testing.T) {
 
 	record, err := svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "graph-i07-join", packet))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, record.EffectState, record.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectCommitted, record.EffectState, record.ReasonCode)
 	var receipt sdk.IssueGraphReceipt
 	require.NoError(t, json.Unmarshal(record.Receipt, &receipt))
 	require.Len(t, receipt.Issues, 2)
@@ -425,7 +425,7 @@ func TestIssueGraphGoldenHistoryJoin(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(i07GoldenR1), &r1))
 	r1Record, err := svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "intent-d666666666666666666666666", r1))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, r1Record.EffectState, r1Record.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectCommitted, r1Record.EffectState, r1Record.ReasonCode)
 	r1IDs := i07ReceiptKeys(t, r1Record)
 	require.Len(t, r1IDs, 3)
 	for key, native := range r1IDs {
@@ -444,7 +444,7 @@ func TestIssueGraphGoldenHistoryJoin(t *testing.T) {
 	r2Intent := graphIntent(t, "intent-d777777777777777777777777", r2)
 	r2Record, err := svc.Submit(ctx, decision, operationTestInstallation, r2Intent)
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, r2Record.EffectState, r2Record.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectCommitted, r2Record.EffectState, r2Record.ReasonCode)
 	r2IDs := i07ReceiptKeys(t, r2Record)
 	require.Len(t, r2IDs, 2)
 	require.Contains(t, r2IDs, keyB)
@@ -483,7 +483,7 @@ func TestIssueGraphGoldenHistoryJoin(t *testing.T) {
 	r3 := i07TranslateIDs(t, i07GoldenR3, map[int64]int64{101: r1IDs[keyA], 104: r2IDs[keyB], 105: r2IDs[keyD]})
 	r3Record, err := svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "intent-d888888888888888888888888", r3))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, r3Record.EffectState, r3Record.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectCommitted, r3Record.EffectState, r3Record.ReasonCode)
 	r3IDs := i07ReceiptKeys(t, r3Record)
 	require.Len(t, r3IDs, 1)
 	require.Contains(t, r3IDs, keyA)
@@ -506,8 +506,8 @@ func TestIssueGraphGoldenHistoryJoin(t *testing.T) {
 	}
 	tamperedRefused, err := svc.Submit(ctx, decision, operationTestInstallation, graphIntent(t, "intent-tampered-closed", tampered))
 	require.NoError(t, err)
-	require.Equal(t, model.EffectNotCommitted, tamperedRefused.EffectState)
-	require.Equal(t, model.ReasonNativeRefused, tamperedRefused.ReasonCode)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, tamperedRefused.EffectState)
+	require.Equal(t, nativeoperation_model.ReasonNativeRefused, tamperedRefused.ReasonCode)
 	var final int64
 	_, err = db.GetEngine(ctx).SQL(`SELECT COUNT(*) FROM issue WHERE repo_id=1`).Get(&final)
 	require.NoError(t, err)

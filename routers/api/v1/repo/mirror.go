@@ -25,7 +25,7 @@ import (
 	"forgejo.org/services/forms"
 	migrations_allowlist "forgejo.org/services/migrations/allowlist"
 	mirror_service "forgejo.org/services/mirror"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // MirrorSync adds a mirrored repository to the sync queue
@@ -349,11 +349,11 @@ func DeletePushMirrorByRemoteName(ctx *context.APIContext) {
 
 	// One mirror update owns the reservation across its Git and database
 	// effects; the nested service call reuses this ownership.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync,
 		fmt.Sprintf("%d/push-remote/%d", pushMirror.RepoID, pushMirror.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMirrorSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMirrorSync,
 			RepositoryID: pushMirror.RepoID,
 		},
 		func(ctx std_ctx.Context) error {
@@ -428,11 +428,11 @@ func CreatePushMirror(ctx *context.APIContext, mirrorOption *api.CreatePushMirro
 
 	// One mirror update owns the reservation across its Git and database
 	// effects; the nested service call reuses this ownership.
-	err = operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyMirrorSync,
+	err = nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyMirrorSync,
 		fmt.Sprintf("%d/push-remote/new", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyMirrorSync,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyMirrorSync,
 			RepositoryID: repo.ID,
 		},
 		func(ctx std_ctx.Context) error {

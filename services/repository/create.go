@@ -24,7 +24,7 @@ import (
 	api "forgejo.org/modules/structs"
 	"forgejo.org/modules/templates/vars"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // CreateRepoOptions contains the create repository options
@@ -250,11 +250,11 @@ func CreateRepositoryDirectly(ctx context.Context, doer, u *user_model.User, opt
 	// observations go stale. The row does not exist yet, so the owner
 	// identity carries the owner/name pair. Nested calls reuse the
 	// enclosing ownership instead of claiming again.
-	if err := operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoLifecycle,
-		operation_service.LifecycleResource(0, operation_service.LifecycleCreate, u.Name, opts.Name),
-		operation_service.Scope{
-			Family: operation_service.FamilyRepoLifecycle,
+	if err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoLifecycle,
+		nativeoperation_service.LifecycleResource(0, nativeoperation_service.LifecycleCreate, u.Name, opts.Name),
+		nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyRepoLifecycle,
 		},
 		func(ctx context.Context) error {
 			return createRepositoryOwned(ctx, doer, u, opts, repo, &rollbackRepo)

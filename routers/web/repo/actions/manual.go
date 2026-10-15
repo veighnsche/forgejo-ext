@@ -8,7 +8,7 @@ import (
 
 	actions_service "forgejo.org/services/actions"
 	app_context "forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 func ManualRunWorkflow(ctx *app_context.Context) {
@@ -54,7 +54,7 @@ func ManualRunWorkflow(ctx *app_context.Context) {
 			ctx.Redirect(location)
 			return
 		}
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Flash.Error("A native operation is in progress; retry shortly.")
 			ctx.Redirect(location)
 			return

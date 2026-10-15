@@ -13,7 +13,7 @@ import (
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/log"
 	actions_service "forgejo.org/services/actions"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // UpdateRepositoryUnits updates a repository's units
@@ -21,11 +21,11 @@ func UpdateRepositoryUnits(ctx context.Context, repo *repo_model.Repository, uni
 	// One settings update owns the reservation before its database effects,
 	// advancing the revision so stale observations go stale. Nested Actions
 	// schedule updates reuse this ownership.
-	return operation_service.Default().WithOrdinaryOwnership(ctx,
-		operation_service.FamilyRepoSettings,
+	return nativeoperation_service.Default().WithOrdinaryOwnership(ctx,
+		nativeoperation_service.FamilyRepoSettings,
 		fmt.Sprintf("%d/units", repo.ID),
-		operation_service.Scope{
-			Family:       operation_service.FamilyRepoSettings,
+		nativeoperation_service.Scope{
+			Family:       nativeoperation_service.FamilyRepoSettings,
 			RepositoryID: repo.ID,
 		},
 		func(ctx context.Context) error {

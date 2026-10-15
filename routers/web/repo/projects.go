@@ -26,7 +26,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/forms"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 const (
@@ -417,7 +417,7 @@ func UpdateIssueProject(ctx *context.Context) {
 		// its effects, advancing the native revision so old accepted-input
 		// observations go stale.
 		doer := ctx.Doer
-		if err := operation_service.WithCollaborationOwnership(ctx, operation_service.IssueResource(issue.ID, "project"), issue.RepoID, func(ctx stdCtx.Context) error {
+		if err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.IssueResource(issue.ID, "project"), issue.RepoID, func(ctx stdCtx.Context) error {
 			return issues_model.IssueAssignOrRemoveProject(ctx, issue, doer, projectID, 0)
 		}); err != nil {
 			if errors.Is(err, util.ErrPermissionDenied) {

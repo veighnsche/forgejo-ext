@@ -10,7 +10,7 @@ import (
 
 	actions_model "forgejo.org/models/actions"
 	"forgejo.org/models/db"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 
@@ -77,7 +77,7 @@ func recoverRepositoryCase(t *testing.T, owner string, scope Scope, setup func(c
 func TestRecoverMaintenanceBatchConsistent(t *testing.T) {
 	for _, op := range []string{"0/orphan-release", "0/orphan-attachments", "0/null-archived", "0/runner-owner", "0/topics", "0/oauth2-apps", "0/owner-teams", "0/user-type", "0/team-8312"} {
 		assessment := recoverRepositoryCase(t, "ord:maintenance/"+op+"/0123456789abcdef", Scope{
-			Kind: model.OwnerOrdinary, Family: FamilyMaintenance,
+			Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyMaintenance,
 		}, nil)
 		require.Equal(t, RecoveryReleased, assessment.Verdict, op)
 		require.Equal(t, "consistent", assessment.Effect, op)
@@ -86,7 +86,7 @@ func TestRecoverMaintenanceBatchConsistent(t *testing.T) {
 
 func TestRecoverMaintenanceLFSGCConsistent(t *testing.T) {
 	assessment := recoverRepositoryCase(t, "ord:maintenance/1/lfs-gc/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
 	}, nil)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
 	require.Equal(t, "consistent", assessment.Effect)
@@ -94,24 +94,24 @@ func TestRecoverMaintenanceLFSGCConsistent(t *testing.T) {
 
 func TestRecoverMaintenanceIsEmpty(t *testing.T) {
 	assessment := recoverRepositoryCase(t, "ord:maintenance/1/is-empty/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
 	}, nil)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
 	require.Equal(t, "repaired", assessment.Effect)
 
 	assessment = recoverRepositoryCase(t, "ord:maintenance/1/is-empty/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
 	}, func(ctx context.Context) {
 		_, err := db.GetEngine(ctx).ID(1).Cols("is_empty").Update(&repo_model.Repository{IsEmpty: true})
 		require.NoError(t, err)
 	})
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
-	require.Equal(t, model.EffectNotCommitted, assessment.Effect)
+	require.Equal(t, nativeoperation_model.EffectNotCommitted, assessment.Effect)
 }
 
 func TestRecoverMaintenanceGCEmpty(t *testing.T) {
 	assessment := recoverRepositoryCase(t, "ord:maintenance/1/gc/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
 	}, func(ctx context.Context) {
 		_, err := db.GetEngine(ctx).ID(1).Cols("is_empty").Update(&repo_model.Repository{IsEmpty: true})
 		require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestRecoverMaintenanceGCMissingDirFences(t *testing.T) {
 	// The fixture default-branch tip cannot be read in unit tests,
 	// so a non-empty collection fences for fsck.
 	assessment := recoverRepositoryCase(t, "ord:maintenance/1/gc/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyMaintenance, RepositoryID: 1,
 	}, nil)
 	require.Equal(t, RecoveryFenced, assessment.Verdict)
 	require.Equal(t, ReasonRecoveryMissingEvidence, assessment.Reason)
@@ -132,7 +132,7 @@ func TestRecoverMaintenanceGCMissingDirFences(t *testing.T) {
 
 func TestRecoverRefSyncPurgeConsistent(t *testing.T) {
 	assessment := recoverRepositoryCase(t, "ord:ref-sync/0/deleted-branches/0123456789abcdef", Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyRefSync,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyRefSync,
 	}, nil)
 	require.Equal(t, RecoveryReleased, assessment.Verdict)
 	require.Equal(t, "consistent", assessment.Effect)
@@ -162,7 +162,7 @@ func recoverPushCase(t *testing.T, tips map[string]string, scope Scope, setup fu
 
 func pushScope() Scope {
 	return Scope{
-		Kind: model.OwnerOrdinary, Family: FamilyPushCompletion, RepositoryID: 1,
+		Kind: nativeoperation_model.OwnerOrdinary, Family: FamilyPushCompletion, RepositoryID: 1,
 		Refs: []ScopedRef{{Ref: "refs/heads/master", NewOID: "65f1bf27bc3bf70f64657658635e66094edbcb4d"}},
 	}
 }

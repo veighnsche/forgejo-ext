@@ -9,7 +9,7 @@ import (
 
 	"forgejo.org/models/avatars"
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
@@ -42,7 +42,7 @@ func init() {
 func SaveIssueContentHistory(ctx context.Context, posterID, issueID, commentID int64, editTime timeutil.TimeStamp, contentText string, isFirstCreated bool) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ch := &ContentHistory{
@@ -185,7 +185,7 @@ func HasIssueContentHistory(dbCtx context.Context, issueID, commentID int64) (bo
 func SoftDeleteIssueContentHistory(dbCtx context.Context, historyID int64) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(dbCtx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(dbCtx); err != nil {
 		return err
 	}
 	if _, err := db.GetEngine(dbCtx).ID(historyID).Cols("is_deleted", "content_text").Update(&ContentHistory{

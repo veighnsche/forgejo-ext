@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
@@ -264,7 +264,7 @@ func RecalculateTeamAccesses(ctx context.Context, repo *repo_model.Repository, i
 	// Nested participating writer: derived permission updates refuse
 	// while another owner holds the reservation; the enclosing authority
 	// or repository update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	var ign optional.Option[int64]
@@ -285,7 +285,7 @@ func RecalculateUserAccess(ctx context.Context, repo *repo_model.Repository, uid
 	// Nested participating writer: derived permission updates refuse
 	// while another owner holds the reservation; the enclosing authority
 	// or repository update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	return recalculateAccess(ctx, recalcAccess{
@@ -299,7 +299,7 @@ func RecalculateAccesses(ctx context.Context, repo *repo_model.Repository) error
 	// Nested participating writer: derived permission updates refuse
 	// while another owner holds the reservation; the enclosing authority
 	// or repository update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	return recalculateAccess(ctx, recalcAccess{
@@ -311,7 +311,7 @@ func RecalculateUserAccessForRepos(ctx context.Context, userID int64, repoIDs []
 	// Nested participating writer: derived permission updates refuse
 	// while another owner holds the reservation; the enclosing authority
 	// or repository update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	return recalculateAccess(ctx, recalcAccess{

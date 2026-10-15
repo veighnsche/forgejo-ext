@@ -15,7 +15,7 @@ import (
 
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
@@ -392,7 +392,7 @@ func NewCommitStatus(ctx context.Context, opts NewCommitStatusOptions) error {
 	// owner holds the reservation; the enclosing Actions update carries
 	// the execution and its resulting status reuses that ownership
 	// instead of waiting on the parent's gate.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if opts.Repo == nil {

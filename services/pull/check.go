@@ -15,7 +15,7 @@ import (
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
@@ -277,7 +277,7 @@ func handler(items ...string) []string {
 	for _, s := range items {
 		id, _ := strconv.ParseInt(s, 10, 64)
 		if err := testPR(id); err != nil {
-			if errors.Is(err, model.ErrBusy) || errors.Is(err, model.ErrInhibited) {
+			if errors.Is(err, nativeoperation_model.ErrBusy) || errors.Is(err, nativeoperation_model.ErrInhibited) {
 				ret = append(ret, s)
 			}
 		}

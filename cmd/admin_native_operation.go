@@ -10,7 +10,7 @@ import (
 
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/setting"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/urfave/cli/v3"
 )
@@ -95,9 +95,9 @@ func runNativeOperationRecover(ctx context.Context, c *cli.Command) error {
 		return errors.New("recover requires --owner and a positive --generation naming the exact held owner")
 	}
 
-	assessment, err := operation_service.Default().Recover(ctx, owner, generation)
+	assessment, err := nativeoperation_service.Default().Recover(ctx, owner, generation)
 	if err != nil {
-		if errors.Is(err, operation_service.ErrNotInhibited) {
+		if errors.Is(err, nativeoperation_service.ErrNotInhibited) {
 			return cli.Exit("domain is not inhibited: stop every native writer and inhibit restart before reconciling", 1)
 		}
 		return err
@@ -119,7 +119,7 @@ func runNativeOperationRecover(ctx context.Context, c *cli.Command) error {
 	}
 
 	switch assessment.Verdict {
-	case operation_service.RecoveryReleased, operation_service.RecoveryIdle:
+	case nativeoperation_service.RecoveryReleased, nativeoperation_service.RecoveryIdle:
 		return nil
 	default:
 		return cli.Exit("owner stays fenced for intervention", exitFenced)
@@ -137,7 +137,7 @@ func runNativeOperationStatus(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	status, err := operation_service.Default().Status(ctx)
+	status, err := nativeoperation_service.Default().Status(ctx)
 	if err != nil {
 		return err
 	}

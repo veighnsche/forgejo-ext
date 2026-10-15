@@ -16,7 +16,7 @@ import (
 
 	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
-	forgejo_context "forgejo.org/services/context"
+	app_context "forgejo.org/services/context"
 
 	_ "forgejo.org/modules/session"
 
@@ -57,7 +57,7 @@ func testNativeSession(t *testing.T, stream bool) {
 				started, finish, released := make(chan struct{}), make(chan struct{}), make(chan struct{})
 				requestDone := make(chan struct{})
 				handler := Sessioner()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					w = forgejo_context.WrapResponseWriter(w)
+					w = app_context.WrapResponseWriter(w)
 					s := session.GetSession(r)
 					switch r.URL.Path {
 					case "/login":
@@ -116,7 +116,7 @@ func testNativeSession(t *testing.T, stream bool) {
 							close(released)
 						}
 					}()
-					wrapped.ServeHTTP(forgejo_context.WrapResponseWriter(w), r)
+					wrapped.ServeHTTP(app_context.WrapResponseWriter(w), r)
 				}))
 				t.Cleanup(server.Close)
 				client := server.Client()

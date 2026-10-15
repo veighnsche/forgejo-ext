@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/setting"
 )
 
@@ -56,7 +56,7 @@ type OperationsHandshake struct {
 
 // SupportedOperations returns the current handshake facts.
 func (s *Service) SupportedOperations(_ context.Context) (OperationsHandshake, error) {
-	kinds := model.SupportedKinds()
+	kinds := nativeoperation_model.SupportedKinds()
 	return OperationsHandshake{
 		Generation: OperationsGeneration(OperationsImplementationRevision, setting.AppVer, setting.AppBuiltWith, kinds),
 		Kinds:      kinds,

@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unittest"
 	execcontext "forgejo.org/modules/nativeoperation"
 
@@ -30,15 +30,15 @@ func TestCollabOwnershipPrimitive(t *testing.T) {
 	}))
 	require.True(t, ran)
 
-	claimed, err := model.ClaimOrdinary(ctx, "ord:branch-delete/1/x", `{"kind":"ordinary"}`, "v")
+	claimed, err := nativeoperation_model.ClaimOrdinary(ctx, "ord:branch-delete/1/x", `{"kind":"ordinary"}`, "v")
 	require.NoError(t, err)
-	defer func() { _ = model.ReleaseOwner(ctx, claimed.Owner) }()
+	defer func() { _ = nativeoperation_model.ReleaseOwner(ctx, claimed.Owner) }()
 
 	ran = false
 	require.ErrorIs(t, withCollabOwnership(ctx, CollabPullResource(3, "refresh"), 1, func(ctx context.Context) error {
 		ran = true
 		return nil
-	}), model.ErrBusy)
+	}), nativeoperation_model.ErrBusy)
 	require.False(t, ran)
 
 	nested := execcontext.NewContext(ctx, &execcontext.Execution{Owner: claimed.Owner})
@@ -69,7 +69,7 @@ func TestCollabOwnershipCanceledContext(t *testing.T) {
 		return nil
 	}))
 
-	idle, err := model.ReadReservation(context.WithoutCancel(ctx))
+	idle, err := nativeoperation_model.ReadReservation(context.WithoutCancel(ctx))
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
 }

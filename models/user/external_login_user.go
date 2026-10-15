@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/util"
 
 	"xorm.io/builder"
@@ -102,7 +102,7 @@ func LinkExternalToUser(ctx context.Context, user *User, externalLoginUser *Exte
 	// Nested participating writer: external-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	has, err := db.Exist[ExternalLoginUser](ctx, builder.Eq{
@@ -124,7 +124,7 @@ func RemoveAccountLink(ctx context.Context, user *User, loginSourceID int64) (in
 	// Nested participating writer: external-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	deleted, err := db.GetEngine(ctx).Delete(&ExternalLoginUser{UserID: user.ID, LoginSourceID: loginSourceID})
@@ -142,7 +142,7 @@ func RemoveAllAccountLinks(ctx context.Context, user *User) error {
 	// Nested participating writer: external-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Delete(&ExternalLoginUser{UserID: user.ID})
@@ -168,7 +168,7 @@ func UpdateExternalUserByExternalID(ctx context.Context, external *ExternalLogin
 	// Nested participating writer: external-identity changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	has, err := db.Exist[ExternalLoginUser](ctx, builder.Eq{

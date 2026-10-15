@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	execcontext "forgejo.org/modules/nativeoperation"
 
 	"code.forgejo.org/xorm/xorm"
@@ -36,7 +36,7 @@ func useDisposablePostgres(t *testing.T) *xorm.Engine {
 	require.NoError(t, err)
 	engine.SetMapper(names.GonicMapper{})
 	t.Cleanup(func() { _ = engine.Close() })
-	require.NoError(t, engine.Sync2(new(model.Operation), new(model.Reservation)))
+	require.NoError(t, engine.Sync2(new(nativeoperation_model.Operation), new(nativeoperation_model.Reservation)))
 	_, err = engine.Exec("DELETE FROM `operation`")
 	require.NoError(t, err)
 	_, err = engine.Exec("DELETE FROM `reservation`")
@@ -53,10 +53,10 @@ func TestCancellationWinsBlockedAdmissionOnPostgres(t *testing.T) {
 	engine := useDisposablePostgres(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	owner := "cond:" + testInstallation + "/op-pg-cancel-admission"
-	_, err = model.ClaimConditional(ctx, testOperation("op-pg-cancel-admission", start.Revision), owner, `{}`, "v")
+	_, err = nativeoperation_model.ClaimConditional(ctx, testOperation("op-pg-cancel-admission", start.Revision), owner, `{}`, "v")
 	require.NoError(t, err)
 
 	// Keep cancellation uncommitted while admission reads the older pending
@@ -65,17 +65,17 @@ func TestCancellationWinsBlockedAdmissionOnPostgres(t *testing.T) {
 	cancelCtx, commit, err := db.TxContext(ctx)
 	require.NoError(t, err)
 	defer commit.Close()
-	revoked, err := model.RevokeOperation(cancelCtx, testInstallation, "op-pg-cancel-admission")
+	revoked, err := nativeoperation_model.RevokeOperation(cancelCtx, testInstallation, "op-pg-cancel-admission")
 	require.NoError(t, err)
 	require.True(t, revoked.Revoked)
 	type result struct {
-		op       *model.Operation
+		op       *nativeoperation_model.Operation
 		admitted bool
 		err      error
 	}
 	finished := make(chan result, 1)
 	go func() {
-		op, admitted, err := model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-cancel-admission", owner, true, "")
+		op, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-cancel-admission", owner, true, "")
 		finished <- result{op, admitted, err}
 	}()
 	require.Eventually(t, func() bool {
@@ -92,11 +92,11 @@ func TestCancellationWinsBlockedAdmissionOnPostgres(t *testing.T) {
 		require.False(t, got.admitted)
 		require.True(t, got.op.Revoked)
 		require.False(t, got.op.Admitted)
-		require.Equal(t, model.ReasonCancelledBeforeAdmission, got.op.Reason)
+		require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, got.op.Reason)
 	case <-ctx.Done():
 		t.Fatal("admission did not settle after cancellation committed")
 	}
-	stored, err := model.LookupOperation(ctx, testInstallation, "op-pg-cancel-admission")
+	stored, err := nativeoperation_model.LookupOperation(ctx, testInstallation, "op-pg-cancel-admission")
 	require.NoError(t, err)
 	require.True(t, stored.Revoked)
 	require.False(t, stored.Admitted)
@@ -105,22 +105,20 @@ func TestCancellationWinsBlockedAdmissionOnPostgres(t *testing.T) {
 func TestCompetingAdmissionsOnPostgres(t *testing.T) {
 	useDisposablePostgres(t)
 	ctx := t.Context()
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	owner := "cond:" + testInstallation + "/op-pg-admission-race"
-	_, err = model.ClaimConditional(ctx, testOperation("op-pg-admission-race", start.Revision), owner, `{}`, "v")
+	_, err = nativeoperation_model.ClaimConditional(ctx, testOperation("op-pg-admission-race", start.Revision), owner, `{}`, "v")
 	require.NoError(t, err)
 	gate := make(chan struct{})
 	var wg sync.WaitGroup
 	admitted := make([]bool, 8)
 	errors := make([]error, len(admitted))
 	for i := range admitted {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-gate
-			_, admitted[i], errors[i] = model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-admission-race", owner, true, "")
-		}()
+			_, admitted[i], errors[i] = nativeoperation_model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-admission-race", owner, true, "")
+		})
 	}
 	close(gate)
 	wg.Wait()
@@ -132,7 +130,7 @@ func TestCompetingAdmissionsOnPostgres(t *testing.T) {
 		}
 	}
 	require.Equal(t, 1, winners)
-	stored, err := model.LookupOperation(ctx, testInstallation, "op-pg-admission-race")
+	stored, err := nativeoperation_model.LookupOperation(ctx, testInstallation, "op-pg-admission-race")
 	require.NoError(t, err)
 	require.True(t, stored.Admitted)
 }
@@ -140,35 +138,35 @@ func TestCompetingAdmissionsOnPostgres(t *testing.T) {
 func TestAdmissionBeforeCancellationOnPostgres(t *testing.T) {
 	useDisposablePostgres(t)
 	ctx := t.Context()
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	owner := "cond:" + testInstallation + "/op-pg-admission-first"
-	_, err = model.ClaimConditional(ctx, testOperation("op-pg-admission-first", start.Revision), owner, `{}`, "v")
+	_, err = nativeoperation_model.ClaimConditional(ctx, testOperation("op-pg-admission-first", start.Revision), owner, `{}`, "v")
 	require.NoError(t, err)
-	_, admitted, err := model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-admission-first", owner, true, "")
+	_, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, testInstallation, "op-pg-admission-first", owner, true, "")
 	require.NoError(t, err)
 	require.True(t, admitted)
-	revoked, err := model.RevokeOperation(ctx, testInstallation, "op-pg-admission-first")
+	revoked, err := nativeoperation_model.RevokeOperation(ctx, testInstallation, "op-pg-admission-first")
 	require.NoError(t, err)
 	require.True(t, revoked.Admitted)
 	require.True(t, revoked.Revoked)
-	require.Equal(t, model.EffectPending, revoked.EffectState)
-	held, err := model.ReadReservation(ctx)
+	require.Equal(t, nativeoperation_model.EffectPending, revoked.EffectState)
+	held, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, owner, held.Owner, "a cancellation request cannot release an admitted effect")
-	terminal, err := model.SetTerminal(ctx, testInstallation, "op-pg-admission-first", model.TerminalOutcome{
-		EffectState: model.EffectCommitted, Cancellation: model.CancellationTooLate,
-		Completion: model.CompletionComplete, Receipt: `{}`,
+	terminal, err := nativeoperation_model.SetTerminal(ctx, testInstallation, "op-pg-admission-first", nativeoperation_model.TerminalOutcome{
+		EffectState: nativeoperation_model.EffectCommitted, Cancellation: nativeoperation_model.CancellationTooLate,
+		Completion: nativeoperation_model.CompletionComplete, Receipt: `{}`,
 	}, owner)
 	require.NoError(t, err)
-	require.Equal(t, model.CancellationTooLate, terminal.Cancellation)
-	idle, err := model.ReadReservation(ctx)
+	require.Equal(t, nativeoperation_model.CancellationTooLate, terminal.Cancellation)
+	idle, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, idle.Owner)
-	stable, err := model.SetTerminal(ctx, testInstallation, "op-pg-admission-first", model.TerminalOutcome{EffectState: model.EffectNotCommitted}, "")
+	stable, err := nativeoperation_model.SetTerminal(ctx, testInstallation, "op-pg-admission-first", nativeoperation_model.TerminalOutcome{EffectState: nativeoperation_model.EffectNotCommitted}, "")
 	require.NoError(t, err)
-	require.Equal(t, model.EffectCommitted, stable.EffectState)
-	require.Equal(t, model.CancellationTooLate, stable.Cancellation)
+	require.Equal(t, nativeoperation_model.EffectCommitted, stable.EffectState)
+	require.Equal(t, nativeoperation_model.CancellationTooLate, stable.Cancellation)
 }
 
 type raceResult struct {
@@ -184,13 +182,11 @@ func runClaimRace(racers int, claim func(ctx context.Context, i int) (owner stri
 	results := make([]raceResult, racers)
 	var wg sync.WaitGroup
 	for i := range results {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-gate
 			owner, err := claim(context.Background(), i)
 			results[i] = raceResult{owner: owner, won: err == nil, err: err}
-		}()
+		})
 	}
 	close(gate)
 	wg.Wait()
@@ -211,24 +207,24 @@ func TestConcurrentOrdinaryClaimOnPostgres(t *testing.T) {
 	useDisposablePostgres(t)
 	ctx := context.Background()
 
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, start.Owner)
 
 	results := runClaimRace(8, func(ctx context.Context, i int) (string, error) {
 		owner := fmt.Sprintf("ord:race/pg/%d", i)
-		_, err := model.ClaimOrdinary(ctx, owner, `{"kind":"ordinary"}`, "v")
+		_, err := nativeoperation_model.ClaimOrdinary(ctx, owner, `{"kind":"ordinary"}`, "v")
 		return owner, err
 	})
 	for _, r := range results {
 		if !r.won {
-			require.ErrorIs(t, r.err, model.ErrBusy, "loser %s", r.owner)
+			require.ErrorIs(t, r.err, nativeoperation_model.ErrBusy, "loser %s", r.owner)
 		}
 	}
 	winners := winnersOf(results)
 	require.Len(t, winners, 1, "exactly one claimant must gain the reservation")
 
-	final, err := model.ReadReservation(ctx)
+	final, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, winners[0].owner, final.Owner)
 	require.Equal(t, start.Revision+1, final.Revision)
@@ -239,36 +235,36 @@ func TestConcurrentOrdinaryClaimOnPostgres(t *testing.T) {
 		if r.won {
 			continue
 		}
-		require.ErrorIs(t, model.ReleaseOwner(ctx, r.owner), model.ErrWrongOwner)
+		require.ErrorIs(t, nativeoperation_model.ReleaseOwner(ctx, r.owner), nativeoperation_model.ErrWrongOwner)
 		loserCtx := execcontext.NewContext(ctx, &execcontext.Execution{Owner: r.owner, Generation: final.Generation})
-		require.ErrorIs(t, model.RequireHeldOwnership(loserCtx), model.ErrBusy, "loser %s", r.owner)
+		require.ErrorIs(t, nativeoperation_model.RequireHeldOwnership(loserCtx), nativeoperation_model.ErrBusy, "loser %s", r.owner)
 	}
-	require.NoError(t, model.ReleaseOwner(ctx, winners[0].owner))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, winners[0].owner))
 }
 
 func TestConcurrentConditionalClaimOnPostgres(t *testing.T) {
 	useDisposablePostgres(t)
 	ctx := context.Background()
 
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, start.Owner)
 
 	results := runClaimRace(8, func(ctx context.Context, i int) (string, error) {
 		id := fmt.Sprintf("op-pg-race-%d", i)
 		owner := "cond:" + testInstallation + "/" + id
-		_, err := model.ClaimConditional(ctx, testOperation(id, start.Revision), owner, `{"kind":"conditional"}`, "v")
+		_, err := nativeoperation_model.ClaimConditional(ctx, testOperation(id, start.Revision), owner, `{"kind":"conditional"}`, "v")
 		return owner, err
 	})
 	for _, r := range results {
 		if !r.won {
-			require.True(t, r.err == model.ErrBusy || r.err == model.ErrStaleRevision, "loser %s: %v", r.owner, r.err)
+			require.True(t, r.err == nativeoperation_model.ErrBusy || r.err == nativeoperation_model.ErrStaleRevision, "loser %s: %v", r.owner, r.err)
 		}
 	}
 	winners := winnersOf(results)
 	require.Len(t, winners, 1, "exactly one claimant must gain the revision")
 
-	final, err := model.ReadReservation(ctx)
+	final, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, winners[0].owner, final.Owner)
 	require.Equal(t, start.Revision+1, final.Revision)
@@ -276,45 +272,45 @@ func TestConcurrentConditionalClaimOnPostgres(t *testing.T) {
 	// Losing claims record no operation and cannot admit under their name.
 	for i, r := range results {
 		id := fmt.Sprintf("op-pg-race-%d", i)
-		stored, err := model.LookupOperation(ctx, testInstallation, id)
+		stored, err := nativeoperation_model.LookupOperation(ctx, testInstallation, id)
 		require.NoError(t, err)
 		if r.won {
 			require.NotNil(t, stored, "winner records its operation")
 			continue
 		}
 		require.Nil(t, stored, "loser %s records nothing", r.owner)
-		_, _, err = model.RecordAdmissionAttempt(ctx, testInstallation, id, r.owner, true, "")
+		_, _, err = nativeoperation_model.RecordAdmissionAttempt(ctx, testInstallation, id, r.owner, true, "")
 		require.Error(t, err, "loser %s cannot admit", r.owner)
 	}
-	require.NoError(t, model.ReleaseOwner(ctx, winners[0].owner))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, winners[0].owner))
 }
 
 func TestConcurrentPublishReceiveClaimOnPostgres(t *testing.T) {
 	useDisposablePostgres(t)
 	ctx := context.Background()
 
-	start, err := model.ReadReservation(ctx)
+	start, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Empty(t, start.Owner)
-	_, err = model.InsertWaitingOperation(ctx, testOperation("op-pg-receive", start.Revision))
+	_, err = nativeoperation_model.InsertWaitingOperation(ctx, testOperation("op-pg-receive", start.Revision))
 	require.NoError(t, err)
 
 	results := runClaimRace(8, func(ctx context.Context, i int) (string, error) {
 		owner := fmt.Sprintf("cond:%s/op-pg-receive#%d", testInstallation, i)
-		_, _, err := model.ClaimPublishReceive(ctx, testInstallation, "op-pg-receive", owner, `{"kind":"conditional"}`, "v", 1000000000)
+		_, _, err := nativeoperation_model.ClaimPublishReceive(ctx, testInstallation, "op-pg-receive", owner, `{"kind":"conditional"}`, "v", 1000000000)
 		return owner, err
 	})
 	for _, r := range results {
 		if !r.won {
-			require.True(t, r.err == model.ErrBusy || r.err == model.ErrStaleRevision || r.err == model.ErrAdmissionLost, "loser %s: %v", r.owner, r.err)
+			require.True(t, r.err == nativeoperation_model.ErrBusy || r.err == nativeoperation_model.ErrStaleRevision || r.err == nativeoperation_model.ErrAdmissionLost, "loser %s: %v", r.owner, r.err)
 		}
 	}
 	winners := winnersOf(results)
 	require.Len(t, winners, 1, "exactly one receiver must gain the reservation")
 
-	final, err := model.ReadReservation(ctx)
+	final, err := nativeoperation_model.ReadReservation(ctx)
 	require.NoError(t, err)
 	require.Equal(t, winners[0].owner, final.Owner)
 	require.Equal(t, start.Revision+1, final.Revision)
-	require.NoError(t, model.ReleaseOwner(ctx, winners[0].owner))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, winners[0].owner))
 }

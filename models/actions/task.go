@@ -12,7 +12,7 @@ import (
 
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
@@ -542,7 +542,7 @@ func UpdateTask(ctx context.Context, task *ActionTask, cols ...string) error {
 		// Nested participating writer: task state changes refuse while
 		// another owner holds the reservation; the enclosing Actions
 		// update carries the execution.
-		if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+		if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 			return err
 		}
 	}

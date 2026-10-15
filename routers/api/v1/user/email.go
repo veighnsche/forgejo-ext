@@ -13,7 +13,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -74,7 +74,7 @@ func AddEmail(ctx *context.APIContext) {
 	}
 
 	if err := user_service.AddEmailAddresses(ctx, ctx.Doer(), form.Emails); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -136,7 +136,7 @@ func DeleteEmail(ctx *context.APIContext) {
 	}
 
 	if err := user_service.DeleteEmailAddresses(ctx, ctx.Doer(), form.Emails); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

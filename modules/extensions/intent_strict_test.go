@@ -97,11 +97,11 @@ func TestPendingSameGenerationPreservesIdentity(t *testing.T) {
 	root := t.TempDir()
 	installation := ensureTestInstallation(t, root, "sample")
 
-	begin, err := StoreIntent(root, "sample", installation, true, intentOperation(IntentActivate), "0")
+	begin, err := StoreIntent(root, "sample", installation, true, new(IntentActivate), "0")
 	require.NoError(t, err)
 	require.Equal(t, "1", begin.Generation)
 
-	marked, err := StorePendingSameGeneration(root, "sample", true, intentOperation(IntentActivate), "1")
+	marked, err := StorePendingSameGeneration(root, "sample", true, new(IntentActivate), "1")
 	require.NoError(t, err)
 	require.Equal(t, "1", marked.Generation)
 	require.Equal(t, installation, marked.InstallationID)
@@ -121,13 +121,13 @@ func TestPendingSameGenerationPreservesIdentity(t *testing.T) {
 	_, err = StorePendingSameGeneration(root, "sample", true, nil, "0")
 	require.ErrorContains(t, err, "changed")
 
-	retry, err := StoreIntent(root, "sample", installation, true, intentOperation(IntentActivate), "1")
+	retry, err := StoreIntent(root, "sample", installation, true, new(IntentActivate), "1")
 	require.NoError(t, err)
 	require.Equal(t, "2", retry.Generation)
 }
 
 func TestPendingSameGenerationRejectsVirtual(t *testing.T) {
 	root := t.TempDir()
-	_, err := StorePendingSameGeneration(root, "sample", true, intentOperation(IntentActivate), "0")
+	_, err := StorePendingSameGeneration(root, "sample", true, new(IntentActivate), "0")
 	require.Error(t, err)
 }

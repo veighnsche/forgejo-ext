@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	"forgejo.org/modules/timeutil"
 
@@ -62,7 +62,7 @@ func InsertProtectedTag(ctx context.Context, pt *ProtectedTag) error {
 	// Nested participating writer: protection changes refuse while another
 	// owner holds the reservation; the enclosing protection update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Insert(pt)
@@ -74,7 +74,7 @@ func UpdateProtectedTag(ctx context.Context, pt *ProtectedTag) error {
 	// Nested participating writer: protection changes refuse while another
 	// owner holds the reservation; the enclosing protection update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(pt.ID).AllCols().Update(pt)
@@ -86,7 +86,7 @@ func DeleteProtectedTag(ctx context.Context, pt *ProtectedTag) error {
 	// Nested participating writer: protection changes refuse while another
 	// owner holds the reservation; the enclosing protection update carries
 	// the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(pt.ID).Delete(&ProtectedTag{})

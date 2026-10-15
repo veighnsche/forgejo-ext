@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/timeutil"
 
 	"xorm.io/builder"
@@ -47,7 +47,7 @@ func InsertActionUser(ctx context.Context, user *ActionUser) error {
 	// Nested participating writer: trust rows gate Actions run approval,
 	// so they refuse while another owner holds the reservation; the
 	// enclosing trust update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	user.LastAccess = timeutil.TimeStampNow()
@@ -58,7 +58,7 @@ func DeleteActionUserByUserIDAndRepoID(ctx context.Context, userID, repoID int64
 	// Nested participating writer: trust rows gate Actions run approval,
 	// so they refuse while another owner holds the reservation; the
 	// enclosing trust update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Table(&ActionUser{}).Where("user_id=? AND repo_id=?", userID, repoID).Delete()
@@ -109,7 +109,7 @@ func RevokeInactiveActionUser(ctx context.Context) error {
 	// Nested participating writer: trust rows gate Actions run approval,
 	// so the sweep refuses while another owner holds the reservation;
 	// the enclosing trust update carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	olderThan := timeutil.TimeStampNow().AddDuration(-expire)

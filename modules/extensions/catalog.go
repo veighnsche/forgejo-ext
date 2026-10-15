@@ -355,10 +355,8 @@ func extractArchive(archive, target string) error {
 		if strings.HasPrefix(top, ".") {
 			return fmt.Errorf("package archive hides reserved state: %s", header.Name)
 		}
-		for _, segment := range strings.Split(name, "/") {
-			if segment == receiptFileName {
-				return fmt.Errorf("package archive supplies reserved state: %s", header.Name)
-			}
+		if slices.Contains(strings.Split(name, "/"), receiptFileName) {
+			return fmt.Errorf("package archive supplies reserved state: %s", header.Name)
 		}
 		if seen[name] {
 			return fmt.Errorf("package archive repeats a path: %s", header.Name)
@@ -432,10 +430,7 @@ func extractArchive(archive, target string) error {
 		return errors.New("package archive has trailing data")
 	}
 	decoded += int64(len(rest))
-	if err := verifySingleMember(archive, decoded); err != nil {
-		return err
-	}
-	return nil
+	return verifySingleMember(archive, decoded)
 }
 
 // verifySingleMember decodes the whole archive stream and requires the
@@ -471,7 +466,7 @@ func mkdirAll(root *os.Root, name string) error {
 		return nil
 	}
 	current := "."
-	for _, segment := range strings.Split(name, "/") {
+	for segment := range strings.SplitSeq(name, "/") {
 		current = current + "/" + segment
 		rel := strings.TrimPrefix(current, "./")
 		if err := root.Mkdir(rel, 0o755); err != nil && !errors.Is(err, os.ErrExist) {
@@ -488,7 +483,7 @@ func validArchiveName(name string) bool {
 	if name != filepath.Clean(name) || name == ".." || strings.HasPrefix(name, "../") {
 		return false
 	}
-	for _, segment := range strings.Split(name, "/") {
+	for segment := range strings.SplitSeq(name, "/") {
 		if segment == "" || segment == "." || segment == ".." {
 			return false
 		}

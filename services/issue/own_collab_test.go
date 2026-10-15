@@ -4,11 +4,11 @@
 package issue_test
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"testing"
 
 	issue_service "forgejo.org/services/issue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"github.com/stretchr/testify/require"
 )
@@ -30,14 +30,14 @@ func TestCollabOwnershipWireContract(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &decoded))
 	require.Equal(t, map[string]any{"kind": "ordinary", "family": "collaboration", "repository_id": float64(7)}, decoded)
 
-	require.Equal(t, operation_service.IssueResource(7, "title"), issue_service.CollabIssueResource(7, "title"))
-	require.Equal(t, operation_service.CommentResource(9, "update"), issue_service.CollabCommentResource(9, "update"))
-	require.Equal(t, operation_service.CommentCreateResource(7), issue_service.CollabCommentCreateResource(7))
-	require.Equal(t, operation_service.DependencyResource(7, 8), issue_service.CollabDependencyResource(7, 8))
-	require.Equal(t, operation_service.ReviewSubmitResource(7), issue_service.CollabReviewSubmitResource(7))
-	require.Equal(t, operation_service.ReactionResource(7, 0, 2), issue_service.CollabReactionResource(7, 0, 2))
-	require.Equal(t, operation_service.CollabBatchResource("push-commit"), issue_service.CollabBatchResource("push-commit"))
-	require.Equal(t, operation_service.IssueCreateResource(1), issue_service.CollabIssueCreateResource(1))
-	require.Equal(t, operation_service.ReviewRequestResource(7, 2), issue_service.CollabReviewRequestResource(7, 2))
-	require.Equal(t, operation_service.ReviewTeamRequestResource(7, 3), issue_service.CollabReviewTeamRequestResource(7, 3))
+	require.Equal(t, nativeoperation_service.IssueResource(7, "title"), issue_service.CollabIssueResource(7, "title"))
+	require.Equal(t, nativeoperation_service.CommentResource(9, "update"), issue_service.CollabCommentResource(9, "update"))
+	require.Equal(t, nativeoperation_service.CommentCreateResource(7), issue_service.CollabCommentCreateResource(7))
+	require.Equal(t, nativeoperation_service.DependencyResource(7, 8), issue_service.CollabDependencyResource(7, 8))
+	require.Equal(t, nativeoperation_service.ReviewSubmitResource(7), issue_service.CollabReviewSubmitResource(7))
+	require.Equal(t, nativeoperation_service.ReactionResource(7, 0, 2), issue_service.CollabReactionResource(7, 0, 2))
+	require.Equal(t, nativeoperation_service.CollabBatchResource("push-commit"), issue_service.CollabBatchResource("push-commit"))
+	require.Equal(t, nativeoperation_service.IssueCreateResource(1), issue_service.CollabIssueCreateResource(1))
+	require.Equal(t, nativeoperation_service.ReviewRequestResource(7, 2), issue_service.CollabReviewRequestResource(7, 2))
+	require.Equal(t, nativeoperation_service.ReviewTeamRequestResource(7, 3), issue_service.CollabReviewTeamRequestResource(7, 3))
 }

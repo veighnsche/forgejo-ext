@@ -5,9 +5,10 @@ package extensions
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -185,15 +186,14 @@ func installCatalogPackage(t *testing.T, root string, entry sdk.CatalogPackage, 
 	if entry.LifecycleController != "" {
 		manifest["lifecycle_controller"] = entry.LifecycleController
 	}
-	for key, value := range extra {
-		manifest[key] = value
-	}
+	maps.Copy(manifest, extra)
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, packages.WriteReceipt(packageDir, entry))
 }
 
+//nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func shortTestRoot(t *testing.T) string {
 	t.Helper()
 	root, err := os.MkdirTemp(os.TempDir(), "e-")

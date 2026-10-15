@@ -18,7 +18,7 @@ import (
 
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/organization"
 	project_model "forgejo.org/models/project"
 	repo_model "forgejo.org/models/repo"
@@ -611,7 +611,7 @@ func (c *Comment) LoadAttachments(ctx context.Context) error {
 func (c *Comment) UpdateAttachments(ctx context.Context, uuids []string) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -893,7 +893,7 @@ func (c *Comment) LoadPushCommits(ctx context.Context) (err error) {
 func CreateComment(ctx context.Context, opts *CreateCommentOptions) (_ *Comment, err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -1213,7 +1213,7 @@ func CountComments(ctx context.Context, opts *FindCommentsOptions) (int64, error
 func UpdateCommentInvalidate(ctx context.Context, c *Comment) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).ID(c.ID).Cols("invalidated").Update(c)
@@ -1224,7 +1224,7 @@ func UpdateCommentInvalidate(ctx context.Context, c *Comment) error {
 func UpdateComment(ctx context.Context, c *Comment, contentVersion int, doer *user_model.User) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	ctx, committer, err := db.TxContext(ctx)
@@ -1274,7 +1274,7 @@ func UpdateComment(ctx context.Context, c *Comment, contentVersion int, doer *us
 func DeleteComment(ctx context.Context, comment *Comment) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	e := db.GetEngine(ctx)
@@ -1316,7 +1316,7 @@ func DeleteComment(ctx context.Context, comment *Comment) error {
 func UpdateCommentsMigrationsByType(ctx context.Context, tp structs.GitServiceType, originalAuthorID string, posterID int64) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Table("comment").
@@ -1336,7 +1336,7 @@ func UpdateCommentsMigrationsByType(ctx context.Context, tp structs.GitServiceTy
 func CreateAutoMergeComment(ctx context.Context, typ CommentType, pr *PullRequest, doer *user_model.User) (comment *Comment, err error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	if typ != CommentTypePRScheduledToAutoMerge && typ != CommentTypePRUnScheduledToAutoMerge {
@@ -1385,7 +1385,7 @@ func CountCommentTypeLabelWithEmptyLabel(ctx context.Context) (int64, error) {
 func FixCommentTypeLabelWithEmptyLabel(ctx context.Context) (int64, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	return db.GetEngine(ctx).Where(builder.Eq{"type": CommentTypeLabel, "label_id": 0}).Delete(new(Comment))
@@ -1405,7 +1405,7 @@ func CountCommentTypeLabelWithOutsideLabels(ctx context.Context) (int64, error) 
 func FixCommentTypeLabelWithOutsideLabels(ctx context.Context) (int64, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return 0, err
 	}
 	res, err := db.GetEngine(ctx).Exec(`DELETE FROM comment WHERE comment.id IN (
@@ -1443,7 +1443,7 @@ func UpdateIssueNumCommentsBuilder(issueID int64) *builder.Builder {
 func UpdateIssueNumComments(ctx context.Context, issueID int64) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	_, err := db.GetEngine(ctx).Exec(UpdateIssueNumCommentsBuilder(issueID))
@@ -1454,7 +1454,7 @@ func UpdateIssueNumComments(ctx context.Context, issueID int64) error {
 func InsertIssueComments(ctx context.Context, comments []*Comment) error {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary owner carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return err
 	}
 	if len(comments) == 0 {

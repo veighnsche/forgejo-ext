@@ -48,6 +48,7 @@ func TestParsePublishBinding(t *testing.T) {
 	binding, present, err := ParsePublishBinding("", "")
 	require.NoError(t, err)
 	require.False(t, present)
+	require.Equal(t, PublishBinding{}, binding)
 
 	binding, present, err = ParsePublishBinding("op-1", admission)
 	require.NoError(t, err)

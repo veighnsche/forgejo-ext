@@ -11,7 +11,7 @@ import (
 	"forgejo.org/modules/gitrepo"
 	"forgejo.org/modules/private"
 	app_context "forgejo.org/services/context"
-	nativeoperation "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 // SetDefaultBranch updates the default branch
@@ -24,7 +24,7 @@ func SetDefaultBranch(ctx *app_context.PrivateContext) {
 	// instead of claiming again. While idle this returns the context
 	// unchanged; under a foreign hold without a matching proof it
 	// refuses before any effect.
-	reqCtx, err := nativeoperation.BoundCallbackContext(ctx, ctx.FormString("exec_proof"), "")
+	reqCtx, err := nativeoperation_service.BoundCallbackContext(ctx, ctx.FormString("exec_proof"), "")
 	if err != nil {
 		ctx.JSON(http.StatusForbidden, private.Response{
 			UserMsg: "native operation in progress",

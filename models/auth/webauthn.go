@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"forgejo.org/models/db"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/modules/timeutil"
 	"forgejo.org/modules/util"
 
@@ -176,7 +176,7 @@ func CreateCredential(ctx context.Context, userID int64, name string, cred *weba
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return nil, err
 	}
 	c := &WebAuthnCredential{
@@ -204,7 +204,7 @@ func DeleteCredential(ctx context.Context, id, userID int64) (bool, error) {
 	// Nested participating writer: credential changes refuse while
 	// another owner holds the reservation; the enclosing authority update
 	// carries the execution.
-	if err := nativeoperation.RequireHeldOwnership(ctx); err != nil {
+	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
 		return false, err
 	}
 	had, err := db.GetEngine(ctx).ID(id).Where("user_id = ?", userID).Delete(&WebAuthnCredential{})

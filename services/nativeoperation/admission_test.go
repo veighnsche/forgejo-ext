@@ -12,7 +12,7 @@ import (
 	auth_model "forgejo.org/models/auth"
 	"forgejo.org/models/db"
 	"forgejo.org/models/extensionauth"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	execcontext "forgejo.org/modules/nativeoperation"
@@ -55,16 +55,17 @@ func writerToken(t *testing.T) *auth_model.AccessToken {
 	return token
 }
 
+//nolint:revive // Test helpers take testing.T before their context.
 func claimMergeOwner(t *testing.T, ctx context.Context, token *auth_model.AccessToken, id string, scope Scope, now int64) (owner, secret string) {
 	t.Helper()
 	observation, err := NewService().ReadNativeRevision(ctx)
 	require.NoError(t, err)
 	secret = "proof-" + id
 	owner = conditionalOwner(operationTestInstallation, id)
-	op := &model.Operation{
+	op := &nativeoperation_model.Operation{
 		InstallationID:         operationTestInstallation,
 		OperationID:            id,
-		Kind:                   model.KindMerge,
+		Kind:                   nativeoperation_model.KindMerge,
 		ActorID:                2,
 		RepositoryID:           1,
 		TokenID:                token.ID,
@@ -77,14 +78,14 @@ func claimMergeOwner(t *testing.T, ctx context.Context, token *auth_model.Access
 	}
 	encoded, err := encodeScope(scope)
 	require.NoError(t, err)
-	_, err = model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
+	_, err = nativeoperation_model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
 	require.NoError(t, err)
 	return owner, secret
 }
 
 func mergeScope() Scope {
 	return Scope{
-		Kind:         model.OwnerConditional,
+		Kind:         nativeoperation_model.OwnerConditional,
 		RepositoryID: 1,
 		Ref:          "refs/heads/master",
 		OldOID:       testBase,
@@ -122,7 +123,7 @@ func TestPreparedAdmissionHappyPath(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, decision.Allowed, "refused: %s", decision.Reason)
 
-	op, err := model.LookupOperation(ctx, operationTestInstallation, "op-prepared")
+	op, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-prepared")
 	require.NoError(t, err)
 	require.True(t, op.Admitted)
 }
@@ -143,10 +144,10 @@ func TestPreparedAdmissionRefusals(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, decision.Allowed)
-	forged, err := model.LookupOperation(ctx, operationTestInstallation, "op-forged")
+	forged, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-forged")
 	require.NoError(t, err)
 	require.False(t, forged.Admitted)
-	require.NoError(t, model.ReleaseOwner(ctx, conditionalOwner(operationTestInstallation, "op-forged")))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, conditionalOwner(operationTestInstallation, "op-forged")))
 
 	// A changed head refuses at the checkpoint.
 	svc = admissionService(t, map[string]string{"refs/heads/branch2": testBase}, now)
@@ -158,17 +159,17 @@ func TestPreparedAdmissionRefusals(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, decision.Allowed)
-	require.Equal(t, model.ReasonStaleHead, decision.Reason)
-	recorded, err := model.LookupOperation(ctx, operationTestInstallation, "op-stale-head")
+	require.Equal(t, nativeoperation_model.ReasonStaleHead, decision.Reason)
+	recorded, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-stale-head")
 	require.NoError(t, err)
 	require.False(t, recorded.Admitted)
-	require.Equal(t, model.ReasonStaleHead, recorded.Reason)
-	require.NoError(t, model.ReleaseOwner(ctx, conditionalOwner(operationTestInstallation, "op-stale-head")))
+	require.Equal(t, nativeoperation_model.ReasonStaleHead, recorded.Reason)
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, conditionalOwner(operationTestInstallation, "op-stale-head")))
 
 	// Cancellation winning before admission prevents the write.
 	svc = admissionService(t, map[string]string{"refs/heads/branch2": testHead}, now)
 	_, secret = claimMergeOwner(t, ctx, token, "op-cancel-first", mergeScope(), now)
-	_, err = model.RevokeOperation(ctx, operationTestInstallation, "op-cancel-first")
+	_, err = nativeoperation_model.RevokeOperation(ctx, operationTestInstallation, "op-cancel-first")
 	require.NoError(t, err)
 	decision, err = svc.ClassifyTransaction(ctx, TransactionRequest{
 		OwnerName: "user2", RepoName: "repo1", Phase: PhasePrepared,
@@ -177,8 +178,8 @@ func TestPreparedAdmissionRefusals(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, decision.Allowed)
-	require.Equal(t, model.ReasonCancelledBeforeAdmission, decision.Reason)
-	require.NoError(t, model.ReleaseOwner(ctx, conditionalOwner(operationTestInstallation, "op-cancel-first")))
+	require.Equal(t, nativeoperation_model.ReasonCancelledBeforeAdmission, decision.Reason)
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, conditionalOwner(operationTestInstallation, "op-cancel-first")))
 
 	// An elapsed admission deadline refuses.
 	svc = admissionService(t, map[string]string{"refs/heads/branch2": testHead}, now+1000)
@@ -190,7 +191,7 @@ func TestPreparedAdmissionRefusals(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, decision.Allowed)
-	require.Equal(t, model.ReasonExpiredBeforeAdmission, decision.Reason)
+	require.Equal(t, nativeoperation_model.ReasonExpiredBeforeAdmission, decision.Reason)
 }
 
 func TestPreparedAdmissionDuplicateAndCompletionPhases(t *testing.T) {
@@ -216,7 +217,7 @@ func TestPreparedAdmissionDuplicateAndCompletionPhases(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, second.Allowed)
-	require.Equal(t, model.ReasonDuplicateAdmission, second.Reason)
+	require.Equal(t, nativeoperation_model.ReasonDuplicateAdmission, second.Reason)
 
 	for _, phase := range []string{PhaseCommitted, PhaseAborted} {
 		notice, err := svc.ClassifyTransaction(ctx, TransactionRequest{
@@ -233,9 +234,9 @@ func TestClassifyOrdinaryOwnerScope(t *testing.T) {
 	unittest.PrepareTestEnv(t)
 	ctx := t.Context()
 	svc := admissionService(t, nil, time.Now().Unix())
-	encoded, err := encodeScope(Scope{Kind: model.OwnerOrdinary, RepositoryID: 1, Ref: "refs/heads/topic", Family: "branch"})
+	encoded, err := encodeScope(Scope{Kind: nativeoperation_model.OwnerOrdinary, RepositoryID: 1, Ref: "refs/heads/topic", Family: "branch"})
 	require.NoError(t, err)
-	_, err = model.ClaimOrdinary(ctx, "ord:branch/1/topic/z", encoded, execcontext.Verifier("branch-proof"))
+	_, err = nativeoperation_model.ClaimOrdinary(ctx, "ord:branch/1/topic/z", encoded, execcontext.Verifier("branch-proof"))
 	require.NoError(t, err)
 
 	allowed, err := svc.ClassifyTransaction(ctx, TransactionRequest{
@@ -268,7 +269,7 @@ func TestClassifyCompletion(t *testing.T) {
 	require.NoError(t, err)
 	owner, err := func() (string, error) {
 		owner := conditionalOwner(operationTestInstallation, "op-completion")
-		_, err := model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("completion-proof"))
+		_, err := nativeoperation_model.ClaimOrdinary(ctx, owner, encoded, execcontext.Verifier("completion-proof"))
 		return owner, err
 	}()
 	require.NoError(t, err)
@@ -284,7 +285,7 @@ func TestClassifyCompletion(t *testing.T) {
 	bound, err := svc.ClassifyCompletion(ctx, 1, []string{"refs/heads/master"}, "completion-proof", false)
 	require.NoError(t, err)
 	require.True(t, bound.Allowed)
-	require.NoError(t, model.ReleaseOwner(ctx, owner))
+	require.NoError(t, nativeoperation_model.ReleaseOwner(ctx, owner))
 }
 
 func TestPreparedAdmissionRechecksPublicOnlyAfterRepositoryBecomesPrivate(t *testing.T) {
@@ -311,8 +312,8 @@ func TestPreparedAdmissionRechecksPublicOnlyAfterRepositoryBecomesPrivate(t *tes
 	})
 	require.NoError(t, err)
 	require.False(t, decision.Allowed)
-	require.Equal(t, model.ReasonAuthorityLost, decision.Reason)
-	op, err := model.LookupOperation(ctx, operationTestInstallation, "op-public-became-private")
+	require.Equal(t, nativeoperation_model.ReasonAuthorityLost, decision.Reason)
+	op, err := nativeoperation_model.LookupOperation(ctx, operationTestInstallation, "op-public-became-private")
 	require.NoError(t, err)
 	require.False(t, op.Admitted)
 }

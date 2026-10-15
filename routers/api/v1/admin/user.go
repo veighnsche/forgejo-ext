@@ -30,7 +30,7 @@ import (
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	"forgejo.org/services/mailer"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	user_service "forgejo.org/services/user"
 )
 
@@ -140,10 +140,10 @@ func CreateUser(ctx *context.APIContext) {
 	// One authority writer owns the account creation before its effects,
 	// advancing the native revision so old permission observations go
 	// stale.
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", u.Name), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("user/%s", u.Name), 0, func(ctx std_ctx.Context) error {
 		return user_model.AdminCreateUser(ctx, u, overwriteDefault)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -220,7 +220,7 @@ func EditUser(ctx *context.APIContext) {
 		ProhibitLogin:      optional.FromPtr(form.ProhibitLogin),
 	}
 	if err := user_service.UpdateAuth(ctx, ctx.User(), authOpts); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -239,7 +239,7 @@ func EditUser(ctx *context.APIContext) {
 
 	if form.Email != nil {
 		if err := user_service.AdminAddOrSetPrimaryEmailAddress(ctx, ctx.User(), *form.Email); err != nil {
-			if operation_service.IsBusy(err) {
+			if nativeoperation_service.IsBusy(err) {
 				ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 				return
 			}
@@ -277,7 +277,7 @@ func EditUser(ctx *context.APIContext) {
 	}
 
 	if err := user_service.UpdateUser(ctx, ctx.User(), opts); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -333,7 +333,7 @@ func DeleteUser(ctx *context.APIContext) {
 	}
 
 	if err := user_service.DeleteUser(ctx, ctx.User(), ctx.FormBool("purge")); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -416,10 +416,10 @@ func DeleteUserPublicKey(ctx *context.APIContext) {
 	// stale.
 	keyOwner := ctx.User()
 	keyID := ctx.ParamsInt64(":id")
-	if err := operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("key/%d", keyID), 0, func(ctx std_ctx.Context) error {
+	if err := nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("key/%d", keyID), 0, func(ctx std_ctx.Context) error {
 		return asymkey_service.DeletePublicKey(ctx, keyOwner, keyID)
 	}); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}
@@ -636,7 +636,7 @@ func DeleteUserEmails(ctx *context.APIContext) {
 	}
 
 	if err := user_service.DeleteEmailAddresses(ctx, ctx.User(), form.Emails); err != nil {
-		if operation_service.IsBusy(err) {
+		if nativeoperation_service.IsBusy(err) {
 			ctx.Error(http.StatusServiceUnavailable, "", "A native operation is in progress; retry shortly.")
 			return
 		}

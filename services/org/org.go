@@ -15,7 +15,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/storage"
 	"forgejo.org/modules/util"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 )
 
@@ -25,7 +25,7 @@ func DeleteOrganization(ctx context.Context, org *org_model.Organization, purge 
 	// effects, advancing the native revision so old permission
 	// observations go stale. Nested repository and team removals reuse
 	// this ownership; their owning tasks reconcile their own effects.
-	return operation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/delete", org.ID), 0, func(ctx context.Context) error {
+	return nativeoperation_service.WithAuthorityOwnership(ctx, fmt.Sprintf("org/%d/delete", org.ID), 0, func(ctx context.Context) error {
 		return doDeleteOrganization(ctx, org, purge)
 	})
 }

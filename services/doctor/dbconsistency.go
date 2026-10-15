@@ -16,7 +16,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 )
 
 type consistencyCheck struct {
@@ -71,7 +71,7 @@ func asFixer(fn func(ctx context.Context) error) func(ctx context.Context) (int6
 func collabFixer(fn func(ctx context.Context) (int64, error)) func(ctx context.Context) (int64, error) {
 	return func(ctx context.Context) (int64, error) {
 		var fixed int64
-		err := operation_service.WithCollaborationOwnership(ctx, operation_service.CollabBatchResource("orphan-fix"), 0, func(ctx context.Context) error {
+		err := nativeoperation_service.WithCollaborationOwnership(ctx, nativeoperation_service.CollabBatchResource("orphan-fix"), 0, func(ctx context.Context) error {
 			var err error
 			fixed, err = fn(ctx)
 			return err
@@ -87,8 +87,8 @@ func collabFixer(fn func(ctx context.Context) (int64, error)) func(ctx context.C
 func maintFixer(name string, fn func(ctx context.Context) (int64, error)) func(ctx context.Context) (int64, error) {
 	return func(ctx context.Context) (int64, error) {
 		var fixed int64
-		err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyMaintenance, "0/"+name, operation_service.Scope{
-			Family: operation_service.FamilyMaintenance,
+		err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyMaintenance, "0/"+name, nativeoperation_service.Scope{
+			Family: nativeoperation_service.FamilyMaintenance,
 		}, func(ctx context.Context) error {
 			var err error
 			fixed, err = fn(ctx)

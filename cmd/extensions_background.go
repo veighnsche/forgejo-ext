@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	authmodel "forgejo.org/models/extensionauth"
+	extensionauth_model "forgejo.org/models/extensionauth"
 	"forgejo.org/modules/extensions"
 	"forgejo.org/modules/setting"
 
@@ -53,7 +53,7 @@ func parseBackgroundBindingArgs(c *cli.Command) (backgroundBindingArgs, error) {
 		repo:         c.Int64("repository-id"),
 		kind:         c.String("kind"),
 	}
-	if args.installation == "" || args.tokenID <= 0 || args.actorID <= 0 || args.repo <= 0 || !authmodel.ValidKind(args.kind) {
+	if args.installation == "" || args.tokenID <= 0 || args.actorID <= 0 || args.repo <= 0 || !extensionauth_model.ValidKind(args.kind) {
 		return backgroundBindingArgs{}, errors.New("provide --installation, --token-id, --actor-id, --repository-id and a supported --kind")
 	}
 	return args, nil
@@ -72,7 +72,7 @@ func extensionBindCommand() *cli.Command {
 			if err := initDB(ctx); err != nil {
 				return err
 			}
-			binding, err := authmodel.EnrollBinding(ctx, args.installation, args.tokenID, args.actorID, args.repo, args.kind)
+			binding, err := extensionauth_model.EnrollBinding(ctx, args.installation, args.tokenID, args.actorID, args.repo, args.kind)
 			if err != nil {
 				return err
 			}
@@ -96,7 +96,7 @@ func extensionBindingsCommand() *cli.Command {
 			if err := initDB(ctx); err != nil {
 				return err
 			}
-			bindings, err := authmodel.ListBindings(ctx, installation)
+			bindings, err := extensionauth_model.ListBindings(ctx, installation)
 			if err != nil {
 				return err
 			}
@@ -124,7 +124,7 @@ func extensionUnbindCommand() *cli.Command {
 			if err := initDB(ctx); err != nil {
 				return err
 			}
-			revoked, err := authmodel.RevokeBinding(ctx, args.installation, args.tokenID, args.actorID, args.repo, args.kind)
+			revoked, err := extensionauth_model.RevokeBinding(ctx, args.installation, args.tokenID, args.actorID, args.repo, args.kind)
 			if err != nil {
 				return err
 			}

@@ -12,7 +12,7 @@ import (
 	sdk "forgejo.org/extension-sdk"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/setting"
-	runtime "forgejo.org/services/extensions"
+	extensions_service "forgejo.org/services/extensions"
 )
 
 // StartRuntime loads the administrator-selected packages for web, CLI and installer
@@ -24,8 +24,8 @@ func StartRuntime(ctx context.Context) (close func() error, err error) {
 		}
 		return func() error { return nil }, nil
 	}
-	manager := runtime.NewManager(setting.Extensions.Path, setting.Extensions.RequiredIDs...)
-	peers, err := runtime.ParseServiceBridgePeers(setting.Extensions.ServiceBridgePeers)
+	manager := extensions_service.NewManager(setting.Extensions.Path, setting.Extensions.RequiredIDs...)
+	peers, err := extensions_service.ParseServiceBridgePeers(setting.Extensions.ServiceBridgePeers)
 	if err != nil {
 		return nil, err
 	}
@@ -72,9 +72,9 @@ func StartRuntime(ctx context.Context) (close func() error, err error) {
 	if err := manager.Start(ctx); err != nil {
 		return nil, err
 	}
-	runtime.SetDefault(manager)
+	extensions_service.SetDefault(manager)
 	return func() error {
-		runtime.SetDefault(nil)
+		extensions_service.SetDefault(nil)
 		return manager.Close()
 	}, nil
 }

@@ -4,7 +4,7 @@
 package extensions
 
 import (
-	"encoding/json"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"os"
 	"path/filepath"
 	"testing"

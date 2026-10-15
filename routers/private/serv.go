@@ -12,7 +12,7 @@ import (
 
 	asymkey_model "forgejo.org/models/asymkey"
 	"forgejo.org/models/auth"
-	nativeoperation "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	"forgejo.org/models/perm"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
@@ -23,7 +23,7 @@ import (
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/web"
 	"forgejo.org/services/context"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 	repo_service "forgejo.org/services/repository"
 	wiki_service "forgejo.org/services/wiki"
 )
@@ -433,9 +433,9 @@ func ServCommand(ctx *context.PrivateContext) {
 	// out short writer spans inside the claim; a still-busy domain
 	// refuses the push with a retryable message.
 	if slices.Contains(ctx.FormStrings("verb"), "git-receive-pack") && ctx.FormString("exec_verifier") != "" {
-		owner, generation, err := operation_service.Default().ClaimSSHReceive(ctx, results.RepoID, results.UserID, ctx.FormString("exec_verifier"), results.IsWiki)
+		owner, generation, err := nativeoperation_service.Default().ClaimSSHReceive(ctx, results.RepoID, results.UserID, ctx.FormString("exec_verifier"), results.IsWiki)
 		if err != nil {
-			if errors.Is(err, nativeoperation.ErrBusy) || errors.Is(err, nativeoperation.ErrInhibited) {
+			if errors.Is(err, nativeoperation_model.ErrBusy) || errors.Is(err, nativeoperation_model.ErrInhibited) {
 				ctx.JSON(http.StatusServiceUnavailable, private.Response{
 					UserMsg: "The server is busy processing another update. Retry your push shortly.",
 				})
@@ -471,7 +471,7 @@ func ServCommand(ctx *context.PrivateContext) {
 // refuses without touching the reservation.
 func ServRelease(ctx *context.PrivateContext) {
 	opts := web.GetForm(ctx).(*private.SSHReleaseOption)
-	if err := operation_service.Default().ReleaseSSHReceive(ctx, opts.Owner, opts.Generation); err != nil {
+	if err := nativeoperation_service.Default().ReleaseSSHReceive(ctx, opts.Owner, opts.Generation); err != nil {
 		ctx.JSON(http.StatusForbidden, private.Response{
 			Err: err.Error(),
 		})
