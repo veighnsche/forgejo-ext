@@ -11,6 +11,7 @@ import (
 	"time"
 
 	auth_model "forgejo.org/models/auth"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 
 	pingv1 "code.forgejo.org/forgejo/actions-proto/ping/v1"
@@ -78,6 +79,7 @@ func (r *mockRunner) doPing(t *testing.T) {
 }
 
 func (r *mockRunner) doRegister(t *testing.T, name, token string, labels []string) {
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	r.doPing(t)
 	resp, err := r.client.runnerServiceClient.Register(t.Context(), connect.NewRequest(&runnerv1.RegisterRequest{
 		Name:      name,
@@ -178,16 +180,34 @@ func (r *mockRunner) fetchTask(t *testing.T, timeout ...time.Duration) *runnerv1
 		fetchTimeout = timeout[0]
 	}
 
-	var task *runnerv1.Task
-	require.Eventually(t, func() bool {
-		maybeTask := r.maybeFetchTask(t)
-		if maybeTask != nil {
-			task = maybeTask
-			return true
+	// Keep RPC polling on the test goroutine. An asynchronous Eventually
+	// callback can still be using testing.T after its timeout has expired.
+	ctx, cancel := context.WithTimeout(t.Context(), fetchTimeout)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	var fetchErr error
+	for {
+		response, err := r.client.runnerServiceClient.FetchTask(ctx, connect.NewRequest(&runnerv1.FetchTaskRequest{
+			TasksVersion: r.lastTasksVersion,
+		}))
+		fetchErr = err
+		if err == nil {
+			r.lastTasksVersion = response.Msg.TasksVersion
+			if response.Msg.Task != nil {
+				require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+				return response.Msg.Task
+			}
+		} else if ctx.Err() == nil {
+			require.Equal(t, connect.CodeUnavailable, connect.CodeOf(err), "fetch task: %v", err)
 		}
-		return false
-	}, fetchTimeout, time.Millisecond*100, "failed to fetch a task")
-	return task
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			require.FailNow(t, "failed to fetch a task", "last RPC error: %v", fetchErr)
+			return nil
+		}
+	}
 }
 
 func (r *mockRunner) maybeFetchMultipleTasks(t *testing.T, taskCapacity *int64) (*runnerv1.Task, []*runnerv1.Task) {
@@ -269,6 +289,8 @@ func (r *mockRunner) execTask(t *testing.T, task *runnerv1.Task, outcome *mockTa
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, outcome.result, resp.Msg.State.Result)
+	// Wait for deferred job emission before the next fixture mutation.
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 }
 
 // Simply pretend we're running the task and succeed at that.
@@ -283,6 +305,8 @@ func (r *mockRunner) succeedAtTask(t *testing.T, task *runnerv1.Task) {
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, runnerv1.Result_RESULT_SUCCESS, resp.Msg.State.Result)
+	// Wait for deferred job emission before the next fixture mutation.
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 }
 
 // Pretend we're running the task, do nothing and fail at that.
@@ -296,4 +320,6 @@ func (r *mockRunner) failAtTask(t *testing.T, task *runnerv1.Task) {
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, runnerv1.Result_RESULT_FAILURE, resp.Msg.State.Result)
+	// Wait for deferred job emission before the next fixture mutation.
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 }

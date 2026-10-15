@@ -70,6 +70,7 @@ func doAPICreateRepository(ctx APITestContext, opts *api.CreateRepoOption, objec
 			return
 		}
 		resp := ctx.Session.MakeRequest(t, req, http.StatusCreated)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		var repository api.Repository
 		DecodeJSON(t, resp, &repository)
@@ -157,6 +158,9 @@ func doAPIDeleteRepository(ctx APITestContext) func(*testing.T) {
 			ctx.Session.MakeRequest(t, req, ctx.ExpectedCode)
 			return
 		}
+		// Fixture cleanup follows completed Actions tasks and their queued
+		// notifications; it must not race those independent native owners.
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		ctx.Session.MakeRequest(t, req, http.StatusNoContent)
 	}
 }
@@ -174,6 +178,7 @@ func doAPICreateUserKey(ctx APITestContext, keyname, keyFile string, callback ..
 			return
 		}
 		resp := ctx.Session.MakeRequest(t, req, http.StatusCreated)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 		var publicKey api.PublicKey
 		DecodeJSON(t, resp, &publicKey)
 		if len(callback) > 0 {
@@ -371,6 +376,7 @@ func doAPICreateTag(ctx APITestContext, tag, target, message string, callback ..
 			return
 		}
 		resp := ctx.Session.MakeRequest(t, req, http.StatusCreated)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		var tag api.Tag
 		DecodeJSON(t, resp, &tag)
@@ -389,6 +395,7 @@ func doAPICreateFile(ctx APITestContext, treepath string, options *api.CreateFil
 			return
 		}
 		resp := ctx.Session.MakeRequest(t, req, http.StatusCreated)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		var contents api.FileResponse
 		DecodeJSON(t, resp, &contents)
@@ -407,6 +414,7 @@ func doAPICreateOrganization(ctx APITestContext, options *api.CreateOrgOption, c
 			return
 		}
 		resp := ctx.Session.MakeRequest(t, req, http.StatusCreated)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		var contents api.Organization
 		DecodeJSON(t, resp, &contents)
@@ -425,6 +433,7 @@ func doAPICreateOrganizationRepository(ctx APITestContext, orgName string, optio
 			return
 		}
 		resp := ctx.Session.MakeRequest(t, req, http.StatusCreated)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		var contents api.Repository
 		DecodeJSON(t, resp, &contents)
@@ -443,6 +452,7 @@ func doAPICreateOrganizationTeam(ctx APITestContext, orgName string, options *ap
 			return
 		}
 		resp := ctx.Session.MakeRequest(t, req, http.StatusCreated)
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 
 		var contents api.Team
 		DecodeJSON(t, resp, &contents)

@@ -5,6 +5,7 @@ package pull
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -15,6 +16,7 @@ import (
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	issues_model "forgejo.org/models/issues"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	repo_model "forgejo.org/models/repo"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/base"
@@ -368,7 +370,11 @@ func TestPullRequest(ctx context.Context, doer *user_model.User, repoID, olderTh
 		doTestPullRequest(ctx, doer, repoID, olderThan, branch, isSync, oldCommitID, newCommitID)
 		return nil
 	}); err != nil {
-		log.Error("TestPullRequest(%d:%s): %v", repoID, branch, err)
+		if errors.Is(err, nativeoperation_model.ErrBusy) || errors.Is(err, nativeoperation_model.ErrInhibited) {
+			log.Debug("TestPullRequest(%d:%s) deferred: %v", repoID, branch, err)
+		} else {
+			log.Error("TestPullRequest(%d:%s): %v", repoID, branch, err)
+		}
 	}
 }
 

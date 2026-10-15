@@ -18,6 +18,14 @@ DATADIR = tests/{{TEST_TYPE}}/gitea-{{TEST_TYPE}}-sqlite/indexers/issues.queue
 [queue.stats_recalc] # override below default of `immediate` to avoid locking issues
 TYPE = channel
 
+; Native completion must run after its parent's ownership is released.
+; The immediate test queue runs inline and discards retryable items.
+[queue.push_update]
+TYPE = channel
+
+[queue.actions_ready_job]
+TYPE = channel
+
 [queue]
 TYPE = immediate
 

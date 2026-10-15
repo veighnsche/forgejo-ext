@@ -20,6 +20,7 @@ import (
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/json"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	api "forgejo.org/modules/structs"
 	actions_service "forgejo.org/services/actions"
@@ -744,6 +745,7 @@ func createActionsTestRepo(t *testing.T, authToken, repoName string, isPrivate b
 	resp := MakeRequest(t, req, http.StatusCreated)
 	var apiRepo api.Repository
 	DecodeJSON(t, resp, &apiRepo)
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	return &apiRepo
 }
 

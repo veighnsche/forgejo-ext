@@ -16,7 +16,7 @@ import (
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/queue"
-	operation_service "forgejo.org/services/nativeoperation"
+	nativeoperation_service "forgejo.org/services/nativeoperation"
 
 	"code.forgejo.org/forgejo/runner/v12/act/jobparser"
 	"xorm.io/builder"
@@ -48,13 +48,17 @@ func jobEmitterQueueHandler(items ...*jobUpdate) []*jobUpdate {
 		// Deferred work claims fresh ownership before its effects and
 		// never borrows the completing parent's execution. A busy gate
 		// retains the item for a later attempt instead of dropping it.
-		err := operation_service.Default().WithOrdinaryOwnership(ctx, operation_service.FamilyActionsRun, operation_service.RunResource(operation_service.ActionsRunOpEmitter), operation_service.Scope{
+		err := nativeoperation_service.Default().WithOrdinaryOwnership(ctx, nativeoperation_service.FamilyActionsRun, nativeoperation_service.RunResource(nativeoperation_service.ActionsRunOpEmitter), nativeoperation_service.Scope{
 			RunID: update.RunID,
 		}, func(ctx context.Context) error {
 			return checkJobsOfRun(ctx, update.RunID, 0)
 		})
 		if err != nil {
-			logger.Error("checkJobsOfRun failed for RunID = %d: %v", update.RunID, err)
+			if nativeoperation_service.IsBusy(err) {
+				logger.Debug("checkJobsOfRun deferred for RunID = %d: %v", update.RunID, err)
+			} else {
+				logger.Error("checkJobsOfRun failed for RunID = %d: %v", update.RunID, err)
+			}
 			ret = append(ret, update)
 		}
 	}

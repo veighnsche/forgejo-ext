@@ -5,13 +5,16 @@ package forgery
 
 import (
 	"cmp"
+	"context"
 	"io/fs"
 	"testing"
+	"time"
 
 	repo_model "forgejo.org/models/repo"
 	unit_model "forgejo.org/models/unit"
 	user_model "forgejo.org/models/user"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/queue"
 	repo_service "forgejo.org/services/repository"
 	wiki_service "forgejo.org/services/wiki"
 
@@ -88,7 +91,10 @@ func CreateRepository(t testing.TB, owner *user_model.User, opts *CreateReposito
 	require.NoError(t, err)
 	if !opts.SkipCleanup {
 		t.Cleanup(func() {
-			_ = repo_service.DeleteRepository(t.Context(), owner, repo, false)
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), 30*time.Second)
+			defer cancel()
+			require.NoError(t, queue.GetManager().FlushAll(ctx, 30*time.Second))
+			require.NoError(t, repo_service.DeleteRepository(ctx, owner, repo, false))
 		})
 	}
 	require.NotEmpty(t, repo)
@@ -100,10 +106,15 @@ func CreateRepository(t testing.TB, owner *user_model.User, opts *CreateReposito
 			*opts.LatestSha = sha
 		}
 
+		// Fixture consumers expect the initial push and its notifications to be
+		// complete. Production push completion is deferred under fresh ownership.
+		require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
+
 		// reload the repo since pushing a commit might update the model via the push_update queue (IsEmpty for instance)
 		repo, err = repo_model.GetRepositoryByID(t.Context(), repo.ID)
 		require.NoError(t, err)
 	}
+	require.NoError(t, queue.GetManager().FlushAll(t.Context(), time.Minute))
 	repo.Owner = owner
 
 	return repo

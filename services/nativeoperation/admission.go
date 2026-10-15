@@ -17,7 +17,7 @@ import (
 	"forgejo.org/models/db"
 	"forgejo.org/models/extensionauth"
 	issues_model "forgejo.org/models/issues"
-	model "forgejo.org/models/nativeoperation"
+	nativeoperation_model "forgejo.org/models/nativeoperation"
 	access_model "forgejo.org/models/perm/access"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
@@ -65,7 +65,7 @@ type TransactionDecision struct {
 // carry no repository environment. Held means every participating writer is
 // fenced until the owner resolves.
 func (s *Service) GateState(ctx context.Context) (bool, error) {
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -79,7 +79,7 @@ func (s *Service) GateState(ctx context.Context) (bool, error) {
 // passes prepared admission. Unknown infrastructure failures return an error
 // and the hook fails closed.
 func (s *Service) ClassifyTransaction(ctx context.Context, req TransactionRequest) (TransactionDecision, error) {
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return TransactionDecision{}, err
 	}
@@ -93,23 +93,31 @@ func (s *Service) ClassifyTransaction(ctx context.Context, req TransactionReques
 	if err != nil {
 		return TransactionDecision{}, err
 	}
-	repository, err := repo_model.GetRepositoryByOwnerAndName(ctx, req.OwnerName, req.RepoName)
+	ownerKind, installationID, operationID := splitOwner(reservation.Owner)
+	wiki := strings.HasSuffix(req.RepoName, ".wiki")
+	if !transactionTargetMatches(reservation.Owner, ownerKind, scope, wiki) {
+		return TransactionDecision{Reason: "operation scope mismatch"}, nil
+	}
+	repository, err := repo_model.GetRepositoryByOwnerAndName(ctx, req.OwnerName, strings.TrimSuffix(req.RepoName, ".wiki"))
 	if err != nil {
 		return TransactionDecision{}, err
 	}
 	if repository.ID != scope.RepositoryID {
 		return TransactionDecision{Reason: "operation scope mismatch"}, nil
 	}
-	ownerKind, installationID, operationID := splitOwner(reservation.Owner)
-	if ownerKind == model.OwnerOrdinary {
+	if ownerKind == nativeoperation_model.OwnerOrdinary {
 		for _, line := range req.Lines {
-			if !scopePermitsRef(scope, line.Ref) {
+			ref := line.Ref
+			if wiki && scope.Family == FamilyMirrorSync {
+				ref = "wiki:" + ref
+			}
+			if !scopePermitsRef(scope, ref) {
 				return TransactionDecision{Reason: "operation scope mismatch"}, nil
 			}
 		}
 		return TransactionDecision{Allowed: true}, nil
 	}
-	if ownerKind != model.OwnerConditional {
+	if ownerKind != nativeoperation_model.OwnerConditional {
 		return TransactionDecision{Reason: "operation scope mismatch"}, nil
 	}
 	switch req.Phase {
@@ -122,11 +130,36 @@ func (s *Service) ClassifyTransaction(ctx context.Context, req TransactionReques
 	}
 }
 
+// Main and wiki repositories share a native repository ID but have separate
+// refs. A main-repository proof must never authorize a wiki transaction.
+func transactionTargetMatches(owner, kind string, scope Scope, wiki bool) bool {
+	if kind != nativeoperation_model.OwnerOrdinary {
+		return !wiki
+	}
+	family, resource, ok := splitOrdinaryResource(owner)
+	if !ok {
+		return !wiki
+	}
+	parts := strings.SplitN(resource, "/", 3)
+	wikiTarget := false
+	switch family {
+	case FamilyRefWrite:
+		wikiTarget = len(parts) == 3 && strings.HasPrefix(parts[2], "wiki/")
+	case FamilyReceiveHTTP, FamilyReceiveSSH:
+		wikiTarget = len(parts) >= 2 && parts[1] == "wiki"
+	case FamilyMirrorSync:
+		// Each mirror ref carries its own main/wiki namespace; the caller
+		// checks membership after adding the wiki prefix where appropriate.
+		return scope.Family == FamilyMirrorSync
+	}
+	return wiki == wikiTarget
+}
+
 func splitOwner(owner string) (kind, installationID, operationID string) {
 	rest, ok := strings.CutPrefix(owner, "cond:")
 	if !ok {
 		if strings.HasPrefix(owner, "ord:") {
-			return model.OwnerOrdinary, "", ""
+			return nativeoperation_model.OwnerOrdinary, "", ""
 		}
 		return "", "", ""
 	}
@@ -135,22 +168,22 @@ func splitOwner(owner string) (kind, installationID, operationID string) {
 	if !cut || installationID == "" || operationID == "" {
 		return "", "", ""
 	}
-	return model.OwnerConditional, installationID, operationID
+	return nativeoperation_model.OwnerConditional, installationID, operationID
 }
 
-func (s *Service) admitPrepared(ctx context.Context, reservation *model.Reservation, scope Scope, repository *repo_model.Repository, installationID, operationID string, lines []RefLine) (TransactionDecision, error) {
-	op, err := model.LookupOperation(ctx, installationID, operationID)
+func (s *Service) admitPrepared(ctx context.Context, reservation *nativeoperation_model.Reservation, scope Scope, repository *repo_model.Repository, installationID, operationID string, lines []RefLine) (TransactionDecision, error) {
+	op, err := nativeoperation_model.LookupOperation(ctx, installationID, operationID)
 	if err != nil {
 		return TransactionDecision{}, err
 	}
-	if op != nil && op.Kind == model.KindPRCreate {
+	if op != nil && op.Kind == nativeoperation_model.KindPRCreate {
 		// PR creation commits its primary effect in SQL, so its only
 		// Git write is bounded completion after the commit: the single
 		// internal-ref write must match the persisted tuple exactly.
 		// This admits no primary effect and records no admission.
 		return s.checkPRCreateCompletion(scope, op, lines), nil
 	}
-	if op == nil || !op.Submitted || op.IsTerminal() || op.EffectState != model.EffectPending {
+	if op == nil || !op.Submitted || op.IsTerminal() || op.EffectState != nativeoperation_model.EffectPending {
 		return TransactionDecision{Reason: "operation is not pending"}, nil
 	}
 	// The disclosed test barrier pauses here, before any check, so races
@@ -161,9 +194,9 @@ func (s *Service) admitPrepared(ctx context.Context, reservation *model.Reservat
 	var reason string
 	var checkErr error
 	switch op.Kind {
-	case model.KindMerge:
+	case nativeoperation_model.KindMerge:
 		reason, checkErr = s.checkMergePrepared(ctx, scope, repository, lines)
-	case model.KindRefPublish:
+	case nativeoperation_model.KindRefPublish:
 		reason, checkErr = s.checkPublishPrepared(ctx, scope, repository, lines)
 	default:
 		return TransactionDecision{Reason: "unsupported conditional kind"}, nil
@@ -174,21 +207,21 @@ func (s *Service) admitPrepared(ctx context.Context, reservation *model.Reservat
 	if reason == "" {
 		if err := s.revalidateSubmission(ctx, op); err != nil {
 			if errors.Is(err, ErrAuthorityLost) {
-				reason = model.ReasonAuthorityLost
+				reason = nativeoperation_model.ReasonAuthorityLost
 			} else {
 				return TransactionDecision{}, err
 			}
 		}
 	}
 	if reason == "" && s.clock() >= op.NotAfter {
-		reason = model.ReasonExpiredBeforeAdmission
+		reason = nativeoperation_model.ReasonExpiredBeforeAdmission
 	}
-	recorded, admitted, err := model.RecordAdmissionAttempt(ctx, installationID, operationID, reservation.Owner, reason == "", reason)
+	recorded, admitted, err := nativeoperation_model.RecordAdmissionAttempt(ctx, installationID, operationID, reservation.Owner, reason == "", reason)
 	if err != nil {
-		if errors.Is(err, model.ErrWrongOwner) {
-			return TransactionDecision{Reason: model.ReasonWrongOwner}, nil
+		if errors.Is(err, nativeoperation_model.ErrWrongOwner) {
+			return TransactionDecision{Reason: nativeoperation_model.ReasonWrongOwner}, nil
 		}
-		if errors.Is(err, model.ErrAdmissionLost) {
+		if errors.Is(err, nativeoperation_model.ErrAdmissionLost) {
 			return TransactionDecision{Reason: "operation is not pending"}, nil
 		}
 		return TransactionDecision{}, err
@@ -205,18 +238,18 @@ func (s *Service) admitPrepared(ctx context.Context, reservation *model.Reservat
 func (s *Service) checkMergePrepared(ctx context.Context, scope Scope, repository *repo_model.Repository, lines []RefLine) (string, error) {
 	switch {
 	case len(lines) != 1:
-		return model.ReasonUnexpectedRefEffects, nil
+		return nativeoperation_model.ReasonUnexpectedRefEffects, nil
 	case lines[0].Ref != scope.Ref ||
 		!strings.EqualFold(lines[0].Old, scope.OldOID) ||
 		!strings.EqualFold(lines[0].New, scope.NewOID):
-		return model.ReasonStaleBaseOrResult, nil
+		return nativeoperation_model.ReasonStaleBaseOrResult, nil
 	}
 	head, err := s.readRef(ctx, repository.RepoPath(), scope.HeadRef)
 	if err != nil {
 		return "", err
 	}
 	if !strings.EqualFold(head, scope.HeadOID) {
-		return model.ReasonStaleHead, nil
+		return nativeoperation_model.ReasonStaleHead, nil
 	}
 	// Retargeting the PR after preparation invalidates the request
 	// even if an object ID happens to match.
@@ -228,7 +261,7 @@ func (s *Service) checkMergePrepared(ctx context.Context, scope Scope, repositor
 		pr.HeadBranch != strings.TrimPrefix(scope.HeadRef, git.BranchPrefix) ||
 		pr.BaseBranch != strings.TrimPrefix(scope.Ref, git.BranchPrefix) ||
 		pr.BaseRepoID != scope.RepositoryID {
-		return model.ReasonPRMismatch, nil
+		return nativeoperation_model.ReasonPRMismatch, nil
 	}
 	return "", nil
 }
@@ -241,24 +274,24 @@ func (s *Service) checkMergePrepared(ctx context.Context, scope Scope, repositor
 func (s *Service) checkPublishPrepared(ctx context.Context, scope Scope, repository *repo_model.Repository, lines []RefLine) (string, error) {
 	switch {
 	case len(lines) != 1:
-		return model.ReasonUnexpectedRefEffects, nil
+		return nativeoperation_model.ReasonUnexpectedRefEffects, nil
 	case lines[0].Ref != scope.Ref ||
 		!strings.EqualFold(lines[0].Old, scope.OldOID) ||
 		!strings.EqualFold(lines[0].New, scope.NewOID):
-		return model.ReasonStaleBaseOrResult, nil
+		return nativeoperation_model.ReasonStaleBaseOrResult, nil
 	}
 	comparison, err := s.readRef(ctx, repository.RepoPath(), scope.HeadRef)
 	if err != nil {
 		return "", err
 	}
 	if !strings.EqualFold(comparison, scope.HeadOID) {
-		return model.ReasonStaleBaseOrResult, nil
+		return nativeoperation_model.ReasonStaleBaseOrResult, nil
 	}
 	if scope.PRNumber > 0 {
 		pr, err := issues_model.GetPullRequestByIndex(ctx, scope.RepositoryID, scope.PRNumber)
 		if err != nil {
 			if issues_model.IsErrPullRequestNotExist(err) {
-				return model.ReasonPRMismatch, nil
+				return nativeoperation_model.ReasonPRMismatch, nil
 			}
 			return "", err
 		}
@@ -270,7 +303,7 @@ func (s *Service) checkPublishPrepared(ctx context.Context, scope Scope, reposit
 			pr.HeadBranch != strings.TrimPrefix(scope.Ref, git.BranchPrefix) ||
 			pr.BaseBranch != strings.TrimPrefix(scope.HeadRef, git.BranchPrefix) ||
 			pr.Issue.PosterID != scope.CorrectionAuthorID {
-			return model.ReasonPRMismatch, nil
+			return nativeoperation_model.ReasonPRMismatch, nil
 		}
 	}
 	return "", nil
@@ -282,40 +315,40 @@ func (s *Service) checkPublishPrepared(ctx context.Context, scope Scope, reposit
 // anything else refuses, and an unexpected or uncertain internal ref keeps
 // the fence. This records no admission: the primary commit already ordered
 // cancellation, expiry and the receipt.
-func (s *Service) checkPRCreateCompletion(scope Scope, op *model.Operation, lines []RefLine) TransactionDecision {
-	if !op.Submitted || op.EffectState != model.EffectCommitted || op.Receipt == "" {
+func (s *Service) checkPRCreateCompletion(scope Scope, op *nativeoperation_model.Operation, lines []RefLine) TransactionDecision {
+	if !op.Submitted || op.EffectState != nativeoperation_model.EffectCommitted || op.Receipt == "" {
 		return TransactionDecision{Reason: "operation is not pending"}
 	}
 	if scope.CompletionPhase != PRCreateCompletionPhase || scope.CompletionRef == "" || scope.CompletionNewOID == "" {
-		return TransactionDecision{Reason: model.ReasonUnexpectedRefEffects}
+		return TransactionDecision{Reason: nativeoperation_model.ReasonUnexpectedRefEffects}
 	}
 	if len(lines) != 1 || lines[0].Ref != scope.CompletionRef {
-		return TransactionDecision{Reason: model.ReasonUnexpectedRefEffects}
+		return TransactionDecision{Reason: nativeoperation_model.ReasonUnexpectedRefEffects}
 	}
 	wantOld := scope.CompletionOldOID
 	if wantOld == "" {
 		wantOld = git.Sha1ObjectFormat.EmptyObjectID().String()
 	}
 	if !strings.EqualFold(lines[0].Old, wantOld) || !strings.EqualFold(lines[0].New, scope.CompletionNewOID) {
-		return TransactionDecision{Reason: model.ReasonStaleBaseOrResult}
+		return TransactionDecision{Reason: nativeoperation_model.ReasonStaleBaseOrResult}
 	}
 	return TransactionDecision{Allowed: true}
 }
 
-func lostAdmissionReason(op *model.Operation) string {
+func lostAdmissionReason(op *nativeoperation_model.Operation) string {
 	if op == nil {
-		return model.ReasonWrongOwner
+		return nativeoperation_model.ReasonWrongOwner
 	}
 	if op.Admitted {
-		return model.ReasonDuplicateAdmission
+		return nativeoperation_model.ReasonDuplicateAdmission
 	}
 	if op.Revoked {
-		return model.ReasonCancelledBeforeAdmission
+		return nativeoperation_model.ReasonCancelledBeforeAdmission
 	}
 	if op.Reason != "" {
 		return op.Reason
 	}
-	return model.ReasonWrongOwner
+	return nativeoperation_model.ReasonWrongOwner
 }
 
 // PublishPreReceiveGit carries the repository path and the hook's object
@@ -340,22 +373,22 @@ type PublishPreReceiveGit struct {
 // candidate objects; like prepared admission it relies on the installed
 // native hooks.
 func (s *Service) ClassifyPreReceive(ctx context.Context, repositoryID int64, lines []RefLine, hasPushOptions bool, hookGit PublishPreReceiveGit) (TransactionDecision, error) {
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return TransactionDecision{}, err
 	}
 	if reservation.Owner == "" {
 		return TransactionDecision{Allowed: true}, nil
 	}
-	if reservation.OwnerKind != model.OwnerConditional {
+	if reservation.OwnerKind != nativeoperation_model.OwnerConditional {
 		return TransactionDecision{Allowed: true}, nil
 	}
 	_, installationID, operationID := splitOwner(reservation.Owner)
-	op, err := model.LookupOperation(ctx, installationID, operationID)
+	op, err := nativeoperation_model.LookupOperation(ctx, installationID, operationID)
 	if err != nil {
 		return TransactionDecision{}, err
 	}
-	if op == nil || !op.Submitted || op.Kind != model.KindRefPublish {
+	if op == nil || !op.Submitted || op.Kind != nativeoperation_model.KindRefPublish {
 		return TransactionDecision{Allowed: true}, nil
 	}
 	scope, err := decodeScope(reservation.Scope)
@@ -371,13 +404,13 @@ func (s *Service) ClassifyPreReceive(ctx context.Context, repositoryID int64, li
 	reason := ""
 	switch {
 	case hasPushOptions:
-		reason = model.ReasonPublishOptionsRejected
+		reason = nativeoperation_model.ReasonPublishOptionsRejected
 	case len(lines) != 1:
-		reason = model.ReasonUnexpectedRefEffects
+		reason = nativeoperation_model.ReasonUnexpectedRefEffects
 	case lines[0].Ref != scope.Ref ||
 		!strings.EqualFold(lines[0].Old, scope.OldOID) ||
 		!strings.EqualFold(lines[0].New, scope.NewOID):
-		reason = model.ReasonStaleBaseOrResult
+		reason = nativeoperation_model.ReasonStaleBaseOrResult
 	}
 	if reason == "" && !isZeroOID(scope.OldOID) {
 		force, err := publishForcePush(ctx, hookGit, scope.OldOID, scope.NewOID)
@@ -385,7 +418,7 @@ func (s *Service) ClassifyPreReceive(ctx context.Context, repositoryID int64, li
 			return TransactionDecision{}, err
 		}
 		if force {
-			reason = model.ReasonNotFastForward
+			reason = nativeoperation_model.ReasonNotFastForward
 		}
 	}
 	if reason == "" {
@@ -393,7 +426,7 @@ func (s *Service) ClassifyPreReceive(ctx context.Context, repositoryID int64, li
 	}
 	// Record the refusal ordering for reconciliation; the refusal stands
 	// even when recording loses its race.
-	_, _, _ = model.RecordAdmissionAttempt(ctx, installationID, operationID, reservation.Owner, false, reason)
+	_, _, _ = nativeoperation_model.RecordAdmissionAttempt(ctx, installationID, operationID, reservation.Owner, false, reason)
 	return TransactionDecision{Reason: reason}, nil
 }
 
@@ -422,7 +455,7 @@ func publishForcePush(ctx context.Context, hookGit PublishPreReceiveGit, oldOID,
 // conditional owner additionally requires a submitted operation of a kind
 // that permits push-originated completion.
 func (s *Service) ClassifyCompletion(ctx context.Context, repositoryID int64, refNames []string, proof string, hasPushOptions bool) (TransactionDecision, error) {
-	reservation, err := model.ReadReservation(ctx)
+	reservation, err := nativeoperation_model.ReadReservation(ctx)
 	if err != nil {
 		return TransactionDecision{}, err
 	}
@@ -439,13 +472,13 @@ func (s *Service) ClassifyCompletion(ctx context.Context, repositoryID int64, re
 	if err != nil {
 		return TransactionDecision{}, err
 	}
-	if reservation.OwnerKind == model.OwnerConditional {
+	if reservation.OwnerKind == nativeoperation_model.OwnerConditional {
 		_, installationID, operationID := splitOwner(reservation.Owner)
-		op, err := model.LookupOperation(ctx, installationID, operationID)
+		op, err := nativeoperation_model.LookupOperation(ctx, installationID, operationID)
 		if err != nil {
 			return TransactionDecision{}, err
 		}
-		if op == nil || !op.Submitted || (op.Kind != model.KindRefPublish && op.Kind != model.KindMerge) {
+		if op == nil || !op.Submitted || (op.Kind != nativeoperation_model.KindRefPublish && op.Kind != nativeoperation_model.KindMerge) {
 			return TransactionDecision{Reason: "operation kind mismatch"}, nil
 		}
 	}
@@ -479,7 +512,7 @@ func scopePermitsRef(scope Scope, ref string) bool {
 // current native authority from authoritative state without the submitted
 // secret, which was discarded after verification. It mirrors the submission
 // verifier's tail checks; any failure is ErrAuthorityLost.
-func (s *Service) revalidateSubmission(ctx context.Context, op *model.Operation) error {
+func (s *Service) revalidateSubmission(ctx context.Context, op *nativeoperation_model.Operation) error {
 	lost := func() error { return ErrAuthorityLost }
 	token := new(auth_model.AccessToken)
 	has, err := db.GetEngine(ctx).ID(op.TokenID).NoAutoCondition().Get(token)
