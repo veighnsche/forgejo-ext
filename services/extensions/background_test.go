@@ -34,6 +34,7 @@ func installBackgroundPackage(t *testing.T, root, id string) {
 func startBackgroundManager(t *testing.T, root string) (*Manager, uint32) {
 	t.Helper()
 	installBackgroundPackage(t, root, "bgsample")
+	setDesiredState(t, root, "bgsample", true)
 	manager := NewManager(root)
 	manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	require.NoError(t, manager.SetCallbackHandlerFactory(func(instanceID string) http.Handler {

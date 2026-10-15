@@ -172,3 +172,18 @@ an executable compatible with Linux amd64/musl (or a static binary), readable
 assets and a valid manifest. Fountain runs trusted packages as the host user;
 installation, activation, private data and socket lifecycle remain host-owned.
 No Soda branding, configuration or extension is preinstalled in Fountain.
+
+## Extension lifecycle contract (RCX-1 I2)
+
+Generic browser-managed download, enable and disable. The implementation is
+generic: no product-specific logic lives in Fountain; Soda supplies its own
+declaration, dependencies and restricted host effects.
+
+| Interface | Definition |
+| --- | --- |
+| Lifecycle operations | `sdk/lifecycle.go`: `observe`, `activate`, `deactivate` requests identify package, pinned version and operation; results report operation, observed state (`disabled`, `activating`, `enabled`, `deactivating`, `failed`), progress and a bounded error. Failed results with `unconfirmed` must be re-observed before their effects are retried. |
+| Trusted catalog | `sdk/catalog.go`: versioned package set; each entry carries ID, version, HTTPS archive URL, exact bytes, SHA-256, compatible Fountain protocol/browser contract, required flag and capabilities. `modules/extensions/catalog.go` verifies size and digest, extracts the gzip archive inside staging, and validates manifest and package files before activation. |
+| Live manager | `services/extensions/lifecycle.go`: `Observe` (no effects), `Activate` (persists requested state, starts the backend, opens admission only after effects and observation), `Deactivate` (closes new admission, invokes the registered external teardown hook, verifies it, then stops the backend). Required packages are always refused. `Snapshot` reports running IDs/versions/installations for maintenance. |
+| Persistent intent | Fountain alone persists requested state through the `.disabled` marker; `modules/extensions/intent.go` records the last operation observation (never authority). Restart re-observes interrupted operations without retrying their effects. Installation UUIDs, private data, admission controls and package locking are reused unchanged. |
+| Native admin settings | `GET /admin/extensions` plus `POST /admin/extensions/enable/{id}` and `POST /admin/extensions/disable/{id}`, behind the live site-admin guard with native session and cross-origin protection. Enable installs from the declared catalog when needed; disable keeps required packages isolated. No whole-Fountain restart and no hidden CLI step. |
+| Wire fixture | JSON round-trips in `sdk/lifecycle_catalog_test.go`; acquisition fixtures in `modules/extensions/catalog_intent_test.go`; live lock/teardown/isolation/interruption proof in `services/extensions/lifecycle_test.go`; admin/CSRF/denied-actor fixtures in `routers/web/extensions/admin_test.go`. Downstreams import these SDK definitions instead of creating parallel DTOs. |

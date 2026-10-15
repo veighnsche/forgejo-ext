@@ -18,35 +18,123 @@ import (
 	sdk "forgejo.org/extension-sdk"
 	packages "forgejo.org/modules/extensions"
 	"forgejo.org/modules/setting"
+
+	"github.com/stretchr/testify/require"
 )
+
+// setDesiredState records next-start activation for an installed package
+// through the shared package store. Manifest-less directories use
+// persistDesiredState instead: SetDesired validates the manifest.
+func setDesiredState(t *testing.T, root, id string, desired bool) packages.Intent {
+	t.Helper()
+	store, err := packages.OpenPackageStore(root)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, store.Close()) }()
+	intent, err := store.SetDesired(id, desired)
+	require.NoError(t, err)
+	return intent
+}
+
+// persistDesiredState records requested state without manifest
+// validation, for startup fixtures with broken or missing packages.
+func persistDesiredState(t *testing.T, root, id string, desired bool) packages.Intent {
+	t.Helper()
+	installation, err := packages.EnsureInstallation(root, id)
+	require.NoError(t, err)
+	intent, err := packages.StoreIntent(root, id, installation, desired, nil, "0")
+	require.NoError(t, err)
+	return intent
+}
+
+// testCatalogEntry builds one structurally valid catalog entry for the
+// manager's configured catalog fixture.
+func testCatalogEntry(id, version string, required bool, controller string) sdk.CatalogPackage {
+	return sdk.CatalogPackage{
+		ID: id, Version: version, URL: "https://catalog.example.invalid/" + id + ".tar.gz",
+		Size: 1024, SHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		Required: required, FountainProto: sdk.Protocol, BrowserContract: sdk.BrowserContractVersion,
+		Capabilities: []string{"native.actor.read"}, LifecycleController: controller,
+	}
+}
+
+// configureTestCatalog writes an exact catalog fixture and points the
+// manager at it before Start. Required layouts always configure one:
+// a required package with no catalog fails closed at startup.
+func configureTestCatalog(t *testing.T, m *Manager, root string, entries ...sdk.CatalogPackage) {
+	t.Helper()
+	data, err := json.Marshal(sdk.Catalog{Version: sdk.CatalogVersion, Packages: entries})
+	require.NoError(t, err)
+	path := filepath.Join(root, ".test-catalog.json")
+	require.NoError(t, os.WriteFile(path, data, 0o600))
+	require.NoError(t, m.SetCatalogPath(path))
+}
 
 func TestMain(m *testing.M) {
 	if os.Getenv("FORGEJO_EXTENSION_TEST_HELPER") == "1" {
-		application := sdk.Application{HTTP: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authority, err := sdk.RequestContext(r)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusUnauthorized)
-				return
-			}
-			_, _ = io.WriteString(w, authority.ExtensionID+":"+authority.Actor.Username)
-		})}
-		if policy := os.Getenv("FORGEJO_EXTENSION_TEST_POLICY"); policy != "" {
-			application.Policies = map[string]sdk.PolicyHandler{sdk.PolicyForgejoUsername: func(ctx context.Context, _ sdk.PolicyRequest) (sdk.PolicyDecision, error) {
-				if policy == "timeout" {
-					<-ctx.Done()
-					return sdk.PolicyDecision{}, ctx.Err()
-				}
-				return sdk.PolicyDecision{Allowed: policy == "allow", ReasonCode: "rejected"}, nil
-			}}
-		}
-		err := sdk.Serve(application)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		os.Exit(0)
+		os.Exit(runTestHelper())
 	}
 	os.Exit(m.Run())
+}
+
+// testFixtureKnobs steer the re-executed helper process per package through
+// its private data directory. There is one helper binary for every
+// backend; the knob file tells it which role to play.
+type testFixtureKnobs struct {
+	Role           string `json:"role"`
+	FailActivate   bool   `json:"fail_activate"`
+	SlowActivateMs int    `json:"slow_activate_ms"`
+	CrashAfterMs   int    `json:"crash_after_ms"`
+}
+
+func readTestKnobs() testFixtureKnobs {
+	var knobs testFixtureKnobs
+	data, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), "fixture.json"))
+	if err != nil {
+		return knobs
+	}
+	_ = json.Unmarshal(data, &knobs)
+	return knobs
+}
+
+func runTestHelper() int {
+	if dir := os.Getenv("FORGEJO_EXTENSION_TEST_HOLDDIR"); dir != "" {
+		return holdTestLock(dir)
+	}
+	knobs := readTestKnobs()
+	switch knobs.Role {
+	case "plain-exit":
+		os.Exit(1)
+	case "controller":
+		return runControllerHelper(knobs)
+	}
+	if knobs.CrashAfterMs > 0 {
+		go func() {
+			time.Sleep(time.Duration(knobs.CrashAfterMs) * time.Millisecond)
+			os.Exit(1)
+		}()
+	}
+	application := sdk.Application{HTTP: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authority, err := sdk.RequestContext(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		_, _ = io.WriteString(w, authority.ExtensionID+":"+authority.Actor.Username)
+	})}
+	if policy := os.Getenv("FORGEJO_EXTENSION_TEST_POLICY"); policy != "" {
+		application.Policies = map[string]sdk.PolicyHandler{sdk.PolicyForgejoUsername: func(ctx context.Context, _ sdk.PolicyRequest) (sdk.PolicyDecision, error) {
+			if policy == "timeout" {
+				<-ctx.Done()
+				return sdk.PolicyDecision{}, ctx.Err()
+			}
+			return sdk.PolicyDecision{Allowed: policy == "allow", ReasonCode: "rejected"}, nil
+		}}
+	}
+	if err := sdk.Serve(application); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
 }
 
 func installTestPackage(t *testing.T, root, id string) {
@@ -72,6 +160,36 @@ func installTestPackage(t *testing.T, root, id string) {
 	}
 }
 
+// installCatalogPackage installs one fixture backend whose manifest and
+// generated receipt exactly match the catalog entry: production
+// installs always write receipts, and required bootstrap reuses only
+// exact receipt, manifest, capability, and controller matches. extra
+// carries additional manifest fields such as policies.
+func installCatalogPackage(t *testing.T, root string, entry sdk.CatalogPackage, extra map[string]any) {
+	t.Helper()
+	packageDir := filepath.Join(root, entry.ID)
+	require.NoError(t, os.MkdirAll(packageDir, 0o700))
+	executable, err := os.Executable()
+	require.NoError(t, err)
+	data, err := os.ReadFile(executable)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension"), data, 0o700))
+	manifest := map[string]any{
+		"protocol": 1, "id": entry.ID, "name": "Test", "version": entry.Version,
+		"executable": "extension", "capabilities": entry.Capabilities,
+	}
+	if entry.LifecycleController != "" {
+		manifest["lifecycle_controller"] = entry.LifecycleController
+	}
+	for key, value := range extra {
+		manifest[key] = value
+	}
+	encoded, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
+	require.NoError(t, packages.WriteReceipt(packageDir, entry))
+}
+
 func shortTestRoot(t *testing.T) string {
 	t.Helper()
 	root, err := os.MkdirTemp(os.TempDir(), "e-")
@@ -85,6 +203,7 @@ func shortTestRoot(t *testing.T) string {
 func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 	root := shortTestRoot(t)
 	installTestPackage(t, root, "sample")
+	setDesiredState(t, root, "sample", true)
 	m := NewManager(root)
 	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	if err := m.Start(context.Background()); err != nil {
@@ -95,8 +214,8 @@ func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 		_ = lock.Close()
 		t.Fatal("package mutation lock was available while extension was running")
 	}
-	if _, err := packages.Install(root, filepath.Join(root, "sample"), true); err == nil {
-		t.Fatal("package install succeeded while extension was running")
+	if _, err := packages.OpenPackageStore(root); err == nil {
+		t.Fatal("package store opened while extension was running")
 	}
 	list := m.List()
 	if len(list) != 1 || list[0].Manifest.ID != "sample" {
@@ -158,16 +277,24 @@ func TestManagerNativeHTTPAndCrashCleanup(t *testing.T) {
 	}
 }
 
+// A failed startup retains no partial state. Optional package failure
+// is isolated and never fails startup, so the competing-route host
+// configuration error is the fatal trigger here: the first backend
+// starts, the second claim fails, and everything is torn down.
 func TestManagerStartFailureCleansUp(t *testing.T) {
 	root := shortTestRoot(t)
-	installTestPackage(t, root, "a-sample")
-	if err := os.Mkdir(filepath.Join(root, "z-broken"), 0o700); err != nil {
-		t.Fatal(err)
+	for _, id := range []string{"a-sample", "z-second"} {
+		installTestPackage(t, root, id)
+		manifest := fmt.Sprintf(`{"protocol":1,"id":%q,"name":"Test","version":"1.0","executable":"extension","pages":[{"id":"page","route":"workspace","title":"Workspace","scope":"global","entry":"main.js"}]}`, id)
+		if err := os.WriteFile(filepath.Join(root, id, "extension.json"), []byte(manifest), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		setDesiredState(t, root, id, true)
 	}
 	m := NewManager(root)
 	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
-	if err := m.Start(context.Background()); err == nil {
-		t.Fatal("expected startup failure")
+	if err := m.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "already claimed") {
+		t.Fatalf("expected competing-route startup failure, got %v", err)
 	}
 	if len(m.List()) != 0 {
 		t.Fatal("partial startup remained registered")
@@ -183,6 +310,9 @@ func TestManagerStartFailureCleansUp(t *testing.T) {
 	_ = lock.Close()
 }
 
+// An unreadable optional package never exposes its bytes in any
+// diagnostic: the failure is isolated, core starts, and the observed
+// failure text carries no manifest contents and no filesystem paths.
 func TestStartupDiagnosticDoesNotExposeManifestContents(t *testing.T) {
 	root := shortTestRoot(t)
 	packageDir := filepath.Join(root, "sample")
@@ -192,9 +322,26 @@ func TestStartupDiagnosticDoesNotExposeManifestContents(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(packageDir, "extension.json"), []byte("private-token"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := NewManager(root).Start(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "package validation failed") || strings.Contains(err.Error(), "private-token") || strings.Contains(err.Error(), root) {
-		t.Fatalf("unsafe startup diagnostic: %v", err)
+	persistDesiredState(t, root, "sample", true)
+	m := NewManager(root)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatalf("optional package failure must not fail startup: %v", err)
+	}
+	t.Cleanup(func() { _ = m.Close() })
+	if _, _, ok := m.Lookup("sample"); ok {
+		t.Fatal("broken extension must not serve admission")
+	}
+	observed := lifecycleResult(t, m.Observe("sample"))
+	if observed.State != packages.LifecycleFailed || !observed.Unconfirmed {
+		t.Fatalf("broken extension must read failed: %+v", observed)
+	}
+	message := ""
+	if observed.Error != nil {
+		message = observed.Error.Message
+	}
+	message += observed.Progress
+	if strings.Contains(message, "private-token") || strings.Contains(message, root) {
+		t.Fatalf("unsafe startup diagnostic: %q", message)
 	}
 }
 
@@ -209,10 +356,22 @@ func TestManagerRejectsUndeclaredRuntimeHandlers(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, "sample", "extension.json"), []byte(manifest), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		setDesiredState(t, root, "sample", true)
 		manager := NewManager(root)
 		manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
-		if err := manager.Start(context.Background()); err == nil {
-			t.Fatalf("accepted unmatched declaration %s", declarations)
+		// Unmatched declarations never run: the optional failure is
+		// isolated, core starts, and the package stays out of
+		// admission with a failed observation.
+		if err := manager.Start(context.Background()); err != nil {
+			t.Fatalf("optional package failure must not fail startup: %v", err)
+		}
+		t.Cleanup(func() { _ = manager.Close() })
+		if _, _, ok := manager.Lookup("sample"); ok {
+			t.Fatalf("unmatched declaration %s serves admission", declarations)
+		}
+		observed := lifecycleResult(t, manager.Observe("sample"))
+		if observed.State != packages.LifecycleFailed {
+			t.Fatalf("unmatched declaration %s reads %+v", declarations, observed)
 		}
 	}
 }
@@ -230,9 +389,7 @@ func TestCloneDescriptorCopiesDeclarations(t *testing.T) {
 func TestDisabledPackageSkipped(t *testing.T) {
 	root := shortTestRoot(t)
 	installTestPackage(t, root, "sample")
-	if err := os.WriteFile(filepath.Join(root, "sample", ".disabled"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	setDesiredState(t, root, "sample", false)
 	m := NewManager(root)
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatal(err)
@@ -251,19 +408,22 @@ func TestRequiredExtensionStartup(t *testing.T) {
 		}
 	}
 	manager := NewManager(root, "soda")
+	sodaEntry := testCatalogEntry("soda", "1.0", true, "")
+	configureTestCatalog(t, manager, root, sodaEntry)
 	if err := manager.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "missing") {
 		t.Fatalf("missing required package accepted: %v", err)
 	}
 	installTestPackage(t, root, "soda")
-	if err := os.WriteFile(filepath.Join(root, "soda", ".disabled"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	persistDesiredState(t, root, "soda", false)
 	if err := manager.Start(context.Background()); err == nil || !strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("disabled required package accepted: %v", err)
 	}
-	if err := os.Remove(filepath.Join(root, "soda", ".disabled")); err != nil {
+	if err := packages.RemoveIntent(root, "soda"); err != nil {
 		t.Fatal(err)
 	}
+	// Required bootstrap reuses only exact installed receipts: the
+	// fixture completes its install the way production installs do.
+	installCatalogPackage(t, root, sodaEntry, nil)
 	manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	if err := manager.Start(context.Background()); err != nil {
 		t.Fatalf("enabled required package failed: %v", err)
@@ -273,12 +433,10 @@ func TestRequiredExtensionStartup(t *testing.T) {
 
 func TestRequiredPolicyFailsClosedAfterCrash(t *testing.T) {
 	root := shortTestRoot(t)
-	installTestPackage(t, root, "soda")
-	manifest := `{"protocol":1,"id":"soda","name":"Test","version":"1.0","executable":"extension","policies":["forgejo.username"]}`
-	if err := os.WriteFile(filepath.Join(root, "soda", "extension.json"), []byte(manifest), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	sodaEntry := testCatalogEntry("soda", "1.0", true, "")
+	installCatalogPackage(t, root, sodaEntry, map[string]any{"policies": []string{"forgejo.username"}})
 	manager := NewManager(root, "soda")
+	configureTestCatalog(t, manager, root, sodaEntry)
 	manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1", "FORGEJO_EXTENSION_TEST_POLICY=allow"}
 	var stopped string
 	if err := manager.SetInstanceStopped(func(instanceID string) { stopped = instanceID }); err != nil {
@@ -313,12 +471,10 @@ func TestRequiredPolicyRuntimeDecision(t *testing.T) {
 	for _, outcome := range []string{"allow", "deny", "timeout"} {
 		t.Run(outcome, func(t *testing.T) {
 			root := shortTestRoot(t)
-			installTestPackage(t, root, "soda")
-			manifest := `{"protocol":1,"id":"soda","name":"Test","version":"1.0","executable":"extension","policies":["forgejo.username"]}`
-			if err := os.WriteFile(filepath.Join(root, "soda", "extension.json"), []byte(manifest), 0o600); err != nil {
-				t.Fatal(err)
-			}
+			sodaEntry := testCatalogEntry("soda", "1.0", true, "")
+			installCatalogPackage(t, root, sodaEntry, map[string]any{"policies": []string{"forgejo.username"}})
 			manager := NewManager(root, "soda")
+			configureTestCatalog(t, manager, root, sodaEntry)
 			manager.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1", "FORGEJO_EXTENSION_TEST_POLICY=" + outcome}
 			if err := manager.Start(context.Background()); err != nil {
 				t.Fatal(err)
@@ -357,6 +513,7 @@ func TestManagerRefusesCompetingNativeRoutes(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, id, "extension.json"), []byte(manifest), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		setDesiredState(t, root, id, true)
 	}
 	m := NewManager(root)
 	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}

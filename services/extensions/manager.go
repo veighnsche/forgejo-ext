@@ -66,6 +66,88 @@ type Manager struct {
 	serviceCallback        *serviceCallbackEndpoint
 	background             *backgroundRegistry
 	serviceBridgePeers     map[uint32]string
+	// store is the manager's lifetime package-store handle, bound to the
+	// held package lock so live mutations share the CLI's validation and
+	// rename code. Set in Start; F03 owns mutation dispatch and ordering.
+	store *packages.PackageStore
+	// lastErr carries advisory in-memory failure text for interrupted
+	// operations. It is never persisted: intents carry only the
+	// interruption marker. Guarded by errMu, never m.mu.
+	errMu   sync.Mutex
+	lastErr map[string]*packages.LifecycleError
+	// Live lifecycle state: busy serializes one operation per package,
+	// draining closes new admission during teardown, and the catalog is
+	// the release's trusted package set loaded once before startup.
+	// Guarded by mu.
+	busy     map[string]string
+	draining map[string]bool
+	// F03 controller dispatch: mutation is the single global package
+	// mutation slot ("" when free), mutationPhase tracks the active
+	// command's phase for the failed-enable cleanup exception, and
+	// controllers records required-controller readiness by package ID.
+	// Guarded by mu; no HTTP, download, process wait, or callback runs
+	// while holding it.
+	mutation       string
+	mutationPhase  string
+	mutationTokens []string
+	controllers    map[string]controllerState
+	// catalogPath configures the release-supplied trusted catalog file;
+	// catalog and catalogSHA load once in Start. maintenanceDir
+	// configures the shared directory-inode exclusion; empty means
+	// standalone Fountain with no guard.
+	catalogPath    string
+	catalog        []sdk.CatalogPackage
+	catalogSHA     string
+	maintenanceDir string
+	// lifeCtx bounds manager-owned background work: the accepted admin
+	// mutation task and the startup optional-reconciliation pass. It is
+	// cancelled in Close. Browser disconnect never cancels these tasks;
+	// Close cancels and joins the active mutation before the package
+	// store unlocks. Guarded by mu for assignment; cancelled once.
+	lifeCtx    context.Context
+	lifeCancel context.CancelFunc
+	// activeOp tracks the single manager-owned mutation task, if any.
+	// A second adoption while it is set gets operation_in_progress.
+	// Guarded by mu; done closes when the task ends.
+	activeOp *activeOperation
+	// startupDone closes when the bounded startup optional pass ends.
+	// Guarded by mu; nil when no pass is running.
+	startupDone chan struct{}
+	// lastObs journals the latest controller-confirmed external effect
+	// per controlled package: state, operational grant, and the exact
+	// call identity it was observed under. State reads consult this
+	// journal only and never call the controller or host. Guarded by
+	// obsMu, never m.mu.
+	obsMu   sync.Mutex
+	lastObs map[string]controlledEffect
+}
+
+// activeOperation is one manager-owned mutation task: its cancel stops
+// the bounded work and done closes when the task has fully ended,
+// including intent settlement. Close cancels and waits on done before
+// releasing the package-store lock.
+type activeOperation struct {
+	id     string
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+// controlledEffect is the last controller-reported external fact for one
+// package. Generation, installation and controller instance bind it to
+// the current intent; anything else is stale and reads as unconfirmed.
+type controlledEffect struct {
+	state        string
+	admission    bool
+	generation   string
+	installation string
+	instanceID   string
+}
+
+// controllerState is one required controller's readiness: its current
+// native instance ID and whether its capability registration agreed.
+type controllerState struct {
+	instanceID string
+	ready      bool
 }
 
 var defaultManager atomic.Pointer[Manager]
@@ -81,7 +163,33 @@ func SetDefault(manager *Manager) {
 func GetManager() *Manager { return defaultManager.Load() }
 
 func NewManager(root string, requiredIDs ...string) *Manager {
-	return &Manager{root: root, requiredIDs: append([]string(nil), requiredIDs...), running: make(map[string]*running), background: newBackgroundRegistry()}
+	lifeCtx, lifeCancel := context.WithCancel(context.Background())
+	return &Manager{root: root, requiredIDs: append([]string(nil), requiredIDs...), running: make(map[string]*running), background: newBackgroundRegistry(), busy: make(map[string]string), draining: make(map[string]bool), lastErr: make(map[string]*packages.LifecycleError), controllers: make(map[string]controllerState), lifeCtx: lifeCtx, lifeCancel: lifeCancel, lastObs: make(map[string]controlledEffect)}
+}
+
+// SetCatalogPath configures the release-supplied trusted catalog file,
+// loaded once in Start. It must be configured before Start.
+func (m *Manager) SetCatalogPath(path string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.started {
+		return errors.New("extension manager already started")
+	}
+	m.catalogPath = path
+	return nil
+}
+
+// SetMaintenanceDir configures the shared directory-inode exclusion.
+// Empty means standalone Fountain with no guard. It must be configured
+// before Start.
+func (m *Manager) SetMaintenanceDir(dir string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.started {
+		return errors.New("extension manager already started")
+	}
+	m.maintenanceDir = dir
+	return nil
 }
 
 // SetCallbackHandlerFactory installs the host capability handler used by
@@ -109,86 +217,135 @@ func (m *Manager) SetInstanceStopped(callback func(instanceID string)) error {
 	return nil
 }
 
-// Start loads installed, enabled packages once. A failed package stops all
-// newly started packages so the registry never exposes a partial startup.
+// Start loads the trusted catalog once, bootstraps and starts required
+// packages synchronously, then restores desired optional backends
+// best-effort before returning core readiness. Required-first: an
+// optional backend, download, or controller call never blocks or fails
+// core startup. Optional package failure closes only that package's
+// admission and is reconciled by the bounded startup pass; deterministic
+// host-configuration errors (route claims, service-callback setup) still
+// fail startup with no partial state. m.mu is held only for brief
+// map/slot snapshots, never across downloads, handshakes, or callbacks.
 func (m *Manager) Start(ctx context.Context) (err error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if m.started {
+		m.mu.Unlock()
 		return errors.New("extension manager already started")
 	}
 	if err := os.MkdirAll(m.root, 0o700); err != nil {
+		m.mu.Unlock()
 		return errors.New("extension package directory unavailable")
 	}
+	// The trusted catalog loads once for the manager lifetime. A
+	// configured missing or malformed file is catalog-unavailable, never
+	// an empty catalog; empty is permitted only with no required IDs.
+	catalog, sha, err := packages.LoadCatalogFile(m.catalogPath)
+	if err != nil {
+		m.mu.Unlock()
+		return errors.New("extension catalog is unavailable")
+	}
+	// The required set must equal the configured required IDs exactly,
+	// and lifecycle controllers must name a required package without
+	// cycles. A required package with no catalog configured fails
+	// closed here; only the zero-extension layout (no required IDs,
+	// no catalog) starts without one.
+	if err := packages.ValidateCatalogSelection(catalog, m.requiredIDs); err != nil {
+		m.mu.Unlock()
+		return errors.New("extension catalog does not match configuration")
+	}
+	m.catalog = catalog.Packages
+	m.catalogSHA = sha
+	// A fresh lifetime owns this run's background work: an earlier
+	// Close cancelled the previous one, and a second Start must not
+	// inherit a dead context.
+	if m.lifeCancel != nil {
+		m.lifeCancel()
+	}
+	m.lifeCtx, m.lifeCancel = context.WithCancel(context.Background())
+	m.activeOp = nil
+	m.startupDone = nil
 	m.lock, err = packages.AcquirePackageLock(m.root)
 	if err != nil {
+		m.mu.Unlock()
 		return errors.New("extension package lock unavailable")
 	}
-	defer func() {
-		if err != nil {
-			m.stopAll()
-			m.closeServiceCallback()
-			_ = m.lock.Unlock()
-			m.lock = nil
-		}
-	}()
+	m.store, err = packages.PackageStoreFromLock(m.root, m.lock)
+	if err != nil {
+		_ = m.lock.Unlock()
+		m.lock = nil
+		m.mu.Unlock()
+		return errors.New("extension package store unavailable")
+	}
 	if err := m.startServiceCallback(); err != nil {
+		_ = m.lock.Unlock()
+		m.lock = nil
+		m.store = nil
+		m.mu.Unlock()
 		return err
 	}
+	m.mu.Unlock()
+
+	fail := func(err error) error {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.stopAll()
+		m.closeServiceCallback()
+		_ = m.lock.Unlock()
+		m.lock = nil
+		m.store = nil
+		return err
+	}
+
 	entries, err := os.ReadDir(m.root)
 	if err != nil {
-		return errors.New("cannot list extension packages")
+		return fail(errors.New("cannot list extension packages"))
 	}
 	required := make(map[string]bool, len(m.requiredIDs))
 	for _, id := range m.requiredIDs {
 		if !sdk.ValidID(id) || required[id] {
-			return errors.New("invalid or duplicate required extension id")
+			return fail(errors.New("invalid or duplicate required extension id"))
 		}
 		required[id] = false
 	}
-	claimedRoutes := make(map[string]bool)
 	for _, entry := range entries {
 		if _, ok := required[entry.Name()]; !ok {
 			continue
 		}
 		if !entry.IsDir() {
-			return fmt.Errorf("required extension %q is not a package directory", entry.Name())
+			return fail(fmt.Errorf("required extension %q is not a package directory", entry.Name()))
 		}
-		if _, err := os.Lstat(filepath.Join(m.root, entry.Name(), ".disabled")); err == nil {
-			return fmt.Errorf("required extension %q is disabled", entry.Name())
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("required extension %q activation state unavailable", entry.Name())
+		intent, err := packages.LoadIntent(m.root, entry.Name())
+		if err != nil {
+			return fail(fmt.Errorf("required extension %q requested state unavailable", entry.Name()))
+		}
+		// Required packages are always desired by configuration and
+		// carry no intent; only a persisted disabled intent fails
+		// closed here.
+		if intent.Generation != "0" && !intent.DesiredEnabled {
+			return fail(fmt.Errorf("required extension %q is disabled", entry.Name()))
 		}
 		required[entry.Name()] = true
 	}
 	for _, id := range m.requiredIDs {
 		if !required[id] {
-			return fmt.Errorf("required extension %q is missing", id)
+			return fail(fmt.Errorf("required extension %q is missing", id))
 		}
 	}
-	for _, entry := range entries {
-		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-			continue
+	// Required bootstrap reuses exact installed receipts first, the
+	// verified archive cache second, and bounded HTTPS acquisition only
+	// when neither is available, so exact cached packages reboot
+	// offline. There is no separate bootstrap image and no bundled
+	// core package. It preserves installation UUIDs and writes no
+	// intents itself.
+	if len(m.requiredIDs) != 0 {
+		requiredCatalog := sdk.Catalog{Version: sdk.CatalogVersion, Packages: append([]sdk.CatalogPackage(nil), m.catalog...)}
+		if err := packages.BootstrapRequired(ctx, m.store, requiredCatalog, m.requiredIDs, nil); err != nil {
+			return fail(fmt.Errorf("required extension bootstrap failed: %v", err))
 		}
-		if !sdk.ValidID(entry.Name()) {
-			return errors.New("invalid extension package directory name")
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		packageDir := filepath.Join(m.root, entry.Name())
-		if _, err := os.Stat(filepath.Join(packageDir, ".disabled")); err == nil {
-			continue
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return errors.New("cannot read package activation state")
-		}
-		item, err := m.startOne(packageDir, entry.Name())
-		if err != nil {
-			log.Error("Extension %s startup failed: %v", entry.Name(), err)
-			return fmt.Errorf("start extension %q: %w", entry.Name(), err)
-		}
-		m.running[item.descriptor.Manifest.ID] = item
-		for _, page := range item.descriptor.Manifest.Pages {
+	}
+	claimedRoutes := make(map[string]bool)
+	claimRoutes := func(manifest sdk.Manifest) error {
+		for _, page := range manifest.Pages {
 			if page.Route == "" {
 				continue
 			}
@@ -205,11 +362,95 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 				claimedRoutes[subKey] = true
 			}
 		}
-		log.Info("Extension %s started", entry.Name())
-		go m.observeExit(entry.Name(), item)
+		return nil
 	}
+	registerRunning := func(item *running) {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.running[item.descriptor.Manifest.ID] = item
+		m.noteControllerStarted(item.descriptor)
+	}
+	// Required packages start by configuration, in order. Any required
+	// failure is fatal: core never reports ready without them.
+	for _, id := range m.requiredIDs {
+		if err := ctx.Err(); err != nil {
+			return fail(err)
+		}
+		item, err := m.startOne(filepath.Join(m.root, id), id)
+		if err != nil {
+			log.Error("Extension %s startup failed: %v", id, err)
+			return fail(fmt.Errorf("start extension %q: %w", id, err))
+		}
+		if err := claimRoutes(item.descriptor.Manifest); err != nil {
+			m.stopOneDetached(id, item)
+			return fail(err)
+		}
+		registerRunning(item)
+		log.Info("Extension %s started", id)
+		go m.observeExit(id, item)
+	}
+	// Optional backends restore best-effort: installed bytes with
+	// desired intent start without downloads and without controller
+	// calls. A failure closes only that package's admission; the
+	// bounded startup pass reconciles effects afterwards. A configured
+	// maintenance marker defers all optional work to the
+	// post-exclusion reconcile instead.
+	if !maintenanceHeld(m.maintenanceDir) {
+		for _, entry := range entries {
+			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+				continue
+			}
+			if !sdk.ValidID(entry.Name()) {
+				return fail(errors.New("invalid extension package directory name"))
+			}
+			if slices.Contains(m.requiredIDs, entry.Name()) {
+				continue
+			}
+			if err := ctx.Err(); err != nil {
+				return fail(err)
+			}
+			id := entry.Name()
+			intent, err := packages.LoadIntent(m.root, id)
+			if err != nil {
+				log.Error("Extension %s startup skipped: requested state unavailable", id)
+				continue
+			}
+			if !intent.DesiredEnabled {
+				continue
+			}
+			item, err := m.startOne(filepath.Join(m.root, id), id)
+			if err != nil {
+				log.Error("Extension %s startup failed: %v", id, err)
+				continue
+			}
+			if err := claimRoutes(item.descriptor.Manifest); err != nil {
+				m.stopOneDetached(id, item)
+				return fail(err)
+			}
+			registerRunning(item)
+			log.Info("Extension %s started", id)
+			go m.observeExit(id, item)
+		}
+	}
+	m.mu.Lock()
 	m.started = true
+	m.mu.Unlock()
+	// Re-observe interrupted lifecycle operations against the live
+	// registry; this refreshes observations only and retries no effects.
+	m.reconcileLifecycle()
+	// Optional lifecycle effects (controller activation, residual
+	// stops, grant refresh) reconcile on the bounded schedule only
+	// after Start has released its mutex and returned core readiness.
+	go m.runStartupOptionalPass()
 	return nil
+}
+
+// stopOneDetached stops a not-yet-registered backend without holding
+// m.mu: it snapshots nothing and only tears down the fresh item.
+func (m *Manager) stopOneDetached(id string, item *running) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stopOne(id, item, false)
 }
 
 func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
@@ -349,6 +590,13 @@ func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 	if registration.AuthorizesContribution != slices.Contains(manifest.Capabilities, sdk.CapabilityContributionAuthorize) || len(registration.Policies) != len(manifest.Policies) {
 		return nil, errors.New("extension runtime registration does not match manifest")
 	}
+	// A declared lifecycle capability requires the handler
+	// registration, and a handler registration requires the declared
+	// capability. A controller that is missing or unready is a failure,
+	// never an implicit no-op hook.
+	if err := sdk.ValidateLifecycleRegistration(manifest, registration); err != nil {
+		return nil, err
+	}
 	for _, policy := range manifest.Policies {
 		if !slices.Contains(registration.Policies, policy) {
 			return nil, errors.New("extension runtime registration does not match manifest")
@@ -389,7 +637,8 @@ func needsNativeCallback(capabilities []string) bool {
 		switch capability {
 		case sdk.CapabilityActorRead, sdk.CapabilityRepositoryRead,
 			sdk.CapabilityOwnedRepositoriesSearch, sdk.CapabilityOrganizationOwnership,
-			sdk.CapabilityPublicKeysRead, sdk.CapabilityBackgroundOperations:
+			sdk.CapabilityPublicKeysRead, sdk.CapabilityBackgroundOperations,
+			sdk.CapabilityExtensionLifecycle:
 			return true
 		}
 	}
@@ -412,6 +661,11 @@ func (m *Manager) List() []Descriptor {
 	defer m.mu.Unlock()
 	list := make([]Descriptor, 0, len(m.running))
 	for id, item := range m.running {
+		// Draining packages closed new admission for teardown; they stay
+		// out of navigation and routing until teardown completes or fails.
+		if m.draining[id] {
+			continue
+		}
 		if item.client.Exited() {
 			m.stopOne(id, item, true)
 			continue
@@ -425,6 +679,9 @@ func (m *Manager) List() []Descriptor {
 func (m *Manager) Lookup(id string) (Descriptor, http.RoundTripper, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.draining[id] {
+		return Descriptor{}, nil, false
+	}
 	item := m.running[id]
 	if item == nil {
 		return Descriptor{}, nil, false
@@ -513,8 +770,24 @@ func (m *Manager) EvaluateRequiredPolicy(ctx context.Context, policyID string, r
 	return sdk.PolicyDecision{Allowed: true}, nil
 }
 
+// noteControllerStarted records required-controller readiness when a
+// backend whose manifest declares the lifecycle capability starts. The
+// handshake already matched the registration to the capability, so a
+// started declaring backend is ready. Callers hold m.mu. Instance stop
+// or replacement deletes the record; lifecycle admissions die with the
+// instance through the shared background registry.
+func (m *Manager) noteControllerStarted(descriptor Descriptor) {
+	for _, capability := range descriptor.Manifest.Capabilities {
+		if capability == sdk.CapabilityExtensionLifecycle {
+			m.controllers[descriptor.Manifest.ID] = controllerState{instanceID: descriptor.InstanceID, ready: true}
+			return
+		}
+	}
+}
+
 func (m *Manager) stopOne(id string, item *running, crashed bool) {
 	delete(m.running, id)
+	delete(m.controllers, id)
 	// Runtime stop revokes its runtime and service admissions; browser
 	// admissions are revoked through the injected callback as before.
 	m.RevokeBackgroundForInstance(item.descriptor.InstanceID)
@@ -559,11 +832,34 @@ func (m *Manager) stopAll() {
 }
 
 func (m *Manager) Close() error {
+	// Cancel manager-owned background work first: the accepted admin
+	// mutation task and the startup optional pass both observe lifeCtx.
+	// Join the active mutation without holding m.mu — its settlement
+	// takes brief snapshots — before stopping runtime and unlocking the
+	// package store, so unfinished effects remain pending and an
+	// offline CLI blocked on the lock proceeds only after the task
+	// has fully ended.
+	if m.lifeCancel != nil {
+		m.lifeCancel()
+	}
+	m.mu.Lock()
+	active := m.activeOp
+	startupDone := m.startupDone
+	m.mu.Unlock()
+	if active != nil {
+		<-active.done
+	}
+	if startupDone != nil {
+		<-startupDone
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.activeOp = nil
+	m.startupDone = nil
 	m.stopAll()
 	m.closeServiceCallback()
 	m.started = false
+	m.store = nil
 	if m.lock != nil {
 		err := m.lock.Unlock()
 		m.lock = nil

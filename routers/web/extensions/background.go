@@ -75,10 +75,78 @@ func backgroundMux(manager *runtime.Manager, browser http.Handler, instanceID st
 		case extension.BackgroundSubmitPath, extension.BackgroundGetPath, extension.BackgroundCancelPath, extension.BackgroundRevisionPath, extension.BackgroundSnapshotPath, extension.BackgroundCreationsPath, extension.BackgroundOperationsPath:
 			serveBackgroundOperation(w, r, manager, instanceID, service, verifiers, operations)
 			return
+		case extension.LifecycleAuthorizePath:
+			serveLifecycleAuthorize(w, r, manager, instanceID, service)
+			return
 		default:
 			browser.ServeHTTP(w, r)
 		}
 	})
+}
+
+// serveLifecycleAuthorize serves the manager authorize callback on the
+// existing per-instance and service callback multiplexers. It verifies
+// the exact presented call against the manager's admission record and
+// performs no requested lifecycle effect. Per-instance requests must
+// belong to that controller instance; shared service-socket requests
+// also require the kernel peer UID mapped to that controller.
+func serveLifecycleAuthorize(w http.ResponseWriter, r *http.Request, manager *runtime.Manager, instanceID string, service bool) {
+	if r.Method != http.MethodPost || r.URL.RawQuery != "" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Header.Get("Content-Type") != "application/json" {
+		http.Error(w, "invalid lifecycle authorize request", http.StatusBadRequest)
+		return
+	}
+	token := r.Header.Get(extension.LifecycleAdmissionHeader)
+	if token == "" {
+		http.Error(w, "lifecycle admission required", http.StatusUnauthorized)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, extension.MaximumLifecycleBodyBytes+1))
+	if err != nil || len(body) > extension.MaximumLifecycleBodyBytes {
+		http.Error(w, "lifecycle call exceeds limit", http.StatusBadRequest)
+		return
+	}
+	call, err := extension.DecodeLifecycleCall(body)
+	if err != nil {
+		http.Error(w, "malformed lifecycle call", http.StatusBadRequest)
+		return
+	}
+	peer, err := extension.ParseUnixPeer(r.RemoteAddr)
+	if err != nil {
+		http.Error(w, "lifecycle peer identity unavailable", http.StatusForbidden)
+		return
+	}
+	if service {
+		if !manager.VerifyServiceLifecyclePeer(peer.UID, call.ControllerID) {
+			http.Error(w, "lifecycle peer rejected", http.StatusForbidden)
+			return
+		}
+	} else {
+		if instanceID == "" || call.ControllerInstanceID != instanceID {
+			http.Error(w, "lifecycle admission rejected", http.StatusForbidden)
+			return
+		}
+		if peer.UID != runtime.CurrentProcessUID() {
+			http.Error(w, "lifecycle peer rejected", http.StatusForbidden)
+			return
+		}
+	}
+	verification, authErr := manager.VerifyLifecycleCall(token, call)
+	if authErr != nil {
+		http.Error(w, authErr.Message, authErr.HTTP)
+		return
+	}
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(verification); err != nil {
+		http.Error(w, "cannot encode verification", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(buf.Bytes())
 }
 
 func serveBackgroundBootstrap(w http.ResponseWriter, r *http.Request, manager *runtime.Manager) {

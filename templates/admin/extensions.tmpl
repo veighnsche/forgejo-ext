@@ -1,0 +1,87 @@
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin extensions")}}
+<div class="admin-setting-content">
+	<h4 class="ui top attached header">
+		Extensions
+	</h4>
+	<div class="ui attached segment">
+		{{if .ExtensionError}}<div class="ui negative message">{{.ExtensionError}}</div>{{end}}
+		{{if not .ExtensionsEnabled}}<div class="ui warning message">Extension packages are disabled. Set [extensions] ENABLED = true to manage them.</div>{{end}}
+		<table class="ui very basic striped table unstackable" id="ext-status-table" data-status-url="{{AppSubUrl}}/admin/extensions/status">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Name</th>
+					<th>Version</th>
+					<th>State</th>
+					<th>Detail</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				{{range .ExtensionEntries}}
+				<tr id="ext-row-{{.ID}}" data-ext-state="{{.State}}" data-ext-unconfirmed="{{.Unconfirmed}}">
+					<td>{{.ID}}{{if .Required}} <span class="ui tiny label">required</span>{{end}}</td>
+					<td>{{.Name}}</td>
+					<td>{{.Version}}</td>
+					<td class="ext-state">{{.State}}{{if .Unconfirmed}} <span class="ui tiny label">unconfirmed</span>{{end}}</td>
+					<td class="ext-progress">{{.Progress}}</td>
+					<td class="right aligned">
+						{{if and (eq .State "enabled") (not .Required) .SettingsPage}}
+						<a class="ui tiny button" href="{{AppSubUrl}}/admin/extensions/{{.ID}}/settings/{{.SettingsPage}}">Settings</a>
+						{{end}}
+						{{if eq .State "enabled"}}
+						{{if not .Required}}
+						<form class="display-inline" method="post" action="{{AppSubUrl}}/admin/extensions/disable/{{.ID}}">
+							<input type="hidden" name="expected_generation" value="{{.Generation}}">
+							<input type="hidden" name="catalog_sha256" value="{{$.CatalogSHA256}}">
+							<button class="ui tiny button">Disable</button>
+						</form>
+						{{end}}
+						{{else}}
+						{{if not .Required}}
+						<form class="display-inline" method="post" action="{{AppSubUrl}}/admin/extensions/enable/{{.ID}}">
+							<input type="hidden" name="expected_generation" value="{{.Generation}}">
+							<input type="hidden" name="catalog_sha256" value="{{$.CatalogSHA256}}">
+							<button class="ui tiny primary button">Enable</button>
+						</form>
+						{{end}}
+						{{end}}
+					</td>
+				</tr>
+				{{else}}
+				<tr><td colspan="6">No extension packages are installed.</td></tr>
+				{{end}}
+			</tbody>
+		</table>
+		{{if .ExtensionAvailable}}
+		<h5 class="ui header">Available from the release catalog</h5>
+		<table class="ui very basic striped table unstackable">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Version</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				{{range .ExtensionAvailable}}
+				<tr>
+					<td>{{.ID}}{{if .Required}} <span class="ui tiny label">required</span>{{end}}</td>
+					<td>{{.Version}}</td>
+					<td class="right aligned">
+						{{if not .Required}}
+						<form class="display-inline" method="post" action="{{AppSubUrl}}/admin/extensions/enable/{{.ID}}">
+							<input type="hidden" name="expected_generation" value="0">
+							<input type="hidden" name="catalog_sha256" value="{{$.CatalogSHA256}}">
+							<button class="ui tiny primary button">Install and enable</button>
+						</form>
+						{{end}}
+					</td>
+				</tr>
+				{{end}}
+			</tbody>
+		</table>
+		{{end}}
+	</div>
+</div>
+{{template "admin/layout_footer" .}}

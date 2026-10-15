@@ -31,12 +31,24 @@ func StartRuntime(ctx context.Context) (close func() error, err error) {
 	if err := manager.SetServiceBridgePeers(peers); err != nil {
 		return nil, err
 	}
+	// The trusted catalog is release-supplied configuration, loaded once
+	// for the manager lifetime. Required bootstrap and all intent pins
+	// resolve against it; it is never derived from browser input.
+	if err := manager.SetCatalogPath(setting.Extensions.CatalogPath); err != nil {
+		return nil, err
+	}
+	if err := manager.SetMaintenanceDir(setting.Extensions.MaintenanceDir); err != nil {
+		return nil, err
+	}
 	if err := manager.SetCallbackHandlerFactory(func(instanceID string) http.Handler {
 		return BackgroundMux(manager, CallbackHandlerForInstance(instanceID), instanceID, false)
 	}); err != nil {
 		return nil, err
 	}
-	if err := manager.SetServiceCallbackEndpoint(setting.Extensions.ServiceCallbackPath, BackgroundMux(manager, CallbackHandlerForService(), "", true)); err != nil {
+	// Manager-control endpoints ride the shared service callback
+	// socket behind kernel peer mapping, independent of the optional
+	// package's runtime or browser admission.
+	if err := manager.SetServiceCallbackEndpoint(setting.Extensions.ServiceCallbackPath, ManagerControlMux(manager, BackgroundMux(manager, CallbackHandlerForService(), "", true))); err != nil {
 		return nil, err
 	}
 	if err := manager.SetInstanceStopped(RevokeAdmissionsForInstance); err != nil {

@@ -41,7 +41,17 @@ func nativeSession(ctx *context.Context) bool {
 }
 
 // Register keeps the existing native account-state and cross-origin middleware.
+// The admin Extensions settings routes reuse the caller's live site-admin
+// guard, so lifecycle actions keep native admin authentication and the same
+// cross-origin protection as every other admin route.
 func Register(m *web.Route, signedIn, admin any) {
+	m.Group("/admin/extensions", func() {
+		m.Get("", NativeSession, admin, AdminExtensions)
+		m.Get("/status", NativeSession, admin, AdminExtensionsStatus)
+		m.Get("/{id}/settings/{page}", NativeSession, admin, AdminExtensionSettings)
+		m.Post("/enable/{id}", NativeSession, admin, AdminEnableExtension)
+		m.Post("/disable/{id}", NativeSession, admin, AdminDisableExtension)
+	})
 	register := func(prefix, scope string, guards ...any) {
 		m.Methods("GET,HEAD,POST,PUT,PATCH,DELETE", prefix+"/{extension}/{page}/api/*", append(guards, api(scope, false))...)
 	}

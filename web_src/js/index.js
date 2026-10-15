@@ -70,6 +70,7 @@ import {
 import {initRepoTopicBar, retireRepoTopicBar} from './features/repo-home.js';
 import {initAdminEmails, retireAdminEmails} from './features/admin/emails.js';
 import {initAdminCommon, retireAdminCommon} from './features/admin/common.js';
+import {initAdminExtensions, retireAdminExtensions} from './features/admin-extensions.ts';
 import {initRepoTemplateSearch, retireRepoTemplateSearch} from './features/repo-template.js';
 import {initRepoCodeView, retireRepoCodeView} from './features/repo-code.ts';
 import {initSshKeyFormParser, retireSshKeyFormParser} from './features/sshkey-helper.js';
@@ -217,6 +218,7 @@ registerPageFeature('archived-label-handler', {init: initArchivedLabelHandler});
 // B07 closure: B06 account/org/admin page features (7). LabelEdit retires
 // through common-organization, so it is not registered separately.
 registerPageFeature('admin-common', {init: initAdminCommon, retire: retireAdminCommon});
+registerPageFeature('admin-extensions', {init: initAdminExtensions, retire: retireAdminExtensions});
 registerPageFeature('admin-configs', {init: initAdminConfigs, retire: retireAdminConfigs});
 registerPageFeature('admin-emails', {init: initAdminEmails, retire: retireAdminEmails});
 registerPageFeature('common-organization', {init: initCommonOrganization, retire: retireCommonOrganization});

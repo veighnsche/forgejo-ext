@@ -91,6 +91,9 @@
 				</a>
 			</div>
 		</details>
+		<a class="{{if .PageIsAdminExtensions}}active {{end}}item" href="{{AppSubUrl}}/admin/extensions">
+			Extensions
+		</a>
 		<a class="{{if .PageIsAdminNotices}}active {{end}}item" href="{{AppSubUrl}}/admin/notices">
 			{{ctx.Locale.Tr "admin.notices"}}
 		</a>

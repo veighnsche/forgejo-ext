@@ -29,6 +29,18 @@ type BackgroundAdmission struct {
 	// operations must arrive from the same UID.
 	ServicePeerUID uint32
 	Capabilities   map[string]struct{}
+	// Lifecycle marks the distinct lifecycle admission variant. It
+	// carries one immutable call tuple with its deadline and the
+	// desired flag it was issued under; CleanupException is stored in
+	// this record only, never supplied by a caller, and marks the
+	// single bounded deactivate a still-active failed-enable command
+	// may issue. Ordinary background operations reject this variant;
+	// browser admissions and lifecycle admissions are never
+	// interchangeable.
+	Lifecycle        bool
+	Call             sdk.LifecycleCall
+	DesiredEnabled   bool
+	CleanupException bool
 }
 
 type backgroundRegistry struct {
@@ -148,8 +160,55 @@ func (m *Manager) IssueRuntimeAdmission(installationID, instanceID string, capab
 }
 
 // VerifyBackgroundAdmission resolves an admission to its host-derived claims.
+// The lifecycle variant is rejected here: ordinary background operations
+// never accept it.
 func (m *Manager) VerifyBackgroundAdmission(token string) (BackgroundAdmission, bool) {
-	return m.background.get(token)
+	admission, ok := m.background.get(token)
+	if !ok || admission.Lifecycle {
+		return BackgroundAdmission{}, false
+	}
+	return admission, true
+}
+
+// IssueLifecycleAdmission mints one opaque single-use lifecycle token for
+// a full call tuple. The cleanup exception is chosen by the issuer from
+// internal command state, never from a request flag.
+func (m *Manager) IssueLifecycleAdmission(admission *BackgroundAdmission) (string, error) {
+	if admission == nil || !admission.Lifecycle || admission.InstallationID == "" || admission.InstanceID == "" {
+		return "", errors.New("lifecycle admission requires installation, instance and tuple")
+	}
+	admission.Capabilities = map[string]struct{}{}
+	return m.background.issue(admission)
+}
+
+// VerifyLifecycleAdmission resolves one lifecycle admission. Ordinary
+// admissions never verify here.
+func (m *Manager) VerifyLifecycleAdmission(token string) (BackgroundAdmission, bool) {
+	admission, ok := m.background.get(token)
+	if !ok || !admission.Lifecycle {
+		return BackgroundAdmission{}, false
+	}
+	return admission, true
+}
+
+// RevokeLifecycleAdmission drops one token after its call, deadline,
+// controller instance stop, or superseding intent.
+func (m *Manager) RevokeLifecycleAdmission(token string) {
+	m.background.mu.Lock()
+	defer m.background.mu.Unlock()
+	m.background.revokeLocked(token)
+}
+
+// RevokeLifecycleForInstallation drops every lifecycle admission for one
+// target installation when its intent is superseded.
+func (m *Manager) RevokeLifecycleForInstallation(installationID string) {
+	m.background.mu.Lock()
+	defer m.background.mu.Unlock()
+	for token := range m.background.byInstallation[installationID] {
+		if entry := m.background.entries[token]; entry != nil && entry.Lifecycle {
+			m.background.revokeLocked(token)
+		}
+	}
 }
 
 // RevokeBackgroundForInstance invalidates a stopped instance's admissions.
@@ -193,6 +252,15 @@ func (m *Manager) SetServiceBridgePeers(mapping map[uint32]string) error {
 	}
 	m.serviceBridgePeers = mapping
 	return nil
+}
+
+// VerifyServiceLifecyclePeer admits only the service peer UID explicitly
+// mapped to the calling controller package. Socket group membership or
+// manifest declaration alone never authorizes a peer.
+func (m *Manager) VerifyServiceLifecyclePeer(peerUID uint32, controllerID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return controllerID != "" && m.serviceBridgePeers[peerUID] == controllerID
 }
 
 // BootstrapServiceAdmission maps an observed service peer to exactly one

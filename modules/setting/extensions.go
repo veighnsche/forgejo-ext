@@ -14,9 +14,18 @@ var Extensions = struct {
 	Path                string
 	RequiredIDs         []string
 	ServiceCallbackPath string
+	// CatalogPath is the absolute [extensions] CATALOG_PATH to one
+	// release-supplied, read-only catalog JSON file. Empty means no
+	// available catalog packages (permitted only with no required IDs).
+	CatalogPath string
 	// ServiceBridgePeers maps a service Unix peer UID to one permitted
 	// package ID as "uid:package,...". Empty disables service bootstrap.
 	ServiceBridgePeers string
+	// MaintenanceDir is the generic [extensions] MAINTENANCE_DIRECTORY:
+	// the shared directory-inode exclusion for intent, acquisition and
+	// lifecycle operations. Empty means standalone Fountain with no
+	// guard. Fountain never hard-codes product paths here.
+	MaintenanceDir string
 }{}
 
 func loadExtensionsFrom(cfg ConfigProvider) {
@@ -25,7 +34,9 @@ func loadExtensionsFrom(cfg ConfigProvider) {
 	// Preserve the explicit path: the manager rejects relative paths rather than
 	// silently moving a service trust boundary under the work directory.
 	Extensions.ServiceCallbackPath = sec.Key("SERVICE_CALLBACK_PATH").String()
+	Extensions.CatalogPath = strings.TrimSpace(sec.Key("CATALOG_PATH").String())
 	Extensions.ServiceBridgePeers = sec.Key("SERVICE_BRIDGE_PEERS").String()
+	Extensions.MaintenanceDir = strings.TrimSpace(sec.Key("MAINTENANCE_DIRECTORY").String())
 	Extensions.Path = sec.Key("PATH").MustString(filepath.Join(AppDataPath, "extensions"))
 	if !filepath.IsAbs(Extensions.Path) {
 		Extensions.Path = filepath.Join(AppWorkPath, Extensions.Path)

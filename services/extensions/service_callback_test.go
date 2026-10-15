@@ -101,6 +101,7 @@ func TestServiceBridgeRequiresConfiguredEndpoint(t *testing.T) {
 	installTestPackage(t, root, "sample")
 	manifest := `{"protocol":1,"id":"sample","name":"Test","version":"1.0","executable":"extension","capabilities":["native.service.bridge","native.actor.read"]}`
 	require.NoError(t, os.WriteFile(filepath.Join(root, "sample", "extension.json"), []byte(manifest), 0o600))
+	setDesiredState(t, root, "sample", true)
 	m := NewManager(root)
 	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	require.ErrorContains(t, m.Start(context.Background()), "service callback configuration failed")
@@ -135,14 +136,23 @@ func TestServiceCallbackReclaimsStaleSocket(t *testing.T) {
 	require.NoError(t, m.Close())
 }
 
+// A failed startup removes the owned service socket. Optional package
+// failure is isolated and never fails startup, so the competing-route
+// host configuration error is the fatal trigger here.
 func TestServiceCallbackStartupFailureCleansOwnedSocket(t *testing.T) {
 	root := shortTestRoot(t)
 	packageRoot := filepath.Join(root, "packages")
-	require.NoError(t, os.MkdirAll(filepath.Join(packageRoot, "broken"), 0o700))
+	for _, id := range []string{"first", "second"} {
+		installTestPackage(t, packageRoot, id)
+		manifest := `{"protocol":1,"id":"` + id + `","name":"Test","version":"1.0","executable":"extension","pages":[{"id":"page","route":"workspace","title":"Workspace","scope":"global","entry":"main.js"}]}`
+		require.NoError(t, os.WriteFile(filepath.Join(packageRoot, id, "extension.json"), []byte(manifest), 0o600))
+		setDesiredState(t, packageRoot, id, true)
+	}
 	path := filepath.Join(root, "callback.sock")
 	m := NewManager(packageRoot)
+	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
 	require.NoError(t, m.SetServiceCallbackEndpoint(path, http.NotFoundHandler()))
-	require.Error(t, m.Start(context.Background()))
+	require.ErrorContains(t, m.Start(context.Background()), "already claimed")
 	_, err := os.Lstat(path)
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
