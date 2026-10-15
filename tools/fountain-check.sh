@@ -51,7 +51,7 @@ case $1 in
     make test-backend GOTESTFLAGS=-count=1
     (cd sdk && go test -count=1 ./...)
     go test -race -count=1 -tags 'sqlite sqlite_unlock_notify' \
-      ./models/nativeoperation ./services/nativeoperation ./services/extensions ./modules/session ./routers/common \
+      ./models/nativeoperation ./services/nativeoperation ./services/extensions ./modules/session ./modules/queue ./routers/common \
       ./services/pull ./services/actions ./services/repository \
       code.forgejo.org/go-chi/session
     ;;

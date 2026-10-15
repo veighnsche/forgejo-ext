@@ -32,8 +32,9 @@ type WorkerPoolQueue[T any] struct {
 	baseConfig    *BaseConfig
 	baseQueue     baseQueue
 
-	batchChan chan []T
-	flushChan chan flushType
+	batchChan    chan []T
+	flushChan    chan flushType
+	pushRevision atomic.Uint64
 
 	batchLength     int
 	workerNum       int
@@ -45,6 +46,12 @@ type WorkerPoolQueue[T any] struct {
 type flushType chan struct{}
 
 var _ ManagedWorkerPoolQueue = (*WorkerPoolQueue[any])(nil)
+
+// pushSequence lets the test-only manager flush detect cross-queue work
+// even after a consumer has moved it into an internal debounce buffer.
+func (q *WorkerPoolQueue[T]) pushSequence() uint64 {
+	return q.pushRevision.Load()
+}
 
 func (q *WorkerPoolQueue[T]) GetName() string {
 	return q.baseConfig.ManagedName
@@ -168,7 +175,11 @@ func (q *WorkerPoolQueue[T]) Push(data T) error {
 			q.safeHandler(data)
 		}
 	}
-	return q.baseQueue.PushItem(q.ctxRun, q.marshal(data))
+	err := q.baseQueue.PushItem(q.ctxRun, q.marshal(data))
+	if err == nil {
+		q.pushRevision.Add(1)
+	}
+	return err
 }
 
 // Has only works for unique queues. Keep in mind that this check may not be reliable (due to lacking of proper transaction support)

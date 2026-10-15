@@ -82,7 +82,15 @@ func (m *Manager) FlushAll(ctx context.Context, timeout time.Duration) error {
 		defer cancel()
 	}
 	for {
+		// Base lengths and active workers omit debounced buffers. A pass
+		// is quiet only if no successful push occurred anywhere in its graph.
 		qs := m.ManagedQueues()
+		sequences := make(map[int64]uint64, len(qs))
+		for id, q := range qs {
+			if tracked, ok := q.(interface{ pushSequence() uint64 }); ok {
+				sequences[id] = tracked.pushSequence()
+			}
+		}
 		for _, q := range qs {
 			if err := q.FlushWithContext(ctx, 0); err != nil {
 				return err
@@ -91,8 +99,11 @@ func (m *Manager) FlushAll(ctx context.Context, timeout time.Duration) error {
 		// A handler can enqueue work in a queue already flushed in this
 		// pass. Wait for the whole graph, not just each queue once.
 		pending := false
-		for _, q := range qs {
+		for id, q := range qs {
 			pending = pending || q.GetQueueItemNumber() != 0 || q.GetWorkerActiveNumber() != 0
+			if tracked, ok := q.(interface{ pushSequence() uint64 }); ok {
+				pending = pending || tracked.pushSequence() != sequences[id]
+			}
 		}
 		if !pending {
 			return nil
