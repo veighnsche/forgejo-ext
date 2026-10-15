@@ -60,6 +60,13 @@ while (( SECONDS < budget - 15 )); do
       printf 'Published %s in %ss.\n' "$candidate" "$SECONDS"
       exit 0
     fi
+    # Stop promptly when a required child has already failed, rather than
+    # spending the remaining publication budget waiting for sibling jobs.
+    if gh api "repos/$repository/actions/runs/$run/jobs?per_page=100" --jq \
+      'any(.jobs[]; .status == "completed" and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out"))' | grep -qx true; then
+      printf 'Qualification failed: %s\n' "$url" >&2
+      exit 1
+    fi
   fi
   sleep 3
 done

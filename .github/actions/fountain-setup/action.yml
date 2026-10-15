@@ -40,7 +40,7 @@ runs:
     - name: Install locked dependencies
       if: inputs.dependencies == 'true'
       shell: bash
-      run: npm ci --no-audit --no-fund
+      run: npm ci --no-audit --no-fund --prefer-offline --maxsockets=50
     - name: Install verified Git LFS
       if: inputs.lfs == 'true'
       shell: bash

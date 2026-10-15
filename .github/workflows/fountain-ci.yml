@@ -51,8 +51,9 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-          fetch-depth: 0
       - uses: ./.github/actions/fountain-setup
+        with:
+          dependencies: 'false'
       - run: bash tools/fountain-check.sh push-source
 
   unit:
@@ -62,14 +63,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [push-unit, push-race]
+        profile: [push-unit, push-native, push-race]
     runs-on: ubuntu-24.04
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-          fetch-depth: 0
       - uses: ./.github/actions/fountain-setup
         with:
           dependencies: 'false'
@@ -102,7 +102,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-          fetch-depth: 0
       - uses: ./.github/actions/fountain-setup
         with:
           dependencies: 'false'
@@ -124,7 +123,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-          fetch-depth: 0
       - uses: ./.github/actions/fountain-setup
       - run: bash tools/fountain-check.sh push-browser
 
@@ -138,7 +136,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-          fetch-depth: 0
       - uses: ./.github/actions/fountain-setup
         with:
           dependencies: 'false'

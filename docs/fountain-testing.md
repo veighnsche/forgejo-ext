@@ -56,8 +56,8 @@ GitHub runner queue delays are outside local control and do not qualify a commit
 | Push profile (`tools/fountain-check.sh`) | Required scope |
 | --- | --- |
 | `push-source` | Repository Go/template formatting; independent SDK and patched-session module integrity, formatting and vet. |
-| `push-unit` / `push-race` | Parallel jobs: Fountain SDK, extension lifecycle, settings, sessions, queues, native entry points, pull/automerge and native-operation tests; race checks for the reservation model, native service, pull service, queue and patched session. Both jobs must pass. |
-| `push-database` | SQLite native reservation contracts and real PostgreSQL authority, creation recovery and migration tests. Skipped, empty, malformed or failed PG results fail. |
+| `push-unit` / `push-native` / `push-race` | Parallel jobs: Fountain SDK, extension lifecycle, settings, sessions, queues, native entry points, pull/automerge and native-operation tests; race checks for the reservation model, native service, pull service, queue and patched session. All three jobs must pass. |
+| `push-database` | SQLite native reservation contracts and real PostgreSQL authority, creation recovery and migration tests. The self-contained PG migration contract compiles the real migration sources in Go file-list mode, without the unrelated historical suite’s server fixture. Skipped, empty, malformed or failed PG results fail. |
 | `push-browser` | Full frontend lint and nonempty, unfocused unit suite; strict SDK/example TypeScript and production frontend build. |
 | `push-packaging` | Release-script Bash syntax, checksum-pinned Hadolint at warning severity, and pinned Actionlint for both CI workflows. |
 
