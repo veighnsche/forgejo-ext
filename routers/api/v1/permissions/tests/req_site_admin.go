@@ -25,6 +25,9 @@ var _ = registerFunctionTest(apiv1_permissions.ReqSiteAdmin, functionTest{
 	},
 	fulfillNeeds: func(t *testing.T, data *testData) {
 		t.Helper()
-		data.SetDefault("doer", "doeradmin")
+		// An earlier permission must succeed before the permission under
+		// test runs, even when that later fixture supplies a regular user.
+		// ReqSiteAdmin's own non-admin fixture does not call this helper.
+		data.Set("doer", "doeradmin")
 	},
 })

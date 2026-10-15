@@ -4,9 +4,9 @@
 package integration
 
 import (
+	"net/url"
 	"testing"
 
-	"forgejo.org/models/unittest"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 	apiv1 "forgejo.org/routers/api/v1"
@@ -18,11 +18,11 @@ func TestAPIv1Permissions(t *testing.T) {
 	defer test.MockVariableValue(&setting.IsInTesting, true)()
 	defer test.MockVariableValue(&setting.DisableGitHooks, false)()
 
-	unittest.PrepareTestEnv(t)
-
-	// because setting.IsInTesting == true, it will record the
-	// middleware sequence of each route it builds
-	apiv1.Routes()
-
-	apiv1_permissions_tests.APIv1Permissions(t)
+	// PR fixtures perform real ref writes; their hooks verify ownership
+	// through the application's private callback server.
+	onApplicationRun(t, func(t *testing.T, _ *url.URL) {
+		// Record the middleware sequence of each route while testing.
+		apiv1.Routes()
+		apiv1_permissions_tests.APIv1Permissions(t)
+	})
 }
