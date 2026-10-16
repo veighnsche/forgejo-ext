@@ -698,6 +698,355 @@ func validRepositoryIssuesCursor(cursor string) bool {
 	return strconv.FormatInt(value, 10) == cursor
 }
 
+// ThreadMemberSnapshot is one permission-checked conversation member.
+type ThreadMemberSnapshot struct {
+	CommentID      int64
+	IssueID        int64
+	ContentDigest  string
+	ContentVersion int
+	CreatedUnix    int64
+	UpdatedUnix    int64
+	Visible        bool
+	HiddenReason   string
+	Complete       bool
+}
+
+// ThreadSnapshot is the permission-checked view of one native code-review
+// conversation. Location splits the root anchor into path, old|new side
+// and unsigned line. OriginalCommit is the root's recorded commit;
+// HeadCommit the current head tip bound at read time (empty when the head
+// ref is gone). Digest binds the ordered member lines; hidden threads
+// carry no digest, location, commits or members.
+type ThreadSnapshot struct {
+	RootID         int64
+	IssueID        int64
+	ReviewID       int64
+	Path           string
+	Side           string
+	Line           int64
+	OriginalCommit string
+	HeadCommit     string
+	Outdated       bool
+	ResolverID     int64
+	Resolved       bool
+	Digest         string
+	Members        []ThreadMemberSnapshot
+	MemberTotal    int
+	Visible        bool
+	HiddenReason   string
+	Complete       bool
+}
+
+// validThreadBlockerDigest checks the 64-hex conversation digest shape.
+func validThreadDigest(digest string) bool {
+	if len(digest) != 64 {
+		return false
+	}
+	for _, c := range digest {
+		if c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// NewThreadMemberSnapshot converts one current member row. Hidden members
+// redact to locator IDs.
+func NewThreadMemberSnapshot(comment *Comment, visible bool, hiddenReason string, complete bool) (ThreadMemberSnapshot, error) {
+	if comment == nil || comment.ID <= 0 {
+		return ThreadMemberSnapshot{}, ErrSnapshotInvalid
+	}
+	if !visible {
+		if !validHiddenReason(hiddenReason) {
+			return ThreadMemberSnapshot{}, ErrSnapshotInvalid
+		}
+		return ThreadMemberSnapshot{
+			CommentID:    comment.ID,
+			Visible:      false,
+			HiddenReason: hiddenReason,
+			Complete:     complete,
+		}, nil
+	}
+	if hiddenReason != "" {
+		return ThreadMemberSnapshot{}, ErrSnapshotInvalid
+	}
+	if comment.ContentVersion < 0 {
+		return ThreadMemberSnapshot{}, ErrSnapshotInvalid
+	}
+	created := int64(comment.CreatedUnix)
+	updated := int64(comment.UpdatedUnix)
+	if created <= 0 || updated < created {
+		return ThreadMemberSnapshot{}, ErrSnapshotInvalid
+	}
+	return ThreadMemberSnapshot{
+		CommentID:      comment.ID,
+		IssueID:        comment.IssueID,
+		ContentDigest:  ContentDigest(comment.Content),
+		ContentVersion: comment.ContentVersion,
+		CreatedUnix:    created,
+		UpdatedUnix:    updated,
+		Visible:        true,
+		Complete:       complete,
+	}, nil
+}
+
+// NewThreadSnapshot converts one grouped conversation. root is the native
+// root (first in created/id order); digest binds the ordered member
+// lines. A hidden thread redacts to its root locator. Resolver
+// consistency binds Resolved to a set ResolverID. Outdated marks a root
+// whose original commit differs from the bound head tip.
+func NewThreadSnapshot(root *Comment, issueID, reviewID int64, path, side string, line int64, originalCommit, headCommit, digest string, members []ThreadMemberSnapshot, memberTotal int, resolverID int64, resolved, outdated, visible bool, hiddenReason string, complete bool) (ThreadSnapshot, error) {
+	if root == nil || root.ID <= 0 || issueID <= 0 || reviewID <= 0 {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	if !visible {
+		if !validHiddenReason(hiddenReason) {
+			return ThreadSnapshot{}, ErrSnapshotInvalid
+		}
+		return ThreadSnapshot{
+			RootID:       root.ID,
+			IssueID:      issueID,
+			ReviewID:     reviewID,
+			Visible:      false,
+			HiddenReason: hiddenReason,
+			Complete:     complete,
+		}, nil
+	}
+	if hiddenReason != "" {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	if path == "" || (side != "old" && side != "new") || line <= 0 {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	if originalCommit != "" && !validFullOID(originalCommit) {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	if headCommit != "" && !validFullOID(headCommit) {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	if !validThreadDigest(digest) {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	if memberTotal < 0 || len(members) > memberTotal {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	for _, member := range members {
+		if !member.Complete {
+			return ThreadSnapshot{}, ErrSnapshotInvalid
+		}
+	}
+	if complete && len(members) != memberTotal {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	if resolved != (resolverID != 0) {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	if resolverID < 0 {
+		return ThreadSnapshot{}, ErrSnapshotInvalid
+	}
+	return ThreadSnapshot{
+		RootID:         root.ID,
+		IssueID:        issueID,
+		ReviewID:       reviewID,
+		Path:           path,
+		Side:           side,
+		Line:           line,
+		OriginalCommit: originalCommit,
+		HeadCommit:     headCommit,
+		Outdated:       outdated,
+		ResolverID:     resolverID,
+		Resolved:       resolved,
+		Digest:         digest,
+		Members:        append([]ThreadMemberSnapshot(nil), members...),
+		MemberTotal:    memberTotal,
+		Visible:        true,
+		Complete:       complete,
+	}, nil
+}
+
+// ThreadPage carries one bounded conversation list with completeness.
+// Roots ascend strictly in root-ID order; NextCursor is the exclusive
+// lower bound for the following page (empty on a terminal page,
+// otherwise the final returned root ID). Complete means fully enumerated
+// through the final page with every thread fully evidenced.
+type ThreadPage struct {
+	IssueID    int64
+	Items      []ThreadSnapshot
+	NextCursor string
+	Total      int
+	Complete   bool
+}
+
+// NewThreadPage validates one loader-read conversation list. A complete
+// page carries every remaining thread fully evidenced with an empty
+// cursor. An incomplete page carries incomplete items, which the consumer
+// must refuse: either a nonterminal page with nonempty items and the
+// cursor at the final returned root, or a terminal-incomplete page with
+// an empty cursor when everything remaining was observed but blocked
+// (hidden, truncated or dropped evidence). An empty incomplete page is
+// invalid.
+func NewThreadPage(issueID int64, items []ThreadSnapshot, nextCursor string, total int, complete bool) (ThreadPage, error) {
+	if issueID <= 0 || total < 0 || len(items) > total {
+		return ThreadPage{}, ErrSnapshotInvalid
+	}
+	for i, item := range items {
+		if item.IssueID != issueID || item.RootID <= 0 {
+			return ThreadPage{}, ErrSnapshotInvalid
+		}
+		if i > 0 && item.RootID <= items[i-1].RootID {
+			return ThreadPage{}, ErrSnapshotInvalid
+		}
+		if complete && !item.Complete {
+			return ThreadPage{}, ErrSnapshotInvalid
+		}
+	}
+	if nextCursor != "" && !validRepositoryIssuesCursor(nextCursor) {
+		return ThreadPage{}, ErrSnapshotInvalid
+	}
+	if complete {
+		if nextCursor != "" || len(items) != total {
+			return ThreadPage{}, ErrSnapshotInvalid
+		}
+		return ThreadPage{
+			IssueID:    issueID,
+			Items:      append([]ThreadSnapshot(nil), items...),
+			NextCursor: nextCursor,
+			Total:      total,
+			Complete:   complete,
+		}, nil
+	}
+	if len(items) == 0 {
+		return ThreadPage{}, ErrSnapshotInvalid
+	}
+	if nextCursor != "" {
+		last := items[len(items)-1]
+		if nextCursor != strconv.FormatInt(last.RootID, 10) {
+			return ThreadPage{}, ErrSnapshotInvalid
+		}
+	}
+	return ThreadPage{
+		IssueID:    issueID,
+		Items:      append([]ThreadSnapshot(nil), items...),
+		NextCursor: nextCursor,
+		Total:      total,
+		Complete:   complete,
+	}, nil
+}
+
+// Merge blockers name the first typed native merge refusal in evaluator
+// order. Empty means eligible.
+const (
+	MergeBlockedMerged           = "merged"
+	MergeBlockedClosed           = "closed"
+	MergeBlockedPermission       = "permission"
+	MergeBlockedWorkInProgress   = "work_in_progress"
+	MergeBlockedNotMergeable     = "not_mergeable"
+	MergeBlockedChecking         = "checking"
+	MergeBlockedStatusChecks     = "status_checks"
+	MergeBlockedApprovals        = "approvals"
+	MergeBlockedRequestedChanges = "requested_changes"
+	MergeBlockedReviewRequests   = "review_requests"
+	MergeBlockedOutdatedBranch   = "outdated_branch"
+	MergeBlockedProtectedFiles   = "protected_files"
+	MergeBlockedSignature        = "signature"
+	MergeBlockedDependency       = "dependency"
+	MergeBlockedBranchProtection = "branch_protection"
+)
+
+func validMergeBlocker(blocker string) bool {
+	switch blocker {
+	case MergeBlockedMerged, MergeBlockedClosed, MergeBlockedPermission,
+		MergeBlockedWorkInProgress, MergeBlockedNotMergeable, MergeBlockedChecking,
+		MergeBlockedStatusChecks, MergeBlockedApprovals, MergeBlockedRequestedChanges,
+		MergeBlockedReviewRequests, MergeBlockedOutdatedBranch, MergeBlockedProtectedFiles,
+		MergeBlockedSignature, MergeBlockedDependency, MergeBlockedBranchProtection:
+		return true
+	default:
+		return false
+	}
+}
+
+// MergeEligibilitySnapshot is the permission-checked actor-bound merge
+// readiness of one pull request: the bound tips, the eligibility verdict
+// with its first typed blocker, and the official rejecting review IDs
+// behind a requested-changes blocker. Hidden eligibility redacts to the
+// pull locator.
+type MergeEligibilitySnapshot struct {
+	PullID            int64
+	IssueID           int64
+	Index             int64
+	HeadTip           string
+	BaseTip           string
+	Eligible          bool
+	Blocker           string
+	BlockingReviewIDs []int64
+	Visible           bool
+	HiddenReason      string
+	Complete          bool
+}
+
+// NewMergeEligibilitySnapshot converts one evaluated pull request. An
+// eligible verdict carries no blocker or review IDs; a blocked verdict
+// carries exactly one valid blocker. Blocking review IDs stay within the
+// snapshot page bound.
+func NewMergeEligibilitySnapshot(pr *PullRequest, headTip, baseTip string, eligible bool, blocker string, blockingReviewIDs []int64, visible bool, hiddenReason string, complete bool) (MergeEligibilitySnapshot, error) {
+	if pr == nil || pr.ID <= 0 || pr.IssueID <= 0 || pr.Index <= 0 {
+		return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+	}
+	if !visible {
+		if !validHiddenReason(hiddenReason) {
+			return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+		}
+		return MergeEligibilitySnapshot{
+			PullID:       pr.ID,
+			IssueID:      pr.IssueID,
+			Index:        pr.Index,
+			Visible:      false,
+			HiddenReason: hiddenReason,
+			Complete:     complete,
+		}, nil
+	}
+	if hiddenReason != "" {
+		return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+	}
+	if headTip != "" && !validFullOID(headTip) {
+		return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+	}
+	if baseTip != "" && !validFullOID(baseTip) {
+		return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+	}
+	if eligible {
+		if blocker != "" || len(blockingReviewIDs) > 0 {
+			return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+		}
+	} else if !validMergeBlocker(blocker) {
+		return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+	}
+	if len(blockingReviewIDs) > 50 {
+		return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+	}
+	seen := make(map[int64]bool, len(blockingReviewIDs))
+	for _, id := range blockingReviewIDs {
+		if id <= 0 || seen[id] {
+			return MergeEligibilitySnapshot{}, ErrSnapshotInvalid
+		}
+		seen[id] = true
+	}
+	return MergeEligibilitySnapshot{
+		PullID:            pr.ID,
+		IssueID:           pr.IssueID,
+		Index:             pr.Index,
+		HeadTip:           headTip,
+		BaseTip:           baseTip,
+		Eligible:          eligible,
+		Blocker:           blocker,
+		BlockingReviewIDs: append([]int64(nil), blockingReviewIDs...),
+		Visible:           true,
+		Complete:          complete,
+	}, nil
+}
+
 // NewReviewPage validates one loader-read review list.
 func NewReviewPage(issueID int64, items []ReviewSnapshot, total int, complete bool) (ReviewPage, error) {
 	if issueID <= 0 || total < 0 || len(items) > total {

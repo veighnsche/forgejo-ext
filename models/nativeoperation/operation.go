@@ -60,6 +60,7 @@ const (
 	ReasonStaleNativeRevision      = "stale_native_revision"
 	ReasonStaleHead                = "stale_head"
 	ReasonStaleBaseOrResult        = "stale_base_or_result"
+	ReasonStaleConversation        = "stale_conversation"
 	ReasonExpiredBeforeAdmission   = "expired_before_admission"
 	ReasonWrongOwner               = "wrong_owner"
 	ReasonUnexpectedRefEffects     = "unexpected_ref_effects"

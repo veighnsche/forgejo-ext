@@ -22,7 +22,7 @@ func (s *Service) Submit(ctx context.Context, decision extensionauth_model.Submi
 		return sdk.OperationRecord{}, ErrInvalidIntent
 	}
 	switch intent.Kind {
-	case nativeoperation_model.KindIssueGraph, nativeoperation_model.KindMerge, nativeoperation_model.KindRefPublish, nativeoperation_model.KindPRCreate, nativeoperation_model.KindReviewSubmit, nativeoperation_model.KindLifecycleIssue, nativeoperation_model.KindLifecycleReview, nativeoperation_model.KindLifecycleNote:
+	case nativeoperation_model.KindIssueGraph, nativeoperation_model.KindMerge, nativeoperation_model.KindRefPublish, nativeoperation_model.KindPRCreate, nativeoperation_model.KindReviewSubmit, nativeoperation_model.KindThreadResolve, nativeoperation_model.KindLifecycleIssue, nativeoperation_model.KindLifecycleReview, nativeoperation_model.KindLifecycleNote:
 	default:
 		// Admitted, but the kind's stage is not implemented yet. Report
 		// the missing stage rather than inventing a receipt.
@@ -46,6 +46,9 @@ func (s *Service) Submit(ctx context.Context, decision extensionauth_model.Submi
 	}
 	if intent.Kind == nativeoperation_model.KindReviewSubmit {
 		return s.submitReviewSubmit(ctx, decision, installationID, intent)
+	}
+	if intent.Kind == nativeoperation_model.KindThreadResolve {
+		return s.submitThreadResolve(ctx, decision, installationID, intent)
 	}
 	if intent.Kind == nativeoperation_model.KindLifecycleIssue {
 		return s.submitLifecycleIssue(ctx, decision, installationID, intent)

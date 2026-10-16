@@ -221,7 +221,7 @@ func (d SnapshotReadDecision) CanReadFamilies(families []string) bool {
 		switch family {
 		case sdk.SnapshotFamilyIssue, sdk.SnapshotFamilyComments, sdk.SnapshotFamilyDependencies, sdk.SnapshotFamilyRepositoryIssues:
 			scope = auth_model.AccessTokenScopeReadIssue
-		case sdk.SnapshotFamilyRepositoryWriters, sdk.SnapshotFamilyPull, sdk.SnapshotFamilyReviews, sdk.SnapshotFamilyChecks, sdk.SnapshotFamilyRefs, sdk.SnapshotFamilyAncestry:
+		case sdk.SnapshotFamilyRepositoryWriters, sdk.SnapshotFamilyPull, sdk.SnapshotFamilyReviews, sdk.SnapshotFamilyReviewThreads, sdk.SnapshotFamilyMergeEligibility, sdk.SnapshotFamilyChecks, sdk.SnapshotFamilyRefs, sdk.SnapshotFamilyAncestry:
 			scope = auth_model.AccessTokenScopeReadRepository
 		default:
 			return false

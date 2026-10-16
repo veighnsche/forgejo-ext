@@ -32,6 +32,8 @@ const (
 	SnapshotFamilyDependencies      = "dependencies"
 	SnapshotFamilyPull              = "pull"
 	SnapshotFamilyReviews           = "reviews"
+	SnapshotFamilyReviewThreads     = "review_threads"
+	SnapshotFamilyMergeEligibility  = "merge_eligibility"
 	SnapshotFamilyChecks            = "checks"
 	SnapshotFamilyRefs              = "refs"
 	SnapshotFamilyAncestry          = "ancestry"
@@ -81,7 +83,8 @@ type SnapshotRequest struct {
 func validSnapshotFamily(family string) bool {
 	switch family {
 	case SnapshotFamilyRepositoryWriters, SnapshotFamilyRepositoryIssues, SnapshotFamilyIssue, SnapshotFamilyComments,
-		SnapshotFamilyDependencies, SnapshotFamilyPull, SnapshotFamilyReviews, SnapshotFamilyChecks,
+		SnapshotFamilyDependencies, SnapshotFamilyPull, SnapshotFamilyReviews, SnapshotFamilyReviewThreads,
+		SnapshotFamilyMergeEligibility, SnapshotFamilyChecks,
 		SnapshotFamilyRefs, SnapshotFamilyAncestry:
 		return true
 	default:
@@ -239,6 +242,22 @@ func ValidateSnapshotRequest(req SnapshotRequest) error {
 		if byIssue == byPull {
 			return ErrInvalidSnapshotRequest
 		}
+	}
+	// review_threads enumerates native code-review conversations on one
+	// pull request, selected either by its issue or by its pull number,
+	// never both and never neither. merge_eligibility reads the
+	// actor-bound merge readiness of one pull request, so it requires
+	// the pull selector; it combines with other families under the same
+	// revision bracket.
+	if seen[SnapshotFamilyReviewThreads] {
+		byIssue := req.IssueIndex != ""
+		byPull := req.PullNumber != ""
+		if byIssue == byPull {
+			return ErrInvalidSnapshotRequest
+		}
+	}
+	if seen[SnapshotFamilyMergeEligibility] && req.PullNumber == "" {
+		return ErrInvalidSnapshotRequest
 	}
 	return nil
 }
@@ -411,6 +430,144 @@ type SnapshotReviewPage struct {
 	Complete bool             `json:"complete"`
 }
 
+// Thread sides name the anchored diff side: old is the native merge-base
+// tree, new the exact head.
+const (
+	ThreadSideOld = "old"
+	ThreadSideNew = "new"
+)
+
+// Thread resolver states name the conversation resolution behind the
+// digest: open, or resolved by the recorded native actor.
+const (
+	ThreadResolverOpen     = "open"
+	ThreadResolverResolved = "resolved"
+)
+
+// RenderThreadLocation renders one thread member location in the canonical
+// digest encoding shared with the Soda factory twin: path, side and
+// unsigned line joined by vertical bars. Both sides must reproduce these
+// bytes exactly; the digest comparison refuses any divergence as changed
+// content.
+func RenderThreadLocation(path, side string, line int64) string {
+	return path + "|" + side + "|" + strconv.FormatInt(line, 10)
+}
+
+// ThreadResolverState renders one member resolver state for the digest:
+// resolved when the native resolve-doer is set, open otherwise. The
+// identity behind a resolution travels in the thread ResolverID field,
+// not in the digest.
+func ThreadResolverState(resolveDoerID int64) string {
+	if resolveDoerID != 0 {
+		return ThreadResolverResolved
+	}
+	return ThreadResolverOpen
+}
+
+// SnapshotThreadMember is one permission-checked conversation member. The
+// snapshot carries no raw bodies: exact bodies travel through the existing
+// comments family under the same stable revision and cross-check against
+// ContentDigest. A hidden member keeps only its locator ID with
+// Visible=false so the consumer blocks without leaking pending content.
+type SnapshotThreadMember struct {
+	ID             string `json:"id"`
+	IssueID        string `json:"issue_id"`
+	ContentDigest  string `json:"content_digest,omitempty"`
+	ContentVersion int    `json:"content_version,omitempty"`
+	CreatedUnix    int64  `json:"created_unix,omitempty"`
+	UpdatedUnix    int64  `json:"updated_unix,omitempty"`
+	Visible        bool   `json:"visible"`
+	HiddenReason   string `json:"hidden_reason,omitempty"`
+	Complete       bool   `json:"complete"`
+}
+
+// SnapshotThread is the permission-checked view of one native code-review
+// conversation: the anchored root comment, its location, the original and
+// current commits, the resolver and the complete conversation digest. The
+// root is the first comment in native (created_unix, id) order within the
+// (issue, review, path, signed-line) grouping; replies are members, never
+// resolution targets. Outdated unresolved threads are retained: Outdated
+// marks a root whose original commit no longer matches the current head.
+// Digest binds the ordered member lines per ResolveConversationDigest; a
+// hidden thread carries no digest at all.
+type SnapshotThread struct {
+	RootID         string                 `json:"root_id"`
+	IssueID        string                 `json:"issue_id"`
+	ReviewID       string                 `json:"review_id"`
+	Path           string                 `json:"path,omitempty"`
+	Side           string                 `json:"side,omitempty"`
+	Line           int64                  `json:"line,omitempty"`
+	OriginalCommit string                 `json:"original_commit,omitempty"`
+	HeadCommit     string                 `json:"head_commit,omitempty"`
+	Outdated       bool                   `json:"outdated,omitempty"`
+	ResolverID     string                 `json:"resolver_id,omitempty"`
+	Resolved       bool                   `json:"resolved,omitempty"`
+	Digest         string                 `json:"digest,omitempty"`
+	Members        []SnapshotThreadMember `json:"members"`
+	MemberTotal    int                    `json:"member_total"`
+	Visible        bool                   `json:"visible"`
+	HiddenReason   string                 `json:"hidden_reason,omitempty"`
+	Complete       bool                   `json:"complete"`
+}
+
+// SnapshotThreadPage carries one bounded conversation list with
+// completeness evidence. Threads order by ascending root ID; the cursor is
+// an exclusive root-ID lower bound, and a nonterminal page carries
+// NextCursor equal to the final returned root ID. Complete means fully
+// enumerated through the final page with every thread fully evidenced; a
+// hidden, truncated or partially grouped page reports Complete=false so
+// the consumer blocks, with an empty cursor when everything remaining was
+// observed but blocked. An empty incomplete page is invalid.
+type SnapshotThreadPage struct {
+	IssueID    string           `json:"issue_id"`
+	PullNumber string           `json:"pull_number"`
+	Items      []SnapshotThread `json:"items"`
+	NextCursor string           `json:"next_cursor,omitempty"`
+	Total      int              `json:"total"`
+	Complete   bool             `json:"complete"`
+}
+
+// Merge-eligibility blockers name the first typed native merge refusal in
+// evaluator order. Empty means eligible. branch_protection is the closed
+// fallback when the evaluator reports a protection refusal no predicate
+// attributes.
+const (
+	MergeBlockerMerged           = "merged"
+	MergeBlockerClosed           = "closed"
+	MergeBlockerPermission       = "permission"
+	MergeBlockerWorkInProgress   = "work_in_progress"
+	MergeBlockerNotMergeable     = "not_mergeable"
+	MergeBlockerChecking         = "checking"
+	MergeBlockerStatusChecks     = "status_checks"
+	MergeBlockerApprovals        = "approvals"
+	MergeBlockerRequestedChanges = "requested_changes"
+	MergeBlockerReviewRequests   = "review_requests"
+	MergeBlockerOutdatedBranch   = "outdated_branch"
+	MergeBlockerProtectedFiles   = "protected_files"
+	MergeBlockerSignature        = "signature"
+	MergeBlockerDependency       = "dependency"
+	MergeBlockerBranchProtection = "branch_protection"
+)
+
+// SnapshotMergeEligibility is the permission-checked actor-bound merge
+// readiness of one pull request. It reuses the evaluator behind
+// CheckPullMergeable and exposes its first typed blocker; the read
+// performs no mutation and grants no mutation authority. BlockingReviewIDs
+// carries the official rejecting review IDs behind a requested-changes
+// blocker, bounded to the page limit. HeadTip/BaseTip bind the exact tips
+// the evaluation observed.
+type SnapshotMergeEligibility struct {
+	PullNumber        string   `json:"pull_number"`
+	HeadTip           string   `json:"head_tip,omitempty"`
+	BaseTip           string   `json:"base_tip,omitempty"`
+	Eligible          bool     `json:"eligible"`
+	Blocker           string   `json:"blocker,omitempty"`
+	BlockingReviewIDs []string `json:"blocking_review_ids,omitempty"`
+	Visible           bool     `json:"visible"`
+	HiddenReason      string   `json:"hidden_reason,omitempty"`
+	Complete          bool     `json:"complete"`
+}
+
 // SnapshotCheck is the permission-checked view of one native commit status.
 type SnapshotCheck struct {
 	ID           string `json:"id"`
@@ -464,6 +621,8 @@ type NativeSnapshot struct {
 	Dependencies     *SnapshotDependencyPage       `json:"dependencies,omitempty"`
 	Pull             *SnapshotPull                 `json:"pull,omitempty"`
 	Reviews          *SnapshotReviewPage           `json:"reviews,omitempty"`
+	Threads          *SnapshotThreadPage           `json:"review_threads,omitempty"`
+	Eligibility      *SnapshotMergeEligibility     `json:"merge_eligibility,omitempty"`
 	Checks           *SnapshotCheckSet             `json:"checks,omitempty"`
 	Refs             []SnapshotRef                 `json:"refs,omitempty"`
 	Ancestry         *SnapshotAncestry             `json:"ancestry,omitempty"`

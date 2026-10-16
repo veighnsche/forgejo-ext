@@ -186,6 +186,18 @@ func (s *Service) ReadSnapshot(ctx context.Context, decision extensionauth.Snaps
 				return sdk.NativeSnapshot{}, err
 			}
 			snapshot.Reviews = page
+		case sdk.SnapshotFamilyReviewThreads:
+			page, err := loader.threads(ctx, req.IssueIndex, req.PullNumber)
+			if err != nil {
+				return sdk.NativeSnapshot{}, err
+			}
+			snapshot.Threads = page
+		case sdk.SnapshotFamilyMergeEligibility:
+			eligibility, err := loader.eligibility(ctx, req.PullNumber)
+			if err != nil {
+				return sdk.NativeSnapshot{}, err
+			}
+			snapshot.Eligibility = eligibility
 		case sdk.SnapshotFamilyChecks:
 			set, err := loader.checks(ctx, req.SHA)
 			if err != nil {

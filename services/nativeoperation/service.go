@@ -134,6 +134,7 @@ type ValidIntent struct {
 	IssueGraph             *sdk.IssueGraphPayload
 	PRCreate               *PRCreateIntent
 	ReviewSubmit           *ReviewSubmitIntent
+	ThreadResolve          *sdk.ThreadResolvePayload
 	LifecycleIssue         *LifecycleIssueIntent
 	LifecycleReview        *LifecycleReviewIntent
 	LifecycleNote          *LifecycleNoteIntent
@@ -233,6 +234,12 @@ func ValidateIntent(operationID string, actorID, repositoryID int64, kind, authR
 			return nil, err
 		}
 		intent.ReviewSubmit = review
+	} else if kind == nativeoperation_model.KindThreadResolve {
+		resolve, err := parseThreadResolvePayload(payload, repositoryID)
+		if err != nil {
+			return nil, err
+		}
+		intent.ThreadResolve = resolve
 	} else if kind == nativeoperation_model.KindLifecycleIssue {
 		lifecycle, err := parseLifecycleIssuePayload(payload, repositoryID)
 		if err != nil {
