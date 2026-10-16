@@ -15,6 +15,7 @@ import (
 	"forgejo.org/modules/graceful"
 	"forgejo.org/modules/setting"
 	app_context "forgejo.org/services/context"
+	extensions_service "forgejo.org/services/extensions"
 
 	"github.com/coder/websocket"
 )
@@ -70,6 +71,13 @@ func proxyWebSocket(ctx *app_context.Context, transport http.RoundTripper, autho
 	entry := nativeAdmissions.get(admission)
 	if entry == nil {
 		ctx.Error(http.StatusUnauthorized)
+		return
+	}
+	// A fenced package opens no stream: ordinary admission closed
+	// after the admission was issued, or the issuing instance was
+	// replaced.
+	if manager := extensions_service.GetManager(); manager != nil && !manager.VerifyOrdinaryToken(entry.authority.ExtensionID, entry.instanceID) {
+		ctx.Error(http.StatusUnauthorized, "Extension admission unavailable")
 		return
 	}
 	targetPath, scoped := scopedExtensionPath(ctx.Params("*"))
@@ -160,6 +168,10 @@ func monitorStream(ctx context.Context, cancel context.CancelFunc, entry *callba
 			valid := boundedStreamAuthority(check, entry)
 			if valid {
 				valid = browser.Ping(check) == nil && backend.Ping(check) == nil
+			}
+			if valid {
+				manager := extensions_service.GetManager()
+				valid = manager == nil || manager.VerifyOrdinaryToken(entry.authority.ExtensionID, entry.instanceID)
 			}
 			done()
 			if !valid {

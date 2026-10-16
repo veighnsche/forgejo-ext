@@ -219,6 +219,13 @@ func callbackHandler(instanceID string, service bool) http.Handler {
 			http.Error(w, "native extension admission expired", http.StatusUnauthorized)
 			return
 		}
+		// A fenced package consumes no callbacks: ordinary admission
+		// closed after the admission was issued, or the issuing
+		// instance was replaced.
+		if manager := extensions_service.GetManager(); manager != nil && !manager.VerifyOrdinaryToken(entry.authority.ExtensionID, entry.instanceID) {
+			http.Error(w, "native extension admission rejected", http.StatusForbidden)
+			return
+		}
 		if service {
 			if _, declared := entry.capabilities[extension.CapabilityServiceBridge]; !declared {
 				http.Error(w, "native service bridge not declared", http.StatusForbidden)

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	extension "forgejo.org/extension-sdk"
+	extensions_service "forgejo.org/services/extensions"
 
 	"code.forgejo.org/go-chi/session"
 	"github.com/stretchr/testify/require"
@@ -112,6 +113,50 @@ func TestNativeCallbackRequiresInstanceCapabilityAndLiveSession(t *testing.T) {
 
 func forgedRequestBody() string {
 	return `{"operation":"actor.current","authority":{"extension_id":"soda","instance_id":"instance-a","session_generation":"session-generation","contribution":{"id":"spaces","kind":"page","scope":"global","action":"get"},"actor":{"id":"42","username":"soda-tester","site_admin":false}}}`
+}
+
+// A fenced package consumes no callbacks even with a well-formed
+// admission: ordinary admission closed after the admission was
+// issued. Without a default manager the registry checks govern as
+// before.
+func TestFencedPackageConsumesNoCallbacks(t *testing.T) {
+	manager := extensions_service.NewManager(t.TempDir())
+	require.NoError(t, manager.Start(context.Background()))
+	t.Cleanup(func() {
+		extensions_service.SetDefault(nil)
+		_ = manager.Close()
+	})
+	extensions_service.SetDefault(manager)
+	requestCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	authority := extension.Authority{
+		ExtensionID:       "soda",
+		InstanceID:        "instance-a",
+		SessionGeneration: "session-generation",
+		Contribution:      extension.Contribution{ID: "spaces", Kind: "page", Scope: "global", Action: "get"},
+		Actor:             extension.Actor{ID: "42", Username: "soda-tester"},
+	}
+	entry := &callbackAdmission{
+		instanceID:   "instance-a",
+		actorID:      42,
+		sessionID:    "private-session-id",
+		session:      callbackTestSession{uid: int64(42)},
+		authority:    authority,
+		capabilities: map[string]struct{}{extension.CapabilityActorRead: {}},
+		requestCtx:   requestCtx,
+	}
+	token, err := nativeAdmissions.issue(entry)
+	require.NoError(t, err)
+	t.Cleanup(func() { nativeAdmissions.revoke(token) })
+	// The started manager tracks no lifecycle state for the bound
+	// package, so only the token gate rejects this otherwise valid
+	// admission.
+	request := httptest.NewRequest(http.MethodPost, extension.NativeCallbackPath, strings.NewReader(forgedRequestBody()))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(extension.AdmissionHeader, token)
+	response := httptest.NewRecorder()
+	CallbackHandlerForInstance("instance-a").ServeHTTP(response, request)
+	require.Equal(t, http.StatusForbidden, response.Code)
 }
 
 func TestNativeCallbackRejectsMalformedAndOversizedRequests(t *testing.T) {

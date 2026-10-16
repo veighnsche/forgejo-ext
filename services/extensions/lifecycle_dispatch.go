@@ -442,13 +442,24 @@ func (m *Manager) startControlledBackend(id, pinnedVersion string) (sdk.Manifest
 		return sdk.Manifest{}, errors.New("backend failed to start")
 	}
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if conflict := claimedRouteConflict(m.running, item.descriptor.Manifest); conflict != "" {
 		m.stopOne(id, item, false)
+		m.mu.Unlock()
 		return sdk.Manifest{}, errors.New("native page route is already claimed")
 	}
 	m.running[id] = item
 	m.noteControllerStarted(item.descriptor)
+	// Registration publishes the backend to ordinary routing. Fence
+	// admission now, before this function returns: only durable
+	// activation completion opens it, and every failure after this
+	// point retains the closed fence. The revocation callback runs
+	// without holding the manager mutex.
+	revoke, instanceID := m.instanceStopped, item.descriptor.InstanceID
+	m.draining[id] = true
+	m.mu.Unlock()
+	if revoke != nil && instanceID != "" {
+		revoke(instanceID)
+	}
 	go m.observeExit(id, item)
 	return manifest, nil
 }
@@ -956,9 +967,7 @@ func (m *Manager) runActivateSequence(ctx context.Context, entry sdk.CatalogPack
 		return unconfirmed(packages.LifecycleErrUnavailable, "completion cannot persist")
 	}
 	m.clearFailure(entry.ID)
-	m.mu.Lock()
-	delete(m.draining, entry.ID)
-	m.mu.Unlock()
+	m.openOrdinaryAdmission(entry.ID)
 	return activateSequenceResult{manifest: manifest, completed: packages.LifecycleResult{Operation: sdk.LifecycleActivate, PackageID: entry.ID, ObservedVersion: manifest.Version, State: packages.LifecycleEnabled, Progress: "backend started and effects confirmed"}, ok: true}
 }
 
@@ -1062,6 +1071,9 @@ func (m *Manager) controlledDisable(ctx context.Context, entry sdk.CatalogPackag
 //nolint:unparam // Keep the common operation helper and callback signature.
 func (m *Manager) backendEnable(ctx context.Context, id, pinnedVersion string, intent packages.Intent, opDeadline int64) packages.LifecycleResult {
 	_ = opDeadline
+	// Registration below fences ordinary admission; only durable
+	// completion opens it. A start failure registers nothing, so the
+	// retained pending marker alone keeps admission closed.
 	manifest, err := m.startControlledBackend(id, pinnedVersion)
 	if err != nil {
 		if notInstalled, versionMismatch := isActivationRefusal(err); notInstalled || versionMismatch {
@@ -1080,6 +1092,7 @@ func (m *Manager) backendEnable(ctx context.Context, id, pinnedVersion string, i
 		return packages.UnconfirmedResult(sdk.LifecycleActivate, id, packages.LifecycleErrUnavailable, "completion cannot persist")
 	}
 	m.clearFailure(id)
+	m.openOrdinaryAdmission(id)
 	return packages.LifecycleResult{Operation: sdk.LifecycleActivate, PackageID: id, ObservedVersion: manifest.Version, State: packages.LifecycleEnabled, Progress: "backend started and observed"}
 }
 
@@ -1320,9 +1333,12 @@ func (m *Manager) reconcileStableRow(ctx context.Context, entry sdk.CatalogPacka
 			// Interrupted operations are observed, never replayed. Only
 			// an already established outcome may clear pending, without
 			// manufacturing a new administrator decision/generation.
+			// Durable completion also releases the admission fence.
 			alive, unknown := m.backendRunning(id)
 			if !unknown && alive == intent.DesiredEnabled {
-				_, _ = packages.StorePendingSameGeneration(m.root, id, intent.DesiredEnabled, nil, intent.Generation)
+				if _, err := packages.StorePendingSameGeneration(m.root, id, intent.DesiredEnabled, nil, intent.Generation); err == nil {
+					m.openOrdinaryAdmission(id)
+				}
 			}
 			return false
 		}
@@ -1348,6 +1364,10 @@ func (m *Manager) reconcileUncontrolledRow(ctx context.Context, entry sdk.Catalo
 		if _, err := m.startControlledBackend(id, ""); err != nil {
 			m.recordFailure(id, packages.LifecycleErrActivateFailed, "backend failed; explicit retry is required")
 		} else {
+			// Registration fenced admission; a stable desired
+			// backend with no pending marker is established, so
+			// durable completion opens it at once.
+			m.openOrdinaryAdmission(id)
 			m.clearFailure(id)
 		}
 		return false
@@ -1485,6 +1505,9 @@ func (m *Manager) settlePendingRow(ctx context.Context, entry sdk.CatalogPackage
 			if _, err := packages.StorePendingSameGeneration(m.root, id, true, nil, intent.Generation); err != nil {
 				return false
 			}
+			// The desired outcome is established with zero new
+			// effects and durably recorded: release the fence.
+			m.openOrdinaryAdmission(id)
 			m.clearFailure(id)
 		}
 		return false

@@ -14,6 +14,7 @@ import (
 
 	extension "forgejo.org/extension-sdk"
 	"forgejo.org/modules/setting"
+	extensions_service "forgejo.org/services/extensions"
 
 	"code.forgejo.org/go-chi/session"
 	"github.com/coder/websocket"
@@ -89,6 +90,43 @@ func TestStreamRejectsUnscopedPathBeforeDial(t *testing.T) {
 		return nil, nil
 	}), extension.Authority{}, token)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+// A fenced package opens no stream even with a well-formed admission:
+// ordinary admission closed after the admission was issued.
+func TestStreamRejectsFencedAdmissionBeforeDial(t *testing.T) {
+	previous := setting.AppURL
+	setting.AppURL = "https://forge.example/base/"
+	t.Cleanup(func() { setting.AppURL = previous })
+	manager := extensions_service.NewManager(t.TempDir())
+	require.NoError(t, manager.Start(context.Background()))
+	t.Cleanup(func() {
+		extensions_service.SetDefault(nil)
+		_ = manager.Close()
+	})
+	extensions_service.SetDefault(manager)
+	requestContext, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	token, err := nativeAdmissions.issue(&callbackAdmission{
+		instanceID: "stream-instance",
+		authority:  extension.Authority{ExtensionID: "soda", InstanceID: "stream-instance"},
+		requestCtx: requestContext,
+		cancel:     cancel,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { nativeAdmissions.revoke(token) })
+	req := httptest.NewRequest(http.MethodGet, "https://forge.example/base/stream", nil)
+	req.Header.Set("Origin", "https://forge.example")
+	req.Header.Set("Upgrade", "websocket")
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("*", url.PathEscape("action"))
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	ctx, recorder := testContext(req)
+	proxyWebSocket(ctx, roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("fenced stream must not reach the backend")
+		return nil, nil
+	}), extension.Authority{}, token)
+	require.Equal(t, http.StatusUnauthorized, recorder.Code)
 }
 
 // websocketPair returns both ends of one loopback stream connection.

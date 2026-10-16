@@ -311,7 +311,7 @@ func (m *Manager) ControlState(ctx context.Context, controllerID, packageID stri
 	if target == nil {
 		return empty, controlReject(http.StatusForbidden, "forbidden", "package is not controlled by this controller")
 	}
-	instanceID, ready, draining, currentSHA, started := m.controlRead(controllerID)
+	instanceID, ready, _, currentSHA, started := m.controlRead(controllerID)
 	if !started {
 		return empty, controlReject(http.StatusServiceUnavailable, "unavailable", "extension manager is not running")
 	}
@@ -331,18 +331,10 @@ func (m *Manager) ControlState(ctx context.Context, controllerID, packageID stri
 	if !found {
 		return empty, controlReject(http.StatusServiceUnavailable, "unavailable", "extension snapshot storage is invalid")
 	}
-	observed := m.Observe(packageID)
-	running, _ := m.backendRunning(packageID)
-	backend := backendOf(running, observed.Unconfirmed && running)
-	effects := backend
-	if target.LifecycleController == "" {
-		effects = "not_required"
-	}
-	fenced := maintenanceHeld(m.maintenanceDir)
-	admission := admissionFor(row.DesiredEnabled, row.PendingOperation,
-		observed.State == packages.LifecycleEnabled, backend == "running",
-		effects == "running" || effects == "not_required",
-		ready, fenced, draining[packageID])
+	// The admission projection is the unified ordinary-admission
+	// predicate: open only after durable activation, never from a
+	// merely registered backend.
+	admission := m.ordinaryAdmissionOpen(packageID)
 	response := ControlStateResponse{
 		CatalogSHA256:   currentSHA,
 		ControllerID:    controllerID,

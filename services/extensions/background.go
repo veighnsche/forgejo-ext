@@ -18,10 +18,15 @@ import (
 	sdk "forgejo.org/extension-sdk"
 )
 
-// BackgroundAdmission binds one ephemeral admission to an installation and
-// the runtime instance that owns it. Caller payloads can never select
-// another installation: the dispatcher derives identity from this record.
+// BackgroundAdmission binds one ephemeral admission to its exact
+// package installation and the runtime instance that owns it. Caller
+// payloads can never select another installation: the dispatcher
+// derives identity from this record.
 type BackgroundAdmission struct {
+	// PackageID binds an ordinary admission to its exact issuing
+	// package. Lifecycle admissions carry their target in the call
+	// tuple instead and leave this empty.
+	PackageID      string
 	InstallationID string
 	InstanceID     string
 	Service        bool
@@ -146,13 +151,15 @@ func (registry *backgroundRegistry) replaceService(admission *BackgroundAdmissio
 	return token, nil
 }
 
-// IssueRuntimeAdmission binds a fresh runtime admission to an installation
-// and its current instance. Runtime stop revokes it.
-func (m *Manager) IssueRuntimeAdmission(installationID, instanceID string, capabilities []string) (string, error) {
-	if installationID == "" || instanceID == "" {
-		return "", errors.New("background admission requires installation and instance")
+// IssueRuntimeAdmission binds a fresh runtime admission to its exact
+// package installation and current instance. Runtime stop revokes
+// it; a lifecycle fence dynamically rejects it without revocation,
+// so a retained instance keeps its usable token across retry.
+func (m *Manager) IssueRuntimeAdmission(packageID, installationID, instanceID string, capabilities []string) (string, error) {
+	if packageID == "" || installationID == "" || instanceID == "" {
+		return "", errors.New("background admission requires package, installation and instance")
 	}
-	entry := &BackgroundAdmission{InstallationID: installationID, InstanceID: instanceID, Capabilities: make(map[string]struct{}, len(capabilities))}
+	entry := &BackgroundAdmission{PackageID: packageID, InstallationID: installationID, InstanceID: instanceID, Capabilities: make(map[string]struct{}, len(capabilities))}
 	for _, capability := range capabilities {
 		entry.Capabilities[capability] = struct{}{}
 	}
@@ -161,10 +168,14 @@ func (m *Manager) IssueRuntimeAdmission(installationID, instanceID string, capab
 
 // VerifyBackgroundAdmission resolves an admission to its host-derived claims.
 // The lifecycle variant is rejected here: ordinary background operations
-// never accept it.
+// never accept it. An ordinary admission bound to a fenced package or a
+// replaced instance never verifies, even while its token is retained.
 func (m *Manager) VerifyBackgroundAdmission(token string) (BackgroundAdmission, bool) {
 	admission, ok := m.background.get(token)
 	if !ok || admission.Lifecycle {
+		return BackgroundAdmission{}, false
+	}
+	if admission.PackageID == "" || !m.VerifyOrdinaryToken(admission.PackageID, admission.InstanceID) {
 		return BackgroundAdmission{}, false
 	}
 	return admission, true
@@ -297,7 +308,12 @@ func (m *Manager) BootstrapServiceAdmission(peerUID uint32, requestedInstallatio
 	if requestedInstallation != "" && requestedInstallation != installation {
 		return "", "", errors.New("service bridge installation mismatch")
 	}
-	entry := &BackgroundAdmission{InstallationID: installation, InstanceID: instanceID, Service: true, ServicePeerUID: peerUID, Capabilities: make(map[string]struct{}, len(capabilities))}
+	// A fenced package issues no service admission: ordinary
+	// activation must complete durably first.
+	if !m.VerifyOrdinaryToken(packageID, instanceID) {
+		return "", "", errors.New("service bridge package is not admitted")
+	}
+	entry := &BackgroundAdmission{PackageID: packageID, InstallationID: installation, InstanceID: instanceID, Service: true, ServicePeerUID: peerUID, Capabilities: make(map[string]struct{}, len(capabilities))}
 	for _, capability := range capabilities {
 		entry.Capabilities[capability] = struct{}{}
 	}

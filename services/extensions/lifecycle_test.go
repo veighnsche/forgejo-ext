@@ -5,10 +5,12 @@ package extensions
 
 import (
 	"context"
+	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	sdk "forgejo.org/extension-sdk"
 	packages "forgejo.org/modules/extensions"
@@ -246,6 +248,88 @@ func TestInterruptedActivateReobservedOnRestart(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "1", intent.Generation)
 	require.NotNil(t, intent.PendingOperation)
+}
+
+// An uncontrolled completion-write failure keeps the fence on the
+// retained backend: no routing, no usable token, pending preserved.
+// An explicit retry after storage recovers completes on the same
+// instance with the same token.
+func TestUncontrolledPersistFailureKeepsFence(t *testing.T) {
+	root := shortTestRoot(t)
+	installTestPackage(t, root, "sample")
+	// Slow the backend start so the storage break below lands
+	// deterministically between registration and completion.
+	knobData, err := json.Marshal(testFixtureKnobs{SlowStartMs: 3000})
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".data", "sample"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".data", "sample", "fixture.json"), knobData, 0o600))
+	setDesiredState(t, root, "sample", false)
+	m := startLifecycleManager(t, root)
+
+	// Prime the interruption marker, then break the completion write
+	// while the slow backend starts.
+	primed := make(chan struct{})
+	go func() {
+		defer close(primed)
+		for {
+			intent, err := packages.LoadIntent(root, "sample")
+			if err == nil && intent.PendingOperation != nil {
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}()
+	activated := make(chan packages.LifecycleResult, 1)
+	go func() {
+		activated <- m.Activate(context.Background(), packages.LifecycleRequest{PackageID: "sample", Operation: sdk.LifecycleActivate})
+	}()
+	<-primed
+	intentPath := filepath.Join(root, ".intents", "sample.json")
+	intentData, err := os.ReadFile(intentPath)
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(intentPath))
+	require.NoError(t, os.Mkdir(intentPath, 0o700))
+	restore := func() {
+		_ = os.RemoveAll(intentPath)
+		_ = os.WriteFile(intentPath, intentData, 0o600)
+	}
+	t.Cleanup(restore)
+	result := lifecycleResult(t, <-activated)
+	require.Equal(t, packages.LifecycleFailed, result.State)
+	require.True(t, result.Unconfirmed)
+	require.Equal(t, packages.LifecycleErrUnavailable, result.Error.Code)
+	_, _, ok := m.Lookup("sample")
+	require.False(t, ok, "unpersisted completion must keep admission closed")
+	require.Empty(t, m.List(), "unpersisted completion must keep navigation closed")
+	m.mu.Lock()
+	item := m.running["sample"]
+	m.mu.Unlock()
+	require.NotNil(t, item, "backend is retained but fenced")
+	token, err := m.IssueRuntimeAdmission("sample", item.installation, item.descriptor.InstanceID, []string{"native.actor.read"})
+	require.NoError(t, err)
+	_, ok = m.VerifyBackgroundAdmission(token)
+	require.False(t, ok, "fenced tokens must not verify")
+	restore()
+	intent, err := packages.LoadIntent(root, "sample")
+	require.NoError(t, err)
+	require.True(t, intent.DesiredEnabled)
+	require.NotNil(t, intent.PendingOperation)
+	// Explicit retry through the admin mutation path completes on
+	// the retained instance; the same token works without
+	// redelivery. The synchronous Activate entry stays refused while
+	// the failure fence is held.
+	refused := m.Activate(context.Background(), packages.LifecycleRequest{PackageID: "sample", Operation: sdk.LifecycleActivate})
+	require.Equal(t, packages.LifecycleFailed, refused.State)
+	require.Equal(t, packages.LifecycleErrInProgress, refused.Error.Code)
+	requestEnabledAccept(t, m, "sample", intent.Generation, m.catalogSHA, true)
+	waitActiveOpDone(t, m)
+	enabled := lifecycleResult(t, m.Observe("sample"))
+	require.Equal(t, packages.LifecycleEnabled, enabled.State)
+	require.False(t, enabled.Unconfirmed)
+	_, _, ok = m.Lookup("sample")
+	require.True(t, ok, "retry must reopen admission")
+	_, ok = m.VerifyBackgroundAdmission(token)
+	require.True(t, ok, "retained token must work after retry completes")
 }
 
 func TestInstallAndActivateReportsDownloadFailure(t *testing.T) {

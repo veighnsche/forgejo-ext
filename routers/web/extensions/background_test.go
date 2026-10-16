@@ -33,7 +33,9 @@ func backgroundPeerAddr(t *testing.T) string {
 
 func issueRuntimeAdmission(t *testing.T, manager *extensions_service.Manager, installation, instance string, capabilities []string) string {
 	t.Helper()
-	token, err := manager.IssueRuntimeAdmission(installation, instance, capabilities)
+	// These multiplexer tests never start lifecycle tracking, so the
+	// bound package carries no backend or intent state.
+	token, err := manager.IssueRuntimeAdmission("multiplexer-test", installation, instance, capabilities)
 	require.NoError(t, err)
 	return token
 }

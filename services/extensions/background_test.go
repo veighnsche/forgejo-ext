@@ -96,6 +96,34 @@ func TestServiceBootstrapLifecycle(t *testing.T) {
 	require.False(t, ok, "restart must invalidate previous admissions")
 }
 
+// A fenced package issues no service admission and its retained
+// tokens stop verifying; releasing the fence restores the same
+// tokens without redelivery or revocation.
+func TestServiceBootstrapRefusedWhileFenced(t *testing.T) {
+	root := shortTestRoot(t)
+	manager, self := startBackgroundManager(t, root)
+	token, _, err := manager.BootstrapServiceAdmission(self, "")
+	require.NoError(t, err)
+	_, ok := manager.VerifyBackgroundAdmission(token)
+	require.True(t, ok)
+	manager.mu.Lock()
+	manager.draining["bgsample"] = true
+	manager.mu.Unlock()
+	_, _, err = manager.BootstrapServiceAdmission(self, "")
+	require.ErrorContains(t, err, "not admitted")
+	_, ok = manager.VerifyBackgroundAdmission(token)
+	require.False(t, ok, "fenced service tokens must not verify")
+	manager.mu.Lock()
+	delete(manager.draining, "bgsample")
+	manager.mu.Unlock()
+	_, ok = manager.VerifyBackgroundAdmission(token)
+	require.True(t, ok, "released fence must restore retained tokens")
+	replacement, _, err := manager.BootstrapServiceAdmission(self, "")
+	require.NoError(t, err)
+	_, ok = manager.VerifyBackgroundAdmission(replacement)
+	require.True(t, ok)
+}
+
 func TestParseServiceBridgePeers(t *testing.T) {
 	mapping, err := ParseServiceBridgePeers("1001:soda,1002:other")
 	require.NoError(t, err)

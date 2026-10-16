@@ -603,7 +603,7 @@ func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {
 	}
 	if slices.Contains(manifest.Capabilities, sdk.CapabilityBackgroundOperations) {
 		phase = "background admission"
-		admission, issueErr := m.IssueRuntimeAdmission(installation, instanceID, manifest.Capabilities)
+		admission, issueErr := m.IssueRuntimeAdmission(manifest.ID, installation, instanceID, manifest.Capabilities)
 		if issueErr != nil {
 			return nil, issueErr
 		}
@@ -657,8 +657,11 @@ func cloneDescriptor(d Descriptor) Descriptor {
 
 func (m *Manager) List() []Descriptor {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	list := make([]Descriptor, 0, len(m.running))
+	type candidate struct {
+		id         string
+		descriptor Descriptor
+	}
+	candidates := make([]candidate, 0, len(m.running))
 	for id, item := range m.running {
 		// Draining packages closed new admission for teardown; they stay
 		// out of navigation and routing until teardown completes or fails.
@@ -669,7 +672,17 @@ func (m *Manager) List() []Descriptor {
 			m.stopOne(id, item, true)
 			continue
 		}
-		list = append(list, cloneDescriptor(item.descriptor))
+		candidates = append(candidates, candidate{id: id, descriptor: cloneDescriptor(item.descriptor)})
+	}
+	m.mu.Unlock()
+	list := make([]Descriptor, 0, len(candidates))
+	for _, c := range candidates {
+		// Ordinary admission opens only after durable activation:
+		// a merely registered backend stays out of navigation.
+		if !m.ordinaryAdmissionOpen(c.id) {
+			continue
+		}
+		list = append(list, c.descriptor)
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].Manifest.ID < list[j].Manifest.ID })
 	return list
@@ -677,19 +690,28 @@ func (m *Manager) List() []Descriptor {
 
 func (m *Manager) Lookup(id string) (Descriptor, http.RoundTripper, bool) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if m.draining[id] {
+		m.mu.Unlock()
 		return Descriptor{}, nil, false
 	}
 	item := m.running[id]
 	if item == nil {
+		m.mu.Unlock()
 		return Descriptor{}, nil, false
 	}
 	if item.client.Exited() {
 		m.stopOne(id, item, true)
+		m.mu.Unlock()
 		return Descriptor{}, nil, false
 	}
-	return cloneDescriptor(item.descriptor), item.transport, true
+	descriptor, transport := cloneDescriptor(item.descriptor), item.transport
+	m.mu.Unlock()
+	// Ordinary admission opens only after durable activation: a merely
+	// registered backend is not routable even while its process runs.
+	if !m.ordinaryAdmissionOpen(id) {
+		return Descriptor{}, nil, false
+	}
+	return descriptor, transport, true
 }
 
 var ErrRequiredPolicyUnavailable = packages.ErrRequiredPolicyUnavailable

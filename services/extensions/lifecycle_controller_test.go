@@ -107,7 +107,7 @@ func controllerFixtureCall(ctx context.Context, stateDir string, knobs testFixtu
 	fail := func(err error) (sdk.LifecycleObservation, error) { return sdk.LifecycleObservation{}, err }
 	switch call.Operation {
 	case sdk.LifecycleObserve:
-		return fixtureObserveCall(stateDir, call), nil
+		return fixtureObserveCall(stateDir, call, knobs)
 	case sdk.LifecycleActivate:
 		if !verification.DesiredEnabled {
 			return fail(errors.New("activation is not desired"))
@@ -163,11 +163,25 @@ func readObserveCount(stateDir string) int {
 	return count
 }
 
-func fixtureObserveCall(stateDir string, call sdk.LifecycleCall) sdk.LifecycleObservation {
+func fixtureObserveCall(stateDir string, call sdk.LifecycleCall, knobs testFixtureKnobs) (sdk.LifecycleObservation, error) {
 	bumpObserveCount(stateDir)
+	// A slow final observation holds the activation open after backend
+	// registration so tests can assert the closed fence mid-flight.
+	// Marker files armed after registration steer exactly that call:
+	// observe.unknown and observe.unavailable fail only the final
+	// confirmation, never the pre-activation observation.
+	if knobs.SlowObserveMs > 0 {
+		time.Sleep(time.Duration(knobs.SlowObserveMs) * time.Millisecond)
+	}
+	if _, err := os.Stat(filepath.Join(stateDir, "observe.unavailable")); err == nil {
+		return sdk.LifecycleObservation{}, errors.New("external effects are unavailable")
+	}
+	if _, err := os.Stat(filepath.Join(stateDir, "observe.unknown")); err == nil {
+		return sdk.LifecycleObservation{LifecycleCall: call, State: sdk.LifecycleStateUnknown, Detail: "External effects are unknown."}, nil
+	}
 	owner, owned := readFixtureOwner(stateDir)
 	if !owned {
-		return sdk.LifecycleObservation{LifecycleCall: call, State: sdk.LifecycleStateStopped, Detail: "No owned runtime exists."}
+		return sdk.LifecycleObservation{LifecycleCall: call, State: sdk.LifecycleStateStopped, Detail: "No owned runtime exists."}, nil
 	}
 	grantData, err := os.ReadFile(filepath.Join(stateDir, "grant.json"))
 	ready := false
@@ -185,7 +199,7 @@ func fixtureObserveCall(stateDir string, call sdk.LifecycleCall) sdk.LifecycleOb
 	if ready {
 		detail = "Owned runtime is running with a current operational grant."
 	}
-	return sdk.LifecycleObservation{LifecycleCall: call, State: sdk.LifecycleStateRunning, EffectGeneration: &generation, AdmissionReady: ready, Detail: detail}
+	return sdk.LifecycleObservation{LifecycleCall: call, State: sdk.LifecycleStateRunning, EffectGeneration: &generation, AdmissionReady: ready, Detail: detail}, nil
 }
 
 func fixtureAdoptOrCreate(stateDir string, call sdk.LifecycleCall) (sdk.LifecycleObservation, error) {
@@ -550,7 +564,7 @@ func TestFailedEnableCleanupConfinement(t *testing.T) {
 	_, authErr = m.VerifyLifecycleCall(exceptionDeactivate, deactivateCall)
 	require.Error(t, authErr, "cleanup admission must die with its command")
 
-	ordinary, err := m.IssueRuntimeAdmission(installation, instance, []string{"native.actor.read"})
+	ordinary, err := m.IssueRuntimeAdmission("sample", installation, instance, []string{"native.actor.read"})
 	require.NoError(t, err)
 	_, authErr = m.VerifyLifecycleCall(ordinary, deactivateCall)
 	require.Error(t, authErr, "ordinary admissions never verify as lifecycle")
@@ -826,4 +840,190 @@ func TestVerifyLifecycleCallMatrix(t *testing.T) {
 	_, authErr = m.VerifyLifecycleCall(issue(deactivateCall, false, false), deactivateCall)
 	require.Error(t, authErr, "deactivate must not verify while desired is true")
 	require.Equal(t, 403, authErr.HTTP)
+}
+
+// waitBackendRegistered polls until the backend is published into
+// m.running: registration happened, but activation may still be
+// unconfirmed.
+func waitBackendRegistered(t *testing.T, m *Manager, id string) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		m.mu.Lock()
+		item := m.running[id]
+		m.mu.Unlock()
+		if item != nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("backend %s never registered", id)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// registeredInstance returns the live backend's instance and
+// installation identity for token-binding assertions.
+func registeredInstance(t *testing.T, m *Manager, id string) (instanceID, installation string) {
+	t.Helper()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	item := m.running[id]
+	require.NotNil(t, item, "backend %s must stay registered", id)
+	return item.descriptor.InstanceID, item.installation
+}
+
+func requireNavigationClosed(t *testing.T, m *Manager, id string) {
+	t.Helper()
+	for _, listed := range m.List() {
+		require.NotEqual(t, id, listed.Manifest.ID, "registered backend must stay out of navigation")
+	}
+}
+
+// A registered backend is an internal lifecycle participant until
+// durable activation completes: no navigation, no ordinary
+// proxy/callback admission, no usable background token, and a closed
+// ControlState projection. Durable completion opens every ordinary
+// path once, and the retained token works without redelivery.
+func TestEnableFencesAdmissionUntilDurableCompletion(t *testing.T) {
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller", SlowObserveMs: 2000}, true)
+	requestEnabledAccept(t, h.m, "sample", "0", h.sha, true)
+	// The final observation is still sleeping: the backend is
+	// registered but activation is not durably complete.
+	waitBackendRegistered(t, h.m, "sample")
+	instanceID, installation := registeredInstance(t, h.m, "sample")
+	_, _, ok := h.m.Lookup("sample")
+	require.False(t, ok, "registered backend must not route before durable completion")
+	requireNavigationClosed(t, h.m, "sample")
+	response, reject := h.m.ControlState(context.Background(), "controller", "sample")
+	require.Nil(t, reject)
+	require.False(t, response.AdmissionOpen, "ControlState must project the closed fence")
+	token, err := h.m.IssueRuntimeAdmission("sample", installation, instanceID, []string{"native.actor.read"})
+	require.NoError(t, err)
+	_, ok = h.m.VerifyBackgroundAdmission(token)
+	require.False(t, ok, "previously issued tokens cannot bypass the fence")
+	waitActiveOpDone(t, h.m)
+	_, _, ok = h.m.Lookup("sample")
+	require.True(t, ok, "durable completion must open routing")
+	_, ok = h.m.VerifyBackgroundAdmission(token)
+	require.True(t, ok, "retained token must work after durable completion")
+	response, reject = h.m.ControlState(context.Background(), "controller", "sample")
+	require.Nil(t, reject)
+	require.True(t, response.AdmissionOpen, "durable completion must open the projection")
+	observed := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleEnabled, observed.State)
+	require.False(t, observed.Unconfirmed)
+}
+
+// A failed final observation keeps the fence after the operation
+// returns: no routing, no usable tokens, original generation and
+// desired intent preserved, effects cleaned up, and nothing replayed
+// automatically. Explicit disable stays usable, and a later retry
+// completes and reopens admission.
+func TestFailedFinalObserveKeepsAdmissionClosed(t *testing.T) {
+	for _, marker := range []string{"observe.unknown", "observe.unavailable"} {
+		t.Run(marker, func(t *testing.T) {
+			h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller", SlowObserveMs: 2000}, true)
+			requestEnabledAccept(t, h.m, "sample", "0", h.sha, true)
+			waitBackendRegistered(t, h.m, "sample")
+			instanceID, installation := registeredInstance(t, h.m, "sample")
+			// Arm the failure only now: the pre-activation
+			// observation already passed.
+			require.NoError(t, os.WriteFile(filepath.Join(controllerStateDir(h), marker), nil, 0o600))
+			token, err := h.m.IssueRuntimeAdmission("sample", installation, instanceID, []string{"native.actor.read"})
+			require.NoError(t, err)
+			waitActiveOpDone(t, h.m)
+			observed := lifecycleResult(t, h.m.Observe("sample"))
+			require.Equal(t, packages.LifecycleFailed, observed.State)
+			require.True(t, observed.Unconfirmed)
+			require.NotNil(t, observed.Error)
+			require.Equal(t, packages.LifecycleErrActivateFailed, observed.Error.Code)
+			_, _, ok := h.m.Lookup("sample")
+			require.False(t, ok, "failed enable must keep admission closed")
+			requireNavigationClosed(t, h.m, "sample")
+			_, ok = h.m.VerifyBackgroundAdmission(token)
+			require.False(t, ok, "fenced tokens must not verify")
+			intent, err := packages.LoadIntent(h.root, "sample")
+			require.NoError(t, err)
+			require.Equal(t, "1", intent.Generation)
+			require.True(t, intent.DesiredEnabled)
+			require.NotNil(t, intent.PendingOperation)
+			require.Equal(t, packages.IntentActivate, *intent.PendingOperation)
+			_, err = os.Lstat(filepath.Join(controllerStateDir(h), "effect.up"))
+			require.True(t, os.IsNotExist(err), "failed-enable cleanup must stop effects")
+			require.Equal(t, 1, readActivateCount(controllerStateDir(h)), "uncertain activation is never replayed")
+			// Controller cleanup stays usable: explicit disable works.
+			requestEnabledAccept(t, h.m, "sample", "1", h.sha, false)
+			waitActiveOpDone(t, h.m)
+			disabled := lifecycleResult(t, h.m.Observe("sample"))
+			require.Equal(t, packages.LifecycleDisabled, disabled.State)
+			require.False(t, disabled.Unconfirmed)
+			// A later explicit retry completes and reopens admission.
+			require.NoError(t, os.Remove(filepath.Join(controllerStateDir(h), marker)))
+			requestEnabledAccept(t, h.m, "sample", "2", h.sha, true)
+			waitActiveOpDone(t, h.m)
+			retried := lifecycleResult(t, h.m.Observe("sample"))
+			require.Equal(t, packages.LifecycleEnabled, retried.State)
+			require.False(t, retried.Unconfirmed)
+			_, _, ok = h.m.Lookup("sample")
+			require.True(t, ok, "retry must reopen admission")
+		})
+	}
+}
+
+// A completion-write failure stays pending and unconfirmed, never
+// masquerading as completed: the retained live backend stays fenced
+// with its token rejected, and an explicit retry after storage
+// recovers completes on the same instance with the same token.
+func TestPersistFailureKeepsAdmissionClosed(t *testing.T) {
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller", SlowObserveMs: 2000}, true)
+	requestEnabledAccept(t, h.m, "sample", "0", h.sha, true)
+	waitBackendRegistered(t, h.m, "sample")
+	instanceID, installation := registeredInstance(t, h.m, "sample")
+	token, err := h.m.IssueRuntimeAdmission("sample", installation, instanceID, []string{"native.actor.read"})
+	require.NoError(t, err)
+	// Break the completion write while the final observation sleeps:
+	// replace the intent file with a directory so the durable write
+	// cannot land.
+	intentPath := filepath.Join(h.root, ".intents", "sample.json")
+	intentData, err := os.ReadFile(intentPath)
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(intentPath))
+	require.NoError(t, os.Mkdir(intentPath, 0o700))
+	restore := func() {
+		_ = os.RemoveAll(intentPath)
+		_ = os.WriteFile(intentPath, intentData, 0o600)
+	}
+	t.Cleanup(restore)
+	waitActiveOpDone(t, h.m)
+	observed := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleFailed, observed.State)
+	require.True(t, observed.Unconfirmed)
+	require.NotNil(t, observed.Error)
+	require.Equal(t, packages.LifecycleErrUnavailable, observed.Error.Code)
+	_, _, ok := h.m.Lookup("sample")
+	require.False(t, ok, "unpersisted completion must keep admission closed")
+	requireNavigationClosed(t, h.m, "sample")
+	_, ok = h.m.VerifyBackgroundAdmission(token)
+	require.False(t, ok, "fenced tokens must not verify")
+	// The backend is retained live but fenced; nothing replayed.
+	_, retainedInstallation := registeredInstance(t, h.m, "sample")
+	require.Equal(t, installation, retainedInstallation)
+	require.Equal(t, 1, readActivateCount(controllerStateDir(h)), "uncertain activation is never replayed")
+	// Restore storage and retry: the same instance and token complete.
+	restore()
+	intent, err := packages.LoadIntent(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "1", intent.Generation)
+	require.True(t, intent.DesiredEnabled)
+	require.NotNil(t, intent.PendingOperation)
+	requestEnabledAccept(t, h.m, "sample", "1", h.sha, true)
+	waitActiveOpDone(t, h.m)
+	retried := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleEnabled, retried.State)
+	require.False(t, retried.Unconfirmed)
+	_, _, ok = h.m.Lookup("sample")
+	require.True(t, ok, "retry must reopen admission")
+	_, ok = h.m.VerifyBackgroundAdmission(token)
+	require.True(t, ok, "retained token must work after retry completes")
 }

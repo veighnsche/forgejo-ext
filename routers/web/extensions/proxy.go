@@ -69,6 +69,12 @@ func api(scope string, panel bool) func(*app_context.Context) {
 				return
 			}
 		}
+		// Ordinary admission can close between route lookup and admission
+		// creation; recheck the exact instance before minting.
+		if !manager.VerifyOrdinaryToken(d.Manifest.ID, d.InstanceID) {
+			ctx.NotFound("Page", nil)
+			return
+		}
 		kind := "page"
 		if panel {
 			kind = "panel"
