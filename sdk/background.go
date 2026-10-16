@@ -25,6 +25,7 @@ const (
 	OperationKindRefPublish      = "git.ref.publish"
 	OperationKindPRCreate        = "pull_request.create"
 	OperationKindReviewSubmit    = "pull_request.review.submit"
+	OperationKindThreadResolve   = "pull_request.review.thread.resolve"
 	OperationKindMerge           = "pull_request.merge"
 	OperationKindLifecycleIssue  = "issue.lifecycle.apply"
 	OperationKindLifecycleReview = "pull_request.review.request"

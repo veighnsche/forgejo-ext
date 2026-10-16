@@ -21,6 +21,7 @@ const (
 	KindRefPublish      = "git.ref.publish"
 	KindPRCreate        = "pull_request.create"
 	KindReviewSubmit    = "pull_request.review.submit"
+	KindThreadResolve   = "pull_request.review.thread.resolve"
 	KindMerge           = "pull_request.merge"
 	KindLifecycleIssue  = "issue.lifecycle.apply"
 	KindLifecycleReview = "pull_request.review.request"
@@ -119,6 +120,7 @@ var supportedKinds = []string{
 	KindMerge,           // pull_request.merge
 	KindLifecycleReview, // pull_request.review.request
 	KindReviewSubmit,    // pull_request.review.submit
+	KindThreadResolve,   // pull_request.review.thread.resolve
 }
 
 // SupportedKinds returns a copy of the sorted supported operation kinds.

@@ -27,6 +27,7 @@ const (
 	KindRefPublish      = "git.ref.publish"
 	KindPRCreate        = "pull_request.create"
 	KindReviewSubmit    = "pull_request.review.submit"
+	KindThreadResolve   = "pull_request.review.thread.resolve"
 	KindMerge           = "pull_request.merge"
 	KindLifecycleIssue  = "issue.lifecycle.apply"
 	KindLifecycleReview = "pull_request.review.request"
@@ -54,7 +55,7 @@ func init() {
 // ValidKind reports whether kind is a supported background operation kind.
 func ValidKind(kind string) bool {
 	switch kind {
-	case KindIssueGraph, KindRefPublish, KindPRCreate, KindReviewSubmit, KindMerge, KindLifecycleIssue, KindLifecycleReview, KindLifecycleNote:
+	case KindIssueGraph, KindRefPublish, KindPRCreate, KindReviewSubmit, KindThreadResolve, KindMerge, KindLifecycleIssue, KindLifecycleReview, KindLifecycleNote:
 		return true
 	default:
 		return false
