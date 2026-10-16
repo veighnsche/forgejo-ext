@@ -176,6 +176,55 @@ func entrySHA(t *testing.T, root, id string) *string {
 	return &receipt.ArchiveSHA256
 }
 
+// FX04-7: required bootstrap repairs an interrupted swap before
+// validating or acquiring: retained bytes restore the absent target
+// with zero downloads, so a dead server cannot fail the pass.
+func TestBootstrapRequiredRestoresInterruptedSwapOffline(t *testing.T) {
+	root := t.TempDir()
+	store := openTestStore(t, root)
+	server, catalog := bootstrapFixture(t)
+	require.NoError(t, BootstrapRequired(context.Background(), store, catalog, []string{"soda"}, testClient(t, server)))
+	before, err := LoadInstallation(root, "soda")
+	require.NoError(t, err)
+
+	// Crash between the two renames: old bytes sit in the fixed
+	// backup while the target is absent.
+	require.NoError(t, os.Rename(filepath.Join(root, "soda"), filepath.Join(root, ".previous-soda")))
+
+	server.Close()
+	dead := testClient(t, server)
+	require.NoError(t, BootstrapRequired(context.Background(), store, catalog, []string{"soda"}, dead))
+	require.NoError(t, ValidateInstalled(root, catalog.Packages[0]))
+	require.NoFileExists(t, filepath.Join(root, ".previous-soda"))
+	after, err := LoadInstallation(root, "soda")
+	require.NoError(t, err)
+	require.Equal(t, before, after, "offline repair preserves installation identity")
+}
+
+// FX04-8: offline preparation repairs an interrupted selected swap
+// before staging or swapping: the retained-source interruption is
+// recovered without network or fabricated intent, and the prepare
+// still lands the target revision with UUIDs and intents preserved.
+func TestPrepareRecoversInterruptedSwap(t *testing.T) {
+	root := t.TempDir()
+	target, snapshot, _ := prepareFixture(t, root)
+	beforeSoda, err := LoadInstallation(root, "soda")
+	require.NoError(t, err)
+
+	// Crash between the two renames on a selected required package.
+	require.NoError(t, os.Rename(filepath.Join(root, "soda"), filepath.Join(root, ".previous-soda")))
+
+	store := openTestStore(t, root)
+	prepared, err := store.PrepareRelease(target, snapshot, []string{"soda"})
+	require.NoError(t, err)
+	require.Len(t, prepared, 2)
+	require.NoError(t, ValidateInstalled(root, target.Packages[0]))
+	require.NoFileExists(t, filepath.Join(root, ".previous-soda"))
+	afterSoda, err := LoadInstallation(root, "soda")
+	require.NoError(t, err)
+	require.Equal(t, beforeSoda, afterSoda, "prepare preserves installation identity across repair")
+}
+
 func TestPrepareSelectsRequiredAndEnabledOnly(t *testing.T) {
 	root := t.TempDir()
 	target, snapshot, _ := prepareFixture(t, root)

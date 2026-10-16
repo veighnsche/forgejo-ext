@@ -1358,6 +1358,12 @@ func (m *Manager) reconcileStablePass(ctx context.Context, settlePending bool, r
 // the row is blocked solely on controller or socket unavailability.
 func (m *Manager) reconcileStableRow(ctx context.Context, entry sdk.CatalogPackage, settlePending bool) bool {
 	id := entry.ID
+	if m.recoveryIsolated(id) {
+		// An unrepairable optional package never executes its
+		// bytes on reconcile paths; the row keeps its startup
+		// failure for an explicit retry after repair.
+		return false
+	}
 	intent, err := packages.LoadIntent(m.root, id)
 	if err != nil {
 		// Malformed requested state is never default-enabled and

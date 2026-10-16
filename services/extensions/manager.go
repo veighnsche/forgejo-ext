@@ -124,6 +124,12 @@ type Manager struct {
 	// obsMu, never m.mu.
 	obsMu   sync.Mutex
 	lastObs map[string]controlledEffect
+	// recoveryBlocked marks optional packages whose interrupted-swap
+	// repair failed at startup (RCX-2 FX04). Their bytes stay
+	// unavailable and are never validated or executed until an
+	// explicit repair replaces them. Set once in Start; guarded by
+	// mu.
+	recoveryBlocked map[string]bool
 }
 
 // activeOperation is one manager-owned mutation task: its cancel stops
@@ -282,6 +288,7 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 	m.lifeCtx, m.lifeCancel = context.WithCancel(context.Background())
 	m.activeOp = nil
 	m.startupDone = nil
+	m.recoveryBlocked = nil
 	m.lock, err = packages.AcquirePackageLock(m.root)
 	if err != nil {
 		m.mu.Unlock()
@@ -314,6 +321,32 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 		return err
 	}
 
+	// Repair interrupted package swaps before any validation,
+	// acquisition or execution (RCX-2 FX04): the store handle runs
+	// the exact per-package repair for known IDs — required IDs,
+	// trusted catalog IDs, and intent/installation-owned IDs — under
+	// the lifetime lock. A required repair failure blocks required
+	// readiness; an optional failure isolates that package with a
+	// visible failure, and its bytes are never validated or
+	// executed. Current catalog and receipt checks below re-run
+	// after this repair, so restored older bytes never authorize an
+	// obsolete package.
+	requiredSet := make(map[string]bool, len(m.requiredIDs))
+	for _, id := range m.requiredIDs {
+		requiredSet[id] = true
+	}
+	if failures := m.store.RecoverInterrupted(packages.RecoveryCandidates(m.root, m.catalog, m.requiredIDs)); len(failures) != 0 {
+		for _, id := range sortedFailureIDs(failures) {
+			if requiredSet[id] {
+				return fail(fmt.Errorf("required extension %q package repair failed: %v", id, failures[id]))
+			}
+			m.recordFailure(id, packages.LifecycleErrUnavailable, "interrupted package repair failed; explicit repair is required")
+			if m.recoveryBlocked == nil {
+				m.recoveryBlocked = make(map[string]bool)
+			}
+			m.recoveryBlocked[id] = true
+		}
+	}
 	// Reject contradictory required intent before acquisition or replacement.
 	for _, id := range m.requiredIDs {
 		intent, err := packages.LoadIntent(m.root, id)
@@ -390,6 +423,12 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 		if !entry.IsDir() || strings.HasPrefix(id, ".") {
 			continue
 		}
+		if m.recoveryIsolated(id) {
+			// Unrepairable optional bytes stay isolated: never
+			// validated nor executed until an explicit repair
+			// replaces them.
+			continue
+		}
 		if !sdk.ValidID(id) {
 			return fail(errors.New("invalid extension package directory name"))
 		}
@@ -446,6 +485,26 @@ func (m *Manager) Start(ctx context.Context) (err error) {
 	// after Start has released its mutex and returned core readiness.
 	go m.runStartupOptionalPass(lifeCtx, startupDone)
 	return nil
+}
+
+// sortedFailureIDs orders repair failures deterministically for
+// startup reporting.
+func sortedFailureIDs(failures map[string]error) []string {
+	ids := make([]string, 0, len(failures))
+	for id := range failures {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// recoveryIsolated reports whether an optional package's startup
+// repair failed: its bytes stay unavailable and are never validated
+// or executed on startup paths.
+func (m *Manager) recoveryIsolated(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.recoveryBlocked[id]
 }
 
 func (m *Manager) startOne(packageDir, dirName string) (_ *running, err error) {

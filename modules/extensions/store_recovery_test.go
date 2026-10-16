@@ -181,6 +181,150 @@ func TestReplaceUpdatesReceiptPreservingIdentity(t *testing.T) {
 	require.Equal(t, desired, intent)
 }
 
+// FX04-1: a replacement repairs an interrupted swap even when the
+// target is absent. The crash between the old-bytes rename and staged
+// publication leaves only the fixed backup; the swap below restores
+// it first, then replaces, preserving installation UUID and intent.
+func TestReplaceRecoversAbsentTargetBeforeSwap(t *testing.T) {
+	root := t.TempDir()
+	store := openTestStore(t, root)
+	server1, entry1 := serveArchive(t, versionedArchive(t, "sample", "1.0.0", "", nil), "sample", "1.0.0")
+	installAcquired(t, store, entry1, testClient(t, server1), false)
+	uuid, err := LoadInstallation(root, "sample")
+	require.NoError(t, err)
+	desired, err := store.SetDesired("sample", true)
+	require.NoError(t, err)
+
+	// Crash between the two renames: old bytes sit in the fixed
+	// backup while the target is absent.
+	require.NoError(t, os.Rename(filepath.Join(root, "sample"), filepath.Join(root, ".previous-sample")))
+
+	server2, entry2 := serveArchive(t, versionedArchive(t, "sample", "2.0.0", "", nil), "sample", "2.0.0")
+	installAcquired(t, store, entry2, testClient(t, server2), true)
+	require.NoError(t, ValidateInstalled(root, entry2))
+	require.NoFileExists(t, filepath.Join(root, ".previous-sample"))
+	preserved, err := LoadInstallation(root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, uuid, preserved)
+	intent, err := LoadIntent(root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, desired, intent)
+	manifest, err := sdk.LoadManifest(filepath.Join(root, "sample"))
+	require.NoError(t, err)
+	require.Equal(t, "2.0.0", manifest.Version)
+}
+
+// FX04-2: an unrepairable replacement fails closed before anything
+// moves: an invalid target with an invalid backup keeps both for
+// inspection instead of executing or discarding either.
+func TestReplaceRefusesUnrepairableTarget(t *testing.T) {
+	root := t.TempDir()
+	store := openTestStore(t, root)
+	server1, entry1 := serveArchive(t, versionedArchive(t, "sample", "1.0.0", "", nil), "sample", "1.0.0")
+	installAcquired(t, store, entry1, testClient(t, server1), false)
+	copyPackageDir(t, filepath.Join(root, "sample"), filepath.Join(root, ".previous-sample"))
+	// The crash left a corrupt target beside a valid backup: repair
+	// must refuse rather than execute or discard either.
+	require.NoError(t, os.Remove(filepath.Join(root, "sample", receiptFileName)))
+
+	server2, entry2 := serveArchive(t, versionedArchive(t, "sample", "2.0.0", "", nil), "sample", "2.0.0")
+	stage, err := AcquireWithClient(context.Background(), store.Root(), entry2, testClient(t, server2))
+	require.NoError(t, err)
+	defer os.RemoveAll(stage)
+	_, err = store.InstallStaged(stage, InstallOptions{Replace: true, Entry: &entry2})
+	require.ErrorContains(t, err, "unavailable")
+	require.DirExists(t, filepath.Join(root, "sample"))
+	require.DirExists(t, filepath.Join(root, ".previous-sample"))
+	require.NoError(t, validatePackageDir(filepath.Join(root, ".previous-sample")), "failed replacement must keep the valid backup for inspection")
+}
+
+// FX04-3: startup discovery covers known IDs only — required and
+// catalog IDs plus intent/installation-owned IDs — and repair never
+// sweeps staging residue, the lock, or backups of unrelated or fully
+// removed IDs.
+func TestRecoveryCandidatesCoverKnownIDsOnly(t *testing.T) {
+	root := t.TempDir()
+	store := openTestStore(t, root)
+	server, entry := serveArchive(t, versionedArchive(t, "delta", "1.0.0", "", nil), "delta", "1.0.0")
+	installAcquired(t, store, entry, testClient(t, server), false)
+	copyPackageDir(t, filepath.Join(root, "delta"), filepath.Join(root, ".previous-delta"))
+	installation, err := EnsureInstallation(root, "beta")
+	require.NoError(t, err)
+	_, err = StoreIntent(root, "beta", installation, true, nil, "0")
+	require.NoError(t, err)
+	_, err = EnsureInstallation(root, "gamma")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".previous-rogue"), 0o700))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".install-residue"), 0o700))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".rollback-residue"), 0o700))
+
+	catalog := []sdk.CatalogPackage{{ID: "alpha"}, entry}
+	candidates := RecoveryCandidates(root, catalog, []string{"alpha"})
+	require.Equal(t, []string{"alpha", "beta", "delta", "gamma"}, candidates)
+
+	require.Empty(t, store.RecoverInterrupted(candidates))
+	require.NoFileExists(t, filepath.Join(root, ".previous-delta"), "valid target retires exactly its backup")
+	require.DirExists(t, filepath.Join(root, ".previous-rogue"), "unrelated backups are never swept")
+	require.DirExists(t, filepath.Join(root, ".install-residue"), "staging residue is never swept")
+	require.DirExists(t, filepath.Join(root, ".rollback-residue"), "rollback residue is never swept")
+	require.NoError(t, ValidateInstalled(root, entry))
+}
+
+// FX04-4: restoring older bytes never authorizes an obsolete
+// package. Repair brings back the retained version; the current
+// catalog and receipt checks still refuse it afterwards.
+func TestRecoverInterruptedRestoresVersionBehindButAdmissionRefuses(t *testing.T) {
+	root := t.TempDir()
+	store := openTestStore(t, root)
+	server1, entry1 := serveArchive(t, versionedArchive(t, "sample", "1.0.0", "", nil), "sample", "1.0.0")
+	installAcquired(t, store, entry1, testClient(t, server1), false)
+	require.NoError(t, os.Rename(filepath.Join(root, "sample"), filepath.Join(root, ".previous-sample")))
+
+	require.Empty(t, store.RecoverInterrupted([]string{"sample"}))
+	require.NoError(t, ValidateInstalled(root, entry1), "retained bytes restore exactly")
+
+	_, entry2 := serveArchive(t, versionedArchive(t, "sample", "2.0.0", "", nil), "sample", "2.0.0")
+	require.Error(t, ValidateInstalled(root, entry2), "restored older bytes must fail current catalog admission")
+}
+
+// FX04-5: only a truly empty repair keeps the empty state,
+// silently: an ID with neither target nor backup was never
+// installed, so there is nothing to restore and no error to report.
+func TestRecoverInterruptedEmptyKeepsEmpty(t *testing.T) {
+	root := t.TempDir()
+	store := openTestStore(t, root)
+	require.Empty(t, store.RecoverInterrupted([]string{"absent"}))
+	require.NoFileExists(t, filepath.Join(root, "absent"))
+	require.NoFileExists(t, filepath.Join(root, ".previous-absent"))
+}
+
+// FX04-6: concurrent repair of disjoint packages is coherent, a
+// second pass is a no-op, and a legacy backup of a fully removed
+// package (no catalog, intent or installation record) is preserved,
+// never resurrected.
+func TestRecoverInterruptedConcurrentDisjoint(t *testing.T) {
+	root := t.TempDir()
+	store := openTestStore(t, root)
+	for _, id := range []string{"one", "two"} {
+		server, entry := serveArchive(t, versionedArchive(t, id, "1.0.0", "", nil), id, "1.0.0")
+		installAcquired(t, store, entry, testClient(t, server), false)
+		require.NoError(t, os.Rename(filepath.Join(root, id), filepath.Join(root, ".previous-"+id)))
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".previous-legacy"), 0o700))
+
+	done := make(chan map[string]error, 2)
+	go func() { done <- store.RecoverInterrupted([]string{"one"}) }()
+	go func() { done <- store.RecoverInterrupted([]string{"two"}) }()
+	require.Empty(t, <-done)
+	require.Empty(t, <-done)
+	for _, id := range []string{"one", "two"} {
+		require.DirExists(t, filepath.Join(root, id))
+		require.NoFileExists(t, filepath.Join(root, ".previous-"+id))
+	}
+	require.Empty(t, store.RecoverInterrupted([]string{"one", "two"}), "repair is idempotent")
+	require.DirExists(t, filepath.Join(root, ".previous-legacy"), "removed packages are never resurrected")
+}
+
 func TestPrebuiltRejectsReservedState(t *testing.T) {
 	root := t.TempDir()
 	store := openTestStore(t, root)

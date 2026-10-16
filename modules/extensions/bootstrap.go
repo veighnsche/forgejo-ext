@@ -101,6 +101,18 @@ func BootstrapRequired(ctx context.Context, store *PackageStore, catalog sdk.Cat
 	if client == nil {
 		client = newAcquireClient()
 	}
+	// Repair interrupted swaps before validating or acquiring: a
+	// crash between the old-bytes rename and staged publication
+	// leaves an absent target whose retained backup restores here,
+	// so exact packages reboot offline with zero downloads. A
+	// required repair failure blocks required readiness.
+	if failures := store.RecoverInterrupted(requiredIDs); len(failures) != 0 {
+		for _, id := range requiredIDs {
+			if err, ok := failures[id]; ok {
+				return err
+			}
+		}
+	}
 	byID := make(map[string]sdk.CatalogPackage, len(catalog.Packages))
 	for _, entry := range catalog.Packages {
 		byID[entry.ID] = entry
@@ -191,6 +203,22 @@ func (s *PackageStore) PrepareRelease(target sdk.Catalog, source Snapshot, requi
 			continue
 		}
 		selected = append(selected, entry)
+	}
+	// Repair interrupted swaps for the selected packages before
+	// staging or swapping: retained backups restore absent targets
+	// from validated bytes, so an earlier retained-source
+	// interruption is recovered without network or fabricated
+	// intent. A repair failure refuses the whole preparation.
+	selectedIDs := make([]string, 0, len(selected))
+	for _, entry := range selected {
+		selectedIDs = append(selectedIDs, entry.ID)
+	}
+	if failures := s.RecoverInterrupted(selectedIDs); len(failures) != 0 {
+		for _, id := range selectedIDs {
+			if err, ok := failures[id]; ok {
+				return nil, err
+			}
+		}
 	}
 	stages := make([]string, 0, len(selected))
 	defer func() {

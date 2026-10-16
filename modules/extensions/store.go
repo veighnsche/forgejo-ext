@@ -102,6 +102,17 @@ func (s *PackageStore) InstallStaged(stage string, opts InstallOptions) (sdk.Man
 			return sdk.Manifest{}, err
 		}
 	}
+	// A replacement first repairs any interrupted swap for this
+	// package, whether or not the target currently exists: a crash
+	// between the old-bytes rename and staged publication leaves an
+	// absent target whose valid backup restores here, so the swap
+	// below preserves installation UUID, intent and private data.
+	// Unrepairable state fails closed before anything moves.
+	if opts.Replace {
+		if err := RecoverPackage(s.root, manifest.ID); err != nil {
+			return sdk.Manifest{}, err
+		}
+	}
 	target := filepath.Join(s.root, manifest.ID)
 	info, err := os.Lstat(target)
 	if err == nil {
@@ -110,9 +121,6 @@ func (s *PackageStore) InstallStaged(stage string, opts InstallOptions) (sdk.Man
 		}
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return sdk.Manifest{}, errors.New("installed package is not a regular directory")
-		}
-		if err := RecoverPackage(s.root, manifest.ID); err != nil {
-			return sdk.Manifest{}, err
 		}
 		backup := previousPackagePath(s.root, manifest.ID)
 		if err := os.Rename(target, backup); err != nil {
@@ -310,7 +318,7 @@ func RecoverPackage(root, id string) error {
 		return nil
 	case !targetExists:
 		if err := validatePackageDir(backup); err != nil {
-			return errors.New("installed package is unavailable")
+			return errRecoveryUnavailable
 		}
 		if err := os.Rename(backup, target); err != nil {
 			return err
@@ -320,7 +328,7 @@ func RecoverPackage(root, id string) error {
 		return nil
 	default:
 		if err := validatePackageDir(target); err != nil {
-			return errors.New("installed package is unavailable")
+			return errRecoveryUnavailable
 		}
 		return os.RemoveAll(backup)
 	}
