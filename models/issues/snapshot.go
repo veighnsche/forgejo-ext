@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"strings"
 )
 
@@ -624,6 +625,77 @@ type ReviewPage struct {
 	Items    []ReviewSnapshot
 	Total    int
 	Complete bool
+}
+
+// RepositoryIssuesItem is one enumerated open non-PR issue locator. The
+// enumeration carries no title, body or other content: exact bodies travel
+// through the individual issue/dependency snapshots under the same stable
+// revision. Enumeration itself requires issue-read permission, so the loader
+// emits only visible locators.
+type RepositoryIssuesItem struct {
+	IssueID int64
+	Index   int64
+	Visible bool
+}
+
+// RepositoryIssuesPage is one bounded open-issue enumeration page in
+// ascending index order. NextCursor is the exclusive lower bound for the
+// following page: empty on a terminal page, otherwise the final returned
+// index. Complete means fully enumerated through the final page.
+type RepositoryIssuesPage struct {
+	Items      []RepositoryIssuesItem
+	NextCursor string
+	Complete   bool
+}
+
+// NewRepositoryIssuesPage validates one loader-read enumeration page.
+// Indexes must ascend strictly; a terminal page carries an empty cursor
+// while a nonterminal page carries the final returned index and nonempty
+// items. An empty incomplete page is invalid: unavailable or hidden inputs
+// can never imply an empty or complete set.
+func NewRepositoryIssuesPage(items []RepositoryIssuesItem, nextCursor string, complete bool) (RepositoryIssuesPage, error) {
+	for i, item := range items {
+		if item.IssueID <= 0 || item.Index <= 0 || !item.Visible {
+			return RepositoryIssuesPage{}, ErrSnapshotInvalid
+		}
+		if i > 0 && item.Index <= items[i-1].Index {
+			return RepositoryIssuesPage{}, ErrSnapshotInvalid
+		}
+	}
+	if nextCursor != "" && !validRepositoryIssuesCursor(nextCursor) {
+		return RepositoryIssuesPage{}, ErrSnapshotInvalid
+	}
+	if complete {
+		if nextCursor != "" {
+			return RepositoryIssuesPage{}, ErrSnapshotInvalid
+		}
+	} else {
+		if len(items) == 0 {
+			return RepositoryIssuesPage{}, ErrSnapshotInvalid
+		}
+		last := items[len(items)-1]
+		if nextCursor == "" || nextCursor != strconv.FormatInt(last.Index, 10) {
+			return RepositoryIssuesPage{}, ErrSnapshotInvalid
+		}
+	}
+	return RepositoryIssuesPage{
+		Items:      append([]RepositoryIssuesItem(nil), items...),
+		NextCursor: nextCursor,
+		Complete:   complete,
+	}, nil
+}
+
+// validRepositoryIssuesCursor accepts canonical positive int64 decimals:
+// no leading zero, no sign, no whitespace.
+func validRepositoryIssuesCursor(cursor string) bool {
+	if cursor == "" || cursor[0] == '0' || len(cursor) > 20 {
+		return false
+	}
+	value, err := strconv.ParseInt(cursor, 10, 64)
+	if err != nil || value <= 0 {
+		return false
+	}
+	return strconv.FormatInt(value, 10) == cursor
 }
 
 // NewReviewPage validates one loader-read review list.

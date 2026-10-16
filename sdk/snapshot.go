@@ -26,6 +26,7 @@ import (
 // Snapshot families select bounded native evidence. Unknown families refuse.
 const (
 	SnapshotFamilyRepositoryWriters = "repository_writers"
+	SnapshotFamilyRepositoryIssues  = "repository_issues"
 	SnapshotFamilyIssue             = "issue"
 	SnapshotFamilyComments          = "comments"
 	SnapshotFamilyDependencies      = "dependencies"
@@ -79,8 +80,9 @@ type SnapshotRequest struct {
 
 func validSnapshotFamily(family string) bool {
 	switch family {
-	case SnapshotFamilyRepositoryWriters, SnapshotFamilyIssue, SnapshotFamilyComments, SnapshotFamilyDependencies,
-		SnapshotFamilyPull, SnapshotFamilyReviews, SnapshotFamilyChecks, SnapshotFamilyRefs, SnapshotFamilyAncestry:
+	case SnapshotFamilyRepositoryWriters, SnapshotFamilyRepositoryIssues, SnapshotFamilyIssue, SnapshotFamilyComments,
+		SnapshotFamilyDependencies, SnapshotFamilyPull, SnapshotFamilyReviews, SnapshotFamilyChecks,
+		SnapshotFamilyRefs, SnapshotFamilyAncestry:
 		return true
 	default:
 		return false
@@ -191,6 +193,19 @@ func ValidateSnapshotRequest(req SnapshotRequest) error {
 	}
 	if seen[SnapshotFamilyRefs] && len(req.Refs) == 0 {
 		return ErrInvalidSnapshotRequest
+	}
+	// repository_issues enumerates open non-PR issues of exactly
+	// RepositoryID under the bound actor's issue-read permission. It is
+	// requested alone with only Limit/Cursor selectors: the cursor is an
+	// exclusive issue-index lower bound (empty starts enumeration), and
+	// the limit stays within the shared page bound with zero meaning the
+	// default page. No issue/pull/ref selector may accompany it.
+	if seen[SnapshotFamilyRepositoryIssues] {
+		if len(req.Families) != 1 || len(req.WriterIDs) > 0 || req.IssueIndex != "" ||
+			req.PullNumber != "" || len(req.CommentIDs) > 0 || req.SHA != "" ||
+			len(req.Refs) > 0 || req.Ancestry != nil {
+			return ErrInvalidSnapshotRequest
+		}
 	}
 	if seen[SnapshotFamilyAncestry] != (req.Ancestry != nil) {
 		return ErrInvalidSnapshotRequest
@@ -322,6 +337,31 @@ type SnapshotDependencyPage struct {
 	Complete bool                 `json:"complete"`
 }
 
+// SnapshotRepositoryIssueItem is one enumerated open non-PR issue locator.
+// The page carries no title, body or other content: exact bodies travel
+// through the existing individual issue/dependency families under the same
+// stable revision. Every returned item is visible to the bound actor;
+// enumeration itself requires issue-read permission, so hidden records
+// never appear here with or without content.
+type SnapshotRepositoryIssueItem struct {
+	IssueID    string `json:"issue_id"`
+	IssueIndex string `json:"issue_index"`
+	Visible    bool   `json:"visible"`
+}
+
+// SnapshotRepositoryIssuesPage is one bounded open-issue enumeration page
+// in ascending issue-index order. Cursor is an exclusive issue-index lower
+// bound: a nonterminal page carries nonempty items with NextCursor equal to
+// the final returned index, strictly greater than the request cursor, and
+// Complete=false. A terminal page carries Complete=true with empty
+// NextCursor. Complete means fully enumerated through the final page, not
+// merely a successful query; an empty incomplete page is invalid.
+type SnapshotRepositoryIssuesPage struct {
+	Items      []SnapshotRepositoryIssueItem `json:"items"`
+	NextCursor string                        `json:"next_cursor,omitempty"`
+	Complete   bool                          `json:"complete"`
+}
+
 // SnapshotPull is the permission-checked view of one native pull request.
 type SnapshotPull struct {
 	ID           string `json:"id"`
@@ -416,14 +456,15 @@ type SnapshotAncestry struct {
 // requested families are present. The caller binds its bracketed native
 // revision; the host never sets it.
 type NativeSnapshot struct {
-	Writers      map[string]bool         `json:"writers,omitempty"`
-	RepositoryID string                  `json:"repository_id"`
-	Issue        *SnapshotIssue          `json:"issue,omitempty"`
-	Comments     *SnapshotCommentPage    `json:"comments,omitempty"`
-	Dependencies *SnapshotDependencyPage `json:"dependencies,omitempty"`
-	Pull         *SnapshotPull           `json:"pull,omitempty"`
-	Reviews      *SnapshotReviewPage     `json:"reviews,omitempty"`
-	Checks       *SnapshotCheckSet       `json:"checks,omitempty"`
-	Refs         []SnapshotRef           `json:"refs,omitempty"`
-	Ancestry     *SnapshotAncestry       `json:"ancestry,omitempty"`
+	Writers          map[string]bool               `json:"writers,omitempty"`
+	RepositoryIssues *SnapshotRepositoryIssuesPage `json:"repository_issues,omitempty"`
+	RepositoryID     string                        `json:"repository_id"`
+	Issue            *SnapshotIssue                `json:"issue,omitempty"`
+	Comments         *SnapshotCommentPage          `json:"comments,omitempty"`
+	Dependencies     *SnapshotDependencyPage       `json:"dependencies,omitempty"`
+	Pull             *SnapshotPull                 `json:"pull,omitempty"`
+	Reviews          *SnapshotReviewPage           `json:"reviews,omitempty"`
+	Checks           *SnapshotCheckSet             `json:"checks,omitempty"`
+	Refs             []SnapshotRef                 `json:"refs,omitempty"`
+	Ancestry         *SnapshotAncestry             `json:"ancestry,omitempty"`
 }

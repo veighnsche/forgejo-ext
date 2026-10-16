@@ -123,6 +123,12 @@ func (s *Service) ReadSnapshot(ctx context.Context, decision extensionauth.Snaps
 	snapshot := sdk.NativeSnapshot{RepositoryID: req.RepositoryID}
 	for _, family := range req.Families {
 		switch family {
+		case sdk.SnapshotFamilyRepositoryIssues:
+			page, err := loader.repositoryIssues(ctx)
+			if err != nil {
+				return sdk.NativeSnapshot{}, err
+			}
+			snapshot.RepositoryIssues = page
 		case sdk.SnapshotFamilyRepositoryWriters:
 			// Checking another actor's authority requires native code-write from
 			// the requesting actor; a read-only token cannot enumerate writers.
@@ -563,6 +569,56 @@ func (l *snapshotLoader) dependencyVisible(ctx context.Context, targetID int64) 
 		return false, issues_model.HiddenReasonNoAccess, nil
 	}
 	return true, "", nil
+}
+
+// repositoryIssues enumerates open non-PR issues of exactly the loader's
+// repository in ascending index order under the bound actor's issue-read
+// permission. The cursor is an exclusive issue-index lower bound. One extra
+// row past the page is read after open/non-PR filtering to determine
+// terminal status without returning it: a full extra row means a
+// nonterminal page with NextCursor at the final returned index, otherwise
+// the terminal page carries Complete with an empty cursor. Denied
+// enumeration refuses without leaking existence; the page carries locator
+// IDs only, never hidden content.
+func (l *snapshotLoader) repositoryIssues(ctx context.Context) (*sdk.SnapshotRepositoryIssuesPage, error) {
+	if !l.permission.CanReadIssuesOrPulls(false) {
+		return nil, ErrSnapshotNotFound
+	}
+	after := l.cursorAfterID()
+	rows := make([]*issues_model.Issue, 0, l.limit+1)
+	if err := db.GetEngine(ctx).Where("repo_id = ? AND is_closed = ? AND is_pull = ?", l.repository.ID, false, false).
+		And("`index` > ?", after).
+		Asc("`index`").
+		Limit(l.limit + 1).
+		Find(&rows); err != nil {
+		return nil, ErrSnapshotUnavailable
+	}
+	terminal := len(rows) <= l.limit
+	kept := rows
+	if !terminal {
+		kept = rows[:l.limit]
+	}
+	items := make([]issues_model.RepositoryIssuesItem, 0, len(kept))
+	for _, row := range kept {
+		items = append(items, issues_model.RepositoryIssuesItem{IssueID: row.ID, Index: row.Index, Visible: true})
+	}
+	nextCursor := ""
+	if !terminal {
+		nextCursor = snapshotIDString(kept[len(kept)-1].Index)
+	}
+	validated, err := issues_model.NewRepositoryIssuesPage(items, nextCursor, terminal)
+	if err != nil {
+		return nil, ErrSnapshotUnavailable
+	}
+	page := &sdk.SnapshotRepositoryIssuesPage{NextCursor: validated.NextCursor, Complete: validated.Complete}
+	for _, item := range validated.Items {
+		page.Items = append(page.Items, sdk.SnapshotRepositoryIssueItem{
+			IssueID:    snapshotIDString(item.IssueID),
+			IssueIndex: snapshotIDString(item.Index),
+			Visible:    true,
+		})
+	}
+	return page, nil
 }
 
 func (l *snapshotLoader) pull(ctx context.Context, number string) (*sdk.SnapshotPull, error) {
