@@ -771,6 +771,82 @@ func TestColdDisabledBootLeavesStoppedRowUnchanged(t *testing.T) {
 	require.False(t, ok)
 }
 
+// A disabled row with confirmed stopped effects but a still-running
+// ordinary backend must clean the backend too: the registered
+// reconciliation route runs the generic teardown after the confirmed
+// stopped observation, keeping admission closed and preserving
+// identity, generation, bytes and private data.
+func TestDisabledReconcileStopsLiveBackendAfterStoppedEffects(t *testing.T) {
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller"}, true)
+	enabledSample(t, h)
+	beforeInstall, err := packages.LoadInstallation(h.root, "sample")
+	require.NoError(t, err)
+	stateDir := controllerStateDir(h)
+	activations := readActivateCount(stateDir)
+	// External effects stop out-of-band while the ordinary backend
+	// keeps running: the next observation confirms stopped effects
+	// with a live backend.
+	require.NoError(t, os.Remove(filepath.Join(stateDir, "effect.up")))
+	require.NoError(t, os.Remove(filepath.Join(stateDir, "owner.json")))
+	require.NoError(t, os.Remove(filepath.Join(stateDir, "grant.json")))
+	observes := readObserveCount(stateDir)
+	deactivations := readDeactivateCount(stateDir)
+	// Stable disabled intent, byte-identical to what the supported
+	// offline command writes: same installation, next generation,
+	// no pending. The package store is locked while the manager
+	// runs, so the test performs the same file-level
+	// compare-and-swap the offline command performs.
+	require.NoError(t, packages.ValidateInstalled(h.root, h.sampleEntry), "offline command would accept the installed bytes")
+	installation, err := packages.EnsureInstallation(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, beforeInstall, installation)
+	intent, err := packages.StoreIntent(h.root, "sample", installation, false, nil, "1")
+	require.NoError(t, err)
+	require.Equal(t, "2", intent.Generation)
+	require.False(t, intent.DesiredEnabled)
+	require.Nil(t, intent.PendingOperation)
+	// Drive the registered reconciliation route, holding the single
+	// mutation slot the way the startup attempt does.
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if err := h.m.acquireMutation("test"); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("mutation slot never freed for reconcile")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	terminal := h.m.reconcileStablePass(context.Background(), true, make(map[string]bool))
+	h.m.releaseMutation()
+	require.True(t, terminal, "stopped effects with a live backend must reach a definite outcome")
+	require.Greater(t, readObserveCount(stateDir), observes, "reconcile must observe through the required controller")
+	require.Equal(t, deactivations+1, readDeactivateCount(stateDir), "exactly the reconcile teardown deactivates")
+	require.Equal(t, activations, readActivateCount(stateDir), "reconcile must not reactivate")
+	_, err = os.Lstat(filepath.Join(stateDir, "effect.up"))
+	require.True(t, os.IsNotExist(err), "effects stay stopped")
+	h.m.mu.Lock()
+	_, backendStarted := h.m.running["sample"]
+	h.m.mu.Unlock()
+	require.False(t, backendStarted, "reconcile must stop the ordinary backend")
+	_, _, ok := h.m.Lookup("sample")
+	require.False(t, ok, "optional backend serves nothing after teardown")
+	require.False(t, h.m.ordinaryAdmissionOpen("sample"), "admission stays closed after teardown")
+	intent, err = packages.LoadIntent(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "2", intent.Generation, "reconcile must not advance the generation")
+	require.False(t, intent.DesiredEnabled)
+	require.Nil(t, intent.PendingOperation)
+	afterInstall, err := packages.LoadInstallation(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, beforeInstall, afterInstall, "reconcile preserves installation identity")
+	require.NoError(t, packages.ValidateInstalled(h.root, h.sampleEntry), "teardown retains package bytes")
+	require.FileExists(t, filepath.Join(h.root, ".data", "sample", "fixture.json"), "teardown retains private data")
+	disabled := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleDisabled, disabled.State)
+	require.False(t, disabled.Unconfirmed)
+}
+
 // Unknown cold effects are failed and unconfirmed, never confirmed
 // disabled and never an automatic effect: the owned runtime survives
 // boot untouched, and an explicit administrator disable still owns

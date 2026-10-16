@@ -1527,11 +1527,16 @@ func (m *Manager) bootDisableRow(ctx context.Context, entry sdk.CatalogPackage, 
 		// merits another startup attempt.
 		return transportBlocked(err)
 	}
-	if observation.State == sdk.LifecycleStateStopped && observation.Error == nil && !alive {
-		m.clearFailure(id)
-		return false
-	}
-	if observation.State != sdk.LifecycleStateRunning || observation.Error != nil {
+	if observation.State == sdk.LifecycleStateStopped && observation.Error == nil {
+		if !alive {
+			m.clearFailure(id)
+			return false
+		}
+		// Confirmed stopped effects with a still-running ordinary
+		// backend: fall through to the generic teardown below,
+		// which stops the backend after the verified deactivate.
+		// No new running authority is invented here.
+	} else if observation.State != sdk.LifecycleStateRunning || observation.Error != nil {
 		// Unknown or mismatched effects: no automatic effect, no
 		// intent rewrite. The journaled unknown keeps status
 		// unconfirmed with admission closed.
