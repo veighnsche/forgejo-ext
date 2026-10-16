@@ -240,7 +240,27 @@ func fixtureAdoptOrCreate(stateDir string, call sdk.LifecycleCall) (sdk.Lifecycl
 	return sdk.LifecycleObservation{LifecycleCall: call, State: sdk.LifecycleStateRunning, EffectGeneration: &generation, AdmissionReady: true, Detail: "Owned runtime started with a current operational grant."}, nil
 }
 
+func bumpDeactivateCount(stateDir string) {
+	path := filepath.Join(stateDir, "deactivate.count")
+	count := 0
+	if data, err := os.ReadFile(path); err == nil {
+		_, _ = fmt.Sscanf(string(data), "%d", &count)
+	}
+	_ = os.WriteFile(path, fmt.Appendf(nil, "%d", count+1), 0o600)
+}
+
+func readDeactivateCount(stateDir string) int {
+	data, err := os.ReadFile(filepath.Join(stateDir, "deactivate.count"))
+	if err != nil {
+		return 0
+	}
+	count := 0
+	_, _ = fmt.Sscanf(string(data), "%d", &count)
+	return count
+}
+
 func fixtureDeactivateCall(stateDir string, call sdk.LifecycleCall) (sdk.LifecycleObservation, error) {
+	bumpDeactivateCount(stateDir)
 	_ = os.Remove(filepath.Join(stateDir, "grant.json"))
 	owner, owned := readFixtureOwner(stateDir)
 	if !owned {
@@ -653,6 +673,242 @@ func TestRestartReobservationAdopts(t *testing.T) {
 	observed = lifecycleResult(t, m.Observe("sample"))
 	require.Equal(t, packages.LifecycleEnabled, observed.State)
 	require.False(t, observed.Unconfirmed)
+}
+
+// restartControllerHarness stops Fountain while on-disk effect state
+// survives, then starts a fresh manager over the same root and waits
+// for the bounded startup pass: the offline disable/restart path.
+func restartControllerHarness(t *testing.T, h *controllerHarness) {
+	t.Helper()
+	require.NoError(t, h.m.Close())
+	m := NewManager(h.root, "controller")
+	m.env = []string{"FORGEJO_EXTENSION_TEST_HELPER=1"}
+	require.NoError(t, m.SetCatalogPath(filepath.Join(h.root, ".test-catalog.json")))
+	require.NoError(t, m.SetCallbackHandlerFactory(func(instanceID string) http.Handler {
+		return testAuthorizeMux(m, instanceID)
+	}))
+	require.NoError(t, m.Start(context.Background()))
+	t.Cleanup(func() { _ = m.Close() })
+	h.m = m
+	h.sha = m.catalogSHA
+	waitStartupFinished(t, m)
+}
+
+// Cold disabled rows must be observed through the required
+// controller after restart, not trusted from the empty journal: with
+// surviving external effects and no backend, the offline disable
+// below stops residual effects at the same generation without
+// starting the optional backend, and a later enable works again.
+func TestColdDisabledBootStopsResidualEffects(t *testing.T) {
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller"}, true)
+	enabledSample(t, h)
+	stateDir := controllerStateDir(h)
+	_, err := os.Lstat(filepath.Join(stateDir, "effect.up"))
+	require.NoError(t, err, "enabled sample must own external effects")
+	activations := readActivateCount(stateDir)
+	require.NoError(t, h.m.Close())
+	// The supported offline command writes stable disabled intent
+	// without stopping external resources.
+	setDesiredState(t, h.root, "sample", false)
+	intent, err := packages.LoadIntent(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "2", intent.Generation)
+	observes := readObserveCount(stateDir)
+	restartControllerHarness(t, h)
+	require.Greater(t, readObserveCount(stateDir), observes, "boot must observe through the required controller")
+	_, err = os.Lstat(filepath.Join(stateDir, "effect.up"))
+	require.True(t, os.IsNotExist(err), "boot must stop residual effects")
+	require.Equal(t, 1, readDeactivateCount(stateDir), "exactly the boot cleanup deactivates")
+	require.Equal(t, activations, readActivateCount(stateDir), "boot must not reactivate")
+	_, _, ok := h.m.Lookup("sample")
+	require.False(t, ok, "optional backend stays unstarted")
+	h.m.mu.Lock()
+	_, started := h.m.running["sample"]
+	h.m.mu.Unlock()
+	require.False(t, started, "optional backend stays unstarted")
+	intent, err = packages.LoadIntent(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "2", intent.Generation, "boot must not advance the generation")
+	require.False(t, intent.DesiredEnabled)
+	require.Nil(t, intent.PendingOperation)
+	disabled := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleDisabled, disabled.State)
+	require.False(t, disabled.Unconfirmed)
+	_, _, ok = h.m.Lookup("controller")
+	require.True(t, ok, "core stays available")
+	require.NoError(t, packages.ValidateInstalled(h.root, h.sampleEntry), "cleanup retains package bytes")
+	// Enable-while-disabled still works after the cold cleanup.
+	requestEnabledAccept(t, h.m, "sample", "2", h.sha, true)
+	waitActiveOpDone(t, h.m)
+	reenabled := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleEnabled, reenabled.State)
+	require.False(t, reenabled.Unconfirmed)
+}
+
+// A cold disabled row with already-stopped effects and no backend
+// needs no work and no intent rewrite: no deactivate call, no
+// generation change, and a confirmed disabled status.
+func TestColdDisabledBootLeavesStoppedRowUnchanged(t *testing.T) {
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller"}, true)
+	enabledSample(t, h)
+	requestEnabledAccept(t, h.m, "sample", "1", h.sha, false)
+	waitActiveOpDone(t, h.m)
+	stateDir := controllerStateDir(h)
+	require.Equal(t, 1, readDeactivateCount(stateDir))
+	observes := readObserveCount(stateDir)
+	restartControllerHarness(t, h)
+	require.Greater(t, readObserveCount(stateDir), observes, "boot must still observe the disabled row")
+	require.Equal(t, 1, readDeactivateCount(stateDir), "stopped effects need no deactivate")
+	intent, err := packages.LoadIntent(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "2", intent.Generation)
+	require.False(t, intent.DesiredEnabled)
+	require.Nil(t, intent.PendingOperation)
+	disabled := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleDisabled, disabled.State)
+	require.False(t, disabled.Unconfirmed)
+	_, _, ok := h.m.Lookup("sample")
+	require.False(t, ok)
+}
+
+// Unknown cold effects are failed and unconfirmed, never confirmed
+// disabled and never an automatic effect: the owned runtime survives
+// boot untouched, and an explicit administrator disable still owns
+// the bounded cleanup.
+func TestColdDisabledBootUnknownStaysUnconfirmed(t *testing.T) {
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller"}, true)
+	enabledSample(t, h)
+	stateDir := controllerStateDir(h)
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "observe.unknown"), nil, 0o600))
+	require.NoError(t, h.m.Close())
+	setDesiredState(t, h.root, "sample", false)
+	restartControllerHarness(t, h)
+	require.Equal(t, 0, readDeactivateCount(stateDir), "unknown effects must not authorize a boot deactivate")
+	_, err := os.Lstat(filepath.Join(stateDir, "effect.up"))
+	require.NoError(t, err, "unknown effects survive boot untouched")
+	intent, err := packages.LoadIntent(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "2", intent.Generation)
+	require.False(t, intent.DesiredEnabled)
+	require.Nil(t, intent.PendingOperation)
+	observed := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleFailed, observed.State)
+	require.True(t, observed.Unconfirmed)
+	require.NotNil(t, observed.Error)
+	_, _, ok := h.m.Lookup("sample")
+	require.False(t, ok, "admission stays closed while effects are unknown")
+	// Explicit disable remains available for the bounded cleanup.
+	requestEnabledAccept(t, h.m, "sample", "2", h.sha, false)
+	waitActiveOpDone(t, h.m)
+	disabled := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleDisabled, disabled.State)
+	require.False(t, disabled.Unconfirmed)
+	_, err = os.Lstat(filepath.Join(stateDir, "effect.up"))
+	require.True(t, os.IsNotExist(err), "explicit disable stops the effects")
+}
+
+// Missing optional bytes, receipt and backend never bypass required
+// cleanup: with the package directory gone, boot still observes
+// through the controller and stops residual effects.
+func TestColdDisabledBootWithoutBytesStillCleans(t *testing.T) {
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller"}, true)
+	enabledSample(t, h)
+	stateDir := controllerStateDir(h)
+	activations := readActivateCount(stateDir)
+	require.NoError(t, h.m.Close())
+	setDesiredState(t, h.root, "sample", false)
+	require.NoError(t, os.RemoveAll(filepath.Join(h.root, "sample")))
+	restartControllerHarness(t, h)
+	_, err := os.Lstat(filepath.Join(stateDir, "effect.up"))
+	require.True(t, os.IsNotExist(err), "boot must stop residual effects without package bytes")
+	require.Equal(t, 1, readDeactivateCount(stateDir))
+	require.Equal(t, activations, readActivateCount(stateDir))
+	intent, err := packages.LoadIntent(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "2", intent.Generation)
+	require.False(t, intent.DesiredEnabled)
+	require.Nil(t, intent.PendingOperation)
+	disabled := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleDisabled, disabled.State)
+	require.False(t, disabled.Unconfirmed)
+}
+
+// An explicit disable with no backend and stopped effects verifies
+// teardown through the required controller and converges: a no-op
+// backend stop still reports disabled.
+func TestDisabledTeardownWithoutBackendVerifies(t *testing.T) {
+	h := startControllerHarness(t, "", testFixtureKnobs{}, testFixtureKnobs{Role: "controller"}, true)
+	enabledSample(t, h)
+	stateDir := controllerStateDir(h)
+	requestEnabledAccept(t, h.m, "sample", "1", h.sha, false)
+	waitActiveOpDone(t, h.m)
+	disabled := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleDisabled, disabled.State)
+	require.False(t, disabled.Unconfirmed)
+	deactivations := readDeactivateCount(stateDir)
+	requestEnabledAccept(t, h.m, "sample", "2", h.sha, false)
+	waitActiveOpDone(t, h.m)
+	again := lifecycleResult(t, h.m.Observe("sample"))
+	require.Equal(t, packages.LifecycleDisabled, again.State)
+	require.False(t, again.Unconfirmed)
+	require.Greater(t, readDeactivateCount(stateDir), deactivations, "teardown reverifies through the controller")
+	_, err := os.Lstat(filepath.Join(stateDir, "effect.up"))
+	require.True(t, os.IsNotExist(err))
+	intent, err := packages.LoadIntent(h.root, "sample")
+	require.NoError(t, err)
+	require.Equal(t, "3", intent.Generation)
+	require.False(t, intent.DesiredEnabled)
+	require.Nil(t, intent.PendingOperation)
+}
+
+// Absent or stale controller facts never confirm disabled: only a
+// current stopped observation does. Never-activated and uncontrolled
+// rows keep their existing readings.
+func TestMergeControlledEffectNeedsCurrentObservation(t *testing.T) {
+	disabledBase := packages.LifecycleResult{Operation: sdk.LifecycleObserve, PackageID: "sample", State: packages.LifecycleDisabled}
+	intent := packages.Intent{Schema: 1, PackageID: "sample", InstallationID: "installation-a", Generation: "1"}
+	current := controlledEffect{state: sdk.LifecycleStateStopped, generation: "1", installation: "installation-a", instanceID: "instance-a"}
+
+	// Lost fact: no observation at all.
+	lost := mergeControlledEffect(disabledBase, "sample", true, true, "instance-a", intent, nil, false, controlledEffect{}, false)
+	require.Equal(t, packages.LifecycleFailed, lost.State)
+	require.True(t, lost.Unconfirmed)
+	require.NotNil(t, lost.Error)
+
+	// Stale last-known-good: generation, installation and instance
+	// bindings each fail closed.
+	staleGeneration := current
+	staleGeneration.generation = "0"
+	stale := mergeControlledEffect(disabledBase, "sample", true, true, "instance-a", intent, nil, false, staleGeneration, true)
+	require.Equal(t, packages.LifecycleFailed, stale.State)
+	require.True(t, stale.Unconfirmed)
+	staleInstallation := current
+	staleInstallation.installation = "installation-b"
+	stale = mergeControlledEffect(disabledBase, "sample", true, true, "instance-a", intent, nil, false, staleInstallation, true)
+	require.Equal(t, packages.LifecycleFailed, stale.State)
+	require.True(t, stale.Unconfirmed)
+	staleInstance := current
+	staleInstance.instanceID = "instance-b"
+	stale = mergeControlledEffect(disabledBase, "sample", true, true, "instance-a", intent, nil, false, staleInstance, true)
+	require.Equal(t, packages.LifecycleFailed, stale.State)
+	require.True(t, stale.Unconfirmed)
+
+	// Unreachable controller with a disabled base is unobserved, not disabled.
+	unreachable := mergeControlledEffect(disabledBase, "sample", true, false, "", intent, nil, false, controlledEffect{}, false)
+	require.Equal(t, packages.LifecycleFailed, unreachable.State)
+	require.True(t, unreachable.Unconfirmed)
+
+	// The current stopped fact still confirms disabled.
+	confirmed := mergeControlledEffect(disabledBase, "sample", true, true, "instance-a", intent, nil, false, current, true)
+	require.Equal(t, packages.LifecycleDisabled, confirmed.State)
+	require.False(t, confirmed.Unconfirmed)
+
+	// Never-activated rows and uncontrolled rows keep their readings.
+	neverIntent := packages.Intent{Schema: 1, PackageID: "sample", Generation: "0"}
+	never := mergeControlledEffect(disabledBase, "sample", true, true, "instance-a", neverIntent, nil, false, controlledEffect{}, false)
+	require.Equal(t, packages.LifecycleDisabled, never.State)
+	plain := mergeControlledEffect(disabledBase, "sample", false, false, "", intent, nil, false, controlledEffect{}, false)
+	require.Equal(t, packages.LifecycleDisabled, plain.State)
 }
 
 // The maintenance directory inode excludes mutations while a second

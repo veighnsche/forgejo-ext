@@ -203,12 +203,22 @@ func mergeControlledEffect(base packages.LifecycleResult, id string, controlled,
 		if base.State == packages.LifecycleEnabled {
 			return fail("controller is unreachable; effects unknown")
 		}
+		if base.State == packages.LifecycleDisabled {
+			return fail("controller is unreachable; disabled effects are unobserved")
+		}
 		return base
 	}
 	current := ok && effect.generation == intent.Generation && effect.installation == intent.InstallationID && effect.instanceID == controllerInstance
 	if !current {
 		if base.State == packages.LifecycleEnabled {
 			return fail("external effects are unconfirmed")
+		}
+		if base.State == packages.LifecycleDisabled {
+			// An absent or stale observation is never proof of
+			// stopped effects: only a current stopped fact
+			// confirms disabled. Anything else stays visible
+			// for an explicit disable.
+			return fail("external effects are unobserved; explicit disable is required")
 		}
 		return base
 	}

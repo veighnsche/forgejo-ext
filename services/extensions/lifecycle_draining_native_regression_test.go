@@ -29,3 +29,20 @@ func TestObserveCompletedDrainFailureIsUnconfirmed(t *testing.T) {
 		}
 	}
 }
+
+// A completed drain failure stays failed and unconfirmed in one shot
+// even when the daemon is inert: an absent backend never clears the
+// fence or hides the completed failure.
+func TestObserveCompletedDrainFailureWithInertDaemon(t *testing.T) {
+	failure := &packages.LifecycleError{Code: packages.LifecycleErrUnconfirmed, Message: "external cleanup remains unknown"}
+	for _, last := range []*packages.LifecycleError{failure, nil} {
+		snapshot := observeSnapshot{started: true, draining: true, backendAlive: false}
+		got := observeBaseResult("", "tailnet", snapshot, packages.Intent{}, nil, last)
+		if got.State != packages.LifecycleFailed || !got.Unconfirmed || got.Error == nil {
+			t.Fatalf("inert daemon hid completed drain failure: %+v", got)
+		}
+		if last != nil && got.Error != last {
+			t.Fatal("last failure lost")
+		}
+	}
+}

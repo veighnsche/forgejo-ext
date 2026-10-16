@@ -211,6 +211,35 @@ func TestControlReconcileAbsentRow(t *testing.T) {
 	require.Nil(t, absent.Error)
 }
 
+// A stable disabled row with no current controller fact is unknown,
+// never confirmed disabled: without a live observation the reconcile
+// row carries a bounded unconfirmed error with admission closed.
+func TestControlReconcileDisabledRowNeedsObservation(t *testing.T) {
+	root := t.TempDir()
+	m := controlManager(t, root)
+	installation, err := packages.EnsureInstallation(root, "sample")
+	require.NoError(t, err)
+	_, err = packages.StoreIntent(root, "sample", installation, false, nil, "0")
+	require.NoError(t, err)
+	sampleDir := filepath.Join(root, "sample")
+	require.NoError(t, os.MkdirAll(sampleDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(sampleDir, "extension.json"), []byte(`{"protocol":1,"id":"sample","name":"Sample","version":"1.0","executable":"backend"}`), 0o600))
+
+	response, reject := m.ControlReconcile(context.Background(), "soda")
+	require.Nil(t, reject)
+	byID := make(map[string]ControlReconcileEntry)
+	for _, entry := range response.Entries {
+		byID[entry.PackageID] = entry
+	}
+	sample := byID["sample"]
+	require.Equal(t, packages.LifecycleFailed, sample.State)
+	require.Equal(t, "stopped", sample.Backend)
+	require.Equal(t, "unknown", sample.Effects)
+	require.False(t, sample.AdmissionOpen)
+	require.NotNil(t, sample.Error)
+	require.Equal(t, packages.LifecycleErrUnconfirmed, sample.Error.Code)
+}
+
 func TestControlReconcileGuards(t *testing.T) {
 	root := t.TempDir()
 	m := controlManager(t, root)

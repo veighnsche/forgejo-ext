@@ -253,18 +253,6 @@ func (m *Manager) journalEffectUnknown(call sdk.LifecycleCall) {
 	}
 }
 
-// currentEffect returns the journaled fact when it is bound to the
-// given intent and controller instance.
-func (m *Manager) currentEffect(id string, intent packages.Intent, instanceID string) (controlledEffect, bool) {
-	m.obsMu.Lock()
-	defer m.obsMu.Unlock()
-	effect, ok := m.lastObs[id]
-	if !ok || effect.generation != intent.Generation || effect.installation != intent.InstallationID || effect.instanceID != instanceID {
-		return controlledEffect{}, false
-	}
-	return effect, true
-}
-
 // VerifyLifecycleCall implements the exact authorize-callback validation
 // for one presented token and body: token variant, deadline, live
 // controller instance, catalog target-controller relation, target UUID
@@ -1432,25 +1420,40 @@ func (m *Manager) bootEnableRow(ctx context.Context, entry sdk.CatalogPackage, i
 }
 
 // bootDisableRow performs ordinary boot reconciliation for one stable
-// disabled row: only a definite running observation authorizes one
-// stop under the same intent generation. Anything else is already
-// stopped and needs no effect.
+// disabled row. A cold manager journals nothing, so the absent journal
+// is never proof of stopped effects: the row obtains one bounded
+// authenticated observation through its required controller instead.
+// A confirmed stopped observation with the ordinary backend absent
+// needs no work and no intent rewrite. A running observation, or a
+// live backend that still needs termination, persists pending
+// deactivate at the same generation and runs the existing
+// controlled-disable sequence. Unknown or mismatched effects stay
+// unconfirmed for explicit retry; they never authorize an automatic
+// effect and never read as disabled. Controller or socket
+// unavailability alone stays blocked for the bounded startup retry
+// schedule.
 func (m *Manager) bootDisableRow(ctx context.Context, entry sdk.CatalogPackage, intent packages.Intent) bool {
 	id := entry.ID
-	alive, _ := m.backendRunning(id)
-	definite := alive
-	if !definite {
-		if _, _, ready := m.controllerEndpoint(entry.LifecycleController); ready {
-			if effect, ok := m.currentEffect(id, intent, m.controllerInstance(entry.LifecycleController)); ok && effect.state == sdk.LifecycleStateRunning {
-				definite = true
-			}
-		}
-	}
-	if !definite {
-		return false
-	}
 	if _, _, ready := m.controllerEndpoint(entry.LifecycleController); !ready {
 		return true
+	}
+	alive, _ := m.backendRunning(id)
+	observation, err := m.observeControlledOnce(ctx, entry.LifecycleController, entry, intent, opDeadlineFromContext(ctx, observeCallSeconds)-time.Now().Unix())
+	if err != nil {
+		// Transport and validation failures already journaled the
+		// row unknown; only definite pre-effect unavailability
+		// merits another startup attempt.
+		return transportBlocked(err)
+	}
+	if observation.State == sdk.LifecycleStateStopped && observation.Error == nil && !alive {
+		m.clearFailure(id)
+		return false
+	}
+	if observation.State != sdk.LifecycleStateRunning || observation.Error != nil {
+		// Unknown or mismatched effects: no automatic effect, no
+		// intent rewrite. The journaled unknown keeps status
+		// unconfirmed with admission closed.
+		return false
 	}
 	deactivate := packages.IntentDeactivate
 	if _, err := packages.StorePendingSameGeneration(m.root, id, false, &deactivate, intent.Generation); err != nil {
@@ -1467,17 +1470,6 @@ func (m *Manager) bootDisableRow(ctx context.Context, entry sdk.CatalogPackage, 
 		}
 	}
 	return false
-}
-
-// controllerInstance returns the current instance ID for one required
-// controller, or empty when it is not ready.
-func (m *Manager) controllerInstance(controllerID string) string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if state, ok := m.controllers[controllerID]; ok && state.ready {
-		return state.instanceID
-	}
-	return ""
 }
 
 // settlePendingRow observes one interrupted controlled operation once
