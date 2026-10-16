@@ -46,6 +46,7 @@ const (
 	LifecycleErrUnconfirmed     = "unconfirmed"
 	LifecycleErrStaleState      = "stale_state"
 	LifecycleErrMaintenance     = "maintenance"
+	LifecycleErrCatalogBinding  = "catalog_binding"
 )
 
 // LifecycleRequest identifies one draft manager operation on an installed
@@ -112,7 +113,8 @@ func validDraftLifecycleCode(code string) bool {
 	case LifecycleErrInvalidRequest, LifecycleErrNotInstalled, LifecycleErrVersionMismatch,
 		LifecycleErrUnavailable, LifecycleErrInProgress, LifecycleErrRequiredPackage,
 		LifecycleErrAcquireFailed, LifecycleErrActivateFailed, LifecycleErrTeardownFailed,
-		LifecycleErrUnconfirmed, LifecycleErrStaleState, LifecycleErrMaintenance:
+		LifecycleErrUnconfirmed, LifecycleErrStaleState, LifecycleErrMaintenance,
+		LifecycleErrCatalogBinding:
 		return true
 	}
 	return false

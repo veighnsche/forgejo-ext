@@ -425,6 +425,14 @@ func (m *Manager) startControlledBackend(id, pinnedVersion string) (sdk.Manifest
 	if pinnedVersion != "" && manifest.Version != pinnedVersion {
 		return sdk.Manifest{}, refuseActivation(true, errors.New("installed version does not match request"))
 	}
+	// Boot and reconcile paths reach backend start without an
+	// adoption: resolve the manifest's declared controller against
+	// the catalog IDs here too, before any process starts. A
+	// dangling claim refuses with its precise text; adopted catalog
+	// entries resolve and pass through unchanged.
+	if err := m.checkControllerBinding(id, manifest.LifecycleController); err != nil {
+		return sdk.Manifest{}, err
+	}
 	item, err := m.startOne(packageDir, id)
 	if err != nil {
 		return sdk.Manifest{}, errors.New("backend failed to start")
@@ -507,6 +515,49 @@ func (m *Manager) findCatalogEntry(id string) (sdk.CatalogPackage, bool) {
 		}
 	}
 	return sdk.CatalogPackage{}, false
+}
+
+// danglingBindingError reports an installed manifest that declares a
+// lifecycle controller without the trusted catalog relationship: the
+// configured catalog omits the target, so no controller may act for
+// it and no backend-only handling may substitute. Restoring the
+// catalog entry and explicitly retrying makes the required controller
+// path available again.
+type danglingBindingError struct {
+	id         string
+	controller string
+}
+
+func (e *danglingBindingError) Error() string {
+	return "package " + e.id + " declares lifecycle controller " + e.controller + " without a catalog entry; restore the catalog entry and retry"
+}
+
+// checkControllerBinding resolves one installed manifest's declared
+// lifecycle controller (its owned-by label) against the trusted
+// catalog IDs. It returns a danglingBindingError when a catalog is
+// configured and omits the target: the claim never authorizes
+// backend-only handling and the controller tuple is never
+// reconstructed from manifest or receipt data. Without a configured
+// catalog, or without a declared controller, or with a catalog entry
+// present, there is nothing to refuse.
+func (m *Manager) checkControllerBinding(id, controller string) error {
+	if controller == "" {
+		return nil
+	}
+	m.mu.Lock()
+	configured := m.catalogPath != "" || len(m.catalog) > 0
+	resolved := false
+	for _, entry := range m.catalog {
+		if entry.ID == id {
+			resolved = true
+			break
+		}
+	}
+	m.mu.Unlock()
+	if configured && !resolved {
+		return &danglingBindingError{id: id, controller: controller}
+	}
+	return nil
 }
 
 // recordFailure stores advisory in-memory failure text. It is never
@@ -655,6 +706,15 @@ func (m *Manager) adoptMutation(id, pinnedVersion, expectedGeneration, catalogSH
 		}
 		if pinnedVersion != "" && manifest.Version != pinnedVersion {
 			return nil, failed(packages.LifecycleErrVersionMismatch, "installed version does not match request")
+		}
+		// A manifest declaring a lifecycle controller without the
+		// trusted catalog relationship always fails closed here,
+		// before the maintenance guard, the mutation slot, the
+		// installation identity, or any persisted intent. The claim
+		// alone never authorizes backend-only handling for enable
+		// or disable, on either the managed or the direct path.
+		if err := m.checkControllerBinding(id, manifest.LifecycleController); err != nil {
+			return nil, failed(packages.LifecycleErrCatalogBinding, err.Error())
 		}
 	}
 	releaseGuard, err := acquireMaintenanceGuard(m.maintenanceDir)
@@ -1350,7 +1410,12 @@ func (m *Manager) reconcileUncontrolledRow(ctx context.Context, entry sdk.Catalo
 	alive, _ := m.backendRunning(id)
 	if intent.DesiredEnabled && !alive {
 		if _, err := m.startControlledBackend(id, ""); err != nil {
-			m.recordFailure(id, packages.LifecycleErrActivateFailed, "backend failed; explicit retry is required")
+			message := "backend failed; explicit retry is required"
+			var dangling *danglingBindingError
+			if errors.As(err, &dangling) {
+				message = err.Error()
+			}
+			m.recordFailure(id, packages.LifecycleErrActivateFailed, message)
 		} else {
 			// Registration fenced admission; a stable desired
 			// backend with no pending marker is established, so
@@ -1361,6 +1426,17 @@ func (m *Manager) reconcileUncontrolledRow(ctx context.Context, entry sdk.Catalo
 		return false
 	}
 	if !intent.DesiredEnabled && alive {
+		// Never stop a dangling backend-only row into a
+		// successful disable: the declared controller was never
+		// consulted, so live external effects would survive
+		// behind a disabled report. Stay failed and visible for
+		// an explicit retry after the catalog is restored.
+		if manifest, err := sdk.LoadManifest(filepath.Join(m.root, id)); err == nil && manifest.ID == id {
+			if bindingErr := m.checkControllerBinding(id, manifest.LifecycleController); bindingErr != nil {
+				m.recordFailure(id, packages.LifecycleErrCatalogBinding, bindingErr.Error())
+				return false
+			}
+		}
 		result := m.backendDisable(ctx, id, intent, opDeadlineFromContext(ctx, deactivateCallSeconds))
 		if result.State != packages.LifecycleDisabled || result.Unconfirmed {
 			m.recordFailure(id, packages.LifecycleErrTeardownFailed, "backend stop is unconfirmed; explicit retry is required")
