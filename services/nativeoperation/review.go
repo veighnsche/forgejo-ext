@@ -24,23 +24,37 @@ import (
 	pull_service "forgejo.org/services/pull"
 )
 
+// ReviewSubmitComment carries one keyed inline finding anchored to the
+// candidate diff. The key is opaque client correlation; the host stores
+// key plus prose in the native comment and reports the native id per key
+// in the receipt.
+type ReviewSubmitComment struct {
+	Key  string `json:"key"`
+	Path string `json:"path"`
+	Side string `json:"side"`
+	Line int64  `json:"line"`
+	Body string `json:"body"`
+}
+
 // ReviewSubmitIntent carries the validated pull_request.review.submit
-// payload: one final body-only review bound to its exact candidate. The
-// first interface covers same-repository PRs with commit_id equal to the
-// expected head and a final event; inline comments, attachments,
-// pending/draft creation, submission of an existing draft, editing and
-// dismissal are outside this operation.
+// payload: one final review bound to its exact candidate, with an
+// optional summary body and zero or more inline comments. The first
+// interface covers same-repository PRs with commit_id equal to the
+// expected head and a final event; attachments, pending/draft creation,
+// submission of an existing draft, editing and dismissal are outside
+// this operation.
 type ReviewSubmitIntent struct {
-	PullRequestNumber int64  `json:"pull_request_number"`
-	PRAuthorID        int64  `json:"pr_author_id"`
-	HeadRepositoryID  int64  `json:"head_repository_id"`
-	HeadRef           string `json:"head_ref"`
-	BaseRef           string `json:"base_ref"`
-	ExpectedHeadOID   string `json:"expected_head_oid"`
-	ExpectedBaseOID   string `json:"expected_base_oid"`
-	CommitID          string `json:"commit_id"`
-	Event             string `json:"event"`
-	Body              string `json:"body"`
+	PullRequestNumber int64                 `json:"pull_request_number"`
+	PRAuthorID        int64                 `json:"pr_author_id"`
+	HeadRepositoryID  int64                 `json:"head_repository_id"`
+	HeadRef           string                `json:"head_ref"`
+	BaseRef           string                `json:"base_ref"`
+	ExpectedHeadOID   string                `json:"expected_head_oid"`
+	ExpectedBaseOID   string                `json:"expected_base_oid"`
+	CommitID          string                `json:"commit_id"`
+	Event             string                `json:"event"`
+	Body              string                `json:"body"`
+	Comments          []ReviewSubmitComment `json:"comments,omitempty"`
 }
 
 // parseReviewSubmitPayload validates the complete immutable review-submit
@@ -48,6 +62,11 @@ type ReviewSubmitIntent struct {
 // validation rather than silently broadening the request.
 func parseReviewSubmitPayload(payload []byte, repositoryID int64) (*ReviewSubmitIntent, error) {
 	if len(payload) == 0 {
+		return nil, ErrInvalidIntent
+	}
+	// The complete encoded intent, inline comments included, stays
+	// within the native-review payload ceiling.
+	if len(payload) > sdk.MaxReviewPayloadBytes {
 		return nil, ErrInvalidIntent
 	}
 	var review ReviewSubmitIntent
@@ -86,6 +105,22 @@ func parseReviewSubmitPayload(payload []byte, repositoryID int64) (*ReviewSubmit
 	default:
 		return nil, ErrInvalidIntent
 	}
+	// The canonical structural comment rules live in the model so the
+	// host and direct model callers refuse identically; here any breach
+	// is a malformed intent.
+	modelComments := make([]issues_model.ExactReviewComment, 0, len(review.Comments))
+	for _, comment := range review.Comments {
+		modelComments = append(modelComments, issues_model.ExactReviewComment{
+			Key:  comment.Key,
+			Path: comment.Path,
+			Side: comment.Side,
+			Line: comment.Line,
+			Body: comment.Body,
+		})
+	}
+	if err := issues_model.ValidateExactReviewComments(modelComments); err != nil {
+		return nil, ErrInvalidIntent
+	}
 	review.ExpectedHeadOID = strings.ToLower(review.ExpectedHeadOID)
 	review.ExpectedBaseOID = strings.ToLower(review.ExpectedBaseOID)
 	review.CommitID = strings.ToLower(review.CommitID)
@@ -100,19 +135,31 @@ func reviewSubmitType(event string) issues_model.ReviewType {
 	return issues_model.ReviewTypeApprove
 }
 
+// ReviewCommentRef correlates one committed inline comment back to its
+// client key.
+type ReviewCommentRef struct {
+	Key       string `json:"key"`
+	CommentID int64  `json:"comment_id"`
+}
+
 // ReviewSubmitReceipt attributes one committed review submission to its
-// operation.
+// operation. CommentID is the summary review comment; Comments carries
+// the per-key inline comment ids and MergeBaseOID the host-derived merge
+// base the anchors were validated against (empty for comment-free
+// submissions, which prove no anchors).
 type ReviewSubmitReceipt struct {
-	ReviewID   int64  `json:"review_id"`
-	CommentID  int64  `json:"comment_id"`
-	ReviewerID int64  `json:"reviewer_id"`
-	PRID       int64  `json:"pr_id"`
-	IssueID    int64  `json:"issue_id"`
-	PRNumber   int64  `json:"pr_number"`
-	CommitID   string `json:"commit_id"`
-	Event      string `json:"event"`
-	HeadOID    string `json:"head_oid"`
-	BaseOID    string `json:"base_oid"`
+	ReviewID     int64              `json:"review_id"`
+	CommentID    int64              `json:"comment_id"`
+	ReviewerID   int64              `json:"reviewer_id"`
+	PRID         int64              `json:"pr_id"`
+	IssueID      int64              `json:"issue_id"`
+	PRNumber     int64              `json:"pr_number"`
+	CommitID     string             `json:"commit_id"`
+	Event        string             `json:"event"`
+	HeadOID      string             `json:"head_oid"`
+	BaseOID      string             `json:"base_oid"`
+	Comments     []ReviewCommentRef `json:"comments,omitempty"`
+	MergeBaseOID string             `json:"merge_base_oid,omitempty"`
 }
 
 // mapExactReviewRefusal maps a deterministic exact-review refusal to its
@@ -142,9 +189,17 @@ func mapExactReviewRefusal(err error) string {
 		return nativeoperation_model.ReasonAuthorityLost
 	case "invalid object id",
 		"commit must equal the expected head",
-		"only approve or reject reviews are supported":
-		// Unreachable: intent parsing already rejects these. Fail
-		// closed as a native refusal rather than a PR mismatch.
+		"only approve or reject reviews are supported",
+		"invalid inline comment",
+		"invalid inline anchor",
+		"binary-only inline anchor",
+		"duplicate inline anchor",
+		"duplicate inline comment key",
+		"too many inline comments",
+		"merge base unavailable":
+		// Unreachable through the guarded path: intent parsing or the
+		// diff-membership proof already rejects these. Fail closed as
+		// a native refusal rather than a PR mismatch.
 		return nativeoperation_model.ReasonNativeRefused
 	default:
 		return nativeoperation_model.ReasonPRMismatch
@@ -325,30 +380,88 @@ func (s *Service) executeReviewSubmit(ctx context.Context, op *nativeoperation_m
 		return sdk.OperationRecord{}, terminalResult{}, err
 	}
 
+	// Diff-membership proof for inline comments, before any write: the
+	// host derives the merge base from the verified expected head/base
+	// and proves every anchor against the live candidate diff. Added,
+	// deleted, context and rename-side lines anchor; binary-only files,
+	// paths without hunks and lines outside the claimed side coverage
+	// refuse with no partial rows. Comment-free submissions prove no
+	// anchors and skip the merge-base derivation entirely.
+	var modelComments []issues_model.ExactReviewComment
+	var mergeBase string
+	if len(submit.Comments) > 0 {
+		var err error
+		mergeBase, err = deriveReviewMergeBase(owned, repository.RepoPath(), submit.ExpectedBaseOID, submit.ExpectedHeadOID)
+		if err != nil {
+			return refuse(mapExactReviewRefusal(err))
+		}
+		anchors := make([]inlineAnchor, 0, len(submit.Comments))
+		paths := make([]string, 0, len(submit.Comments))
+		seen := make(map[string]struct{}, len(submit.Comments))
+		for _, comment := range submit.Comments {
+			anchors = append(anchors, inlineAnchor{Key: comment.Key, Path: comment.Path, Side: comment.Side, Line: comment.Line})
+			if _, dup := seen[comment.Path]; !dup {
+				seen[comment.Path] = struct{}{}
+				paths = append(paths, comment.Path)
+			}
+		}
+		diffs := make(map[string][]byte, len(paths))
+		for _, path := range paths {
+			diff, err := fetchReviewFileDiff(owned, repository.RepoPath(), mergeBase, submit.ExpectedHeadOID, path)
+			if err != nil {
+				return refuse(nativeoperation_model.ReasonNativeRefused)
+			}
+			diffs[path] = diff
+		}
+		if err := proveInlineAnchors(diffs, anchors); err != nil {
+			return refuse(mapExactReviewRefusal(err))
+		}
+		modelComments = make([]issues_model.ExactReviewComment, 0, len(submit.Comments))
+		for i, comment := range submit.Comments {
+			modelComments = append(modelComments, issues_model.ExactReviewComment{
+				Key:   comment.Key,
+				Path:  comment.Path,
+				Side:  comment.Side,
+				Line:  comment.Line,
+				Body:  comment.Body,
+				Patch: cutInlineExcerpt(diffs[comment.Path], anchors[i]),
+			})
+		}
+	}
+
 	// Primary effect: the native review/comment rows with official-state
 	// and request changes, plus the operation's committed receipt, in one
 	// SQL transaction ordered against cancellation and expiry on the same
 	// operation row. No SQL transaction spans Git or wraps the service.
 	// A pending draft for this actor refuses without adoption or deletion.
+	// The summary review and every inline comment commit atomically; a
+	// stale, cancelled or anchor-refused submit writes no partial rows,
+	// and replay returns the recorded native ids unchanged.
 	var review *issues_model.Review
 	var comm *issues_model.Comment
 	committed, err := nativeoperation_model.CommitReviewSubmitPrimary(owned, op.InstallationID, op.OperationID, owner, s.clock(), func(tx context.Context) (string, error) {
-		submitted, comment, err := issues_model.SubmitExactReview(tx, doer, issue, reviewType, submit.Body, target)
+		submitted, comment, inline, err := issues_model.SubmitExactReviewInline(tx, doer, issue, reviewType, submit.Body, target, modelComments)
 		if err != nil {
 			return "", err
 		}
 		review, comm = submitted, comment
+		refs := make([]ReviewCommentRef, 0, len(inline))
+		for i, code := range inline {
+			refs = append(refs, ReviewCommentRef{Key: submit.Comments[i].Key, CommentID: code.ID})
+		}
 		receipt, _ := json.Marshal(ReviewSubmitReceipt{
-			ReviewID:   submitted.ID,
-			CommentID:  comment.ID,
-			ReviewerID: doer.ID,
-			PRID:       pr.ID,
-			IssueID:    issue.ID,
-			PRNumber:   submit.PullRequestNumber,
-			CommitID:   submit.CommitID,
-			Event:      submit.Event,
-			HeadOID:    submit.ExpectedHeadOID,
-			BaseOID:    submit.ExpectedBaseOID,
+			ReviewID:     submitted.ID,
+			CommentID:    comment.ID,
+			ReviewerID:   doer.ID,
+			PRID:         pr.ID,
+			IssueID:      issue.ID,
+			PRNumber:     submit.PullRequestNumber,
+			CommitID:     submit.CommitID,
+			Event:        submit.Event,
+			HeadOID:      submit.ExpectedHeadOID,
+			BaseOID:      submit.ExpectedBaseOID,
+			Comments:     refs,
+			MergeBaseOID: mergeBase,
 		})
 		return string(receipt), nil
 	})

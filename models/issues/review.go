@@ -487,6 +487,127 @@ func checkExactReviewTarget(issue *Issue, pr *PullRequest, want ExactReviewTarge
 	return nil
 }
 
+// Inline comment sides use native PR diff semantics: old is the merge-base
+// tree, new is the exact head.
+const (
+	ExactReviewCommentSideOld = "old"
+	ExactReviewCommentSideNew = "new"
+)
+
+// MaxExactReviewComments bounds the inline comments in one exact review
+// submission, mirroring the factory findings-per-report cap.
+const MaxExactReviewComments = 64
+
+// ExactReviewCommentKeyPrefix starts the stored native code-comment
+// content so the opaque client key reads back deterministically: the
+// first line is "key:<Key>", the remainder is the prose body. Keys carry
+// no factory severity, disposition or classifier state.
+const ExactReviewCommentKeyPrefix = "key:"
+
+// ExactReviewComment is one keyed inline finding anchored to the
+// candidate diff. Patch is the host-cut hunk excerpt for native
+// rendering, empty when the host could not cut one; anchor validity was
+// already proven against the live candidate diff before insert.
+type ExactReviewComment struct {
+	Key   string
+	Path  string
+	Side  string
+	Line  int64
+	Body  string
+	Patch string
+}
+
+// validExactReviewCommentKey reports whether key is a usable opaque
+// client correlation key: short, single-line and unambiguous as the
+// first line of the stored native comment.
+func validExactReviewCommentKey(key string) bool {
+	if key == "" || len(key) > 128 {
+		return false
+	}
+	for _, c := range key {
+		if c <= ' ' || c == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
+// validExactReviewCommentPath reports whether path is a usable
+// repo-relative diff path.
+func validExactReviewCommentPath(path string) bool {
+	if path == "" || len(path) > 1024 || path != strings.TrimSpace(path) {
+		return false
+	}
+	if strings.HasPrefix(path, "/") || strings.Contains(path, "\x00") {
+		return false
+	}
+	for _, segment := range strings.Split(path, "/") {
+		if segment == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+// ValidateExactReviewComments checks the structural inline comment rules:
+// bounded count, usable keys/paths, old|new sides, one-based lines,
+// non-empty bodies, unique keys (receipt correlation) and no duplicate
+// (path, side, line) anchors in one report. Diff membership
+// (added/deleted/context/rename lines with binary refusal) is proven by
+// the conditional caller against the live candidate diff before insert.
+func ValidateExactReviewComments(comments []ExactReviewComment) error {
+	if len(comments) > MaxExactReviewComments {
+		return ErrExactReviewRefused{Reason: "too many inline comments"}
+	}
+	keys := make(map[string]struct{}, len(comments))
+	anchors := make(map[ExactReviewComment]struct{}, len(comments))
+	for _, comment := range comments {
+		if !validExactReviewCommentKey(comment.Key) {
+			return ErrExactReviewRefused{Reason: "invalid inline comment"}
+		}
+		if !validExactReviewCommentPath(comment.Path) {
+			return ErrExactReviewRefused{Reason: "invalid inline comment"}
+		}
+		switch comment.Side {
+		case ExactReviewCommentSideOld, ExactReviewCommentSideNew:
+		default:
+			return ErrExactReviewRefused{Reason: "invalid inline comment"}
+		}
+		if comment.Line < 1 {
+			return ErrExactReviewRefused{Reason: "invalid inline comment"}
+		}
+		if strings.TrimSpace(comment.Body) == "" {
+			return ErrExactReviewRefused{Reason: "invalid inline comment"}
+		}
+		if _, dup := keys[comment.Key]; dup {
+			return ErrExactReviewRefused{Reason: "duplicate inline comment key"}
+		}
+		keys[comment.Key] = struct{}{}
+		anchor := ExactReviewComment{Path: comment.Path, Side: comment.Side, Line: comment.Line}
+		if _, dup := anchors[anchor]; dup {
+			return ErrExactReviewRefused{Reason: "duplicate inline anchor"}
+		}
+		anchors[anchor] = struct{}{}
+	}
+	return nil
+}
+
+// exactReviewCommentContent renders the stored native content: the key
+// line plus the prose body.
+func exactReviewCommentContent(comment ExactReviewComment) string {
+	return ExactReviewCommentKeyPrefix + comment.Key + "\n" + comment.Body
+}
+
+// exactReviewCommentSignedLine maps the diff side to the native signed
+// line convention: negative lines are the previous (old) side, positive
+// lines the proposed (new) side.
+func exactReviewCommentSignedLine(comment ExactReviewComment) int64 {
+	if comment.Side == ExactReviewCommentSideOld {
+		return -comment.Line
+	}
+	return comment.Line
+}
+
 // SubmitExactReview submits one final body-only approve/reject review bound to
 // its exact candidate. Unlike SubmitReview it never adopts an existing pending
 // draft: a pending review for this actor refuses and stays untouched. The
@@ -494,69 +615,85 @@ func checkExactReviewTarget(issue *Issue, pr *PullRequest, want ExactReviewTarge
 // transaction; mentions and notifications are bounded completion owned by the
 // service caller, not part of this transaction.
 func SubmitExactReview(ctx context.Context, doer *user_model.User, issue *Issue, reviewType ReviewType, content string, want ExactReviewTarget) (*Review, *Comment, error) {
+	review, comm, _, err := SubmitExactReviewInline(ctx, doer, issue, reviewType, content, want, nil)
+	return review, comm, err
+}
+
+// SubmitExactReviewInline submits one final approve/reject review bound to
+// its exact candidate together with zero or more keyed inline comments.
+// The summary review, its review comment and every code comment commit in
+// one SQL transaction that joins the caller's transaction: any refusal or
+// outer rollback leaves no partial rows. Inline comments must already be
+// structurally valid and anchor-proven against the live candidate diff;
+// this call re-checks the structural rules and refuses otherwise. Thread
+// resolution is a separate conditional operation and never happens here.
+func SubmitExactReviewInline(ctx context.Context, doer *user_model.User, issue *Issue, reviewType ReviewType, content string, want ExactReviewTarget, comments []ExactReviewComment) (*Review, *Comment, []*Comment, error) {
 	// Nested collaboration writer: refuse while another owner holds the
 	// reservation; the enclosing ordinary or conditional owner carries
 	// the execution.
 	if err := nativeoperation_model.RequireHeldOwnership(ctx); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if reviewType != ReviewTypeApprove && reviewType != ReviewTypeReject {
-		return nil, nil, ErrExactReviewRefused{Reason: "only approve or reject reviews are supported"}
+		return nil, nil, nil, ErrExactReviewRefused{Reason: "only approve or reject reviews are supported"}
+	}
+	if err := ValidateExactReviewComments(comments); err != nil {
+		return nil, nil, nil, err
 	}
 	if err := issue.LoadPullRequest(ctx); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if err := issue.LoadRepo(ctx); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	pr := issue.PullRequest
 	if err := checkExactReviewTarget(issue, pr, want); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if doer.ID == issue.PosterID && issue.OriginalAuthorID == 0 {
-		return nil, nil, ErrExactReviewRefused{Reason: "cannot review your own pull request"}
+		return nil, nil, nil, ErrExactReviewRefused{Reason: "cannot review your own pull request"}
 	}
 
 	ctx, committer, err := db.TxContext(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer committer.Close()
 	sess := db.GetEngine(ctx)
 
 	if pending, err := GetCurrentReview(ctx, doer, issue); err != nil {
 		if !IsErrReviewNotExist(err) {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	} else if pending != nil {
-		return nil, nil, ErrExactReviewRefused{Reason: "pending draft exists"}
+		return nil, nil, nil, ErrExactReviewRefused{Reason: "pending draft exists"}
 	}
 
 	if err := issue.Repo.LoadOwner(ctx); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if user_model.IsBlocked(ctx, issue.Repo.OwnerID, doer.ID) || user_model.IsBlocked(ctx, issue.PosterID, doer.ID) {
-		return nil, nil, ErrExactReviewRefused{Reason: "reviewer is blocked"}
+		return nil, nil, nil, ErrExactReviewRefused{Reason: "reviewer is blocked"}
 	}
 	permission, err := access_model.GetUserRepoPermission(ctx, issue.Repo, doer)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if !permission.CanReadIssuesOrPulls(true) {
-		return nil, nil, ErrExactReviewRefused{Reason: "reviewer cannot read this pull request"}
+		return nil, nil, nil, ErrExactReviewRefused{Reason: "reviewer cannot read this pull request"}
 	}
 
 	if reviewType != ReviewTypeApprove && len(strings.TrimSpace(content)) == 0 {
-		return nil, nil, ContentEmptyErr{}
+		return nil, nil, nil, ContentEmptyErr{}
 	}
 
 	// Only reviewers latest review of type approve and reject shall count as "official", so existing reviews needs to be cleared
 	if _, err := db.Exec(ctx, "UPDATE `review` SET official=? WHERE issue_id=? AND reviewer_id=?", false, issue.ID, doer.ID); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	official, err := IsOfficialReviewer(ctx, issue, doer)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// No adoption: a new review row always. CreateReview dismisses the
@@ -571,7 +708,7 @@ func SubmitExactReview(ctx context.Context, doer *user_model.User, issue *Issue,
 		Stale:    false,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	comm, err := CreateComment(ctx, &CreateCommentOptions{
@@ -583,15 +720,39 @@ func SubmitExactReview(ctx context.Context, doer *user_model.User, issue *Issue,
 		ReviewID: review.ID,
 	})
 	if err != nil || comm == nil {
-		return nil, nil, err
+		return nil, nil, nil, err
+	}
+
+	// The code comments join the same SQL transaction: the summary review
+	// and every inline finding commit atomically, and any refusal or
+	// outer rollback leaves no partial rows. Each nested writer joins
+	// the caller's transaction instead of committing early.
+	inline := make([]*Comment, 0, len(comments))
+	for _, comment := range comments {
+		code, err := CreateComment(ctx, &CreateCommentOptions{
+			Type:      CommentTypeCode,
+			Doer:      doer,
+			Content:   exactReviewCommentContent(comment),
+			Issue:     issue,
+			Repo:      issue.Repo,
+			ReviewID:  review.ID,
+			TreePath:  comment.Path,
+			LineNum:   exactReviewCommentSignedLine(comment),
+			CommitSHA: want.CommitID,
+			Patch:     comment.Patch,
+		})
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		inline = append(inline, code)
 	}
 
 	if err := clearTeamReviewRequests(ctx, sess, issue, doer); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	comm.Review = review
-	return review, comm, committer.Commit()
+	return review, comm, inline, committer.Commit()
 }
 
 // SubmitReview creates a review out of the existing pending review or creates a new one if no pending review exist

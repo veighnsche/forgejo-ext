@@ -4,6 +4,7 @@
 package nativeoperation
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -55,7 +56,7 @@ func TestParseReviewSubmitPayloadRejects(t *testing.T) {
 	}
 	cases := map[string]string{
 		"empty":          "",
-		"unknown field":  `{"pull_request_number":3,"pr_author_id":1,"head_repository_id":7,"head_ref":"refs/heads/feature","base_ref":"refs/heads/main","expected_head_oid":"` + head + `","expected_base_oid":"` + base + `","commit_id":"` + head + `","event":"APPROVED","body":"b","comments":[]}`,
+		"unknown field":  `{"pull_request_number":3,"pr_author_id":1,"head_repository_id":7,"head_ref":"refs/heads/feature","base_ref":"refs/heads/main","expected_head_oid":"` + head + `","expected_base_oid":"` + base + `","commit_id":"` + head + `","event":"APPROVED","body":"b","drafts":[]}`,
 		"trailing data":  valid() + `{}`,
 		"zero pr number": reviewSubmitPayload(0, 1, 7, "refs/heads/feature", "refs/heads/main", head, base, head, "APPROVED", "b"),
 		"zero author":    reviewSubmitPayload(3, 0, 7, "refs/heads/feature", "refs/heads/main", head, base, head, "APPROVED", "b"),
@@ -81,6 +82,65 @@ func TestParseReviewSubmitPayloadRejects(t *testing.T) {
 	assert.Equal(t, "REQUEST_CHANGES", parsed.Event)
 }
 
+func reviewSubmitPayloadWithComments(head, base string) string {
+	return fmt.Sprintf(`{"pull_request_number":3,"pr_author_id":1,`+
+		`"head_repository_id":7,`+
+		`"head_ref":"refs/heads/feature","base_ref":"refs/heads/main",`+
+		`"expected_head_oid":%q,"expected_base_oid":%q,`+
+		`"commit_id":%q,"event":"REQUEST_CHANGES","body":"please fix",`+
+		`"comments":[{"key":"f1","path":"a.go","side":"new","line":4,"body":"new finding"},`+
+		`{"key":"f2","path":"a.go","side":"old","line":2,"body":"old finding"}]}`,
+		head, base, head)
+}
+
+func TestParseReviewSubmitPayloadComments(t *testing.T) {
+	head := strings.Repeat("a", 40)
+	base := strings.Repeat("b", 40)
+	parsed, err := parseReviewSubmitPayload([]byte(reviewSubmitPayloadWithComments(head, base)), 7)
+	require.NoError(t, err)
+	require.Len(t, parsed.Comments, 2)
+	assert.Equal(t, "f1", parsed.Comments[0].Key)
+	assert.Equal(t, "a.go", parsed.Comments[0].Path)
+	assert.Equal(t, "new", parsed.Comments[0].Side)
+	assert.Equal(t, int64(4), parsed.Comments[0].Line)
+	assert.Equal(t, "old", parsed.Comments[1].Side)
+
+	mutate := func(f func(string) string) string {
+		return f(reviewSubmitPayloadWithComments(head, base))
+	}
+	big := strings.Repeat("b", 48<<10)
+	cases := map[string]string{
+		"bad side":         strings.Replace(mutate(func(s string) string { return s }), `"side":"new"`, `"side":"both"`, 1),
+		"zero line":        strings.Replace(mutate(func(s string) string { return s }), `"line":4`, `"line":0`, 1),
+		"empty key":        strings.Replace(mutate(func(s string) string { return s }), `"key":"f1"`, `"key":""`, 1),
+		"duplicate keys":   strings.Replace(mutate(func(s string) string { return s }), `"key":"f2"`, `"key":"f1"`, 1),
+		"duplicate anchor": strings.Replace(strings.Replace(mutate(func(s string) string { return s }), `"key":"f2"`, `"key":"f3"`, 1), `"side":"old","line":2`, `"side":"new","line":4`, 1),
+		"bad comment body": strings.Replace(mutate(func(s string) string { return s }), `"body":"new finding"`, `"body":"  "`, 1),
+		"oversize intent":  reviewSubmitPayload(3, 1, 7, "refs/heads/feature", "refs/heads/main", head, base, head, "APPROVED", big),
+	}
+	for name, payload := range cases {
+		_, err := parseReviewSubmitPayload([]byte(payload), 7)
+		require.ErrorIs(t, err, ErrInvalidIntent, name)
+	}
+}
+
+func TestReviewSubmitReceiptKeepsNativeIDs(t *testing.T) {
+	// The receipt round-trips through JSON unchanged so replay returns
+	// the recorded native ids instead of minting new ones.
+	receipt := ReviewSubmitReceipt{
+		ReviewID: 11, CommentID: 12, ReviewerID: 2, PRID: 5, IssueID: 11,
+		PRNumber: 5, CommitID: strings.Repeat("a", 40), Event: "APPROVED",
+		HeadOID: strings.Repeat("a", 40), BaseOID: strings.Repeat("b", 40),
+		Comments:     []ReviewCommentRef{{Key: "f1", CommentID: 13}},
+		MergeBaseOID: strings.Repeat("c", 40),
+	}
+	encoded, err := json.Marshal(receipt)
+	require.NoError(t, err)
+	var decoded ReviewSubmitReceipt
+	require.NoError(t, json.Unmarshal(encoded, &decoded))
+	assert.Equal(t, receipt, decoded)
+}
+
 func TestMapExactReviewRefusal(t *testing.T) {
 	cases := map[string]string{
 		"head changed":                                 nativeoperation_model.ReasonStaleHead,
@@ -95,6 +155,13 @@ func TestMapExactReviewRefusal(t *testing.T) {
 		"invalid object id":                            nativeoperation_model.ReasonNativeRefused,
 		"commit must equal the expected head":          nativeoperation_model.ReasonNativeRefused,
 		"only approve or reject reviews are supported": nativeoperation_model.ReasonNativeRefused,
+		"invalid inline comment":                       nativeoperation_model.ReasonNativeRefused,
+		"invalid inline anchor":                        nativeoperation_model.ReasonNativeRefused,
+		"binary-only inline anchor":                    nativeoperation_model.ReasonNativeRefused,
+		"duplicate inline anchor":                      nativeoperation_model.ReasonNativeRefused,
+		"duplicate inline comment key":                 nativeoperation_model.ReasonNativeRefused,
+		"too many inline comments":                     nativeoperation_model.ReasonNativeRefused,
+		"merge base unavailable":                       nativeoperation_model.ReasonNativeRefused,
 	}
 	for reason, want := range cases {
 		assert.Equal(t, want, mapExactReviewRefusal(issues_model.ErrExactReviewRefused{Reason: reason}), reason)
