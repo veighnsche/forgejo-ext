@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	sdk "forgejo.org/extension-sdk"
 	issues_model "forgejo.org/models/issues"
 	nativeoperation_model "forgejo.org/models/nativeoperation"
 
@@ -131,7 +132,7 @@ func TestReviewSubmitReceiptKeepsNativeIDs(t *testing.T) {
 		ReviewID: 11, CommentID: 12, ReviewerID: 2, PRID: 5, IssueID: 11,
 		PRNumber: 5, CommitID: strings.Repeat("a", 40), Event: "APPROVED",
 		HeadOID: strings.Repeat("a", 40), BaseOID: strings.Repeat("b", 40),
-		Comments:     []ReviewCommentRef{{Key: "f1", CommentID: 13}},
+		Comments:     []sdk.ReviewCommentReceipt{{Key: "f1", CommentID: 13}},
 		MergeBaseOID: strings.Repeat("c", 40),
 	}
 	encoded, err := json.Marshal(receipt)

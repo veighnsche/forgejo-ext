@@ -135,33 +135,10 @@ func reviewSubmitType(event string) issues_model.ReviewType {
 	return issues_model.ReviewTypeApprove
 }
 
-// ReviewCommentRef correlates one committed inline comment back to its
-// client key.
-type ReviewCommentRef struct {
-	Key       string `json:"key"`
-	CommentID int64  `json:"comment_id"`
-}
-
-// ReviewSubmitReceipt attributes one committed review submission to its
-// operation. CommentID is the summary review comment; Comments carries
-// the per-key inline comment ids and MergeBaseOID the host-derived merge
-// base of the admitted expected base/head. Comment-free submissions carry
-// it too: the receipt certifies the exact admitted tuple, and historical
-// receipts stay bound to their admitted OIDs, never to a later tuple.
-type ReviewSubmitReceipt struct {
-	ReviewID     int64              `json:"review_id"`
-	CommentID    int64              `json:"comment_id"`
-	ReviewerID   int64              `json:"reviewer_id"`
-	PRID         int64              `json:"pr_id"`
-	IssueID      int64              `json:"issue_id"`
-	PRNumber     int64              `json:"pr_number"`
-	CommitID     string             `json:"commit_id"`
-	Event        string             `json:"event"`
-	HeadOID      string             `json:"head_oid"`
-	BaseOID      string             `json:"base_oid"`
-	Comments     []ReviewCommentRef `json:"comments,omitempty"`
-	MergeBaseOID string             `json:"merge_base_oid,omitempty"`
-}
+// ReviewSubmitReceipt is the canonical SDK wire shape for one
+// committed review submission: the backend emits exactly
+// sdk.ReviewSubmitReceipt, never a divergent duplicate.
+type ReviewSubmitReceipt = sdk.ReviewSubmitReceipt
 
 // mapExactReviewRefusal maps a deterministic exact-review refusal to its
 // bounded operation reason. Changed candidates refuse as stale; identity,
@@ -446,9 +423,9 @@ func (s *Service) executeReviewSubmit(ctx context.Context, op *nativeoperation_m
 			return "", err
 		}
 		review, comm = submitted, comment
-		refs := make([]ReviewCommentRef, 0, len(inline))
+		refs := make([]sdk.ReviewCommentReceipt, 0, len(inline))
 		for i, code := range inline {
-			refs = append(refs, ReviewCommentRef{Key: submit.Comments[i].Key, CommentID: code.ID})
+			refs = append(refs, sdk.ReviewCommentReceipt{Key: submit.Comments[i].Key, CommentID: code.ID})
 		}
 		receipt, _ := json.Marshal(ReviewSubmitReceipt{
 			ReviewID:     submitted.ID,

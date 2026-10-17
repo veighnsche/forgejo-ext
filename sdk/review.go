@@ -76,14 +76,24 @@ type ReviewCommentReceipt struct {
 	CommentID int64  `json:"comment_id"`
 }
 
-// ReviewSubmitReceipt is the recorded review-submit effect shape: the
-// summary review comment id in comment_id, the per-key inline comment
-// ids and the host-derived merge base the anchors were validated
-// against. Resolver identity and revision travel in review snapshots,
-// not in this receipt.
+// ReviewSubmitReceipt is the canonical recorded review-submit effect
+// shape: the summary review comment id in comment_id, the per-key
+// inline comment ids, the host-derived merge base the anchors were
+// validated against, and the exact admitted identity envelope
+// (reviewer, PR, issue, number, commit, event, head/base OIDs) the
+// receipt certifies. This is the wire both the backend emits and
+// consumers decode; no truncated or parallel shape exists.
 type ReviewSubmitReceipt struct {
 	ReviewID     int64                  `json:"review_id"`
 	CommentID    int64                  `json:"comment_id"`
+	ReviewerID   int64                  `json:"reviewer_id"`
+	PRID         int64                  `json:"pr_id"`
+	IssueID      int64                  `json:"issue_id"`
+	PRNumber     int64                  `json:"pr_number"`
+	CommitID     string                 `json:"commit_id"`
+	Event        string                 `json:"event"`
+	HeadOID      string                 `json:"head_oid"`
+	BaseOID      string                 `json:"base_oid"`
 	Comments     []ReviewCommentReceipt `json:"comments,omitempty"`
 	MergeBaseOID string                 `json:"merge_base_oid,omitempty"`
 }
