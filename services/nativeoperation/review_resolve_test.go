@@ -29,7 +29,7 @@ import (
 // actor, reply targets, deleted roots and changed content, with exact
 // replay and readback.
 
-func resolveDecision(t *testing.T, actorID int64, tokenID int64) extensionauth_model.SubmissionDecision {
+func resolveDecision(t *testing.T, actorID, tokenID int64) extensionauth_model.SubmissionDecision {
 	t.Helper()
 	ctx := t.Context()
 	token := unittest.AssertExistsAndLoadBean(t, &auth_model.AccessToken{ID: tokenID})

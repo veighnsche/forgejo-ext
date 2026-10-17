@@ -10,7 +10,7 @@ import (
 	"forgejo.org/modules/timeutil"
 )
 
-func threadTestComment(id, reviewID int64, line int64, created int64) *Comment {
+func threadTestComment(id, reviewID, line, created int64) *Comment {
 	return &Comment{
 		ID: id, IssueID: 9, PosterID: 2, Type: CommentTypeCode,
 		ReviewID: reviewID, TreePath: "a.go", Line: line,
