@@ -30,10 +30,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPublishReceive is the authoritative F-publish proof: a registered
-// git.ref.publish intent drives exactly one bound smart-HTTP receive-pack
-// through the shipping owners, and every divergence refuses without
-// guessing. Subtests push genuine new objects the server has never seen,
+// TestPublishReceive is a REGISTRY-ONLY F-publish receiver/protocol proof:
+// a registered git.ref.publish intent drives exactly one bound smart-HTTP
+// receive-pack through the shipping owners, and every divergence refuses
+// without guessing. The unstarted/untracked token-verifier branch is used;
+// managed lifecycle admission is OUTSIDE this fixture's proof scope.
+// Subtests push genuine new objects the server has never seen,
 // bind them to installation/actor/operation, and reconcile receipts with
 // refs+SHAs. Cancellation orderings, lost-reply replay, restart with fresh
 // admission, protection effectiveness, PAT-only non-consumption and
@@ -99,7 +101,7 @@ func TestPublishReceive(t *testing.T) {
 
 		admit := func(t *testing.T, installation string) string {
 			t.Helper()
-			admission, err := manager.IssueRuntimeAdmission(installation, "ft11-proof", []string{sdk.CapabilityBackgroundOperations})
+			admission, err := manager.IssueRuntimeAdmission("ft11-proof", installation, "ft11-proof", []string{sdk.CapabilityBackgroundOperations})
 			require.NoError(t, err)
 			return admission
 		}
@@ -561,7 +563,7 @@ func TestPublishReceive(t *testing.T) {
 
 			// A caller restart bootstraps fresh installation admission
 			// and attaches to the still-waiting intent.
-			fresh, err := manager.IssueRuntimeAdmission(installation, "ft11-proof-restart", []string{sdk.CapabilityBackgroundOperations})
+			fresh, err := manager.IssueRuntimeAdmission("ft11-proof", installation, "ft11-proof-restart", []string{sdk.CapabilityBackgroundOperations})
 			require.NoError(t, err)
 			out, err := pushBound(t, dir, opID, fresh, "origin", "pub-rx-restart:refs/heads/pub-rx-restart")
 			require.NoError(t, err, "restarted bound push failed: %s", out)
