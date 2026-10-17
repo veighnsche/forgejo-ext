@@ -670,6 +670,20 @@ func (l *snapshotLoader) pull(ctx context.Context, number string) (*sdk.Snapshot
 	if err != nil {
 		return nil, ErrSnapshotUnavailable
 	}
+	mergeBase := ""
+	if !converted.HasMerged {
+		// A visible unmerged pull request carries a genuinely derived
+		// CURRENT merge-base from its live head tip and the current
+		// named base-branch tip. The stored pull-row field is never a
+		// fallback: a missing or unverifiable current pair refuses, and
+		// merged pulls omit the base rather than certify history.
+		derived, err := l.pullMergeBase(ctx, pr, headTip)
+		if err != nil {
+			return nil, err
+		}
+		mergeBase = derived
+	}
+	converted.MergeBase = mergeBase
 	return &sdk.SnapshotPull{
 		ID:           snapshotIDString(converted.PullID),
 		IssueID:      snapshotIDString(converted.IssueID),
@@ -689,6 +703,51 @@ func (l *snapshotLoader) pull(ctx context.Context, number string) (*sdk.Snapshot
 		Visible:      true,
 		Complete:     true,
 	}, nil
+}
+
+// pullMergeBase derives the current merge base of one visible unmerged
+// pull request from its live head tip and the current named base-branch
+// tip, using the existing bounded ref reader and merge-base helper under
+// the ancestry read deadline. Both tips must be complete valid OIDs with
+// available objects and common history; the tips are re-read after
+// derivation and any change refuses. Every failure reports
+// ErrSnapshotUnavailable: a read never fabricates a base, never falls back
+// to the stored pull-row field, and never fetches, pushes or otherwise
+// mutates refs to make one. A fork or otherwise unavailable object pair
+// holds honestly as unavailable.
+func (l *snapshotLoader) pullMergeBase(ctx context.Context, pr *issues_model.PullRequest, headTip string) (string, error) {
+	if pr.HeadRepoID <= 0 || pr.BaseRepoID != l.repository.ID || pr.HeadBranch == "" || pr.BaseBranch == "" {
+		return "", ErrSnapshotUnavailable
+	}
+	if !validOID(headTip) {
+		return "", ErrSnapshotUnavailable
+	}
+	headRepo, err := repo_model.GetRepositoryByID(ctx, pr.HeadRepoID)
+	if err != nil {
+		return "", ErrSnapshotUnavailable
+	}
+	readCtx, cancel := context.WithTimeout(ctx, snapshotAncestryTimeout)
+	defer cancel()
+	baseTip, err := l.service.readRef(readCtx, l.repository.RepoPath(), git.BranchPrefix+pr.BaseBranch)
+	if err != nil || !validOID(baseTip) {
+		return "", ErrSnapshotUnavailable
+	}
+	mergeBase, err := deriveReviewMergeBase(readCtx, l.repository.RepoPath(), baseTip, headTip)
+	if err != nil {
+		return "", ErrSnapshotUnavailable
+	}
+	if err := readCtx.Err(); err != nil {
+		return "", ErrSnapshotUnavailable
+	}
+	rereadHead, err := l.service.readRef(readCtx, headRepo.RepoPath(), git.BranchPrefix+pr.HeadBranch)
+	if err != nil || !strings.EqualFold(rereadHead, headTip) {
+		return "", ErrSnapshotUnavailable
+	}
+	rereadBase, err := l.service.readRef(readCtx, l.repository.RepoPath(), git.BranchPrefix+pr.BaseBranch)
+	if err != nil || !strings.EqualFold(rereadBase, baseTip) {
+		return "", ErrSnapshotUnavailable
+	}
+	return mergeBase, nil
 }
 
 // pullHeadTip resolves the current head tip from live ref state. Merged

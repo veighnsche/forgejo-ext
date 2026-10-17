@@ -145,8 +145,9 @@ type ReviewCommentRef struct {
 // ReviewSubmitReceipt attributes one committed review submission to its
 // operation. CommentID is the summary review comment; Comments carries
 // the per-key inline comment ids and MergeBaseOID the host-derived merge
-// base the anchors were validated against (empty for comment-free
-// submissions, which prove no anchors).
+// base of the admitted expected base/head. Comment-free submissions carry
+// it too: the receipt certifies the exact admitted tuple, and historical
+// receipts stay bound to their admitted OIDs, never to a later tuple.
 type ReviewSubmitReceipt struct {
 	ReviewID     int64              `json:"review_id"`
 	CommentID    int64              `json:"comment_id"`
@@ -386,15 +387,15 @@ func (s *Service) executeReviewSubmit(ctx context.Context, op *nativeoperation_m
 	// deleted, context and rename-side lines anchor; binary-only files,
 	// paths without hunks and lines outside the claimed side coverage
 	// refuse with no partial rows. Comment-free submissions prove no
-	// anchors and skip the merge-base derivation entirely.
+	// anchors but still derive and record the merge base, so the receipt
+	// certifies the exact admitted tuple instead of an empty base the
+	// consumer must refuse.
+	mergeBase, err := deriveReviewMergeBase(owned, repository.RepoPath(), submit.ExpectedBaseOID, submit.ExpectedHeadOID)
+	if err != nil {
+		return refuse(mapExactReviewRefusal(err))
+	}
 	var modelComments []issues_model.ExactReviewComment
-	var mergeBase string
 	if len(submit.Comments) > 0 {
-		var err error
-		mergeBase, err = deriveReviewMergeBase(owned, repository.RepoPath(), submit.ExpectedBaseOID, submit.ExpectedHeadOID)
-		if err != nil {
-			return refuse(mapExactReviewRefusal(err))
-		}
 		anchors := make([]inlineAnchor, 0, len(submit.Comments))
 		paths := make([]string, 0, len(submit.Comments))
 		seen := make(map[string]struct{}, len(submit.Comments))

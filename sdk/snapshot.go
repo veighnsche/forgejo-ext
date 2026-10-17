@@ -382,6 +382,16 @@ type SnapshotRepositoryIssuesPage struct {
 }
 
 // SnapshotPull is the permission-checked view of one native pull request.
+//
+// MergeBase boundary: for a visible UNMERGED pull request this is the
+// genuinely derived CURRENT merge-base of the live HeadTip and the
+// current named BaseBranch tip, observed under the caller's idle
+// equal-revision bracket. It is never the stored pull-row field, never a
+// cached history value, and never an ancestry boolean standing in for the
+// greatest common ancestor. When no current unmerged pair exists (merged
+// pull, deleted head branch) the field is omitted rather than certifying
+// history as current. Historical review receipts stay bound to their own
+// admitted operation OIDs and never substitute for this observation.
 type SnapshotPull struct {
 	ID           string `json:"id"`
 	IssueID      string `json:"issue_id"`
