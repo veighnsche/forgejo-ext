@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/indexer/issues/internal"
 	"forgejo.org/modules/optional"
+	"forgejo.org/modules/queue"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/test"
 
@@ -26,11 +28,34 @@ func TestMain(m *testing.M) {
 	unittest.MainTest(m)
 }
 
+// ShutdownWait also returns on timeout. Close only after the queue has stopped
+// dispatching and all its workers and active handlers have actually retired.
+func retireIssueIndexer[T any](q *queue.WorkerPoolQueue[T], idx internal.Indexer, timeout time.Duration, closeOnce *sync.Once) bool {
+	q.ShutdownWait(timeout)
+	if q.GetWorkerNumber() != 0 || q.GetWorkerActiveNumber() != 0 {
+		return false
+	}
+	closeOnce.Do(idx.Close)
+	return true
+}
+
+func cleanupIssueIndexer(t *testing.T) {
+	t.Helper()
+	q, idx := issueIndexerQueue, *globalIndexer.Load()
+	var closeOnce sync.Once
+	t.Cleanup(func() {
+		if !retireIssueIndexer(q, idx, 5*time.Second, &closeOnce) {
+			t.Error("issue indexer workers still running; indexer Close refused")
+		}
+	})
+}
+
 func TestDBSearchIssues(t *testing.T) {
 	require.NoError(t, unittest.PrepareTestDatabase())
 
 	defer test.MockVariableValue(&setting.Indexer.IssueType, "db")()
 	<-InitIssueIndexer(true)
+	cleanupIssueIndexer(t)
 
 	t.Run("search issues with keyword", searchIssueWithKeyword)
 	t.Run("search issues in repo", searchIssueInRepo)
@@ -426,7 +451,10 @@ func TestBleveDeleteIssue(t *testing.T) {
 	tmp := t.TempDir()
 	defer test.MockVariableValue(&setting.Indexer.IssuePath, filepath.Join(tmp, "indexers/issues.bleve"))()
 	defer test.MockVariableValue(&setting.Indexer.IssueType, "bleve")()
-	<-InitIssueIndexer(false)
+	// Join initial population so it cannot enqueue work after test teardown.
+	// This test covers deletion from a populated index, not asynchronous startup.
+	<-InitIssueIndexer(true)
+	cleanupIssueIndexer(t)
 
 	ctx := t.Context()
 	issue := unittest.AssertExistsAndLoadBean(t, &issues.Issue{ID: 1})
