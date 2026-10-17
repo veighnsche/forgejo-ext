@@ -86,8 +86,15 @@ func serveForwardFixture(t *testing.T, fixture *forwardEchoFixture) string {
 	return socket
 }
 
-func TestForwardUnixEchoesExactCall(t *testing.T) {
+// ForwardUnix validates against the real clock, unlike the frozen validation fixtures.
+func liveForwardCall() LifecycleCall {
 	call := frozenCall()
+	call.DeadlineUnix = time.Now().Add(time.Minute).Unix()
+	return call
+}
+
+func TestForwardUnixEchoesExactCall(t *testing.T) {
+	call := liveForwardCall()
 	fixture := &forwardEchoFixture{t: t, token: "forward-token", admitted: call}
 	socket := serveForwardFixture(t, fixture)
 	authority := LifecycleAuthority{admission: "forward-token"}
@@ -101,7 +108,7 @@ func TestForwardUnixEchoesExactCall(t *testing.T) {
 }
 
 func TestForwardUnixRejectsBadAuthorityAndPeer(t *testing.T) {
-	call := frozenCall()
+	call := liveForwardCall()
 	fixture := &forwardEchoFixture{t: t, token: "forward-token", admitted: call}
 	socket := serveForwardFixture(t, fixture)
 	if _, err := (LifecycleAuthority{}).ForwardUnix(context.Background(), socket, uint32(os.Geteuid()), "/forward", call); err == nil {
@@ -114,7 +121,7 @@ func TestForwardUnixRejectsBadAuthorityAndPeer(t *testing.T) {
 }
 
 func TestForwardUnixRejectsBadTargetsAndShapes(t *testing.T) {
-	call := frozenCall()
+	call := liveForwardCall()
 	fixture := &forwardEchoFixture{t: t, token: "forward-token", admitted: call}
 	socket := serveForwardFixture(t, fixture)
 	authority := LifecycleAuthority{admission: "forward-token"}
@@ -141,7 +148,7 @@ func TestForwardUnixRejectsBadTargetsAndShapes(t *testing.T) {
 }
 
 func TestForwardUnixRefusesRedirectWithoutSecondHit(t *testing.T) {
-	call := frozenCall()
+	call := liveForwardCall()
 	var followups atomic.Int32
 	mux := http.NewServeMux()
 	mux.HandleFunc("/forward", func(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +181,7 @@ func TestForwardUnixRefusesRedirectWithoutSecondHit(t *testing.T) {
 }
 
 func TestForwardUnixRejectsSemanticallyInvalidObservation(t *testing.T) {
-	call := frozenCall()
+	call := liveForwardCall()
 	// Decodes strictly but violates grant semantics: admission ready on a
 	// non-running observation must fail even with a 200 and full echo.
 	bad, err := json.Marshal(LifecycleObservation{
@@ -195,7 +202,7 @@ func TestForwardUnixRejectsSemanticallyInvalidObservation(t *testing.T) {
 }
 
 func TestForwardUnixFailsClosedOnTransport(t *testing.T) {
-	call := frozenCall()
+	call := liveForwardCall()
 	authority := LifecycleAuthority{admission: "forward-token"}
 	// Cancelled context fails without sending.
 	cancelled, cancel := context.WithCancel(context.Background())
