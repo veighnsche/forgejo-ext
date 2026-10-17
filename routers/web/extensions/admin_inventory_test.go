@@ -5,7 +5,6 @@ package extensions
 
 import (
 	"bytes"
-	"encoding/json"
 	"html/template"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	packages "forgejo.org/modules/extensions"
+	"forgejo.org/modules/json"
 	"forgejo.org/modules/setting"
 
 	"github.com/stretchr/testify/require"

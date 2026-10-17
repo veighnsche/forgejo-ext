@@ -4,7 +4,6 @@
 package nativeoperation
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	sdk "forgejo.org/extension-sdk"
 	issues_model "forgejo.org/models/issues"
 	nativeoperation_model "forgejo.org/models/nativeoperation"
+	"forgejo.org/modules/json"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

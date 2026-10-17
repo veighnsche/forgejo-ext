@@ -5,13 +5,13 @@ package extensions
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	sdk "forgejo.org/extension-sdk"
 	packages "forgejo.org/modules/extensions"
+	"forgejo.org/modules/json"
 
 	"github.com/stretchr/testify/require"
 )

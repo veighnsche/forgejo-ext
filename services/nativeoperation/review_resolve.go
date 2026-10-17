@@ -9,7 +9,6 @@ import (
 	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"errors"
 	"io"
-	"os"
 	"strings"
 
 	sdk "forgejo.org/extension-sdk"
@@ -68,16 +67,6 @@ func (s *Service) submitThreadResolve(ctx context.Context, decision extensionaut
 	if intent.ThreadResolve == nil {
 		return sdk.OperationRecord{}, ErrInvalidIntent
 	}
-	dir, err := s.execDir()
-	if err != nil {
-		return sdk.OperationRecord{}, err
-	}
-	capabilityPath, secret, err := execcontext.WriteCapabilityFile(dir)
-	if err != nil {
-		return sdk.OperationRecord{}, err
-	}
-	retire := func() { _ = os.Remove(capabilityPath) }
-	owner := conditionalOwner(installationID, intent.OperationID)
 	scope := Scope{
 		Kind:         nativeoperation_model.OwnerConditional,
 		RepositoryID: intent.RepositoryID,
@@ -87,60 +76,7 @@ func (s *Service) submitThreadResolve(ctx context.Context, decision extensionaut
 		HeadOID:      intent.ThreadResolve.ExpectedHeadOID,
 		PRNumber:     intent.ThreadResolve.PullRequestNumber,
 	}
-	encoded, err := encodeScope(scope)
-	if err != nil {
-		retire()
-		return sdk.OperationRecord{}, err
-	}
-	op := &nativeoperation_model.Operation{
-		InstallationID:         installationID,
-		OperationID:            intent.OperationID,
-		Kind:                   intent.Kind,
-		ActorID:                decision.ActorID,
-		RepositoryID:           intent.RepositoryID,
-		TokenID:                decision.TokenID,
-		CredentialFingerprint:  decision.CredentialFingerprint,
-		AuthRevision:           intent.AuthRevision,
-		ExpectedNativeRevision: intent.ExpectedNativeRevision,
-		NotAfter:               intent.NotAfter,
-		IntentDigest:           intent.Digest,
-		Intent:                 intent.Canonical,
-	}
-	claimed, err := nativeoperation_model.ClaimConditional(ctx, op, owner, encoded, execcontext.Verifier(secret))
-	if err != nil {
-		retire()
-		if errors.Is(err, nativeoperation_model.ErrBusy) {
-			return sdk.OperationRecord{}, ErrBusy
-		}
-		if errors.Is(err, nativeoperation_model.ErrInhibited) {
-			return sdk.OperationRecord{}, err
-		}
-		if errors.Is(err, nativeoperation_model.ErrStaleRevision) {
-			return s.recordStaleRevision(ctx, op)
-		}
-		// A concurrent identical submit may have won the insert; reread
-		// and reconcile rather than launching a second execution.
-		existing, lookupErr := nativeoperation_model.LookupOperation(ctx, installationID, intent.OperationID)
-		if lookupErr != nil {
-			return sdk.OperationRecord{}, lookupErr
-		}
-		if existing != nil {
-			return s.reconcileExisting(existing, intent)
-		}
-		return sdk.OperationRecord{}, err
-	}
-	execution := &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: capabilityPath}
-	record, terminal, err := s.executeThreadResolve(ctx, op, intent, execution)
-	if err != nil {
-		// Infrastructure failure before reconciliation: fail closed with
-		// the owner held and the capability kept for later recovery.
-		return sdk.OperationRecord{}, err
-	}
-	if !terminal.retain {
-		// The terminal record already released the owner; retire the file.
-		retire()
-	}
-	return record, nil
+	return s.claimConditionalSubmit(ctx, decision, installationID, intent, scope, s.executeThreadResolve)
 }
 
 // executeThreadResolve runs the guarded resolution and reconciles its

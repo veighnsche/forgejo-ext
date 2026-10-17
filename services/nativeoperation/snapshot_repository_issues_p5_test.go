@@ -30,7 +30,7 @@ func TestSnapshotRepositoryIssuesPaginatesBeyondFirstPage(t *testing.T) {
 	ctx := t.Context()
 	svc := NewService()
 
-	for i := int64(0); i < 55; i++ {
+	for i := range int64(55) {
 		index := int64(200) + i
 		insertSnapshotIssue(t, 1, index, fmt.Sprintf("Objective %d", index), "body", 0)
 	}
@@ -77,7 +77,7 @@ func TestSnapshotRepositoryIssuesPaginatesBeyondFirstPage(t *testing.T) {
 	previous := ""
 	for i, item := range first.Items {
 		require.True(t, item.Visible)
-		require.NotEqual(t, "", item.IssueID)
+		require.NotEmpty(t, item.IssueID)
 		require.Greater(t, item.IssueIndex, previous)
 		previous = item.IssueIndex
 		require.Equal(t, fmt.Sprint(expected[i]), item.IssueIndex)
@@ -116,7 +116,7 @@ func TestSnapshotRepositoryIssuesReplayIsExact(t *testing.T) {
 	ctx := t.Context()
 	svc := NewService()
 
-	for i := int64(0); i < 3; i++ {
+	for i := range int64(3) {
 		insertSnapshotIssue(t, 1, 500+i, fmt.Sprintf("Objective %d", 500+i), "body", 0)
 	}
 	req := snapshotProofRequest("1", "2", []string{sdk.SnapshotFamilyRepositoryIssues})

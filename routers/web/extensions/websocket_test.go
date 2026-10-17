@@ -5,6 +5,7 @@ package extensions
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -124,10 +125,15 @@ func TestStreamRejectsFencedAdmissionBeforeDial(t *testing.T) {
 	ctx, recorder := testContext(req)
 	proxyWebSocket(ctx, roundTripFunc(func(*http.Request) (*http.Response, error) {
 		t.Fatal("fenced stream must not reach the backend")
-		return nil, nil
+		return nil, errFencedStreamReachedBackend
 	}), extension.Authority{}, token)
 	require.Equal(t, http.StatusUnauthorized, recorder.Code)
 }
+
+// errFencedStreamReachedBackend is the unreachable guard result for a
+// fenced stream: the test fails before it is returned, so it never
+// surfaces; it exists so the guard never returns (nil, nil).
+var errFencedStreamReachedBackend = errors.New("fenced stream reached the backend")
 
 // websocketPair returns both ends of one loopback stream connection.
 func websocketPair(t *testing.T) (client, server *websocket.Conn) {

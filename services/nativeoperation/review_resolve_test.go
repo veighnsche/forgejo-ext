@@ -160,7 +160,7 @@ func TestThreadResolveCommitsReceiptAndReplays(t *testing.T) {
 	// digest commits without ownership change. The receipt carries the
 	// new digest because resolution flips member resolver state from
 	// open to resolved, which the digest binds.
-	members := threadMembersForDigest(t, ctx, root)
+	members := threadMembersForDigest(ctx, t, root)
 	current := expectedThreadDigest(t, members...)
 	require.NotEqual(t, digest, current, "resolution changes the bound digest")
 	stable, err := svc.Submit(ctx, decision, operationTestInstallation, resolveIntent(t, "thread-resolve-stable", 2, resolvePayload(head, base, current, root.ID)))
@@ -175,7 +175,7 @@ func TestThreadResolveCommitsReceiptAndReplays(t *testing.T) {
 
 // threadMembersForDigest reloads one conversation in native order for an
 // independent digest recomputation.
-func threadMembersForDigest(t *testing.T, ctx context.Context, root *issues_model.Comment) []*issues_model.Comment {
+func threadMembersForDigest(ctx context.Context, t *testing.T, root *issues_model.Comment) []*issues_model.Comment {
 	t.Helper()
 	var members []*issues_model.Comment
 	require.NoError(t, db.GetEngine(ctx).Where("issue_id = ?", root.IssueID).

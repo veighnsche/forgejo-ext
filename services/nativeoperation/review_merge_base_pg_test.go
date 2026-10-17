@@ -5,7 +5,6 @@ package nativeoperation
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"os/exec"
 	"strings"
@@ -20,6 +19,7 @@ import (
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unittest"
 	"forgejo.org/modules/git"
+	"forgejo.org/modules/json"
 
 	"github.com/stretchr/testify/require"
 )

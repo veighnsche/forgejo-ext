@@ -72,20 +72,19 @@ func parseHunkHeader(header string) (int64, int64, bool) {
 	if !found {
 		return 0, 0, false
 	}
-	plus := strings.Index(rest, " +")
-	if plus < 0 {
+	before, afterPlus, found := strings.Cut(rest, " +")
+	if !found {
 		return 0, 0, false
 	}
-	oldStart, ok := parseHunkNumber(rest[:plus])
+	oldStart, ok := parseHunkNumber(before)
 	if !ok {
 		return 0, 0, false
 	}
-	after := rest[plus+2:]
-	end := strings.Index(after, " @@")
-	if end < 0 {
+	newPart, _, found := strings.Cut(afterPlus, " @@")
+	if !found {
 		return 0, 0, false
 	}
-	newStart, ok := parseHunkNumber(after[:end])
+	newStart, ok := parseHunkNumber(newPart)
 	if !ok {
 		return 0, 0, false
 	}
@@ -113,7 +112,7 @@ func parseReviewFileDiff(diff []byte) reviewDiffLines {
 	parsed := reviewDiffLines{oldLines: map[int64]bool{}, newLines: map[int64]bool{}}
 	var oldLine, newLine int64
 	inHunk := false
-	for _, line := range strings.Split(string(diff), "\n") {
+	for line := range strings.SplitSeq(string(diff), "\n") {
 		if strings.HasPrefix(line, "Binary files ") {
 			parsed.binary = true
 			continue

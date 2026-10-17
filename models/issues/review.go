@@ -541,10 +541,8 @@ func validExactReviewCommentPath(path string) bool {
 	if strings.HasPrefix(path, "/") || strings.Contains(path, "\x00") {
 		return false
 	}
-	for _, segment := range strings.Split(path, "/") {
-		if segment == ".." {
-			return false
-		}
+	if slices.Contains(strings.Split(path, "/"), "..") {
+		return false
 	}
 	return true
 }

@@ -197,6 +197,25 @@ func (s *Service) submitReviewSubmit(ctx context.Context, decision extensionauth
 	if intent.ReviewSubmit == nil {
 		return sdk.OperationRecord{}, ErrInvalidIntent
 	}
+	scope := Scope{
+		Kind:         nativeoperation_model.OwnerConditional,
+		RepositoryID: intent.RepositoryID,
+		Ref:          intent.ReviewSubmit.BaseRef,
+		OldOID:       intent.ReviewSubmit.ExpectedBaseOID,
+		HeadRef:      intent.ReviewSubmit.HeadRef,
+		HeadOID:      intent.ReviewSubmit.ExpectedHeadOID,
+		PRNumber:     intent.ReviewSubmit.PullRequestNumber,
+	}
+	return s.claimConditionalSubmit(ctx, decision, installationID, intent, scope, s.executeReviewSubmit)
+}
+
+// claimConditionalSubmit runs the shared conditional-submit prologue for
+// review-submit and thread-resolve: capability file, conditional owner,
+// scope claim with busy/inhibited/stale/lookup/reconcile handling, then
+// the caller-selected bounded terminal executor with retain-on-infraerror
+// retirement. The kind-specific Scope is built by the caller and the
+// executor is fixed per caller; there is no kind fallback or dispatch.
+func (s *Service) claimConditionalSubmit(ctx context.Context, decision extensionauth_model.SubmissionDecision, installationID string, intent *ValidIntent, scope Scope, execute func(context.Context, *nativeoperation_model.Operation, *ValidIntent, *execcontext.Execution) (sdk.OperationRecord, terminalResult, error)) (sdk.OperationRecord, error) {
 	dir, err := s.execDir()
 	if err != nil {
 		return sdk.OperationRecord{}, err
@@ -207,15 +226,6 @@ func (s *Service) submitReviewSubmit(ctx context.Context, decision extensionauth
 	}
 	retire := func() { _ = os.Remove(capabilityPath) }
 	owner := conditionalOwner(installationID, intent.OperationID)
-	scope := Scope{
-		Kind:         nativeoperation_model.OwnerConditional,
-		RepositoryID: intent.RepositoryID,
-		Ref:          intent.ReviewSubmit.BaseRef,
-		OldOID:       intent.ReviewSubmit.ExpectedBaseOID,
-		HeadRef:      intent.ReviewSubmit.HeadRef,
-		HeadOID:      intent.ReviewSubmit.ExpectedHeadOID,
-		PRNumber:     intent.ReviewSubmit.PullRequestNumber,
-	}
 	encoded, err := encodeScope(scope)
 	if err != nil {
 		retire()
@@ -259,7 +269,7 @@ func (s *Service) submitReviewSubmit(ctx context.Context, decision extensionauth
 		return sdk.OperationRecord{}, err
 	}
 	execution := &execcontext.Execution{Owner: owner, Generation: claimed.Generation, CapabilityPath: capabilityPath}
-	record, terminal, err := s.executeReviewSubmit(ctx, op, intent, execution)
+	record, terminal, err := execute(ctx, op, intent, execution)
 	if err != nil {
 		// Infrastructure failure before reconciliation: fail closed with
 		// the owner held and the capability kept for later recovery.
