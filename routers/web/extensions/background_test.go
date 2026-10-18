@@ -480,3 +480,25 @@ func TestBackgroundCreationsMapsNativeRefusalAndUnavailability(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, recorder.Code)
 	require.Contains(t, recorder.Body.String(), extensionauth_model.RefusalRepositoryExcluded)
 }
+
+// TestBackgroundServiceChannelRejectsRuntimeAdmission proves channel
+// separation at HTTP dispatch: a runtime admission never dispatches on
+// the shared service socket, even for a live peer with the capability
+// declared. Unknown admissions still refuse before any channel check.
+// A service admission reaching the service mux needs a running package
+// behind BootstrapServiceAdmission, so that direction stays covered by
+// the manager lifecycle proof rather than this multiplexer case.
+func TestBackgroundServiceChannelRejectsRuntimeAdmission(t *testing.T) {
+	manager := backgroundTestManager(t)
+	const installation = "11111111-2222-4333-8444-555555555555"
+	runtimeToken := issueRuntimeAdmission(t, manager, installation, "instance-a", []string{extension.CapabilityBackgroundOperations})
+	browser := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTeapot) })
+	serviceHandler := backgroundMux(manager, browser, "", true, testVerifiers(), testOperations())
+	peer := backgroundPeerAddr(t)
+
+	recorder := backgroundRequest(t, serviceHandler, extension.BackgroundOperationsPath, runtimeToken, peer, map[string]any{})
+	require.Equal(t, http.StatusForbidden, recorder.Code)
+
+	recorder = backgroundRequest(t, serviceHandler, extension.BackgroundOperationsPath, "0123456789abcdefghij0123456789abcdefghijk", peer, map[string]any{})
+	require.Equal(t, http.StatusUnauthorized, recorder.Code)
+}
