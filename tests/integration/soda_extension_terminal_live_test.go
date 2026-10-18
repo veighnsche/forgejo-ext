@@ -6,6 +6,7 @@ package integration
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -13,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +31,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // Live PTY proof requires SODA_R03_HOST_SOCKET pointing at the real native
@@ -40,17 +42,71 @@ import (
 // preservation, or qualification evidence. This is development evidence, not
 // an installed or release qualification run.
 //
+// terminalPGFixtureDSN builds a superuser connection URL from the task
+// fixture environment: SODA_PG_HOST, SODA_PG_PORT and
+// SODA_PG_SUPER_PASSWORD_FILE. It skips when the fixture is absent; the
+// password travels from its restricted file into the returned URL only and
+// is never logged. This mirrors Soda's store.TestFixtureDSN semantics for
+// the neighboring checkout's disposable fixture.
+func terminalPGFixtureDSN(t *testing.T) string {
+	t.Helper()
+	host, port, passwordFile := os.Getenv("SODA_PG_HOST"), os.Getenv("SODA_PG_PORT"), os.Getenv("SODA_PG_SUPER_PASSWORD_FILE")
+	if host == "" || port == "" || passwordFile == "" {
+		t.Skip("SODA_PG_HOST, SODA_PG_PORT, and SODA_PG_SUPER_PASSWORD_FILE select the disposable task fixture")
+	}
+	raw, err := os.ReadFile(passwordFile)
+	require.NoError(t, err)
+	password := strings.TrimSpace(string(raw))
+	if password == "" || strings.ContainsAny(password, "\r\n\x00") {
+		t.Skip("SODA_PG_SUPER_PASSWORD_FILE holds no usable password")
+	}
+	u := url.URL{Scheme: "postgres", Host: host + ":" + port, Path: "/postgres", User: url.UserPassword("postgres", password)}
+	query := url.Values{}
+	query.Set("sslmode", "disable")
+	u.RawQuery = query.Encode()
+	return u.String()
+}
+
+// createTerminalEphemeralDatabase creates a uniquely-named empty database on
+// the fixture server and returns its connection URL plus a drop cleanup that
+// removes it. Only this test's database is ever created or dropped; the
+// shared soda bridge database is never seeded, reset, or dropped.
+func createTerminalEphemeralDatabase(t *testing.T, superDSN string) (string, func()) {
+	t.Helper()
+	var random [8]byte
+	_, err := rand.Read(random[:])
+	require.NoError(t, err)
+	name := "soda_ephem_" + hex.EncodeToString(random[:])
+	admin, err := sql.Open("pgx", superDSN)
+	require.NoError(t, err)
+	defer func() { _ = admin.Close() }()
+	_, err = admin.ExecContext(context.Background(), `CREATE DATABASE "`+name+`"`)
+	require.NoError(t, err)
+	u, err := url.Parse(superDSN)
+	require.NoError(t, err)
+	u.Path = "/" + name
+	drop := func() {
+		drop, err := sql.Open("pgx", superDSN)
+		if err != nil {
+			return
+		}
+		defer func() { _ = drop.Close() }()
+		_, _ = drop.ExecContext(context.Background(), `DROP DATABASE IF EXISTS "`+name+`"`)
+	}
+	return u.String(), drop
+}
+
 //nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestSodaExtensionLiveTerminal(t *testing.T) {
 	backend, dashboard, artifactRoot := os.Getenv("SODA_C03_BACKEND"), os.Getenv("SODA_C03_DASHBOARD"), os.Getenv("SODA_C03_ARTIFACT_DIR")
 	if backend == "" || dashboard == "" || artifactRoot == "" {
 		t.Skip("set SODA_C03_BACKEND, SODA_C03_DASHBOARD, and SODA_C03_ARTIFACT_DIR for the live terminal check")
 	}
-	// startSodaExtensionServiceWithHost requires the restricted PostgreSQL
-	// DSN-file fixture input under the current dashboard contract; gate on
-	// it here so a missing file skips instead of failing inside the starter.
-	if dsnFile := os.Getenv("SODA_C03_DATABASE_DSN_FILE"); dsnFile == "" {
-		t.Skip("set SODA_C03_DATABASE_DSN_FILE to the restricted PostgreSQL DSN-file fixture input for the live terminal check")
+	// Soda state lives in an isolated per-test PostgreSQL database on the
+	// existing task fixture; gate on its superuser inputs so a missing
+	// fixture skips instead of failing inside the setup.
+	if os.Getenv("SODA_PG_HOST") == "" || os.Getenv("SODA_PG_PORT") == "" || os.Getenv("SODA_PG_SUPER_PASSWORD_FILE") == "" {
+		t.Skip("set SODA_PG_HOST, SODA_PG_PORT, and SODA_PG_SUPER_PASSWORD_FILE for the live terminal check")
 	}
 	defer tests.PrepareTestEnv(t)()
 	for _, binary := range []string{backend, dashboard} {
@@ -80,6 +136,24 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	if provided := os.Getenv("SODA_R03_LOGIN"); provided != "" {
 		login = provided
 	}
+
+	// Isolated per-test Soda database on the existing task fixture. The
+	// dashboard creates the current schema itself at startup; this test
+	// only creates the database and points the starter at it through a
+	// per-test DSN file. The shared soda bridge database is never used.
+	sodaDSN, dropSodaDatabase := createTerminalEphemeralDatabase(t, terminalPGFixtureDSN(t))
+	t.Cleanup(dropSodaDatabase)
+	dsnFile := filepath.Join(root, "soda-dsn")
+	require.NoError(t, os.WriteFile(dsnFile, []byte(sodaDSN), 0o600))
+	previousDSNFile, hadDSNFile := os.LookupEnv("SODA_C03_DATABASE_DSN_FILE")
+	require.NoError(t, os.Setenv("SODA_C03_DATABASE_DSN_FILE", dsnFile))
+	t.Cleanup(func() {
+		if hadDSNFile {
+			_ = os.Setenv("SODA_C03_DATABASE_DSN_FILE", previousDSNFile)
+		} else {
+			_ = os.Unsetenv("SODA_C03_DATABASE_DSN_FILE")
+		}
+	})
 
 	packageDir := filepath.Join(root, "p", "soda")
 	require.NoError(t, os.MkdirAll(filepath.Join(packageDir, "assets"), 0o700))
@@ -112,6 +186,20 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	previousManager := extensions_service.GetManager()
 	extensions_service.SetDefault(manager)
 	t.Cleanup(func() { extensions_service.SetDefault(previousManager); require.NoError(t, manager.Close()) })
+	// Optional packages start on the bounded async pass after Start
+	// returns core readiness: await the soda effect before ordinary
+	// lookups, as the repaired live bridge does.
+	startDeadline := time.Now().Add(25 * time.Second)
+	for {
+		if _, _, ok := manager.Lookup("soda"); ok {
+			break
+		}
+		if time.Now().After(startDeadline) {
+			t.Logf("live terminal Observe(soda): %+v", manager.Observe("soda"))
+			t.Fatalf("live terminal soda package did not start within 25s")
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	server := httptest.NewTLSServer(testWebRoutes)
 	defer server.Close()
 	previousURL := setting.AppURL
@@ -121,14 +209,16 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 
 	// This database is private to this test. The Forgejo fixture's user2 owns
 	// repo1 (ID 1); the project ID and login match the task-owned native fixture.
-	database, err := sql.Open("sqlite3", filepath.Join(root, "soda.db")+"?_busy_timeout=5000")
+	// The dashboard created the current PostgreSQL schema at startup; seed
+	// only the project/membership rows the terminal authority reads.
+	database, err := sql.Open("pgx", sodaDSN)
 	require.NoError(t, err)
 	defer database.Close()
 	_, err = database.Exec(`INSERT INTO users(id,login,name) VALUES(2,'user2','Fixture')`)
 	require.NoError(t, err)
-	_, err = database.Exec(`INSERT INTO projects(id,name,repository_id,owner_id,repository,ip,ready) VALUES(?, 'Terminal fixture',1,2,'user2/repo1','10.89.0.2',1)`, projectID)
+	_, err = database.Exec(`INSERT INTO projects(id,name,repository_id,owner_id,repository,ip,ready) VALUES($1,'Terminal fixture',1,2,'user2/repo1','10.89.0.2',TRUE)`, projectID)
 	require.NoError(t, err)
-	_, err = database.Exec(`INSERT INTO memberships(project_id,user_id,login) VALUES(?,2,?)`, projectID, login)
+	_, err = database.Exec(`INSERT INTO memberships(project_id,user_id,login) VALUES($1,2,$2)`, projectID, login)
 	require.NoError(t, err)
 	owner := loginUser(t, "user2")
 	generationFor := func() string {
