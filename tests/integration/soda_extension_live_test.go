@@ -5,8 +5,6 @@ package integration
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json" //nolint:depguard // Native protocol and persisted JSON require standard-library semantics.
 	"net"
 	"net/http"
@@ -34,8 +32,8 @@ import (
 //nolint:usetesting // Keep Unix socket paths short or retain the external fixture root.
 func TestSodaExtensionLiveBridge(t *testing.T) {
 	backend, dashboard, artifactRoot := os.Getenv("SODA_C03_BACKEND"), os.Getenv("SODA_C03_DASHBOARD"), os.Getenv("SODA_C03_ARTIFACT_DIR")
-	if backend == "" || dashboard == "" || artifactRoot == "" {
-		t.Skip("set SODA_C03_BACKEND, SODA_C03_DASHBOARD, and SODA_C03_ARTIFACT_DIR for the live development check")
+	if backend == "" || dashboard == "" || artifactRoot == "" || os.Getenv("SODA_C03_DATABASE_DSN_FILE") == "" {
+		t.Skip("set SODA_C03_BACKEND, SODA_C03_DASHBOARD, SODA_C03_ARTIFACT_DIR, and SODA_C03_DATABASE_DSN_FILE for the live development check")
 	}
 	defer tests.PrepareTestEnv(t)()
 	for _, binary := range []string{backend, dashboard} {
@@ -180,20 +178,22 @@ func seedSodaExtensionOperatorID(t *testing.T, managerRoot string) {
 
 func startSodaExtensionServiceWithHost(t *testing.T, root, socket, dashboard, serviceCallback, hostSocket, forgejoURL string) {
 	t.Helper()
-	key := make([]byte, 32)
-	_, err := rand.Read(key)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(root, "grant-key"), []byte(base64.StdEncoding.EncodeToString(key)), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "oauth-secret"), []byte("development-only"), 0o600))
+	// The current dashboard contract (Soda internal/config, strict keys)
+	// requires a PostgreSQL DSN file plus an absolute host socket path.
+	// The obsolete sqlite `database` file and the oauth/grant-key secrets
+	// no longer exist and are refused. The DSN file is a restricted
+	// fixture input: its contents never touch argv, logs, or source.
+	dsnFile := os.Getenv("SODA_C03_DATABASE_DSN_FILE")
+	require.NotEmpty(t, dsnFile, "set SODA_C03_DATABASE_DSN_FILE to the restricted PostgreSQL DSN-file fixture input")
+	require.True(t, filepath.IsAbs(dsnFile), "SODA_C03_DATABASE_DSN_FILE must be an absolute path")
 	port, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	listen := port.Addr().String()
 	require.NoError(t, port.Close())
 	config := map[string]any{
 		"listen": listen, "forgejo_url": forgejoURL, "forgejo_internal_url": "http://127.0.0.1:3000",
-		"database": filepath.Join(root, "soda.db"), "host_socket": hostSocket,
-		"oauth_client_id": "c03-test", "oauth_secret_file": filepath.Join(root, "oauth-secret"),
-		"grant_key_file": filepath.Join(root, "grant-key"), "operator_id": 1,
+		"database_dsn_file": dsnFile, "host_socket": hostSocket,
+		"operator_id": 1,
 	}
 	encoded, err := json.Marshal(config)
 	require.NoError(t, err)
