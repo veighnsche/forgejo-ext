@@ -20,6 +20,7 @@ import (
 	"time"
 
 	extension "forgejo.org/extension-sdk"
+	packages "forgejo.org/modules/extensions"
 	"forgejo.org/modules/setting"
 	web_extensions "forgejo.org/routers/web/extensions"
 	extensions_service "forgejo.org/services/extensions"
@@ -44,6 +45,12 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	backend, dashboard, artifactRoot := os.Getenv("SODA_C03_BACKEND"), os.Getenv("SODA_C03_DASHBOARD"), os.Getenv("SODA_C03_ARTIFACT_DIR")
 	if backend == "" || dashboard == "" || artifactRoot == "" {
 		t.Skip("set SODA_C03_BACKEND, SODA_C03_DASHBOARD, and SODA_C03_ARTIFACT_DIR for the live terminal check")
+	}
+	// startSodaExtensionServiceWithHost requires the restricted PostgreSQL
+	// DSN-file fixture input under the current dashboard contract; gate on
+	// it here so a missing file skips instead of failing inside the starter.
+	if dsnFile := os.Getenv("SODA_C03_DATABASE_DSN_FILE"); dsnFile == "" {
+		t.Skip("set SODA_C03_DATABASE_DSN_FILE to the restricted PostgreSQL DSN-file fixture input for the live terminal check")
 	}
 	defer tests.PrepareTestEnv(t)()
 	for _, binary := range []string{backend, dashboard} {
@@ -77,13 +84,21 @@ func TestSodaExtensionLiveTerminal(t *testing.T) {
 	packageDir := filepath.Join(root, "p", "soda")
 	require.NoError(t, os.MkdirAll(filepath.Join(packageDir, "assets"), 0o700))
 	backendLog := filepath.Join(root, "backend.log")
-	run := "#!/bin/sh\nexec " + shellQuoteC03(backend) + " --soda-socket " + shellQuoteC03(socket) + " 2>" + shellQuoteC03(backendLog) + "\n"
+	run := "#!/bin/sh\nexec " + shellQuoteC03(backend) + " --package-id soda --soda-socket " + shellQuoteC03(socket) + " 2>" + shellQuoteC03(backendLog) + "\n"
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "run"), []byte(run), 0o700))
-	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "soda", Name: "Soda", Version: "0.1.0", Executable: "run", Capabilities: []string{extension.CapabilityActorRead, extension.CapabilityRepositoryRead, extension.CapabilityServiceBridge, extension.CapabilityContributionAuthorize}, Policies: []string{extension.PolicyForgejoUsername}, Panels: []extension.Panel{{ID: "workspace", Title: "Spaces", Entry: "workspace.js"}}}
+	manifest := extension.Manifest{Protocol: extension.Protocol, ID: "soda", Name: "Soda", Version: "0.1.0", Executable: "run", Capabilities: []string{extension.CapabilityActorRead, extension.CapabilityRepositoryRead, extension.CapabilityServiceBridge, extension.CapabilityContributionAuthorize, extension.CapabilityExtensionLifecycle}, Policies: []string{extension.PolicyForgejoUsername}, Panels: []extension.Panel{{ID: "workspace", Title: "Spaces", Entry: "workspace.js"}}}
 	encoded, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extension.json"), encoded, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "assets", "workspace.js"), []byte("export function mount() {}\n"), 0o600))
+	// Ordinary admission opens only after durable activation: record the
+	// next-start desired state through the shared package store before
+	// the manager starts, matching the repaired live bridge fixture.
+	packageStore, err := packages.OpenPackageStore(filepath.Join(root, "p"))
+	require.NoError(t, err)
+	_, err = packageStore.SetDesired("soda", true)
+	require.NoError(t, err)
+	require.NoError(t, packageStore.Close())
 	manager := extensions_service.NewManager(filepath.Join(root, "p"))
 	seedSodaExtensionOperatorID(t, filepath.Join(root, "p"))
 	serviceCallback := filepath.Join(root, "h")
