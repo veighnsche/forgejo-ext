@@ -37,6 +37,15 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 		t.Skip("set SODA_C03_BACKEND, SODA_C03_DASHBOARD, SODA_C03_ARTIFACT_DIR, and SODA_C03_DATABASE_DSN_FILE for the live development check")
 	}
 	defer tests.PrepareTestEnv(t)()
+	// The in-process Fountain router and the real Soda private listener
+	// share one HTTPS browser origin. Set it before login so cookie jars,
+	// Fountain admission and Soda mutation validation use the same origin.
+	previousAppURL := setting.AppURL
+	appURL, err := url.Parse(previousAppURL)
+	require.NoError(t, err)
+	appURL.Scheme = "https"
+	setting.AppURL = appURL.String()
+	t.Cleanup(func() { setting.AppURL = previousAppURL })
 	for _, binary := range []string{backend, dashboard} {
 		info, err := os.Stat(binary)
 		require.NoError(t, err)
@@ -142,30 +151,9 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 	ownerSession := request(owner, http.MethodGet, "session", ownerGeneration, nil, http.StatusOK)
 	require.Equal(t, "user2", ownerSession["user"].(map[string]any)["login"])
 	require.Equal(t, ownerGeneration, ownerSession["session_generation"])
-	// Soda's browser-origin gate keys mutations to its https-only
-	// forgejo_url: the plain-HTTP harness cannot satisfy it. Mutations
-	// assert Soda's exact invalid_origin refusal and state invariance
-	// there, and the full PG-backed round-trip where AppURL is https.
-	httpsHarness := origin.Scheme == "https"
-	refusedAt := func(base string, session *TestSession, method, endpoint, generation string, body any) {
-		req := NewRequestWithJSON(t, method, base+endpoint, body)
-		req.Header.Set(extension.SessionGenerationHeader, generation)
-		req.Header.Set("Origin", origin.Scheme+"://"+origin.Host)
-		req.Header.Set("Sec-Fetch-Site", "same-origin")
-		response := session.MakeRequest(t, req, http.StatusForbidden)
-		var refusal map[string]any
-		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &refusal))
-		require.Equal(t, "invalid_origin", refusal["error"].(map[string]any)["code"])
-	}
 	ownerWant := map[string]any{"display_name": "C03 owner"}
 	otherWant := map[string]any{"display_name": "C03 other"}
-	if httpsHarness {
-		require.Equal(t, ownerWant, request(owner, http.MethodPatch, "me/preferences", ownerGeneration, map[string]string{"display_name": "C03 owner"}, http.StatusOK))
-	} else {
-		ownerWant = request(owner, http.MethodGet, "me/preferences", ownerGeneration, nil, http.StatusOK)
-		otherWant = request(other, http.MethodGet, "me/preferences", otherGeneration, nil, http.StatusOK)
-		refusedAt(pageBase, owner, http.MethodPatch, "me/preferences", ownerGeneration, map[string]string{"display_name": "C03 owner"})
-	}
+	require.Equal(t, ownerWant, request(owner, http.MethodPatch, "me/preferences", ownerGeneration, map[string]string{"display_name": "C03 owner"}, http.StatusOK))
 	require.Equal(t, ownerWant, request(owner, http.MethodGet, "me/preferences", ownerGeneration, nil, http.StatusOK))
 	foreignOrigin := NewRequestWithJSON(t, http.MethodPatch, pageBase+"me/preferences", map[string]string{"display_name": "foreign"})
 	foreignOrigin.Header.Set(extension.SessionGenerationHeader, ownerGeneration)
@@ -179,17 +167,13 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 	forged.Header.Set("Sec-Fetch-Site", "same-origin")
 	forged.Header.Set(extension.ContextHeader, `{"extension_id":"soda","actor":{"id":"2","username":"user2","site_admin":true},"contribution":{"id":"spaces","kind":"page","scope":"global","action":"get"}}`)
 	forged.Header.Set(extension.AdmissionHeader, strings.Repeat("x", 43))
-	if httpsHarness {
-		response := other.MakeRequest(t, forged, http.StatusOK)
-		require.JSONEq(t, `{"display_name":"C03 other"}`, response.Body.String())
-	} else {
-		other.MakeRequest(t, forged, http.StatusForbidden)
-	}
+	response := other.MakeRequest(t, forged, http.StatusOK)
+	require.JSONEq(t, `{"display_name":"C03 other"}`, response.Body.String())
 	require.Equal(t, ownerWant, request(owner, http.MethodGet, "me/preferences", ownerGeneration, nil, http.StatusOK))
 	require.Equal(t, otherWant, request(other, http.MethodGet, "me/preferences", otherGeneration, nil, http.StatusOK))
 	request(other, http.MethodGet, "session", ownerGeneration, nil, http.StatusConflict)
 	// Unrouted methods never reach the origin gate: the backend's route
-	// allowlist refuses them on either harness.
+	// allowlist refuses them before dispatch.
 	request(other, http.MethodDelete, "me/preferences", otherGeneration, nil, http.StatusNotFound)
 	require.Equal(t, otherWant, request(other, http.MethodGet, "me/preferences", otherGeneration, nil, http.StatusOK))
 
@@ -213,24 +197,17 @@ func TestSodaExtensionLiveBridge(t *testing.T) {
 	require.Equal(t, "user2", panelSession["user"].(map[string]any)["login"])
 	require.Equal(t, ownerGeneration, panelSession["session_generation"])
 	panelWant := map[string]any{"display_name": "C03 panel"}
-	if httpsHarness {
-		require.Equal(t, panelWant, panelRequest(owner, http.MethodPatch, "me/preferences", ownerGeneration, map[string]string{"display_name": "C03 panel"}, http.StatusOK))
-		ownerWant = panelWant
-	} else {
-		refusedAt(panelBase, owner, http.MethodPatch, "me/preferences", ownerGeneration, map[string]string{"display_name": "C03 panel"})
-	}
+	require.Equal(t, panelWant, panelRequest(owner, http.MethodPatch, "me/preferences", ownerGeneration, map[string]string{"display_name": "C03 panel"}, http.StatusOK))
+	ownerWant = panelWant
 	require.Equal(t, ownerWant, panelRequest(owner, http.MethodGet, "me/preferences", ownerGeneration, nil, http.StatusOK))
 	require.Equal(t, ownerWant, request(owner, http.MethodGet, "me/preferences", ownerGeneration, nil, http.StatusOK))
 }
 
 func startSodaExtensionService(t *testing.T, root, socket, dashboard, serviceCallback string) {
-	// Soda's browser-origin gate requires an https forgejo_url, which the
-	// plain-HTTP harness cannot provide for real: the dashboard boots
-	// against this fixture origin while browser requests carry the live
-	// AppURL origin. Mutations therefore exercise Soda's exact origin
-	// refusal on this harness and the full happy path where AppURL is
-	// https; both branches are asserted below.
-	startSodaExtensionServiceWithHost(t, root, socket, dashboard, serviceCallback, filepath.Join(root, "unused-host.sock"), "https://forgejo.test")
+	t.Helper()
+	origin, err := url.Parse(setting.AppURL)
+	require.NoError(t, err)
+	startSodaExtensionServiceWithHost(t, root, socket, dashboard, serviceCallback, filepath.Join(root, "unused-host.sock"), origin.Scheme+"://"+origin.Host)
 }
 
 func seedSodaExtensionOperatorID(t *testing.T, managerRoot string) {
