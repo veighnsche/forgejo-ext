@@ -12,13 +12,142 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	sdk "forgejo.org/extension-sdk"
 )
+
+// Witness environment (set by the orchestrating test through the package
+// wrapper script, mirroring operator provisioning of the shared service
+// socket). Absent R03_WITNESS_SERVICE_SOCKET the consumer keeps the plain
+// handshake-only behavior used by the admission witness.
+const (
+	witnessServiceSocketEnv = "R03_WITNESS_SERVICE_SOCKET"
+	witnessExpectedUIDEnv   = "R03_WITNESS_EXPECTED_UID"
+	witnessGenerationEnv    = "R03_WITNESS_EXPECTED_GENERATION"
+	witnessResultFileEnv    = "R03_WITNESS_RESULT_FILE"
+	witnessRotateFileEnv    = "R03_WITNESS_ROTATE_FILE"
+)
+
+type witnessOutcome struct {
+	BootstrapOK      bool   `json:"bootstrap_ok"`
+	OperationsOK     bool   `json:"operations_ok"`
+	Generation       string `json:"generation"`
+	MismatchRefused  bool   `json:"mismatch_refused"`
+	RotatedOpRefused bool   `json:"rotated_op_refused"`
+	RotatedOpError   string `json:"rotated_op_error"`
+	Failure          string `json:"failure,omitempty"`
+}
+
+func (o *witnessOutcome) fail(format string, args ...any) {
+	o.Failure = fmt.Sprintf(format, args...)
+}
+
+func runWitness(serviceSocket string, expectedUID uint64, expectedGeneration, resultFile, rotateFile string) {
+	outcome := &witnessOutcome{}
+	done := func() {
+		data, err := json.Marshal(outcome)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+		if err := os.WriteFile(resultFile, data, 0o600); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	// The manager handshake completes asynchronously after spawn: retry
+	// bootstrap until the host admits this backend or the budget ends.
+	var client sdk.BackgroundClient
+	bootstrapped := false
+	bootstrapDeadline := time.Now().Add(25 * time.Second)
+	for time.Now().Before(bootstrapDeadline) {
+		candidate, err := sdk.BootstrapServiceBackground(ctx, sdk.ServiceBridgeOptions{
+			SocketPath: serviceSocket, ExpectedHostUID: uint32(expectedUID),
+		})
+		if err == nil {
+			client = candidate
+			bootstrapped = true
+			break
+		}
+		select {
+		case <-ctx.Done():
+			outcome.fail("bootstrap: %v", err)
+			done()
+			return
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	if !bootstrapped {
+		outcome.fail("bootstrap never succeeded within budget")
+		done()
+		return
+	}
+	outcome.BootstrapOK = true
+	handshake, err := client.ReadOperations(ctx)
+	if err != nil {
+		outcome.fail("read operations: %v", err)
+		done()
+		return
+	}
+	outcome.OperationsOK = true
+	outcome.Generation = handshake.Generation
+	if handshake.Generation != expectedGeneration {
+		outcome.fail("operations generation %q, want %q", handshake.Generation, expectedGeneration)
+		done()
+		return
+	}
+	// A pinned wrong installation must be refused without touching the held
+	// admission.
+	if _, err := sdk.BootstrapServiceBackground(ctx, sdk.ServiceBridgeOptions{
+		SocketPath: serviceSocket, ExpectedHostUID: uint32(expectedUID),
+		InstallationID: "22222222-2222-4333-8444-555555555555",
+	}); err == nil {
+		outcome.fail("wrong installation bootstrap unexpectedly succeeded")
+		done()
+		return
+	}
+	outcome.MismatchRefused = true
+	// Interim outcome: the orchestrator reads this, rotates the admission,
+	// then creates the rotate file. The held admission must stop working.
+	done()
+	rotated := false
+	for i := 0; i < 250; i++ {
+		if _, err := os.Stat(rotateFile); err == nil {
+			rotated = true
+			break
+		}
+		select {
+		case <-ctx.Done():
+			outcome.fail("rotate signal never arrived")
+			done()
+			return
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	if !rotated {
+		outcome.fail("rotate signal never arrived")
+		done()
+		return
+	}
+	if _, err := client.ReadOperations(ctx); err == nil {
+		outcome.fail("operations with rotated admission unexpectedly succeeded")
+		done()
+		return
+	} else {
+		outcome.RotatedOpError = err.Error()
+	}
+	outcome.RotatedOpRefused = true
+	done()
+}
 
 func main() {
 	application := sdk.Application{HTTP: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +158,14 @@ func main() {
 		}
 		_, _ = io.WriteString(w, authority.ExtensionID+":"+authority.Actor.Username)
 	})}
+	if serviceSocket := os.Getenv(witnessServiceSocketEnv); serviceSocket != "" {
+		expectedUID, err := strconv.ParseUint(os.Getenv(witnessExpectedUIDEnv), 10, 32)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		go runWitness(serviceSocket, expectedUID, os.Getenv(witnessGenerationEnv), os.Getenv(witnessResultFileEnv), os.Getenv(witnessRotateFileEnv))
+	}
 	if err := sdk.Serve(application); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
