@@ -63,6 +63,7 @@ func TestIndependentConsumerBackgroundHTTP(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 	build := exec.CommandContext(ctx, filepath.Join(runtime.GOROOT(), "bin", "go"), "build", "-o", binary, "./services/extensions/testdata/r03-consumer")
+	build.WaitDelay = time.Second
 	build.Dir = moduleRoot
 	build.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOFLAGS=-mod=readonly")
 	output, err := build.CombinedOutput()
@@ -142,6 +143,7 @@ func TestIndependentConsumerBackgroundHTTP(t *testing.T) {
 			require.Equal(t, true, outcome["operations_ok"])
 			require.Equal(t, operations.handshake.Generation, outcome["generation"])
 			require.Equal(t, true, outcome["mismatch_refused"])
+			require.Equal(t, true, outcome["held_admission_ok"])
 			break
 		}
 		if time.Now().After(outcomeDeadline) {

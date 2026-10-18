@@ -41,6 +41,7 @@ type witnessOutcome struct {
 	OperationsOK     bool   `json:"operations_ok"`
 	Generation       string `json:"generation"`
 	MismatchRefused  bool   `json:"mismatch_refused"`
+	HeldAdmissionOK  bool   `json:"held_admission_ok"`
 	RotatedOpRefused bool   `json:"rotated_op_refused"`
 	RotatedOpError   string `json:"rotated_op_error"`
 	Failure          string `json:"failure,omitempty"`
@@ -58,7 +59,13 @@ func runWitness(serviceSocket string, expectedUID uint64, expectedGeneration, re
 			fmt.Fprintln(os.Stderr, err)
 			return
 		}
-		if err := os.WriteFile(resultFile, data, 0o600); err != nil {
+		// Publish a complete snapshot; the parent may read concurrently.
+		temporary := resultFile + ".tmp"
+		if err := os.WriteFile(temporary, data, 0o600); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+		if err := os.Rename(temporary, resultFile); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
 	}
@@ -110,12 +117,21 @@ func runWitness(serviceSocket string, expectedUID uint64, expectedGeneration, re
 	if _, err := sdk.BootstrapServiceBackground(ctx, sdk.ServiceBridgeOptions{
 		SocketPath: serviceSocket, ExpectedHostUID: uint32(expectedUID),
 		InstallationID: "22222222-2222-4333-8444-555555555555",
-	}); err == nil {
-		outcome.fail("wrong installation bootstrap unexpectedly succeeded")
+	}); err == nil || err.Error() != "background bootstrap returned HTTP 403" {
+		outcome.fail("wrong installation bootstrap: got %v, want HTTP 403", err)
 		done()
 		return
 	}
 	outcome.MismatchRefused = true
+	// The rejected bootstrap must leave the existing admission live.
+	// Otherwise a later 401 would not prove the orchestrator's rotation.
+	held, err := client.ReadOperations(ctx)
+	if err != nil || held.Generation != expectedGeneration {
+		outcome.fail("held admission after rejected bootstrap: %v (generation %q)", err, held.Generation)
+		done()
+		return
+	}
+	outcome.HeldAdmissionOK = true
 	// Interim outcome: the orchestrator reads this, rotates the admission,
 	// then creates the rotate file. The held admission must stop working.
 	done()
