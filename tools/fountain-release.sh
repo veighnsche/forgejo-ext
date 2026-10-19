@@ -9,13 +9,15 @@ fi
 version=$1
 commit=$2
 out=$3
-[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+-fountain\.[1-9][0-9]*$ ]]
-[[ $commit =~ ^[0-9a-f]{40}$ ]]
-[[ $out == /home/* && $(uname -sm) == 'Linux x86_64' ]]
-[[ $(git rev-parse HEAD) == "$commit" ]]
-[[ -z $(git status --porcelain --untracked-files=normal) ]]
-for tool in go npm gcc make tar gzip jq sha256sum "${CONTAINER_ENGINE:-docker}"; do command -v "$tool" >/dev/null; done
-mkdir "$out" # Refuse to overwrite an earlier attempt.
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+-fountain\.[1-9][0-9]*$ ]] || { echo "release: VERSION '$version' must look like 15.0.10-fountain.2" >&2; exit 1; }
+[[ $commit =~ ^[0-9a-f]{40}$ ]] || { echo "release: COMMIT '$commit' must be a 40-character hex commit" >&2; exit 1; }
+[[ $out == /home/* && $(uname -sm) == 'Linux x86_64' ]] || { echo "release: output '$out' must live under /home on native Linux x86_64 ($(uname -sm))" >&2; exit 1; }
+head_commit=$(git rev-parse HEAD 2>/dev/null) || { echo "release: cannot read HEAD from this checkout" >&2; exit 1; }
+[[ $head_commit == "$commit" ]] || { echo "release: HEAD $head_commit is not the release commit $commit" >&2; exit 1; }
+dirty=$(git status --porcelain --untracked-files=normal) || { echo "release: cannot inspect checkout cleanliness" >&2; exit 1; }
+[[ -z $dirty ]] || { echo "release: checkout has uncommitted changes:" >&2; echo "$dirty" | head -n 10 >&2; exit 1; }
+for tool in go npm gcc make tar gzip jq sha256sum "${CONTAINER_ENGINE:-docker}"; do command -v "$tool" >/dev/null || { echo "release: required tool missing: $tool" >&2; exit 1; }; done
+mkdir "$out" 2>/dev/null || { echo "release: cannot create fresh output '$out' (refusing to overwrite an earlier attempt)" >&2; exit 1; }
 out=$(realpath "$out")
 mkdir "$out/source"
 # Extension fixtures use Unix sockets; keep temporary paths short even when
@@ -25,7 +27,7 @@ export npm_config_cache="${npm_config_cache:-$HOME/.npm}"
 export GOTOOLCHAIN=go1.26.9
 export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
 export GOPATH="${GOPATH:-$HOME/go}"
-for path in "$TMPDIR" "$npm_config_cache" "$GOCACHE" "$GOPATH"; do [[ $path == /home/* ]]; done
+for path in "$TMPDIR" "$npm_config_cache" "$GOCACHE" "$GOPATH"; do [[ $path == /home/* ]] || { echo "release: scratch path '$path' must live under /home" >&2; exit 1; }; done
 source_name="fountain-$version-source.tar.gz"
 git archive --format=tar --prefix="fountain-$version/" "$commit" | gzip -1n > "$out/$source_name"
 [[ $(gzip -dc "$out/$source_name" | { git get-tar-commit-id; cat >/dev/null; }) == "$commit" ]]
