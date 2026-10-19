@@ -2080,3 +2080,71 @@ test('clean link navigation never prompts', async () => {
     window.config = savedConfig;
   }
 });
+
+test('a repository feed at /workspace keeps the workspace hidden across entry and navigation', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/workspace');
+  document.body.innerHTML = liveMarkup({content: directContent('<h1>Project feed</h1>'), home: homeMarkup({hidden: true, panels: '<div id="retained-workspace">Workspace</div>'})});
+  window.config = {appSubUrl: '', pageData: {extension: {id: 'example', pageID: 'repository-feed'}}};
+  const owner = document.getElementById('retained-workspace');
+  const fetcher = vi.fn(async (url) => navigationResponse(nativeDocument({
+    title: url.includes('/team/repo/') ? 'Project feed' : 'Workspace',
+    pageData: {extension: {id: 'example'}},
+    content: directContent(url.includes('/team/repo/') ? '<h1>Project feed</h1>' : 'Workspace'),
+    home: homeMarkup({hidden: url.includes('/team/repo/')}),
+  })));
+  try {
+    initExtensionWorkspace(fetcher);
+    const home = document.querySelector('[data-extension-panels]');
+    expect(home.hasAttribute('hidden')).toBe(true);
+    expect(home.hasAttribute('inert')).toBe(true);
+    clickWorkspaceLink('/workspace');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/workspace'));
+    expect(home.hasAttribute('hidden')).toBe(false);
+    expect(document.getElementById('retained-workspace')).toBe(owner);
+    clickWorkspaceLink('/team/repo/workspace');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/workspace'));
+    expect(home.hasAttribute('hidden')).toBe(true);
+    expect(home.hasAttribute('inert')).toBe(true);
+    expect(document.getElementById('retained-workspace')).toBe(owner);
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});
+
+test('a hidden shared Workspace loads on first open and reuses its mounted owner', async () => {
+  const savedConfig = window.config;
+  window.history.replaceState(null, '', '/team/repo/workspace');
+  const panel = panelRootMarkup({panelId: 'workspace', ownerId: 'workspace', apiBase: '/-/native/pages/example/spaces/api/'});
+  document.body.innerHTML = liveMarkup({content: directContent('Project feed'), home: homeMarkup({hidden: true, panels: panel})});
+  window.config = {appSubUrl: '', pageData: {}};
+  const mount = vi.fn(() => ({update: vi.fn(), dispose: vi.fn()}));
+  const importer = vi.fn(async () => ({mount}));
+  const fetcher = vi.fn(async (url) => navigationResponse(nativeDocument({
+    title: 'Page', pageData: {}, content: directContent('Page'),
+    home: homeMarkup({hidden: url.includes('/team/repo/'), panels: panel}),
+  })));
+  try {
+    initExtensionPages(importer);
+    initExtensionWorkspace(fetcher);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(importer).not.toHaveBeenCalled();
+    expect(mount).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-extension-panel]').hasAttribute('data-extension-mounted')).toBe(false);
+    clickWorkspaceLink('/workspace');
+    await vi.waitFor(() => expect(mount).toHaveBeenCalledOnce());
+    const root = document.querySelector('[data-extension-panel]');
+    clickWorkspaceLink('/team/repo/workspace');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/team/repo/workspace'));
+    expect(document.querySelector('[data-extension-panels]').hasAttribute('hidden')).toBe(true);
+    clickWorkspaceLink('/workspace');
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/workspace'));
+    expect(document.querySelector('[data-extension-panel]')).toBe(root);
+    expect(importer).toHaveBeenCalledOnce();
+    expect(mount).toHaveBeenCalledOnce();
+  } finally {
+    window.dispatchEvent(new Event('pagehide'));
+    window.config = savedConfig;
+  }
+});

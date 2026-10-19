@@ -1,9 +1,10 @@
 # Native extensions
 
-This experimental extension interface adds independently installed packages to
-Forgejo 15.0.10. A package contains a native backend executable, a manifest and
-browser assets. Installing or replacing it does not rebuild Forgejo. Packages
-start with Forgejo; changes require a stop and restart.
+Fountain's experimental extension interface adds independently installed packages
+to Forgejo. A package contains a native backend executable, a manifest and browser
+assets. Installing or replacing it does not rebuild the host. The local package
+CLI requires a stopped host; `/admin/extensions` can enable and disable optional
+packages while Fountain is running.
 
 Extensions are **administrator-trusted code**. Their backend runs as the Forgejo
 OS user, and their JavaScript runs on Forgejo's origin with access to the native
@@ -45,6 +46,7 @@ configuration and work path:
 
 ```sh
 forgejo --config /home/forgejo/custom/conf/app.ini --work-path /home/forgejo extensions install .artifacts/packages/example
+forgejo --config /home/forgejo/custom/conf/app.ini --work-path /home/forgejo extensions enable example
 forgejo --config /home/forgejo/custom/conf/app.ini --work-path /home/forgejo extensions list
 ```
 
@@ -54,20 +56,27 @@ navigation link. The workspace's notes panel remains mounted while native pages
 navigate. **Save notes** stores up to 16 KiB of UTF-8 text for the signed-in actor
 in the extension's private data directory.
 
-Use `extensions install --replace DIRECTORY` to replace a package,
-`extensions disable ID` to deactivate it, and `extensions enable ID` to activate
-it. Stop Forgejo first: an OS lock blocks package changes while the extension
-manager is running. Replacement preserves activation and data. Installation
-validates paths and entry files, rejects symlinks and special files, stages the
-copy before replacing the old package, and limits packages to 10,000 files and
-512 MiB. There is no upload endpoint, package downloader or hot reload.
+Use `extensions install --replace DIRECTORY` to replace a local package. The CLI
+commands `extensions disable ID` and `extensions enable ID` record activation for
+the next start. Stop Forgejo before using these commands: the manager holds the
+package-store lock while running. Replacement preserves activation and data.
+Installation validates paths and entry files, rejects symlinks and special files,
+stages the copy before replacing the old package, and limits packages to 10,000
+files and 512 MiB.
 
-Enabled packages are discovered once at startup. A startup failure stops all
-extensions and fails server initialization. A later backend crash removes that
-extension's contributions when the registry next checks it; restart Forgejo to
-start it again. Data under `PATH/.data/ID` persists across replacement, disabling
-and restarts. Keep that directory in service backups when its content matters.
-The package directory and runtime sockets are not a database API.
+For live administration, `/admin/extensions` can acquire packages from a configured
+trusted catalog and enable or disable optional packages. Catalog archives have
+exact size and SHA-256 pins. Required packages must be ready before core startup;
+optional packages restore their requested state asynchronously, and an optional
+backend failure isolates that package. Administrator lifecycle controls report
+status and support explicit retries. Configuration and route-claim errors can
+still prevent host startup. See the
+[lifecycle contract](../../docs/fountain-release.md#extension-lifecycle-contract-rcx-2)
+for catalogs, required packages, external controllers and recovery.
+
+Data under `PATH/.data/ID` persists across replacement, disabling and restarts.
+Keep that directory in service backups when its content matters. The package
+directory and runtime sockets are not a database API.
 
 ## Manifest and native contributions
 
@@ -88,7 +97,7 @@ accounts. Pages use the corresponding native layout and navigation:
 
 | Scope | Permission | Route |
 | --- | --- | --- |
-| `global` | omitted | `/workspace`, `/tailnet` |
+| `global` | omitted | `/workspace`, `/feed`, `/applications`, `/tailnet` |
 | `user` | `user` | `/user/settings/workspace`, `/user/settings/identity` |
 | `repository` | `read`, `write`, or `admin` | `/OWNER/REPO/workspace` |
 | `admin` | `admin` | `/admin/workspace` |

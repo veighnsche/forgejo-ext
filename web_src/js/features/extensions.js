@@ -198,6 +198,9 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
   };
   function mountRoot(root) {
     if (leaving || root.hasAttribute('data-extension-mounted')) return;
+    // Shared workspace owners can create inventory reads and live sessions.
+    // Do not import or initialize them until their presentation is opened.
+    if (root.hasAttribute('data-extension-panel') && root.dataset.extensionOwnerId && home?.hasAttribute('hidden')) return;
     if (root.hasAttribute('data-extension-page') && panelOwnerKeys.has(ownerKey(root))) {
       root.setAttribute('data-extension-owner-presented', '');
       return;
@@ -396,7 +399,7 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
       // A linked shared owner's retained panel presents in page mode on
       // its owner's direct paths (NFX-C04/H-OWNER).
       const routePath = typeof facts.route === 'string' ? facts.route.split(/[?#]/)[0] : '';
-      const ownerDirect = !isPage && Boolean(owner.root.dataset.extensionOwnerId) &&
+      const ownerDirect = !isPage && panelsVisible && Boolean(owner.root.dataset.extensionOwnerId) &&
         workspaceDirectPath(routePath, owner.root.dataset.appSubUrl ?? '', directPatterns(home));
       owner.update({...facts, mode: isPage || ownerDirect ? 'page' : 'panel', visible: isPage ? true : panelsVisible});
     }
@@ -404,6 +407,9 @@ export function initExtensionPages(importer = importExtension, fetcher = (...arg
       if (owned.has(root)) continue;
       pageRoots.add(root);
       mountRoot(root);
+    }
+    if (panelsVisible) {
+      for (const root of home?.querySelectorAll('[data-extension-panel]') ?? []) mountRoot(root);
     }
   }
   function onWorkspaceNavigation(event) {
@@ -602,22 +608,15 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
     trackNativeWrite(url);
   };
 
-  // Ordinary routes keep their authoritative native handlers. The entered
-  // renderer's content/config/home envelope decides eligibility; there is
-  // no product-specific route whitelist or parallel document renderer.
-  function transplantKind(path) {
-    const pathname = new URL(path, origin).pathname;
-    if (workspaceDirectPath(pathname, appSubPath, directPatterns(home))) return 'direct';
-    return 'plain';
-  }
-
   // The persistent home is visible on direct contribution paths and
   // hidden+inert on ordinary native shapes; the server renders the initial
   // state and each transplant resyncs it. Hiding never drops focus to the
   // body: focus inside the home moves to the entered content region.
   // Showing never steals focus.
-  function syncPanelsHome(path) {
-    if (transplantKind(path) === 'direct') {
+  function syncPanelsHome(enteredHome) {
+    // The admitted contribution decides whether its page uses a retained
+    // panel. A URL suffix cannot distinguish that page from a separate feed.
+    if (!enteredHome.hasAttribute('hidden')) {
       home.removeAttribute('hidden');
       home.removeAttribute('inert');
       return;
@@ -633,7 +632,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       }
     }
   }
-  syncPanelsHome(current);
+  syncPanelsHome(home);
   // Public programmatic navigation (NFX-C04/H-ROUTE): contributions and
   // native features request transitions through the host instead of
   // assigning window.location. Admitted native paths transplant;
@@ -789,7 +788,7 @@ export function initExtensionWorkspace(fetcher = (...args) => window.fetch(...ar
       syncNavbarStates(native);
       if (enteredHome.dataset.extensionSubroutes === undefined) delete home.dataset.extensionSubroutes;
       else home.dataset.extensionSubroutes = enteredHome.dataset.extensionSubroutes;
-      syncPanelsHome(path);
+      syncPanelsHome(enteredHome);
       if (repositoryId) home.dataset.extensionRepositoryId = repositoryId;
       else delete home.dataset.extensionRepositoryId;
       // Initializers read the entered address as well as its page data.

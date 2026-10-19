@@ -407,7 +407,10 @@ func renderPage(ctx *context.Context, d extensions_service.Descriptor, transport
 	ctx.Resp.Header().Set("Cache-Control", "no-store")
 	ctx.Resp.Header().Set(extension.SessionGenerationHeader, generation)
 	ctx.Data["PageIsExtension"] = true
-	ctx.Data["PageIsWorkspacePage"] = p.Route == "workspace"
+	// A shared owner presents this page through its retained panel. An
+	// independent page (including a repository feed at /workspace) owns
+	// its own mount and must not expose the workspace panels below it.
+	ctx.Data["PageIsWorkspacePage"] = p.Owner != ""
 	ctx.Data["ExtensionPageURL"] = setting.AppSubURL + ctx.Req.URL.EscapedPath()
 	ctx.PageData["extension"] = map[string]string{"id": d.Manifest.ID, "name": d.Manifest.Name, "pageID": p.ID, "title": p.Title}
 	ctx.PageData["apiBase"] = pageAPIBase(ctx, d, p)
