@@ -89,6 +89,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           cache-dir: /home/runner/fountain-buildkit-cache
+          # Keep action scratch outside the release checkout: the producer
+          # refuses any uncommitted checkout content before building.
+          scratch-dir: /home/runner/fountain-scratch
           dockerfile: Dockerfile
           skip-extraction: ${{ steps.mounts.outputs.cache-hit }}
       - name: Source gates, build once, test image
