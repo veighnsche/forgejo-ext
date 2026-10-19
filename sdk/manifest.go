@@ -340,7 +340,7 @@ func (p Page) MatchSubroute(suffix string) (Subroute, map[string]string, bool) {
 func NativePageRoutes(scope string) []string {
 	switch scope {
 	case "global":
-		return []string{"workspace", "tailnet"}
+		return []string{"workspace", "feed", "applications", "tailnet"}
 	case "user":
 		return []string{"workspace", "identity"}
 	case "admin", "repository":

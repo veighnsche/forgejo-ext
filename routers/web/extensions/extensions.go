@@ -70,15 +70,15 @@ func Register(m *web.Route, signedIn, admin any) {
 				prefix = "/admin"
 				guard = admin
 			}
-			m.Get(prefix+"/"+route, NativeSession, guard, pageRoute(scope, route))
+			m.Get(prefix+"/"+route, guard, NativeSession, pageRoute(scope, route))
 			// Declared subordinate content routes (NFX-C04/H-ROUTE) are
 			// resolved generically against the page's manifest
 			// declarations; undeclared suffixes 404 in the handler.
-			m.Get(prefix+"/"+route+"/*", NativeSession, guard, pageSubroute(scope, route))
+			m.Get(prefix+"/"+route+"/*", guard, NativeSession, pageSubroute(scope, route))
 		}
 	}
-	m.Get("/{username}/{reponame}/workspace", NativeSession, signedIn, context.RepoAssignment, context.UnitTypes(), Navigation, repositoryWorkspace)
-	m.Get("/{username}/{reponame}/workspace/*", NativeSession, signedIn, context.RepoAssignment, context.UnitTypes(), Navigation, repositorySubroute)
+	m.Get("/{username}/{reponame}/workspace", signedIn, NativeSession, context.RepoAssignment, context.UnitTypes(), Navigation, repositoryWorkspace)
+	m.Get("/{username}/{reponame}/workspace/*", signedIn, NativeSession, context.RepoAssignment, context.UnitTypes(), Navigation, repositorySubroute)
 	m.Get("/-/native/session", NativeSession, signedIn, SessionCheck)
 	m.Methods("GET,HEAD", "/-/native/assets/{extension}/*", NativeSession, signedIn, Assets)
 	m.Methods("GET,HEAD,POST,PUT,PATCH,DELETE", "/-/native/panels/{extension}/{page}/api/*", NativeSession, signedIn, api("panel", true))
