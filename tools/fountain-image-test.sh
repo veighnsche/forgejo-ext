@@ -84,9 +84,12 @@ verify() {
     test -s "$out/$(basename "$asset")"
   done
   grep -F 'MIT' "$out/licenses.txt" >/dev/null
-  # RequiredIDs makes readiness contingent on a real SDK handshake. A native
-  # route (401 to an unauthenticated client) also proves contribution registration.
-  [[ $("$engine" exec "$container" curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/workspace) == 401 ]]
+  # RequiredIDs makes readiness contingent on a real SDK handshake. The
+  # signed-in guard now runs before the native session check, so an
+  # unauthenticated client is redirected to login (303). A matched route
+  # still proves contribution registration; an unregistered path would 404.
+  [[ $("$engine" exec "$container" curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/workspace) == 303 ]]
+  "$engine" exec "$container" curl -s -D - -o /dev/null http://localhost:3000/workspace | grep -qi '^location: .*/user/login'
   "$engine" exec "$container" test -s /data/gitea/gitea.db
 }
 verify
