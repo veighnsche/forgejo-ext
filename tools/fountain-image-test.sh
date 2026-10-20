@@ -22,6 +22,12 @@ package_size=$(stat -c %s "$out/example.tar.gz")
 jq --arg sha "$package_sha" --argjson size "$package_size" \
   '{version:1,packages:[{id:.id,version:.version,url:"https://fixture.invalid/example.tar.gz",size:$size,sha256:$sha,required:true,fountain_protocol:.protocol,browser_contract:1,capabilities:.capabilities}]}' \
   "$out/example/extension.json" > "$out/catalog.json"
+# The host admits a catalog owned by root or its service UID, but the fixture
+# carries the checkout owner's UID instead. Stamp it with the image's own
+# default (root) identity through a disposable container: no host privilege is
+# needed, the file stays group/other-readable, and local and CI runs agree.
+"$engine" run --rm --mount "type=bind,src=$out,dst=/out" "$image" \
+  sh -c 'cp /out/catalog.json /out/catalog.json.fixture && mv /out/catalog.json.fixture /out/catalog.json && chmod 644 /out/catalog.json'
 # All fixture state is disposable. Use the image's s6 setup and generated app.ini.
 container=$("$engine" run -d --mount "type=bind,src=$out/data,dst=/data" \
   --mount "type=bind,src=$out/example,dst=/example,ro=true" \
