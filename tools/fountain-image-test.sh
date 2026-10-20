@@ -30,7 +30,15 @@ container=$("$engine" run -d --mount "type=bind,src=$out/data,dst=/data" \
   -e FORGEJO__extensions__ENABLED=true -e FORGEJO__extensions__REQUIRED_IDS=example \
   -e FORGEJO__extensions__CATALOG_PATH=/fixture-catalog.json \
   "$image")
-cleanup() { "$engine" logs "$container" > "$out/container.log" 2>&1; "$engine" rm -fv "$container" >/dev/null; }
+failed=1
+cleanup() {
+  "$engine" logs "$container" > "$out/container.log" 2>&1
+  if [[ $failed != 0 ]]; then
+    echo '--- container log (tail) ---' >&2
+    tail -n 120 "$out/container.log" >&2 || true
+  fi
+  "$engine" rm -fv "$container" >/dev/null
+}
 trap cleanup EXIT
 # The first boot writes configuration but cannot become ready without its required package.
 for ((i=0; i<60; i++)); do
@@ -80,4 +88,5 @@ verify
 "$engine" restart "$container" >/dev/null
 verify
 "$engine" exec "$container" grep -Fx retained /data/gitea/release-restart-marker
+failed=0
 echo 'Image startup, assets, extension handshake and persistent-state restart passed.'
