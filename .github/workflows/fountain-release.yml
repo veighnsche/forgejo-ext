@@ -3,9 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing exact Fountain tag (v15.0.10-fountain.1)
+        description: Exact Fountain tag to publish (v15.0.10-fountain.1), or the prospective tag for a dry run
         required: true
         type: string
+      dry_run:
+        description: Validate only (source gates, build once, test image); publish nothing and require no tag
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -38,7 +43,12 @@ jobs:
           set -euo pipefail
           mkdir -p "$TMPDIR"
           [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-fountain\.[1-9][0-9]*$ ]]
-          commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          if [[ '${{ inputs.dry_run }}' == true ]]; then
+            # Validation only: the tag names the attempt but need not exist.
+            commit=$GITHUB_SHA
+          else
+            commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          fi
           repo=$(gh api "repos/$GITHUB_REPOSITORY")
           jq -e '.private == false' <<< "$repo"
           # Reuse caches on a stable maintained branch across release tags.
@@ -47,7 +57,7 @@ jobs:
           # from an unrelated dispatch branch or a moving ref.
           [[ $commit == "$GITHUB_SHA" ]]
           git checkout --detach "$commit"
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          if [[ '${{ inputs.dry_run }}' != true ]] && gh release view "$TAG" >/dev/null 2>&1; then
             echo 'Release already exists; choose a new version.' >&2
             exit 1
           fi
@@ -100,12 +110,14 @@ jobs:
           COMMIT: ${{ steps.release.outputs.commit }}
         run: bash tools/fountain-release.sh "$VERSION" "$COMMIT" "$OUT"
       - name: Login to GHCR
+        if: ${{ !inputs.dry_run }}
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Publish the validated image and release assets
+        if: ${{ !inputs.dry_run }}
         env:
           VERSION: ${{ steps.release.outputs.version }}
           COMMIT: ${{ steps.release.outputs.commit }}

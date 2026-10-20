@@ -91,6 +91,26 @@ explicitly, do not overwrite them or assume the release completed atomically.
 Create a new version for a subsequent attempt. GitHub publication and permission
 behavior require a real authorized run; local tests cannot establish them.
 
+One command drives the whole flow from a clean checkout on the maintained
+branch — preflight, tag, dispatch, watch, and the failure tail:
+
+```sh
+bash tools/fountain-release-run.sh 15.0.10-fountain.2
+```
+
+It asks for confirmation unless passed `--yes`, refuses to retag without
+`--move-tag`, and exits non-zero with the run URL when the watch times out.
+`--dry-run` validates only (source gates, build once, test image) and
+publishes nothing, so the tag need not exist yet:
+
+```sh
+bash tools/fountain-release-run.sh 15.0.10-fountain.3 --dry-run
+```
+
+Validate a candidate with a dry run before cutting its tag; tags still mark
+only published releases. The same flag exists on the workflow dispatch
+(`-F dry_run=true`) for manual runs.
+
 First-release prerequisites:
 
 - A public GitHub source repository, Actions enabled, workflow registered on its
