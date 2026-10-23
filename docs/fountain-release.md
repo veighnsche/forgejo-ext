@@ -98,10 +98,16 @@ branch — preflight, tag, dispatch, watch, and the failure tail:
 bash tools/fountain-release-run.sh 15.0.10-fountain.2
 ```
 
-It asks for confirmation unless passed `--yes`, refuses to retag without
-`--move-tag`, and exits non-zero with the run URL when the watch times out.
+It asks for confirmation before pushing refs or dispatching unless passed `--yes`.
+Version tags are immutable: a tag targeting another commit, including a remote
+tag, requires a new version; `--move-tag` is refused. Failed workflows and watch
+timeouts exit non-zero with the run URL.
+The driver requires GitHub CLI's created-run URL response (available in `gh`
+2.97.0). It watches that exact dispatch, verifies its commit, and refuses missing
+or ambiguous run URLs instead of selecting another run of the same commit.
 `--dry-run` validates only (source gates, build once, test image) and
-publishes nothing, so the tag need not exist yet:
+publishes nothing, so the tag need not exist yet. It never pushes branches or
+tags; the candidate must already be on the maintained branch:
 
 ```sh
 bash tools/fountain-release-run.sh 15.0.10-fountain.3 --dry-run
@@ -197,6 +203,13 @@ an executable compatible with Linux amd64/musl (or a static binary), readable
 assets and a valid manifest. Fountain runs trusted packages as the host user;
 installation, activation, private data and socket lifecycle remain host-owned.
 No Soda branding, configuration or extension is preinstalled in Fountain.
+
+### Offline native-operation recovery
+
+The [offline recovery guide](native-operation-recovery.md) gives the native CLI
+invocation and the Soda appliance's image/user/configuration/storage/database
+mapping after whole-domain stop. Its disposable image fixture checks CLI wiring
+and recovery verdicts; installed appliance recovery remains downstream evidence.
 
 ## Extension lifecycle contract (RCX-2)
 

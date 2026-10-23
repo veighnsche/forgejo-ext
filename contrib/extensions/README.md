@@ -139,6 +139,9 @@ entry-mismatched links. Both modes mount with the same entry and the
 page's `apiBase` as the one canonical API identity, receive `ownerId`
 in their mount context, and the host mounts a single retained instance
 (the panel root) while the page root acts as its presentation slot.
+The bundled example links its global Workspace page and notes panel this way.
+Its repository Workspace page remains independent: native repository pages keep
+the shared owner hidden, retaining its draft and stream until Workspace reopens.
 
 Page APIs use the private native-web prefix `/-/native/pages/ID/PAGE/api/`,
 preceded by `/user/settings`, `/admin`, or `/OWNER/REPO` for their native scope.
@@ -303,19 +306,17 @@ must compile valid local styles and keep its own forms/settings/dialogs usable.
    C owns the retained-owner mount. NFX-A01 therefore closes on its original
    finish condition; the Soda task ledger count remains for the delivery lane
    to reconcile.
-2. Supply the reusable manifest/browser lifecycle contract and native container
-   behavior. Integrate the needed initialization/cleanup into native feature
-   owners; use the existing Forgejo frontend mechanisms rather than a parallel
-   component framework. A whole-document reload cannot establish same-object
-   persistence. A failed native proof is an unresolved capability, not permission
-   to substitute consumer reconnection or another wrapper.
-3. Complete the wider native feature/route cutover through the proved lifecycle and
-   remove remaining obsolete wrapper callers. Retain native handlers, contribution
-   guards, admission, callbacks and stream revocation. Qualify affected native
-   feature classes before widening navigation support; the bounded route proof
-   does not establish the whole site's lifecycle.
-4. Migrate consumers to the host contract and remove obsolete shell adapters with
-   their callers/fixtures. Verify the actual installed consumer composition and
+2. The reusable manifest/browser lifecycle contract and native containers are
+   implemented. Native feature owners register initialization and retirement
+   through `web_src/js/index.js` and `web_src/js/native-lifecycle.js`, including
+   account/admin, issue/PR, code/editor/diff, dashboard and repository widgets.
+   The native feature suites and `b07-closure.test.js` retain the cutover checks.
+   A whole-document reload cannot establish same-object persistence.
+3. New native routes and features must preserve the existing lifecycle, handlers,
+   contribution guards, admission, callbacks and stream revocation. Qualify the
+   affected feature classes before widening navigation support; the example's
+   bounded route proof does not establish every native site's lifecycle.
+4. Consumers use the host contract and qualify their installed composition and
    resources separately; a generic example does not prove an application's xterm
    behavior, content geometry or emitted stylesheet correctness.
 

@@ -2,6 +2,7 @@ import {vi} from 'vitest';
 import {mountContribution, parseMountDataset, createScopedRequest, createScopedStream} from './extension-mount.js';
 import {mount as mountExamplePage} from '../../../contrib/extensions/example/assets/page.js';
 import {mount as mountExamplePanel} from '../../../contrib/extensions/example/assets/panel.js';
+import {mount as mountExampleWorkspace} from '../../../contrib/extensions/example/assets/workspace.js';
 
 function pageRoot() {
   const root = document.createElement('div');
@@ -29,14 +30,14 @@ class FakeSocket {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-test('example page refuses a different consumer contract version before effects', async () => {
+test.each([['page', mountExamplePage], ['workspace', mountExampleWorkspace]])('example %s refuses a different consumer contract version before effects', async (_name, mount) => {
   const root = document.createElement('div');
   root.textContent = 'unchanged';
   const request = vi.fn();
   const stream = vi.fn();
   const createElement = vi.spyOn(document, 'createElement');
   try {
-    await expect(mountExamplePage(root, {contractVersion: 2, request, stream})).rejects.toThrow('Unsupported browser contract version');
+    await expect(mount(root, {contractVersion: 2, request, stream})).rejects.toThrow('Unsupported browser contract version');
     expect(root.textContent).toBe('unchanged');
     expect(createElement).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
@@ -66,7 +67,7 @@ test('example panel refuses a different consumer contract version before effects
   }
 });
 
-test('example lifecycle pauses visible work and retains its connected root and stream until retirement', async () => {
+test.each([['panel', mountExamplePanel], ['shared workspace', mountExampleWorkspace]])('example %s lifecycle pauses visible work and retains its connected root and stream until retirement', async (_name, mount) => {
   vi.useFakeTimers();
   const sockets = [];
   class ExampleSocket extends EventTarget {
@@ -85,8 +86,8 @@ test('example lifecycle pauses visible work and retains its connected root and s
   document.body.append(root);
   let owner;
   try {
-    const fetcher = vi.fn().mockResolvedValue({ok: true, text: async () => 'private notes'});
-    owner = await mountContribution(root, {importer: async () => ({mount: mountExamplePanel}), fetcher, websocketClass: ExampleSocket});
+    const fetcher = vi.fn().mockResolvedValue({ok: true, text: async () => 'private notes', json: async () => ({actor: {id: '7'}})});
+    owner = await mountContribution(root, {importer: async () => ({mount}), fetcher, websocketClass: ExampleSocket});
     await vi.advanceTimersByTimeAsync(0);
     const input = root.querySelector('textarea');
     const lifetime = root.querySelector('[data-panel-lifetime]');

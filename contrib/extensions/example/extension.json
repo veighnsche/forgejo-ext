@@ -12,7 +12,8 @@
       "id": "home",
       "title": "Workspace",
       "scope": "global",
-      "entry": "page.js",
+      "entry": "workspace.js",
+      "owner": "workspace",
       "route": "workspace",
       "subroutes": [
         {"pattern": "new", "title": "New Project"},
@@ -52,7 +53,8 @@
     {
       "id": "notes",
       "title": "Persistent notes",
-      "entry": "panel.js"
+      "entry": "workspace.js",
+      "owner": "workspace"
     }
   ]
 }

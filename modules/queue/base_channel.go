@@ -78,12 +78,14 @@ func (q *baseChannel) PopItem(ctx context.Context) ([]byte, error) {
 		if !ok {
 			return nil, errChannelClosed
 		}
-		q.mu.Lock()
-		removed := q.set.Remove(string(data))
-		if !removed {
-			log.Error("synchronization failure; data could not be removed from tracking set in unique queue")
+		if q.isUnique {
+			q.mu.Lock()
+			removed := q.set.Remove(string(data))
+			if !removed {
+				log.Error("synchronization failure; data could not be removed from tracking set in unique queue")
+			}
+			q.mu.Unlock()
 		}
-		q.mu.Unlock()
 		return data, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()

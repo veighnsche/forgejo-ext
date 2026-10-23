@@ -13,9 +13,21 @@ test.use({user: 'user2'});
 test('example keeps native navigation, panel lifetime and session authority', async ({page, browser}) => {
   await page.goto('/user2/repo1/workspace');
   const notes = page.locator('#example-persistent-notes');
+  await expect(notes).toHaveCount(0);
+  await page.locator('#navbar a[href="/workspace"]').click();
+  await expect(page).toHaveURL(/\/workspace$/);
+  await expect(notes).toBeVisible();
   await expect(notes).toBeEditable();
   await notes.fill('Fountain browser draft');
   await notes.evaluate((element) => { element.dataset.fountainProbe = 'original-mount' });
+  const stream = page.locator('[data-stream-connection]');
+  await expect(stream).toHaveAttribute('data-stream-connection', 'user2');
+  await page.getByRole('button', {name: 'Ping stream', exact: true}).click();
+  await expect(page.locator('[data-stream-reply]')).toHaveAttribute('data-stream-reply', 'ping-1');
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/user2\/repo1\/workspace$/);
+  await expect(notes).toBeHidden();
   await page.locator('overflow-menu a[href="/user2/repo1/issues"]').click();
   await expect(page).toHaveURL(/\/user2\/repo1\/issues$/);
   await expect(notes).toHaveValue('Fountain browser draft');
@@ -28,6 +40,14 @@ test('example keeps native navigation, panel lifetime and session authority', as
   await branchButton.click();
   await expect(notes).toHaveAttribute('data-fountain-probe', 'original-mount');
   await expect(page.locator('[data-panel-lifetime]')).toHaveAttribute('title', /user2\/repo1/);
+  await expect(notes).toBeHidden();
+  await page.locator('#navbar a[href="/workspace"]').click();
+  await expect(notes).toBeVisible();
+  await expect(notes).toHaveValue('Fountain browser draft');
+  await expect(notes).toHaveAttribute('data-fountain-probe', 'original-mount');
+  await expect(stream).toHaveAttribute('data-stream-connection', 'user2');
+  await page.getByRole('button', {name: 'Ping stream', exact: true}).click();
+  await expect(page.locator('[data-stream-reply]')).toHaveAttribute('data-stream-reply', 'ping-2');
 
   const denied = await page.request.get('/admin/extensions');
   expect(denied.status()).toBe(403);

@@ -46,17 +46,28 @@ func newHandler(dataDir string) http.Handler {
 	return handler
 }
 
-// streamHandler serves the admitted notes-panel stream: the host proxies an
+// notesAuthority accepts the notes panel and its linked global workspace page.
+// Both presentations use the page's canonical API identity for a shared owner.
+func notesAuthority(authority extensions.Authority) bool {
+	if authority.Actor.ID == "" {
+		return false
+	}
+	contribution := authority.Contribution
+	return contribution.Kind == "panel" && contribution.ID == "notes" && contribution.Scope == "panel" ||
+		contribution.Kind == "page" && contribution.ID == "home" && contribution.Scope == "global"
+}
+
+// streamHandler serves the admitted workspace stream: the host proxies an
 // authenticated browser websocket here carrying only host-minted admission,
 // never browser credentials. Admission mirrors the integration fixture:
-// native panel authority, no leaked credential headers, and a native
+// native contribution authority, no leaked credential headers, and a native
 // callback round-trip before the socket is accepted. The panel greets with
 // {"hello": username} and echoes JSON payloads (ping replies).
 func streamHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authority, err := extensions.RequestContext(r)
-		if err != nil || authority.Actor.ID == "" || authority.Contribution.Kind != "panel" || authority.Contribution.ID != "notes" {
-			http.Error(w, "Missing native panel authority", http.StatusUnauthorized)
+		if err != nil || !notesAuthority(authority) {
+			http.Error(w, "Missing native notes authority", http.StatusUnauthorized)
 			return
 		}
 		if r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" || r.Header.Get("Sec-WebSocket-Protocol") != "" || r.Header.Get(extensions.SessionGenerationHeader) != "" {
@@ -106,8 +117,8 @@ func streamHandler() http.HandlerFunc {
 func notesHandler(dataDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authority, err := extensions.RequestContext(r)
-		if err != nil || authority.Actor.ID == "" || authority.Contribution.Kind != "panel" || authority.Contribution.ID != "notes" {
-			http.Error(w, "Missing native panel authority", http.StatusUnauthorized)
+		if err != nil || !notesAuthority(authority) {
+			http.Error(w, "Missing native notes authority", http.StatusUnauthorized)
 			return
 		}
 		if dataDir == "" {

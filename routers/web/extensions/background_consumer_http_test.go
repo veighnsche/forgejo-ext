@@ -5,7 +5,7 @@ package extensions
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json" //nolint:depguard // The independent consumer's wire result uses standard-library JSON semantics.
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,6 +26,8 @@ import (
 // shortWitnessRoot creates a short-lived root with a short random name.
 // Scratch stays under TMPDIR (or the home cache when TMPDIR is empty);
 // never under /tmp or the root disk.
+//
+//nolint:usetesting // Runtime Unix sockets need a short path outside test-name directories.
 func shortWitnessRoot(t *testing.T) string {
 	t.Helper()
 	base := os.Getenv("TMPDIR")
