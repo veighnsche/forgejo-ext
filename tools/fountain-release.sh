@@ -24,7 +24,7 @@ mkdir "$out/source"
 # the chosen output directory is deeply nested.
 export TMPDIR="${TMPDIR:-$(mktemp -d "$HOME/.fountain-tmp.XXXXXX")}"
 export npm_config_cache="${npm_config_cache:-$HOME/.npm}"
-export GOTOOLCHAIN=go1.26.9
+export GOTOOLCHAIN=go1.26.10
 export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
 export GOPATH="${GOPATH:-$HOME/go}"
 for path in "$TMPDIR" "$npm_config_cache" "$GOCACHE" "$GOPATH"; do [[ $path == /home/* ]] || { echo "release: scratch path '$path' must live under /home" >&2; exit 1; }; done

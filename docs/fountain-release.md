@@ -19,7 +19,7 @@ bash tools/fountain-release.sh 15.0.10-fountain.1 "$(git rev-parse HEAD)" \
   "$HOME/fountain-release-15.0.10-fountain.1"
 ```
 
-Prerequisites: Go 1.26.9 (selected by the script), Node as pinned in
+Prerequisites: Go 1.26.10 (selected by the script), Node as pinned in
 `.node-version`, npm 11.11.0 as selected by `package.json`, Git, GCC for native SQLite tests, GNU make/tar, gzip, jq and
 a working native Docker engine with BuildKit. `CONTAINER_ENGINE` may name a
 Podman wrapper with equivalent build/run/cp/inspect commands. Configure that
@@ -30,6 +30,11 @@ Use a short `TMPDIR` under `/home` for Unix socket fixtures; by default the
 script allocates a unique short directory directly below the home directory.
 The script leaves its isolated source, logs, disposable data and artifacts there
 for inspection; it removes only containers it created, never shared caches.
+
+Go 1.26.10 supplies the certificate-validation security fix for
+[GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809) within the existing Go 1.26
+toolchain line. The image test verifies the shipped executable's exact compiler
+version alongside its release identity.
 
 The script archives the exact HEAD commit before generation. It runs
 `make fountain-check-release`, sharing the existing upstream source checks,

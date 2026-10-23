@@ -110,7 +110,7 @@ entry point requires `FOUNTAIN_CHECK_ISOLATED=1` as an explicit acknowledgement
 of this constraint. It checks both worktree and index before and after the lane,
 and rejects unexpected untracked source.
 
-Prerequisites are Linux amd64, Go 1.26.9, Node from `.node-version`, npm from
+Prerequisites are Linux amd64, Go 1.26.10, Node from `.node-version`, npm from
 `package.json`, Git, GCC, GNU make, and the selected lane's tools. Database and
 browser integration use checksum-verified Git LFS v3.8.0, installed by the shared
 CI setup. Temporary paths

@@ -2,7 +2,7 @@ module forgejo.org/extension-sdk
 
 go 1.26.0
 
-toolchain go1.26.9
+toolchain go1.26.10
 
 require (
 	github.com/hashicorp/go-plugin v1.8.0

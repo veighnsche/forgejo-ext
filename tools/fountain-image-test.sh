@@ -11,6 +11,7 @@ engine=${CONTAINER_ENGINE:-docker}
 "$engine" run --rm "$image" forgejo --version | tee "$out/version.txt"
 grep -F "$version+gitea-1.22.0" "$out/version.txt"
 grep -F 'bindata' "$out/version.txt"
+grep -E '(^|[[:space:],])go1\.26\.10([[:space:],:]|$)' "$out/version.txt"
 mkdir "$out/data"
 # Required packages use the same pinned catalog and verified archive cache as
 # production bootstrap. The fixture URL is deliberately unreachable: the native

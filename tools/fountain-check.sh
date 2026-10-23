@@ -14,8 +14,8 @@ clean_source() {
 }
 clean_source
 [[ $(uname -sm) == 'Linux x86_64' ]]
-export GOTOOLCHAIN=go1.26.9 GOWORK=off
-[[ $(go version) == 'go version go1.26.9 linux/amd64' ]]
+export GOTOOLCHAIN=go1.26.10 GOWORK=off
+[[ $(go version) == 'go version go1.26.10 linux/amd64' ]]
 [[ $(node --version) == "v$(<.node-version)" ]]
 [[ "npm@$(npm --version)" == $(node -p "require('./package.json').packageManager") ]]
 [[ ${TMPDIR:-} == /home/* && -d $TMPDIR ]]
