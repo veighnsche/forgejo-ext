@@ -6,12 +6,20 @@ set -euo pipefail
 [[ $# == 2 ]] || { echo "Usage: $0 IMAGE /home/PATH/NEW-OUTPUT" >&2; exit 2; }
 engine=${CONTAINER_ENGINE:-docker}
 [[ $1 =~ ^sha256:[0-9a-f]{64}$ ]]
-image=$("$engine" image inspect --format '{{.Id}}' "$1")
+canonical_image_id() {
+  local id
+  id=$("$engine" image inspect --format '{{.Id}}' "$1") || return
+  # Podman emits a bare config ID; Docker includes the SHA-256 prefix.
+  if [[ $id =~ ^[0-9a-f]{64}$ ]]; then id="sha256:$id"; fi
+  [[ $id =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+  printf '%s\n' "$id"
+}
+image=$(canonical_image_id "$1")
 out=$(realpath -m -- "$2")
 [[ $image == "$1" && $out == /home/* && ! -e $out && ! -L $out ]]
 mkdir -m 700 "$out"
 out=$(cd "$out" && pwd -P)
-pg_image=$("$engine" image inspect --format '{{.Id}}' "${FOUNTAIN_TEST_POSTGRES_IMAGE:-docker.io/library/postgres:17}")
+pg_image=$(canonical_image_id "${FOUNTAIN_TEST_POSTGRES_IMAGE:-docker.io/library/postgres:17}")
 [[ $pg_image =~ ^sha256:[0-9a-f]{64}$ ]]
 fixture="fountain-recovery-$$"
 pg_created=0

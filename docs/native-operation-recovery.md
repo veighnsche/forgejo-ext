@@ -24,6 +24,7 @@ Run these commands in one operator Bash session on the appliance:
 
 ```bash
 fountain_image=$(sudo podman inspect --format '{{.Image}}' soda-forgejo)
+if [[ $fountain_image =~ ^[0-9a-f]{64}$ ]]; then fountain_image="sha256:$fountain_image"; fi
 [[ $fountain_image =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
 sudo podman image exists "$fountain_image" || exit 1
 
